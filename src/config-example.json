@@ -1,0 +1,159 @@
+// Example Standalone config file
+{
+    "configs": [
+        {
+            "coin": "BTC",
+            "network": "mainnet",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_BTC_Mainnet_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_BTC_Mainnet_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "BTC",
+            "network": "testnet",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_BTC_Testnet_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_BTC_Testnet_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "BTC",
+            "network": "regtest",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_BTC_Regtest_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_BTC_Regtest_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "LTC",
+            "network": "mainnet",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_LTC_Mainnet_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_LTC_Mainnet_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "LTC",
+            "network": "testnet",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_LTC_Testnet_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_LTC_Testnet_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "LTC",
+            "network": "regtest",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_LTC_Regtest_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_LTC_Regtest_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "DOGE",
+            "network": "mainnet",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_DOGE_Mainnet_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_DOGE_Mainnet_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "DOGE",
+            "network": "testnet",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_DOGE_Testnet_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_DOGE_Testnet_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        },{
+            "coin": "DOGE",
+            "network": "regtest",
+            "indexer": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_DOGE_Regtest_Indexer",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            },
+            "decoder": {
+                "host": "127.0.0.1",
+                "port": "3306",
+                "name": "XChain_DOGE_Regtest_Decoder",
+                "user": "xchain-node",
+                "pass": "xchain-node-password"
+            }
+        }
+    ]
+}

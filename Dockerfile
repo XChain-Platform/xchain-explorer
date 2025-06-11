@@ -6,6 +6,6 @@ WORKDIR /XChainExplorer
 RUN npm install
 
 COPY ./src /XChainExplorer/src
-COPY ./.en[v] /XChainExplorer/.env
+#COPY ./.en[v] /XChainExplorer/.env
 
-CMD ["npm", "run", "explorer"]
+CMD ["npm", "run", "api"]

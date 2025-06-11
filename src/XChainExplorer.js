@@ -1,0 +1,224 @@
+/* XChain Explorer Class */
+
+const database = require('./db.js');
+const util     = require('./util.js');
+
+class XChainExplorer {
+
+    // Handle constructing a class instance
+    constructor(app, config){
+
+        // XChain Indexer Version
+        this.version = process.env.npm_package_version;
+        this.name    = process.env.npm_package_name;
+
+        // Setup alias to app (express)
+        this.app = app;
+
+        // Setup alias to explorer config
+        this.config  = config;
+
+        // Create instance of the datbase class
+        this.db   = new database(config);
+
+        // Create instance of the utility class
+        this.util = new util(config);
+
+        // Setup alias to list of supported URLs
+        this.urls = this.setupUrls();
+
+        // Setup wildcard listener to process requests 
+        app.get('*', (req, res) => { this.processRequest(req, res); });
+
+    }
+
+    // Function to define a list of explorer urls
+    setupUrls(){
+        // Define list of URLS to parse through and determine how to process each
+        let urls = {
+            // List of statuc URLs and the static file to serve out
+            'static' : {
+                // Top level pages
+                '/'                     : 'home.html',
+                '/about'                : 'about.html',
+                '/privacy'              : 'privacy.html',
+                '/terms'                : 'terms.html',
+                '/404'                  : '404.html',
+                // Actions
+                '/{COIN}/actions'       : 'actions.html',
+                '/{COIN}/addresses'     : 'addresses.html',
+                '/{COIN}/airdrops'      : 'airdrops.html',
+                '/{COIN}/batches'       : 'batches.html',
+                '/{COIN}/broadcasts'    : 'broadcast.html',
+                '/{COIN}/callbacks'     : 'callbacks.html',
+                '/{COIN}/destroys'      : 'destroys.html',
+                '/{COIN}/dividends'     : 'dividends.html',
+                '/{COIN}/dispensers'    : 'dispensers.html',
+                '/{COIN}/dispenses'     : 'dispenses.html',
+                '/{COIN}/files'         : 'files.html',
+                '/{COIN}/issues'        : 'issues.html',
+                '/{COIN}/links'         : 'links.html',
+                '/{COIN}/lists'         : 'lists.html',
+                '/{COIN}/messages'      : 'messages.html',
+                '/{COIN}/mints'         : 'mints.html',
+                '/{COIN}/orders'        : 'orders.html',
+                '/{COIN}/order_matches' : 'order_matches.html',
+                '/{COIN}/sends'         : 'sends.html',
+                '/{COIN}/sleeps'        : 'sleeps.html',
+                '/{COIN}/swaps'         : 'swaps.html',
+                '/{COIN}/swap_matches'  : 'swaps.html',
+                '/{COIN}/sweeps'        : 'sweeps.html',
+                // Misc 
+                '/{COIN}/'              : 'home_coin.html',
+                '/{COIN}/api'           : 'api.html',
+                '/{COIN}/blocks'        : 'blocks.html',
+                '/{COIN}/markets'       : 'markets.html',
+                '/{COIN}/search'        : 'search.html',
+                '/{COIN}/tokens'        : 'tokens.html',
+                '/{COIN}/terms'         : 'terms.html',
+                '/{COIN}/mempool'       : 'mempool.html'
+            },
+
+            // List of API endpoints and the related method
+            'api' : {
+                // API Action Endpoints             : [Method, Supported Query Type(s)]
+                '/{COIN}/api/action/{QUERY}'        : ['getAction',       'action_index'],
+                '/{COIN}/api/address/{QUERY}'       : ['getAddress',      ['block', 'address']],
+                '/{COIN}/api/airdrops/{QUERY}'      : ['getAirdrops',     ['block', 'address', 'token']],
+                '/{COIN}/api/batches/{QUERY}'       : ['getBatches',      ['block', 'address']],
+                '/{COIN}/api/broadcasts/{QUERY}'    : ['getBroadcasts',   ['block', 'address']],
+                '/{COIN}/api/callbacks/{QUERY}'     : ['getCallbacks',    ['block', 'address', 'token']],
+                '/{COIN}/api/destroys/{QUERY}'      : ['getDestroys',     ['block', 'address', 'token']],
+                '/{COIN}/api/dispensers/{QUERY}'    : ['getDispensers',   ['block', 'address', 'token']],
+                '/{COIN}/api/dispenses/{QUERY}'     : ['getDispenses',    ['block', 'address', 'token']],
+                '/{COIN}/api/files/{QUERY}'         : ['getFiles',        ['block', 'address']],
+                '/{COIN}/api/issues/{QUERY}'        : ['getIssues',       ['block', 'address', 'token']],
+                '/{COIN}/api/links/{QUERY}'         : ['getLinks',        ['block', 'address']],
+                '/{COIN}/api/lists/{QUERY}'         : ['getLists',        ['block', 'address']],
+                '/{COIN}/api/messages/{QUERY}'      : ['getMessages',     ['block', 'address']],
+                '/{COIN}/api/mints/{QUERY}'         : ['getMints',        ['block', 'address', 'token']],
+                '/{COIN}/api/orders/{QUERY}'        : ['getOrders',       ['block', 'address', 'token']],
+                '/{COIN}/api/order_matches/{QUERY}' : ['getOrderMatches', ['block', 'address', 'token']],
+                '/{COIN}/api/sends/{QUERY}'         : ['getSends',        ['block', 'address', 'token']],
+                '/{COIN}/api/sleeps/{QUERY}'        : ['getSleeps',       ['block', 'address', 'token']],
+                '/{COIN}/api/swaps/{QUERY}'         : ['getSwaps',        ['block', 'address', 'token']],
+                '/{COIN}/api/swap_matches/{QUERY}'  : ['getSwapMatches',  ['block', 'address', 'token']],
+                '/{COIN}/api/sweeps/{QUERY}'        : ['getSweeps',       ['block', 'address']],
+                // Misc API Endpoints
+                '/{COIN}/api/balances/{QUERY}'      : ['getBalances',     'address'],
+                '/{COIN}/api/credits/{QUERY}'       : ['getCredits',      ['block', 'address', 'token']],
+                '/{COIN}/api/debits/{QUERY}'        : ['getDebits',       ['block', 'address', 'token']], 
+                '/{COIN}/api/escrows/{QUERY}'       : ['getEscrows',      ['block', 'address', 'token']],
+                '/{COIN}/api/history/{QUERY}'       : ['getHistory',      'address'],
+                '/{COIN}/api/holders/{QUERY}'       : ['getHolders',      'address'],
+                '/{COIN}/api/mempool/{QUERY}'       : ['getMempool',      ['address', 'token']],
+                '/{COIN}/api/network'               : ['getNetworkInfo'],
+                '/{COIN}/api/tx/{QUERY}'            : ['getTransaction',  'tx_hash']
+            }, 
+
+            // List of explorer endpoints that return lists of transactions
+            'explorer' : {
+                // Actions
+                '/{COIN}/explorer/address/{QUERY}'       : ['explorerAddress',      ['block', 'address']],
+                '/{COIN}/explorer/airdrops/{QUERY}'      : ['explorerAirdrops',     ['block', 'address', 'token']],
+                '/{COIN}/explorer/batches/{QUERY}'       : ['explorerBatches',      ['block', 'address']],
+                '/{COIN}/explorer/broadcasts/{QUERY}'    : ['explorerBroadcasts',   ['block', 'address']],
+                '/{COIN}/explorer/callbacks/{QUERY}'     : ['explorerCallbacks',    ['block', 'address', 'token']],
+                '/{COIN}/explorer/destroys/{QUERY}'      : ['explorerDestroys',     ['block', 'address', 'token']],
+                '/{COIN}/explorer/dispensers/{QUERY}'    : ['explorerDispensers',   ['block', 'address', 'token']],
+                '/{COIN}/explorer/dispenses/{QUERY}'     : ['explorerDispenses',    ['block', 'address', 'token']],
+                '/{COIN}/explorer/files/{QUERY}'         : ['explorerFiles',        ['block', 'address']],
+                '/{COIN}/explorer/issues/{QUERY}'        : ['explorerIssues',       ['block', 'address', 'token']],
+                '/{COIN}/explorer/links/{QUERY}'         : ['explorerLinks',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/lists/{QUERY}'         : ['explorerLists',        ['block', 'address']],
+                '/{COIN}/explorer/messages/{QUERY}'      : ['explorerMessages',     ['block', 'address']],
+                '/{COIN}/explorer/mints/{QUERY}'         : ['explorerMints',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/orders/{QUERY}'        : ['explorerOrders',       ['block', 'address', 'token']],
+                '/{COIN}/explorer/order_matches/{QUERY}' : ['explorerOrderMatches', ['block', 'address', 'token']],
+                '/{COIN}/explorer/sends/{QUERY}'         : ['explorerSends',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/sleeps/{QUERY}'        : ['explorerSleeps',       ['block', 'address', 'token']],
+                '/{COIN}/explorer/swaps/{QUERY}'         : ['explorerSwaps',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/swap_matches/{QUERY}'  : ['explorerSwapMatches',  ['block', 'address', 'token']],
+                '/{COIN}/explorer/sweeps/{QUERY}'        : ['explorerSweeps',       ['block', 'address']],                
+            }
+        };
+        return urls;
+    }
+
+    // Function to handle processing a API request and returning a response
+    async processRequest(req, res){
+        // Define basic request config object 
+        let cfg = {
+            coin: null, // COIN type (BTC, LTC, DOGE)
+            type: null, // Request type (static, api, explorer)
+            file: null, // File content to return
+            data: {
+                method: null, // Method to run to get data
+                query: null,  // Query to pass to method
+                type: null    // Query type to pass to method
+            }
+        };
+
+        // Split the url path up into its various parts
+        let path = String(req.path).substring(1).split('/');
+
+        // Determine the COIN using the first part of the path (BTC, LTC, DOGE, etc)
+        let coin = String(path[0]).toUpperCase();
+        if(this.config['COINS'].includes(coin))
+            cfg.coin = coin;
+
+        // Determine what TYPE of request this is using the second part of the path
+        let type = String(path[1]).toLowerCase();
+        cfg.type = (['api','explorer'].includes(type)) ? type : 'static';
+
+        // Set type / file / info config info using url matching
+        for(const url in this.urls[cfg.type]){
+            let parts     = String(url).substring(1).split('/');
+            let match     = false;
+            let info      = this.urls[cfg.type][url];
+            let queryType = false;
+
+            // Handle static page matches
+            if(cfg.type=='static' && (req.path==url || parts[1]==String(path[1]).toLowerCase()))
+                match = true;
+
+            // Handle explorer and api request matches
+            if(['api','explorer'].includes(cfg.type)){
+                if( parts[1]==String(path[1]).toLowerCase() && 
+                    parts[2]==String(path[2]).toLowerCase()){
+                    let infoType = typeof info[1];
+                    let query = String(path[4]).toLowerCase();
+                    if(infoType=='string')
+                        queryType = info[1];
+                    if(infoType=='object' && info[1].includes(query))
+                        queryType = query;
+                    if(queryType)
+                        match = true;
+                }
+            }
+
+            // Update config object with request info
+            if(match){
+                if(cfg.type=='static')
+                    cfg.file = info;
+                if(['api','explorer'].includes(cfg.type)){
+                    cfg.data.method = info[0];
+                    cfg.data.query  = path[3];
+                    cfg.data.type   = queryType;
+                }
+                break;
+            }
+
+        }
+
+        // Default to 404 page if unable to determine what resource request is trying to access
+        if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method))
+            cfg.file = '404.html';
+
+        console.log('cfg=',cfg);
+
+        res.send('got it');
+    }
+}
+
+module.exports = XChainExplorer;

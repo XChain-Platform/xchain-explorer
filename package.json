@@ -19,6 +19,6 @@
     "mathjs": "^13.2.0"
   },
   "scripts": {
-    "explorer": "node ./src/explorer.js"
+    "api": "node ./src/api.js"
   }
 }

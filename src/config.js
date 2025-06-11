@@ -7,7 +7,8 @@
  *
  ********************************************************************/
 
-const fs = require('fs');
+const fs   = require('fs');
+const util = require('./util.js');
 
 // Define the port that the explorer will run on
 const API_HOST = '127.0.0.1';
@@ -20,15 +21,27 @@ module.exports = {
     // Handle returning the current indexer configuration
     getConfig: function(){
 
+        // Create instance of the utility class
+        const configUtil = new util();
+
         // Parse in the node config from the environmental variables 
-        // Verify this works once Javier has the code written into xchain-node or xchain-hub
+        // TODO: Verify this works once Javier has the code written into xchain-node or xchain-hub
         const nodeConfig = process.env.NODE_CONFIG;
 
-        // Parse in the file config file 
-        const fileConfig = require('./config.json');
+        // Parse in the file config file (if it exists)
+        let fileConfig = false;
+        try {
+            fileConfig = require('./config.json');
+        } catch (error){
+            console.log('caught error :' + error);
+        }
 
         // Determine the config to used (file then node)
         const jsonConfig = (fileConfig) ? fileConfig : nodeConfig;
+
+        // Bail out if we dont have a valid config to use
+        if(configUtil.isNull(jsonConfig))
+            configUtil.throwError('No valid configuration information detected');
 
         // Define explorer and COIN config objects
         let config     = {};
@@ -41,6 +54,9 @@ module.exports = {
             user: API_USER,
             pass: API_PASS
         }
+
+        // Define list of acceptable COIN networks
+        config['COINS'] = ['BTC', 'LTC', 'DOGE'];
 
         // Loop through all coins and networks in the json config and load up the coin/network specific data
         for(let info of jsonConfig.configs ){

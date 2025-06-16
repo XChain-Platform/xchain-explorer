@@ -55,8 +55,8 @@ module.exports = {
             pass: API_PASS
         }
 
-        // Define list of acceptable COIN networks
-        config['COINS'] = ['BTC', 'LTC', 'DOGE'];
+        // Define list of acceptable COIN prefixes to be used in explorer (ex. /COIN/api/... BTC, tBTC, rBTC, etc )
+        config['COINS'] = [];
 
         // Loop through all coins and networks in the json config and load up the coin/network specific data
         for(let info of jsonConfig.configs ){
@@ -91,7 +91,12 @@ module.exports = {
                 };
             }
 
+            // Add COIN and NETWORK to list of acceptable coins to be used as explorer prefixes
+            if(info.network=='mainnet') config['COINS'].push(info.coin);
+            if(info.network=='testnet') config['COINS'].push('T' + info.coin);
+            if(info.network=='regtest') config['COINS'].push('R' + info.coin);
         }
+
 
         return config;
     },

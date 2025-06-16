@@ -18,11 +18,11 @@ class XChainExplorer {
         // Setup alias to explorer config
         this.config  = config;
 
-        // Create instance of the datbase class
-        this.db   = new database(config);
-
         // Create instance of the utility class
-        this.util = new util(config);
+        this.util = new util(this.config);
+
+        // Create instance of the datbase class
+        this.db   = new database(this);
 
         // Setup alias to list of supported URLs
         this.urls = this.setupUrls();
@@ -147,6 +147,12 @@ class XChainExplorer {
 
     // Function to handle processing a API request and returning a response
     async processRequest(req, res){
+
+        // Define some placeholders
+        let template = null;
+        let content  = null;
+        let data     = null;
+
         // Define basic request config object 
         let cfg = {
             coin: null, // COIN type (BTC, LTC, DOGE)
@@ -154,9 +160,10 @@ class XChainExplorer {
             file: null, // File content to return
             data: {
                 method: null, // Method to run to get data
-                query: null,  // Query to pass to method
-                type: null    // Query type to pass to method
-            }
+                search: null, // Search to pass to method
+                type:   null, // Search type to pass to method
+                query:  null, // Query string parameters
+            },
         };
 
         // Split the url path up into its various parts
@@ -166,7 +173,7 @@ class XChainExplorer {
         let coin = String(path[0]).toUpperCase();
         if(this.config['COINS'].includes(coin))
             cfg.coin = coin;
-
+        
         // Determine what TYPE of request this is using the second part of the path
         let type = String(path[1]).toLowerCase();
         cfg.type = (['api','explorer'].includes(type)) ? type : 'static';
@@ -176,7 +183,7 @@ class XChainExplorer {
             let parts     = String(url).substring(1).split('/');
             let match     = false;
             let info      = this.urls[cfg.type][url];
-            let queryType = false;
+            let searchType = false;
 
             // Handle static page matches
             if(cfg.type=='static' && (req.path==url || parts[1]==String(path[1]).toLowerCase()))
@@ -187,12 +194,12 @@ class XChainExplorer {
                 if( parts[1]==String(path[1]).toLowerCase() && 
                     parts[2]==String(path[2]).toLowerCase()){
                     let infoType = typeof info[1];
-                    let query = String(path[4]).toLowerCase();
+                    let search = String(path[4]).toLowerCase();
                     if(infoType=='string')
-                        queryType = info[1];
-                    if(infoType=='object' && info[1].includes(query))
-                        queryType = query;
-                    if(queryType)
+                        searchType = info[1];
+                    if(infoType=='object' && info[1].includes(search))
+                        searchType = search;
+                    if(searchType)
                         match = true;
                 }
             }
@@ -203,8 +210,9 @@ class XChainExplorer {
                     cfg.file = info;
                 if(['api','explorer'].includes(cfg.type)){
                     cfg.data.method = info[0];
-                    cfg.data.query  = path[3];
-                    cfg.data.type   = queryType;
+                    cfg.data.search = path[3];
+                    cfg.data.type   = searchType;
+                    cfg.data.query  = req.query;
                 }
                 break;
             }
@@ -215,7 +223,16 @@ class XChainExplorer {
         if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method))
             cfg.file = '404.html';
 
+        // If we a method defined to get some data, retrieve the requested data from the database
+        if(cfg.data.method)
+            data = await this.db.getData(cfg);
+
+        // DEBUG INFO
+        // TODO: Remove
+        console.log('path=',req.path);
+        console.log('query=',req.query);
         console.log('cfg=',cfg);
+        console.log('data=',data);
 
         res.send('got it');
     }

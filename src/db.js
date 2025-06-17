@@ -198,7 +198,6 @@ class Database {
                     WHERE
                         a.address=?`;
         let query = `SELECT
-                        a.address,
                         t.tick,
                         b.amount
                     FROM

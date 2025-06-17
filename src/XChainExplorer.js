@@ -110,7 +110,7 @@ class XChainExplorer {
                 '/{COIN}/api/debits/{QUERY}'        : ['getDebits',       ['block', 'address', 'token']], 
                 '/{COIN}/api/escrows/{QUERY}'       : ['getEscrows',      ['block', 'address', 'token']],
                 '/{COIN}/api/history/{QUERY}'       : ['getHistory',      'address'],
-                '/{COIN}/api/holders/{QUERY}'       : ['getHolders',      'address'],
+                '/{COIN}/api/holders/{QUERY}'       : ['getHolders',      'token'],
                 '/{COIN}/api/mempool/{QUERY}'       : ['getMempool',      ['address', 'token']],
                 '/{COIN}/api/network'               : ['getNetworkInfo'],
                 '/{COIN}/api/tx/{QUERY}'            : ['getTransaction',  'tx_hash']
@@ -245,12 +245,19 @@ class XChainExplorer {
                 if(cnt > start && cnt <= limit)
                     show.push(data[idx]);
             }
-            // Return the JSON response with a status of 200
-            res.status(200).json({
+            // Define the JSON response object
+            let json = {
                 status: 'success',
                 total: total,
                 data: show,
-            });
+            };
+            // Special case JSON customizations based on method called
+            if(cfg.data.method=='getBalances')
+                json.address = cfg.data.search;
+            // Sort the json object properties alphabetically (OCD much?)
+            json = this.util.ksort(json);
+            // Return the JSON response with a status of 200
+            res.status(200).json(json);
         }
 
 

@@ -154,6 +154,16 @@ class Util {
     isNull(value){
         return (value === null || value === undefined || value==='');
     }
+
+    // Sort an object by key values
+    ksort(obj){
+        const sortedKeys = Object.keys(obj).sort();
+        const sortedObj = sortedKeys.reduce((acc, key) => {
+            acc[key] = obj[key];
+            return acc;
+        }, {});
+        return sortedObj;
+    }    
 }
 
 module.exports = Util;

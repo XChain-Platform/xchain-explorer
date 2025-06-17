@@ -1,5 +1,10 @@
 /* XChain Explorer Utility Functions */
 
+// Support BigInt in JSON stringify()
+BigInt.prototype.toJSON = function(){
+    return JSON.rawJSON(this.toString());
+};
+
 class Util {
 
     // Handle constructing a class instance

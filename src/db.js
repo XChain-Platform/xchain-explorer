@@ -92,8 +92,6 @@ class Database {
         while(connection == null){        
             try {
                 connection = await this.pools[config.coin].pool.getConnection();
-                // Store the database name for easy reference in SQL queries
-                connection.database = this.pools[config.coin].config.database;
                 // console.log("Connected to database!");
             } catch (e){
                 console.log("Can't connect to mariadb. Trying again...");
@@ -124,39 +122,51 @@ class Database {
         // Get a database connection from the connection pool
         let db    = await this.getConnection(config);
         // Get database query and arguments based on config object
-        let [query, args] = await this.getQuery(db.database, config);
-        // Run the database query
+        let [count, query, args] = await this.getQuery(config);
+        // Placeholder for total count of records and actual data
+        let total = 0; 
+        let data  = []; 
+        // Run the database count query
         try {
-            const data = await db.query(query, args);
-            return data;
+            let results = await db.query(count, args);
+            total = results[0].total;
         } catch (error) {
-            this.util.logError('Error running sql query:', error);
-            return false;
+            this.util.logError('Error running sql count query:', error);
         }
+        // Run the database query to get the data
+        if(total > 0){
+            try {
+                data = await db.query(query, args);
+            } catch (error) {
+                this.util.logError('Error running sql query:', error);
+            }
+        }
+        return [total, data];
         await this.releaseConnection();
     }
 
     // Handle getting a SQL query given a explorer config object
-    async getQuery(database, config){
-        let query = ''; // Placeholder for sql query
+    async getQuery(config){
+        let count = ''; // Placeholder for sql query for total count
+        let query = ''; // Placeholder for sql query for data
         let args  = []; // Placeholder for sql query arguments
         let data  = config.data;
         // Handle API queries
         if(config.type=='api'){
             let max   = this.getMaxMethodResults(data.method);
-            let page  = (data.query.page  && this.util.isInteger(data.query.page))  ? data.query.page  : 1;
-            let limit = (data.query.limit && this.util.isInteger(data.query.limit)) ? data.query.limit : max;
+            let page  = (data.query.page  && this.util.isInteger(Number(data.query.page)))  ? data.query.page  : 1;
+            let limit = (data.query.limit && this.util.isInteger(Number(data.query.limit))) ? data.query.limit : max;
             // Set SQL query limit to page * limit
-            limit     = limit * page;
+            limit = limit * page;
             // Get the SQL query and list of arguments
             if(typeof this[data.method] === 'function')
-                [query, args] = this[data.method](database, data.search, config.type, limit);
+                [count, query, args] = this[data.method](data.search, config.type, limit);
         }
         // Handle Explorer queries
         if(config.type=='explorer'){
             // coming soon
         }
-        return [query, args];
+        return [count, query, args];
     }
 
     /******************************************************************
@@ -167,7 +177,7 @@ class Database {
     getMaxMethodResults(method){
         // Define array of methods and the max results for each method
         let methods = {
-            foo : 1000,
+            getBalances: 100,
         }
         // Use defined method max or default max of 100
         let max = (this.util.isInteger(methods[method])) ? methods[method] : 100;
@@ -178,16 +188,30 @@ class Database {
      * API SQL Query Methods
      *****************************************************************/
 
-    getBalances(database, search, type, limit){
-        let query = `SELECT
-                        *
+    getBalances(search, type, limit){
+        let count = `SELECT
+                        count(*) as total
                     FROM
-                        ` + database + `.balances b
+                        balances b
+                        INNER JOIN index_tickers   t ON (t.id=b.tick_id)
+                        INNER JOIN index_addresses a ON (a.id=b.address_id)
                     WHERE
-                        b.address_id=?
+                        a.address=?`;
+        let query = `SELECT
+                        a.address,
+                        t.tick,
+                        b.amount
+                    FROM
+                        balances b
+                        INNER JOIN index_tickers   t ON (t.id=b.tick_id)
+                        INNER JOIN index_addresses a ON (a.id=b.address_id)
+                    WHERE
+                        a.address=?
+                    ORDER BY t.tick ASC
                     LIMIT ` + limit;
-        let args  = [2];
-        return [query, args];
+        // Balance searches are always by address, so hardcode args to search
+        let args  = [search];
+        return [count, query, args];
     }
 
 }

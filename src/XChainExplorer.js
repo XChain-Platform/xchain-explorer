@@ -151,6 +151,7 @@ class XChainExplorer {
         // Define some placeholders
         let template = null;
         let content  = null;
+        let total    = null;
         let data     = null;
 
         // Define basic request config object 
@@ -173,7 +174,7 @@ class XChainExplorer {
         let coin = String(path[0]).toUpperCase();
         if(this.config['COINS'].includes(coin))
             cfg.coin = coin;
-        
+
         // Determine what TYPE of request this is using the second part of the path
         let type = String(path[1]).toLowerCase();
         cfg.type = (['api','explorer'].includes(type)) ? type : 'static';
@@ -225,16 +226,42 @@ class XChainExplorer {
 
         // If we a method defined to get some data, retrieve the requested data from the database
         if(cfg.data.method)
-            data = await this.db.getData(cfg);
+            [total, data] = await this.db.getData(cfg);
+
+        // Handle returning API data with support for paging and limits
+        if(cfg.type=='api'){
+            let max   = this.db.getMaxMethodResults(cfg.data.method);
+            let start = 1;
+            let limit = (cfg.data.query.limit && this.util.isInteger(Number(cfg.data.query.limit))) ? cfg.data.query.limit : max;
+            let page  = (cfg.data.query.page  && this.util.isInteger(Number(cfg.data.query.page)))  ? cfg.data.query.page  : 1;
+            // Set vars for where we want to start in results, and number of records to display
+            start = (limit * page) - limit;
+            limit = limit * page;
+            // Placeholder for the results we will actually show
+            let show  = [];
+            let cnt  = 0;
+            for(let idx in data){
+                cnt++;
+                if(cnt > start && cnt <= limit)
+                    show.push(data[idx]);
+            }
+            // Return the JSON response with a status of 200
+            res.status(200).json({
+                status: 'success',
+                total: total,
+                data: show,
+            });
+        }
+
 
         // DEBUG INFO
         // TODO: Remove
-        console.log('path=',req.path);
-        console.log('query=',req.query);
-        console.log('cfg=',cfg);
-        console.log('data=',data);
+        // console.log('path=',req.path);
+        // console.log('query=',req.query);
+        // console.log('cfg=',cfg);
+        // console.log('data=',data);
 
-        res.send('got it');
+        // res.send('got it');
     }
 }
 

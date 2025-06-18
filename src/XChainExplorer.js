@@ -1,7 +1,7 @@
 /* XChain Explorer Class */
 
-const database = require('./db.js');
 const util     = require('./util.js');
+const database = require('./db.js');
 
 class XChainExplorer {
 
@@ -81,9 +81,8 @@ class XChainExplorer {
 
             // List of API endpoints and the related method
             'api' : {
-                // API Action Endpoints             : [Method, Supported Query Type(s)]
-                '/{COIN}/api/action/{QUERY}'        : ['getAction',       'action_index'],
-                '/{COIN}/api/address/{QUERY}'       : ['getAddress',      ['block', 'address']],
+                // API Action Endpoints             : [Method, Supported Query Type(s)]x
+                '/{COIN}/api/addresses/{QUERY}'     : ['getAddresses',    ['block', 'address']],
                 '/{COIN}/api/airdrops/{QUERY}'      : ['getAirdrops',     ['block', 'address', 'token']],
                 '/{COIN}/api/batches/{QUERY}'       : ['getBatches',      ['block', 'address']],
                 '/{COIN}/api/broadcasts/{QUERY}'    : ['getBroadcasts',   ['block', 'address']],
@@ -105,6 +104,8 @@ class XChainExplorer {
                 '/{COIN}/api/swap_matches/{QUERY}'  : ['getSwapMatches',  ['block', 'address', 'token']],
                 '/{COIN}/api/sweeps/{QUERY}'        : ['getSweeps',       ['block', 'address']],
                 // Misc API Endpoints
+                '/{COIN}/api/action/{QUERY}'        : ['getAction',       'action_index'],
+                '/{COIN}/api/address/{QUERY}'       : ['getAddress',      'address'],
                 '/{COIN}/api/balances/{QUERY}'      : ['getBalances',     'address'],
                 '/{COIN}/api/credits/{QUERY}'       : ['getCredits',      ['block', 'address', 'token']],
                 '/{COIN}/api/debits/{QUERY}'        : ['getDebits',       ['block', 'address', 'token']], 
@@ -217,49 +218,76 @@ class XChainExplorer {
                 }
                 break;
             }
-
         }
 
-        // Default to 404 page if unable to determine what resource request is trying to access
-        if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method))
-            cfg.file = '404.html';
-
-        // If we a method defined to get some data, retrieve the requested data from the database
-        if(cfg.data.method)
+        // If we have a method defined to get some data, retrieve the requested data from the database
+        if(!this.util.isNull(cfg.data.method)){
             [total, data] = await this.db.getData(cfg);
 
-        // Handle returning API data with support for paging and limits
-        if(cfg.type=='api'){
-            let max   = this.db.getMaxMethodResults(cfg.data.method);
-            let start = 1;
-            let limit = (cfg.data.query.limit && this.util.isInteger(Number(cfg.data.query.limit))) ? cfg.data.query.limit : max;
-            let page  = (cfg.data.query.page  && this.util.isInteger(Number(cfg.data.query.page)))  ? cfg.data.query.page  : 1;
-            // Set vars for where we want to start in results, and number of records to display
-            start = (limit * page) - limit;
-            limit = limit * page;
-            // Placeholder for the results we will actually show
-            let show  = [];
-            let cnt  = 0;
-            for(let idx in data){
-                cnt++;
-                if(cnt > start && cnt <= limit)
-                    show.push(data[idx]);
+            /**********************************************************
+             * API Handler 
+             *********************************************************/
+            if(cfg.type=='api'){
+                let max   = this.db.getMaxMethodResults(cfg.data.method);
+                let start = 1;
+                let limit = (cfg.data.query && cfg.data.query.limit && this.util.isInteger(Number(cfg.data.query.limit))) ? cfg.data.query.limit : max;
+                let page  = (cfg.data.query && cfg.data.query.page  && this.util.isInteger(Number(cfg.data.query.page)))  ? cfg.data.query.page  : 1;
+                // Set vars for where we want to start in results, and number of records to display
+                start = (limit * page) - limit;
+                limit = limit * page;
+                // Placeholder for the results we will actually show
+                let show  = [];
+                let cnt  = 0;
+                for(let idx in data){
+                    cnt++;
+                    if(cnt > start && cnt <= limit)
+                        show.push(data[idx]);
+                }
+                // Define the JSON response object
+                let json = {
+                    status: 'success',
+                    total: total,
+                    data: show,
+                };
+                // Special case JSON customizations based on method called
+                if(cfg.data.method=='getBalances')
+                    json.address = cfg.data.search;
+                // Sort the json data and object properties alphabetically (OCD much?)
+                json = this.util.ksort(json);
+                for(let idx in json.data){
+                    json.data[idx] = this.util.ksort(json.data[idx]);
+                }
+                // Return the JSON response with a status of 200
+                res.status(200).json(json);
+                return;
             }
-            // Define the JSON response object
-            let json = {
-                status: 'success',
-                total: total,
-                data: show,
-            };
-            // Special case JSON customizations based on method called
-            if(cfg.data.method=='getBalances')
-                json.address = cfg.data.search;
-            // Sort the json object properties alphabetically (OCD much?)
-            json = this.util.ksort(json);
-            // Return the JSON response with a status of 200
-            res.status(200).json(json);
+
+            /**********************************************************
+             * Explorer handler 
+             *********************************************************/
+            // Handle returning Explorer data with support for paging, limits, and offsets
+            if(cfg.type=='explorer'){
+                // TODO
+                res.status(200).send('explorer code coming soon...');
+                return;
+            }
         }
 
+        // If we don't have a file or method at this point, default to a 404
+        if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method)){
+            res.status(404).send('file not found');
+            return;            
+        }
+
+        /**********************************************************
+         * Static page handler
+         *********************************************************/
+        if(cfg.type=='static'){
+            res.status(200).send('static page handler coming soon');
+            return;
+        }
+
+        // TODO: Add processing time info
 
         // DEBUG INFO
         // TODO: Remove
@@ -268,7 +296,7 @@ class XChainExplorer {
         // console.log('cfg=',cfg);
         // console.log('data=',data);
 
-        // res.send('got it');
+        res.send('response of last resort... ');
     }
 }
 

@@ -230,8 +230,9 @@ class XChainExplorer {
             if(cfg.type=='api'){
                 let max   = this.db.getMaxMethodResults(cfg.data.method);
                 let start = 1;
-                let limit = (cfg.data.query && cfg.data.query.limit && this.util.isInteger(Number(cfg.data.query.limit))) ? cfg.data.query.limit : max;
-                let page  = (cfg.data.query && cfg.data.query.page  && this.util.isInteger(Number(cfg.data.query.page)))  ? cfg.data.query.page  : 1;
+                let q     = (cfg.data && cfg.data.query) ? cfg.data.query : false;
+                let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
+                let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
                 // Set vars for where we want to start in results, and number of records to display
                 start = (limit * page) - limit;
                 limit = limit * page;

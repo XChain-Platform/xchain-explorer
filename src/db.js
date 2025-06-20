@@ -156,14 +156,17 @@ class Database {
         let data  = config.data;
         // Handle API queries
         if(config.type=='api'){
+            let q     = (data.query) ? data.query : false;
             let max   = this.getMaxMethodResults(data.method);
-            let page  = (data.query.page  && this.util.isInteger(Number(data.query.page)))  ? data.query.page  : 1;
-            let limit = (data.query.limit && this.util.isInteger(Number(data.query.limit))) ? data.query.limit : max;
+            let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
+            let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
             // Set SQL query limit to page * limit
             limit = limit * page;
+            // Standardize sort order to either ASC, DESC (default to descending)
+            data.order = (q && q.sortorder && ['asc','desc'].includes(q.sortorder)) ? String(q.sortorder).toUpperCase() : 'DESC';
             // Get the SQL query and list of arguments
             if(typeof this[data.method] === 'function')
-                [count, query, args] = this[data.method](config.data.type, limit, config.data.search);
+                [count, query, args] = this[data.method](data, limit);
         }
         // Handle Explorer queries
         if(config.type=='explorer'){
@@ -221,7 +224,8 @@ class Database {
      ******************************************************************/
 
     // Get list of ADDRESS actions
-    getAddresses(type, limit){
+    getAddresses(data, limit){
+        let type = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -259,12 +263,14 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
+                    ORDER BY a1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of AIRDROP actions
-    getAirdrops(type, limit){
+    getAirdrops(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -307,13 +313,14 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=a1.tick_id)
                     WHERE ` + where + `
+                    ORDER BY a1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of BATCH actions
-    // TODO : Consider adding a list of action_indexes related to the batch in the future
-    getBatches(type, limit){
+    getBatches(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b2.block_index=?';
@@ -346,12 +353,14 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
+                    ORDER BY b1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of BROADCAST actions
-    getBroadcasts(type, limit){
+    getBroadcasts(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b2.block_index=?';
@@ -391,12 +400,14 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
+                    ORDER BY b1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of CALLBACK actions
-    getCallbacks(type, limit){
+    getCallbacks(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -441,12 +452,14 @@ class Database {
                         INNER JOIN index_tickers      t3 ON (t3.id=c1.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=c1.callback_tick_id)
                     WHERE ` + where + `
+                    ORDER BY c1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of DESTROY actions
-    getDestroys(type, limit){
+    getDestroys(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -488,22 +501,24 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
                     WHERE ` + where + `
+                    ORDER BY d1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of DISPENSER actions
-    getDispensers(type, limit){
+    getDispensers(data, limit){
         // TODO
     }
 
     // Get list of DISPENSE actions
-    getDispense(type, limit){
+    getDispense(data, limit){
         // TODO
     }
 
     // Get list of FILE actions
-    getFiles(type, limit){
+    getFiles(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -544,12 +559,14 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
                     WHERE ` + where + `
+                    ORDER BY f1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }    
 
     // Get list of ISSUE actions
-    getIssues(type, limit){
+    getIssues(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -616,12 +633,14 @@ class Database {
                         INNER JOIN index_tickers      t3 ON (t3.id=i1.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=i1.callback_tick_id)
                     WHERE ` + where + `
+                    ORDER BY i1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of LIST actions
-    getLists(type, limit){
+    getLists(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -657,19 +676,21 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
+                    ORDER BY l1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of MINT actions
-    getMints(type, limit, search){
-        let args = [search];
+    getMints(data, limit){
+        let type  = data.type;
+        let args = [data.search];
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
         if(type=='address'){
             where = '(a2.address=? OR a3.address=?)';
-            args.push(search);
+            args.push(data.search);
         }
         if(type=='source')
             where = 'a2.address=?';
@@ -714,19 +735,21 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m1.tick_id)
                     WHERE ` + where + `
+                    ORDER BY m1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query, args];
     }
 
     // Get list of MESSAGE actions
-    getMessages(type, limit, search){
-        let args = [search];
+    getMessages(data, limit){
+        let type  = data.type;
+        let args = [data.search];
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
         if(type=='address'){
             where = '(a2.address=? OR a3.address=?)';
-            args.push(search);
+            args.push(data.search);
         }
         if(type=='source')
             where = 'a2.address=?';
@@ -766,19 +789,21 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
+                    ORDER BY m1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query, args];
     }
 
     // Get list of MINT actions
-    getMints(type, limit, search){
-        let args = [search];
+    getMints(data, limit){
+        let type  = data.type;
+        let args = [data.search];
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
         if(type=='address'){
             where = '(a2.address=? OR a3.address=?)';
-            args.push(search);
+            args.push(data.search);
         }
         if(type=='source')
             where = 'a2.address=?';
@@ -823,23 +848,24 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m1.tick_id)
                     WHERE ` + where + `
+                    ORDER BY m1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query, args];
     }
 
     // Get list of ORDER actions
-    getOrders(type, limit, search){
-        let args = [search];
+    getOrders(data, limit){
+        let args = [data.search];
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
         if(type=='address'){
             where = '(a2.address=? OR a3.address=?)';
-            args.push(search);
+            args.push(data.search);
         }
         if(type=='token'){
             where = '(t3.tick=? OR t4.tick=?)';
-            args.push(search);
+            args.push(data.search);
         }
         let count = `SELECT
                         count(*) as total
@@ -891,12 +917,14 @@ class Database {
                         INNER JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
                     WHERE ` + where + `
+                    ORDER BY o1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query, args];
     }
 
     // Get list of ORDER_MATCH actions
-    getOrderMatches(type, limit){
+    getOrderMatches(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -931,19 +959,21 @@ class Database {
                         INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
                     WHERE ` + where + `
+                    ORDER BY m1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of SEND actions
-    getSends(type, limit, search){
-        let args = [search];
+    getSends(data, limit){
+        let type  = data.type;
+        let args = [data.search];
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
         if(type=='address'){
             where = '(a2.address=? OR a3.address=?)';
-            args.push(search);
+            args.push(data.search);
         }
         if(type=='source')
             where = 'a2.address=?';
@@ -988,12 +1018,14 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=s1.tick_id)
                     WHERE ` + where + `
+                    ORDER BY s1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query, args];
     } 
 
     // Get list of SLEEP actions
-    getSleeps(type, limit){
+    getSleeps(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -1036,23 +1068,25 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT JOIN index_tickers       t3 ON (t3.id=s1.tick_id)
                     WHERE ` + where + `
+                    ORDER BY s1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     } 
 
     // Get list of SWAP actions
-    getSwaps(type, limit, search){
-        let args = [search];
+    getSwaps(data, limit){
+        let type  = data.type;
+        let args = [data.search];
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
         if(type=='address'){
             where = '(a2.address=? OR a3.address=?)';
-            args.push(search);
+            args.push(data.search);
         }
         if(type=='token'){
             where = '(t3.tick=? OR t4.tick=?)';
-            args.push(search);
+            args.push(data.search);
         }
         let count = `SELECT
                         count(*) as total
@@ -1104,12 +1138,14 @@ class Database {
                         INNER JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
                     WHERE ` + where + `
+                    ORDER BY s1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query, args];
     }
 
     // Get list of SWAP_MATCH actions
-    getSwapMatches(type, limit){
+    getSwapMatches(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -1144,19 +1180,21 @@ class Database {
                         INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
                     WHERE ` + where + `
+                    ORDER BY m1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of SWEEP actions
-    getSweeps(type, limit, search){
-        let args = [search];
+    getSweeps(data, limit){
+        let type  = data.type;
+        let args = [data.search];
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
         if(type=='address'){
             where = '(a2.address=? OR a3.address=?)';
-            args.push(search);
+            args.push(data.search);
         }
         if(type=='source')
             where = 'a2.address=?';
@@ -1197,6 +1235,7 @@ class Database {
                         INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
+                    ORDER BY s1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query, args];
     } 
@@ -1220,31 +1259,32 @@ class Database {
      ******************************************************************/
 
     // Get list of address balances
-    getBalances(type, limit){
+    getBalances(data, limit){
         // Balance queries are always by address
         let where = 'a2.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
-                        balances b
-                        INNER JOIN index_tickers   t ON (t.id=b.tick_id)
-                        INNER JOIN index_addresses a ON (a.id=b.address_id)
+                        balances b1
+                        INNER JOIN index_tickers   t1 ON (t1.id=b1.tick_id)
+                        INNER JOIN index_addresses a1 ON (a1.id=b1.address_id)
                     WHERE ` + where;
         let query = `SELECT
-                        t.tick,
-                        b.amount
+                        t1.tick,
+                        b1.amount
                     FROM
-                        balances b
-                        INNER JOIN index_tickers   t ON (t.id=b.tick_id)
-                        INNER JOIN index_addresses a ON (a.id=b.address_id)
+                        balances b1
+                        INNER JOIN index_tickers   t1 ON (t1.id=b1.tick_id)
+                        INNER JOIN index_addresses a1 ON (a1.id=b1.address_id)
                     WHERE ` + where + `
-                    ORDER BY t.tick ASC
+                    ORDER BY t1.tick ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of credits
-    getCredits(type, limit){
+    getCredits(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -1282,13 +1322,14 @@ class Database {
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + where + `
-                    ORDER BY c1.action_index DESC
+                    ORDER BY c1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of debits
-    getDebits(type, limit){
+    getDebits(data, limit){
+        let type  = data.type;
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -1326,13 +1367,15 @@ class Database {
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + where + `
-                    ORDER BY d1.action_index DESC
+                    ORDER BY d1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }
 
     // Get list of escrows
-    getEscrows(type, limit){
+    getEscrows(data, limit){
+        let type  = data.type;
+        let order = (data.order) ? data.order : 'DESC';
         let where = ``;
         if(type=='block')
             where = 'b1.block_index=?';
@@ -1370,7 +1413,7 @@ class Database {
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + where + `
-                    ORDER BY e1.action_index DESC
+                    ORDER BY e1.action_index ` + data.order + `
                     LIMIT ` + limit;
         return [count, query];
     }

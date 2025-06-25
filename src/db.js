@@ -2255,12 +2255,124 @@ class Database {
         }
         // SWAP action
         if(action=='SWAP'){
-            // TODO
+            query1 = `SELECT
+                        a2.action,
+                        s1.action_index,
+                        c1.coin as give_coin,
+                        t3.tick as give_tick,
+                        s1.give_amount,
+                        c2.coin as get_coin,
+                        t4.tick as get_tick,
+                        s1.get_amount,
+                        a3.address as source,
+                        a4.address as get_address,
+                        s1.expiration,
+                        s1.allow_list,
+                        s1.block_list,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m2.memo,
+                        s2.status
+                    FROM
+                        swaps s1
+                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                        INNER JOIN index_addresses    a4 ON (a4.id=s1.get_address_id)
+                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
+                    WHERE 
+                        s1.action_index=?
+                    LIMIT 1`;
+            // Debits
+            query2 = `SELECT
+                        a1.address,
+                        t1.tick,
+                        d1.amount
+                    FROM
+                        debits d1
+                        INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
+                        INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
+                    WHERE 
+                        d1.action_index=? AND 
+                        t1.tick=?
+                    ORDER BY
+                        d1.amount DESC`;
+            // Escrows
+            query3 = `SELECT
+                        a1.address,
+                        t1.tick,
+                        e1.amount
+                    FROM
+                        escrows e1
+                        INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
+                        INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
+                    WHERE 
+                        e1.action_index=? AND 
+                        t1.tick=?
+                    ORDER BY
+                        e1.amount DESC`;
         }
         // SWAP_MATCH action
         if(action=='SWAP_MATCH'){
-            // TODO
-        }
+            query1 = `SELECT
+                        a2.action,
+                        m1.action_index,
+                        c1.coin as give_coin,
+                        m1.give_action_index,
+                        c2.coin as get_coin,
+                        m1.get_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        swap_matches m1
+                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
+                    WHERE 
+                        m1.action_index=?
+                    LIMIT 1`;
+            // Credits
+            query2 = `SELECT
+                        a1.address,
+                        t1.tick,
+                        c1.amount
+                    FROM
+                        credits c1
+                        INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
+                        INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
+                    WHERE 
+                        c1.action_index=? 
+                    ORDER BY
+                        c1.amount DESC`;
+            // Escrows
+            query3 = `SELECT
+                        a1.address,
+                        t1.tick,
+                        e1.amount
+                    FROM
+                        escrows e1
+                        INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
+                        INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
+                    WHERE 
+                        e1.action_index=? 
+                    ORDER BY
+                        e1.amount DESC`;        }
         // SWEEP
         if(action=='SWEEP'){
             query1 = `SELECT
@@ -2342,44 +2454,42 @@ class Database {
         // If we have a secondary query defined, run it and apply the data to the correct place in the data object
         if(query2){
             // Set correct arguments for the query
-            if(action=='AIRDROP')     args2 = [action_index, data.amount];
-            if(action=='BATCH')       args2 = [action_index, data.tx_index];
-            if(action=='CALLBACK')    args2 = [action_index, data.callback_tick];
-            if(action=='ISSUE')       args2 = [action_index, data.tick];
-            if(action=='LIST')        args2 = [action_index];
-            if(action=='MINT')        args2 = [action_index, data.tick];
-            if(action=='ORDER')       args2 = [action_index];
-            if(action=='ORDER_MATCH') args2 = [action_index];
-            if(action=='SEND')        args2 = [action_index];
-            if(action=='SWEEP')       args2 = [action_index];
+            args2 = [action_index];
+            if(action=='AIRDROP'){
+                args2.push(data.amount);
+            } else if(action=='BATCH'){
+                args2.push(data.tx_index);                
+            } else if(action=='CALLBACK'){
+                args2.push(data.callback_tick);
+            } else if(['ISSUE','MINT'].includes(action)){
+                args2.push(data.tick);
+            } else if(['ORDER','SWAP'].includes(action)){
+                args2.push(data.give_tick);
+            }
+            // Run the secondary query and process the results
             results = await this.doQuery(config, query2, args2);
             if(results && results.length){
                 // Insert the data at the correct place in the data object
-                if(action=='AIRDROP')     data.credits = results;
-                if(action=='CALLBACK')    data.credits = results;
-                if(action=='ISSUE')       data.credits = results;
-                if(action=='MINT')        data.credits = results;
-                if(action=='ORDER')       data.debits  = results;
-                if(action=='ORDER_MATCH') data.credits = results;
-                if(action=='SEND')        data.credits = results;
-                if(action=='SWEEP')       data.credits = results;
+                if(['ORDER','SWAP'].includes(action)){
+                    data.debits = results
                 // Loop through action_indexes and add to actions array
-                if(action=='BATCH'){
+                } else if(action=='BATCH'){
                     let actions = [];
                     for(let row of results){
                         let info = await this.getActionData(config, Number(row.action_index));
                         actions.push(info);
                     }
                     data.actions = actions;
-                }
                 // Handle populating the list based off the list TYPE field
-                if(action=='LIST'){
+                }  else if(action=='LIST'){
                     let list = [];
                     for(let row of results){
                         if(data.type==1) list.push(row.tick);
                         if(data.type==2) list.push(row.address);
                     }
                     data.list = list.sort();
+                } else {
+                    data.credits = results;
                 }
             }
         }
@@ -2387,43 +2497,41 @@ class Database {
         // If we have a third query defined, run it and apply the data to the correct place in the data object
         if(query3){
             // Set correct arguments for the query
-            if(action=='CALLBACK')    args3 = [action_index, data.tick];
-            if(action=='ISSUE')       args3 = [action_index, data.tick];
-            if(action=='LIST')        args3 = [action_index];
-            if(action=='MINT')        args3 = [action_index, data.tick];
-            if(action=='ORDER')       args3 = [action_index, data.give_tick];
-            if(action=='ORDER_MATCH') args3 = [action_index];
-            if(action=='SEND')        args3 = [action_index];
-            if(action=='SWEEP')       args3 = [action_index];
+            args3 = [action_index];
+            if(['CALLBACK','ISSUE','MINT'].includes(action)){
+                args3.push(data.tick);
+            } else if(['ORDER','SWAP'].includes(action)){
+                args3.push(data.give_tick);
+            }
+            // Run the third query and process the results
             results = await this.doQuery(config, query3, args3);
             if(results && results.length){
                 // Insert the data at the correct place in the data object
-                if(action=='CALLBACK')    data.debits  = results;
-                if(action=='ISSUE')       data.debits  = results;
-                if(action=='MINT')        data.debits  = results;
-                if(action=='ORDER')       data.escrows = results;
-                if(action=='ORDER_MATCH') data.escrows = results;
-                if(action=='SEND')        data.debits = results;
-                if(action=='SWEEP')       data.debits = results;
+                if(['ORDER','ORDER_MATCH','SWAP','SWAP_MATCH']){
+                    data.escrows = results;
                 // Handle populating the list edits based off the list TYPE field
-                if(action=='LIST'){
+                } else if(action=='LIST'){
                     let edits = [];
                     for(let row of results){
                         if(data.type==1) edits.push({ tick: row.tick, status: row.status });
                         if(data.type==2) edits.push({ address: row.address, status: row.status });
                     }
                     data.edits = edits.sort();
+                } else {
+                    data.debits = results;
                 }
-
             }
         }
 
         // If we have a fourth query defined, run it and apply the data to the correct place in the data object
         if(query4){
-            if(action=='SWEEP') args4 = [action_index];
+            // Set correct arguments for the query
+            args4 = [action_index];
+            // Run the fourth query and process the results
             results = await this.doQuery(config, query4, args4);
             if(results && results.length){
-                if(action=='SWEEP') data.issues = results;
+                if(action=='SWEEP') 
+                    data.issues = results;
             }            
         }
 

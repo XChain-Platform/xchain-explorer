@@ -113,7 +113,8 @@ class XChainExplorer {
                 '/{COIN}/api/history/{QUERY}'              : ['getHistory',      'address'],
                 '/{COIN}/api/holders/{QUERY}'              : ['getHolders',      'token'],
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'       : ['getMempool',      ['address', 'token']],
-                '/{COIN}/api/network'                      : ['getNetworkInfo'],
+                '/{COIN}/api/network'                      : ['getNetwork'],
+                '/{COIN}/api/token/{QUERY}'                : ['getToken',        'token'],
                 '/{COIN}/api/tx/{QUERY}'                   : ['getTransaction',  'tx_hash']
             }, 
 
@@ -222,42 +223,29 @@ class XChainExplorer {
 
         // If we have a method defined to get some data, retrieve the requested data from the database
         if(!this.util.isNull(cfg.data.method)){
-            [total, data] = await this.db.getData(cfg);
+            [data, total] = await this.db.getData(cfg);
 
             /**********************************************************
              * API Handler 
              *********************************************************/
             if(cfg.type=='api'){
-                let max   = this.db.getMaxMethodResults(cfg.data.method);
-                let start = 1;
-                let q     = (cfg.data && cfg.data.query) ? cfg.data.query : false;
-                let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
-                let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
-                // Set vars for where we want to start in results, and number of records to display
-                start = (limit * page) - limit;
-                limit = limit * page;
-                // Placeholder for the results we will actually show
-                let show  = [];
-                let cnt  = 0;
-                for(let idx in data){
-                    cnt++;
-                    if(cnt > start && cnt <= limit)
-                        show.push(data[idx]);
+                // Placeholder for the JSON response object
+                let json = {};
+                // If we have a total then we are dealing with many results, so get only the results we want to return
+                if(total){
+                    json.total = total;
+                    json.data  = this.getPagingDataResults(cfg, data);
+                } else {
+                    // Merge the data into the JSON response object
+                    json = data;
                 }
-                // Define the JSON response object
-                let json = {
-                    status: 'success',
-                    total: total,
-                    data: show,
-                };
                 // Special case JSON customizations based on method called
                 if(cfg.data.method=='getBalances')
                     json.address = cfg.data.search;
                 // Sort the json data and object properties alphabetically (OCD much?)
                 json = this.util.ksort(json);
-                for(let idx in json.data){
+                for(let idx in json.data)
                     json.data[idx] = this.util.ksort(json.data[idx]);
-                }
                 // Return the JSON response with a status of 200
                 res.status(200).json(json);
                 return;
@@ -298,6 +286,28 @@ class XChainExplorer {
         // console.log('data=',data);
 
         res.send('response of last resort... ');
+    }
+
+    // Handle looping through database results and only returning the records the user cares about using paging and limit
+    getPagingDataResults(config, data){
+        let cfg   = config
+        let max   = this.db.getMaxMethodResults(cfg.data.method);
+        let start = 1;
+        let q     = (cfg.data && cfg.data.query) ? cfg.data.query : false;
+        let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
+        let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
+        // Set vars for where we want to start in results, and number of records to display
+        start = (limit * page) - limit;
+        limit = limit * page;
+        // Placeholder for the results we will actually show
+        let show  = [];
+        let cnt  = 0;
+        for(let idx in data){
+            cnt++;
+            if(cnt > start && cnt <= limit)
+                show.push(data[idx]);
+        }
+        return show;
     }
 }
 

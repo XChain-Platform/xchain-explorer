@@ -235,8 +235,8 @@ class XChainExplorer {
             if(cfg.type=='api'){
                 // Placeholder for the JSON response object
                 let json = {};
-                // If we have a total then we are dealing with many results, so get only the results we want to return
-                if(total){
+                // If we have a total then we are dealing with results, so get only the results we want to return
+                if(this.util.isNumeric(total)){
                     json.total = total;
                     json.data  = this.getPagingDataResults(cfg, data);
                 } else {

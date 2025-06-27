@@ -1,5 +1,7 @@
 /* XChain Explorer Utility Functions */
 
+const mathjs = require('mathjs');
+
 // Support BigInt in JSON stringify()
 BigInt.prototype.toJSON = function(){
     return JSON.rawJSON(this.toString());

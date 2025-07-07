@@ -96,6 +96,12 @@ class Util {
             return parseInt(num);
     }
 
+    // Handle returning a number to a given decimal point precision
+    bcformat(num, decimals){
+        let d = (!this.isNull(decimals)) ? parseInt(decimals) : 0;
+        return mathjs.format(this.bcnum(num),{notation: 'fixed', precision: d});
+    }
+
     // Handle subtracting 2 big numbers
     bcsub(numA, numB, decimals){
         let a = (!this.isNull(numA)) ? numA : 0;

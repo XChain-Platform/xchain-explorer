@@ -1700,7 +1700,92 @@ class Database {
 
     // Get token information
     async getToken(config, limit){
-        // TODO
+        let data  = null;
+        let args  = [config.data.search];
+        let query = `SELECT
+                        t2.tick,
+                        t1.supply,
+                        t1.max_supply,
+                        t1.max_mint,
+                        t1.decimals,
+                        t1.description,
+                        t1.lock_max_supply,
+                        t1.lock_mint,
+                        t1.lock_mint_supply,
+                        t1.lock_max_mint,
+                        t1.lock_description,
+                        t1.lock_rug,
+                        t1.lock_sleep,
+                        t1.lock_callback,
+                        t1.callback_block,
+                        t3.tick as callback_tick,
+                        t4.decimals as callback_decimals,
+                        t1.callback_amount,
+                        t1.allow_list,
+                        t1.block_list,
+                        t1.mint_address_max,
+                        t1.mint_start_block,
+                        t1.mint_stop_block,
+                        a1.address as owner,
+                        t1.coin_price
+                    FROM
+                        tokens t1
+                        INNER JOIN index_tickers      t2 ON (t2.id=t1.tick_id)
+                        INNER JOIN index_addresses    a1 ON (a1.id=t1.owner_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=t1.callback_tick_id)
+                        LEFT  JOIN tokens             t4 ON (t4.tick_id=t1.callback_tick_id)
+                    WHERE 
+                        t2.tick=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, args);
+        console.log('results=',results);
+        if(results && results.length){
+            let row = results[0];
+            data = {
+                callback: {},
+                lists: {},
+                locks: {},
+                mints: {},
+                supply: {}
+            };
+            for( let key in row ){
+                let name  = key;
+                let value = row[key];
+                // Skip/Ignore any decimal fields
+                if(String(key).includes('decimals'))
+                    continue;
+                // Group LOCK fields
+                if(String(key).substring(0,5)=='lock_'){
+                    name  = String(key).replace('lock_','');
+                    value = (row[key]=="1") ? true : false;
+                    data.locks[name] = value;
+                // Group LIST fields
+                } else if(String(key).substring(5,10)=='_list'){
+                    name = String(key).replace('_list','');
+                    data.lists[name] = (this.util.isNumeric(value)) ? Number(value) : null;
+                // Group MINT fields
+                } else if(String(key).substring(0,5)=='mint_' || key=='max_mint'){
+                    name = String(key).replace('mint_','').replace('_mint','');
+                    data.mints[name] = Number(value);
+                // Group CALLBACK fields
+                } else if(String(key).substring(0,9)=='callback_'){
+                    name = String(key).replace('callback_','');
+                    if(name=='amount'){
+                        data.callback[name] = this.util.bcformat(value, row['callback_decimals']);
+                    } else {
+                        data.callback[name] = value;
+                    }
+                // Group SUPPLY fields
+                } else if(['supply','max_supply'].includes(key)){
+                    if(name=='supply')     name = 'current';
+                    if(name=='max_supply') name = 'max';
+                    data.supply[name] = this.util.bcformat(value, row['decimals']);
+                } else {
+                    data[name] = value;
+                }
+            }
+        }
+        return [data];
     }
 
     /******************************************************************
@@ -2305,11 +2390,86 @@ class Database {
             }
             // ORDER_CANCEL action
             if(type=='ORDER_CANCEL'){
-                // TODO
+                query1 = `SELECT
+                        a2.action,
+                        o1.action_index,
+                        o1.order_action_index,
+                        a3.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m2.memo,
+                        s1.status
+                    FROM
+                        order_cancels o1
+                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=o1.source_id)
+                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE 
+                        o1.action_index=?
+                    LIMIT 1`;
+                // Credits
+                query2 = `SELECT
+                            a1.address,
+                            t1.tick,
+                            c1.amount
+                        FROM
+                            credits c1
+                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
+                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
+                        WHERE 
+                            c1.action_index=? 
+                        ORDER BY
+                            c1.amount DESC`;
+                // Escrows
+                query3 = `SELECT
+                            a1.address,
+                            t1.tick,
+                            e1.amount
+                        FROM
+                            escrows e1
+                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
+                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
+                        WHERE 
+                            e1.action_index=? 
+                        ORDER BY
+                            e1.amount DESC`;
             }
             // ORDER_EDIT action
             if(type=='ORDER_EDIT'){
-                // TODO
+                query1 = `SELECT
+                        a2.action,
+                        o1.action_index,
+                        o1.order_action_index,
+                        a3.address as source,
+                        o1.expiration,
+                        o1.allow_list,
+                        o1.block_list,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m2.memo,
+                        s1.status
+                    FROM
+                        order_edits o1
+                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=o1.source_id)
+                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE 
+                        o1.action_index=?
+                    LIMIT 1`;
             }
             // ORDER_MATCH action
             if(type=='ORDER_MATCH'){
@@ -2522,11 +2682,87 @@ class Database {
             }
             // SWAP_CANCEL action
             if(type=='SWAP_CANCEL'){
-                // TODO
+                query1 = `SELECT
+                        a2.action,
+                        s1.action_index,
+                        s1.swap_action_index,
+                        a3.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m2.memo,
+                        s2.status
+                    FROM
+                        swap_cancels s1
+                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE 
+                        s1.action_index=?
+                    LIMIT 1`;
+                // Credits
+                query2 = `SELECT
+                            a1.address,
+                            t1.tick,
+                            c1.amount
+                        FROM
+                            credits c1
+                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
+                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
+                        WHERE 
+                            c1.action_index=? 
+                        ORDER BY
+                            c1.amount DESC`;
+                // Escrows
+                query3 = `SELECT
+                            a1.address,
+                            t1.tick,
+                            e1.amount
+                        FROM
+                            escrows e1
+                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
+                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
+                        WHERE 
+                            e1.action_index=? 
+                        ORDER BY
+                            e1.amount DESC`;
+
             }
             // SWAP_EDIT action
             if(type=='SWAP_EDIT'){
-                // TODO
+                query1 = `SELECT
+                        a2.action,
+                        s1.action_index,
+                        s1.swap_action_index,
+                        a3.address as source,
+                        s1.expiration,
+                        s1.allow_list,
+                        s1.block_list,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m2.memo,
+                        s2.status
+                    FROM
+                        swap_edits s1
+                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE 
+                        s1.action_index=?
+                    LIMIT 1`;
             }
             // SWAP_MATCH action
             if(type=='SWAP_MATCH'){
@@ -2578,7 +2814,8 @@ class Database {
                         WHERE 
                             e1.action_index=? 
                         ORDER BY
-                            e1.amount DESC`;        }
+                            e1.amount DESC`;
+            }
             // SWEEP
             if(type=='SWEEP'){
                 query1 = `SELECT
@@ -2710,7 +2947,7 @@ class Database {
                 results = await this.doQuery(config, query3, args3);
                 if(results && results.length){
                     // Insert the data at the correct place in the data object
-                    if(['ORDER','ORDER_MATCH','SWAP','SWAP_MATCH'].includes(type)){
+                    if(['ORDER','ORDER_MATCH','ORDER_CANCEL','SWAP','SWAP_MATCH','SWAP_CANCEL'].includes(type)){
                         data.escrows = results;
                     // Handle populating the list edits based off the list TYPE field
                     } else if(type=='LIST'){

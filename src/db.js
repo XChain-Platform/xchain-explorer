@@ -134,7 +134,8 @@ class Database {
             if(!args || typeof args !== 'object')
                 args = [config.data.search];
             // Run the database query to get the data
-            data = await this.doQuery(config, query, args);
+            if(query!='')
+                data = await this.doQuery(config, query, args);
             // If we have a count query, run it to get total count of records
             if(count){
                 let rows = await this.doQuery(config, count, args);
@@ -1461,6 +1462,7 @@ class Database {
      * Endpoints                           Method Name      Query Types
      * -----------------------------------------------------------------
      * /{COIN}/api/action/{QUERY}           getAction       action_index
+     * /{COIN}/api/address/{QUERY}          getAddress      address
      * /{COIN}/api/balances/{QUERY}/{TYPE}  getBalances     address
      * /{COIN}/api/credits/{QUERY}/{TYPE}   getCredits      block, address
      * /{COIN}/api/debits/{QUERY}/{TYPE}    getDebits       block, address
@@ -1479,10 +1481,15 @@ class Database {
         return [data];
     }
 
+    // Get address information for a given address (tokens held/owned, estimated value, XCHAIN balance, etc)
+    async getAddress(config){
+        // TODO
+    }
+
     // Get list of address balances
     async getBalances(config, limit){
         // Balance queries are always by address
-        let where = 'a2.address=?';
+        let where = 'a1.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -1738,7 +1745,6 @@ class Database {
                         t2.tick=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
-        console.log('results=',results);
         if(results && results.length){
             let row = results[0];
             data = {

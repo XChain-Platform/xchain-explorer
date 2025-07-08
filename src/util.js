@@ -1,6 +1,7 @@
 /* XChain Explorer Utility Functions */
 
 const mathjs = require('mathjs');
+const fs     = require('fs/promises');
 
 // Support BigInt in JSON stringify()
 BigInt.prototype.toJSON = function(){
@@ -48,8 +49,13 @@ class Util {
     getTimer(timer){
         let now = Date.now();
         let ms  = now - timer;
-        let timeString = this.millisecondsToTimeString(ms);
+        return ms;
+    }
+
+    // Get human readable time string based on milliseconds
+    getTimerString(ms){
         let niceString = ms + 'ms';
+        let timeString = this.millisecondsToTimeString(ms);
         if(timeString!='')
             niceString = timeString;
         return niceString;
@@ -82,7 +88,40 @@ class Util {
         if(minutes > 0) str += minutes + 'm ';
         if(seconds > 0) str += seconds + '.' + milliseconds + 's';
         return str;
-    }    
+    }
+
+    /******************************************************************
+     * File Functions 
+     ******************************************************************/
+
+    // Handle checking if a file exists and return true/false
+    async fileExists(filePath){
+        let exists = false;
+        try {
+            await fs.access(filePath); // Attempts to access the file
+            exists = true;
+        } catch (error){
+            if(error.code === 'ENOENT'){
+                // File does not exist
+            } else {
+                // Handle other potential errors (e.g., permission issues)
+                // throw error;
+            }
+        }
+        return exists;
+    }
+
+    // Handle getting contents of a file
+    async fileGetContents(filePath){
+        let data = false;
+        try {
+            data = await fs.readFile(filePath, 'utf8'); // 'utf8' specifies the encoding
+        } catch (error) {
+            // console.error('Error reading file:', error);
+            // throw error; // Re-throw the error for further handling
+        }
+        return data;
+    }
 
     /******************************************************************
      * BC math functions
@@ -171,7 +210,7 @@ class Util {
             return acc;
         }, {});
         return sortedObj;
-    }    
+    }
 }
 
 module.exports = Util;

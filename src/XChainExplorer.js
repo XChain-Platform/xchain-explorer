@@ -1,5 +1,7 @@
 /* XChain Explorer Class */
 
+const express  = require('express');
+const path     = require('path');
 const util     = require('./util.js');
 const database = require('./db.js');
 
@@ -27,17 +29,45 @@ class XChainExplorer {
         // Setup alias to list of supported URLs
         this.urls = this.setupUrls();
 
+        // Define any custom headers to pass with each request
+        this.headers = {
+            'XChain-Explorer-Version': '1.0.0', 
+            'Access-Control-Allow-Origin': '*'
+        }
+
+        // Setup empty request response
+        this.response = {
+            head: null, // Placeholder for any custom headers
+            html: null, // Placeholder for any HTML content
+            json: null, // Placeholder for any JSON content
+            time: null, // Placeholder for process request timer
+            code: 200   // Placeholder for HTTP response code (Default to status OK response)
+        };
+
         // Setup wildcard listener to process requests 
         app.get('*', (req, res) => { this.processRequest(req, res); });
-
     }
 
     // Function to define a list of explorer urls
     setupUrls(){
+
+        // Define list of static file directories to just serve out the raw file
+        let directories = [
+            'css',
+            'fonts',
+            'images',
+            'css',
+            'js'
+        ];
+        for(let directory of directories){
+            this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
+        }
+
         // Define list of URLS to parse through and determine how to process each
         let urls = {
-            // List of statuc URLs and the static file to serve out
-            'static' : {
+
+            // List of HTML URLs and the HTML content file to serve out
+            'html' : {
                 // Top level pages
                 '/'                     : 'home.html',
                 '/about'                : 'about.html',
@@ -148,22 +178,29 @@ class XChainExplorer {
                 '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'        : ['explorerSweeps',       ['block', 'address']],                
             }
         };
+
+        // Setup listeners for STATIC file requests
+
         return urls;
     }
 
     // Function to handle processing a API request and returning a response
     async processRequest(req, res){
 
-        // Define some placeholders
-        let template = null;
-        let content  = null;
-        let total    = null;
-        let data     = null;
+        // Setup empty response object
+        let response = structuredClone(this.response);
+
+        // Start tracking time to parse block
+        let debugTimer = this.util.startTimer();
+
+        // Define some data placeholders
+        let total = null;
+        let data  = null;
 
         // Define basic request config object 
         let cfg = {
             coin: null, // COIN type (BTC, LTC, DOGE)
-            type: null, // Request type (static, api, explorer)
+            type: null, // Request type (html, api, explorer)
             file: null, // File content to return
             data: {
                 method: null, // Method to run to get data
@@ -174,16 +211,16 @@ class XChainExplorer {
         };
 
         // Split the url path up into its various parts
-        let path = String(req.path).substring(1).split('/');
+        let urlPath = String(req.path).substring(1).split('/');
 
-        // Determine the COIN using the first part of the path (BTC, LTC, DOGE, etc)
-        let coin = String(path[0]).toUpperCase();
+        // Determine the COIN using the first part of the URL path (BTC, LTC, DOGE, etc)
+        let coin = String(urlPath[0]).toUpperCase();
         if(this.config['COINS'].includes(coin))
             cfg.coin = coin;
 
-        // Determine what TYPE of request this is using the second part of the path
-        let type = String(path[1]).toLowerCase();
-        cfg.type = (['api','explorer'].includes(type)) ? type : 'static';
+        // Determine what TYPE of request this is using the second part of the URL path
+        let type = String(urlPath[1]).toLowerCase();
+        cfg.type = (['api','explorer'].includes(type)) ? type : 'html';
 
         // Set type / file / info config info using url matching
         for(const url in this.urls[cfg.type]){
@@ -192,16 +229,16 @@ class XChainExplorer {
             let info      = this.urls[cfg.type][url];
             let searchType = false;
 
-            // Handle static page matches
-            if(cfg.type=='static' && (req.path==url || parts[1]==String(path[1]).toLowerCase()))
+            // Handle html page matches
+            if(cfg.type=='html' && (req.path==url || parts[1]==String(urlPath[1]).toLowerCase()))
                 match = true;
 
             // Handle explorer and api request matches
-            if(['api','explorer'].includes(cfg.type)){
-                if( parts[1]==String(path[1]).toLowerCase() && 
-                    parts[2]==String(path[2]).toLowerCase()){
+            if(!match && ['api','explorer'].includes(cfg.type)){
+                if( parts[1]==String(urlPath[1]).toLowerCase() && 
+                    parts[2]==String(urlPath[2]).toLowerCase()){
                     let infoType = typeof info[1];
-                    let search = String(path[4]).toLowerCase();
+                    let search = String(urlPath[4]).toLowerCase();
                     if(infoType=='string')
                         searchType = info[1];
                     if(infoType=='object' && info[1].includes(search))
@@ -213,11 +250,11 @@ class XChainExplorer {
 
             // Update config object with request info
             if(match){
-                if(cfg.type=='static')
+                if(cfg.type=='html')
                     cfg.file = info;
                 if(['api','explorer'].includes(cfg.type)){
                     cfg.data.method = info[0];
-                    cfg.data.search = path[3];
+                    cfg.data.search = urlPath[3];
                     cfg.data.type   = searchType;
                     cfg.data.query  = req.query;
                 }
@@ -250,9 +287,8 @@ class XChainExplorer {
                 json = this.util.ksort(json);
                 for(let idx in json.data)
                     json.data[idx] = this.util.ksort(json.data[idx]);
-                // Return the JSON response with a status of 200
-                res.status(200).json(json);
-                return;
+                // Store the response JSON in the response object
+                response.json = json;
             }
 
             /**********************************************************
@@ -260,36 +296,91 @@ class XChainExplorer {
              *********************************************************/
             // Handle returning Explorer data with support for paging, limits, and offsets
             if(cfg.type=='explorer'){
-                // TODO
-                res.status(200).send('explorer code coming soon...');
-                return;
+                let json = {
+                    note: 'explorer json response coming soon'
+                };
+                // Store the response JSON in the response object
+                response.json = json;
             }
         }
 
         // If we don't have a file or method at this point, default to a 404
         if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method)){
-            res.status(404).send('file not found');
-            return;            
+            cfg.file = '404.html';
+            cfg.type = 'html';
+            response.code = 404;
         }
 
         /**********************************************************
-         * Static page handler
+         * HTML page handler
          *********************************************************/
-        if(cfg.type=='static'){
-            res.status(200).send('static page handler coming soon');
-            return;
+        if(cfg.type=='html'){
+            // Define base path to html directory
+            let htmlDirectory   = path.join(__dirname, 'content/html/')
+
+            // Load HTML template
+            let templateFile    = path.join(htmlDirectory, 'template.html');
+            let templateExists  = await this.util.fileExists(templateFile);
+            let templateContent = (templateExists) ? await this.util.fileGetContents(templateFile) : 'Error loading template file!';
+
+            // Load HTML content
+            let htmlFile    = path.join(htmlDirectory, cfg.file);
+            let htmlExists  = await this.util.fileExists(htmlFile);
+            let htmlContent = (htmlExists) ? await this.util.fileGetContents(htmlFile) : 'Error loading html file!';
+
+            // Swap Content into template
+            let pageContent = templateContent;
+
+            // TODO : Swap in the content to the template
+            pageContent = pageContent.replace('{TITLE}','');
+            pageContent = pageContent.replace('{CANONICAL}','');
+            pageContent = pageContent.replace('{DESCRIPTION}','');
+            pageContent = pageContent.replace('{CONTENT}',htmlContent);
+
+            // Store HTML response
+            response.html = pageContent;
         }
 
-        // TODO: Add processing time info
+        // Log the total processing time for this request (in milliseconds)
+        response.time = this.util.getTimer(debugTimer);
+
+        // Pass forward the total runtime info in a readable string in the JSON response
+        if(response.json)
+            response.json.runtime = this.util.getTimerString(response.time);
+
+        // Set any custom headers
+        response.head = structuredClone(this.headers);
+
+        if(!this.util.isNull(response.time))
+            response.head['XChain-Runtime-Ms'] = response.time;
+
+        // Return any custom headers in response
+        if(!this.util.isNull(response.head))
+            res.set(response.head);
+
+        // Return HTTP status Code
+        res.status(response.code);
+
+        // Return the actual response
+        if(!this.util.isNull(response.json)){
+            res.json(response.json);
+        } else if(!this.util.isNull(response.html)){
+            res.send(response.html);
+        } else {
+            res.send('response of last resort...');
+        }
+
+        // Log any requests which took longer than 400 milliseconds to return a response
+        if(response.time > 400){
+            // TODO : Dump request information to a log file
+
+        }
 
         // DEBUG INFO
-        // TODO: Remove
         // console.log('path=',req.path);
         // console.log('query=',req.query);
         // console.log('cfg=',cfg);
         // console.log('data=',data);
-
-        res.send('response of last resort... ');
     }
 
     // Handle looping through database results and only returning the records the user cares about using paging and limit

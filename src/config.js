@@ -8,13 +8,22 @@
  ********************************************************************/
 
 const fs   = require('fs');
+const path = require('path');
 const util = require('./util.js');
 
-// Define the port that the explorer will run on
-const API_HOST = '127.0.0.1';
-const API_PORT = 8080;
-const API_USER = false;
-const API_PASS = false;
+// Define the API config 
+const API_HOST       = '127.0.0.1';
+const API_USER       = false;
+const API_PASS       = false;
+const API_PORT_HTTP  = 8080;
+const API_PORT_HTTPS = 8081;
+
+// Define SSL Configuration
+const API_SSL  = {
+    key:  fs.readFileSync(path.join(__dirname, "ssl", "private.pem")),
+    cert: fs.readFileSync(path.join(__dirname, "ssl", "cert.pem")),
+    ca:   fs.readFileSync(path.join(__dirname, "ssl", "ca.pem"))
+};
 
 module.exports = {
 
@@ -50,9 +59,13 @@ module.exports = {
         // Pass forward explorer API information
         config['API'] = {
             host: API_HOST,
-            port: API_PORT,
             user: API_USER,
-            pass: API_PASS
+            pass: API_PASS,
+            ssl:  API_SSL,
+            port: {
+                http:  API_PORT_HTTP,
+                https: API_PORT_HTTPS
+            }
         }
 
         // Define list of acceptable COIN prefixes to be used in explorer (ex. /COIN/api/... BTC, tBTC, rBTC, etc )

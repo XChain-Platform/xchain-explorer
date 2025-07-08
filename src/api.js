@@ -1,6 +1,8 @@
 /* XChain Explorer API */
 
 const dotenv         = require('dotenv');
+const http           = require('http');
+const https          = require('https');
 const express        = require('express');
 const bodyParser     = require('body-parser');
 const helmet         = require('helmet');
@@ -13,10 +15,6 @@ dotenv.config();
 
 // Parse in the explorer config information
 const config = configInfo.getConfig();
-
-// Parse in API host and port information
-const EXPLORER_API_HOST = config.API.host;
-const EXPLORER_API_PORT = config.API.port;
 
 // Setup the basic API functionality
 async function startApi(){
@@ -33,14 +31,34 @@ async function startApi(){
 	// Allow CORS for development
 	app.use(cors());
 
-	// Start up the explorer instance
-	const explorer = new XChainExplorer(app, config);
+	// Allow reverse proxy (X-Forwarded-Proto header)
+	app.enable('trust proxy');
 
-	// Start the server
-	app.listen(EXPLORER_API_PORT, () => {
-	    console.log('API listening on port ' + EXPLORER_API_PORT);
+	// Redirect HTTP to HTTPS
+	app.use((req, res, next) => {
+  		if(req.secure){
+    		// Request is already HTTPS, continue to the next middleware/route handler
+		    next();
+  		} else {
+    		// Remove HTTP port from host
+    		let hostname = String(req.headers.host).replace(':' + config.API.port.http, '');
+    		let url = 'https://' + hostname + ':' + config.API.port.https + req.url;
+    		res.redirect(url);
+		}
 	});
 
+	// HTTP server for redirection
+	http.createServer(app).listen(config.API.port.http, () => {
+  		console.log('HTTP  server listening on port', config.API.port.http);
+	});
+
+	// HTTPS server for serving out requests in a secure manner
+	https.createServer(config.API.ssl, app).listen(config.API.port.https, () => {
+  		console.log('HTTPS server listening on port', config.API.port.https);
+	});
+
+	// Start up the explorer instance
+	const explorer = new XChainExplorer(app, config);
 }
 
 // Start up the explorer services

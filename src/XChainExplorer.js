@@ -51,20 +51,16 @@ class XChainExplorer {
     // Function to define a list of explorer urls
     setupUrls(){
 
-        // Define list of static file directories to just serve out the raw file
-        let directories = [
-            'css',
-            'fonts',
-            'images',
-            'css',
-            'js'
-        ];
-        for(let directory of directories){
-            this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
-        }
-
         // Define list of URLS to parse through and determine how to process each
         let urls = {
+
+            // Define list of static file directories to just serve out the raw file
+            'static' : [
+                'css',
+                'fonts',
+                'images',
+                'js'
+            ],
 
             // List of HTML URLs and the HTML content file to serve out
             'html' : {
@@ -111,7 +107,7 @@ class XChainExplorer {
 
             // List of API endpoints and the related method
             'api' : {
-                // API Action Endpoints                Method,            Types
+                // API Action Endpoints                    Method                Types
                 '/{COIN}/api/addresses/{QUERY}/{TYPE}'     : ['getAddresses',    ['block', 'address']],
                 '/{COIN}/api/airdrops/{QUERY}/{TYPE}'      : ['getAirdrops',     ['block', 'address', 'token']],
                 '/{COIN}/api/batches/{QUERY}/{TYPE}'       : ['getBatches',      ['block', 'address']],
@@ -152,35 +148,40 @@ class XChainExplorer {
                 '/{COIN}/api/tx/{QUERY}'                   : ['getTransaction',  'tx_hash']
             }, 
 
-            // List of explorer endpoints that return lists of transactions
+            // List of explorer endpoints and the related method
             'explorer' : {
-                // Actions
-                '/{COIN}/explorer/address/{QUERY}/{TYPE}'       : ['explorerAddress',      ['block', 'address']],
-                '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'      : ['explorerAirdrops',     ['block', 'address', 'token']],
-                '/{COIN}/explorer/batches/{QUERY}/{TYPE}'       : ['explorerBatches',      ['block', 'address']],
-                '/{COIN}/explorer/broadcasts/{QUERY}/{TYPE}'    : ['explorerBroadcasts',   ['block', 'address']],
-                '/{COIN}/explorer/callbacks/{QUERY}/{TYPE}'     : ['explorerCallbacks',    ['block', 'address', 'token']],
-                '/{COIN}/explorer/destroys/{QUERY}/{TYPE}'      : ['explorerDestroys',     ['block', 'address', 'token']],
-                '/{COIN}/explorer/dispensers/{QUERY}/{TYPE}'    : ['explorerDispensers',   ['block', 'address', 'token']],
-                '/{COIN}/explorer/dispenses/{QUERY}/{TYPE}'     : ['explorerDispenses',    ['block', 'address', 'token']],
-                '/{COIN}/explorer/files/{QUERY}/{TYPE}'         : ['explorerFiles',        ['block', 'address']],
-                '/{COIN}/explorer/issues/{QUERY}/{TYPE}'        : ['explorerIssues',       ['block', 'address', 'token']],
-                '/{COIN}/explorer/links/{QUERY}/{TYPE}'         : ['explorerLinks',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/lists/{QUERY}/{TYPE}'         : ['explorerLists',        ['block', 'address']],
-                '/{COIN}/explorer/messages/{QUERY}/{TYPE}'      : ['explorerMessages',     ['block', 'address']],
-                '/{COIN}/explorer/mints/{QUERY}/{TYPE}'         : ['explorerMints',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/orders/{QUERY}/{TYPE}'        : ['explorerOrders',       ['block', 'address', 'token']],
-                '/{COIN}/explorer/order_matches/{QUERY}/{TYPE}' : ['explorerOrderMatches', ['block', 'address', 'token']],
-                '/{COIN}/explorer/sends/{QUERY}/{TYPE}'         : ['explorerSends',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'        : ['explorerSleeps',       ['block', 'address', 'token']],
-                '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'         : ['explorerSwaps',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/swap_matches/{QUERY}/{TYPE}'  : ['explorerSwapMatches',  ['block', 'address', 'token']],
-                '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'        : ['explorerSweeps',       ['block', 'address']],                
+                // Explorer Endpoints                           Method           Types
+                '/{COIN}/explorer/addresses/{QUERY}/{TYPE}'  : ['getAddresses',  ['block', 'address']],
+                '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'   : ['getAirdrops',   ['block', 'address', 'token']],
+                '/{COIN}/explorer/batches/{QUERY}/{TYPE}'    : ['getBatches',    ['block', 'address']],
+                '/{COIN}/explorer/broadcasts/{QUERY}/{TYPE}' : ['getBroadcasts', ['block', 'address']],
+                '/{COIN}/explorer/callbacks/{QUERY}/{TYPE}'  : ['getCallbacks',  ['block', 'address', 'token']],
+                '/{COIN}/explorer/credits/{QUERY}/{TYPE}'    : ['getCredits',    ['block', 'address']],
+                '/{COIN}/explorer/debits/{QUERY}/{TYPE}'     : ['getDebits',     ['block', 'address']], 
+                '/{COIN}/explorer/destroys/{QUERY}/{TYPE}'   : ['getDestroys',   ['block', 'address', 'token']],
+                '/{COIN}/explorer/dispensers/{QUERY}/{TYPE}' : ['getDispensers', ['block', 'address', 'token']],
+                '/{COIN}/explorer/dispenses/{QUERY}/{TYPE}'  : ['getDispenses',  ['block', 'address', 'token']],
+                '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'    : ['getEscrows',    ['block', 'address']],
+                '/{COIN}/explorer/files/{QUERY}/{TYPE}'      : ['getFiles',      ['block', 'address']],
+                '/{COIN}/explorer/holders/{QUERY}'           : ['getHolders',    'token'],
+                '/{COIN}/explorer/issues/{QUERY}/{TYPE}'     : ['getIssues',     ['block', 'address', 'token']],
+                '/{COIN}/explorer/links/{QUERY}/{TYPE}'      : ['getLinks',      ['block', 'address', 'token']],
+                '/{COIN}/explorer/lists/{QUERY}/{TYPE}'      : ['getLists',      ['block', 'address']],
+                '/{COIN}/explorer/messages/{QUERY}/{TYPE}'   : ['getMessages',   ['block', 'address']],
+                '/{COIN}/explorer/mints/{QUERY}/{TYPE}'      : ['getMints',      ['block', 'address', 'token']],
+                '/{COIN}/explorer/orders/{QUERY}/{TYPE}'     : ['getOrders',     ['block', 'address', 'token']],
+                '/{COIN}/explorer/sends/{QUERY}/{TYPE}'      : ['getSends',      ['block', 'address', 'token']],
+                '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'     : ['getSleeps',     ['block', 'address', 'token']],
+                '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'      : ['getSwaps',      ['block', 'address', 'token']],
+                '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'     : ['getSweeps',     ['block', 'address']]
             }
         };
 
         // Setup listeners for STATIC file requests
+        for(let directory of urls['static'])
+            this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
 
+        // Return the urls 
         return urls;
     }
 
@@ -213,6 +214,10 @@ class XChainExplorer {
         // Split the url path up into its various parts
         let urlPath = String(req.path).substring(1).split('/');
 
+        // Stop processing request for static content (already been processed)
+        if(this.urls['static'].includes(urlPath[0]))
+            return;
+
         // Determine the COIN using the first part of the URL path (BTC, LTC, DOGE, etc)
         let coin = String(urlPath[0]).toUpperCase();
         if(this.config['COINS'].includes(coin))
@@ -220,13 +225,13 @@ class XChainExplorer {
 
         // Determine what TYPE of request this is using the second part of the URL path
         let type = String(urlPath[1]).toLowerCase();
-        cfg.type = (['api','explorer'].includes(type)) ? type : 'html';
+        cfg.type = (['api','explorer'].includes(type) && urlPath.length>2) ? type : 'html';
 
         // Set type / file / info config info using url matching
         for(const url in this.urls[cfg.type]){
-            let parts     = String(url).substring(1).split('/');
-            let match     = false;
-            let info      = this.urls[cfg.type][url];
+            let parts      = String(url).substring(1).split('/');
+            let match      = false;
+            let info       = this.urls[cfg.type][url];
             let searchType = false;
 
             // Handle html page matches
@@ -237,14 +242,20 @@ class XChainExplorer {
             if(!match && ['api','explorer'].includes(cfg.type)){
                 if( parts[1]==String(urlPath[1]).toLowerCase() && 
                     parts[2]==String(urlPath[2]).toLowerCase()){
-                    let infoType = typeof info[1];
-                    let search = String(urlPath[4]).toLowerCase();
-                    if(infoType=='string')
-                        searchType = info[1];
-                    if(infoType=='object' && info[1].includes(search))
-                        searchType = search;
-                    if(searchType)
+                    // Handle exact explorer matches without any search type
+                    if(cfg.type=='explorer' && urlPath.length==3)
                         match = true;
+                    // Handle setting search type
+                    if(!match){
+                        let infoType = typeof info[1];
+                        let search = String(urlPath[4]).toLowerCase();
+                        if(infoType=='string')
+                            searchType = info[1];
+                        if(infoType=='object' && info[1].includes(search))
+                            searchType = search;
+                        if(searchType)
+                            match = true;
+                    }
                 }
             }
 
@@ -266,42 +277,38 @@ class XChainExplorer {
         if(!this.util.isNull(cfg.data.method)){
             [data, total] = await this.db.getData(cfg);
 
-            /**********************************************************
-             * API Handler 
-             *********************************************************/
-            if(cfg.type=='api'){
-                // Placeholder for the JSON response object
-                let json = {};
-                // If we have a total then we are dealing with results, so get only the results we want to return
-                if(this.util.isNumeric(total)){
+            // Placeholder for the JSON response object
+            let json = {};
+
+            // If we have a total then we are dealing with results, so get only the results we want to return
+            if(this.util.isNumeric(total)){
+                // Return total number of records found
+                if(cfg.type=='api')
                     json.total = total;
-                    json.data  = this.getPagingDataResults(cfg, data);
-                } else {
-                    // Merge the data into the JSON response object
-                    json = data;
+                // Return total number of records found in format that datatables expects (https://datatables.net/manual/server-side#Returned-data)
+                if(cfg.type=='explorer'){
+                    json.recordsTotal    = total;
+                    json.recordsFiltered = total;
                 }
-                // Special case JSON customizations based on method called
-                if(cfg.data.method=='getBalances')
-                    json.address = cfg.data.search;
-                // Sort the json data and object properties alphabetically (OCD much?)
+                json.data  = this.getPagingDataResults(cfg, data, total);
+            } else {
+                // Merge the data into the JSON response object
+                json = data;
+            }
+
+            // Special case JSON customizations based on method called
+            if(cfg.data.method=='getBalances')
+                json.address = cfg.data.search;
+
+            // Sort the json data and object properties alphabetically (OCD much?)
+            if(cfg.type=='api'){
                 json = this.util.ksort(json);
                 for(let idx in json.data)
                     json.data[idx] = this.util.ksort(json.data[idx]);
-                // Store the response JSON in the response object
-                response.json = json;
             }
 
-            /**********************************************************
-             * Explorer handler 
-             *********************************************************/
-            // Handle returning Explorer data with support for paging, limits, and offsets
-            if(cfg.type=='explorer'){
-                let json = {
-                    note: 'explorer json response coming soon'
-                };
-                // Store the response JSON in the response object
-                response.json = json;
-            }
+            // Store the response JSON in the response object
+            response.json = json;
         }
 
         // If we don't have a file or method at this point, default to a 404
@@ -377,30 +384,65 @@ class XChainExplorer {
         }
 
         // DEBUG INFO
-        // console.log('path=',req.path);
-        // console.log('query=',req.query);
-        // console.log('cfg=',cfg);
-        // console.log('data=',data);
+        console.log('path=',req.path);
+        console.log('query=',req.query);
+        console.log('cfg=',cfg);
+        console.log('data=',data);
     }
 
     // Handle looping through database results and only returning the records the user cares about using paging and limit
-    getPagingDataResults(config, data){
-        let cfg   = config
-        let max   = this.db.getMaxMethodResults(cfg.data.method);
-        let start = 1;
-        let q     = (cfg.data && cfg.data.query) ? cfg.data.query : false;
-        let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
-        let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
-        // Set vars for where we want to start in results, and number of records to display
-        start = (limit * page) - limit;
-        limit = limit * page;
+    getPagingDataResults(config, data, total){
+        let cfg    = config;
+        let type   = cfg.type;
+        let max    = this.db.getMaxMethodResults(cfg.data.method);
+        let q      = (cfg.data && cfg.data.query) ? cfg.data.query : false;
+        let action = (q && q.action) ? q.action : false;
+        let start  = (q && q.start && this.util.isInteger(Number(q.start))) ? q.start : 0;
+        let limit  = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
+        let length = (q && q.length && this.util.isInteger(Number(q.length))) ? q.length : max;
+        // Set limit based on given limit and page params
+        if(cfg.type=='api'){
+            let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
+            start = (limit * page) - limit;
+            limit = limit * page;
+        }
+        // Set limit based on given length and start params
+        if(cfg.type=='explorer'){
+            // Limit results to 100 max (except in special cases where we can not use an offset)
+            if(length > 100 && !['getHolders','getBalances','getCredits','getDebits'].includes(cfg.data.method))
+                limit = 100;
+            limit = start + length;
+        }
         // Placeholder for the results we will actually show
-        let show  = [];
-        let cnt  = 0;
+        let show          = [];
+        let cnt           = 0;
+        let count         = 0;
+        let count_reverse = 0;
         for(let idx in data){
             cnt++;
-            if(cnt > start && cnt <= limit)
-                show.push(data[idx]);
+
+            // Keep track of display count separate from actual count
+            count = cnt;
+            // Tweak count since we reverse results in some cases
+            // if(['prev','last'].includes(action))
+            //     count = start + (data.length - (idx - 1));
+            //     $count = $start + ($results->num_rows - ($idx - 1));
+
+            // Stash the reverse count since latest is first in most cases
+            count_reverse = this.util.bcsub(total,(count-1),0);
+
+            if(cnt > start && cnt <= limit){
+                let info   = data[idx];
+                // For Explorer requests, pass array of fields in specific order
+                if(type=='explorer'){
+                    let status = (info.status=='valid') ? 1 : 0; // 1=valid, 2=invalid
+                    if(cfg.data.method=='getAddresses')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
+                }
+                // Add data to the response array
+                show.push(info);
+
+            }
         }
         return show;
     }

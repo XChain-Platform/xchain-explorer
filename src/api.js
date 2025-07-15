@@ -23,7 +23,15 @@ async function startApi(){
 	const app = express();
 
 	// Use Helmet to increase security
-	app.use(helmet());
+	app.use(helmet({
+		// TODO: circle back and add a content-security-policy that makes sense
+		contentSecurityPolicy: false,
+    	// contentSecurityPolicy: {
+      	// 	directives: {
+        // 		"script-src": ["'self'", "example.com"],
+      	// 	},
+    	// },
+	}));
 
 	// Allow JSON requests
 	app.use(bodyParser.json());
@@ -35,17 +43,17 @@ async function startApi(){
 	app.enable('trust proxy');
 
 	// Redirect HTTP to HTTPS
-	app.use((req, res, next) => {
-  		if(req.secure){
-    		// Request is already HTTPS, continue to the next middleware/route handler
-		    next();
-  		} else {
-    		// Remove HTTP port from host
-    		let hostname = String(req.headers.host).replace(':' + config.API.port.http, '');
-    		let url = 'https://' + hostname + ':' + config.API.port.https + req.url;
-    		res.redirect(url);
-		}
-	});
+	// app.use((req, res, next) => {
+  	// 	if(req.secure){
+    // 		// Request is already HTTPS, continue to the next middleware/route handler
+	// 	    next();
+  	// 	} else {
+    // 		// Remove HTTP port from host
+    // 		let hostname = String(req.headers.host).replace(':' + config.API.port.http, '');
+    // 		let url = 'https://' + hostname + ':' + config.API.port.https + req.url;
+    // 		res.redirect(url);
+	// 	}
+	// });
 
 	// HTTP server for redirection
 	http.createServer(app).listen(config.API.port.http, () => {

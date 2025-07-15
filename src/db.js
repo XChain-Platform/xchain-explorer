@@ -151,24 +151,36 @@ class Database {
         let query = '';   // Placeholder for sql query for data
         let args  = null; // Placeholder for sql arguments (if needed)
         let data  = config.data;
+        let q     = (data.query) ? data.query : false;
+        let max   = this.getMaxMethodResults(data.method);
+        let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
+        // Standardize sort order to either ASC, DESC (default to descending)
+        config.data.order = (q && q.sortorder && ['asc','desc'].includes(q.sortorder)) ? String(q.sortorder).toUpperCase() : 'DESC';
         // Handle API queries
         if(config.type=='api'){
-            let q     = (data.query) ? data.query : false;
-            let max   = this.getMaxMethodResults(data.method);
-            let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
-            let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
             // Set SQL query limit to page * limit
+            let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
             limit = limit * page;
-            // Standardize sort order to either ASC, DESC (default to descending)
-            config.data.order = (q && q.sortorder && ['asc','desc'].includes(q.sortorder)) ? String(q.sortorder).toUpperCase() : 'DESC';
-            // Get the SQL query and list of arguments
-            if(typeof this[data.method] === 'function')
-                [query, args, count] = await this[data.method](config, limit);
         }
         // Handle Explorer queries
         if(config.type=='explorer'){
+            let offset = (q.offset) ? q.offset : false;
+            let start  = (q.start) ? q.start : 0;
+            let length = (q.length) ? q.length : 10;
+            // If an offset value is specified, or this is the last page, change limit to length
+            if(offset || q.action=='last')
+                limit = length;
+            if(limit > max)
+                limit = max;
+            // Pass forward the offset if we have one
+            config.data.offset = offset;
+
+            // start, length, limit, offset
             // coming soon
         }
+        // Get the SQL query and list of arguments
+        if(typeof this[data.method] === 'function')
+            [query, args, count] = await this[data.method](config, limit);
         return [query, args, count];
     }
 
@@ -242,14 +254,46 @@ class Database {
      * /{COIN}/api/sweeps/{QUERY}/{TYPE}          getSweeps        block, address
      ******************************************************************/
 
+     /******************************************************************
+     * XChain Explorer Endpoints
+     * 
+     * Endpoints                                     Method Name             Types
+     * -----------------------------------------------------------------
+     * /{COIN}/explorer/addresses/{QUERY}/{TYPE}     getAddresses    block, address
+     * /{COIN}/explorer/airdrops/{QUERY}/{TYPE}      getAirdrops     block, address, token
+     * /{COIN}/explorer/batches/{QUERY}/{TYPE}       getBatches      block, address
+     * /{COIN}/explorer/broadcasts/{QUERY}/{TYPE}    getBroadcasts   block, address
+     * /{COIN}/explorer/callbacks/{QUERY}/{TYPE}     getCallbacks    block, address, token
+     * /{COIN}/explorer/credits/{QUERY}/{TYPE}       getCredits      block, address
+     * /{COIN}/explorer/debits/{QUERY}/{TYPE}        getDebits       block, address
+     * /{COIN}/explorer/destroys/{QUERY}/{TYPE}      getDestroys     block, address, token
+     * /{COIN}/explorer/dispensers/{QUERY}/{TYPE}    getDispensers   block, address, token
+     * /{COIN}/explorer/dispenses/{QUERY}/{TYPE}     getDispenses    block, address, token
+     * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
+     * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
+     * /{COIN}/explorer/holders/{QUERY}              getHolders      token
+     * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
+     * /{COIN}/explorer/links/{QUERY}/{TYPE}         getLinks        block, address, token
+     * /{COIN}/explorer/lists/{QUERY}/{TYPE}         getLists        block, address
+     * /{COIN}/explorer/messages/{QUERY}/{TYPE}      getMessages     block, address
+     * /{COIN}/explorer/mints/{QUERY}/{TYPE}         getMints        block, address, token
+     * /{COIN}/explorer/orders/{QUERY}/{TYPE}        getOrders       block, address, token
+     * /{COIN}/explorer/sends/{QUERY}/{TYPE}         getSends        block, address, token
+     * /{COIN}/explorer/sleeps/{QUERY}/{TYPE}        getSleeps       block, address, token
+     * /{COIN}/explorer/swaps/{QUERY}/{TYPE}         getSwaps        block, address, token
+     * /{COIN}/explorer/sweeps/{QUERY}/{TYPE}        getSweeps       block, address
+
+     ******************************************************************/
+
     // Get list of ADDRESS actions
     async getAddresses(config, limit){
-        let type = config.data.type;
-        let where = ``;
+        let type  = config.data.type;
+        let where = `a1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a3.address=?';
+            where += ' AND a3.address=?';
+
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -285,6 +329,7 @@ class Database {
                     WHERE ` + where + `
                     ORDER BY a1.action_index ` + config.data.order + `
                     LIMIT ` + limit;
+                    console.log('query=',query);
         return [query, null, count];
     }
 
@@ -1795,6 +1840,38 @@ class Database {
     }
 
     /******************************************************************
+     * XChain Explorer Endpoints
+     * 
+     * Endpoints                                     Method Name             Types
+     * -----------------------------------------------------------------
+     * /{COIN}/explorer/addresses/{QUERY}/{TYPE}     getAddresses    block, address
+     * /{COIN}/explorer/airdrops/{QUERY}/{TYPE}      getAirdrops     block, address, token
+     * /{COIN}/explorer/batches/{QUERY}/{TYPE}       getBatches      block, address
+     * /{COIN}/explorer/broadcasts/{QUERY}/{TYPE}    getBroadcasts   block, address
+     * /{COIN}/explorer/callbacks/{QUERY}/{TYPE}     getCallbacks    block, address, token
+     * /{COIN}/explorer/credits/{QUERY}/{TYPE}       getCredits      block, address
+     * /{COIN}/explorer/debits/{QUERY}/{TYPE}        getDebits       block, address
+     * /{COIN}/explorer/destroys/{QUERY}/{TYPE}      getDestroys     block, address, token
+     * /{COIN}/explorer/dispensers/{QUERY}/{TYPE}    getDispensers   block, address, token
+     * /{COIN}/explorer/dispenses/{QUERY}/{TYPE}     getDispenses    block, address, token
+     * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
+     * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
+     * /{COIN}/explorer/holders/{QUERY}              getHolders      token
+     * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
+     * /{COIN}/explorer/links/{QUERY}/{TYPE}         getLinks        block, address, token
+     * /{COIN}/explorer/lists/{QUERY}/{TYPE}         getLists        block, address
+     * /{COIN}/explorer/messages/{QUERY}/{TYPE}      getMessages     block, address
+     * /{COIN}/explorer/mints/{QUERY}/{TYPE}         getMints        block, address, token
+     * /{COIN}/explorer/orders/{QUERY}/{TYPE}        getOrders       block, address, token
+     * /{COIN}/explorer/sends/{QUERY}/{TYPE}         getSends        block, address, token
+     * /{COIN}/explorer/sleeps/{QUERY}/{TYPE}        getSleeps       block, address, token
+     * /{COIN}/explorer/swaps/{QUERY}/{TYPE}         getSwaps        block, address, token
+     * /{COIN}/explorer/sweeps/{QUERY}/{TYPE}        getSweeps       block, address
+     ******************************************************************/
+
+
+
+    /******************************************************************
      * Commonly used functions 
      *****************************************************************/
 
@@ -3222,11 +3299,7 @@ class Database {
         return [data, total];
     }
 
-    /******************************************************************
-     *
-     * Explorer API  Endpoints
-     * 
-     *****************************************************************/
+
 
 }
 

@@ -75,7 +75,7 @@ class XChainExplorer {
                 '/{COIN}/addresses'     : 'addresses.html',
                 '/{COIN}/airdrops'      : 'airdrops.html',
                 '/{COIN}/batches'       : 'batches.html',
-                '/{COIN}/broadcasts'    : 'broadcast.html',
+                '/{COIN}/broadcasts'    : 'broadcasts.html',
                 '/{COIN}/callbacks'     : 'callbacks.html',
                 '/{COIN}/destroys'      : 'destroys.html',
                 '/{COIN}/dividends'     : 'dividends.html',
@@ -102,7 +102,14 @@ class XChainExplorer {
                 '/{COIN}/search'        : 'search.html',
                 '/{COIN}/tokens'        : 'tokens.html',
                 '/{COIN}/terms'         : 'terms.html',
-                '/{COIN}/mempool'       : 'mempool.html'
+                '/{COIN}/mempool'       : 'mempool.html',
+                //  Specific Information pages
+                '/{COIN}/address/{QUERY}' : 'token.html',
+                '/{COIN}/action/{QUERY}'  : 'action.html',
+                '/{COIN}/block/{QUERY}'   : 'block.html',
+                '/{COIN}/token/{QUERY}'   : 'token.html',
+                '/{COIN}/tx/{QUERY}'      : 'transaction.html'
+
             },
 
             // List of API endpoints and the related method
@@ -114,6 +121,7 @@ class XChainExplorer {
                 '/{COIN}/api/broadcasts/{QUERY}/{TYPE}'    : ['getBroadcasts',   ['block', 'address']],
                 '/{COIN}/api/callbacks/{QUERY}/{TYPE}'     : ['getCallbacks',    ['block', 'address', 'token']],
                 '/{COIN}/api/destroys/{QUERY}/{TYPE}'      : ['getDestroys',     ['block', 'address', 'token']],
+                '/{COIN}/api/dividends/{QUERY}/{TYPE}'     : ['getDividends',    ['block', 'address', 'token']],
                 '/{COIN}/api/dispensers/{QUERY}/{TYPE}'    : ['getDispensers',   ['block', 'address', 'token']],
                 '/{COIN}/api/dispenses/{QUERY}/{TYPE}'     : ['getDispenses',    ['block', 'address', 'token']],
                 '/{COIN}/api/files/{QUERY}/{TYPE}'         : ['getFiles',        ['block', 'address']],
@@ -161,6 +169,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/destroys/{QUERY}/{TYPE}'   : ['getDestroys',   ['block', 'address', 'token']],
                 '/{COIN}/explorer/dispensers/{QUERY}/{TYPE}' : ['getDispensers', ['block', 'address', 'token']],
                 '/{COIN}/explorer/dispenses/{QUERY}/{TYPE}'  : ['getDispenses',  ['block', 'address', 'token']],
+                '/{COIN}/explorer/dividends/{QUERY}/{TYPE}'  : ['getDividends',  ['block', 'address', 'token']], 
                 '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'    : ['getEscrows',    ['block', 'address']],
                 '/{COIN}/explorer/files/{QUERY}/{TYPE}'      : ['getFiles',      ['block', 'address']],
                 '/{COIN}/explorer/holders/{QUERY}'           : ['getHolders',    'token'],
@@ -208,6 +217,12 @@ class XChainExplorer {
                 search: null, // Search to pass to method
                 type:   null, // Search type to pass to method
                 query:  null, // Query string parameters
+                order:  null, // SQL data sort order
+                // Offset Information (used by explorer for paging)
+                offset: {
+                    action: null, // Action (first, last, next, prev)
+                    value:  null  // value (action_index, etc)
+                }
             },
         };
 
@@ -268,6 +283,14 @@ class XChainExplorer {
                     cfg.data.search = urlPath[3];
                     cfg.data.type   = searchType;
                     cfg.data.query  = req.query;
+                    // Set additional offset information used in explorer paging
+                    if(cfg.type=='explorer'){
+                        let q      = (req.query) ? req.query : false;
+                        let offset = (q && !this.util.isNull(q.offset)) ? q.offset : false;
+                        let action = (q && !this.util.isNull(q.action)) ? q.action : false;
+                        cfg.data.offset.value  = offset;
+                        cfg.data.offset.action = action;
+                    }
                 }
                 break;
             }
@@ -387,7 +410,7 @@ class XChainExplorer {
         console.log('path=',req.path);
         console.log('query=',req.query);
         console.log('cfg=',cfg);
-        console.log('data=',data);
+        // console.log('data=',data);
     }
 
     // Handle looping through database results and only returning the records the user cares about using paging and limit
@@ -396,13 +419,14 @@ class XChainExplorer {
         let type   = cfg.type;
         let max    = this.db.getMaxMethodResults(cfg.data.method);
         let q      = (cfg.data && cfg.data.query) ? cfg.data.query : false;
-        let action = (q && q.action) ? q.action : false;
-        let start  = (q && q.start && this.util.isInteger(Number(q.start))) ? q.start : 0;
-        let limit  = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
-        let length = (q && q.length && this.util.isInteger(Number(q.length))) ? q.length : max;
+        let start  = (q && q.start  && this.util.isInteger(Number(q.start)))  ? q.start  : 0;
+        let limit  = (q && q.limit  && this.util.isInteger(Number(q.limit)))  ? q.limit  : max;
+        let length = (q && q.length && this.util.isInteger(Number(q.length))) ? q.length : 10;
+        let offset = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.value))  ? cfg.data.offset.value  : false;
+        let action = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.action)) ? cfg.data.offset.action : false;        
         // Set limit based on given limit and page params
         if(cfg.type=='api'){
-            let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
+            let page  = (q && q.page  && this.util.isInteger(Number(q.page))) ? q.page  : 1;
             start = (limit * page) - limit;
             limit = limit * page;
         }
@@ -413,31 +437,97 @@ class XChainExplorer {
                 limit = 100;
             limit = start + length;
         }
+
         // Placeholder for the results we will actually show
         let show          = [];
         let cnt           = 0;
         let count         = 0;
         let count_reverse = 0;
+
+        // if(action=='last'){
+        //     limit = total - start;
+        //     console.log('limit=',limit);
+        // }
+
+        // Loop through data and determine what to return to use
         for(let idx in data){
             cnt++;
+            let method = cfg.data.method;
 
             // Keep track of display count separate from actual count
             count = cnt;
+
             // Tweak count since we reverse results in some cases
             // if(['prev','last'].includes(action))
             //     count = start + (data.length - (idx - 1));
-            //     $count = $start + ($results->num_rows - ($idx - 1));
 
             // Stash the reverse count since latest is first in most cases
             count_reverse = this.util.bcsub(total,(count-1),0);
 
-            if(cnt > start && cnt <= limit){
+            if((cnt > start && cnt <= limit) || offset || action=='last'){
                 let info   = data[idx];
                 // For Explorer requests, pass array of fields in specific order
                 if(type=='explorer'){
                     let status = (info.status=='valid') ? 1 : 0; // 1=valid, 2=invalid
-                    if(cfg.data.method=='getAddresses')
+
+                    // Handle building out locks info into nice string
+                    let locks = false;
+                    if(['getIssues','getTokens'].includes(method)){
+                        let arr = [
+                            info.lock_max_supply,
+                            info.lock_mint,
+                            info.lock_mint_supply,
+                            info.lock_max_mint,
+                            info.lock_description,
+                            info.lock_sleep,
+                            info.lock_rug,
+                            info.lock_callback
+                        ];
+                        locks = arr.join('|');
+                    }
+
+                    // Build out the correct response array based on method type
+                    if(method=='getAddresses')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
+                    if(method=='getAirdrops')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.memo, status, info.action_index];
+                    if(method=='getBatches')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, status, info.action_index];
+                    if(method=='getBroadcasts')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.message, info.value, info.fee, status, info.action_index];
+                    if(method=='getCallbacks')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.callback_tick, info.callback_amount, status, info.action_index];
+                    if(method=='getDestroys')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.callback_amount, info.memo, status, info.action_index];
+                    // if(method=='getDispensers')
+                    //     // TODO
+                    // if(method=='getDispenses')
+                    //     // TODO
+                    if(method=='getDividends')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.dividend_tick, info.amount, status, info.action_index];
+                    if(method=='getFiles')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, status, info.action_index];
+                    if(method=='getIssues')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.max_supply, info.max_mint, locks, status, info.action_index];
+                    if(method=='getLinks')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.link_action_index, info.coin, info.coin_action_index, info.memo, status, info.action_index];
+                    if(method=='getLists')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.edit, status, info.action_index];
+                    if(method=='getMessages')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.plaintext_message, info.encrypted_message, status, info.action_index];
+                    if(method=='getMints')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, status, info.action_index];
+                    if(method=='getOrders')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index];
+                    if(method=='getSends')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.destination, status, info.action_index];
+                    if(method=='getSleeps')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.tick, info.resume_block, status, info.action_index];
+                    if(method=='getSwaps')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index];
+                    if(method=='getSweeps')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownership, status, info.action_index];
+
                 }
                 // Add data to the response array
                 show.push(info);

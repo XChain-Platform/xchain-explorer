@@ -167,16 +167,18 @@ class Database {
             let offset = (q.offset) ? q.offset : false;
             let start  = (q.start) ? q.start : 0;
             let length = (q.length) ? q.length : 10;
+            let action = (q.action) ? q.action : false;
+            // if no offset is given, try to get one (speeds up sql queries)
+            if(offset==false)
+                offset = await this.getQueryOffset(config);
+            if(offset)
+                config.data.offset.value = offset;
             // If an offset value is specified, or this is the last page, change limit to length
-            if(offset || q.action=='last')
+            if(offset || action=='last')
                 limit = length;
+            // Limit results to 100 max (except in special cases where we can not use an offset)
             if(limit > max)
                 limit = max;
-            // Pass forward the offset if we have one
-            config.data.offset = offset;
-
-            // start, length, limit, offset
-            // coming soon
         }
         // Get the SQL query and list of arguments
         if(typeof this[data.method] === 'function')
@@ -199,10 +201,15 @@ class Database {
         await this.releaseConnection();
     }
 
-
-    /******************************************************************
-     * General database functions
-     *****************************************************************/
+    // Handle trying to get an offset value using the table
+    async getQueryOffset(config){
+        let offset = false;
+        let table  = false;
+        let action = false;
+        // offset = 24;
+        // TODO : Code to lookup offsets
+        return offset;
+    }
 
     // Method to determine the maximum results to return for each method
     getMaxMethodResults(method){
@@ -214,6 +221,23 @@ class Database {
         // Use defined method max or default max of 100
         let max = (this.util.isInteger(methods[method])) ? methods[method] : 100;
         return max;
+    }
+
+    // Handle getting basic WHERE query which uses offset data (if given)
+    getQueryOffsetSql(config){
+        let offset = (config.data.offset) ? config.data.offset : false;
+        let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
+        let value  = (offset && !this.util.isNull(offset.value) && this.util.isNumeric(offset.value))  ? offset.value : false;
+        let sql    = '';
+        // Use the offset if given
+        if(offset && action && value){
+            if(action=='prev'){
+                sql = ' AND a1.action_index > ' + value;
+            } else {
+                sql = ' AND a1.action_index < ' + value;
+            }
+        }
+        return sql;
     }
 
     /******************************************************************
@@ -293,7 +317,6 @@ class Database {
             where += ' AND b1.block_index=?';
         if(type=='address')
             where += ' AND a3.address=?';
-
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -329,20 +352,19 @@ class Database {
                     WHERE ` + where + `
                     ORDER BY a1.action_index ` + config.data.order + `
                     LIMIT ` + limit;
-                    console.log('query=',query);
         return [query, null, count];
     }
 
     // Get list of AIRDROP actions
     async getAirdrops(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `a1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a3.address=?';
+            where += ' AND a3.address=?';
         if(type=='token')
-            where = 't3.tick=?';
+            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -387,11 +409,11 @@ class Database {
     // Get list of BATCH actions
     async getBatches(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `b1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b2.block_index=?';
+            where += ' AND b2.block_index=?';
         if(type=='address')
-            where = 'a3.address=?';
+            where += ' AND a3.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -428,11 +450,11 @@ class Database {
     // Get list of BROADCAST actions
     async getBroadcasts(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `b1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b2.block_index=?';
+            where += ' AND b2.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -476,13 +498,13 @@ class Database {
     // Get list of CALLBACK actions
     async getCallbacks(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `c1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='token')
-            where = 't3.tick=?';
+            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -529,13 +551,13 @@ class Database {
     // Get list of DESTROY actions
     async getDestroys(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `d1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='token')
-            where = 't3.tick=?';
+            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -582,18 +604,71 @@ class Database {
     }
 
     // Get list of DISPENSE actions
-    async getDispense(config, limit){
+    async getDispenses(config, limit){
         // TODO
+    }
+
+    // Get list of DIVIDEND actions
+    async getDividends(config, limit){
+        let type  = config.data.type;
+        let where = `d1.action_index IS NOT NULL`;
+        if(type=='block')
+            where += ' AND b1.block_index=?';
+        if(type=='address')
+            where += ' AND a2.address=?';
+        if(type=='token')
+            where += ' AND t3.tick=?';
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        dividends d1
+                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=d1.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=d1.dividend_tick_id)
+                    WHERE ` + where;
+        let query = `SELECT
+                        d1.action_index,
+                        a2.address as source,
+                        t3.tick,
+                        t4.tick as dividend_tick,
+                        d1.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m1.memo,
+                        s1.status
+                    FROM
+                        dividends d1
+                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=d1.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=d1.dividend_tick_id)
+                    WHERE ` + where + `
+                    ORDER BY d1.action_index ` + config.data.order + `
+                    LIMIT ` + limit;
+        return [query, null, count];
     }
 
     // Get list of FILE actions
     async getFiles(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `f1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -638,13 +713,13 @@ class Database {
     // Get list of ISSUE actions
     async getIssues(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `i1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='token')
-            where = 't3.tick=?';
+            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -713,11 +788,11 @@ class Database {
     // Get list of LINK actions
     async getLinks(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `l1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -762,11 +837,11 @@ class Database {
     // Get list of LIST actions
     async getLists(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `l1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -807,17 +882,17 @@ class Database {
     async getMessages(config, limit){
         let type  = config.data.type;
         let args  = [config.data.search];
-        let where = ``;
+        let where = `m1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address'){
-            where = '(a2.address=? OR a3.address=?)';
+            where += ' AND (a2.address=? OR a3.address=?)';
             args.push(config.data.search);
         }
         if(type=='source')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='destination')
-            where = 'a3.address=?';
+            where += ' AND a3.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -858,23 +933,26 @@ class Database {
         return [query, args, count];
     }
 
+
+
     // Get list of MINT actions
     async getMints(config, limit){
         let type  = config.data.type;
         let args  = [config.data.search];
-        let where = ``;
+        let where = `m1.action_index IS NOT NULL`;
+            where += this.getQueryOffsetSql(config);
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address'){
-            where = '(a2.address=? OR a3.address=?)';
+            where += ' AND (a2.address=? OR a3.address=?)';
             args.push(config.data.search);
         }
         if(type=='source')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='destination')
-            where = 'a3.address=?';
+            where += ' AND a3.address=?';
         if(type=='token')
-            where = 't3.tick=?';
+            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -922,15 +1000,15 @@ class Database {
     async getOrders(config, limit){
         let type  = config.data.type;
         let args  = [config.data.search];
-        let where = ``;
+        let where = `o1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address'){
-            where = '(a2.address=? OR a3.address=?)';
+            where += ' AND (a2.address=? OR a3.address=?)';
             args.push(config.data.search);
         }
         if(type=='token'){
-            where = '(t3.tick=? OR t4.tick=?)';
+            where += ' AND (t3.tick=? OR t4.tick=?)';
             args.push(config.data.search);
         }
         let count = `SELECT
@@ -1130,19 +1208,19 @@ class Database {
     async getSends(config, limit){
         let type  = config.data.type;
         let args  = [config.data.search];
-        let where = ``;
+        let where = `s1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address'){
-            where = '(a2.address=? OR a3.address=?)';
+            where += ' AND (a2.address=? OR a3.address=?)';
             args.push(config.data.search);
         }
         if(type=='source')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='destination')
-            where = 'a3.address=?';
+            where += ' AND a3.address=?';
         if(type=='token')
-            where = 't3.tick=?';
+            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -1189,13 +1267,13 @@ class Database {
     // Get list of SLEEP actions
     async getSleeps(config, limit){
         let type  = config.data.type;
-        let where = ``;
+        let where = `s1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='token')
-            where = 't3.tick=?';
+            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -1241,15 +1319,15 @@ class Database {
     async getSwaps(config, limit){
         let type  = config.data.type;
         let args  = [config.data.search];
-        let where = ``;
+        let where = `s1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address'){
-            where = '(a2.address=? OR a3.address=?)';
+            where += ' AND (a2.address=? OR a3.address=?)';
             args.push(config.data.search);
         }
         if(type=='token'){
-            where = '(t3.tick=? OR t4.tick=?)';
+            where += ' AND (t3.tick=? OR t4.tick=?)';
             args.push(config.data.search);
         }
         let count = `SELECT
@@ -1449,17 +1527,17 @@ class Database {
     async getSweeps(config, limit){
         let type  = config.data.type;
         let args  = [config.data.search];
-        let where = ``;
+        let where = `s1.action_index IS NOT NULL`;
         if(type=='block')
-            where = 'b1.block_index=?';
+            where += ' AND b1.block_index=?';
         if(type=='address'){
-            where = '(a2.address=? OR a3.address=?)';
+            where += ' AND (a2.address=? OR a3.address=?)';
             args.push(config.data.search);
         }
         if(type=='source')
-            where = 'a2.address=?';
+            where += ' AND a2.address=?';
         if(type=='destination')
-            where = 'a3.address=?';
+            where += ' AND a3.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -2987,7 +3065,6 @@ class Database {
                 } else if(['ISSUE','MINT'].includes(type)){
                     args2.push(data.tick);
                 } else if(['ORDER','SWAP'].includes(type)){
-                    console.log('action data=',data);
                     args2.push(data.give_tick);
                 }
                 // Run the secondary query and process the results
@@ -3280,10 +3357,8 @@ class Database {
         let detailFields = ['tick', 'callback_tick', 'give_tick', 'get_tick', 'amount', 'destination', 'give_amount', 'get_amount', 'name', 'title', 'type'];
         // Lookup extended information on the action_index
         for(let item of history){
-            console.log('action_index=',item.action_index);
             let info    = await this.getActionData(config, item.action_index);
             let details = false;
-            console.log('info=',info);
             for(let name of detailFields){
                 if(info[name]){
                     // If details object does not exist yet, create it

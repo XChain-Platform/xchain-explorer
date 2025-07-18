@@ -154,8 +154,9 @@ class Database {
         let q     = (data.query) ? data.query : false;
         let max   = this.getMaxMethodResults(data.method);
         let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
-        // Standardize sort order to either ASC, DESC (default to descending)
-        config.data.order = (q && q.sortorder && ['asc','desc'].includes(q.sortorder)) ? String(q.sortorder).toUpperCase() : 'DESC';
+        // Handle determining record sort order based on request method
+        let default_order = (['getBalances'].includes(data.method)) ? 'ASC' : 'DESC';
+        let order         = (q && q.sortorder && ['ASC','DESC'].includes(String(q.sortorder).toUpperCase())) ? String(q.sortorder).toUpperCase() : default_order;
         // Handle API queries
         if(config.type=='api'){
             // Set SQL query limit to page * limit
@@ -180,9 +181,13 @@ class Database {
             if(limit > max)
                 limit = max;
         }
+        // Save the SQL query data in the config object
+        config.data.sql.where = await this.getQueryWhereSql(config);
+        config.data.sql.order = order
+        config.data.sql.limit = limit;
         // Get the SQL query and list of arguments
         if(typeof this[data.method] === 'function')
-            [query, args, count] = await this[data.method](config, limit);
+            [query, args, count] = await this[data.method](config);
         return [query, args, count];
     }
 
@@ -223,7 +228,49 @@ class Database {
         return max;
     }
 
+    // Handle building out WHERE sql based on the config
+    // Note: we do this in a single function to reduce duplicated code
+    getQueryWhereSql(config){
+        let sql    = `m.action_index IS NOT NULL`;
+        let type   = config.data.type;
+        let method = config.data.method;
+        // Force SQL and type on certain methods which do not have the action_index field
+        if(['getBalances','getHolders'].includes(method))
+            sql  = `m.address_id IS NOT NULL`;
+        // if(method=='getBalances')
+        //     type = 'address'
+        // if(method=='getHolders')
+        //     type = 'token'
+
+        // Handle queries for specific types of data types 
+        if(type=='address'){
+            if(['getMessages','getMints','getOrders','getSends','getSweeps'].includes(method)){
+                sql += ' AND (a2.address=? OR a3.address=?)';
+            } else {
+                sql += ' AND a2.address=?';
+            }
+        }
+        if(type=='block')
+            sql += ' AND b1.block_index=?';
+        if(type=='destination')
+            sql += ' AND a3.address=?';
+        if(type=='source')
+            sql += ' AND a2.address=?';
+        if(type=='token'){
+            if(['getOrders'].includes(method)){
+                sql += ' AND (t3.tick=? OR t4.tick=?)';
+            } else {
+                sql += ' AND t3.tick=?';
+            }
+        }
+        // TODO: standardize the fields
+        // if(config.type=='explorer')
+        //     sql += this.getQueryOffsetSql(config);
+        return sql;
+    }
+
     // Handle getting basic WHERE query which uses offset data (if given)
+    // Note: table `m` is a universal reference to the main action table
     getQueryOffsetSql(config){
         let offset = (config.data.offset) ? config.data.offset : false;
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
@@ -232,9 +279,9 @@ class Database {
         // Use the offset if given
         if(offset && action && value){
             if(action=='prev'){
-                sql = ' AND a1.action_index > ' + value;
+                sql = ' AND m.action_index > ' + value;
             } else {
-                sql = ' AND a1.action_index < ' + value;
+                sql = ' AND m.action_index < ' + value;
             }
         }
         return sql;
@@ -310,30 +357,25 @@ class Database {
      ******************************************************************/
 
     // Get list of ADDRESS actions
-    async getAddresses(config, limit){
-        let type  = config.data.type;
-        let where = `a1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a3.address=?';
+    async getAddresses(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        addresses a1
-                        INNER JOIN actions            a2 ON (a2.action_index=a1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
+                        addresses m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a3 ON (a3.id=a1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        a1.action_index,
-                        a3.address as source,
-                        a1.fee_preference,
-                        a1.require_memo,
+                        m.action_index,
+                        a2.address as source,
+                        m.fee_preference,
+                        m.require_memo,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -341,49 +383,42 @@ class Database {
                         m1.memo,
                         s1.status
                     FROM
-                        addresses a1
-                        INNER JOIN actions            a2 ON (a2.action_index=a1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
+                        addresses m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a3 ON (a3.id=a1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY a1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of AIRDROP actions
-    async getAirdrops(config, limit){
-        let type  = config.data.type;
-        let where = `a1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a3.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
+    async getAirdrops(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        airdrops a1
-                        INNER JOIN actions            a2 ON (a2.action_index=a1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
+                        airdrops m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a3 ON (a3.id=a1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=a1.tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        a1.action_index,
-                        a3.address as source,
+                        m.action_index,
+                        a2.address as source,
                         t3.tick,
-                        a1.list_action_index,
-                        a1.amount,
+                        m.list_action_index,
+                        m.amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -391,140 +426,123 @@ class Database {
                         m1.memo,
                         s1.status
                     FROM
-                        airdrops a1
-                        INNER JOIN actions            a2 ON (a2.action_index=a1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
+                        airdrops m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a3 ON (a3.id=a1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=a1.tick_id)
-                    WHERE ` + where + `
-                    ORDER BY a1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of BATCH actions
-    async getBatches(config, limit){
-        let type  = config.data.type;
-        let where = `b1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b2.block_index=?';
-        if(type=='address')
-            where += ' AND a3.address=?';
+    async getBatches(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        batches b1
-                        INNER JOIN actions            a2 ON (a2.action_index=b1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
-                        INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a3 ON (a3.id=b1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
+                        batches m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        b1.action_index,
-                        a3.address as source,
-                        b2.block_index,
-                        b2.block_time as timestamp,
+                        m.action_index,
+                        a2.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
                         s1.status
                     FROM
-                        batches b1
-                        INNER JOIN actions            a2 ON (a2.action_index=b1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
-                        INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a3 ON (a3.id=b1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
+                        batches m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY b1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of BROADCAST actions
-    async getBroadcasts(config, limit){
-        let type  = config.data.type;
-        let where = `b1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b2.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
+    async getBroadcasts(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        broadcasts b1
-                        INNER JOIN actions            a1 ON (a1.action_index=b1.action_index)
+                        broadcasts m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=b1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=b1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        b1.action_index,
-                        b1.message,
-                        b1.value,
-                        b1.fee,
-                        b1.broadcast_action_index,
+                        m.action_index,
+                        m.message,
+                        m.value,
+                        m.fee,
+                        m.broadcast_action_index,
                         a2.address as source,
-                        b2.block_index,
-                        b2.block_time as timestamp,
+                        b1.block_index,
+                        b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
                         m1.memo,
                         s1.status
                     FROM
-                        broadcasts b1
-                        INNER JOIN actions            a1 ON (a1.action_index=b1.action_index)
+                        broadcasts m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=b1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=b1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY b1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of CALLBACK actions
-    async getCallbacks(config, limit){
-        let type  = config.data.type;
-        let where = `c1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
+    async getCallbacks(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        callbacks c1
-                        INNER JOIN actions            a1 ON (a1.action_index=c1.action_index)
+                        callbacks m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=c1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=c1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=c1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=c1.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=c1.callback_tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        c1.action_index,
+                        m.action_index,
                         a2.address as source,
                         t3.tick,
                         t4.tick as callback_tick,
-                        c1.callback_amount,
+                        m.callback_amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -532,50 +550,43 @@ class Database {
                         m1.memo,
                         s1.status
                     FROM
-                        callbacks c1
-                        INNER JOIN actions            a1 ON (a1.action_index=c1.action_index)
+                        callbacks m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=c1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=c1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=c1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=c1.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=c1.callback_tick_id)
-                    WHERE ` + where + `
-                    ORDER BY c1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of DESTROY actions
-    async getDestroys(config, limit){
-        let type  = config.data.type;
-        let where = `d1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
+    async getDestroys(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        destroys d1
-                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        destroys m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=d1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        d1.action_index,
+                        m.action_index,
                         a2.address as source,
                         t3.tick,
-                        d1.amount,
+                        m.amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -583,61 +594,54 @@ class Database {
                         m1.memo,
                         s1.status
                     FROM
-                        destroys d1
-                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        destroys m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=d1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
-                    WHERE ` + where + `
-                    ORDER BY d1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of DISPENSER actions
-    async getDispensers(config, limit){
+    async getDispensers(config){
         // TODO
     }
 
     // Get list of DISPENSE actions
-    async getDispenses(config, limit){
+    async getDispenses(config){
         // TODO
     }
 
     // Get list of DIVIDEND actions
-    async getDividends(config, limit){
-        let type  = config.data.type;
-        let where = `d1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
+    async getDividends(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        dividends d1
-                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        dividends m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=d1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=d1.dividend_tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        d1.action_index,
+                        m.action_index,
                         a2.address as source,
                         t3.tick,
                         t4.tick as dividend_tick,
-                        d1.amount,
+                        m.amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -645,47 +649,42 @@ class Database {
                         m1.memo,
                         s1.status
                     FROM
-                        dividends d1
-                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        dividends m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=d1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=d1.dividend_tick_id)
-                    WHERE ` + where + `
-                    ORDER BY d1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of FILE actions
-    async getFiles(config, limit){
-        let type  = config.data.type;
-        let where = `f1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
+    async getFiles(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        files f1
-                        INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
+                        files m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=f1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
-                    WHERE ` + where;
+                        INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        f1.action_index,
-                        f1.name,
-                        f1.title,
+                        m.action_index,
+                        m.name,
+                        m.title,
                         t3.type as type,
                         a2.address as source,
                         b1.block_index,
@@ -695,72 +694,65 @@ class Database {
                         m1.memo,
                         s1.status
                     FROM
-                        files f1
-                        INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
+                        files m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=f1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
-                    WHERE ` + where + `
-                    ORDER BY f1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }    
 
     // Get list of ISSUE actions
-    async getIssues(config, limit){
-        let type  = config.data.type;
-        let where = `i1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
+    async getIssues(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        issues i1
-                        INNER JOIN actions            a1 ON (a1.action_index=i1.action_index)
+                        issues m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=i1.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=i1.transfer_id)
-                        LEFT  JOIN index_addresses    a4 ON (a4.id=i1.transfer_supply_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=i1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
+                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=i1.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=i1.callback_tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        i1.action_index,
+                        m.action_index,
                         t3.tick,
-                        i1.max_supply,
-                        i1.max_mint,
-                        i1.decimals,
-                        i1.description,
-                        i1.mint_supply,
+                        m.max_supply,
+                        m.max_mint,
+                        m.decimals,
+                        m.description,
+                        m.mint_supply,
                         a3.address as transfer,
                         a4.address as transfer_supply,
-                        i1.lock_max_supply,
-                        i1.lock_mint,
-                        i1.lock_mint_supply,
-                        i1.lock_max_mint,
-                        i1.lock_description,
-                        i1.lock_rug,
-                        i1.lock_sleep,
-                        i1.lock_callback,
-                        i1.callback_block,
+                        m.lock_max_supply,
+                        m.lock_mint,
+                        m.lock_mint_supply,
+                        m.lock_max_mint,
+                        m.lock_description,
+                        m.lock_rug,
+                        m.lock_sleep,
+                        m.lock_callback,
+                        m.callback_block,
                         t4.tick as callback_tick,
-                        i1.callback_amount,
-                        i1.allow_list,
-                        i1.block_list,
-                        i1.mint_address_max,
-                        i1.mint_start_block,
-                        i1.mint_stop_block,
+                        m.callback_amount,
+                        m.allow_list,
+                        m.block_list,
+                        m.mint_address_max,
+                        m.mint_start_block,
+                        m.mint_stop_block,
                         a2.address as source,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -768,49 +760,44 @@ class Database {
                         t1.tx_index,
                         s1.status
                     FROM
-                        issues i1
-                        INNER JOIN actions            a1 ON (a1.action_index=i1.action_index)
+                        issues m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=i1.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=i1.transfer_id)
-                        LEFT  JOIN index_addresses    a4 ON (a4.id=i1.transfer_supply_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=i1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
+                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=i1.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=i1.callback_tick_id)
-                    WHERE ` + where + `
-                    ORDER BY i1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of LINK actions
-    async getLinks(config, limit){
-        let type  = config.data.type;
-        let where = `l1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
+    async getLinks(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        links l1
-                        INNER JOIN actions            a1 ON (a1.action_index=l1.action_index)
+                        links m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=l1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=l1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=l1.coin_id)
-                    WHERE ` + where;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        l1.action_index,
-                        l1.link_action_index,
+                        m.action_index,
+                        m.link_action_index,
                         c1.coin,
-                        l1.coin_action_index,
+                        m.coin_action_index,
                         a2.address as source,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -819,45 +806,40 @@ class Database {
                         m1.memo,
                         s1.status
                     FROM
-                        links l1
-                        INNER JOIN actions            a1 ON (a1.action_index=l1.action_index)
+                        links m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=l1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=l1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=l1.coin_id)
-                    WHERE ` + where + `
-                    ORDER BY l1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }    
 
     // Get list of LIST actions
-    async getLists(config, limit){
-        let type  = config.data.type;
-        let where = `l1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
+    async getLists(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        lists l1
-                        INNER JOIN actions            a1 ON (a1.action_index=l1.action_index)
+                        lists m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=l1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        l1.action_index,
-                        l1.type,
-                        l1.edit,
-                        l1.list_action_index,
+                        m.action_index,
+                        m.type,
+                        m.edit,
+                        m.list_action_index,
                         a2.address as source,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -865,717 +847,627 @@ class Database {
                         t1.tx_index,
                         s1.status
                     FROM
-                        lists l1
-                        INNER JOIN actions            a1 ON (a1.action_index=l1.action_index)
+                        lists m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=l1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY l1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of MESSAGE actions
-    async getMessages(config, limit){
-        let type  = config.data.type;
+    async getMessages(config){
+        let sql   = config.data.sql;
         let args  = [config.data.search];
-        let where = `m1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address'){
-            where += ' AND (a2.address=? OR a3.address=?)';
+        // Support searching by both source or destination address
+        if(config.data.type=='address')
             args.push(config.data.search);
-        }
-        if(type=='source')
-            where += ' AND a2.address=?';
-        if(type=='destination')
-            where += ' AND a3.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
-                        messages m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        messages m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m1.destination_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        m1.action_index,
+                        m.action_index,
                         a2.address as source,
                         a3.address as destination,
-                        m1.encryption_method,
-                        m1.encryption_key,
-                        m1.encrypted_message,
-                        m1.plaintext_message,
+                        m.encryption_method,
+                        m.encryption_key,
+                        m.encrypted_message,
+                        m.plaintext_message,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
                         s1.status
                     FROM
-                        messages m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        messages m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m1.destination_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY m1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, args, count];
     }
 
 
 
     // Get list of MINT actions
-    async getMints(config, limit){
-        let type  = config.data.type;
+    async getMints(config){
+        let sql   = config.data.sql;
         let args  = [config.data.search];
-        let where = `m1.action_index IS NOT NULL`;
-            where += this.getQueryOffsetSql(config);
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address'){
-            where += ' AND (a2.address=? OR a3.address=?)';
+        // Support searching by both source or destination address
+        if(config.data.type=='address')
             args.push(config.data.search);
-        }
-        if(type=='source')
-            where += ' AND a2.address=?';
-        if(type=='destination')
-            where += ' AND a3.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
-                        mints m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        mints m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m1.destination_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=m1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m1.tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        m1.action_index,
+                        m.action_index,
                         a2.address as source,
                         a3.address as destination,
                         t3.tick,
-                        m1.amount,
+                        m.amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
+                        m1.memo,
                         s1.status
                     FROM
-                        mints m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        mints m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m1.destination_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=m1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m1.tick_id)
-                    WHERE ` + where + `
-                    ORDER BY m1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, args, count];
     }
 
     // Get list of ORDER actions
-    async getOrders(config, limit){
-        let type  = config.data.type;
+    async getOrders(config){
+        let sql   = config.data.sql;
         let args  = [config.data.search];
-        let where = `o1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address'){
-            where += ' AND (a2.address=? OR a3.address=?)';
+        // Support searching by both source or destination address and both sides of an order for a specific token
+        if(['address','token'].includes(config.data.type))
             args.push(config.data.search);
-        }
-        if(type=='token'){
-            where += ' AND (t3.tick=? OR t4.tick=?)';
-            args.push(config.data.search);
-        }
         let count = `SELECT
                         count(*) as total
                     FROM
-                        orders o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        orders m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=o1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=o1.get_address_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        INNER JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        o1.action_index,
+                        m.action_index,
                         c1.coin as give_coin,
                         t3.tick as give_tick,
-                        o1.give_amount,
+                        m.give_amount,
                         c2.coin as get_coin,
                         t4.tick as get_tick,
-                        o1.get_amount,
+                        m.get_amount,
                         a2.address as source,
                         a3.address as get_address,
-                        o1.expiration,
-                        o1.allow_list,
-                        o1.block_list,
+                        m.expiration,
+                        m.allow_list,
+                        m.block_list,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
+                        m1.memo,
                         s1.status
                     FROM
-                        orders o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        orders m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=o1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=o1.get_address_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
-                    WHERE ` + where + `
-                    ORDER BY o1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, args, count];
     }
 
     // Get list of ORDER_CANCEL actions
-    async getOrderCancels(config, limit){
-        let type  = config.data.type;
-        let args  = [config.data.search];
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
-        if(type=='address')
-            where = 'a2.address=?';
+    async getOrderCancels(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        order_cancels o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        order_cancels m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=o1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        o1.action_index,
-                        o1.order_action_index,
+                        m.action_index,
+                        m.order_action_index,
                         a2.address as source,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
+                        m1.memo,
                         s1.status
                     FROM
-                        order_cancels o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        order_cancels m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=o1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY o1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
-        return [query, args, count];
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     // Get list of ORDER_EDIT actions
-    async getOrderEdits(config, limit){
-        let type  = config.data.type;
-        let args  = [config.data.search];
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
-        if(type=='address')
-            where = 'a2.address=?';
+    async getOrderEdits(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        order_edits o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        order_edits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=o1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        o1.action_index,
-                        o1.order_action_index,
+                        m.action_index,
+                        m.order_action_index,
                         a2.address as source,
-                        o1.expiration,
-                        o1.allow_list,
-                        o1.block_list,
+                        m.expiration,
+                        m.allow_list,
+                        m.block_list,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
+                        m1.memo,
                         s1.status
                     FROM
-                        order_edits o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
+                        order_edits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=o1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY o1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
-        return [query, args, count];
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     // Get list of ORDER_MATCH actions
-    async getOrderMatches(config, limit){
-        let type  = config.data.type;
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
+    async getOrderMatches(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        order_matches m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        order_matches m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
-                    WHERE ` + where;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        m1.action_index,
+                        m.action_index,
                         c1.coin as give_coin,
-                        m1.give_action_index,
+                        m.give_action_index,
                         c2.coin as get_coin,
-                        m1.get_action_index,
+                        m.get_action_index,
                         b1.block_index,
                         b1.block_time as timestamp,
                         s1.status
                     FROM
-                        order_matches m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        order_matches m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
-                    WHERE ` + where + `
-                    ORDER BY m1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of SEND actions
-    async getSends(config, limit){
-        let type  = config.data.type;
+    async getSends(config){
+        let sql   = config.data.sql;
         let args  = [config.data.search];
-        let where = `s1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address'){
-            where += ' AND (a2.address=? OR a3.address=?)';
+        // Support searching by both source or destination address
+        if(config.data.type=='address')
             args.push(config.data.search);
-        }
-        if(type=='source')
-            where += ' AND a2.address=?';
-        if(type=='destination')
-            where += ' AND a3.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
         let count = `SELECT
                         count(*) as total
                     FROM
-                        sends s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        sends m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.destination_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=s1.tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        s1.action_index,
+                        m.action_index,
                         a2.address as source,
                         a3.address as destination,
                         t3.tick,
-                        s1.amount,
+                        m.amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
-                        s2.status
+                        m1.memo,
+                        s1.status
                     FROM
-                        sends s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        sends m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.destination_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=s1.tick_id)
-                    WHERE ` + where + `
-                    ORDER BY s1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, args, count];
     } 
 
     // Get list of SLEEP actions
-    async getSleeps(config, limit){
-        let type  = config.data.type;
-        let where = `s1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address')
-            where += ' AND a2.address=?';
-        if(type=='token')
-            where += ' AND t3.tick=?';
+    async getSleeps(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        sleeps s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        sleeps m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT JOIN index_tickers       t3 ON (t3.id=s1.tick_id)
-                    WHERE ` + where;
+                        LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        s1.action_index,
-                        s1.type,
+                        m.action_index,
+                        m.type,
                         a2.address as source,
                         t3.tick,
-                        s1.resume_block,
+                        m.resume_block,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
-                        s2.status
+                        m1.memo,
+                        s1.status
                     FROM
-                        sleeps s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        sleeps m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT JOIN index_tickers       t3 ON (t3.id=s1.tick_id)
-                    WHERE ` + where + `
-                    ORDER BY s1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     } 
 
     // Get list of SWAP actions
-    async getSwaps(config, limit){
-        let type  = config.data.type;
+    async getSwaps(config){
+        let sql   = config.data.sql;
         let args  = [config.data.search];
-        let where = `s1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address'){
-            where += ' AND (a2.address=? OR a3.address=?)';
+        // Support searching by both source or destination address and both sides of swap for a specific token
+        if(['address','token'].includes(config.data.type))
             args.push(config.data.search);
-        }
-        if(type=='token'){
-            where += ' AND (t3.tick=? OR t4.tick=?)';
-            args.push(config.data.search);
-        }
         let count = `SELECT
                         count(*) as total
                     FROM
-                        swaps s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        swaps m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.get_address_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
-                    WHERE ` + where;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        s1.action_index,
+                        m.action_index,
                         c1.coin as give_coin,
                         t3.tick as give_tick,
-                        s1.give_amount,
+                        m.give_amount,
                         c2.coin as get_coin,
                         t4.tick as get_tick,
-                        s1.get_amount,
+                        m.get_amount,
                         a2.address as source,
                         a3.address as get_address,
-                        s1.expiration,
-                        s1.allow_list,
-                        s1.block_list,
+                        m.expiration,
+                        m.allow_list,
+                        m.block_list,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
-                        s2.status
+                        m1.memo,
+                        s1.status
                     FROM
-                        swaps s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        swaps m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.get_address_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
-                    WHERE ` + where + `
-                    ORDER BY s1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, args, count];
     }
 
     // Get list of SWAP_CANCEL actions
-    async getSwapCancels(config, limit){
-        let type  = config.data.type;
-        let args  = [config.data.search];
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
-        if(type=='address')
-            where = 'a2.address=?';
+    async getSwapCancels(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        swap_cancels s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        swap_cancels m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        s1.action_index,
-                        s1.swap_action_index,
+                        m.action_index,
+                        m.swap_action_index,
                         a2.address as source,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
-                        s2.status
+                        m1.memo,
+                        s1.status
                     FROM
-                        swap_cancels s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        swap_cancels m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY s1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
-        return [query, args, count];
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     // Get list of SWAP_EDIT actions
-    async getSwapEdits(config, limit){
-        let type  = config.data.type;
-        let args  = [config.data.search];
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
-        if(type=='address')
-            where = 'a2.address=?';
+    async getSwapEdits(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        swap_edits s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        swap_edits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        s1.action_index,
-                        s1.swap_action_index,
+                        m.action_index,
+                        m.swap_action_index,
                         a2.address as source,
-                        s1.expiration,
-                        s1.allow_list,
-                        s1.block_list,
+                        m.expiration,
+                        m.allow_list,
+                        m.block_list,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
-                        s2.status
+                        m1.memo,
+                        s1.status
                     FROM
-                        swap_edits s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        swap_edits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY s1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
-        return [query, args, count];
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     // Get list of SWAP_MATCH actions
-    async getSwapMatches(config, limit){
-        let type  = config.data.type;
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
+    async getSwapMatches(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        swap_matches m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        swap_matches m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
-                    WHERE ` + where;
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        m1.action_index,
+                        m.action_index,
                         c1.coin as give_coin,
-                        m1.give_action_index,
+                        m.give_action_index,
                         c2.coin as get_coin,
-                        m1.get_action_index,
+                        m.get_action_index,
                         b1.block_index,
                         b1.block_time as timestamp,
                         s1.status
                     FROM
-                        swap_matches m1
-                        INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                        swap_matches m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
-                    WHERE ` + where + `
-                    ORDER BY m1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
-        return [query, null, count];
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+         return [query, null, count];
     }
 
     // Get list of SWEEP actions
     async getSweeps(config, limit){
-        let type  = config.data.type;
+        let sql   = config.data.sql;
         let args  = [config.data.search];
-        let where = `s1.action_index IS NOT NULL`;
-        if(type=='block')
-            where += ' AND b1.block_index=?';
-        if(type=='address'){
-            where += ' AND (a2.address=? OR a3.address=?)';
+        // Support searching by both source or destination address
+        if(config.data.type=='address')
             args.push(config.data.search);
-        }
-        if(type=='source')
-            where += ' AND a2.address=?';
-        if(type=='destination')
-            where += ' AND a3.address=?';
         let count = `SELECT
                         count(*) as total
                     FROM
-                        sweeps s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        sweeps m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.destination_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        s1.action_index,
+                        m.action_index,
                         a2.address as source,
                         a3.address as destination,
-                        s1.balances,
-                        s1.ownerships,
+                        m.balances,
+                        m.ownerships,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        m2.memo,
-                        s2.status
+                        m1.memo,
+                        s1.status
                     FROM
-                        sweeps s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        sweeps m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=s1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.destination_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY s1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, args, count];
     } 
 
@@ -1610,226 +1502,189 @@ class Database {
     }
 
     // Get list of address balances
-    async getBalances(config, limit){
-        // Balance queries are always by address
-        let where = 'a1.address=?';
+    async getBalances(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        balances b1
-                        INNER JOIN index_tickers   t1 ON (t1.id=b1.tick_id)
-                        INNER JOIN index_addresses a1 ON (a1.id=b1.address_id)
-                    WHERE ` + where;
+                        balances m
+                        INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
                         t1.tick,
-                        b1.amount
+                        m.amount
                     FROM
-                        balances b1
-                        INNER JOIN index_tickers   t1 ON (t1.id=b1.tick_id)
-                        INNER JOIN index_addresses a1 ON (a1.id=b1.address_id)
-                    WHERE ` + where + `
-                    ORDER BY t1.tick ` + config.data.order + `
-                    LIMIT ` + limit;
+                        balances m
+                        INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY t1.tick ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of credits
-    async getCredits(config, limit){
-        let type  = config.data.type;
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
-        if(type=='address')
-            where = 'a2.address=?';
+    async getCredits(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        credits c1
-                        INNER JOIN actions            a1 ON (a1.action_index=c1.action_index)
+                        credits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=c1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=c1.address_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        c1.action_index,
+                        m.action_index,
                         t1.tx_index,
                         a2.address,
                         t2.tick,
-                        c1.amount,
+                        m.amount,
                         a3.action,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t3.hash as tx_hash
                     FROM
-                        credits c1
-                        INNER JOIN actions            a1 ON (a1.action_index=c1.action_index)
+                        credits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=c1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=c1.address_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY c1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of debits
-    async getDebits(config, limit){
-        let type  = config.data.type;
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
-        if(type=='address')
-            where = 'a2.address=?';
+    async getDebits(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        debits d1
-                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        debits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=d1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=d1.address_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        d1.action_index,
+                        m.action_index,
                         t1.tx_index,
                         a2.address,
                         t2.tick,
-                        d1.amount,
+                        m.amount,
                         a3.action,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t3.hash as tx_hash
                     FROM
-                        debits d1
-                        INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                        debits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=d1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=d1.address_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY d1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of escrows
-    async getEscrows(config, limit){
-        let type  = config.data.type;
-        let where = ``;
-        if(type=='block')
-            where = 'b1.block_index=?';
-        if(type=='address')
-            where = 'a2.address=?';
+    async getEscrows(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        escrows e1
-                        INNER JOIN actions            a1 ON (a1.action_index=e1.action_index)
+                        escrows m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=e1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=e1.address_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        e1.action_index,
+                        m.action_index,
                         t1.tx_index,
                         a2.address,
                         t2.tick,
-                        e1.amount,
+                        m.amount,
                         a3.action,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t3.hash as tx_hash
                     FROM
-                        escrows e1
-                        INNER JOIN actions            a1 ON (a1.action_index=e1.action_index)
+                        escrows m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=e1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=e1.address_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY e1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get history information for a given address
-    async getHistory(config, limit){
+    async getHistory(config){
         let [data, count] = await this.getHistoryData(config, config.data.search, limit);
         return [data, null, count];
     }
 
     // Get list of holders of a token
-    async getHolders(config, limit){
-        let where = ``;
+    async getHolders(config){
+        let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total
                     FROM
-                        escrows e1
-                        INNER JOIN actions            a1 ON (a1.action_index=e1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=e1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=e1.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    LIMIT ` + limit;
+                        balances m
+                        INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                    WHERE ` + sql.where;
         let query = `SELECT
-                        e1.action_index,
-                        t1.tx_index,
                         a2.address,
-                        t2.tick,
-                        e1.amount,
-                        a3.action,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t3.hash as tx_hash
+                        m.amount
                     FROM
-                        escrows e1
-                        INNER JOIN actions            a1 ON (a1.action_index=e1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=e1.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=e1.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY e1.action_index ` + config.data.order + `
-                    LIMIT ` + limit;
+                        balances m
+                        INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY t3.tick ` + sql.order + `
+                    LIMIT ` + sql.limit;
         return [query, null, count];
     }
 
     // Get list of mempool transactions
-    async getMempool(config, limit){
+    async getMempool(config){
         // TODO
     }
 
     // Get network information
-    async getNetwork(config, limit){
+    async getNetwork(config){
         // TODO
     }
 
     // Get token information
-    async getToken(config, limit){
+    async getToken(config){
         let data  = null;
         let args  = [config.data.search];
         let query = `SELECT

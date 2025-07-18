@@ -217,7 +217,12 @@ class XChainExplorer {
                 search: null, // Search to pass to method
                 type:   null, // Search type to pass to method
                 query:  null, // Query string parameters
-                order:  null, // SQL data sort order
+                // SQL query specific information
+                sql: {
+                    order:  null, // Sort order (ASC, DESC)
+                    limit:  null, // Record Limit (LIMIT X)
+                    where:  null, // Where query
+                },
                 // Offset Information (used by explorer for paging)
                 offset: {
                     action: null, // Action (first, last, next, prev)
@@ -322,6 +327,8 @@ class XChainExplorer {
             // Special case JSON customizations based on method called
             if(cfg.data.method=='getBalances')
                 json.address = cfg.data.search;
+            if(cfg.data.method=='getHolders')
+                json.tick = cfg.data.search;
 
             // Sort the json data and object properties alphabetically (OCD much?)
             if(cfg.type=='api'){

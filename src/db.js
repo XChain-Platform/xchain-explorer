@@ -180,6 +180,11 @@ class Database {
             // Limit results to 100 max (except in special cases where we can not use an offset)
             if(limit > max)
                 limit = max;
+            // Tweak the limit on the last page
+            if(action=='last')
+                limit = (config.data.query.total - config.data.query.start);
+            if(['prev','last'].includes(action))
+                order = 'ASC';
         }
         // Save the SQL query data in the config object
         config.data.sql.where = await this.getQueryWhereSql(config);
@@ -206,42 +211,15 @@ class Database {
         await this.releaseConnection();
     }
 
-    // Handle trying to get an offset value using the table
-    async getQueryOffset(config){
-        let offset = false;
-        let table  = false;
-        let action = false;
-        // offset = 24;
-        // TODO : Code to lookup offsets
-        return offset;
-    }
-
-    // Method to determine the maximum results to return for each method
-    getMaxMethodResults(method){
-        // Define array of methods and the max results for each method
-        let methods = {
-            getBalances: 500,
-            getHolders:  500
-        }
-        // Use defined method max or default max of 100
-        let max = (this.util.isInteger(methods[method])) ? methods[method] : 100;
-        return max;
-    }
-
     // Handle building out WHERE sql based on the config
     // Note: we do this in a single function to reduce duplicated code
-    getQueryWhereSql(config){
+    async getQueryWhereSql(config){
         let sql    = `m.action_index IS NOT NULL`;
         let type   = config.data.type;
         let method = config.data.method;
         // Force SQL and type on certain methods which do not have the action_index field
         if(['getBalances','getHolders'].includes(method))
             sql  = `m.address_id IS NOT NULL`;
-        // if(method=='getBalances')
-        //     type = 'address'
-        // if(method=='getHolders')
-        //     type = 'token'
-
         // Handle queries for specific types of data types 
         if(type=='address'){
             if(['getMessages','getMints','getOrders','getSends','getSweeps'].includes(method)){
@@ -257,27 +235,35 @@ class Database {
         if(type=='source')
             sql += ' AND a2.address=?';
         if(type=='token'){
-            if(['getOrders'].includes(method)){
+            if(['getOrders','getSwaps','getDispensers'].includes(method)){
                 sql += ' AND (t3.tick=? OR t4.tick=?)';
             } else {
                 sql += ' AND t3.tick=?';
             }
         }
-        // TODO: standardize the fields
-        // if(config.type=='explorer')
-        //     sql += this.getQueryOffsetSql(config);
+        // Add any offset logic to the sql query for explorer requests
+        if(config.type=='explorer')
+            sql += await this.getQueryOffsetSql(config);
         return sql;
     }
 
-    // Handle getting basic WHERE query which uses offset data (if given)
+
+    /******************************************************************
+     * Explorer Paging / Offset specific code
+     *****************************************************************/
+
+    // Handle getting basic WHERE query which uses offset (if given)
     // Note: table `m` is a universal reference to the main action table
-    getQueryOffsetSql(config){
+    async getQueryOffsetSql(config){
         let offset = (config.data.offset) ? config.data.offset : false;
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
-        let value  = (offset && !this.util.isNull(offset.value) && this.util.isNumeric(offset.value))  ? offset.value : false;
+        let value  = (offset && !this.util.isNull(offset.value) && this.util.isNumeric(offset.value)) ? offset.value : false;
         let sql    = '';
+        // If we don't have an offset given, try to get one
+        if(!value)
+            value = await this.getQueryOffset(config);
         // Use the offset if given
-        if(offset && action && value){
+        if(action && value){
             if(action=='prev'){
                 sql = ' AND m.action_index > ' + value;
             } else {
@@ -285,6 +271,100 @@ class Database {
             }
         }
         return sql;
+    }
+
+    // Handle trying to get an offset value using the action table
+    async getQueryOffset(config){
+        let value  = false;
+        let method = config.data.method;
+        let type   = config.data.type;
+        let offset = (config.data.offset) ? config.data.offset : false;
+        let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
+        let q      = (config.data.query) ? config.data.query : false;
+        let table  = false;
+        let sql    = false;
+        let args   = false;
+        let rows   = false;
+        let id     = false;
+        let where  = '';
+        let limit  = 1;
+        let order  = 'DESC';
+        // Lookup id for address and tickers
+        if(['address','token'].includes(type)){
+            if(type=='address') 
+                sql = `SELECT id FROM index_addresses WHERE address=? LIMIT 1`;
+            if(type=='token') 
+                sql = `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`;
+            if(sql){
+                rows = await this.doQuery(config, sql, [config.data.search]);
+                if(rows.length>0)
+                    id = Number(rows[0].id);
+            }
+            // Build out where SQL 
+            if(type=='address'){
+                if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
+                    where = ` AND (source_id=` + id + ` OR destination_id=` + id + `)`;
+                } else {
+                    where = ` AND source_id=` + id;
+                }
+            } else if(type=='token'){
+                if(['getOrders','getSwaps'].includes(method)){
+                    where = ` AND (get_tick_id=` + id + ` OR give_tick_id=` + id + `)`;
+                } else {
+                    where = ` AND tick_id=` + id;
+                }
+            } 
+        }
+        // Lookup offset for first and last page requests
+        if(['first','last'].includes(action)){
+            // Get offset for first page requests
+            if(action=='first')
+                order = 'DESC';
+            // Get offset for last page requests
+            if(action=='last'){
+                order = 'ASC';
+                // Determine how many results are on last page using total / length
+                if(q.total)
+                    limit = (q.total % q.length) + 1
+                if(limit==1)
+                    limit = q.length + 1;
+            }
+            // Translate method into table
+            table = String(method).toLowerCase().replace('get','');
+            // Build out SQL to get offset info
+            sql = `SELECT 
+                        action_index as offset
+                    FROM
+                        ` + table + `
+                    WHERE 
+                        action_index IS NOT NULL
+                        ` + where + `
+                    ORDER BY action_index ` + order + ` 
+                    LIMIT ` + limit;
+            // Run Query to try and get offset information 
+            rows = await this.doQuery(config, sql);
+            if(rows.length>0){
+                for(let row of rows){
+                    value = Number(row.offset);
+                    // Increase offset by 1, so latest results are returned
+                    if(action=='first')
+                        value++;
+                }
+            }
+        }
+        return value;
+    }
+
+    // Method to determine the maximum results to return for each method
+    getMaxMethodResults(method){
+        // Define array of methods and the max results for each method
+        let methods = {
+            getBalances: 500,
+            getHolders:  500
+        }
+        // Use defined method max or default max of 100
+        let max = (this.util.isInteger(methods[method])) ? methods[method] : 100;
+        return max;
     }
 
     /******************************************************************
@@ -353,7 +433,6 @@ class Database {
      * /{COIN}/explorer/sleeps/{QUERY}/{TYPE}        getSleeps       block, address, token
      * /{COIN}/explorer/swaps/{QUERY}/{TYPE}         getSwaps        block, address, token
      * /{COIN}/explorer/sweeps/{QUERY}/{TYPE}        getSweeps       block, address
-
      ******************************************************************/
 
     // Get list of ADDRESS actions
@@ -1668,7 +1747,7 @@ class Database {
                         INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
                     WHERE ` + sql.where + `
-                    ORDER BY t3.tick ` + sql.order + `
+                    ORDER BY m.amount ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -1771,38 +1850,6 @@ class Database {
         }
         return [data];
     }
-
-    /******************************************************************
-     * XChain Explorer Endpoints
-     * 
-     * Endpoints                                     Method Name             Types
-     * -----------------------------------------------------------------
-     * /{COIN}/explorer/addresses/{QUERY}/{TYPE}     getAddresses    block, address
-     * /{COIN}/explorer/airdrops/{QUERY}/{TYPE}      getAirdrops     block, address, token
-     * /{COIN}/explorer/batches/{QUERY}/{TYPE}       getBatches      block, address
-     * /{COIN}/explorer/broadcasts/{QUERY}/{TYPE}    getBroadcasts   block, address
-     * /{COIN}/explorer/callbacks/{QUERY}/{TYPE}     getCallbacks    block, address, token
-     * /{COIN}/explorer/credits/{QUERY}/{TYPE}       getCredits      block, address
-     * /{COIN}/explorer/debits/{QUERY}/{TYPE}        getDebits       block, address
-     * /{COIN}/explorer/destroys/{QUERY}/{TYPE}      getDestroys     block, address, token
-     * /{COIN}/explorer/dispensers/{QUERY}/{TYPE}    getDispensers   block, address, token
-     * /{COIN}/explorer/dispenses/{QUERY}/{TYPE}     getDispenses    block, address, token
-     * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
-     * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
-     * /{COIN}/explorer/holders/{QUERY}              getHolders      token
-     * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
-     * /{COIN}/explorer/links/{QUERY}/{TYPE}         getLinks        block, address, token
-     * /{COIN}/explorer/lists/{QUERY}/{TYPE}         getLists        block, address
-     * /{COIN}/explorer/messages/{QUERY}/{TYPE}      getMessages     block, address
-     * /{COIN}/explorer/mints/{QUERY}/{TYPE}         getMints        block, address, token
-     * /{COIN}/explorer/orders/{QUERY}/{TYPE}        getOrders       block, address, token
-     * /{COIN}/explorer/sends/{QUERY}/{TYPE}         getSends        block, address, token
-     * /{COIN}/explorer/sleeps/{QUERY}/{TYPE}        getSleeps       block, address, token
-     * /{COIN}/explorer/swaps/{QUERY}/{TYPE}         getSwaps        block, address, token
-     * /{COIN}/explorer/sweeps/{QUERY}/{TYPE}        getSweeps       block, address
-     ******************************************************************/
-
-
 
     /******************************************************************
      * Commonly used functions 

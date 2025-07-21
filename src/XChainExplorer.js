@@ -315,6 +315,9 @@ class XChainExplorer {
                     json.total = total;
                 // Return total number of records found in format that datatables expects (https://datatables.net/manual/server-side#Returned-data)
                 if(cfg.type=='explorer'){
+                    // If a total number of records was passed in the request, use it as total
+                    if(cfg.data.query.total)
+                        total = cfg.data.query.total
                     json.recordsTotal    = total;
                     json.recordsFiltered = total;
                 }
@@ -415,7 +418,7 @@ class XChainExplorer {
 
         // DEBUG INFO
         console.log('path=',req.path);
-        console.log('query=',req.query);
+        // console.log('query=',req.query);
         console.log('cfg=',cfg);
         // console.log('data=',data);
     }
@@ -447,32 +450,29 @@ class XChainExplorer {
 
         // Placeholder for the results we will actually show
         let show          = [];
-        let cnt           = 0;
+        let cnt           = (offset) ? start : 0;
         let count         = 0;
         let count_reverse = 0;
-
-        // if(action=='last'){
-        //     limit = total - start;
-        //     console.log('limit=',limit);
-        // }
 
         // Loop through data and determine what to return to use
         for(let idx in data){
             cnt++;
+            idx++;
+
             let method = cfg.data.method;
 
             // Keep track of display count separate from actual count
             count = cnt;
 
             // Tweak count since we reverse results in some cases
-            // if(['prev','last'].includes(action))
-            //     count = start + (data.length - (idx - 1));
+            if(['prev','last'].includes(action))
+                count = this.util.bcadd(start,this.util.bcsub(data.length, this.util.bcsub(idx, 1)),0);
 
             // Stash the reverse count since latest is first in most cases
-            count_reverse = this.util.bcsub(total,(count-1),0);
+            count_reverse = this.util.bcsub(total,this.util.bcsub(count, 1),0);
 
             if((cnt > start && cnt <= limit) || offset || action=='last'){
-                let info   = data[idx];
+                let info   = data[idx-1];
                 // For Explorer requests, pass array of fields in specific order
                 if(type=='explorer'){
                     let status = (info.status=='valid') ? 1 : 0; // 1=valid, 2=invalid
@@ -541,6 +541,11 @@ class XChainExplorer {
 
             }
         }
+
+        // Reverse the results if action is previous or last
+        if(['prev','last'].includes(action))
+            show = show.reverse();
+
         return show;
     }
 }

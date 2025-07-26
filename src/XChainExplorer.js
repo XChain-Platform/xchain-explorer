@@ -182,7 +182,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'      : ['getSends',      ['block', 'address', 'token']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'     : ['getSleeps',     ['block', 'address', 'token']],
                 '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'      : ['getSwaps',      ['block', 'address', 'token']],
-                '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'     : ['getSweeps',     ['block', 'address']]
+                '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'     : ['getSweeps',     ['block', 'address']],
+                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'     : ['getTokens',     ['block', 'address']]
             }
         };
 
@@ -506,10 +507,10 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.callback_tick, info.callback_amount, status, info.action_index];
                     if(method=='getDestroys')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.callback_amount, info.memo, status, info.action_index];
-                    // if(method=='getDispensers')
-                    //     // TODO
-                    // if(method=='getDispenses')
-                    //     // TODO
+                    if(method=='getDispensers')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispense_tick, info.dispense_amount, info.trigger_tick, info.trigger_amount, status, info.action_index];
+                    if(method=='getDispenses')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispense_tick, info.dispense_amount, info.trigger_tick, info.trigger_amount, status, info.action_index];
                     if(method=='getDividends')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.dividend_tick, info.amount, status, info.action_index];
                     if(method=='getFiles')
@@ -534,6 +535,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index];
                     if(method=='getSweeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownership, status, info.action_index];
+                    if(method=='getTokens')
+                        info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.id];
 
                 }
                 // Add data to the response array

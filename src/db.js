@@ -222,7 +222,7 @@ class Database {
             sql  = `m.address_id IS NOT NULL`;
         // Handle queries for specific types of data types 
         if(type=='address'){
-            if(['getMessages','getMints','getOrders','getSends','getSweeps'].includes(method)){
+            if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
                 sql += ' AND (a2.address=? OR a3.address=?)';
             } else {
                 sql += ' AND a2.address=?';
@@ -255,6 +255,7 @@ class Database {
     // Handle getting basic WHERE query which uses offset (if given)
     // Note: table `m` is a universal reference to the main action table
     async getQueryOffsetSql(config){
+        let method = config.data.method;
         let offset = (config.data.offset) ? config.data.offset : false;
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
         let value  = (offset && !this.util.isNull(offset.value) && this.util.isNumeric(offset.value)) ? offset.value : false;
@@ -265,9 +266,21 @@ class Database {
         // Use the offset if given
         if(action && value){
             if(action=='prev'){
-                sql = ' AND m.action_index > ' + value;
+                if(method=='getBlocks'){
+                    sql = ' AND m.block_index > ' + value;
+                } else if(method=='getTokens'){
+                    sql = ' AND m.id > ' + value;
+                } else {
+                    sql = ' AND m.action_index > ' + value;
+                }
             } else {
-                sql = ' AND m.action_index < ' + value;
+                if(method=='getBlocks'){
+                    sql = ' AND m.block_index < ' + value;
+                } else if(method=='getTokens'){
+                    sql = ' AND m.id < ' + value;
+                } else {
+                    sql = ' AND m.action_index < ' + value;
+                }
             }
         }
         return sql;
@@ -384,8 +397,8 @@ class Database {
      * /{COIN}/api/broadcasts/{QUERY}/{TYPE}      getBroadcasts    block, address
      * /{COIN}/api/callbacks/{QUERY}/{TYPE}       getCallbacks     block, address, token
      * /{COIN}/api/destroys/{QUERY}/{TYPE}        getDestroys      block, address, token
-     * /{COIN}/api/dispensers/{QUERY}/{TYPE}      getDispensers    block, address, token
-     * /{COIN}/api/dispenses/{QUERY}/{TYPE}       getDispenses     block, address, token
+     * /{COIN}/api/dispensers/{QUERY}/{TYPE}      getDispensers    block, address, token, source, destination
+     * /{COIN}/api/dispenses/{QUERY}/{TYPE}       getDispenses     block, address, token, source, destination
      * /{COIN}/api/files/{QUERY}/{TYPE}           getFiles         block, address
      * /{COIN}/api/issues/{QUERY}/{TYPE}          getIssues        block, address, token
      * /{COIN}/api/links/{QUERY}/{TYPE}           getLinks         block, address
@@ -433,6 +446,7 @@ class Database {
      * /{COIN}/explorer/sleeps/{QUERY}/{TYPE}        getSleeps       block, address, token
      * /{COIN}/explorer/swaps/{QUERY}/{TYPE}         getSwaps        block, address, token
      * /{COIN}/explorer/sweeps/{QUERY}/{TYPE}        getSweeps       block, address
+     * /{COIN}/explorer/tokens/{QUERY}/{TYPE}        getTokens       block, address
      ******************************************************************/
 
     // Get list of ADDRESS actions
@@ -689,13 +703,110 @@ class Database {
     }
 
     // Get list of DISPENSER actions
+    // TODO: Circle back and update this SQL to pull all fields once dispensers are implemented in indexer
     async getDispensers(config){
-        // TODO
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        // Support searching by both source or dispenser address
+        if(config.data.type=='address')
+            args.push(config.data.search);
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        dispensers m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.address_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.dispense_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                    WHERE ` + sql.where;
+        let query = `SELECT
+                        m.action_index,
+                        a2.address as source,
+                        a3.address as address,
+                        t3.tick as dispense_tick,
+                        m.dispense_amount,
+                        t4.tick as trigger_tick,
+                        m.trigger_amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m1.memo,
+                        s1.status
+                    FROM
+                        dispensers m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.address_id)
+                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.dispense_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
     }
 
     // Get list of DISPENSE actions
+    // TODO: Circle back and update this SQL to pull all fields once dispenses are implemented in indexer
     async getDispenses(config){
-        // TODO
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        // Support searching by both source or dispenser address
+        if(config.data.type=='address')
+            args.push(config.data.search);
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        dispenses m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                    WHERE ` + sql.where;
+        let query = `SELECT
+                        m.action_index,
+                        a2.address as source,
+                        a3.address as destination,
+                        t3.tick as dispense_tick,
+                        m.amount as dispense_amount,
+                        t4.tick as trigger_tick,
+                        m.trigger_amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        dispenses m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
     }
 
     // Get list of DIVIDEND actions
@@ -1503,7 +1614,7 @@ class Database {
     }
 
     // Get list of SWEEP actions
-    async getSweeps(config, limit){
+    async getSweeps(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
         // Support searching by both source or destination address
@@ -1546,6 +1657,53 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where + `
                     ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    } 
+
+    // Get list of tokens
+    async getTokens(config){
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        tokens m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.owner_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                    WHERE ` + sql.where;
+        let query = `SELECT
+                        m.id,
+                        t3.tick,
+                        m.supply,
+                        m.max_supply,
+                        m.max_mint,
+                        m.decimals,
+                        m.lock_max_supply,
+                        m.lock_mint,
+                        m.lock_mint_supply,
+                        m.lock_max_mint,
+                        m.lock_description,
+                        m.lock_rug,
+                        m.lock_sleep,
+                        m.lock_callback,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index
+                    FROM
+                        tokens m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.owner_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where + `
+                    ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
     } 

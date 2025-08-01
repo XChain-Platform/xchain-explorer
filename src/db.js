@@ -220,25 +220,28 @@ class Database {
         // Force SQL and type on certain methods which do not have the action_index field
         if(['getBalances','getHolders'].includes(method))
             sql  = `m.address_id IS NOT NULL`;
-        // Handle queries for specific types of data types 
-        if(type=='address'){
-            if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
-                sql += ' AND (a2.address=? OR a3.address=?)';
-            } else {
-                sql += ' AND a2.address=?';
+        // Note getHistory handles generating its own WHERE sql
+        if(method!='getHistory'){
+            // Handle queries for specific types of data types 
+            if(type=='address'){
+                if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
+                    sql += ' AND (a2.address=? OR a3.address=?)';
+                } else {
+                    sql += ' AND a2.address=?';
+                }
             }
-        }
-        if(type=='block')
-            sql += ' AND b1.block_index=?';
-        if(type=='destination')
-            sql += ' AND a3.address=?';
-        if(type=='source')
-            sql += ' AND a2.address=?';
-        if(type=='token'){
-            if(['getOrders','getSwaps','getDispensers'].includes(method)){
-                sql += ' AND (t3.tick=? OR t4.tick=?)';
-            } else {
-                sql += ' AND t3.tick=?';
+            if(type=='block')
+                sql += ' AND b1.block_index=?';
+            if(type=='destination')
+                sql += ' AND a3.address=?';
+            if(type=='source')
+                sql += ' AND a2.address=?';
+            if(type=='token'){
+                if(['getOrders','getSwaps'].includes(method)){
+                    sql += ' AND (t3.tick=? OR t4.tick=?)';
+                } else {
+                    sql += ' AND t3.tick=?';
+                }
             }
         }
         // Add any offset logic to the sql query for explorer requests
@@ -263,7 +266,8 @@ class Database {
         // If we don't have an offset given, try to get one
         if(!value)
             value = await this.getQueryOffset(config);
-        // Use the offset if given
+        // TODO: Add code to lookup end offset values to speed up queries (get records between X and Y values)
+        // right now speed is too slow due to looking up too many values (getting all records lower or higher than X)
         if(action && value){
             if(action=='prev'){
                 if(method=='getBlocks'){
@@ -344,6 +348,9 @@ class Database {
             }
             // Translate method into table
             table = String(method).toLowerCase().replace('get','');
+            // Tweak table in the case of getting full history
+            if(method=='getHistory')
+                table='actions';
             // Build out SQL to get offset info
             sql = `SELECT 
                         action_index as offset
@@ -436,6 +443,7 @@ class Database {
      * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
      * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
      * /{COIN}/explorer/holders/{QUERY}              getHolders      token
+     * /{COIN}/explorer/history/{QUERY}/{TYPE}       getHistory      block, recent
      * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
      * /{COIN}/explorer/links/{QUERY}/{TYPE}         getLinks        block, address, token
      * /{COIN}/explorer/lists/{QUERY}/{TYPE}         getLists        block, address
@@ -718,21 +726,25 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.address_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.dispense_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
                     WHERE ` + sql.where;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
                         a3.address as address,
-                        t3.tick as dispense_tick,
-                        m.dispense_amount,
-                        t4.tick as trigger_tick,
-                        m.trigger_amount,
+                        c1.coin as give_coin,
+                        t3.tick as give_tick,
+                        m.give_amount,
+                        c2.coin as get_coin,
+                        t4.tick as get_tick,
+                        m.get_amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -745,12 +757,14 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.address_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.dispense_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
                     WHERE ` + sql.where + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -773,20 +787,24 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
                     WHERE ` + sql.where;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
-                        a3.address as destination,
-                        t3.tick as dispense_tick,
-                        m.amount as dispense_amount,
-                        t4.tick as trigger_tick,
-                        m.trigger_amount,
+                        a3.address as address,
+                        c1.coin as give_coin,
+                        t3.tick as give_tick,
+                        m.give_amount,
+                        c2.coin as get_coin,
+                        t4.tick as get_tick,
+                        m.get_amount,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -798,11 +816,13 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t3.id=m.trigger_tick_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
                     WHERE ` + sql.where + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1719,7 +1739,7 @@ class Database {
      * /{COIN}/api/credits/{QUERY}/{TYPE}   getCredits      block, address
      * /{COIN}/api/debits/{QUERY}/{TYPE}    getDebits       block, address
      * /{COIN}/api/escrows/{QUERY}/{TYPE}   getEscrows      block, address
-     * /{COIN}/api/history/{QUERY}/{TYPE}   getHistory      address
+     * /{COIN}/api/history/{QUERY}/{TYPE}   getHistory      block, address, token
      * /{COIN}/api/holders/{QUERY}/{TYPE}   getHolders      token
      * /{COIN}/api/mempool/{QUERY}/{TYPE}   getMempool      address, token,
      * /{COIN}/api/network                  getNetwork
@@ -1883,7 +1903,7 @@ class Database {
 
     // Get history information for a given address
     async getHistory(config){
-        let [data, count] = await this.getHistoryData(config, config.data.search, limit);
+        let [data, count] = await this.getHistoryData(config);
         return [data, null, count];
     }
 
@@ -2087,8 +2107,8 @@ class Database {
                         LIMIT 1`;
                 // Credits
                 query2 = `SELECT
-                            a2.address,
-                            t2.tick,
+                            a1.address,
+                            t1.tick,
                             c1.amount
                         FROM
                             credits c1
@@ -2098,14 +2118,13 @@ class Database {
                             c1.action_index=? AND
                             c1.amount=?
                         ORDER BY 
-                            a2.address ASC`;
+                            a1.address ASC`;
             }
             // BATCH action
             if(type=='BATCH'){
                 query1 = `SELECT
                             a3.action,
                             b1.action_index,
-                            a2.tx_index,
                             a4.address as source,
                             b2.block_index,
                             b2.block_time as timestamp,
@@ -3235,17 +3254,32 @@ class Database {
         let query = `SELECT
                         id
                     FROM
-                        index_addresses a1
+                        index_addresses
                     WHERE
-                        a1.address=?
+                        address=?
                     LIMIT 1`
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
         return id;
-
     }
 
+    // Get tick id for a given token
+    async getTickId(config, tick){
+        let id    = null;
+        let args  = [tick];
+        let query = `SELECT
+                        id
+                    FROM
+                        index_tickers
+                    WHERE
+                        tick=?
+                    LIMIT 1`
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length)
+            id = results[0].id;
+        return id;
+    }
     // Get action type for a given action_index
     async getActionType(config, action_index){
         let type = null;
@@ -3310,11 +3344,25 @@ class Database {
     }
 
     // Get history information for a given address
-    // TODO: Add support for looking up actions where given address is destination (ie as send where address is destination not source)
-    async getHistoryData(config, address, limit){
-        let address_id = await this.getAddressId(config, address);
-        let history    = [];
-        let total      = 0;
+    // NOTE: Supports following search types ('block', 'address', 'token', 'recent')
+    async getHistoryData(config){
+        console.log('getHistoryData config=',config);
+        let sql     = config.data.sql;
+        let type    = config.data.type;
+        let q       = config.data.query;
+        let offset  = (config.data.offset) ? config.data.offset : false;
+        let action  = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
+        let value   = (offset && !this.util.isNull(offset.value) && this.util.isNumeric(offset.value)) ? offset.value : false;
+        let limit   = sql.limit;
+        let total   = 0;
+        let id      = 0;
+        let history = [];
+        let results = null;
+        // Get any IDs based on the query type
+        if(type=='address')
+            id = await this.getAddressId(config, config.data.search);
+        if(type=='token')
+            id = await this.getTickId(config, config.data.search);
         // Define list of action tables to pull action_indexes from
         let tables = [
             'addresses',
@@ -3344,48 +3392,90 @@ class Database {
             'swap_matches',
             'sweeps'
         ];
-        if(address_id){
-            let args  = [address_id];
-            let query = null;
-            for(let table of tables){
+        // console.log('getHistoryData config=',config);
+        for(let table of tables){
+            // Parse in the SQL config data
+            let where = sql.where
+            let args  = [];
+            // Build out the correct WHERE sql based on the search type
+            if(type=='address'){
+                where += ' AND m.source_id=?';
+                args = [id];
+            }
+            if(type=='block'){
+                where += ' AND b1.block_index=?';
+                args = [config.data.search];
+            }
+            if(type=='token'){
+                if(['dispensers','dispenses','orders','swaps'].includes(table)){
+                    where += ' AND (m.give_tick_id=? OR m.get_tick_id=?)';
+                    args = [id,id];
+            } else {
+                    where += ' AND m.tick_id=?';
+                    args = [id];
+                }
+            }
+            // Handle skipping certain tables for certain query types
+            // TODO : Revisit this code and see if it can be cleaned up to dump more data
+            let skip = false;
+            if(type=='token' && ['addresses','batches','broadcasts','files','links','lists','messages','order_cancels','order_edits','order_matches','swap_cancels','swap_edits','swap_matches', 'sweeps'].includes(table))
+                skip = true;
+            if(type=='address' && ['order_matches','swap_matches'].includes(table))
+                skip = true;
+            if(skip)
+                continue;
+            // If we have a total passed on the querystring, then skip getting total count (speed up explorer queries)            
+            if(q && q.total){
+                total = q.total;
+            } else {
                 // Get total number of matching records for this type of action and add to grand total
                 let count = `SELECT
                                 count(*) as count
                             FROM
-                                ` + table + ` m1
-                                INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                                ` + table + ` m
+                                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                                 INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                                 INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                                 INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                                INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                                INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                                 INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            WHERE 
-                                m1.source_id=?`;
-                let results = await this.doQuery(config, count, args);
+                            WHERE ` + where;
+                console.log('count=',count);
+                results = await this.doQuery(config, count, args);
                 if(results && results.length)
-                    total = this.util.bcadd(total, results[0].count, 0)
-                // Get basic action data for the given address
+                    total = this.util.bcadd(total, results[0].count, 0);
+            }
+            // If we have offset value and action, use it to speed up SQL query by pulling less data
+            if(action && value){
+                if(action=='prev'){
+                    where += ' AND m.action_index < ' + (value + 100);
+                } else {
+                    where += ' AND m.action_index > ' + (value - 100);
+                }
+            }
+            // If we have any records, then run the SQL query to pull the data
+            if(total){
+                // Get basic action data
                 let query = `SELECT
                                 a2.action, 
-                                m1.action_index,
+                                m.action_index,
                                 b1.block_index,
                                 b1.block_time as timestamp,
                                 t2.hash as tx_hash,
                                 t1.tx_index,
                                 s1.status
                             FROM
-                                ` + table + ` m1
-                                INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
+                                ` + table + ` m
+                                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                                 INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                                 INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                                 INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                                INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                                INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                                 INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            WHERE 
-                                m1.source_id=?
-                            ORDER BY 
-                                m1.action_index ` + config.data.order + `
-                            LIMIT ` + limit;
+                            WHERE ` + where + `
+                            ORDER BY m.action_index ` + sql.order + `
+                            LIMIT ` + sql.limit;
+                // console.log('query=',query);
                 results = await this.doQuery(config, query, args);
                 if(results && results.length){
                     for(let row of results){
@@ -3400,7 +3490,7 @@ class Database {
         // Convert history object (assoc array) back to normal array
         history = Object.values(history);
         // Sort the history data by action_index in descending order (if that is given sort order)
-        if(config.data.order=='DESC')
+        if(sql.order=='DESC')
             history = history.reverse();
         // Limit the history data to the correct LIMIT amount (we selected limit from each table, so prolly got way more history than we need)
         // Note: We do this now, so that we don't waste a bunch of time doing unnecessary getActionData() calls for records we will never show
@@ -3417,7 +3507,9 @@ class Database {
         let detailFields = ['tick', 'callback_tick', 'give_tick', 'get_tick', 'amount', 'destination', 'give_amount', 'get_amount', 'name', 'title', 'type'];
         // Lookup extended information on the action_index
         for(let item of history){
+            // console.log('item=',item);
             let info    = await this.getActionData(config, item.action_index);
+            // console.log('info=',info);
             let details = false;
             for(let name of detailFields){
                 if(info[name]){
@@ -3433,8 +3525,6 @@ class Database {
         let data = history;
         return [data, total];
     }
-
-
 
 }
 

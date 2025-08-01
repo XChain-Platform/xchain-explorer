@@ -122,8 +122,8 @@ class XChainExplorer {
                 '/{COIN}/api/callbacks/{QUERY}/{TYPE}'     : ['getCallbacks',    ['block', 'address', 'token']],
                 '/{COIN}/api/destroys/{QUERY}/{TYPE}'      : ['getDestroys',     ['block', 'address', 'token']],
                 '/{COIN}/api/dividends/{QUERY}/{TYPE}'     : ['getDividends',    ['block', 'address', 'token']],
-                '/{COIN}/api/dispensers/{QUERY}/{TYPE}'    : ['getDispensers',   ['block', 'address', 'token']],
-                '/{COIN}/api/dispenses/{QUERY}/{TYPE}'     : ['getDispenses',    ['block', 'address', 'token']],
+                '/{COIN}/api/dispensers/{QUERY}/{TYPE}'    : ['getDispensers',   ['block', 'address', 'source', 'destination', 'token']],
+                '/{COIN}/api/dispenses/{QUERY}/{TYPE}'     : ['getDispenses',    ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/files/{QUERY}/{TYPE}'         : ['getFiles',        ['block', 'address']],
                 '/{COIN}/api/issues/{QUERY}/{TYPE}'        : ['getIssues',       ['block', 'address', 'token']],
                 '/{COIN}/api/links/{QUERY}/{TYPE}'         : ['getLinks',        ['block', 'address']],
@@ -148,7 +148,7 @@ class XChainExplorer {
                 '/{COIN}/api/credits/{QUERY}/{TYPE}'       : ['getCredits',      ['block', 'address']],
                 '/{COIN}/api/debits/{QUERY}/{TYPE}'        : ['getDebits',       ['block', 'address']], 
                 '/{COIN}/api/escrows/{QUERY}/{TYPE}'       : ['getEscrows',      ['block', 'address']],
-                '/{COIN}/api/history/{QUERY}'              : ['getHistory',      'address'],
+                '/{COIN}/api/history/{QUERY}/{TYPE}'       : ['getHistory',      ['block', 'address', 'token']],
                 '/{COIN}/api/holders/{QUERY}'              : ['getHolders',      'token'],
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'       : ['getMempool',      ['address', 'token']],
                 '/{COIN}/api/network'                      : ['getNetwork'],
@@ -173,6 +173,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'    : ['getEscrows',    ['block', 'address']],
                 '/{COIN}/explorer/files/{QUERY}/{TYPE}'      : ['getFiles',      ['block', 'address']],
                 '/{COIN}/explorer/holders/{QUERY}'           : ['getHolders',    'token'],
+                '/{COIN}/explorer/history/{QUERY}/{TYPE}'    : ['getHistory',    ['block', 'recent']],
                 '/{COIN}/explorer/issues/{QUERY}/{TYPE}'     : ['getIssues',     ['block', 'address', 'token']],
                 '/{COIN}/explorer/links/{QUERY}/{TYPE}'      : ['getLinks',      ['block', 'address', 'token']],
                 '/{COIN}/explorer/lists/{QUERY}/{TYPE}'      : ['getLists',      ['block', 'address']],
@@ -515,6 +516,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.dividend_tick, info.amount, status, info.action_index];
                     if(method=='getFiles')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, status, info.action_index];
+                    if(method=='getHistory')
+                        info = [count_reverse, info.block_index, info.timestamp, info.action, info.details, status, info.action_index];
                     if(method=='getIssues')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.max_supply, info.max_mint, locks, status, info.action_index];
                     if(method=='getLinks')

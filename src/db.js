@@ -169,25 +169,25 @@ class Database {
             let start  = (q.start) ? q.start : 0;
             let length = (q.length) ? q.length : 10;
             let action = (q.action) ? q.action : false;
-            // if no offset is given, try to get one (speeds up sql queries)
-            if(offset==false)
-                offset = await this.getQueryOffset(config);
-            if(offset)
-                config.data.offset.value = offset;
-            // If an offset value is specified, or this is the last page, change limit to length
-            if(offset || action=='last')
-                limit = length;
+            // Set limit to the length
+            limit = length;
             // Limit results to 100 max (except in special cases where we can not use an offset)
             if(limit > max)
                 limit = max;
             // Tweak the limit on the last page
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
+            // Set the order to ascending for previous and last requests
             if(['prev','last'].includes(action))
                 order = 'ASC';
+            // Get the SQL query offset data (speeds up sql queries)
+            let [offset1, offset2] = await this.getQueryOffsets(config, offset, limit);
+            config.data.offset.start = offset1;
+            config.data.offset.stop  = offset2;
+            config.data.sql.where.offset = await this.getQueryOffsetSql(config);
         }
         // Save the SQL query data in the config object
-        config.data.sql.where = await this.getQueryWhereSql(config);
+        config.data.sql.where.data = await this.getQueryWhereSql(config);
         config.data.sql.order = order
         config.data.sql.limit = limit;
         // Get the SQL query and list of arguments
@@ -214,6 +214,7 @@ class Database {
     // Handle building out WHERE sql based on the config
     // Note: we do this in a single function to reduce duplicated code
     async getQueryWhereSql(config){
+        // console.log('getQueryWhereSql config=',config);
         let sql    = `m.action_index IS NOT NULL`;
         let type   = config.data.type;
         let method = config.data.method;
@@ -244,9 +245,6 @@ class Database {
                 }
             }
         }
-        // Add any offset logic to the sql query for explorer requests
-        if(config.type=='explorer')
-            sql += await this.getQueryOffsetSql(config);
         return sql;
     }
 
@@ -255,44 +253,45 @@ class Database {
      * Explorer Paging / Offset specific code
      *****************************************************************/
 
-    // Handle getting basic WHERE query which uses offset (if given)
+    // Handle getting basic WHERE query which uses offset values to speed up queries
     // Note: table `m` is a universal reference to the main action table
     async getQueryOffsetSql(config){
+        // console.log('getQueryOffsetSql config=',config)
         let method = config.data.method;
         let offset = (config.data.offset) ? config.data.offset : false;
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
-        let value  = (offset && !this.util.isNull(offset.value) && this.util.isNumeric(offset.value)) ? offset.value : false;
+        let start  = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? offset.start : false;
+        let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? offset.stop : false;
         let sql    = '';
-        // If we don't have an offset given, try to get one
-        if(!value)
-            value = await this.getQueryOffset(config);
-        // TODO: Add code to lookup end offset values to speed up queries (get records between X and Y values)
-        // right now speed is too slow due to looking up too many values (getting all records lower or higher than X)
-        if(action && value){
+        if(action && start){
             if(action=='prev'){
                 if(method=='getBlocks'){
-                    sql = ' AND m.block_index > ' + value;
+                    sql = ' AND m.block_index > ' + start;
                 } else if(method=='getTokens'){
-                    sql = ' AND m.id > ' + value;
+                    sql = ' AND m.id > ' + start;
                 } else {
-                    sql = ' AND m.action_index > ' + value;
+                    sql = ' AND m.action_index > ' + start;
+                    if(stop)
+                        sql += ' AND m.action_index < ' + stop;
                 }
             } else {
                 if(method=='getBlocks'){
-                    sql = ' AND m.block_index < ' + value;
+                    sql = ' AND m.block_index < ' + start;
                 } else if(method=='getTokens'){
-                    sql = ' AND m.id < ' + value;
+                    sql = ' AND m.id < ' + start;
                 } else {
-                    sql = ' AND m.action_index < ' + value;
+                    sql = ' AND m.action_index < ' + start;
+                    if(stop)
+                        sql += ' AND m.action_index > ' + stop;
                 }
             }
         }
         return sql;
     }
 
-    // Handle trying to get an offset value using the action table
-    async getQueryOffset(config){
-        let value  = false;
+    // Handle getting query offset values using the action table
+    async getQueryOffsets(config, offset1, length){
+        let offset2  = false;
         let method = config.data.method;
         let type   = config.data.type;
         let offset = (config.data.offset) ? config.data.offset : false;
@@ -332,7 +331,12 @@ class Database {
                 }
             } 
         }
-        // Lookup offset for first and last page requests
+        // Translate method into table
+        table = String(method).toLowerCase().replace('get','');
+        // Tweak table in the case of getting full history
+        if(method=='getHistory')
+            table='actions';
+        // Lookup start offset for first and last page requests
         if(['first','last'].includes(action)){
             // Get offset for first page requests
             if(action=='first')
@@ -342,16 +346,11 @@ class Database {
                 order = 'ASC';
                 // Determine how many results are on last page using total / length
                 if(q.total)
-                    limit = (q.total % q.length) + 1
+                    limit = this.util.bcadd(this.util.bcdiv(q.total,q.length),1);
                 if(limit==1)
-                    limit = q.length + 1;
+                    limit = this.util.bcadd(q.length,1);
             }
-            // Translate method into table
-            table = String(method).toLowerCase().replace('get','');
-            // Tweak table in the case of getting full history
-            if(method=='getHistory')
-                table='actions';
-            // Build out SQL to get offset info
+            // Build out SQL to get start offset
             sql = `SELECT 
                         action_index as offset
                     FROM
@@ -365,14 +364,44 @@ class Database {
             rows = await this.doQuery(config, sql);
             if(rows.length>0){
                 for(let row of rows){
-                    value = Number(row.offset);
+                    offset1 = Number(row.offset);
                     // Increase offset by 1, so latest results are returned
                     if(action=='first')
-                        value++;
+                        offset1++;
                 }
             }
         }
-        return value;
+        // Lookup stop offset
+        if(offset1 && method!='getHistory'){
+            limit = this.util.bcadd(length,1);
+            order = 'DESC';
+            // If we have offset value and action, use it to speed up SQL query by pulling less data
+            if(action && offset1){
+                if(action=='prev'){
+                    where += ' AND action_index > ' + offset1;
+                } else {
+                    where += ' AND action_index < ' + offset1;
+                }
+            }
+            // Build out SQL to get start offset
+            sql = `SELECT 
+                        action_index as offset
+                    FROM
+                        ` + table + `
+                    WHERE 
+                        action_index IS NOT NULL
+                        ` + where + `
+                    ORDER BY action_index ` + order + ` 
+                    LIMIT ` + limit;
+            // Run Query to try and get offset information 
+            rows = await this.doQuery(config, sql);
+            // Only set the stop offset number if we have more data to show
+            if(rows.length>0 && rows.length == limit){
+                for(let row of rows)
+                    offset2 = Number(row.offset);
+            }
+        }
+        return [offset1, offset2];
     }
 
     // Method to determine the maximum results to return for each method
@@ -471,7 +500,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -492,7 +521,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -513,7 +542,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -536,7 +565,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -555,7 +584,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -572,9 +601,10 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
+                    console.log('batches=',query);
         return [query, null, count];
     }
 
@@ -592,7 +622,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.message,
@@ -615,7 +645,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -637,7 +667,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -661,7 +691,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -682,7 +712,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -704,7 +734,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -734,7 +764,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -765,7 +795,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -794,7 +824,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -823,7 +853,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -845,7 +875,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -869,7 +899,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -890,7 +920,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.name,
@@ -913,7 +943,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -936,7 +966,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         t3.tick,
@@ -981,7 +1011,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1002,7 +1032,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.link_action_index,
@@ -1025,7 +1055,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1044,7 +1074,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.type,
@@ -1064,7 +1094,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1088,7 +1118,7 @@ class Database {
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -1111,7 +1141,7 @@ class Database {
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -1139,7 +1169,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -1163,7 +1193,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -1192,7 +1222,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         c1.coin as give_coin,
@@ -1226,7 +1256,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -1246,7 +1276,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.order_action_index,
@@ -1266,7 +1296,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1286,7 +1316,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.order_action_index,
@@ -1309,7 +1339,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1329,7 +1359,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         c1.coin as give_coin,
@@ -1348,7 +1378,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1374,7 +1404,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -1398,7 +1428,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -1419,7 +1449,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.type,
@@ -1442,7 +1472,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1471,7 +1501,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         c1.coin as give_coin,
@@ -1505,7 +1535,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -1525,7 +1555,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.swap_action_index,
@@ -1545,7 +1575,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1565,7 +1595,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         m.swap_action_index,
@@ -1588,7 +1618,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1608,7 +1638,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         c1.coin as give_coin,
@@ -1627,7 +1657,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
          return [query, null, count];
@@ -1652,7 +1682,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         a2.address as source,
@@ -1675,7 +1705,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -1694,7 +1724,7 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
                         t3.tick,
@@ -1722,7 +1752,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
@@ -1767,7 +1797,7 @@ class Database {
                         balances m
                         INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         t1.tick,
                         m.amount
@@ -1795,7 +1825,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         t1.tx_index,
@@ -1835,7 +1865,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         t1.tx_index,
@@ -1875,7 +1905,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
                         t1.tx_index,
@@ -1916,7 +1946,7 @@ class Database {
                         balances m
                         INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
-                    WHERE ` + sql.where;
+                    WHERE ` + sql.where.data;
         let query = `SELECT
                         a2.address,
                         m.amount
@@ -3346,13 +3376,13 @@ class Database {
     // Get history information for a given address
     // NOTE: Supports following search types ('block', 'address', 'token', 'recent')
     async getHistoryData(config){
-        console.log('getHistoryData config=',config);
+        // console.log('getHistoryData config=',config);
         let sql     = config.data.sql;
         let type    = config.data.type;
         let q       = config.data.query;
         let offset  = (config.data.offset) ? config.data.offset : false;
         let action  = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
-        let value   = (offset && !this.util.isNull(offset.value) && this.util.isNumeric(offset.value)) ? offset.value : false;
+        let start   = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? offset.start : false;
         let limit   = sql.limit;
         let total   = 0;
         let id      = 0;
@@ -3395,7 +3425,7 @@ class Database {
         // console.log('getHistoryData config=',config);
         for(let table of tables){
             // Parse in the SQL config data
-            let where = sql.where
+            let where = sql.where.data;
             let args  = [];
             // Build out the correct WHERE sql based on the search type
             if(type=='address'){
@@ -3440,17 +3470,18 @@ class Database {
                                 INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                                 INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             WHERE ` + where;
-                console.log('count=',count);
                 results = await this.doQuery(config, count, args);
                 if(results && results.length)
                     total = this.util.bcadd(total, results[0].count, 0);
             }
             // If we have offset value and action, use it to speed up SQL query by pulling less data
-            if(action && value){
+            if(action && start){
                 if(action=='prev'){
-                    where += ' AND m.action_index < ' + (value + 100);
+                    where += ' AND m.action_index > ' + start;
+                    where += ' AND m.action_index < ' + this.util.bcadd(start,limit);
                 } else {
-                    where += ' AND m.action_index > ' + (value - 100);
+                    where += ' AND m.action_index < ' + start;
+                    where += ' AND m.action_index > ' + this.util.bcsub(start,limit);
                 }
             }
             // If we have any records, then run the SQL query to pull the data

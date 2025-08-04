@@ -218,17 +218,22 @@ class XChainExplorer {
                 method: null, // Method to run to get data
                 search: null, // Search to pass to method
                 type:   null, // Search type to pass to method
-                query:  null, // Query string parameters
+                path:   req.path,  // Request URL path
+                query:  req.query, // Request Query string parameters
                 // SQL query specific information
                 sql: {
                     order:  null, // Sort order (ASC, DESC)
                     limit:  null, // Record Limit (LIMIT X)
-                    where:  null, // Where query
+                    where: {
+                        data:   '', // Where data SQL 
+                        offset: ''  // Where offset SQL
+                    }
                 },
                 // Offset Information (used by explorer for paging)
                 offset: {
                     action: null, // Action (first, last, next, prev)
-                    value:  null  // value (action_index, etc)
+                    start:  null, // start value (action_index, etc)
+                    stop:   null, // stop value (action_index, etc)
                 }
             },
         };
@@ -289,13 +294,12 @@ class XChainExplorer {
                     cfg.data.method = info[0];
                     cfg.data.search = urlPath[3];
                     cfg.data.type   = searchType;
-                    cfg.data.query  = req.query;
                     // Set additional offset information used in explorer paging
                     if(cfg.type=='explorer'){
                         let q      = (req.query) ? req.query : false;
                         let offset = (q && !this.util.isNull(q.offset)) ? q.offset : false;
                         let action = (q && !this.util.isNull(q.action)) ? q.action : false;
-                        cfg.data.offset.value  = offset;
+                        cfg.data.offset.start  = offset;
                         cfg.data.offset.action = action;
                     }
                 }
@@ -419,9 +423,11 @@ class XChainExplorer {
         }
 
         // DEBUG INFO
-        console.log('path=',req.path);
-        // console.log('query=',req.query);
-        console.log('cfg=',cfg);
+        console.log('--- REQUEST CONFIG ---');
+        console.dir(cfg, {
+            colors: true,
+            depth: 3
+        });
         // console.log('data=',data);
     }
 
@@ -434,7 +440,7 @@ class XChainExplorer {
         let start  = (q && q.start  && this.util.isInteger(Number(q.start)))  ? q.start  : 0;
         let limit  = (q && q.limit  && this.util.isInteger(Number(q.limit)))  ? q.limit  : max;
         let length = (q && q.length && this.util.isInteger(Number(q.length))) ? q.length : 10;
-        let offset = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.value))  ? cfg.data.offset.value  : false;
+        let offset = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.start))  ? cfg.data.offset.start  : false;
         let action = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.action)) ? cfg.data.offset.action : false;        
         // Set limit based on given limit and page params
         if(cfg.type=='api'){

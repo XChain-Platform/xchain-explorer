@@ -3535,7 +3535,23 @@ class Database {
         history = arr;
         // Define a list of detail fields we want to pass forward in history items
         // Note: We limit this to just enough details to show basic history info, user can request full info on action if they want more info
-        let detailFields = ['tick', 'callback_tick', 'give_tick', 'get_tick', 'amount', 'destination', 'give_amount', 'get_amount', 'name', 'title', 'type'];
+        let detailFields = [
+            // Common fields
+            'coin', 'tick',  'amount', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common Fields
+            'fee_preference', 'require_memo',                                                                    // Addresses
+            'message',                                                                                           // Broadcasts
+            'callback_tick', 'callback_amount',                                                                  // Callbacks
+            'dividend_tick',                                                                                     // Dividends
+            'name', 'title',                                                                                     // Files
+            'link_action_index', 'coin_action_index',                                                            // Links
+            'list_action_index',                                                                                 // Lists
+            'encryption_method', 'plaintext_message',                                                            // Messages
+            'give_tick', 'get_tick', 'give_amount', 'get_amount',                                                // Orders, Swaps, Dispensers
+            'order_action_index',                                                                                // Order_Cancels, Order_Edits
+            'swap_action_index',                                                                                 // Swap_Cancels, Swap_Edits
+            'resume_block',                                                                                      // Sleep
+            'balances', 'ownerships'                                                                             // Sweeps
+        ];
         // Lookup extended information on the action_index
         for(let item of history){
             // console.log('item=',item);

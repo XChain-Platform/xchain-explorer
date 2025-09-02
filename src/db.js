@@ -3478,10 +3478,10 @@ class Database {
             if(action && start){
                 if(action=='prev'){
                     where += ' AND m.action_index > ' + start;
-                    where += ' AND m.action_index < ' + this.util.bcadd(start,limit);
+                    where += ' AND m.action_index < ' + this.util.bcadd(start,limit + 1);
                 } else {
                     where += ' AND m.action_index < ' + start;
-                    where += ' AND m.action_index > ' + this.util.bcsub(start,limit);
+                    where += ' AND m.action_index > ' + this.util.bcsub(start,limit + 1);
                 }
             }
             // If we have any records, then run the SQL query to pull the data

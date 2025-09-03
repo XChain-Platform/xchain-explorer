@@ -274,6 +274,14 @@ class Database {
                     if(stop)
                         sql += ' AND m.action_index < ' + stop;
                 }
+            } else if(action=='last'){
+                if(method=='getBlocks'){
+                    sql = ' AND m.block_index <= ' + start;
+                } else if(method=='getTokens'){
+                    sql = ' AND m.id <= ' + start;
+                } else {
+                    sql = ' AND m.action_index <= ' + start;
+                }
             } else {
                 if(method=='getBlocks'){
                     sql = ' AND m.block_index < ' + start;
@@ -344,11 +352,7 @@ class Database {
             // Get offset for last page requests
             if(action=='last'){
                 order = 'ASC';
-                // Determine how many results are on last page using total / length
-                if(q.total)
-                    limit = this.util.bcadd(this.util.bcdiv(q.total,q.length),1);
-                if(limit==1)
-                    limit = this.util.bcadd(q.length,1);
+                limit = this.util.bcadd(length,1);
             }
             // Build out SQL to get start offset
             sql = `SELECT 
@@ -365,9 +369,11 @@ class Database {
             if(rows.length>0){
                 for(let row of rows){
                     offset1 = Number(row.offset);
-                    // Increase offset by 1, so latest results are returned
+                    // Increase/Decrease offset by 1, so latest results are returned
                     if(action=='first')
                         offset1++;
+                    if(action=='last')
+                        offset--;
                 }
             }
         }
@@ -3155,6 +3161,25 @@ class Database {
                         ORDER BY
                             t1.tick ASC`;
             }
+            // UNKNOWN
+            if(type=='UNKNOWN'){
+                query1 = `SELECT
+                            a2.action,
+                            a1.action_index,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index
+                        FROM
+                            actions                       a1
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE 
+                            a1.action_index=?
+                        LIMIT 1`;
+            }
             // Run the SQL query to get the information on the action_index
             if(query1){
                 results = await this.doQuery(config, query1, args1);
@@ -3388,11 +3413,25 @@ class Database {
         let id      = 0;
         let history = [];
         let results = null;
+        let query   = null;
+        let where1  = sql.where.data;
         // Get any IDs based on the query type
         if(type=='address')
             id = await this.getAddressId(config, config.data.search);
         if(type=='token')
             id = await this.getTickId(config, config.data.search);
+        // Quickly set total to highest action_index if we are doing full history search (speeds up search by reducing number of queries)
+        if(config.data.search=='null'){
+            let query = `SELECT
+                            action_index
+                        FROM
+                            actions
+                        ORDER BY action_index DESC
+                        LIMIT 1`;
+            results = await this.doQuery(config, query);
+            if(results && results.length)
+                q.total = Number(results[0].action_index);
+        }
         // Define list of action tables to pull action_indexes from
         let tables = [
             'addresses',
@@ -3422,10 +3461,20 @@ class Database {
             'swap_matches',
             'sweeps'
         ];
+        // If we have offset value and action, use it to speed up SQL query by pulling less data
+        if(action && start){
+            if(action=='prev'){
+                where1 += ' AND m.action_index > ' + start;
+                where1 += ' AND m.action_index < ' + this.util.bcadd(start,this.util.bcadd(limit,1));
+            } else {
+                where1 += ' AND m.action_index < ' + start;
+                where1 += ' AND m.action_index > ' + this.util.bcsub(start,this.util.bcadd(limit,1));
+            }
+        }        
         // console.log('getHistoryData config=',config);
         for(let table of tables){
             // Parse in the SQL config data
-            let where = sql.where.data;
+            let where = where1;
             let args  = [];
             // Build out the correct WHERE sql based on the search type
             if(type=='address'){
@@ -3474,39 +3523,28 @@ class Database {
                 if(results && results.length)
                     total = this.util.bcadd(total, results[0].count, 0);
             }
-            // If we have offset value and action, use it to speed up SQL query by pulling less data
-            if(action && start){
-                if(action=='prev'){
-                    where += ' AND m.action_index > ' + start;
-                    where += ' AND m.action_index < ' + this.util.bcadd(start,limit + 1);
-                } else {
-                    where += ' AND m.action_index < ' + start;
-                    where += ' AND m.action_index > ' + this.util.bcsub(start,limit + 1);
-                }
-            }
             // If we have any records, then run the SQL query to pull the data
             if(total){
                 // Get basic action data
-                let query = `SELECT
-                                a2.action, 
-                                m.action_index,
-                                b1.block_index,
-                                b1.block_time as timestamp,
-                                t2.hash as tx_hash,
-                                t1.tx_index,
-                                s1.status
-                            FROM
-                                ` + table + ` m
-                                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                                INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                                INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                                INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                                INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                                INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            WHERE ` + where + `
-                            ORDER BY m.action_index ` + sql.order + `
-                            LIMIT ` + sql.limit;
-                // console.log('query=',query);
+                query = `SELECT
+                            a2.action, 
+                            m.action_index,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            ` + table + ` m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE ` + where + `
+                        ORDER BY m.action_index ` + sql.order + `
+                        LIMIT ` + sql.limit;
                 results = await this.doQuery(config, query, args);
                 if(results && results.length){
                     for(let row of results){
@@ -3514,6 +3552,32 @@ class Database {
                         history[idx] = row;
                     }
                 }
+            }
+        }
+        // Handle looking up any UNKNOWN transactions and add them to the history data
+        let where = where1;
+        where += ` AND a2.action='UNKNOWN' `;
+        query = `SELECT
+                    a2.action,
+                    m.action_index,
+                    b1.block_index,
+                    b1.block_time as timestamp,
+                    t2.hash as tx_hash,
+                    t1.tx_index
+                FROM
+                    actions                       m
+                    INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                    INNER JOIN index_actions      a2 ON (a2.id=m.action_id)
+                    INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                WHERE ` + where + `
+                ORDER BY m.action_index ` + sql.order + `
+                LIMIT ` + sql.limit;
+        results = await this.doQuery(config, query);
+        if(results && results.length){
+            for(let row of results){
+                let idx = Number(row.action_index);
+                history[idx] = row;
             }
         }
         // Sort the history data by action_index in ascending order

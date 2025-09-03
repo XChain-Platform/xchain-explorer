@@ -82,6 +82,7 @@ class XChainExplorer {
                 '/{COIN}/dispensers'    : 'dispensers.html',
                 '/{COIN}/dispenses'     : 'dispenses.html',
                 '/{COIN}/files'         : 'files.html',
+                '/{COIN}/history'       : 'history.html',
                 '/{COIN}/issues'        : 'issues.html',
                 '/{COIN}/links'         : 'links.html',
                 '/{COIN}/lists'         : 'lists.html',

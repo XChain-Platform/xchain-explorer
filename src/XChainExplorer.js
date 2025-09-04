@@ -163,6 +163,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/addresses/{QUERY}/{TYPE}'  : ['getAddresses',  ['block', 'address']],
                 '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'   : ['getAirdrops',   ['block', 'address', 'token']],
                 '/{COIN}/explorer/batches/{QUERY}/{TYPE}'    : ['getBatches',    ['block', 'address']],
+                '/{COIN}/explorer/blocks/{QUERY}'            : ['getBlocks',    'block'],
                 '/{COIN}/explorer/broadcasts/{QUERY}/{TYPE}' : ['getBroadcasts', ['block', 'address']],
                 '/{COIN}/explorer/callbacks/{QUERY}/{TYPE}'  : ['getCallbacks',  ['block', 'address', 'token']],
                 '/{COIN}/explorer/credits/{QUERY}/{TYPE}'    : ['getCredits',    ['block', 'address']],
@@ -502,6 +503,40 @@ class XChainExplorer {
                         locks = arr.join('|');
                     }
 
+                    // Handle building out action count info into a nice string (reduces data sent back and forth)
+                    let actions = false;
+                    if(method=='getBlocks'){
+                        let arr = [
+                            info.actions.addresses,
+                            info.actions.airdrops,
+                            info.actions.batches,
+                            info.actions.broadcasts,
+                            info.actions.callbacks,
+                            info.actions.destroys,
+                            info.actions.dispensers,
+                            info.actions.dispenses,
+                            info.actions.dividends,
+                            info.actions.files,
+                            info.actions.issues,
+                            info.actions.links,
+                            info.actions.lists,
+                            info.actions.messages,
+                            info.actions.mints,
+                            info.actions.orders,
+                            info.actions.order_cancels,
+                            info.actions.order_edits,
+                            info.actions.order_matches,
+                            info.actions.sends,
+                            info.actions.sleeps,
+                            info.actions.swaps,
+                            info.actions.swap_cancels,
+                            info.actions.swap_edits,
+                            info.actions.swap_matches,
+                            info.actions.sweep
+                        ];
+                        actions = arr.join('|');
+                    }
+
                     // Build out the correct response array based on method type
                     if(method=='getAddresses')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
@@ -509,6 +544,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.memo, status, info.action_index];
                     if(method=='getBatches')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, status, info.action_index];
+                    if(method=='getBlocks')
+                        info = [info.block_index, info.timestamp, actions];
                     if(method=='getBroadcasts')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.message, info.value, info.fee, status, info.action_index];
                     if(method=='getCallbacks')

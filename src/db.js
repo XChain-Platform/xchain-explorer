@@ -295,6 +295,9 @@ class Database {
         let start  = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? offset.start : false;
         let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? offset.stop : false;
         let sql    = '';
+        // Unset stop offset in case of getBlocks
+        if(method=='getBlocks')
+            stop = false;
         if(action && start){
             // Set field name to use for offset
             let field = 'm.action_index';
@@ -419,7 +422,7 @@ class Database {
                 } else if(action=='last'){
                     offset2 = this.util.bcsub(this.util.bcadd(offset1,1),q.length);
                 } else {
-                    offset2 = this.util.bcsub(offset1,q.length);
+                    offset2 = this.util.bcsub(this.util.bcsub(offset1,1),q.length);
                 }
             } else if(method!='getHistory'){
                 limit = this.util.bcadd(length,1);

@@ -545,7 +545,7 @@ class XChainExplorer {
                     if(method=='getBatches')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, status, info.action_index];
                     if(method=='getBlocks')
-                        info = [info.block_index, info.timestamp, actions];
+                        info = [info.block_index, info.timestamp, actions, info.block_index];
                     if(method=='getBroadcasts')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.message, info.value, info.fee, status, info.action_index];
                     if(method=='getCallbacks')

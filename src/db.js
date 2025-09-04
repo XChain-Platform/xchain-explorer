@@ -19,6 +19,36 @@ class Database {
         // Placeholder for transaction connection
         this.transactionConnection = null;
 
+        // Define list of action tables to pull action_indexes from
+        this.actionTables = [
+            'addresses',
+            'airdrops',
+            'batches',
+            'broadcasts',
+            'callbacks',
+            'destroys',
+            'dispensers',
+            'dispenses',
+            'dividends',
+            'files',
+            'issues',
+            'links',
+            'lists',
+            'messages',
+            'mints',
+            'orders',
+            'order_cancels',
+            'order_edits',
+            'order_matches',
+            'sends',
+            'sleeps',
+            'swaps',
+            'swap_cancels',
+            'swap_edits',
+            'swap_matches',
+            'sweeps'
+        ];
+
     }
 
     /******************************************************************
@@ -221,8 +251,10 @@ class Database {
         // Force SQL and type on certain methods which do not have the action_index field
         if(['getBalances','getHolders'].includes(method))
             sql  = `m.address_id IS NOT NULL`;
+        if(method=='getBlocks')
+            sql  = `b1.block_index IS NOT NULL`;
         // Note getHistory handles generating its own WHERE sql
-        if(method!='getHistory'){
+        if(!['geHistory','getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
                 if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
@@ -264,34 +296,23 @@ class Database {
         let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? offset.stop : false;
         let sql    = '';
         if(action && start){
+            // Set field name to use for offset
+            let field = 'm.action_index';
+            if(method=='getBlocks')
+                field = 'b1.block_index';
+            if(method=='getTokens')
+                field = 'm.id';
+            // Build out the Offset SQL using the correct field name and start/stop values
             if(action=='prev'){
-                if(method=='getBlocks'){
-                    sql = ' AND m.block_index > ' + start;
-                } else if(method=='getTokens'){
-                    sql = ' AND m.id > ' + start;
-                } else {
-                    sql = ' AND m.action_index > ' + start;
-                    if(stop)
-                        sql += ' AND m.action_index < ' + stop;
-                }
+                sql = ` AND ` + field + ` > ` + start;
+                if(stop)
+                    sql += ` AND ` + field + ` < ` + stop;
             } else if(action=='last'){
-                if(method=='getBlocks'){
-                    sql = ' AND m.block_index <= ' + start;
-                } else if(method=='getTokens'){
-                    sql = ' AND m.id <= ' + start;
-                } else {
-                    sql = ' AND m.action_index <= ' + start;
-                }
+                sql = ` AND ` + field + ` <= ` + start;
             } else {
-                if(method=='getBlocks'){
-                    sql = ' AND m.block_index < ' + start;
-                } else if(method=='getTokens'){
-                    sql = ' AND m.id < ' + start;
-                } else {
-                    sql = ' AND m.action_index < ' + start;
-                    if(stop)
-                        sql += ' AND m.action_index > ' + stop;
-                }
+                sql = ` AND ` + field + ` < ` + start;
+                if(stop)
+                    sql += ` AND ` + field + ` > ` + stop;
             }
         }
         return sql;
@@ -355,15 +376,28 @@ class Database {
                 limit = this.util.bcadd(length,1);
             }
             // Build out SQL to get start offset
-            sql = `SELECT 
-                        action_index as offset
-                    FROM
-                        ` + table + `
-                    WHERE 
-                        action_index IS NOT NULL
-                        ` + where + `
-                    ORDER BY action_index ` + order + ` 
-                    LIMIT ` + limit;
+            if(type=='block'){
+                sql = `SELECT 
+                            block_index as offset
+                        FROM
+                            blocks
+                        WHERE 
+                            block_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY block_index ` + order + ` 
+                        LIMIT ` + limit;
+            } else {
+                sql = `SELECT 
+                            action_index as offset
+                        FROM
+                            ` + table + `
+                        WHERE 
+                            action_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY action_index ` + order + ` 
+                        LIMIT ` + limit;
+
+            }
             // Run Query to try and get offset information 
             rows = await this.doQuery(config, sql);
             if(rows.length>0){
@@ -378,33 +412,43 @@ class Database {
             }
         }
         // Lookup stop offset
-        if(offset1 && method!='getHistory'){
-            limit = this.util.bcadd(length,1);
-            order = 'DESC';
-            // If we have offset value and action, use it to speed up SQL query by pulling less data
-            if(action && offset1){
-                if(action=='prev'){
-                    where += ' AND action_index > ' + offset1;
+        if(offset1){
+            if(type=='block'){
+                if(action=='first'){
+                    offset2 = this.util.bcsub(this.util.bcsub(offset1,1),q.length);
+                } else if(action=='last'){
+                    offset2 = this.util.bcsub(this.util.bcadd(offset1,1),q.length);
                 } else {
-                    where += ' AND action_index < ' + offset1;
+                    offset2 = this.util.bcsub(offset1,q.length);
                 }
-            }
-            // Build out SQL to get start offset
-            sql = `SELECT 
-                        action_index as offset
-                    FROM
-                        ` + table + `
-                    WHERE 
-                        action_index IS NOT NULL
-                        ` + where + `
-                    ORDER BY action_index ` + order + ` 
-                    LIMIT ` + limit;
-            // Run Query to try and get offset information 
-            rows = await this.doQuery(config, sql);
-            // Only set the stop offset number if we have more data to show
-            if(rows.length>0 && rows.length == limit){
-                for(let row of rows)
-                    offset2 = Number(row.offset);
+            } else if(method!='getHistory'){
+                limit = this.util.bcadd(length,1);
+                order = 'DESC';
+                // If we have offset value and action, use it to speed up SQL query by pulling less data
+                if(action && offset1){
+                    if(action=='prev'){
+                        where += ' AND action_index > ' + offset1;
+                    } else {
+                        where += ' AND action_index < ' + offset1;
+                    }
+                }
+                // Build out SQL to get start offset
+                sql = `SELECT 
+                            action_index as offset
+                        FROM
+                            ` + table + `
+                        WHERE 
+                            action_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY action_index ` + order + ` 
+                        LIMIT ` + limit;
+                // Run Query to try and get offset information 
+                rows = await this.doQuery(config, sql);
+                // Only set the stop offset number if we have more data to show
+                if(rows.length>0 && rows.length == limit){
+                    for(let row of rows)
+                        offset2 = Number(row.offset);
+                }
             }
         }
         return [offset1, offset2];
@@ -468,6 +512,7 @@ class Database {
      * /{COIN}/explorer/addresses/{QUERY}/{TYPE}     getAddresses    block, address
      * /{COIN}/explorer/airdrops/{QUERY}/{TYPE}      getAirdrops     block, address, token
      * /{COIN}/explorer/batches/{QUERY}/{TYPE}       getBatches      block, address
+     * /{COIN}/explorer/blocks/{TYPE}                getBlocks       block
      * /{COIN}/explorer/broadcasts/{QUERY}/{TYPE}    getBroadcasts   block, address
      * /{COIN}/explorer/callbacks/{QUERY}/{TYPE}     getCallbacks    block, address, token
      * /{COIN}/explorer/credits/{QUERY}/{TYPE}       getCredits      block, address
@@ -477,7 +522,7 @@ class Database {
      * /{COIN}/explorer/dispenses/{QUERY}/{TYPE}     getDispenses    block, address, token
      * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
      * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
-     * /{COIN}/explorer/holders/{QUERY}              getHolders      token
+     * /{COIN}/explorer/holders/{TYPE}               getHolders      token
      * /{COIN}/explorer/history/{QUERY}/{TYPE}       getHistory      block, recent
      * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
      * /{COIN}/explorer/links/{QUERY}/{TYPE}         getLinks        block, address, token
@@ -610,7 +655,6 @@ class Database {
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-                    console.log('batches=',query);
         return [query, null, count];
     }
 
@@ -3432,35 +3476,6 @@ class Database {
             if(results && results.length)
                 q.total = Number(results[0].action_index);
         }
-        // Define list of action tables to pull action_indexes from
-        let tables = [
-            'addresses',
-            'airdrops',
-            'batches',
-            'broadcasts',
-            'callbacks',
-            'destroys',
-            'dispensers',
-            'dispenses',
-            'dividends',
-            'files',
-            'issues',
-            'links',
-            'lists',
-            'messages',
-            'mints',
-            'orders',
-            'order_cancels',
-            'order_edits',
-            'order_matches',
-            'sends',
-            'sleeps',
-            'swaps',
-            'swap_cancels',
-            'swap_edits',
-            'swap_matches',
-            'sweeps'
-        ];
         // If we have offset value and action, use it to speed up SQL query by pulling less data
         if(action && start){
             if(action=='prev'){
@@ -3472,7 +3487,7 @@ class Database {
             }
         }        
         // console.log('getHistoryData config=',config);
-        for(let table of tables){
+        for(let table of this.actionTables){
             // Parse in the SQL config data
             let where = where1;
             let args  = [];
@@ -3637,6 +3652,71 @@ class Database {
         return [data, total];
     }
 
+
+    // Get list of blocks and a count of each transaction type for the given block_index
+    async getBlocks(config){
+        console.log('getBlocks config=',config);
+        let sql     = config.data.sql;
+        let offset  = config.data.offset;
+        let data    = [];
+        let total   = 0;
+        let query   = '';
+        let results = null;
+        // Get count of total number of blocks
+        query = `SELECT
+                    count(*) as total
+                FROM
+                    blocks b1
+                WHERE ` + sql.where.data;
+        results = await this.doQuery(config, query);
+        if(results && results.length)
+            total = results[0].total;
+        // Loop through the specified blocks
+        query = `SELECT
+                    block_index,
+                    block_time
+                FROM
+                    blocks b1
+                WHERE 
+                    ` + sql.where.data + sql.where.offset + `
+                ORDER BY block_index ` + sql.order + `
+                LIMIT ` + sql.limit;
+        results = await this.doQuery(config, query);
+        if(results && results.length){
+            for(let row of results){
+                let info = {
+                    block_index: row.block_index,
+                    timestamp: row.block_time,
+                    actions: {}
+                };
+                let block_index = row.block_index;
+                let query2 = '';
+                // Loop through action tables and get a count for each block
+                for(let table of this.actionTables){
+                    if(query2!='')
+                        query2 += ' UNION ALL ';
+                    query2 += `SELECT
+                                '` + table + `' as action,
+                                count(*) as count
+                            FROM
+                                ` + table + ` m
+                                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                                INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                                INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            WHERE 
+                                b1.block_index=` + block_index;
+                }                
+                let results2 = await this.doQuery(config, query2);
+                if(results2 && results2.length){
+                    for(let data of results2){
+                        info.actions[data.action] = data.count;
+                    }
+                }
+                data.push(info);
+            }
+        }
+        return [data, null, total];
+    }
 }
 
 module.exports = Database

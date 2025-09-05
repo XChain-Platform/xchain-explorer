@@ -1,0 +1,713 @@
+<!-- Information Header  -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-xl-9 pe-xl-0 pb-3">
+            <div class="card">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-xchain asset-icon-sm pull-left"></i> XChain Bitcoin (BTC) Stats
+                    <div class="float-end hidden-xs" id="total-transactions"></div>                    
+                </div>
+                <div class="row table-responsive">
+                    <div class="col-12 col-sm-6 col-lg-3 pe-sm-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-stats">
+                        <tbody>
+                        <tr>
+                            <th><span class="wrapicon-25"><i class="fa fa-parachute-box"></i></span>Airdrops</th>
+                            <td id="totalAirdrops">0</td>
+                        </tr>
+                        <tr>
+                            <th><span class="wrapicon-25"><i class="fa fa-layer-group"></i></span>Batches</th>
+                            <td id="totalBatches">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-bullseye"></i> Broadcasts</th>
+                            <td id="totalBets">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-recycle"></i> Callbacks</th>
+                            <td id="totalCallbacks">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-trash"></i> Destroys</th>
+                            <td id="totalDestroys">0</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-3 ps-sm-0 pe-lg-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-stats bt">
+                        <tbody>
+                        <tr>
+                            <th><i class="fa icon-20 fa-arrows-h"></i> Dispensers</th>
+                            <td id="totalDispensers">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-btc"></i> Dispenses</th>
+                            <td id="totalDispenses">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-sitemap"></i> Dividends</th>
+                            <td id="totalDividends">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-file"></i> Files</th>
+                            <td id="totalIssues">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-bank"></i> Issues</th>
+                            <td id="totalIssues">0</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-3 pe-sm-0 ps-lg-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-stats">
+                        <tbody>
+                        <tr>
+                            <th><i class="fa icon-20 fa-link"></i> Links</th>
+                            <td id="totalLists">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-list"></i> Lists</th>
+                            <td id="totalLists">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-message"></i> Messages</th>
+                            <td id="totalMints">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-print"></i> Mints</th>
+                            <td id="totalMints">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-book"></i> Orders</th>
+                            <td id="totalRugs">0</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-3 ps-sm-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-stats">
+                        <tbody>
+                        <tr>
+                            <th><i class="fa icon-20 fa-send"></i> Sends</th>
+                            <td id="totalSends">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-snooze"></i> Sleeps</th>
+                            <td id="totalSleeps">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-exchange"></i> Swaps</th>
+                            <td id="totalSweeps">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-truck"></i> Sweeps</th>
+                            <td id="totalSweeps">0</td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa icon-20 fa-database"></i> Tokens</th>
+                            <td id="totalTokens">0</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 pb-3">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-heartbeat"></i> Network Information
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0 table-stats" id="networkInfo">
+                <tbody>
+                <tr>
+                    <th class="info">Block #</th>
+                    <td id="block_index"></td>
+                </tr>
+                <tr>
+                    <th class="info">Unconfirmed</th>
+                    <td id="pending_tx"></td>
+                </tr>
+                <tr>
+                    <th class="info">Low Fee</th>
+                    <td id="fee-low"> - <span class="fw-bold text-warning float-end"><i class="fa fa-usd"></i>0.00</span></td>
+                </tr>
+                <tr>
+                    <th class="info">High Fee</th>
+                    <td id="fee-optimal"> - <span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>0.00</span></td>
+                </tr>
+                <tr>
+                    <th class="info">XChain Price</th>
+                    <td id="fee-optimal"> - <span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>0.00</span></td>
+                </tr>
+                <!--
+                <tr>
+                    <th class="info">BTC Volume</th>
+                    <td id="btc-volume">0.00000000</td>
+                </tr>
+                <tr>
+                    <th class="info">USD Volume</th>
+                    <td id="usd-volume">$0.00</td>
+                </tr>
+                -->
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Latest Transactions -->
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12">
+
+            <!-- Navbar Tabs -->
+            <ul class="nav nav-tabs" id="data-tabs" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-recent"    data-bs-toggle="tab" data-bs-target="#tab-pane-recent"    type="button" role="tab" aria-controls="tab-pane-recent"    aria-selected="true"><i class="fa fa-clock-o"      ></i> Recent</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-address"   data-bs-toggle="tab" data-bs-target="#tab-pane-address"   type="button" role="tab" aria-controls="tab-pane-address"   aria-selected="true"><i class="fa fa-gears"        ></i> Addresses</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-airdrop"   data-bs-toggle="tab" data-bs-target="#tab-pane-airdrop"   type="button" role="tab" aria-controls="tab-pane-airdrop"   aria-selected="true"><i class="fa fa-parachute-box"></i> Airdrops</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-batch"     data-bs-toggle="tab" data-bs-target="#tab-pane-batch"     type="button" role="tab" aria-controls="tab-pane-batch"     aria-selected="true"><i class="fa fa-layer-group"  ></i> Batches</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-broadcast" data-bs-toggle="tab" data-bs-target="#tab-pane-broadcast" type="button" role="tab" aria-controls="tab-pane-broadcast" aria-selected="true"><i class="fa fa-bullhorn"     ></i> Broadcasts</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-callback"  data-bs-toggle="tab" data-bs-target="#tab-pane-callback"  type="button" role="tab" aria-controls="tab-pane-callback"  aria-selected="true"><i class="fa fa-recycle"      ></i> Callbacks</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-destroy"   data-bs-toggle="tab" data-bs-target="#tab-pane-destroy"   type="button" role="tab" aria-controls="tab-pane-destroy"   aria-selected="true"><i class="fa fa-trash"        ></i> Destroys</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispenser" data-bs-toggle="tab" data-bs-target="#tab-pane-dispenser" type="button" role="tab" aria-controls="tab-pane-dispenser" aria-selected="true"><i class="fa fa-arrows-h"     ></i> Dispensers</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispense"  data-bs-toggle="tab" data-bs-target="#tab-pane-dispense"  type="button" role="tab" aria-controls="tab-pane-dispense"  aria-selected="true"><i class="fa fa-btc"          ></i> Dispenses</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dividend"  data-bs-toggle="tab" data-bs-target="#tab-pane-dividend"  type="button" role="tab" aria-controls="tab-pane-dividend"  aria-selected="true"><i class="fa fa-sitemap"      ></i> Dividends</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-file"      data-bs-toggle="tab" data-bs-target="#tab-pane-file"      type="button" role="tab" aria-controls="tab-pane-file"      aria-selected="true"><i class="fa fa-file"         ></i> Files</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-issue"     data-bs-toggle="tab" data-bs-target="#tab-pane-issue"     type="button" role="tab" aria-controls="tab-pane-issue"     aria-selected="true"><i class="fa fa-bank"         ></i> Issues</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-link"      data-bs-toggle="tab" data-bs-target="#tab-pane-link"      type="button" role="tab" aria-controls="tab-pane-link"      aria-selected="true"><i class="fa fa-chain"        ></i> Links</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-list"      data-bs-toggle="tab" data-bs-target="#tab-pane-list"      type="button" role="tab" aria-controls="tab-pane-list"      aria-selected="true"><i class="fa fa-list"         ></i> Lists</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-message"   data-bs-toggle="tab" data-bs-target="#tab-pane-message"   type="button" role="tab" aria-controls="tab-pane-message"   aria-selected="true"><i class="fa fa-message"      ></i> Messages</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-mint"      data-bs-toggle="tab" data-bs-target="#tab-pane-mint"      type="button" role="tab" aria-controls="tab-pane-mint"      aria-selected="true"><i class="fa fa-print"        ></i> Mints</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-order"     data-bs-toggle="tab" data-bs-target="#tab-pane-order"     type="button" role="tab" aria-controls="tab-pane-order"     aria-selected="true"><i class="fa fa-book"         ></i> Orders</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-send"      data-bs-toggle="tab" data-bs-target="#tab-pane-send"      type="button" role="tab" aria-controls="tab-pane-send"      aria-selected="true"><i class="fa fa-send"         ></i> Sends</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sleep"     data-bs-toggle="tab" data-bs-target="#tab-pane-sleep"     type="button" role="tab" aria-controls="tab-pane-sleep"     aria-selected="true"><i class="fa fa-snooze"       ></i> Sleeps</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-swap"      data-bs-toggle="tab" data-bs-target="#tab-pane-swap"      type="button" role="tab" aria-controls="tab-pane-swap"      aria-selected="true"><i class="fa fa-exchange"     ></i> Swaps</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sweep"     data-bs-toggle="tab" data-bs-target="#tab-pane-sweep"     type="button" role="tab" aria-controls="tab-pane-sweep"     aria-selected="true"><i class="fa fa-truck"        ></i> Sweeps</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-token"     data-bs-toggle="tab" data-bs-target="#tab-pane-token"     type="button" role="tab" aria-controls="tab-pane-token"     aria-selected="true"><i class="fa fa-database"     ></i> Tokens</button></li>
+                <li class="nav-item dropdown" id="data-last-tab">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">More</a>
+                    <ul class="dropdown-menu" id="data-tabs-more">
+                    </ul>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content border border-top-0 mb-3" id="data-panels">
+
+                <!--  Recent Transactions (Confirmed) -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-recent" role="tabpanel" aria-labelledby="tab-recent" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-history">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="asset-name">Action</th>
+                            <th class="">Details</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Addresses -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-address" role="tabpanel" aria-labelledby="tab-address" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-address">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Fee Preference</th>
+                            <th class="">Require Memo</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Airdrops -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-airdrop" role="tabpanel" aria-labelledby="tab-airdrop" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-airdrop">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="asset-name">Token</th>
+                            <th class="quantity">Amount</th>
+                            <th class="memo">Memo</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Batches -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-batch" role="tabpanel" aria-labelledby="tab-batch" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-batch">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="">Source</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+
+                <!-- Latest Broadcasts -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-broadcast" role="tabpanel" aria-labelledby="tab-broadcast" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-broadcast">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="broadcast-message">Message</th>
+                            <th class="block">Value</th>
+                            <th>Fee</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Callbacks -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-callback" role="tabpanel" aria-labelledby="tab-callback" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-callback">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="token">Token</th>
+                            <th class="token">Callback Token</th>
+                            <th class="quantity">Quantity</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Destroys -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-destroy" role="tabpanel" aria-labelledby="tab-destroy" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-destroy">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Quantity</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Dispensers -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dispenser" role="tabpanel" aria-labelledby="tab-dispenser" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dispenser">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Dispensing</th>
+                            <th class="">Cost</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Dispense -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dispense" role="tabpanel" aria-labelledby="tab-dispense" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dispense">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Destination</th>
+                            <th class="">Dispensed</th>
+                            <th class="">BTC Paid</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Dividends -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dividend" role="tabpanel" aria-labelledby="tab-dividend" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dividend">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Token</th>
+                            <th class="">Dividend Token</th>
+                            <th class="">Amount Per Unit</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Files -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-file" role="tabpanel" aria-labelledby="tab-file" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-file">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Name</th>
+                            <th class="">Type</th>
+                            <th class="">Title</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Issues -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-issue" role="tabpanel" aria-labelledby="tab-issue" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-issue">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="token">Token</th>
+                            <th>Description</th>
+                            <th>Max Supply</th>
+                            <th>Max Mint</th>
+                            <th>Locks</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Links -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-link" role="tabpanel" aria-labelledby="tab-link" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-link">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Action 1</th>
+                            <th class="">Action 2</th>
+                            <th class="">Memo</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Lists -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-list" role="tabpanel" aria-labelledby="tab-list" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-list">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th>Type</th>
+                            <th># Edits</th>
+                            <th># Items</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+
+                <!-- Latest Messages -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-message" role="tabpanel" aria-labelledby="tab-message" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-message">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="address">Destination</th>
+                            <th>Plaintext Message</th>
+                            <th>Encrypted Message</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Mints -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-mint" role="tabpanel" aria-labelledby="tab-mint" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-mint">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Amount</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Orders -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-order" role="tabpanel" aria-labelledby="tab-order" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-order">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="token">Give Token</th>
+                            <th class="quantity">Give Amount</th>
+                            <th class="token">Get Token</th>
+                            <th class="quantity">Get Amount</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Sends -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-send" role="tabpanel" aria-labelledby="tab-send" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-send">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="addresss">Source</th>
+                        <th class="token">Token</th>
+                        <th class="quantity">Amount</th>
+                        <th class="address">Destination</th>
+                        <th class="view"></th>
+
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Sleeps -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-sleep" role="tabpanel" aria-labelledby="tab-sleep" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-sleep">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="addresss">Source</th>
+                        <th class="">Type</th>
+                        <th class="token">Token</th>
+                        <th class="">Resume Block</th>
+                        <th class="view"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Swaps -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-swap" role="tabpanel" aria-labelledby="tab-swap" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-swap">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Source</th>
+                        <th class="token">Give Token</th>
+                        <th class="quantity">Give Amount</th>
+                        <th class="token">Get Token</th>
+                        <th class="quantity">Get Amount</th>
+                        <th class="view"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Sweeps -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-sweep" role="tabpanel" aria-labelledby="tab-sweep" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-sweep">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Source</th>
+                        <th class="address">Destination</th>
+                        <th class="view"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Tokens -->
+                <div class="tab-pane fade show table-responsive" id="tab-pane-token" role="tabpanel" aria-labelledby="tab-token" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-token">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="asset-name">Token</th>
+                            <th>Total Supply</th>
+                            <th>Max Supply</th>
+                            <th>Max Mint</th>
+                            <th>Locks</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- Code to load/update data -->
+<script type="text/javascript">
+
+    // Build out a list of tabs
+    var tabs = [
+        'recent',
+        'address',
+        'airdrop',
+        'batch',
+        'broadcast',
+        'callback',
+        'destroy',
+        'dispenser',
+        'dispense',
+        'dividend',
+        'file',
+        'issue',
+        'link',
+        'list',
+        'message',
+        'mint',
+        'order',
+        'send',
+        'sleep',
+        'swap',
+        'sweep',
+        'token'
+    ];
+
+    $(document).ready(function(){
+        console.log('document ready');
+
+        // Setup the automatic collapsing tabs to only display what we can fit on screen
+        setupAutoCollapseTabs();
+
+        // Loop through tabs and dropdown menus to setup listeners to load content when clicked
+        var tabStatus = [];
+        tabs.forEach(function(tab){
+            tabStatus[tab] = false;
+
+            // Setup listeners on tabs to load content when clicked
+            $('#tab-' + tab).click(function(){
+                if(!tabStatus[tab]){
+                    // Set flag to indicate the tab has been loaded already
+                    tabStatus[tab] = true;
+                    console.log('loading ' + tab);
+                    let action = tab,
+                        query  = null,
+                        type   = '';
+
+                    if(action=='recent'){
+                        action = 'history';
+                        type   = 'recent';
+                    }
+
+                    // Load all `address` actions
+                    loadDatatablesData('BTC', action, query, type);
+                }
+            });
+
+            // Setup listeners on tab dropdown menu to load content when clicked
+            $('#tab-more-' + tab).click(function(){
+                $('#tab-' + tab).click();
+            });
+        });
+
+        // Activate the first tab by faking a click
+        $('#data-tabs li:nth-child(1) .nav-link').click();
+
+
+    });
+</script>

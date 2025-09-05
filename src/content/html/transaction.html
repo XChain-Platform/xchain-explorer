@@ -1,0 +1,91 @@
+<!-- Transaction Information -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-chain pull-left"></i> Transaction Details
+                </div>
+                <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%" id="transaction">
+                <tbody>
+                <tr>
+                    <th width="155">Transaction Hash</th>
+                    <td id="tx-hash"></td>
+                </tr>
+                <tr>
+                    <th>TX Index</th>
+                    <td id="tx-index"></td>
+                </tr>
+                <tr>
+                    <th>Block #</th>
+                    <td id="block"></td>
+                </tr>
+                <tr>
+                    <th>Time</th>
+                    <td id="timestamp"></td>
+                </tr>
+                <tr>
+                    <th>Source</th>
+                    <td id="source"></td>
+                </tr>
+                <tr>
+                    <th>Fee Paid</th>
+                    <td id="fee"></td>
+                </tr>
+                <tr id="tx-status-wrapper" style="display:none;">
+                    <th>Status</th>
+                    <td id="tx-status"></td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-xs-12">
+            <!-- Default page if no info is found-->
+            <div class="card" id="additionalInfoNotAvailable">
+                <div  class="card-body p-5">
+                    <center>No additional information on this transaction is available at this time</center>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs" id="data-tabs" role="tablist">
+                <li class="nav-item dropdown" id="data-last-tab">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">More</a>
+                    <ul class="dropdown-menu" id="data-tabs-more">
+                        <!-- "More" dropdown menu placeholder -->
+                    </ul>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content border border-top-0 mb-3" id="data-panels">
+                <!-- Transaction content content -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Code to load/update data -->
+<script type="text/javascript" src="/js/transaction.js"></script>
+<script type="text/javascript">
+
+var tx      = '{QUERY}',
+    testnet = (location.hostname.indexOf('testnet')!=-1) ? true : false;
+
+    $(document).ready(function(){
+
+        // Request transaction information
+        $.getJSON('/api/tx/' + tx, function( o ){
+            if(!o.error)
+                showTransactionDetails(o);
+        });
+
+        setupAutoCollapseTabs();
+    });
+
+</script>

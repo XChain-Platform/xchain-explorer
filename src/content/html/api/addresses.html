@@ -1,0 +1,130 @@
+<!-- Addresses  -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-lg fa-gear"></i> BTNS API - Addresses
+                    <a href="/api/docs" class="badge text-bg-success float-end">BTNS API</a>
+                </div>
+                <table class="table table-striped table-bordered table-hover table-condensed  mb-0 no-outer-borders" width="100%">
+                <thead>
+                <tr class="info">
+                    <th width="100">Method</th>
+                    <th>Endpoint</th>
+                    <th>Returns</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>GET</td>
+                    <td>/api/addresses/<a href="/api#parameters-address">{address}</a>,<a href="/api#parameters-block">{block}</a></td>
+                    <td>Returns list of ADDRESS transactions</td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-code"></i> Return Values
+                </div>
+                <table class="table table-striped table-bordered table-hover table-condensed mb-0 no-outer-borders" width="100%">
+                <thead>
+                <tr class="info">
+                    <th width="200">Value</th>
+                    <th width="75">Type</th>
+                    <th>Description</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>data</td>
+                    <td>Array</td>
+                    <td>ADDRESS data</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> block_index</td>
+                    <td>Integer</td>
+                    <td>Block number containing the transaction</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> fee_preference</td>
+                    <td>Integer</td>
+                    <td>Network FEE preferences (Destroy / Donate)</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> require_memo</td>
+                    <td>Integer</td>
+                    <td>Indicates if a memo is required to send to this address</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> source</td>
+                    <td>String</td>
+                    <td>The address that did the ISSUE action</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> status</td>
+                    <td>String</td>
+                    <td>Status of the transaction</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> timestamp</td>
+                    <td>Integer</td>
+                    <td>A UNIX timestamp of when the transaction was processed by the network</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> tx_hash</td>
+                    <td>String</td>
+                    <td>Transaction Hash</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> tx_index</td>
+                    <td>Integer</td>
+                    <td>Transaction Index</td>
+                </tr>
+                <tr>
+                    <td>total</td>
+                    <td>Integer</td>
+                    <td>Total number of ADDRESS transactions</td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-code"></i> Example Response
+                </div>
+                <div class="card-body p-0">
+                    <pre class="no-bottom-margin m-0"><code class="language-json">{
+  "data": [
+    {
+      "block_index": 2580955,
+      "fee_preference": 1,
+      "require_memo": 1,
+      "source": "tb1q50kxp76j9l0k9jgwasvcz4mcz0v03fv2wj67a4",
+      "status": "valid",
+      "timestamp": 1709882851,
+      "tx_hash": "524b9794a8a1c941e12b2b24b96d13cdad51dd239eb885ae811b466ac6c3fb98",
+      "tx_index": 494
+    },
+    {
+      "block_index": 2580955,
+      "fee_preference": 2,
+      "require_memo": 1,
+      "source": "tb1q50kxp76j9l0k9jgwasvcz4mcz0v03fv2wj67a4",
+      "status": "valid",
+      "timestamp": 1709882851,
+      "tx_hash": "33661e28f030d7670c247ab3ee124eb143ee6f59e38c92d7d01746ae9e84b5ed",
+      "tx_index": 493
+    }
+  ],
+  "total": 2
+}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

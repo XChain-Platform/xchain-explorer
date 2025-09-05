@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{TITLE}</title>
+    {CANONICAL}
+    <!-- Meta Tags -->
+    <meta name="description"                    content="{DESCRIPTION}">
+    <meta name="robots"                         content="index, follow">
+    <meta name="viewport"                       content="width=device-width, initial-scale=1.0">
+
+    <!-- CSS Includes -->
+    <link type="text/css"rel="stylesheet" href="/css/bootstrap.min.css">
+    <link type="text/css"rel="stylesheet" href="/css/jquery.dataTables.css">
+    <link type="text/css"rel="stylesheet" href="/css/xchain.css">
+
+    <!-- Javascript Includes -->
+    <script type="text/javascript" src="/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/js/fontawesome-kit.js"></script>
+    <script type="text/javascript" src="/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" src="/js/xchain.js"></script>
+
+</head> 
+<body class="d-flex flex-column min-vh-100">
+
+    <!-- Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark pt-0 pb-0 border-bottom" aria-label="Main Menu">
+        <div class="container">
+            <a class="navbar-brand" href="/" title="XChain - BTNS Block Explorer">
+                <img src="/images/header-xchain-logo.png" alt="XChain - Block Explorer" border="0"/>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-menu" aria-controls="main-menu" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="main-menu">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-database"></i> Networks</a>
+                        <ul class="dropdown-menu mt-1">
+                            <li><a class="dropdown-item" href="/BTC/"                   title="Bitcoin (Mainnet)"  ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Bitcoin (Mainnet)</a></li>
+                            <li><a class="dropdown-item" href="/tBTC/"                  title="Bitcoin (Testnet)"  ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Bitcoin (Testnet)</a></li>
+                            <li><a class="dropdown-item" href="/DOGE/"                  title="Dogecoin (Mainnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Dogecoin (Mainnet)</a></li>
+                            <li><a class="dropdown-item" href="/tDOGE/"                 title="Dogecoin (Testnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Dogecoin (Testnet)</a></li>
+                            <li><a class="dropdown-item" href="/LTC/"                   title="Dogecoin (Mainnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Litecoin (Mainnet)</a></li>
+                            <li><a class="dropdown-item" href="/tLTC/"                  title="Dogecoin (Testnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Litecoin (Testnet)</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-tachometer"></i> Data</a>
+                        <ul class="dropdown-menu mt-1">
+                            <li><a class="dropdown-item" href="/BTC/addresses"    title="XChain Addresses"    ><span class="wrapicon-25"><i class="fa fa-gears"        ></i></span>Addresses</a></li>
+                            <li><a class="dropdown-item" href="/BTC/airdrops"     title="XChain Airdrops"     ><span class="wrapicon-25"><i class="fa fa-parachute-box"></i></span>Airdrops</a></li>
+                            <li><a class="dropdown-item" href="/BTC/batches"      title="XChain Batches"      ><span class="wrapicon-25"><i class="fa fa-layer-group"  ></i></span>Batches</a></li>
+                            <li><a class="dropdown-item" href="/BTC/broadcasts"   title="XChain Broadcasts"   ><span class="wrapicon-25"><i class="fa fa-bullhorn"     ></i></span>Broadcasts</a></li>
+                            <li><a class="dropdown-item" href="/BTC/blocks"       title="XChain Blocks"       ><span class="wrapicon-25"><i class="fa fa-cube"         ></i></span>Blocks</a></li>
+                            <li><a class="dropdown-item" href="/BTC/callbacks"    title="XChain Callbacks"    ><span class="wrapicon-25"><i class="fa fa-recycle"      ></i></span>Callbacks</a></li>
+                            <li><a class="dropdown-item" href="/BTC/destroys"     title="XChain Destroys"     ><span class="wrapicon-25"><i class="fa fa-trash"        ></i></span>Destroys</a></li>
+                            <li><a class="dropdown-item" href="/BTC/dispensers"   title="XChain Dispensers"   ><span class="wrapicon-25"><i class="fa fa-arrows-h"     ></i></span>Dispensers</a></li>
+                            <li><a class="dropdown-item" href="/BTC/dispenses"    title="XChain Dispenses"    ><span class="wrapicon-25"><i class="fa fa-btc"          ></i></span>Dispenses</a></li>
+                            <li><a class="dropdown-item" href="/BTC/dividends"    title="XChain Dividends"    ><span class="wrapicon-25"><i class="fa fa-sitemap"      ></i></span>Dividends</a></li>
+                            <li><a class="dropdown-item" href="/BTC/files"        title="XChain Files"        ><span class="wrapicon-25"><i class="fa fa-file"         ></i></span>Files</a></li>
+                            <li><a class="dropdown-item" href="/BTC/history"      title="XChain History"      ><span class="wrapicon-25"><i class="fa fa-clock"        ></i></span>History</a></li>
+                            <li><a class="dropdown-item" href="/BTC/issues"       title="XChain Issues"       ><span class="wrapicon-25"><i class="fa fa-bank"         ></i></span>Issues</a></li>
+                            <li><a class="dropdown-item" href="/BTC/links"        title="XChain Links"        ><span class="wrapicon-25"><i class="fa fa-link"         ></i></span>Links</a></li>
+                            <li><a class="dropdown-item" href="/BTC/lists"        title="XChain Lists"        ><span class="wrapicon-25"><i class="fa fa-list"         ></i></span>Lists</a></li>
+                            <li><a class="dropdown-item" href="/BTC/messages"     title="XChain Messages"     ><span class="wrapicon-25"><i class="fa fa-message"      ></i></span>Messages</a></li>
+                            <li><a class="dropdown-item" href="/BTC/mints"        title="XChain Mints"        ><span class="wrapicon-25"><i class="fa fa-print"        ></i></span>Mints</a></li>
+                            <li><a class="dropdown-item" href="/BTC/orders"       title="XChain Orders"       ><span class="wrapicon-25"><i class="fa fa-book"         ></i></span>Orders</a></li>
+                            <li><a class="dropdown-item" href="/BTC/sends"        title="XChain Sends"        ><span class="wrapicon-25"><i class="fa fa-send"         ></i></span>Sends</a></li>
+                            <li><a class="dropdown-item" href="/BTC/sleeps"       title="XChain Sleeps"       ><span class="wrapicon-25"><i class="fa fa-snooze"       ></i></span>Sleeps</a></li>
+                            <li><a class="dropdown-item" href="/BTC/swaps"        title="XChain Swaps"        ><span class="wrapicon-25"><i class="fa fa-exchange"     ></i></span>Swaps</a></li>
+                            <li><a class="dropdown-item" href="/BTC/sweeps"       title="XChain Sweeps"       ><span class="wrapicon-25"><i class="fa fa-truck"        ></i></span>Sweeps</a></li>
+                            <li><a class="dropdown-item" href="/BTC/tokens"       title="XChain Tokens"       ><span class="wrapicon-25"><i class="fa fa-database"     ></i></span>Tokens</a></li>
+                        </ul>
+                    </li>
+                    <!--
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="/collections" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-sitemap"></i> Collections</a>
+                        <ul class="dropdown-menu mt-1">
+                            <li><a class="dropdown-item" href="https://xchain.io"                        title="Counterparty (Mainnet)"><i class="fa fa-lg fa-counterparty"></i> Counterparty (Mainnet)</a></li>
+                        </ul>                        
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-lock"></i> Wallets</a>
+                        <ul class="dropdown-menu mt-1">
+                            <li><a class="dropdown-item" href="https://freewallet.io" title="FreeWallet"><i class="fa fa-lg fa-freewallet"></i> FreeWallet.io</a></li>
+                        </ul>                        
+                    </li>
+                    -->
+                    <li class="nav-item"><a class="nav-link" href="/api" title="BTNS API"><i class="fa fa-cogs fa-lg"></i> API</a></li>
+
+<!--                     <li class="nav-item"><a class="nav-link" href="/api" title="BTNS API"><i class="fa fa-sitemap fa-lg"></i> Collections</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/api" title="BTNS API"><i class="fa fa-trophy fa-lg"></i> Leaderboards</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/api" title="BTNS API"><i class="fa fa-dashboard fa-lg"></i> Stats</a></li>
+ -->                
+                    <li class="nav-item"><a class="nav-link" href="/about" title="About XChain"><i class="fa fa-info-circle fa-lg"></i> About</a></li>
+                </ul>
+                <form action="/search" role="search" method="GET" id="form-search">
+                    <div class="input-group">
+                        <input type="text" name="query" class="form-control" placeholder="Search" aria-label="Search" aria-describedby="button-search">
+                        <button class="btn btn-success" type="button" id="button-search"><i class="fa fa-search fa-lg"></i></button>
+                    </div>
+                </form>
+                <ul class="navbar-nav mb-2 mb-lg-0">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-2x fa-gear"></i></a>
+                        <ul class="dropdown-menu dropdown-menu-end mt-0">
+                            <li><a class="dropdown-item" id="btn-dark-mode" href="#" title="Dark Mode" ><i class="fa fa-lg fa-moon-stars"></i> Dark Mode</a></li>
+                            <li><a class="dropdown-item" id="btn-light-mode" href="#" title="Light Mode"><i class="fa fa-lg fa-sun-bright"></i> Light Mode</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="alert alert-primary text-center mt-3 mb-0" role="alert">
+           This site is currently under development and some of the features defined may not be fully functioning yet.<br> 
+           Thank you for your patience as we build out this site to realize the full potential of the <a href="https://xchain.io" target="_blank">XChain Platform</a>.
+        </div>
+    </div>
+
+    {CONTENT}
+
+    <!-- Footer -->
+    <footer class="footer mt-auto">
+        <div class="bg-dark border-top pt-0 pb-0" style="">
+            <div class="container">
+                <div class="row">
+                    <div class="col-xl-3 text-center text-xl-start">
+                        <!-- <a href="https://dankest.llc" title="Platform powered by Dankest, LLC" target="_blank"><img src="/images/footer-btns-logo.png" title="Platform powered by XChain " class="pt-1"></a> -->
+                    </div>
+                    <div class="col-xl-6 text-center ">
+                        &copy; <span id="copyright-year"></span> Dankest, LLC
+                        All Rights Reserved<br/>
+                        <a href="/terms">Terms of Use</a> |
+                        <a href="/privacy">Privacy Policy</a>
+                    </div>
+                    <div class="col-xl-3 text-center text-xl-end">
+                        <!-- <a href="https://www.coindaddy.io" title="Site powered by CoinDaddy" target="_blank"><img src="/images/footer-coindaddy-logo.png" title="Site powered by CoinDaddy" class="mt-1"></a> -->
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div> 
+    </footer> 
+
+
+
+
+    <!-- Load additional javascript assets -->
+    <script type="text/javascript" src="/js/moment.min.js"></script>
+    <script type="text/javascript" src="/js/livestamp.min.js"></script>
+    <script type="text/javascript" src="/js/numeral.js"></script>
+    <!-- <script type="text/javascript" src="/js/jquery.rateit.min.js"></script> -->
+    <!-- <script type="text/javascript" src="/js/prism.js"></script> -->
+    <!-- <script type="text/javascript" src="/js/highcharts.js"></script> -->
+    <script type="text/javascript" src="/js/throttle-debounce-fn.min.js"></script>
+    <!-- <script type="text/javascript" src="/js/highstock.js"></script> -->
+    <!-- <script type="text/javascript" src="/js/highcharts_exporting.js"></script> -->
+    <!-- <script type="text/javascript" src="/js/xchain_ads.js"></script> -->
+
+</body>
+</html>

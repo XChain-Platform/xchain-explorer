@@ -1,0 +1,38 @@
+<!-- Latest Links -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-link"></i> Links
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-link">
+                <thead>
+                <tr class="info">
+                    <th class="record">#</th>
+                    <th class="block">Block</th>
+                    <th class="time">Time</th>
+                    <th class="address">Source</th>
+                    <th class="">Action 1</th>
+                    <th class="">Action 2</th>
+                    <th class="">Memo</th>
+                    <th class="view"></th>
+                </tr>
+                </thead>
+                <tbody>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function() {
+
+        // Load all `link` actions
+        loadDatatablesData('BTC', 'link', null, null);
+
+    });
+</script>

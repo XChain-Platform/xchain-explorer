@@ -1,0 +1,317 @@
+/*
+ * CSS for xchain explorer
+ */
+
+body {
+    position: relative;
+/*    background-color: #eeeeee;*/
+/*    margin-bottom: 50px;*/
+}
+
+/* CSS for icons in main menu */
+.fa-counterparty {
+    background-image: url('../img/counterparty-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 3px;  
+}
+.fa-dogeparty {
+    background-image: url('../img/dogeparty-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 22px;
+    position: relative;
+    top: 5px;  
+}
+.fa-btns {
+    background-image: url('../img/btns-icon-black-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 3px;  
+}
+.fa-btns-yellow {
+    background-image: url('../img/btns-icon-yellow-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 3px;  
+}
+.fa-coindaddy {
+    background-image: url('../img/coindaddy-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: -4px;  
+}
+.fa-xchain {
+    background-image: url('../images/xchain-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 5px;  
+}
+.fa-freewallet {
+    background-image: url('../img/freewallet-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+}
+.fa-mempool {
+    background-image: url('../img/mempool-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-blockstream {
+    background-image: url('../img/blockstream-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-blockcypher {
+    background-image: url('../img/blockcypher-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-blockchair {
+    background-image: url('../img/blockchair-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+
+/* CSS for sticky footer (also requires html/)*/
+.footer {
+/*  position: absolute;*/
+/*  bottom: 0;*/
+  width: 100%;
+  /* Set the fixed height of the footer here */
+   height: 50px;
+  color: #fff;
+  background-color: #222;
+}
+.footer a,
+.footer a:visited {
+    color: #888;
+}
+.footer a:hover {
+    color: #fff;
+    text-decoration: none;
+}
+
+/* CSS for datatables */
+.dataTables_wrapper th, .dataTables_wrapper td {
+  max-width: 200px;
+  min-width: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    display: inline-block;
+    float: none;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    padding-top: 0em !important;
+}
+.dataTables_wrapper .dataTables_length select {
+    padding: 2px ;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  padding: 0em 0.5em;
+}
+
+/* Do not put border on 2nd from last field next to status field */
+table.dataTable.cell-border.view-button tbody tr td:nth-last-child(2){
+    border-right: 0px;
+}
+
+table.dataTable tbody th, table.dataTable tbody td {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 5px;
+    padding-right: 5px;
+    border-bottom: 1px;
+    border-top: 0px;
+}
+
+/* Wrapper around icons to standardize the size and make content line up*/
+.wrapicon-25 {
+    display: inline-block;
+    width: 25px !important;
+    margin-right: 5px;
+    text-align: center;
+}
+
+.icon-20 {
+    width: 20px;
+    height: 20px;
+}
+
+.bg-red,
+.bg-red td  {
+    background-color: #EFC9CA !important;
+}
+.bg-green,
+.bg-green td {
+    background-color: #E0F2DF !important;
+}
+.bg-yellow,
+.bg-yellow td {
+    background-color: #FFFAA0 !important;
+}
+
+/* CSS Used to force heights of certain fields */
+th.record,
+th.block,
+th.rating {
+    width: 75px;
+}
+th.time {
+    width: 150px;
+}
+th.amount {
+    width: 100px;
+}
+th.quantity {
+    width: 250px;
+}
+th.quantity-small {
+    width: 100px;
+}
+th.view {
+    width: 50px;
+}
+th.transactions {
+    width: 120px;
+}
+th.address {
+    width: 320px;
+}
+
+/* CSS used on homepage */
+.table-stats th {
+    width: 120px;
+    white-space: nowrap;
+}
+.table-stats tr:last-child {
+    border-width: 0px !important;
+}
+.table-stats tr:last-child {
+    border-width: 0px !important;
+}
+
+
+/* CSS Used on transaction pages */
+#transaction tbody tr th {
+    white-space: nowrap;
+}
+#transaction tr th:first-child {
+    border-left-width: 0px !important;
+}
+#transaction tr td:last-child {
+    border-right-width: 0px !important;
+}
+#transaction tr:last-child th,
+#transaction tr:last-child td {
+    border-bottom-width: 0px !important;
+}
+
+/* Custom styles for enhanced asset info display */
+table.token-info {
+    table-layout:fixed;                            
+}
+
+table.token-info tr th {
+    width: 120px !important;
+/*    background-color: #d9edf7 !important;*/
+    text-transform: capitalize;
+}
+
+table.token-info tr th,
+table.token-info tr td {
+    white-space: nowrap;  
+    overflow: hidden;  
+    text-overflow: ellipsis;             
+}
+
+table.token-info-hide tr {
+    display: none;
+}
+
+table.lock-info tr th {
+    width: 120px !important;
+/*    background-color: #d9edf7 !important;*/
+    text-transform: capitalize;
+}
+table.lock-info tr th,
+table.lock-info tr td {
+    white-space: nowrap;  
+    overflow: hidden;
+
+
+table.no-outer-borders tr th:first-child {
+    border-left-width: 0px !important;
+}
+table.no-outer-borders tr td:last-child {
+    border-right-width: 0px !important;
+}
+table.no-outer-borders tr:last-child {
+    border-bottom-width: 0px !important;
+}
+#assetExtendedDescription {
+    white-space: normal;  
+    overflow:  visible !important;
+}
+#customContentWarning {
+    height: 200px;
+    background-color: #D0D0D0; 
+    padding-top: 20px;
+}
+#loadCustomContentButton {
+    margin:  0px;
+}
+#customContentWarningDanger {
+    margin-top:  0px;
+    margin-bottom:  20px;
+    margin-left:  20px;
+    margin-right:  20px;
+}
+#customContentViewer {
+    width:  100%;
+}
+
+/* CSS used in terms of use */
+.upper-alpha {
+    list-style-type:upper-alpha;
+}
+.terms-of-use li {
+    margin-bottom: 10px;
+}
+
+.highlight-search-term {
+  background-color: yellow;
+  font-weight: bold;  
+}

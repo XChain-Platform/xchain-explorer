@@ -1,0 +1,9 @@
+# Redirect any requests for non-existant files to the default.png image
+# This allows us to just blindly request the asset image without checking if it exists first in code
+<IfModule mod_rewrite.c>
+RewriteCond %{REQUEST_URI} \.(jpg|jpeg|gif|png|ico)$ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule (.*) default.png [L,E=STATUS:404]
+RewriteRule $ default.png [L,E=STATUS:404]
+
+</IfModule>

@@ -1,0 +1,1750 @@
+<!-- Basic Token Information -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12 col-lg-6">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-info-circle"></i> <span class="display-token-name"></span> Token Details
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0 token-info no-outer-borders border-bottom">
+                <tbody>
+                <tr>
+                    <th>Token&nbsp;Name</th>
+                    <td id="tick"></td>
+                    <td width="65" rowspan="2" valign="middle" align="center" ><img src="/icon/{TICK}.png" id="tokenIcon" border="0"></td>
+                </tr>
+                <tr>
+                    <th>Description</th>
+                    <td id="token-description"></td>
+                </tr>
+                </tbody>
+                </table>
+                <table class="table table-sm table-striped table-bordered mb-0 token-info no-outer-borders ">
+                <tbody>
+                <tr class="border-top-0">
+                    <th>Supply</th>
+                    <td id="supply"></td>
+                </tr>
+                <tr>
+                    <th>Max Supply</th>
+                    <td id="max-supply"></td>
+                </tr>
+                <tr>
+                    <th>Mint Max</th>
+                    <td id="max-mint"></td>
+                </tr>
+                <tr class="border-bottom-0">
+                    <th>Owner</th>
+                    <td id="owner"></td>
+                </tr>
+                </tbody>
+                </table>
+            </div>        
+        </div>
+<!--
+        <div class="col-xs-12 col-md-4 col-lg-2 ps-lg-0 pe-md-0 pt-3 pt-lg-0">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-lock"></i> Locks
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0 no-outer-borders">
+                <tbody>
+                <tr>
+                    <th>Max Supply</th>
+                    <td id="lock-max-supply"></td>
+                </tr>
+                <tr>
+                    <th>Max Mint</th>
+                    <td id="lock-max-mint"></td>
+                </tr>
+                <tr>
+                    <th>Description</th>
+                    <td id="lock-description"></td>
+                </tr>
+                <tr>
+                    <th>Rug</th>
+                    <td id="lock-rug"></td>
+                </tr>
+                <tr>
+                    <th>Sleep</th>
+                    <td id="lock-sleep"></td>
+                </tr>
+                <tr>
+                    <th>Callback</th>
+                    <td id="lock-callback"></td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+-->
+        <div class="col-xs-12 col-lg-6 pt-3 pt-lg-0">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-chart-line-up"></i> <span class="display-token-name"></span> Market Information
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0 token-info no-outer-borders border-bottom">
+                <tbody>
+                <tr>
+                    <th>Marketcap</th>
+                    <td>$<span id="market-marketcap-usd">0.00</span></td>
+                    <td><span id="market-marketcap-btc">0.00000000</span> BTC</td>
+                </tr>
+                <tr>
+                    <th>BTC Price</th>
+                    <td>$<span id="market-btc-price-usd">0.00</span></td>
+                    <td><span id="market-btc-price-btc">0.00000000</span> BTC</td>
+                </tr>
+                <tr>
+                    <th>BTC Floor</th>
+                    <td>$<span id="market-btc-floor-usd">0.00</span></td>
+                    <td><span id="market-btc-floor-btc">0.00000000</span> BTC</td>
+                </tr>
+                </tbody>
+                </table>
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-recycle"></i> <span class="display-token-name"></span> Callback Information
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0 token-info no-outer-borders">
+                <tbody>
+                <tr>
+                    <th>Token / Block</th>
+                    <td id="callback-tick"></td>
+                    <td id="callback-block"></td>
+                </tr>
+                <tr>
+                    <th>Amount</th>
+                    <td id="callback-amount">0.00000000</td>
+                    <td id="callback-amount-btc">0.00000000 BTC</td>
+                </tr>
+                </tbody>
+                </table>
+            </div>        
+        </div>
+
+        <div class="col-xs-12 mt-3" id="list-wrapper" style="display:none;">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-list"></i> List Information
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0 token-info no-outer-borders">
+                <tbody>
+                <tr>
+                    <th>Allow List</th>
+                    <td id="allow-list"></td>
+                </tr>
+                <tr>
+                    <th>Block List</th>
+                    <td id="block-list"></td>
+                </tr>
+                </tbody>
+                </table>
+            </div>        
+        </div>
+
+
+
+        <div class="col-xs-12 mt-3" id="list-wrapper" >
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-lock"></i> Locks
+                </div>
+                <div class="row">
+                    <div class="col-lg-3 pe-lg-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 lock-info ">
+                        <tbody>
+                        <tr>
+                            <th><i class="fa pe-1 fa-coin"></i>Max Supply</th>
+                            <td id="lock-max-supply"></td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa pe-1 fa-coins"></i>Max Mint</th>
+                            <td id="lock-max-mint"></td>
+                        </tr>
+                        </tbody>
+                        </table>                        
+                    </div>
+                    <div class="col-lg-3 ps-lg-0 pe-lg-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 lock-info">
+                        <tbody>
+                        <tr>
+                            <th><i class="fa pe-1 fa-print"></i>Mint</th>
+                            <td id="lock-mint"></td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa pe-1 fa-bank"></i>Mint Supply</th>
+                            <td id="lock-mint-supply"></td>
+                        </tr>
+                        </tbody>
+                        </table>                        
+                    </div>
+                    <div class="col-lg-3 ps-lg-0 pe-lg-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 lock-info">
+                        <tbody>
+                        <tr>
+                            <th><i class="fa pe-1 fa-circle-info"></i>Description</th>
+                            <td id="lock-description"></td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa pe-1 fa-bomb"></i>Rug</th>
+                            <td id="lock-rug"></td>
+                        </tr>
+                        </tbody>
+                        </table>                        
+                    </div>
+                    <div class="col-lg-3 ps-lg-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 lock-info">
+                        <tbody>
+                        <tr>
+                            <th><i class="fa pe-1 fa-snooze"></i>Sleep</th>
+                            <td id="lock-sleep"></td>
+                        </tr>
+                        <tr>
+                            <th><i class="fa pe-1 fa-recycle"></i>Callback</th>
+                            <td id="lock-callback"></td>
+                        </tr>
+                        </tbody>
+                        </table>                        
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-xs-12">
+            <ul class="nav nav-tabs" id="data-tabs" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-info"       data-bs-toggle="tab" data-bs-target="#tab-pane-info"       type="button" role="tab" aria-controls="tab-pane-info"       aria-selected="true"><i class="fa fa-lg fa-paperclip"    ></i> Information</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-airdrops"   data-bs-toggle="tab" data-bs-target="#tab-pane-airdrops"   type="button" role="tab" aria-controls="tab-pane-airdrops"   aria-selected="true"><i class="fa fa-lg fa-parachute-box"></i> Airdrops</button></li>
+                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-bets"       data-bs-toggle="tab" data-bs-target="#tab-pane-bets"       type="button" role="tab" aria-controls="tab-pane-bets"       aria-selected="true"><i class="fa fa-lg fa-bullseye"     ></i> Bets</button></li> -->
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-callbacks"  data-bs-toggle="tab" data-bs-target="#tab-pane-callbacks"  type="button" role="tab" aria-controls="tab-pane-callbacks"  aria-selected="true"><i class="fa fa-lg fa-recycle"      ></i> Callbacks</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-destroys"   data-bs-toggle="tab" data-bs-target="#tab-pane-destroys"   type="button" role="tab" aria-controls="tab-pane-destroys"   aria-selected="true"><i class="fa fa-lg fa-trash"        ></i> Destroys</button></li>
+                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispensers" data-bs-toggle="tab" data-bs-target="#tab-pane-dispensers" type="button" role="tab" aria-controls="tab-pane-dispensers" aria-selected="true"><i class="fa fa-lg fa-arrows-h"     ></i> Dispensers</button></li> -->
+                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispenses"  data-bs-toggle="tab" data-bs-target="#tab-pane-dispenses"  type="button" role="tab" aria-controls="tab-pane-dispenses"  aria-selected="true"><i class="fa fa-lg fa-btc"          ></i> Dispenses</button></li> -->
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dividends"  data-bs-toggle="tab" data-bs-target="#tab-pane-dividends"  type="button" role="tab" aria-controls="tab-pane-dividends"  aria-selected="true"><i class="fa fa-lg fa-sitemap"      ></i> Dividends</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-holders"    data-bs-toggle="tab" data-bs-target="#tab-pane-holders"    type="button" role="tab" aria-controls="tab-pane-holders"    aria-selected="true"><i class="fa fa-lg fa-users"        ></i> Holders</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-issues"     data-bs-toggle="tab" data-bs-target="#tab-pane-issues"     type="button" role="tab" aria-controls="tab-pane-issues"     aria-selected="true"><i class="fa fa-lg fa-bank"         ></i> Issues</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-mints"      data-bs-toggle="tab" data-bs-target="#tab-pane-mints"      type="button" role="tab" aria-controls="tab-pane-mints"      aria-selected="true"><i class="fa fa-lg fa-print"        ></i> Mints</button></li>
+                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-rugs"       data-bs-toggle="tab" data-bs-target="#tab-pane-rugs"       type="button" role="tab" aria-controls="tab-pane-rugs"       aria-selected="true"><i class="fa fa-lg fa-bomb"         ></i> Rugs</button></li> -->
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sends"      data-bs-toggle="tab" data-bs-target="#tab-pane-sends"      type="button" role="tab" aria-controls="tab-pane-sends"      aria-selected="true"><i class="fa fa-lg fa-send"         ></i> Sends</button></li>
+                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sleeps"     data-bs-toggle="tab" data-bs-target="#tab-pane-sleeps"     type="button" role="tab" aria-controls="tab-pane-sleeps"     aria-selected="true"><i class="fa fa-lg fa-snooze"       ></i> Sleeps</button></li> -->
+                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-mempool"    data-bs-toggle="tab" data-bs-target="#tab-pane-mempool"    type="button" role="tab" aria-controls="tab-pane-mempool"    aria-selected="true"><i class="fa fa-lg fa-clock-o"      ></i> Unconfirmed</button></li> -->
+                <li class="nav-item dropdown" id="data-last-tab">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">More</a>
+                    <ul class="dropdown-menu" id="data-tabs-more">
+                    </ul>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content border border-top-0 mb-3" id="data-panels">
+
+                <!-- Additional Token Information -->
+                <div class="tab-pane active fade show active table-responsive" id="tab-pane-info" role="tabpanel" aria-labelledby="tab-info" tabindex="0">
+                    <div class="table-responsive">
+                        <!-- Default page if no enhanced token info is found-->
+                        <div id="additionalInfoNotAvailable" class="panel-body p-5">
+                            <center>No additional information is available at this time</center>
+                        </div>
+
+                        <!-- Official Card Indicator-->
+                        <div id="officialCard" style="display: none;" ></div>
+
+                        <!-- Custom HTML Content -->
+                        <div class="card-title mb-0 p-1 fw-bold" id="custom-content-header" style="display:none;">
+                            <i class="fa fa-lg fa-exclamation-circle"></i> Custom Content
+                        </div>
+                        <div class="custom-content-wrapper" id="custom-content-wrapper" style="display: none;">
+                            <div class="text-center" id="customContentWarning">
+                                <div class="alert alert-danger text-center" role="alert" id="customContentWarningDanger">
+                                    Loading custom content can be potentially dangerous, as it allows unknown and untrusted code to run in your browser!
+                                </div>
+                                <a class="btn btn-lg btn-success margin-top-5" id="loadCustomContentButton"><i class="fa fa-lg fa-play"></i> Load Content</a>
+                            </div>
+                            <!-- iFrame to load custom content -->
+                            <iframe id="customContentViewer" style="display:none;" frameborder=0 allowfullscreen scrolling="no"></iframe>
+                        </div>
+
+
+                        <!-- Digital Artwork  -->
+                        <div id="digitalArtInfo" style="display: none;">
+                            <div class="card-title mb-0 p-1 fw-bold" id="artwork-information" style="display:none;">
+                                <i class="fa fa-lg fa-info"></i> Artwork Information
+                            </div>
+                            <!-- <table width="100%" class="table table-condensed table-striped table-bordered no-bottom-margin no-top-border token-info-hide"> -->
+                            <table class="table table-sm table-striped table-bordered token-info mb-0">
+                            <thead>
+                            <tr>
+                                <th> Title</th>
+                                <td id="artwork-title">&nbsp;</td>
+                            <tr>
+                            <tr>
+                                <th> Project</th>
+                                <td id="artwork-project">&nbsp;</td>
+                            <tr>
+                            </thead>
+                            </table>
+                            <div class="card-title mb-0 p-1 fw-bold border-bottom" id="artwork-header" style="display:none;">
+                                <i class="fa fa-lg fa-paint-brush"></i> Digital Image
+                            </div>
+                            <img src="/icon/XCP.png" class="img-responsive" id="artwork-image" style="display: none;">
+                            <img src="/icon/XCP.png" class="bitcoin-stamp-pixelated"   id="artwork-bitcoin-stamp" style="display: none;">
+                            <div class="card-title mb-0 p-1 fw-bold border-bottom" id="video-header" style="display:none;">
+                                <i class="fa fa-lg fa-play"></i> Digital Video
+                            </div>
+                            <div class="video-wrapper" id="video-wrapper" style="display: none;"></div>
+                            <div class="video-wrapper-youtube" id="video-wrapper-youtube" style="display: none;"></div>
+                            <div class="card-title mb-0 p-1 fw-bold border-bottom" id="video-header" style="display:none;">
+                                <i class="fa fa-lg fa-music"></i> Digital Audio
+                            </div>
+                            <div class="audio-wrapper" id="audio-wrapper" style="display: none;"></div>
+                            <div class="audio-wrapper-soundcloud" id="audio-wrapper-soundcloud" style="display: none;"></div>
+                        </div>
+
+                        <!-- Extended Information from JSON -->
+                        <div id="additionalTokenInfo" style="display:none;">
+                            <a name="extended"></a>
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-id-card"></i> Enhanced Token Information
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            <tr>
+                                <th>Name</th>
+                                <td id="tokenName">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>Website</th>
+                                <td id="tokenWebsite">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>PGP Signature</th>
+                                <td id="pgpSignature">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>Category</th>
+                                <td id="tokenCategory">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>Subcategory</th>
+                                <td id="tokenSubCategory">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>Other Category</th>
+                                <td id="tokenCategoryOther">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>Description</th>
+                                <td id="tokenExtendedDescription">&nbsp;</td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Owner Information -->
+                        <div id="ownerInfo" style="display:none;">           
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-user"></i> Owner Information
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            <tr>
+                                <th>Name</th>
+                                <td id="ownerName">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>Title</th>
+                                <td id="ownerTitle">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <th>Organization</th>
+                                <td id="ownerOrganization">&nbsp;</td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Contact Information -->
+                        <div id="contactInfo" style="display:none;">
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-envelope"></i> Contact Information
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Social Media Information -->
+                        <div id="socialInfo" style="display:none;">
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-bullhorn"></i> Social Media
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Images Information -->
+                        <div id="imagesInfo" style="display:none;">
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-image"></i> Images
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Audio Information -->
+                        <div id="audioInfo" style="display:none;">
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-music"></i> Audio
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Video Information -->
+                        <div id="videoInfo" style="display:none;">
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-play"></i> Video
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Files Information -->
+                        <div id="fileInfo" style="display:none;">
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-file"></i> Files
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- DNS Information -->
+                        <div id="dnsInfo" style="display:none;">
+                            <div class="card-title mb-0 p-1 fw-bold">
+                                <i class="fa fa-lg fa-server"></i> DNS
+                            </div>
+                            <table width="100%" class="table table-sm table-striped table-bordered token-info mb-0">
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Airdrops -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-airdrops" role="tabpanel" aria-labelledby="tab-airdrops" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="quantity">Amount</th>
+                            <th class="memo">Memo</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Bets -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-bets" role="tabpanel" aria-labelledby="tab-bets" tabindex="0">
+                    coming soon
+                </div>
+
+                <!-- Callbacks -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-callbacks" role="tabpanel" aria-labelledby="tab-callbacks" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="token">Callback Token</th>
+                            <th class="quantity">Quantity</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Destroys -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-destroys" role="tabpanel" aria-labelledby="tab-destroys" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="quantity">Quantity</th>
+                            <th class="memo">Memo</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Dispensers -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dispensers" role="tabpanel" aria-labelledby="tab-dispensers" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Dispensing</th>
+                            <th class="">Cost</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Dispenses -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dispenses" role="tabpanel" aria-labelledby="tab-dispenses" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Destination</th>
+                            <th class="">Dispensed</th>
+                            <th class="">BTC Paid</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Dividends -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dividends" role="tabpanel" aria-labelledby="tab-dividends" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Dividend Token</th>
+                            <th class="">Amount Per Unit</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Holders -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-holders" role="tabpanel" aria-labelledby="tab-holders" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th>Percentage</th>
+                            <th class="quantity">Quantity</th>
+                            <th>Estimated Value</th>
+                            <th>Address</th>
+                            <th class="view">&nbsp;</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Issues -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-issues" role="tabpanel" aria-labelledby="tab-issues" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th>Description</th>
+                            <th>Max Supply</th>
+                            <th>Max Mint</th>
+                            <th>Locks</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Mints -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-mints" role="tabpanel" aria-labelledby="tab-mints" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="quantity">Amount</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Rugs -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-rugs" role="tabpanel" aria-labelledby="tab-rugs" tabindex="0">
+                    coming soon
+                </div>
+
+                <!-- Sleeps -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-sleeps" role="tabpanel" aria-labelledby="tab-sleeps" tabindex="0">
+                    coming soon
+                </div>
+
+                <!-- Sends -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-sends" role="tabpanel" aria-labelledby="tab-sends" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="quantity">Amount</th>
+                        <th class="address">Source</th>
+                        <th class="address">Destination</th>
+                        <th class="view"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Unconfirmed / Mempool -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-mempool" role="tabpanel" aria-labelledby="tab-mempool" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="time">Time</th>
+                        <th class="record-type">Type</th>
+                        <th class="address">Source</th>
+                        <th class="">Details</th>
+                        <th class="view"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Load up list of all known NFTs --> 
+<script type="text/javascript" src="/js/nfts.js"></script>
+
+<script type="text/javascript">
+    var tick = '{QUERY}';
+    var cachedJson = {};
+
+    // Parse in querystring params to detect active tab
+    var params  = new URLSearchParams(window.location.search),
+        active  = params.get('tab') || params.get('active');
+
+    // Keep track of records per page
+    var sm   = localStorage,
+        rec  = sm.getItem('records_per_page_token');
+        page = (rec) ? parseInt(rec) : 10;
+
+    // Parse in last known BTC price
+    var btc_usd = sm.getItem('btcPrice') || 0.00;
+
+    // Array to some misc values used for tracking offset and direction
+    var misc = [];
+
+    // Setup url for relaying .json and .png files
+    var relay = '/relay?url=';
+
+    // Handle requesting transaction data and populating tables
+    function load_transactions(type, rowFn){
+        // Initialize last_start value
+        misc[ type + '_last_start'] = 0;
+        var table = '#tab-pane-' + type + ' table';
+        $(table).dataTable({
+            ajax: {
+                url: "/explorer/" + type + '/' + tick,
+                data: function(data){
+                    // Pass action and offset with request
+                    var action = null,
+                        offset = null;
+                    if(data.start==0){
+                        action = 'first';
+                    } else if(data.start > (misc[type + '_last_start'] + data.length)){
+                        action = 'last';
+                    } else if(data.start >= misc[type + '_last_start']){
+                        action = 'next';
+                        offset = misc[type + '_offset_last'];
+                    } else {
+                        action = 'prev';
+                        offset = misc[type + '_offset_first'];
+                    }
+                    // Set action and offset except in special cases
+                    var arr = ['feeds'];
+                    if(arr.indexOf(type)==-1){
+                        data.action = action;
+                        data.offset = offset;
+                    }
+                    // pass total back to server (used to quickly calculate how many records to display on 'last' page)
+                    data.total =  misc[type + '_total'];
+                    // Cleanup the request so we only send what we need
+                    delete data.columns;
+                    delete data.order;
+                    delete data.search;
+                    delete data.draw;
+                }
+            },
+            pageLength: page,
+            dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t>',
+            // dom: '<"search-options center"<"pull-left hidden-xs"l>p<"pull-right hidden-xs"i>><"search-results"t>',
+            pagingType: "full",
+            serverSide: true,
+            searching: false,
+            ordering: false,
+            processing: true,
+            autoWidth: false,
+            language: {
+                lengthMenu: "_MENU_ per page",
+                zeroRecords: "No records found",
+                info: "_TOTAL_ results",
+                processing: "Loading Data...",
+                loadingRecords: "Loading Data...",
+                // info: "Displaying _START_ - _END_ of _TOTAL_",
+                infoEmpty: "No records available",
+                paginate: {
+                    first: "<i class='fa fa-chevron-left'></i><i class='fa fa-chevron-left'></i>",
+                    previous: "<i class='fa fa-chevron-left'></i>",
+                    next: "<i class='fa fa-chevron-right'></i>",
+                    last: "<i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>"
+                }
+            },
+            fnDrawCallback: function( o ){
+                var total  = o._iRecordsTotal,
+                    length = o._iDisplayLength,
+                    stop   = o._iDisplayStart + length,
+                    page   = stop / length,
+                    pages  = total / length;
+                if(pages > parseInt(pages))
+                    pages = parseInt(pages) + 1;
+                if(total==0)
+                    page = 0;
+                // Update total count element
+                $('#total' + type.substring(0,1).toUpperCase() + type.substring(1)).text(numeral(o._iRecordsTotal).format('0,0'));
+                // Add 'Page X of Y' in between previous/next buttons
+                $('#tab-pane-' + type + ' .paginate_button.previous').after('&nbsp;&nbsp;Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0') + '&nbsp;&nbsp;')
+                // Track first and last shown tx_index (used for offset tracking)
+                if(o.json.data && o.json.data.length){
+                    var first = o.json.data[0],
+                        last  = o.json.data[o.json.data.length-1];
+                    misc[type + '_offset_first'] = first[first.length-1];
+                    misc[type + '_offset_last']  = last[last.length-1];
+                } else {
+                    misc[type + '_offset_first'] = 0;
+                    misc[type + '_offset_last']  = 0;
+                }
+                // Save the start so we can determine direction when user clicks (prev/next)
+                misc[type + '_last_start'] = o._iDisplayStart;
+                // Save total, so we can pass back in API requests (used to calculate how many records to display on 'last' page)
+                misc[type + '_total'] = o.json.recordsTotal;
+            },
+            // Function once for each row in the table
+            createdRow: rowFn
+        });
+    }
+
+    // Handle loading remote image icon
+    function setTokenIcon(image){
+        // var url = image;
+        var url = relay + image;
+        $.get( url, function(data){
+            if(String(data).trim().length)
+                $('#tokenIcon').attr('src', 'data:image/png;base64,' + data);
+        });
+    }
+
+    // Function to remove html from string
+    function stripHtml(html){
+        var tmp = document.createElement("DIV");
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || "";
+    }
+
+    // Function to handle converting any JSON to use the CIP25 standard
+    // https://github.com/CounterpartyXCP/cips/blob/master/cip-0025.md
+    function legacyJsonToCip25(o){
+        var json = {},
+            o    = (o) ? o : {};
+        // Pass basic token info fields forward
+        ['token','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
+        // Owner fields
+        json.owner = {};
+        if(o.owner)
+            ['name','title','organization'].forEach(function(name){ if(o.owner[name]) json.owner[name]=o.owner[name]; });
+        // Contacts Data
+        json.contacts = (typeof o.contacts === 'object') ? o.contacts : [];
+        if(o.contact_address_line_1)
+            json.contacts.push({ type: 'address', data: o.contact_address_line_1 + ' ' + o.contact_address_line_2 + ', ' +  o.contact_city + ', ' +  o.contact_state_province + ' ' +  o.contact_postal_code + ' ' + o.contact_country });
+        if(o.contact_email1)
+            json.contacts.push({ type: 'email', data: o.contact_email1 });
+        if(o.contact_email2)
+            json.contacts.push({ type: 'email', data: o.contact_email2 });
+        if(o.contact_phone)
+            json.contacts.push({ type: 'phone', data: o.contact_phone });
+        if(o.contact_fax)
+            json.contacts.push({ type: 'fax', data: o.contact_fax });
+        if(o.website_alternate1)
+            json.contacts.push({ type: 'url', data: o.website_alternate1 });
+        if(o.website_alternate2)
+            json.contacts.push({ type: 'url', data: o.website_alternate2 });
+        // Category Data
+        json.categories = (typeof o.categories === 'object') ? o.categories : [];
+        if(o.category)
+            json.categories.push({ type: 'main', data: o.category });
+        if(o.subcategory)
+            json.categories.push({ type: 'sub', data: o.subcategory });
+        if(o.category_custom)
+            json.categories.push({ type: 'other', data: o.category_custom });
+        // Social Media
+        json.social = (typeof o.social === 'object') ? o.social : [];
+        if(o.website_social_facebook)
+            json.social.push({ type: 'facebook', data: o.website_social_facebook });
+        if(o.website_social_github)
+            json.social.push({ type: 'github', data: o.website_social_github });
+        if(o.website_social_twitter)
+            json.social.push({ type: 'twitter', data: o.website_social_twitter });
+        if(o.website_social_reddit)
+            json.social.push({ type: 'reddit', data: o.website_social_reddit });
+        if(o.website_social_linkedin)
+            json.social.push({ type: 'linkedin', data: o.website_social_linkedin });
+        // Images
+        json.images = (typeof o.images === 'object') ? o.images : [];
+        // Add 'image' to images array if it does not already exist
+        if(o.image){
+            var found = false;
+            json.images.forEach(function(item){
+                if(item.data==o.image)
+                    found = true;
+            });
+            if(!found)
+                json.images.push({ type: 'icon', data: o.image });
+        }
+        if(o.image_large)
+            json.images.push({ type: 'large', name: o.image_title, data: o.image_large });
+        if(o.image_large_hd)
+            json.images.push({ type: 'hires', name: o.image_title, data: o.image_large_hd });
+        // Audio
+        json.audio = (typeof o.audio === 'object') ? o.audio : [];
+        if(o.audio!='' && typeof o.audio === 'string')
+            json.audio.push({ type: o.audio.slice(-3), data: o.audio });
+        // Video
+        json.video = (typeof o.video === 'object') ? o.video : [];
+        if(o.video!='' && typeof o.video === 'string')
+            json.video.push({ type: o.video.slice(-3), data: o.video });
+        // Files
+        json.files = (typeof o.files === 'object') ? o.files : [];
+        // DNS
+        json.dns = (typeof o.dns === 'object') ? o.dns : [];
+        // Handle trying to extact image/video/audio data from the html description
+        var urls   = String(o.description).match(/(((https?:\/\/)|(www\.))[^\s]+)/g),
+            images = ['gif','jpg','jpeg','gif','png'],
+            audios = ['m4a','mp3','wav'],
+            videos = ['mp4','mov','wmv'];
+        // Loop through any extracted urls and try to detect the content type and add to the appropriate array
+        if(urls){
+            urls.forEach(function(str){
+                var [url, qs] = String(str).split('?'),
+                    url   = url.replace('"',''),
+                    arr   = url.split('.'),
+                    ext   = arr[arr.length-1].toLowerCase(),
+                    found = false;
+                // Extract any images
+                if(images.indexOf(ext)!=-1 && json.images){
+                    json.images.forEach(function(item){
+                        if(item.data==url)
+                            found = true;
+                    });
+                    if(!found){
+                        var type = (/hires/.test(url)!=-1) ? 'hires' : 'standard';
+                        json.images.push({ type: type, data: url });
+                    }
+                }
+                // Extract any video
+                if(videos.indexOf(ext)!=-1 && json.videos){
+                    json.videos.forEach(function(item){
+                        if(item.data==url)
+                            found = true;
+                    });
+                    if(!found)
+                        json.videos.push({ type: ext, data: url });
+                }
+                // Extract any video
+                if(audios.indexOf(ext)!=-1 && json.audio){
+                    json.audio.forEach(function(item){
+                        if(item.data==url)
+                            found = true;
+                    });
+                    if(!found)
+                        json.audio.push({ type: ext, data: url });
+                }
+            });
+        }
+        if(o.html)
+            json.html = o.html;
+        if(json.description){
+            // Loop through description and detect attempts to inject HTML and javascript into description
+            var filters = ['<script', '<iframe', 'onload'],
+                desc    = String(json.description).replace('&lt;','<').replace('&gt;','>'),
+                html    = false;
+            filters.forEach(function(filter){
+                var re = new RegExp(filter, 'ig');
+                if(re.test(desc)){
+                    console.log('matched on filter =',filter);
+                    html = true;
+                }
+            });
+            if(html)
+                json.html = json.description;
+            // Remove any attempts to inject HTML or javascript via description field
+            var desc = String(json.description).replace('&lt;','<').replace('&gt;','>').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,'').trim();
+            json.description = stripHtml(desc);
+        }
+        console.log('--- Begin CIP25 JSON ---');
+        console.log(JSON.stringify(json));
+        console.log('--- End CIP25 JSON ---');
+        return json;
+    }
+
+    // Function to handle returning specific record type from array
+    function getArrayItemByType(arr, type){
+        rec = false;
+        arr.forEach(function(item){
+            if(item.type==type)
+                rec = item
+        });
+        return rec;
+    }
+
+    // Function to normalize JSON and display enhanced token info
+    function showExtendedTokenInfo(json){
+        json = legacyJsonToCip25(json);
+        cachedJson = json;          // Cache JSON so we can easily reference it again when needed
+        showExtendedInfo(json);
+        showTokenArtwork(json);
+    }
+
+
+     // Function to handle displaying any enhanced token information (CIP25)
+    function showExtendedInfo(o){
+        // Basic Token Information
+        if(o.name)          $('#tokenName').text(o.name).parent().show();
+        if(o.website)       $('#tokenWebsite').html('<a href="' + getValidUrl(o.website) + '" target="_blank">' + o.website + '</a>').parent().show();
+        if(o.pgpsig){
+            var html = o.pgpsig;
+            if(o.pgpsig.substr(0,4)=='http')
+                html = '<a href="' + getValidUrl(o.pgpsig) + '" target="_blank">' + o.pgpsig + '</a>'
+            $('#pgpSignature').html(html).parent().show();            
+        }   
+        // Extract Categories info from categories array
+        if(o.categories.length){
+            var main  = getArrayItemByType(o.categories, 'main'),
+                sub   = getArrayItemByType(o.categories, 'sub'),
+                other = getArrayItemByType(o.categories, 'other');
+            if(main)  $('#tokenCategory').text(main.data).parent().show();
+            if(sub)   $('#tokenSubCategory').text(sub.data).parent().show();
+            if(other) $('#tokenCategoryOther').text(other.data).parent().show();
+        }
+        if(o.description)
+           $('#tokenExtendedDescription').text(o.description).parent().show();
+        if(o.name||o.website||o.pgpsig||o.description||main||sub||other)
+            $('#additionalTokenInfo').show();
+        // Owner Information
+        if(o.owner.name)         $('#ownerName').text(o.owner.name).parent().show();
+        if(o.owner.title)        $('#ownerTitle').text(o.owner.title).parent().show();
+        if(o.owner.organization) $('#ownerOrganization').text(o.owner.organization).parent().show();
+        if(o.owner.name||o.owner.title||o.owner.organization)
+            $('#ownerInfo').show();
+        // Contacts
+        if(o.contacts.length){
+            var table = $('#contactInfo table tbody');
+            table.empty();
+            o.contacts.slice(0,10).forEach(function(item){
+                var type = item.type.toLowerCase(),
+                    html = '<tr><th>' + item.type + '</th><td>' + item.data + '</td></tr>';
+                if(type=='email')
+                    html = '<tr><th>' + item.type + '</th><td><a href="mailto:'+ item.data + '">' + item.data + '</a></td></tr>'
+                if(type=='phone'||type=='fax')
+                    html = '<tr><th>' + item.type + '</th><td><a href="tel:'+ item.data + '">' + item.data + '</a></td></tr>'
+                if(type=='url')
+                    html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>'
+                table.append(html);
+            });
+            $('#contactInfo').show();
+        }
+        // Social Media
+        if(o.social.length){
+            var table = $('#socialInfo table tbody');
+            table.empty();
+            o.social.slice(0,10).forEach(function(item){
+                table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+            });
+            $('#socialInfo').show();
+        }
+        console
+        // Images
+        if(o.images.length){
+            var table = $('#imagesInfo table tbody'),
+                html  = false;
+            table.empty();
+            o.images.slice(0,10).forEach(function(item){
+                if(item.data.substring(0,4)=='data')
+                    return;
+                html = '<tr><th>' + item.type;
+                if(item.size)
+                    html += ' (' + item.size + ')';
+                html += '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+                table.append(html);
+            });
+            if(html)
+                $('#imagesInfo').show();
+        }
+        // Audio
+        if(o.audio.length){
+            var table = $('#audioInfo table tbody');
+            table.empty();
+            o.audio.slice(0,10).forEach(function(item){
+                table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+            });
+            $('#audioInfo').show();
+        }
+        // Video
+        if(o.video.length){
+            var table = $('#videoInfo table tbody');
+            table.empty();
+            o.video.slice(0,10).forEach(function(item){
+                table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+            });
+            $('#videoInfo').show();
+        }
+        // Files
+        if(o.files.length){
+            var table = $('#fileInfo table tbody');
+            table.empty();
+            o.files.slice(0,10).forEach(function(item){
+                table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+            });
+            $('#fileInfo').show();
+        }
+        // DNS
+        if(o.dns.length){
+            var table = $('#dnsInfo table tbody');
+            table.empty();
+            table.append('<tr><th>Type</th><th>Host</th><th>Value</th></tr>')
+            o.dns.slice(0,10).forEach(function(item){
+                var html = '<tr><td>' + item.type + '</td><td>' + item.host + '</td><td>' + item.value + '</td></tr>';
+                if(item.type.toLowerCase()=='btcdns')
+                    html = '<tr><td>' + item.type + '</td><td colspan="2"><a href="'+ getValidUrl(item.value) + '" target="_blank">' + item.value + '</a></td></tr>';
+                table.append(html);
+            });
+            $('#dnsInfo').show();
+        }
+        if(o.description)
+            $('#additionalInfoNotAvailable').hide();
+        // Handle 
+        var icon = false;
+        if(o.images.length){
+            // First try to find 48x48 icon
+            o.images.forEach(function(item){
+                if(!icon && item.type=='icon' && item.size=='48x48')
+                    icon = item.data;
+            });
+            // If we couldn't find 48x48 icon, use the first icon in the list
+            o.images.forEach(function(item){
+                if(!icon && item.type=='icon')
+                    icon = item.data;
+            });
+        }
+        // Use older "image" param if we couldn't find icon in the CIP25 images array
+        if(!icon && o.image)
+            icon = i.image;
+        // Handle displaying token icon image
+        if(icon)
+            setTokenIcon(icon);
+    }
+
+    // Hande displaying any artwork associated with the token
+    function showTokenArtwork(o){
+        var audio = false,
+            video = false,
+            image = false,
+            title = false;
+        if(o){
+            // Extract image from images array
+            if(o.images.length){
+                var large    = getArrayItemByType(o.images, 'large'),
+                    standard = getArrayItemByType(o.images, 'standard'),
+                    first    = o.images[0].data;
+                image = (large) ? large.data : (standard) ? standard.data : first.data;
+                title = (large) ? large.name : (standard) ? standard.name : first.name;
+            }
+            // Extract audio from audio array
+            if(o.audio.length){
+                var m4a   = getArrayItemByType(o.audio, 'm4a'),
+                    mp3   = getArrayItemByType(o.audio, 'mp3'),
+                    wav   = getArrayItemByType(o.audio, 'wav'),
+                    first = o.audio[0].data;
+                audio = (m4a) ? m4a.data : (mp3) ? mp3.data : (wav) ? wav.data : first.data;
+                if(!title)
+                    title = (m4a) ? m4a.name : (mp3) ? mp3.name : (wav) ? wav.name : first.name;
+            }
+            // Extract video from videos array
+            if(o.video.length){
+                var mp4   = getArrayItemByType(o.video, 'mp4'),
+                    mov   = getArrayItemByType(o.video, 'mov'),
+                    wmv   = getArrayItemByType(o.video, 'wmv'),
+                    first = o.video[0].data;
+                video = (mp4) ? mp4.data : (mov) ? mov.data : (wmv) ? wmv.data : first.data;
+                if(!title)
+                    title = (mp4) ? mp4.name : (mov) ? mov.name : (wmv) ? wmv.name : first.name;
+            }
+        }
+        // Try to decode token description using one of the CIP25 defined formats
+        if(!audio && !video && !image){
+            var desc = $('#token-description').text();
+            // Cleanup description a bit to remove leading/trailing spaces and some funky characters
+            desc = desc.trim().replace('\u001e','');
+            if(/^(imgur|youtube|soundcloud|stamp)/i.test(desc)){
+                // service/info;title format parsing
+                var [url, title, xtra] = desc.split(';'),
+                    [service, code]    = url.split('/'),
+                    title              = (xtra) ? title + ';' + xtra: title,
+                    service            = service.toLowerCase();
+                // stamp:base64_data format parsing (assume it is an image)
+                if(/^stamp:/i.test(desc)){
+                    service = 'stamp';
+                    code    = desc.replace(/^stamp:/i,'');
+                }
+                // Cleanup some bad formats
+                if(service=='imgur.com')
+                    service = 'imgur';
+                // Handle decoding some common characters
+                if(title)
+                    title = title.replace('&#39;',"'");
+                if(service=='imgur')
+                    image = 'https://i.imgur.com/' + code;
+                if(service=='youtube')
+                    video = 'https://www.youtube.com/embed/' + code;
+                if(service=='soundcloud')
+                    audio = 'https://api.soundcloud.com/tracks/' + code;
+                if(service=='stamp')
+                    image = 'data:image/png;base64,' + code;
+                console.log('service, code, title', service, code, title);
+            }
+        }
+        // Handle processing descriptions that include urls
+        if(!audio && !video && !image){
+            if(/http/.test(desc) || /i\.imgur\.com/.test(desc)){
+                var [url, qs] = desc.split('?'), // Ignore any querystring data
+                    arr = url.split('.'),
+                    url = desc,
+                    ext = arr[arr.length-1].toLowerCase();
+                if(url.indexOf('http')==-1)
+                    url = 'http://' + url;
+                // Handle images
+                var images = ['gif','jpg','jpeg','gif','png'],
+                    audios = ['m4a','mp3','wav'],
+                    videos = ['mp4','mov','wmv'];
+                if(images.indexOf(ext)!=-1)
+                    image = url;
+                if(audios.indexOf(ext)!=-1)
+                    audio = url;
+                if(videos.indexOf(ext)!=-1)
+                    video = url;
+            }
+        }
+        // Handle supporting NFTs (Non-Fungible Tokens) from various projects
+        // console.log('token=',token);
+        // console.log('NFT_CARDS=',NFT_CARDS);
+        // if(isNFT(token)){
+        //     var info  = getNFTInfo(token),
+        //         title = (title && title!='') ? title : false,
+        //         html = '';
+        //     // Loop through projects array and build out list of projects card is associated with
+        //     info.projects.forEach(function(project){
+        //         html += '<div class="alert alert-success bold text-center" style="margin: 15px 15px 15px 15px;">';
+        //         html += '    This is an official card in the ';
+        //         if(project.site){
+        //             html += '<a href="' + project.site + '" target="_blank">' + project.project + '</a> project';
+        //         } else {
+        //             html += project.project;
+        //         }
+        //         html += '</div>';
+        //     });
+        //     // Force display image to use image from project (overrides JSON)
+        //     // Except in the case of 'stamp', since image is already correct
+        //     if(service!='stamp')
+        //         image = '/img/cards/' + info.image;
+        //     $('#officialCard').html(html).show();
+        // }
+        // If we have a title, display it
+        if(title){
+            var title = title.replace('&#39;',"'");
+            $('#artwork-information').show();
+            $('#artwork-title').text(title).parent().show();
+        }
+        if(image||audio||video){
+            $('#additionalInfoNotAvailable').hide();
+            $('#digitalArtInfo').show();
+            if(image){
+                $('#artwork-header').show();
+                if(service=='stamp'){
+                    var el  = $('#artwork-bitcoin-stamp'),
+                        cnt = 0;
+                    el.error(function(){
+                        console.log('got load failure');
+                        cnt++;
+                        // Try to failover to SVG
+                        if(cnt==1){
+                            image = 'data:image/svg+xml;base64,' + code;
+                            el.attr('src',image);
+                        }  else {
+                            $('#additionalInfoNotAvailable').show();
+                            $('#digitalArtInfo').hide();
+                            el.hide();
+                        }
+                    });
+                    el.attr('src',image);
+                    el.show();
+                } else {
+                    var el = $('#artwork-image');
+                    el.attr('src',image);
+                    el.show();
+                }
+            }
+            if(video){
+                $('#video-header').show();
+                var el  = $('#video-wrapper'),
+                    arr = video.split('.'),
+                    ext = arr[arr.length-1].toLowerCase();
+                if(/youtube/.test(video)){
+                    el   = $('#video-wrapper-youtube'),
+                    html = '<iframe src="' + video + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
+                } else {
+                    var type = '';
+                    if(ext=='mp4') type = 'video/mp4';
+                    if(ext=='wmv') type = 'video/x-ms-asf';
+                    if(ext=='mov') type = 'video/quicktime'
+                    html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + video + '"></video>';
+                }
+                el.html(html).show()
+            }
+            if(audio){
+                $('#audio-header').show();
+                var el = $('#audio-wrapper');
+                if(/soundcloud/.test(audio)){
+                    el = $('#audio-wrapper-soundcloud');
+                    html = '<iframe src="https://w.soundcloud.com/player/?url=' + audio + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
+                } else {
+                    html = '<audio src="' + audio + '" autoplay="true" controls loop preload></audio>';
+                }
+                el.html(html).show();
+            }
+
+        }
+        if(o.html){
+            $('#custom-content-header').show();
+            $('#custom-content-wrapper').show();
+        }
+        // console.log('audio=',audio);
+        // console.log('video=',video);
+        // console.log('image=',image);
+        // console.log('title=',title);
+    }
+
+
+    $(document).ready(function(){
+
+        // Detect any 'per page' changes and update all tables on page to use new 'per page' setting
+        var ignore = false;
+        $('.table').on( 'length.dt', function ( e, settings, length ){
+            sm.setItem('records_per_page_token',length);
+            if(ignore==false){
+                ignore = true;
+                $('.dataTable').each(function(){
+                    $(this).DataTable().page.len( length ).draw();
+                });
+                ignore = false;
+            }
+        });      
+
+        // Get current USD price of XCP
+        $.getJSON( '/api/network', function( o ){ 
+            if(o){
+                var btc = false,
+                    xcp = false;
+                o.currency_info.forEach(function(obj){
+                    if(obj.id=='bitcoin')
+                        btc = obj;
+                    if(obj.id=='counterparty')
+                        xcp = obj;                   
+                });
+                // Save current price to localStorage (so we can use on other pages)
+                sm.setItem('xcpPrice',xcp.price_usd);
+                sm.setItem('btcPrice',btc.price_usd);
+                xcp_usd = xcp.price_usd;
+                btc_usd = btc.price_usd;
+            }
+        });
+
+
+        // Handle requesting token information
+        $.getJSON('/api/token/' + tick, function( o ){
+            if(!o.error){
+                // o.description = 'https://34ubrjs2k3ruwo2as6424n3k4yf26o33fuuwat77dpshw2rdbi4q.arweave.net/3ygYplpW40s7QJe5rjdq5guvO3stKWBP_xvke2ojCjk/MULLE.json';
+                // o.description = 'https://raw.githubusercontent.com/CounterpartyXCP/cips/master/cip-0025/spec-v2.0.0-example.json';
+                var name  = o.tick,
+                    desc  = o.description,
+                    json  = /^(.*).json/i,
+                    http  = /^http:\/\//,
+                    https = /^https:\/\//,
+                    ord   = /^ord:/i,
+                    ipfs  = /^ipfs:/i,
+                    fmtA  = '0,0.00000000',
+                    fmtB  = '0,0.00',
+                    arr   = false;
+                // If the file starts with http and end with JSON, then assume it is valid url and link it
+                if(json.test(desc)||http.test(desc)||https.test(desc)){
+                    var arr  = desc.split(';'),
+                        html = '<a href="' + getValidUrl(arr[0]) + '" target="_blank">' + arr[0] + '</a>';
+                    if(arr[1])
+                        html += ';' + arr[1];
+                    $('#token-description').html(html);
+                } else {
+                    $('#token-description').text(desc);
+                }
+                $('#tick').text(o.tick);
+                $('.display-token-name').text(o.tick);
+                $('#supply').text(formatAmount(o.supply));
+                $('#max-supply').text(formatAmount(o.max_supply));
+                $('#max-mint').text(formatAmount(o.max_mint));
+                $('#owner').html(formatLink('/address/' + o.owner, o.owner));
+                if(o.allow_list||o.block_list){
+                    $('#list-wrapper').show();
+                    $('#allow-list').html(formatLink('/tx/' + o.allow_list, o.allow_list));
+                    $('#block-list').html(formatLink('/tx/' + o.block_list, o.block_list));
+                }
+                function showLockStatus(locked){
+                    var icon = (locked) ? 'fa-lock' : 'fa-lock-open',
+                        text = (locked) ? 'Locked' : 'Unlocked',
+                        html = '<i class="fa pe-1 ' + icon + '"></i>' + text;
+                    return html;
+                }
+                // Locks 
+                $('#lock-max-supply').html(showLockStatus(o.locks.max_supply));
+                $('#lock-max-mint').html(showLockStatus(o.locks.max_mint));
+                $('#lock-mint').html(showLockStatus(o.locks.mint));
+                $('#lock-mint-supply').html(showLockStatus(o.locks.mint_supply));
+                $('#lock-description').html(showLockStatus(o.locks.description));
+                $('#lock-rug').html(showLockStatus(o.locks.rug));
+                $('#lock-sleep').html(showLockStatus(o.locks.sleep));
+                $('#lock-callback').html(showLockStatus(o.locks.callback));
+                var i = o.callback_info;
+                $('#callback-tick').html(formatLink('/token/' + i.tick, i.tick));
+                $('#callback-block').html(formatLink('/block/' + i.block, numeral(i.block).format('0,0')));
+                if(i.amount){
+                    $('#callback-amount').text(formatAmount(i.amount));
+                    // $('#callback-amount-btc').text(formatAmount(i.amount) + ' BTC');
+                }
+                $('#market-btc-price-btc').text(numeral(o.market_info.btc.price).format(fmtA));
+                $('#market-btc-price-usd').text(numeral(o.market_info.btc.price * btc_usd).format(fmtB));
+                $('#market-btc-floor-btc').text(numeral(o.market_info.btc.floor).format(fmtA));
+                $('#market-btc-floor-usd').text(numeral(o.market_info.btc.floor * btc_usd).format(fmtB));
+                var mcap = o.market_info.btc.price * o.supply;
+                $('#market-marketcap-btc').text(numeral(mcap).format(fmtA));
+                $('#market-marketcap-usd').text(numeral(mcap * btc_usd).format(fmtB));
+                // Use cached JSON if we have it
+                if(o.json)
+                    showExtendedTokenInfo(o.json);
+                if(json.test(desc) || ipfs.test(desc) || ord.test(desc)){
+                    if(ipfs.test(desc)){
+                        url = 'https://ipfs.io/ipfs/' + String(desc).replace(ipfs,'');
+                    } else if(ord.test(desc)){
+                        var hash = String(desc).replace(ord,'');
+                        if(hash.length!=64)
+                            hash = base64ToHex(hash);
+                        url = 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash;
+                    } else {
+                        url = 'https://' + arr[0].replace('https://','').replace('http://','');
+                    }
+                    // Try to make a request for the JSON directly (might fail due to missing headers, etc)
+                    $.getJSON( url, function( o ){ 
+                        showExtendedTokenInfo(o);
+                    }).fail(function(){
+                        // Try to request the JSON through the xchain relay
+                        var url = relay + desc;
+                        $.getJSON( url, function( o ){ 
+                            showExtendedTokenInfo(o);
+                        });
+                    }); 
+                } else {
+                    showExtendedTokenInfo();
+                }
+            }
+        });        
+
+
+        // Setup a listener for iframe resizes so we can recalculate the dimensions
+        var iframeWin = document.getElementById('customContentViewer').contentWindow;
+        $(iframeWin).on('resize', function(){ resizeIframe(); });
+
+        // Simple function to resize iframe height to fit content
+        function resizeIframe(){
+            var el   = $('#customContentViewer'),
+                body = el.contents().find('body');
+            el.height(body.height() + 16);
+        }
+
+        // Handle loading custom content when the use clicks the "Load Content" button
+        $('#loadCustomContentButton').click(function(){
+            $('#customContentWarning').hide();
+            var el   = $('#customContentViewer');
+                body = el.contents().find('body');
+            body.html(cachedJson.html);
+            el.show();
+            // Cheezy hack to resize the content as it loads
+            setTimeout(function(){ resizeIframe(); }, 100);
+            setTimeout(function(){ resizeIframe(); }, 250);
+            setTimeout(function(){ resizeIframe(); }, 500);
+            setTimeout(function(){ resizeIframe(); }, 1000);
+            setTimeout(function(){ resizeIframe(); }, 2000);
+        });
+
+        // Loop through transaction types and setup listeners to load content on tab click
+        var tabs      = ['airdrops', 'bets', 'callbacks', 'destroys','dispensers','dispenses','dividends','holders', 'issues','mints','rugs','sends','sleeps','mempool'];
+            tabStatus = [];
+        tabs.forEach(function(type){
+            tabStatus[type] = false;
+
+            // Setup listeners on tabs to load content when clicked
+            $('#tab-' + type).click(function(){
+                if(!tabStatus[type]){
+                    // Set flag to indicate the tab has been loaded already
+                    tabStatus[type] = true;
+
+                    // Airdrops
+                    if(type=='airdrops'){
+                        load_transactions('airdrops',function(row, data, idx){
+                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
+                            $(row).addClass(cls);
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+                            $('td', row).eq(2).html(formatLivestamp(data[2]));
+                            $('td', row).eq(3).html(formatLink('/address/' + data[3], data[3]));
+                            $('td', row).eq(4).html(formatAmount(data[5]));
+                            $('td', row).eq(5).html(formatAmount(data[6]));
+                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
+                        });
+                    }
+
+                    // Callbacks
+                    if(type=='callbacks'){
+                        load_transactions('callbacks',function(row, data, idx){
+                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
+                            $(row).addClass(cls);
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+                            $('td', row).eq(2).html(formatLivestamp(data[2]));
+                            $('td', row).eq(3).html(formatLink('/address/' + data[3], data[3]));
+                            $('td', row).eq(4).html(formatLink('/token/' + data[5], data[5], data[5] + '.png'));
+                            $('td', row).eq(5).html(formatAmount(data[6]));
+                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
+                        });
+                    }
+
+
+                    // Destroys
+                    if(type=='destroys'){
+                        load_transactions('destroys',function(row, data, idx){
+                            var cls = (data[6]==1) ? 'bg-green' : 'bg-red';
+                            $(row).addClass(cls);
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+                            $('td', row).eq(2).html(formatLivestamp(data[2]));
+                            $('td', row).eq(3).html(formatLink('/address/' + data[4], data[4]));
+                            $('td', row).eq(4).html(formatAmount(data[3]));
+                            $('td', row).eq(5).html(data[5]);
+                            $('td', row).eq(6).html(formatLink('/tx/' + data[7], 'view', null, true));
+                        });
+                    }
+
+                    // // Dispensers
+                    // if(type=='dispensers'){
+                    //     load_transactions('dispensers',function(row, data, idx){
+                    //         var fmt = (String(data[5]).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //         var info  = data[4].split('|'),
+                    //             icon  = info[0],
+                    //             token = (info[1]!='') ? info[1] : info[0];
+                    //             warn  = '';
+                    //         // Tweak the row color to indicate if dispenser is open or closed
+                    //         var cls = (data[7]==0) ? 'bg-green' : 'bg-red';
+                    //         // Display dispensers selling less than one token in yellow
+                    //         if(data[7]==0 && token == 'XCP' && data[5] < 1){
+                    //             cls = 'bg-yellow';
+                    //             warn = ' <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>';
+                    //         }
+                    //         $(row).addClass(cls);
+                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                    //         $('td', row).eq(1).html('<a href="/block/' + data[1] + '">' + numeral(data[1]).format('0,0') + '</a>');
+                    //         $('td', row).eq(2).html('<span data-livestamp='  + data[2] + ' class="nowrap"></span>');
+                    //         $('td', row).eq(3).html('<a href="/address/' + data[3] + '">' + data[3] + '</a>');
+                    //         $('td', row).eq(4).html(numeral(data[5]).format(fmt) + ' <a href="/token/' + token + '"><img src="/icon/' + icon + '.png" class="token-icon-sm pull-left">' + token + '</a>' + warn);
+                    //         $('td', row).eq(5).html(numeral(data[6]).format('0,0.00000000') + ' <img src="/icon/BTC.png" class="token-icon-sm pull-left"> BTC');
+                    //         $('td', row).eq(6).html('<a href="/tx/' + data[8] + '" class="btn btn-xs btn-success pull-right">view</a>');
+                    //     });
+                    // }
+
+                    // // Dispenses
+                    // if(type=='dispenses'){
+                    //     load_transactions('dispenses',function(row, data, idx){
+                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                    //         $('td', row).eq(1).html('<a href="/block/' + data[1] + '">' + numeral(data[1]).format('0,0') + '</a>');
+                    //         $('td', row).eq(2).html('<span data-livestamp='  + data[2] + ' class="nowrap"></span>');
+                    //         $('td', row).eq(3).html('<a href="/address/' + data[3] + '">' + data[3] + '</a>');
+                    //         var fmt = (String(data[5]).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //         var info  = data[4].split('|'),
+                    //             icon  = info[0],
+                    //             token = (info[1]!='') ? info[1] : info[0];
+                    //         $('td', row).eq(4).html(numeral(data[5]).format(fmt) + ' <a href="/token/' + token + '"><img src="/icon/' + icon + '.png" class="token-icon-sm pull-left">' + token + '</a>');
+                    //         $('td', row).eq(5).html(numeral(data[6]).format('0,0.00000000') + ' BTC');
+                    //         $('td', row).eq(6).html('<a href="/tx/' + data[7] + '" class="btn btn-xs btn-success pull-right">view</a>');
+                    //     });
+                    // }
+
+                    // Dividends
+                    if(type=='dividends'){
+                        load_transactions('dividends',function(row, data, idx){
+                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
+                            $(row).addClass(cls);
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+                            $('td', row).eq(2).html(formatLivestamp(data[2]));
+                            $('td', row).eq(3).html(formatLink('/address/' + data[3], data[3]));
+                            $('td', row).eq(4).html(formatLink('/token/' + data[5], data[5], data[5] + '.png'));
+                            $('td', row).eq(5).html(formatAmount(data[6]));
+                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
+                        });
+                    }
+
+                    // Holders
+                    if(type=='holders'){
+                        load_transactions('holders',function(row, data, idx){
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(2).text(formatAmount(data[2]));
+                            var value = numeral(data[3]).format('0,0.00000000');
+                                value += '&nbsp;BTC';
+                                value += '&nbsp;<span class="badge text-bg-success">$' + numeral(data[3] * btc_usd).format('0,0.00') + '</span>';
+                            $('td', row).eq(3).html(value);
+                            $('td', row).eq(4).html(formatLink('/address/' + data[4], data[4]));
+                            $('td', row).eq(5).html(formatLink('/address/' + data[4], 'view', null, true));
+                        });                        
+                    }
+
+                    // Issues
+                    if(type=='issues'){
+                        load_transactions('issues',function(row, data, idx){
+                            // Tweak the row color to indicate if orders is open or not
+                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
+                            $(row).addClass(cls);
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+                            $('td', row).eq(2).html(formatLivestamp(data[2]));
+                            var desc = (data[3]!=null) ? data[3] : '';
+                            $('td', row).eq(3).text(desc);
+                            $('td', row).eq(4).text(formatAmount(data[4]));
+                            $('td', row).eq(5).text(formatAmount(data[5]));
+                            $('td', row).eq(6).html(formatLocks(data[6]));
+                            $('td', row).eq(7).html(formatLink('/tx/' + data[8], 'view', null, true));
+                        });
+                    }
+
+                    // Mints
+                    if(type=='mints'){
+                        load_transactions('mints',function(row, data, idx){
+                            // Tweak the row color to indicate if orders is open or not
+                            var cls = (data[5]==1) ? 'bg-green' : 'bg-red';
+                            $(row).addClass(cls);
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+                            $('td', row).eq(2).html(formatLivestamp(data[2]));
+                            $('td', row).eq(3).html(formatLink('/address/' + data[3], data[3]));
+                            $('td', row).eq(4).text(formatAmount(data[4]));
+                            $('td', row).eq(5).html(formatLink('/tx/' + data[6], 'view', null, true));
+                        });
+                    }
+
+                    // Sends
+                    if(type=='sends'){
+                        load_transactions('sends',function(row, data, idx){
+                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
+                            $(row).addClass(cls);
+                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+                            $('td', row).eq(2).html(formatLivestamp(data[2]));
+                            $('td', row).eq(3).html(formatAmount(data[3]));
+                            $('td', row).eq(4).html(formatLink('/address/' + data[4], data[4]));
+                            $('td', row).eq(5).html(formatLink('/address/' + data[5], data[5]));
+                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
+                        });
+                    }
+
+                    // // Subtokens
+                    // if(type=='subtokens'){
+                    //     load_transactions('subtokens',function(row, data, idx){
+                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                    //         var info  = data[1].split('|'),
+                    //             icon  = info[0],
+                    //             token = (info[1]!='') ? info[1] : info[0];
+                    //         $('td', row).eq(1).html('<a href="/token/' + token + '"><img src="/icon/' + icon + '.png" class="token-icon-sm pull-left">' + token + '</a>');
+                    //         var fmt = (String(data[3]).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //         $('td', row).eq(3).html(numeral(data[3]).format(fmt));
+                    //         $('td', row).eq(6).html('<a href="/token/' + token + '" class="btn btn-xs btn-success pull-right">view</a>');
+                    //     });
+                    // }           
+
+                    // Mempool / Unconfirmed Transactions
+                    // if(type=='mempool'){
+                    //     load_transactions('mempool',function(row, data, idx){
+                    //         var type = data[2],
+                    //             json = JSON.parse(data[4]),
+                    //             icon = '';
+                    //         if(type=='Bet')         icon = 'fa-trophy';
+                    //         if(type=='Broadcast')   icon = 'fa-bullhorn';
+                    //         if(type=='Burn')        icon = 'fa-fire';
+                    //         if(type=='Destruction') icon = 'fa-trash';
+                    //         if(type=='Dispense')    icon = 'fa-btc';
+                    //         if(type=='Dispenser')   icon = 'fa-arrows-h';
+                    //         if(type=='Dividend')    icon = 'fa-sitemap';
+                    //         if(type=='Issuance')    icon = 'fa-bank';
+                    //         if(type=='Order')       icon = 'fa-book';
+                    //         if(type=='Send')        icon = 'fa-send';
+                    //         if(type=='Cancel')      icon = 'fa-ban';
+                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+                    //         $('td', row).eq(1).html('<span data-livestamp='  + data[1] + ' class="nowrap"></span>');
+                    //         $('td', row).eq(2).html('<i class="fa fa-lg '  + icon + '"></i>&nbsp;' + type + '</span>');
+                    //         $('td', row).eq(3).html('<a href="/address/' + data[3] + '">' + data[3] + '</a>');
+                    //         // Build out basic description of what is happening in transaction
+                    //         var txt = data[4];
+                    //         if(type=='Bet'){
+                    //             txt = '<img src="/icon/XCP.png" class="token-icon-sm pull-left">' + numeral(json.wager_quantity).format('0,0.00000000') + ' <a href="/token/XCP">XCP</a> at ' + numeral(json.fee).format('0,0.00') + '% on feed <a href="/address' +  json.feed_address + '">' + json.feed_address + '</a>';
+                    //         } else if(type=='Broadcast'){
+                    //             txt = json.text;
+                    //         } else if(type=='Burn'){
+                    //             txt = numeral(json.burned).format('0,0.00000000') + ' BTC burned for ' + numeral(json.earned).format('0,0.00000000') + ' <a href="/token/XCP">XCP</a>';
+                    //         } else if(type=='Cancel'){
+                    //             txt = 'Cancel order <a href="/tx/' +  json.offer_hash + '">' + json.offer_hash + '</a>';
+                    //         } else if(type=='Destruction'){
+                    //             var fmt = (String(json.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //             txt = 'Destroy ' + numeral(json.quantity).format(fmt) + ' <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  token + '">' + token + '</a>';
+                    //         } else if(type=='Dispenser'){
+                    //             if(json.give_quantity){
+                    //                 var fmt = (String(json.give_quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //                     btc = numeral((json.satoshirate||0) * 0.00000001).format('0,0.00000000'),
+                    //                     qty = numeral((json.give_quantity||0)).format(fmt),
+                    //                     txt = qty + ' <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.token + '">' + json.token + '</a> for  <img src="/icon/BTC.png" class="token-icon-sm">' + btc + ' BTC';
+                    //             } else {
+                    //                 var txt = 'Close <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.token + '">' + json.token + '</a> Dispenser';
+                    //             }
+                    //         } else if(type=='Dispense'){
+                    //             var fmt = (json.divisible==true) ? '0,0.00000000': '0,0',
+                    //                 qty = (json.divisible==true) ? (json.dispense_quantity * 0.00000001) : json.dispense_quantity,
+                    //                 qty = numeral((qty||0)).format(fmt),
+                    //                 txt = 'Buying ' + qty + ' <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.token + '">' + json.token + '</a> from <a href="/tx/' + json.dispenser_tx_hash + '">' + data[3] + '</a>';
+                    //             $('td', row).eq(3).html('<a href="/address/' + json.destination + '">' + json.destination + '</a>');
+                    //         } else if(type=='Dividend'){
+                    //             var fmt = (String(json.quantity_per_unit).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //             txt = numeral(json.quantity_per_unit).format(fmt) + ' <img src="/icon/' + json.dividend_token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.dividend_token + '">' + json.dividend_token + '</a> to holders of <img src="/icon/' + json.token + '.png" class="token-icon-sm"><a href="/token/' +  json.token + '">' + json.token + '</a>';
+                    //         } else if(type=='Issuance'){
+                    //             if(json.transfer){
+                    //                 txt = 'Transfer ownership of <img src="/icon/' + json.token + '.png" class="token-icon-sm"> <a href="/token/' +  json.token + '">' + json.token + '</a> to <a href="/address/' + json.issuer + '">' + json.issuer + '</a>';
+                    //             } else if(json.locked){
+                    //                 txt = 'Lock supply of <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.token + '">' + json.token + '</a>';
+                    //             } else if(json.quantity){
+                    //                 var fmt = (String(json.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //                 txt = 'Issue ' + numeral(json.quantity).format(fmt) + ' <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.token + '">' + json.token + '</a> tokens';
+                    //             } else {
+                    //                 txt = 'Register / Update <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"> <a href="/token/' +  json.token + '">' + json.token + '</a>';
+                    //             }
+                    //         } else if(type=='Order'){
+                    //             var fmtA = (String(json.get_quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000',
+                    //                 fmtB = (String(json.give_quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //             txt = numeral(json.get_quantity).format(fmtA)  + ' <img src="/icon/' + json.get_token  + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.get_token + '">' + json.get_token + '</a> for ' +
+                    //                   ' <img src="/icon/' + json.give_token + '.png" class="token-icon-sm">' + numeral(json.give_quantity).format(fmtB) + ' <a href="/token/' +  json.give_token + '">' + json.give_token + '</a>';
+                    //         } else if(type=='Send'){
+                    //             var fmt = (String(json.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                    //             txt = numeral(json.quantity).format(fmt) + ' <img src="/icon/' + json.token + '.png" class="token-icon-sm pull-left"><a href="/token/' +  json.token + '">' + json.token + '</a> to <a href="/address/' + json.destination + '">' + json.destination + '</a>';
+                    //         }
+                    //         $('td', row).eq(4).html(txt);
+                    //         $('td', row).eq(5).html('<a href="/tx/' + data[5] + '" class="btn btn-xs btn-success pull-right">view</a>');
+                    //     });
+                    // }
+
+                }
+            });
+        });
+
+        // Detect any icon loading failures and load the default icon
+        $('#tokenIcon').on('error', function(){
+            $(this).attr('src', '/icon/' + tick + '.png' );
+        })
+
+        // Setup the automatic collapsing tabs to only display what we can fit on screen
+        setupAutoCollapseTabs();
+
+        // Activate the first tab by faking a click
+        $('#data-tabs li:nth-child(1) .nav-link').click();
+
+    });
+</script>

@@ -1,0 +1,219 @@
+<!-- Network  -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-lg fa-gear"></i> BTNS API - Network Information
+                    <a href="/api/docs" class="badge text-bg-success float-end">BTNS API</a>
+                </div>
+                <table class="table table-striped table-bordered table-hover table-condensed  mb-0 no-outer-borders" width="100%">
+                <thead>
+                <tr class="info">
+                    <th width="100">Method</th>
+                    <th>Endpoint</th>
+                    <th>Returns</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>GET</td>
+                    <td>/api/network</td>
+                    <td>Returns basic network information</td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-code"></i> Return Values
+                </div>
+                <table class="table table-striped table-bordered table-hover table-condensed mb-0 no-outer-borders" width="100%">
+                <thead>
+                <tr class="info">
+                    <th width="150">Value</th>
+                    <th width="75">Type</th>
+                    <th>Description</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>currency_info</td>
+                    <td>Array</td>
+                    <td>Currency information on Bitcoin (BTC) &amp; Counterparty (XCP) from <a href="https://coinmarketcap.com/api/" target="_blank">Coinmarketcap.com</a></td>
+                </tr>
+                <tr>
+                    <td>network_info</td>
+                    <td>Object</td>
+                    <td>Network information on Bitcoin network</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> mainnet</td>
+                    <td>Object</td>
+                    <td>Network information on <b>Mainnet</b></td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> testnet</td>
+                    <td>Object</td>
+                    <td>Network information on <b>Testnet</b></td>
+                </tr>
+                <tr>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;<i class="fa fa-arrow-right"></i> block_height</td>
+                    <td>Integer</td>
+                    <td>Current block height</td>
+                </tr>
+                <tr>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;<i class="fa fa-arrow-right"></i> tx_index</td>
+                    <td>Integer</td>
+                    <td>Total number of BTNS transactions</td>
+                </tr>
+                <tr>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;<i class="fa fa-arrow-right"></i> unconfirmed</td>
+                    <td>Object</td>
+                    <td>Unconfirmed transaction Information</td>
+                </tr>
+                <tr>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fa fa-arrow-right"></i> btc</td>
+                    <td>Integer</td>
+                    <td>Number of unconfirmed Bitcoin transactions</td>
+                </tr>
+                <tr>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i class="fa fa-arrow-right"></i> xcp</td>
+                    <td>Integer</td>
+                    <td>Number of unconfirmed Counterparty transactions</td>
+                </tr>
+                <tr>
+                    <td>fee_info</td>
+                    <td>Object</td>
+                    <td>Bitcoin (BTC) miners fee information</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> optimal</td>
+                    <td>Integer</td>
+                    <td>Lowest possible fee that has more than 75% chance of getting into the <b>next block</b></td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> low_priority</td>
+                    <td>Integer</td>
+                    <td>Lowest possible fee that has more than 75% chance of getting into a block within <b>2 blocks</b></td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> min_relay_fee</td>
+                    <td>Integer</td>
+                    <td>Minimum fee required to relay a transaction.</td>
+                </tr>
+                <tr>
+                    <td>stats_info</td>
+                    <td>Object</td>
+                    <td>BTNS Table stats information</td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-code"></i> Example Response
+                </div>
+                <div class="card-body p-0">
+                    <pre class="no-bottom-margin m-0"><code class="language-json">{
+    "currency_info": [{
+            "24h_volume_usd": "13199584724.397",
+            "available_supply": "18644768.00000000",
+            "id": "bitcoin",
+            "last_updated": null,
+            "market_cap_usd": "540963669176.32",
+            "max_supply": "21000000.00000000",
+            "name": "Bitcoin",
+            "percent_change_24h": "-0.65",
+            "price_btc": "1",
+            "price_usd": "28007",
+            "symbol": "BTC",
+            "total_supply": "21000000.00000000"
+        },
+        {
+            "24h_volume_usd": "84510.353394294",
+            "available_supply": "2595279.38268124",
+            "id": "counterparty",
+            "last_updated": null,
+            "market_cap_usd": "9432361.0191667",
+            "max_supply": "2649791.07838225",
+            "name": "Counterparty",
+            "percent_change_24h": "-4.67",
+            "price_btc": "0.00012896",
+            "price_usd": "3.61",
+            "symbol": "XCP",
+            "total_supply": "2649791.07838225"
+        }
+    ],
+    "fee_info": {
+        "high_priority": 12000,
+        "low_priority": 9000,
+        "optimal": 17000
+    },
+    "network_info": {
+        "mainnet": {
+            "block_height": 784265,
+            "tx_index": 1930,
+            "unconfirmed": {
+                "btc": 27146,
+                "xcp": 669
+            }
+        },
+        "testnet": {
+            "block_height": 2427735,
+            "tx_index": 0,
+            "unconfirmed": {
+                "btc": 71,
+                "xcp": 0
+            }
+        }
+    },
+    "stats_info": {
+        "mainnet": {
+            "airdrops": 0,
+            "batches": 0,
+            "bets": 0,
+            "callbacks": 0,
+            "destroys": 0,
+            "dispensers": 0,
+            "dispenses": 0,
+            "dividends": 0,
+            "issues": 511,
+            "lists": 6,
+            "mints": 1406,
+            "rugs": 0,
+            "sends": 3,
+            "sleeps": 0,
+            "sweeps": 0,
+            "tokens": 339,
+            "transactions": 1930
+        },
+        "testnet": {
+            "airdrops": 0,
+            "batches": 0,
+            "bets": 0,
+            "callbacks": 0,
+            "destroys": 0,
+            "dispensers": 0,
+            "dispenses": 0,
+            "dividends": 0,
+            "issues": 0,
+            "lists": 0,
+            "mints": 0,
+            "rugs": 0,
+            "sends": 0,
+            "sleeps": 0,
+            "sweeps": 0,
+            "tokens": 0,
+            "transactions": 0
+        }
+    }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

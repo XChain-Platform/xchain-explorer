@@ -1,0 +1,191 @@
+<div class="container mt-3">
+    <h2>Search for '{QUERY}'</h2>
+
+    <div class="row">
+        <div class="col-xs-12">
+
+            <!-- Navbar Tabs -->
+            <ul class="nav nav-tabs" id="data-tabs" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-tokens"    data-bs-toggle="tab" data-bs-target="#tab-pane-tokens"    type="button" role="tab" aria-controls="tab-pane-tokens"    aria-selected="true"><i class="fa fa-lg fa-database"     ></i> Tokens</button></li>
+            </ul>
+
+            <div class="tab-content border border-top-0 mb-3" id="data-panels">
+
+                <!-- Latest Tokens -->
+                <div class="tab-pane fade show active table-responsive" id="tab-pane-tokens" role="tabpanel" aria-labelledby="tab-tokens" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="asset-name">Token</th>
+                            <th>Description</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+                
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="/js/jquery.qrcode.min.js"></script>
+<script type="text/javascript">
+    var query = '{QUERY}';
+
+    // Array to some misc values used for tracking offset and direction
+    var misc = [];
+
+    // Keep track of records per page
+    var sm   = localStorage,
+        rec  = sm.getItem('records_per_page_search_results');
+        page = (rec) ? parseInt(rec) : 10;
+
+    // Handle requesting transaction data and populating tables
+    function load_transactions(type, rowFn){
+        // Initialize last_start value
+        misc[ type + '_last_start'] = 0;
+        var table = '#tab-pane-' + type + ' table';
+        $(table).dataTable({
+            ajax: {
+                url: "/explorer/" + type + '/' + query,
+                data: function(data){
+                    // Pass action and offset with request
+                    var action = null,
+                        offset = null;
+                    if(data.start==0){
+                        action = 'first';
+                    } else if(data.start > (misc[type + '_last_start'] + data.length)){
+                        action = 'last';
+                    } else if(data.start >= misc[type + '_last_start']){
+                        action = 'next';
+                        offset = misc[type + '_offset_last'];
+                    } else {
+                        action = 'prev';
+                        offset = misc[type + '_offset_first'];
+                    }
+                    data.action = action;
+                    data.offset = offset;
+                    // Cleanup the request so we only send what we need
+                    delete data.columns;
+                    delete data.order;
+                    delete data.search;
+                    delete data.draw;
+                }
+            },
+            pageLength: page,
+            dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t>',
+            // dom: '<"search-options center"<"pull-left hidden-xs"l>p<"pull-right hidden-xs"i>><"search-results"t>',
+            pagingType: "full",
+            serverSide: true,
+            searching: false,
+            ordering: false,
+            processing: true,
+            autoWidth: false,
+            language: {
+                lengthMenu: "_MENU_ per page",
+                zeroRecords: "No records found",
+                info: "_TOTAL_ results",
+                // info: "Displaying _START_ - _END_ of _TOTAL_",
+                infoEmpty: "No records available",
+                paginate: {
+                    first: "<i class='fa fa-chevron-left'></i><i class='fa fa-chevron-left'></i>",
+                    previous: "<i class='fa fa-chevron-left'></i>",
+                    next: "<i class='fa fa-chevron-right'></i>",
+                    last: "<i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>"
+                }
+            },
+            fnDrawCallback: function( o ){
+                var total  = o._iRecordsTotal,
+                    length = o._iDisplayLength,
+                    stop   = o._iDisplayStart + length,
+                    page   = stop / length,
+                    pages  = total / length;
+                if(pages > parseInt(pages))
+                    pages = parseInt(pages) + 1;
+                if(total==0)
+                    page = 0;
+                // Update total count element
+                $('#total' + type.substring(0,1).toUpperCase() + type.substring(1)).text(numeral(o._iRecordsTotal).format('0,0'));
+                // Add 'Page X of Y' in between previous/next buttons
+                $('#tab-pane-' + type + ' .paginate_button.previous').after('&nbsp;&nbsp;Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0') + '&nbsp;&nbsp;')
+                // Track first and last shown tx_index (used for offset tracking)
+                if(o.json.data && o.json.data.length){
+                    var first = o.json.data[0],
+                        last  = o.json.data[o.json.data.length-1];
+                    misc[type + '_offset_first'] = first[first.length-1];
+                    misc[type + '_offset_last']  = last[last.length-1];
+                } else {
+                    misc[type + '_offset_first'] = 0;
+                    misc[type + '_offset_last']  = 0;
+                }
+                // Save the start so we can determine direction when user clicks (prev/next)
+                misc[type + '_last_start'] = o._iDisplayStart;
+            },
+            createdRow: rowFn
+        });
+    }
+
+    function highlightSearchTerm(text){
+        var term = String(query),
+            text = String(text);
+        // exact match
+        text = text.replace(term,'<span class="highlight-search-term">' + term + '</span>');
+        // upper case match
+        term = term.toUpperCase();
+        text = text.replace(term,'<span class="highlight-search-term">' + term + '</span>');
+        // lower case match
+        term = term.toLowerCase();
+        text = text.replace(term,'<span class="highlight-search-term">' + term + '</span>');
+        console.log('text=',text);
+        return text;
+
+    }
+
+    $(document).ready(function(){
+
+        // Detect any 'per page' changes and update all tables on page to use new 'per page' setting
+        var ignore = false;
+        $('.table').on( 'length.dt', function ( e, settings, length ){
+            sm.setItem('records_per_page_search_results',length);
+            if(ignore==false){
+                ignore = true;
+                $('.dataTable').each(function(){
+                    $(this).DataTable().page.len( length ).draw();
+                });
+                ignore = false;
+            }
+        });        
+        
+        // Assets
+        load_transactions('tokens',function(row, data, idx){
+            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
+            $('td', row).eq(2).html(formatLivestamp(data[2]));
+            $('td', row).eq(3).html(formatLink('/token/' + data[3], highlightSearchTerm(data[3]), data[3] + '.png'));
+            $('td', row).eq(4).html(highlightSearchTerm(data[4]));
+            $('td', row).eq(5).html(formatLink('/token/' + data[3], 'view', null, true));
+        });
+
+        // // Broadcasts
+        // load_transactions('broadcasts',function(row, data, idx){
+        //     $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
+        //     $('td', row).eq(1).html('<a href="/block/' + data[1] + '">' + numeral(data[1]).format('0,0') + '</a>');
+        //     $('td', row).eq(2).html('<span data-livestamp='  + data[2] + ' class="nowrap"></span>');
+        //     $('td', row).eq(3).html('<a href="/address/' + data[3] + '">' + data[3] + '</a>');
+        //     $('td', row).eq(4).html(highlightSearchTerm(data[4]));
+        //     $('td', row).eq(7).html('<a href="/tx/' + data[7] + '" class="btn btn-xs btn-success pull-right">view</a>');
+        // });
+
+    });
+</script>
+
+
+
+

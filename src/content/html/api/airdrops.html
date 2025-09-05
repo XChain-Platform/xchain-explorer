@@ -1,0 +1,144 @@
+<!-- Airdrops  -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-lg fa-gear"></i> BTNS API - Airdrops
+                    <a href="/api/docs" class="badge text-bg-success float-end">BTNS API</a>
+                </div>
+                <table class="table table-striped table-bordered table-hover table-condensed  mb-0 no-outer-borders" width="100%">
+                <thead>
+                <tr class="info">
+                    <th width="100">Method</th>
+                    <th>Endpoint</th>
+                    <th>Returns</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>GET</td>
+                    <td>/api/airdrops/<a href="/api#parameters-address">{address}</a>,<a href="/api#parameters-block">{block}</a>,<a href="/api#parameters-token">{token}</a></td>
+                    <td>Returns list of AIRDROP transactions</td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-code"></i> Return Values
+                </div>
+                <table class="table table-striped table-bordered table-hover table-condensed mb-0 no-outer-borders" width="100%">
+                <thead>
+                <tr class="info">
+                    <th width="200">Value</th>
+                    <th width="75">Type</th>
+                    <th>Description</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>data</td>
+                    <td>Array</td>
+                    <td>AIRDROP data</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> amount</td>
+                    <td>String</td>
+                    <td>Amount of token airdropped</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> block_index</td>
+                    <td>Integer</td>
+                    <td>Block number containing the transaction</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> list</td>
+                    <td>String</td>
+                    <td>List Transaction Hash</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> memo</td>
+                    <td>String</td>
+                    <td>Memo message</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> source</td>
+                    <td>String</td>
+                    <td>The address that did the AIRDROP action</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> status</td>
+                    <td>String</td>
+                    <td>Status of the transaction</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> tick</td>
+                    <td>String</td>
+                    <td>Token name (Ex: PIZZA)</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> timestamp</td>
+                    <td>Integer</td>
+                    <td>A UNIX timestamp of when the transaction was processed by the network</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> tx_hash</td>
+                    <td>String</td>
+                    <td>Transaction Hash</td>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-arrow-right"></i> tx_index</td>
+                    <td>Integer</td>
+                    <td>Transaction Index</td>
+                </tr>
+                <tr>
+                    <td>total</td>
+                    <td>Integer</td>
+                    <td>Total number of AIRDROP transactions</td>
+                </tr>
+                </tbody>
+                </table>
+            </div>
+
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold border-bottom">
+                    <i class="fa fa-code"></i> Example Response
+                </div>
+                <div class="card-body p-0">
+                    <pre class="no-bottom-margin m-0"><code class="language-json">{
+  "data": [
+    {
+      "amount": "1",
+      "block_index": 2582528,
+      "list": "55cd98493c0fe46aed95225d909a82793a9ba7b480dccdb3170a9cd1ce081093",
+      "memo": "test tickers",
+      "source": "tb1q50kxp76j9l0k9jgwasvcz4mcz0v03fv2wj67a4",
+      "status": "valid",
+      "tick": "AIRDROPTEST2",
+      "timestamp": 1710783255,
+      "tx_hash": "a3f7a7a73f2ee6a4b6429e13ba30d41c986a82afa7c4dc8c218054b05ac0ce19",
+      "tx_index": 525
+    },
+    {
+      "amount": "1",
+      "block_index": 2581842,
+      "list": "fbe2a4946dfefb232571d56ed1c84dd85299736ba356dc300296d65d59991362",
+      "memo": "test",
+      "source": "tb1q50kxp76j9l0k9jgwasvcz4mcz0v03fv2wj67a4",
+      "status": "valid",
+      "tick": "AIRDROPTEST1",
+      "timestamp": 1710379130,
+      "tx_hash": "0caacd35592baf3f9e2ef879fc48b65f42625e233f45df11821ae85fcc14b07b",
+      "tx_index": 524
+    }
+  ],
+  "total": 10
+}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

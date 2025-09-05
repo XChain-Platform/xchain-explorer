@@ -234,11 +234,12 @@ class Database {
         // Run the database query
         try {
             data = await db.query(query, args);
-        } catch (error) {
+        } catch (error){
+            // TODO : clean this up so we don't die on one bad query
             this.util.logError('Error running query:', error);
         }
-        return data;
         await this.releaseConnection();
+        return data;
     }
 
     // Handle building out WHERE sql based on the config
@@ -3658,7 +3659,6 @@ class Database {
 
     // Get list of blocks and a count of each transaction type for the given block_index
     async getBlocks(config){
-        console.log('getBlocks config=',config);
         let sql     = config.data.sql;
         let offset  = config.data.offset;
         let data    = [];

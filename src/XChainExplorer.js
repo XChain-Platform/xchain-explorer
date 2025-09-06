@@ -244,6 +244,12 @@ class XChainExplorer {
         // Split the url path up into its various parts
         let urlPath = String(req.path).substring(1).split('/');
 
+        // Convert any 'null' string value to an actual null value (so isNull evaluates it properly)
+        urlPath.forEach(function(value, idx){
+            if(String(value).toLowerCase()=='null')
+                urlPath[idx] = null;
+        });
+
         // Stop processing request for static content (already been processed)
         if(this.urls['static'].includes(urlPath[0]))
             return;

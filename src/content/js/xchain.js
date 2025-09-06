@@ -7,13 +7,20 @@
 // Define XC Namespace object to track various properties
 XC = {
 
-    // Placeholder for COIN 
-    coin: null,
+    // Flag to show debug information in console
+    debug: true,
 
-    // Placeholer objet to track datatables info
-    datatables: {},
+    // List of supported coins
+    coins: ['BTC', 'LTC', 'DOGE'],
 
-    // Define list of XChain actions
+    // List of supported coin networks
+    networks: {
+        mainnet: '',
+        testnet: 't',
+        regtest: 'r'
+    },
+
+    // List of supported actions
     actions: [
         'addresses',
         'airdrops',
@@ -41,29 +48,53 @@ XC = {
         'swap_edits',
         'swap_matches',
         'sweeps'
-    ]
+    ],
+
+    // Placeholder for current coin, network, query, and query type
+    coin:    null,
+    network: null,
+    query:   null,
+    type:    null,
+
+    // Placeholer object to track datatables info
+    datatables: {}
 
 }
 
-// Function to handle displaying an address (including multi-sig addresses)
-function getDisplayAddress(address, full){
-    var html = '',
-        full = (full) ? true : false,
-        arr  = address.split('_');
-    if(arr.length>1){
-        html = '<a href="/address/' + address + '">Multisig Address</a> (' + arr[0] + '-of-' + arr[arr.length-1] + ')';
-        // Handle displaying full address info
-        if(full){
-            arr.forEach(function(addr, idx){
-                if(idx>0 && idx<(arr.length-1)){
-                    html += '<br/><a href="/address/' + addr + '">' + addr +'</a>';
+// Function to handle setting current COIN and QUERY values
+function setXChainParams(){
+    let path = String(window.location.pathname).split('/');
+    // Loop through possible coins and networks and set valid coin and network values
+    for(let coin of XC.coins){
+        if(XC.coin==null){
+            for(let network in XC.networks){
+                let name = XC.networks[network] + coin;
+                if(String(path[1]).toLowerCase()==String(name).toLowerCase()){
+                    XC.coin    = name;
+                    XC.network = network;
+                    break;
                 }
-            });
+            }
         }
-    } else {
-        html += '<a href="/address/' + address + '">' + address +'</a>';
     }
-    return html;
+    // Default to BTC Mainnet
+    if(isNull(XC.coin)){
+        XC.coin     = 'BTC';
+        XC.network = 'mainnet';
+    }
+    // Set query and query type to a valid value
+    let type  = String(path[2]).toLowerCase();
+    let query = path[path.length-1];
+    if(['block','address','token'].includes(type)){
+        let valid = false;
+        if((type=='block'   && isNumeric(query)) ||
+           (type=='address' && isCryptoAddress(query)) ||
+           (type=='token'   && typeof(query)=='string')){
+            XC.type  = type;
+            XC.query = query;
+        }
+
+    }
 }
 
 // Function to handle making a URL a url valid by ensuring it starts with http or https
@@ -254,8 +285,6 @@ function formatTransactionLink(tx){
     $('#tx-hash').html(html);
 }
 
-
-
 // Quick function to get a status from an object
 function getTransactionStatus(rec, depth=1){
     if(rec.status) 
@@ -263,6 +292,30 @@ function getTransactionStatus(rec, depth=1){
     else if(depth>=100)
         return null;
     return getTransactionStatus(rec[Object.keys(rec)[0]], (depth+1));
+}
+
+// Determine if value is null or undefined or empty
+function isNull(value){
+    return (value === null || value === undefined || value==='');
+}
+
+
+// Determine if a value is numeric
+function isNumeric(value){
+    return typeof value === 'bigint' || (!isNaN(parseFloat(value)) && isFinite(value));
+}
+
+// Handle doing VERY lose validation on an address
+// TODO: Clean this up to actually verify crypto addresses using crypto library
+function isCryptoAddress(address){
+    let len = String(address).length;
+    // Check P2PKH (26-35 chars)
+    if(len>=26 && len<=35)
+        return true;
+    // Check Segwit (42 chars)
+    if(len==42)
+        return true;
+    return false;
 }
 
 /**********************************************************************
@@ -273,7 +326,6 @@ function getTransactionStatus(rec, depth=1){
  * - action - Action name (address, credit, debit)
  * - query  - Query info (can be null in most cases)
  * - type   - Query type (address, block, token)
- * - track  - Tracking info (offset, direction, etc)
  * 
  * Examples :
  * - Load all `address` actions
@@ -286,20 +338,16 @@ function getTransactionStatus(rec, depth=1){
  *   loadDatatablesData('BTC', 'address', '862623', 'block');
  *********************************************************************/
 function loadDatatablesData(coin, action, query, type){
-
     // Handle initializing datatable object for this action
     if(!XC.datatables[action]){
         XC.datatables[action] = {
             last_start: 0
         }
     }
-
     // Setup short alias for tracking action specific datatable info
     let track = XC.datatables[action];
-
     // Set the name of the datatable to load data into
     let tableId = 'datatable-' + action;
-
     // Set the explorer API endpoint name based on the action
     let endpoint = action + 's';
     if(['address','batch'].includes(action)){
@@ -307,24 +355,20 @@ function loadDatatablesData(coin, action, query, type){
     } else if (action=='history'){
         endpoint = action;
     }
-
     // Set the explorer API url
     let url = '/' + coin + '/explorer/' + endpoint;
     if(query || action=='history' || action=='block')
         url += '/' + query;
     if(type)
         url += '/' + type;
-
     // Set number of records per page to display
     var sm   = localStorage,
         rec  = sm.getItem('records_per_page');
         page = (rec) ? parseInt(rec) : 10;
-
     // Detect any 'per page' changes and save to localStorage
     $('#' + tableId).on( 'length.dt', function ( e, settings, length ){
         sm.setItem('records_per_page',length);
     });
-
     // Load data into the datatable
     $('#' + tableId).dataTable({
         ajax: {
@@ -435,18 +479,15 @@ function loadDatatablesData(coin, action, query, type){
             let memo         = false;
             let txt          = false;
             let edit         = false;
-
             // Define the link to the action_index
             let action_link  = formatLink('/' + coin + '/action/' + action_index, 'view', null, true);
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
-
             // Set row to display to red or green based on status
             if(!['balance','token','block'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 $(row).addClass(cls);
             }
-
             // Display the first few fields
             $('td', row).eq(0).html(numeral(count).format('0,0'));
             $('td', row).eq(1).html(block_link);
@@ -478,9 +519,10 @@ function loadDatatablesData(coin, action, query, type){
                 block_index = data[0];
                 timestamp   = data[1];
                 let actions = String(data[2]).split('|');
-                var html    = '';
                 $('td', row).eq(0).html(formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0')));
                 $('td', row).eq(1).html(formatLivestamp(timestamp));
+                $('td', row).eq(3).html(formatLink('/' + coin + '/block/' + block_index, 'view', null, true));
+                var html    = '';
                 actions.forEach(function(val, idx){
                     if(val>0){
                         var num  = numeral(val).format('0,0'),
@@ -518,7 +560,6 @@ function loadDatatablesData(coin, action, query, type){
                 if(html=='')
                     html = 'No transactions found';
                 $('td', row).eq(2).html(html);
-
             }
             // Broadcast
             if(action=='broadcast'){
@@ -783,14 +824,60 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).html(html);
                 $('td', row).eq(5).html(action_link);
             }
-
         }
     });
 }
 
+/**********************************************************************
+ * Handle loading data directly from the API endpoints
+ * 
+ * Params :
+ * - coin     - COIN name (BTC, LTC, DOGE, etc)
+ * - action   - Action name (address, credit, debit)
+ * - query    - Query info (can be null in most cases)
+ * - type     - Query type (address, block, token)
+ * - callback - Callback function to process the response
+ * 
+ * Examples :
+ * - Load all `address` actions
+ *   loadApiData('BTC', 'block', '862623', null);
+ * 
+ * - Load `address` actions for a given address
+ *   loadDatatablesData('BTC', 'address', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev', 'address');
+ * 
+ * - Load `address` actions for a given block
+ *   loadDatatablesData('BTC', 'address', '862623', 'block');
+ *********************************************************************/
+function loadApiData(coin, action, query, type, callback){
+    // Set the API endpoint name based on the action
+    let endpoint = action + 's';
+    if(['address','batch'].includes(action)){
+        endpoint = action + 'es';
+    } else if (['history','block'].includes(action)){
+        endpoint = action;
+    }
+    // Set the explorer API url
+    let url = '/' + coin + '/api/' + endpoint;
+    if(query || action=='history' || action=='block')
+        url += '/' + query;
+    if(type)
+        url += '/' + type;
+    // Make request to get the API data and return to the callback function
+    $.getJSON(url, function(o){
+        if(o.error){
+            console.log('caught error=',o.error);
+        } else {
+            if(typeof callback==='function')
+                callback(o);
+        }
+    });
+
+}
+
 $(document).ready(function(){
 
-    XC.coin = 'BTC';
+    // Initialize the XChain request params
+    setXChainParams();
 
     // Handle restoring the preferred viewing mode
     var ls   = localStorage,
@@ -809,5 +896,13 @@ $(document).ready(function(){
 
     // Set the copyright as the current year
     $('#copyright-year').text(new Date().getFullYear())
+
+    // Display debug information
+    if(XC.debug){
+        console.log('XC.coin=',XC.coin);
+        console.log('XC.network=',XC.network);
+        console.log('XC.type=',XC.type);
+        console.log('XC.query=',XC.query);
+    }
 
 });

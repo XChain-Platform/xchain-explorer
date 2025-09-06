@@ -146,6 +146,7 @@ class XChainExplorer {
                 '/{COIN}/api/action/{QUERY}'               : ['getAction',       'action_index'],
                 '/{COIN}/api/address/{QUERY}'              : ['getAddress',      'address'],
                 '/{COIN}/api/balances/{QUERY}'             : ['getBalances',     'address'],
+                '/{COIN}/api/block/{QUERY}'                : ['getBlock',        'block'],
                 '/{COIN}/api/credits/{QUERY}/{TYPE}'       : ['getCredits',      ['block', 'address']],
                 '/{COIN}/api/debits/{QUERY}/{TYPE}'        : ['getDebits',       ['block', 'address']], 
                 '/{COIN}/api/escrows/{QUERY}/{TYPE}'       : ['getEscrows',      ['block', 'address']],

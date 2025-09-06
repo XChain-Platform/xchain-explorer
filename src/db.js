@@ -358,7 +358,7 @@ class Database {
                 } else {
                     where = ` AND m.source_id=` + id;
                 }
-            } else if(type=='block'){
+            } else if(type=='block' && !this.util.isNull(config.data.search)){
                 where = ` AND b1.block_index=` + config.data.search;
             } else if(type=='token'){
                 if(['getOrders','getSwaps'].includes(method)){
@@ -386,13 +386,13 @@ class Database {
             // Build out SQL to get start offset
             if(type=='block' && this.util.isNull(config.data.search)){
                 sql = `SELECT 
-                            block_index as offset
+                            b1.block_index as offset
                         FROM
-                            blocks
+                            blocks b1
                         WHERE 
-                            block_index IS NOT NULL
+                            b1.block_index IS NOT NULL
                             ` + where + `
-                        ORDER BY block_index ` + order + ` 
+                        ORDER BY b1.block_index ` + order + ` 
                         LIMIT ` + limit;
             } else {
                 sql = `SELECT 

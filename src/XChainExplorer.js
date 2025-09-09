@@ -105,7 +105,7 @@ class XChainExplorer {
                 '/{COIN}/terms'         : 'terms.html',
                 '/{COIN}/mempool'       : 'mempool.html',
                 //  Specific Information pages
-                '/{COIN}/address/{QUERY}' : 'token.html',
+                '/{COIN}/address/{QUERY}' : 'address.html',
                 '/{COIN}/action/{QUERY}'  : 'action.html',
                 '/{COIN}/block/{QUERY}'   : 'block.html',
                 '/{COIN}/token/{QUERY}'   : 'token.html',
@@ -163,6 +163,7 @@ class XChainExplorer {
                 // Explorer Endpoints                           Method           Types
                 '/{COIN}/explorer/addresses/{QUERY}/{TYPE}'  : ['getAddresses',  ['block', 'address']],
                 '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'   : ['getAirdrops',   ['block', 'address', 'token']],
+                '/{COIN}/explorer/balances/{QUERY}/{TYPE}'   : ['getBalances',   'address'],
                 '/{COIN}/explorer/batches/{QUERY}/{TYPE}'    : ['getBatches',    ['block', 'address']],
                 '/{COIN}/explorer/blocks/{QUERY}'            : ['getBlocks',    'block'],
                 '/{COIN}/explorer/broadcasts/{QUERY}/{TYPE}' : ['getBroadcasts', ['block', 'address']],
@@ -176,7 +177,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'    : ['getEscrows',    ['block', 'address']],
                 '/{COIN}/explorer/files/{QUERY}/{TYPE}'      : ['getFiles',      ['block', 'address']],
                 '/{COIN}/explorer/holders/{QUERY}'           : ['getHolders',    'token'],
-                '/{COIN}/explorer/history/{QUERY}/{TYPE}'    : ['getHistory',    ['block', 'recent']],
+                '/{COIN}/explorer/history/{QUERY}/{TYPE}'    : ['getHistory',    ['block', 'address', 'token', 'recent']],
                 '/{COIN}/explorer/issues/{QUERY}/{TYPE}'     : ['getIssues',     ['block', 'address', 'token']],
                 '/{COIN}/explorer/links/{QUERY}/{TYPE}'      : ['getLinks',      ['block', 'address', 'token']],
                 '/{COIN}/explorer/lists/{QUERY}/{TYPE}'      : ['getLists',      ['block', 'address']],
@@ -454,15 +455,15 @@ class XChainExplorer {
         // Set limit based on given limit and page params
         if(cfg.type=='api'){
             let page  = (q && q.page  && this.util.isInteger(Number(q.page))) ? q.page  : 1;
-            start = (limit * page) - limit;
-            limit = limit * page;
+            start = this.util.bcsub(this.util.bcmul(limit, page), limit);
+            limit = this.util.bcmul(limit, page);
         }
         // Set limit based on given length and start params
         if(cfg.type=='explorer'){
             // Limit results to 100 max (except in special cases where we can not use an offset)
             if(length > 100 && !['getHolders','getBalances','getCredits','getDebits'].includes(cfg.data.method))
                 limit = 100;
-            limit = start + length;
+            limit = this.util.bcadd(start, length);
         }
 
         // Placeholder for the results we will actually show
@@ -549,6 +550,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
                     if(method=='getAirdrops')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.memo, status, info.action_index];
+                    if(method=='getBalances')
+                        info = [count, info.tick, info.amount, null, null, null];
                     if(method=='getBatches')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, status, info.action_index];
                     if(method=='getBlocks')
@@ -557,6 +560,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.message, info.value, info.fee, status, info.action_index];
                     if(method=='getCallbacks')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.callback_tick, info.callback_amount, status, info.action_index];
+                    if(['getCredits','getDebits','getEscrows'].includes(method))
+                        info = [count_reverse, info.block_index, info.timestamp, info.address, info.tick, info.amount, info.action, info.action_index];
                     if(method=='getDestroys')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.callback_amount, info.memo, status, info.action_index];
                     if(method=='getDispensers')

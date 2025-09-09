@@ -211,7 +211,7 @@ th.address {
     width: 320px;
 }
 
-/* CSS used on homepage */
+/* Homepage stats */
 .table-stats th {
     width: 120px;
     white-space: nowrap;
@@ -220,6 +220,18 @@ th.address {
     border-width: 0px !important;
 }
 .table-stats tr:last-child {
+    border-width: 0px !important;
+}
+
+/* Address page stats */
+.table-address-stats th {
+    width: 175px;
+    white-space: nowrap;
+}
+.table-address-stats tr:last-child {
+    border-width: 0px !important;
+}
+.table-address-stats tr:last-child {
     border-width: 0px !important;
 }
 

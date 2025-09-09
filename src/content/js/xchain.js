@@ -453,6 +453,19 @@ function loadDatatablesData(coin, action, query, type){
             track['last_start'] = o._iDisplayStart;
             // Save total, so we can pass back in API requests (used to calculate how many records to display on 'last' page)
             track['total'] = o.json.recordsTotal;
+            // Handle hiding address if we are on address page
+            if(type=='address'){
+                $('[id^="datatable-"]').each(function(idx, item){
+                    let el = $(this);
+                    let table = String(el.attr('id')).replace('datatable-','');
+                    if(!table.includes('_') && !table.includes('-') && !['balance','token','issue'].includes(table)){
+                        let tr = el.find('tr');
+                        tr.find('th:eq(3)').hide();
+                        tr.find('td:eq(3)').hide();
+                    }
+                });
+            }
+
         },
         createdRow: function(row, data, idx){
             // Parse the row data into the standard fields
@@ -479,13 +492,17 @@ function loadDatatablesData(coin, action, query, type){
             let memo         = false;
             let txt          = false;
             let edit         = false;
+            let type2        = false;
             // Define the link to the action_index
             let action_link  = formatLink('/' + coin + '/action/' + action_index, 'view', null, true);
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','token','block'].includes(action)){
+            if(!['balance','credit','debit','token','block'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
+                // For escrow, green=credit, red=debit
+                if(action=='escrow')
+                    cls = (String(data[5]).substring(0,1)=='-') ? 'bg-red' : 'bg-green';
                 $(row).addClass(cls);
             }
             // Display the first few fields
@@ -509,6 +526,16 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
+            }
+            // Balance
+            if(action=='balance'){
+                token  = data[1];
+                amount = data[2];
+                $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(2).html(formatAmount(amount));
+                // $('td', row).eq(3).html(formatAmount(amount));
+                // $('td', row).eq(4).html(formatAmount(amount));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
             }
             // Batch
             if(action=='batch'){
@@ -584,11 +611,19 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Credit
             if(action=='credit'){
-                // TODO
+                token  = data[4];
+                amount = data[5];
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(7).html(action_link);
             }
             // Debit
             if(action=='debit'){
-                // TODO
+                token  = data[4];
+                amount = data[5];
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(7).html(action_link);
             }
             // Destroy  
             if(action=='destroy'){
@@ -623,7 +658,11 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Escrow
             if(action=='escrow'){
-                // TODO
+                token  = data[4];
+                amount = data[5];
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(7).html(action_link);
             }
             // File
             if(action=='file'){
@@ -656,12 +695,12 @@ function loadDatatablesData(coin, action, query, type){
             }
             // List
             if(action=='list'){
-                type = data[4];
+                type2 = data[4];
                 edit = data[5];
                 // List Type
                 txt  = '';
-                if(type==1) txt='Token';
-                if(type==2) txt='Address';
+                if(type2==1) txt='Token';
+                if(type2==2) txt='Address';
                 $('td', row).eq(4).text(txt);
                 // Edit Type
                 txt = 'Create';
@@ -708,13 +747,13 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Sleep
             if(action=='sleep'){
-                type         = data[4];
+                type2        = data[4];
                 token        = data[5];
                 block_index2 = data[6];
                 // Sleep Type
                 txt  = '';
-                if(type==1) txt='Address';
-                if(type==2) txt='Token';
+                if(type2==1) txt='Address';
+                if(type2==2) txt='Token';
                 $('td', row).eq(4).text(txt);
                 if(token!='')
                     $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));

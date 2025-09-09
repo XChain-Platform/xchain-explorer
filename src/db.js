@@ -207,6 +207,9 @@ class Database {
             // Tweak the limit on the last page
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
+            // Tweak limit for getBalances since we can't select just the data we want using offsets
+            if(['getBalances'].includes(data.method))
+                limit = this.util.bcadd(start,length);
             // Set the order to ascending for previous and last requests
             if(['prev','last'].includes(action))
                 order = 'ASC';
@@ -340,6 +343,9 @@ class Database {
         let where  = '';
         let limit  = 1;
         let order  = 'DESC';
+        // Bail out in certain instances
+        if(method=='getBalances')
+            return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
             if(type=='address') 
@@ -355,6 +361,10 @@ class Database {
             if(type=='address'){
                 if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
                     where = ` AND (m.source_id=` + id + ` OR m.destination_id=` + id + `)`;
+                } else if(['getTokens'].includes(method)){
+                    where = ` AND m.owner_id=` + id;
+                } else if(['getCredits','getDebits','getEscrows'].includes(method)){
+                    where = ` AND m.address_id=` + id;
                 } else {
                     where = ` AND m.source_id=` + id;
                 }
@@ -393,6 +403,19 @@ class Database {
                             b1.block_index IS NOT NULL
                             ` + where + `
                         ORDER BY b1.block_index ` + order + ` 
+                        LIMIT ` + limit;
+            } else if(method=='getTokens'){
+                sql = `SELECT 
+                            m.id as offset
+                        FROM
+                            tokens m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        WHERE 
+                            m.action_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY m.id ` + order + ` 
                         LIMIT ` + limit;
             } else {
                 sql = `SELECT 
@@ -440,15 +463,15 @@ class Database {
                         where += ' AND action_index < ' + offset1;
                     }
                 }
-                // Build out SQL to get start offset
+                // Build out SQL to get stop offset
                 sql = `SELECT 
-                            action_index as offset
+                            m.action_index as offset
                         FROM
-                            ` + table + `
+                            ` + table + ` m
                         WHERE 
-                            action_index IS NOT NULL
+                            m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY action_index ` + order + ` 
+                        ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
                 // Run Query to try and get offset information 
                 rows = await this.doQuery(config, sql);
@@ -519,6 +542,7 @@ class Database {
      * -----------------------------------------------------------------
      * /{COIN}/explorer/addresses/{QUERY}/{TYPE}     getAddresses    block, address
      * /{COIN}/explorer/airdrops/{QUERY}/{TYPE}      getAirdrops     block, address, token
+     * /{COIN}/explorer/balances/{QUERY}/{TYPE}      getBalances     address
      * /{COIN}/explorer/batches/{QUERY}/{TYPE}       getBatches      block, address
      * /{COIN}/explorer/blocks/{TYPE}                getBlocks       block
      * /{COIN}/explorer/broadcasts/{QUERY}/{TYPE}    getBroadcasts   block, address
@@ -531,7 +555,7 @@ class Database {
      * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
      * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
      * /{COIN}/explorer/holders/{TYPE}               getHolders      token
-     * /{COIN}/explorer/history/{QUERY}/{TYPE}       getHistory      block, recent
+     * /{COIN}/explorer/history/{QUERY}/{TYPE}       getHistory      block, address, token, recent
      * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
      * /{COIN}/explorer/links/{QUERY}/{TYPE}         getLinks        block, address, token
      * /{COIN}/explorer/lists/{QUERY}/{TYPE}         getLists        block, address
@@ -1864,7 +1888,7 @@ class Database {
                         balances m
                         INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + `
                     ORDER BY t1.tick ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1928,7 +1952,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -1968,7 +1992,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
@@ -2008,7 +2032,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
-                    WHERE ` + sql.where + `
+                    WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];

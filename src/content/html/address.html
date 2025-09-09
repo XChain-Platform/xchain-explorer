@@ -1,90 +1,104 @@
-<!-- Basic Address Information -->
+<!-- Information Header  -->
 <div class="container mt-3">
     <div class="row">
 
-        <div class="col-12 col-lg-10">
-            <div class="card table-responsive">
+        <!-- Address Stats -->
+        <div class="col-xl-10 pe-xl-0 pb-3">
+            <div class="card">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-info-circle"></i> <span class="display-token-name"></span> Address Information
+                    <i class="fa fa-xchain asset-icon-sm pull-left"></i> Address Information
                 </div>
-                <table class="table table-sm table-striped table-bordered mb-0 token-info no-outer-borders border-bottom">
-                <thead>
-                    <tr>
-                        <th class="address">Address</th>
-                        <th>BTC Balance</th>
-                        <th>Total Estimated Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <tr>
-                    <td id="address"><a href="#"></a></td>
-                    <td id="btc-balance">0.00000000 <i class="fa fa-spinner fa-pulse"></i></td>
-                    <td id="total-value">0.00000000 <i class="fa fa-spinner fa-pulse"></i></td>
-                </tr>            
-                </tbody>
-                </table>
-                <!-- Reputation Information-->
-                <div id="reputationInfo">
-                    <a name="reputation"></a>
-                    <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-lg fa-shield"></i> <span class="display-token-name"></span> Address Reputation
-                        <a href="https://reputation.coindaddy.io/address/{QUERY}" target="_blank" class="badge bg-success float-end text-decoration-none"><i class="fa fa-bullhorn"></i> Feedback</a>
+                <div class="row table-responsive">
+                    <div class="col-12 col-md-6 pe-md-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-address-stats">
+                        <tbody>
+                        <tr>
+                            <th>Address</th>
+                            <td id="address">0</td>
+                        </tr>
+                        <tr>
+                            <th>Confirmed Balance</th>
+                            <td id="totalBatches">0</td>
+                        </tr>
+                        <tr>
+                            <th>Pending Balance</th>
+                            <td id="totalBets">0</td>
+                        </tr>
+                        <tr>
+                            <th>Total Received</th>
+                            <td id="totalCallbacks">0</td>
+                        </tr>
+                        </tbody>
+                        </table>
                     </div>
-                    <table width="100%" class="table table-sm table-striped table-bordered  no-outer-borders mb-0">
-                    <thead>
-                    <tr>
-                        <th width="25%" class="text-center">Current Rating</th>
-                        <th width="25%" class="text-center">Last 30 Days</th>
-                        <th width="25%" class="text-center">6 months ago</th>
-                        <th width="25%" class="text-center hidden-xs">1 Year ago</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td id="rating_current" class="text-center" ></td>
-                        <td id="rating_30day"   class="text-center"></td>
-                        <td id="rating_6month"  class="text-center" ></td>
-                        <td id="rating_1year"   class="text-center hidden-xs" ></td>
-                    </tr>
-                    </tbody>
-                    </table>
-                </div>                
+                    <div class="col-12 col-md-6 ps-md-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-address-stats">
+                        <tbody>
+                        <tr>
+                            <th>Address Type</th>
+                            <td id="totalAirdrops">0</td>
+                        </tr>
+                        <tr>
+                            <th>Confirmed UTXOs</th>
+                            <td id="totalBatches">0</td>
+                        </tr>
+                        <tr>
+                            <th>Pending UTXOs</th>
+                            <td id="totalBets">0</td>
+                        </tr>
+                        <tr>
+                            <th>Estimated Value</th>
+                            <td id="totalCallbacks">0</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- QR Code-->
+        <!-- Address QR Code-->
         <div class="col-12 pt-2 col-lg-2 pt-lg-0 qrcode text-center">
             <div class="address_qrcode"></div>
         </div>
 
     </div>
-</div>        
+</div>
 
-<!-- BTNS Address Information -->
-<div class="container mt-3">
+<!-- Latest Transactions -->
+<div class="container">
     <div class="row">
-        <div class="col-xs-12">
+        <div class="col-sm-12">
+
+            <!-- Navbar Tabs -->
             <ul class="nav nav-tabs" id="data-tabs" role="tablist">
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-addresses"  data-bs-toggle="tab" data-bs-target="#tab-pane-addresses"  type="button" role="tab" aria-controls="tab-pane-addresses"  aria-selected="true"><i class="fa fa-lg fa-gears"        ></i> Addresses</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-airdrops"   data-bs-toggle="tab" data-bs-target="#tab-pane-airdrops"   type="button" role="tab" aria-controls="tab-pane-airdrops"   aria-selected="true"><i class="fa fa-lg fa-parachute-box"></i> Airdrops</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-balances"   data-bs-toggle="tab" data-bs-target="#tab-pane-balances"   type="button" role="tab" aria-controls="tab-pane-balances"   aria-selected="true"><i class="fa fa-lg fa-list"         ></i> Balances</button></li>
-                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-bets"       data-bs-toggle="tab" data-bs-target="#tab-pane-bets"       type="button" role="tab" aria-controls="tab-pane-bets"       aria-selected="true"><i class="fa fa-lg fa-bullseye"     ></i> Bets</button></li> -->
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-callbacks"  data-bs-toggle="tab" data-bs-target="#tab-pane-callbacks"  type="button" role="tab" aria-controls="tab-pane-callbacks"  aria-selected="true"><i class="fa fa-lg fa-recycle"      ></i> Callbacks</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-credits"    data-bs-toggle="tab" data-bs-target="#tab-pane-credits"    type="button" role="tab" aria-controls="tab-pane-credits"    aria-selected="true"><i class="fa fa-lg fa-plus"         ></i> Credits</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-debits"     data-bs-toggle="tab" data-bs-target="#tab-pane-debits"     type="button" role="tab" aria-controls="tab-pane-debits"     aria-selected="true"><i class="fa fa-lg fa-minus"        ></i> Debits</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-destroys"   data-bs-toggle="tab" data-bs-target="#tab-pane-destroys"   type="button" role="tab" aria-controls="tab-pane-destroys"   aria-selected="true"><i class="fa fa-lg fa-trash"        ></i> Destroys</button></li>
-                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispensers" data-bs-toggle="tab" data-bs-target="#tab-pane-dispensers" type="button" role="tab" aria-controls="tab-pane-dispensers" aria-selected="true"><i class="fa fa-lg fa-arrows-h"     ></i> Dispensers</button></li> -->
-                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispenses"  data-bs-toggle="tab" data-bs-target="#tab-pane-dispenses"  type="button" role="tab" aria-controls="tab-pane-dispenses"  aria-selected="true"><i class="fa fa-lg fa-btc"          ></i> Dispenses</button></li> -->
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dividends"  data-bs-toggle="tab" data-bs-target="#tab-pane-dividends"  type="button" role="tab" aria-controls="tab-pane-dividends"  aria-selected="true"><i class="fa fa-lg fa-sitemap"      ></i> Dividends</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-issues"     data-bs-toggle="tab" data-bs-target="#tab-pane-issues"     type="button" role="tab" aria-controls="tab-pane-issues"     aria-selected="true"><i class="fa fa-lg fa-bank"         ></i> Issues</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-lists"      data-bs-toggle="tab" data-bs-target="#tab-pane-lists"      type="button" role="tab" aria-controls="tab-pane-lists"      aria-selected="true"><i class="fa fa-lg fa-list"         ></i> Lists</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-mints"      data-bs-toggle="tab" data-bs-target="#tab-pane-mints"      type="button" role="tab" aria-controls="tab-pane-mints"      aria-selected="true"><i class="fa fa-lg fa-print"        ></i> Mints</button></li>
-                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-rugs"       data-bs-toggle="tab" data-bs-target="#tab-pane-rugs"       type="button" role="tab" aria-controls="tab-pane-rugs"       aria-selected="true"><i class="fa fa-lg fa-bomb"         ></i> Rugs</button></li> -->
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sends"      data-bs-toggle="tab" data-bs-target="#tab-pane-sends"      type="button" role="tab" aria-controls="tab-pane-sends"      aria-selected="true"><i class="fa fa-lg fa-send"         ></i> Sends</button></li>
-                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sleeps"     data-bs-toggle="tab" data-bs-target="#tab-pane-sleeps"     type="button" role="tab" aria-controls="tab-pane-sleeps"     aria-selected="true"><i class="fa fa-lg fa-snooze"       ></i> Sleeps</button></li> -->
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sweeps"     data-bs-toggle="tab" data-bs-target="#tab-pane-sweeps"     type="button" role="tab" aria-controls="tab-pane-sweeps"     aria-selected="true"><i class="fa fa-lg fa-truck"        ></i> Sweeps</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-tokens"     data-bs-toggle="tab" data-bs-target="#tab-pane-tokens"     type="button" role="tab" aria-controls="tab-pane-tokens"     aria-selected="true"><i class="fa fa-lg fa-database"     ></i> Tokens</button></li>
-                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-mempool"    data-bs-toggle="tab" data-bs-target="#tab-pane-mempool"    type="button" role="tab" aria-controls="tab-pane-mempool"    aria-selected="true"><i class="fa fa-lg fa-clock-o"      ></i> Unconfirmed</button></li> -->
+                <!-- TODO: Add Recent history  -->
+                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-recent"    data-bs-toggle="tab" data-bs-target="#tab-pane-recent"    type="button" role="tab" aria-controls="tab-pane-recent"    aria-selected="true"><i class="fa fa-clock-o"      ></i> Recent</button></li> -->
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-address"   data-bs-toggle="tab" data-bs-target="#tab-pane-address"   type="button" role="tab" aria-controls="tab-pane-address"   aria-selected="true"><i class="fa fa-gears"        ></i> Addresses</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-airdrop"   data-bs-toggle="tab" data-bs-target="#tab-pane-airdrop"   type="button" role="tab" aria-controls="tab-pane-airdrop"   aria-selected="true"><i class="fa fa-parachute-box"></i> Airdrops</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-balance"   data-bs-toggle="tab" data-bs-target="#tab-pane-balance"   type="button" role="tab" aria-controls="tab-pane-balance"   aria-selected="true"><i class="fa fa-list"         ></i> Balances</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-batch"     data-bs-toggle="tab" data-bs-target="#tab-pane-batch"     type="button" role="tab" aria-controls="tab-pane-batch"     aria-selected="true"><i class="fa fa-layer-group"  ></i> Batches</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-broadcast" data-bs-toggle="tab" data-bs-target="#tab-pane-broadcast" type="button" role="tab" aria-controls="tab-pane-broadcast" aria-selected="true"><i class="fa fa-bullhorn"     ></i> Broadcasts</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-callback"  data-bs-toggle="tab" data-bs-target="#tab-pane-callback"  type="button" role="tab" aria-controls="tab-pane-callback"  aria-selected="true"><i class="fa fa-recycle"      ></i> Callbacks</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-credit"    data-bs-toggle="tab" data-bs-target="#tab-pane-credit"    type="button" role="tab" aria-controls="tab-pane-credit"    aria-selected="true"><i class="fa fa-plus"         ></i> Credits</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-debit"     data-bs-toggle="tab" data-bs-target="#tab-pane-debit"     type="button" role="tab" aria-controls="tab-pane-debit"     aria-selected="true"><i class="fa fa-minus"        ></i> Debits</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-destroy"   data-bs-toggle="tab" data-bs-target="#tab-pane-destroy"   type="button" role="tab" aria-controls="tab-pane-destroy"   aria-selected="true"><i class="fa fa-trash"        ></i> Destroys</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispenser" data-bs-toggle="tab" data-bs-target="#tab-pane-dispenser" type="button" role="tab" aria-controls="tab-pane-dispenser" aria-selected="true"><i class="fa fa-arrows-h"     ></i> Dispensers</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispense"  data-bs-toggle="tab" data-bs-target="#tab-pane-dispense"  type="button" role="tab" aria-controls="tab-pane-dispense"  aria-selected="true"><i class="fa fa-btc"          ></i> Dispenses</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dividend"  data-bs-toggle="tab" data-bs-target="#tab-pane-dividend"  type="button" role="tab" aria-controls="tab-pane-dividend"  aria-selected="true"><i class="fa fa-sitemap"      ></i> Dividends</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-escrow"    data-bs-toggle="tab" data-bs-target="#tab-pane-escrow"    type="button" role="tab" aria-controls="tab-pane-escrow"    aria-selected="true"><i class="fa fa-lock"         ></i> Escrows</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-file"      data-bs-toggle="tab" data-bs-target="#tab-pane-file"      type="button" role="tab" aria-controls="tab-pane-file"      aria-selected="true"><i class="fa fa-file"         ></i> Files</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-issue"     data-bs-toggle="tab" data-bs-target="#tab-pane-issue"     type="button" role="tab" aria-controls="tab-pane-issue"     aria-selected="true"><i class="fa fa-bank"         ></i> Issues</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-link"      data-bs-toggle="tab" data-bs-target="#tab-pane-link"      type="button" role="tab" aria-controls="tab-pane-link"      aria-selected="true"><i class="fa fa-chain"        ></i> Links</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-list"      data-bs-toggle="tab" data-bs-target="#tab-pane-list"      type="button" role="tab" aria-controls="tab-pane-list"      aria-selected="true"><i class="fa fa-list"         ></i> Lists</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-message"   data-bs-toggle="tab" data-bs-target="#tab-pane-message"   type="button" role="tab" aria-controls="tab-pane-message"   aria-selected="true"><i class="fa fa-message"      ></i> Messages</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-mint"      data-bs-toggle="tab" data-bs-target="#tab-pane-mint"      type="button" role="tab" aria-controls="tab-pane-mint"      aria-selected="true"><i class="fa fa-print"        ></i> Mints</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-order"     data-bs-toggle="tab" data-bs-target="#tab-pane-order"     type="button" role="tab" aria-controls="tab-pane-order"     aria-selected="true"><i class="fa fa-book"         ></i> Orders</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-send"      data-bs-toggle="tab" data-bs-target="#tab-pane-send"      type="button" role="tab" aria-controls="tab-pane-send"      aria-selected="true"><i class="fa fa-send"         ></i> Sends</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sleep"     data-bs-toggle="tab" data-bs-target="#tab-pane-sleep"     type="button" role="tab" aria-controls="tab-pane-sleep"     aria-selected="true"><i class="fa fa-snooze"       ></i> Sleeps</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-swap"      data-bs-toggle="tab" data-bs-target="#tab-pane-swap"      type="button" role="tab" aria-controls="tab-pane-swap"      aria-selected="true"><i class="fa fa-exchange"     ></i> Swaps</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sweep"     data-bs-toggle="tab" data-bs-target="#tab-pane-sweep"     type="button" role="tab" aria-controls="tab-pane-sweep"     aria-selected="true"><i class="fa fa-truck"        ></i> Sweeps</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-token"     data-bs-toggle="tab" data-bs-target="#tab-pane-token"     type="button" role="tab" aria-controls="tab-pane-token"     aria-selected="true"><i class="fa fa-database"     ></i> Tokens</button></li>
                 <li class="nav-item dropdown" id="data-last-tab">
                     <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">More</a>
                     <ul class="dropdown-menu" id="data-tabs-more">
@@ -95,14 +109,33 @@
             <!-- Tab Content -->
             <div class="tab-content border border-top-0 mb-3" id="data-panels">
 
-                <!-- Latest Addresses -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-addresses"   role="tabpanel" aria-labelledby="tab-addresses"  tabindex="0">
-                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%">
+                <!--  Recent Transactions (Confirmed) -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-recent" role="tabpanel" aria-labelledby="tab-recent" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-history">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
+                            <th class="asset-name">Action</th>
+                            <th class="">Details</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Addresses -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-address" role="tabpanel" aria-labelledby="tab-address" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-address">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
                             <th class="">Fee Preference</th>
                             <th class="">Require Memo</th>
                             <th class="view"></th>
@@ -113,15 +146,16 @@
                     </table>
                 </div>
 
-                <!-- Airdrops -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-airdrops" role="tabpanel" aria-labelledby="tab-airdrops" tabindex="0">
-                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%">
+                <!-- Latest Airdrops -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-airdrop" role="tabpanel" aria-labelledby="tab-airdrop" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-airdrop">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
-                            <th class="asset-name">Token</th>
+                            <th class="address">Source</th>
+                            <th class="token">Token</th>
                             <th class="quantity">Amount</th>
                             <th class="memo">Memo</th>
                             <th class="view"></th>
@@ -132,38 +166,34 @@
                     </table>
                 </div>
 
-                <!-- Balances -->
-                <div class="tab-pane fade show table-responsive active" id="tab-pane-balances" role="tabpanel" aria-labelledby="tab-balances" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Balances -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-balance" role="tabpanel" aria-labelledby="tab-balance" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-balance">
                     <thead>
-                    <tr class="info">
-                        <th class="record">#</th>
-                        <th>Token</th>
-                        <th class="quantity">Amount</th>
-                        <th>Percentage of Supply</th>
-                        <th>Estimated Value</th>
-                        <th class="view">&nbsp;</th>
-                    </tr>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Amount</th>
+                            <th>Percentage of Supply</th>
+                            <th>Estimated Value</th>
+                            <th class="view">&nbsp;</th>
+                        </tr>
                     </thead>
                     <tbody>
-                    </tbody>                        
+                    </tbody>
                     </table>
                 </div>
 
 
-                <!-- Bets -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-bets" role="tabpanel" aria-labelledby="tab-bets" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Batches -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-batch" role="tabpanel" aria-labelledby="tab-batch" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-batch">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
-                            <th class="address">Feed Address</th>
-                            <th class="">Type</th>
-                            <th class="">Value</th>
-                            <th class="">Wager</th>
-                            <th class="">Counterwager</th>
+                            <th class="">Source</th>
                             <th class="view"></th>
                         </tr>
                     </thead>
@@ -172,14 +202,36 @@
                     </table>
                 </div>
 
-                <!-- Callbacks -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-callbacks" role="tabpanel" aria-labelledby="tab-callbacks" tabindex="0">
-                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%">
+
+                <!-- Latest Broadcasts -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-broadcast" role="tabpanel" aria-labelledby="tab-broadcast" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-broadcast">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="broadcast-message">Message</th>
+                            <th class="block">Value</th>
+                            <th>Fee</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Callbacks -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-callback" role="tabpanel" aria-labelledby="tab-callback" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-callback">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
                             <th class="token">Token</th>
                             <th class="token">Callback Token</th>
                             <th class="quantity">Quantity</th>
@@ -191,19 +243,19 @@
                     </table>
                 </div>
 
-
-                <!-- Credits -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-credits" role="tabpanel" aria-labelledby="tab-credits" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Credits -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-credit" role="tabpanel" aria-labelledby="tab-credit" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-credit">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
-                            <th class="asset">Token</th>
-                            <th class="quantity">Quantity</th>
-                            <th class="time">Event</th>
-                            <th class="view"></th>
+                            <th class="address">Address</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Amount</th>
+                            <th class="">Action</th>
+                            <th class="view">&nbsp;</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -211,19 +263,19 @@
                     </table>
                 </div>
 
-
-                <!-- Debits -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-debits" role="tabpanel" aria-labelledby="tab-debits" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Debits -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-debit" role="tabpanel" aria-labelledby="tab-debit" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-debit">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
-                            <th class="asset">Token</th>
-                            <th class="quantity">Quantity</th>
-                            <th class="time">Event</th>
-                            <th class="view"></th>
+                            <th class="address">Address</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Amount</th>
+                            <th class="">Action</th>
+                            <th class="view">&nbsp;</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -231,17 +283,17 @@
                     </table>
                 </div>
 
-                <!-- Destroys  -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-destroys" role="tabpanel" aria-labelledby="tab-destroys" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Destroys -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-destroy" role="tabpanel" aria-labelledby="tab-destroy" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-destroy">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
+                            <th class="address">Source</th>
                             <th class="token">Token</th>
                             <th class="quantity">Quantity</th>
-                            <th class="memo">Memo</th>
                             <th class="view"></th>
                         </tr>
                     </thead>
@@ -250,15 +302,15 @@
                     </table>
                 </div>
 
-
-                <!-- Dispensers -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-dispensers" role="tabpanel" aria-labelledby="tab-dispensers" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Dispensers -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dispenser" role="tabpanel" aria-labelledby="tab-dispenser" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dispenser">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
+                            <th class="address">Source</th>
                             <th class="">Dispensing</th>
                             <th class="">Cost</th>
                             <th class="view"></th>
@@ -269,10 +321,9 @@
                     </table>
                 </div>
 
-
-                <!-- Dispenses -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-dispenses" role="tabpanel" aria-labelledby="tab-dispenses" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Dispense -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dispense" role="tabpanel" aria-labelledby="tab-dispense" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dispense">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
@@ -289,15 +340,15 @@
                     </table>
                 </div>
 
-
-                <!-- Dividends -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-dividends" role="tabpanel" aria-labelledby="tab-dividends" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Dividends -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-dividend" role="tabpanel" aria-labelledby="tab-dividend" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dividend">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
+                            <th class="address">Source</th>
                             <th class="">Token</th>
                             <th class="">Dividend Token</th>
                             <th class="">Amount Per Unit</th>
@@ -309,9 +360,49 @@
                     </table>
                 </div>
 
-                <!-- Issues -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-issues" role="tabpanel" aria-labelledby="tab-issues" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Escrows -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-escrow" role="tabpanel" aria-labelledby="tab-pane-escrow" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-escrow">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Address</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Amount</th>
+                            <th class="">Action</th>
+                            <th class="view">&nbsp;</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Files -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-file" role="tabpanel" aria-labelledby="tab-file" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-file">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Name</th>
+                            <th class="">Type</th>
+                            <th class="">Title</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Issues -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-issue" role="tabpanel" aria-labelledby="tab-issue" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-issue">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
@@ -330,17 +421,58 @@
                     </table>
                 </div>
 
-                <!-- Lists -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-lists"      role="tabpanel" aria-labelledby="tab-lists"     tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Links -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-link" role="tabpanel" aria-labelledby="tab-link" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-link">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
-                            <th>Type</th>
-                            <th># Edits</th>
-                            <th># Items</th>
+                            <th class="address">Source</th>
+                            <th class="">Action 1</th>
+                            <th class="">Action 2</th>
+                            <th class="">Memo</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Lists -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-list" role="tabpanel" aria-labelledby="tab-list" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-list">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th>List Type</th>
+                            <th>Edit Type</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+
+                <!-- Latest Messages -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-message" role="tabpanel" aria-labelledby="tab-message" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-message">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="address">Destination</th>
+                            <th>Plaintext Message</th>
+                            <th>Encrypted Message</th>
                             <th class="view"></th>
                         </tr>
                     </thead>
@@ -350,16 +482,16 @@
                 </div>
 
                 <!-- Latest Mints -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-mints"      role="tabpanel" aria-labelledby="tab-mints"     tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <div class="tab-pane fade table-responsive" id="tab-pane-mint" role="tabpanel" aria-labelledby="tab-mint" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-mint">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
                             <th class="block">Block</th>
                             <th class="time">Time</th>
+                            <th class="address">Source</th>
                             <th class="token">Token</th>
                             <th class="quantity">Amount</th>
-                            <th class="address">Destination</th>
                             <th class="view"></th>
                         </tr>
                     </thead>
@@ -368,23 +500,41 @@
                     </table>
                 </div>
 
-                <!-- Latest Rugs -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-rugs"       role="tabpanel" aria-labelledby="tab-rugs"      tabindex="0">
-                    Coming Soon
+                <!-- Latest Orders -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-order" role="tabpanel" aria-labelledby="tab-order" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-order">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="token">Give Token</th>
+                            <th class="quantity">Give Amount</th>
+                            <th class="token">Get Token</th>
+                            <th class="quantity">Get Amount</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
                 </div>
 
                 <!-- Latest Sends -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-sends"      role="tabpanel" aria-labelledby="tab-sends"     tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <div class="tab-pane fade table-responsive" id="tab-pane-send" role="tabpanel" aria-labelledby="tab-send" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-send">
                     <thead>
                     <tr class="info">
                         <th class="record">#</th>
                         <th class="block">Block</th>
                         <th class="time">Time</th>
+                        <th class="addresss">Source</th>
                         <th class="token">Token</th>
                         <th class="quantity">Amount</th>
                         <th class="address">Destination</th>
                         <th class="view"></th>
+
                     </tr>
                     </thead>
                     <tbody>
@@ -392,19 +542,56 @@
                     </table>
                 </div>
 
-                <!-- Sleeps -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-sleeps"     role="tabpanel" aria-labelledby="tab-sleeps"    tabindex="0">
-                    Coming Soon
-                </div>
-
-                <!-- Sweeps -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-sweeps"     role="tabpanel" aria-labelledby="tab-sweeps"    tabindex="0">
-                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%">
+                <!-- Latest Sleeps -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-sleep" role="tabpanel" aria-labelledby="tab-sleep" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-sleep">
                     <thead>
                     <tr class="info">
                         <th class="record">#</th>
                         <th class="block">Block</th>
                         <th class="time">Time</th>
+                        <th class="addresss">Source</th>
+                        <th class="">Type</th>
+                        <th class="token">Token</th>
+                        <th class="">Resume Block</th>
+                        <th class="view"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Swaps -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-swap" role="tabpanel" aria-labelledby="tab-swap" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-swap">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Source</th>
+                        <th class="token">Give Token</th>
+                        <th class="quantity">Give Amount</th>
+                        <th class="token">Get Token</th>
+                        <th class="quantity">Get Amount</th>
+                        <th class="view"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Sweeps -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-sweep" role="tabpanel" aria-labelledby="tab-sweep" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-sweep">
+                    <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Source</th>
                         <th class="address">Destination</th>
                         <th class="view"></th>
                     </tr>
@@ -414,9 +601,9 @@
                     </table>
                 </div>
 
-                <!-- Tokens -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-tokens" role="tabpanel" aria-labelledby="tab-tokens" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
+                <!-- Latest Tokens -->
+                <div class="tab-pane fade show table-responsive" id="tab-pane-token" role="tabpanel" aria-labelledby="tab-token" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-token">
                     <thead>
                         <tr class="info">
                             <th class="record">#</th>
@@ -435,716 +622,81 @@
                     </table>
                 </div>
 
-
-                <!-- Mempool / Unconfirmed -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-mempool" role="tabpanel" aria-labelledby="tab-mempool" tabindex="0">
-                    <table class="table table-striped cell-border table-hover table-condensed view-button" width="100%">
-                    <thead>
-                    <tr class="info">
-                        <th class="record">#</th>
-                        <th class="time">Time</th>
-                        <th class="record-type">Type</th>
-                        <th class="address">Source</th>
-                        <th class="">Details</th>
-                        <th class="view"></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                    </table>
-                </div>
-
             </div>
+
         </div>
     </div>
 </div>
 
 <script type="text/javascript" src="/js/jquery.qrcode.min.js"></script>
 <script type="text/javascript">
-    var address = '{QUERY}',
-        testnet = (location.hostname.indexOf('testnet')!=-1) ? true : false,
-        params  = new URLSearchParams(window.location.search),
-        active  = params.get('tab') || params.get('active');
 
-    // Keep track of records per page
-    var sm   = localStorage,
-        rec  = sm.getItem('records_per_page_address');
-        page = (rec) ? parseInt(rec) : 10;
-
-    // Parse in last known XCP & BTC price
-    var xcp_usd = sm.getItem('xcpPrice'),
-        btc_usd = sm.getItem('btcPrice');
-
-    // Define array of bet types
-    var bet_types = [];
-    bet_types[0] = 'Bullish'; // CFD (deprecated), 
-    bet_types[1] = 'Bearish'; // CFD (deprecated), 
-    bet_types[2] = 'Equal';
-    bet_types[3] = 'Not Equal';
-
-    // Array to some misc values used for tracking offset and direction
-    var misc = [];
-
-    // Handle requesting transaction data and populating tables
-    function load_transactions(type, rowFn){
-        // Initialize last_start value
-        misc[ type + '_last_start'] = 0;
-        var table = '#tab-pane-' + type + ' table';
-        $(table).dataTable({
-            ajax: {
-                url: "/explorer/" + type + '/' + address,
-                data: function(data){
-                    // Pass action and offset with request
-                    var action = null,
-                        offset = null;
-                    if(data.start==0){
-                        action = 'first';
-                    } else if(data.start > (misc[type + '_last_start'] + data.length)){
-                        action = 'last';
-                    } else if(data.start >= misc[type + '_last_start']){
-                        action = 'next';
-                        offset = misc[type + '_offset_last'];
-                    } else {
-                        action = 'prev';
-                        offset = misc[type + '_offset_first'];
-                    }
-                    // Ignore the offset in some special cases
-                    var arr = ['balances','credits','debits','dispensers'];
-                    if(arr.indexOf(type)==-1){
-                        data.action = action;
-                        data.offset = offset;
-                    }
-                    // Cleanup the request so we only send what we need
-                    delete data.columns;
-                    delete data.order;
-                    delete data.search;
-                    delete data.draw;
-                    if(type=='unconfirmed')
-                        data.recordsTotal = misc[type + '_total_records'];
-                }
-            },
-            pageLength: page,
-            dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t>',
-            // dom: '<"search-options center"<"pull-left hidden-xs"l>p<"pull-right hidden-xs"i>><"search-results"t>',
-            pagingType: "full",
-            serverSide: true,
-            searching: false,
-            ordering: false,
-            processing: true,
-            autoWidth: false,
-            language: {
-                lengthMenu: "_MENU_ per page",
-                zeroRecords: "No records found",
-                info: "_TOTAL_ results",
-                // info: "Displaying _START_ - _END_ of _TOTAL_",
-                infoEmpty: "No records available",
-                paginate: {
-                    first: "<i class='fa fa-chevron-left'></i><i class='fa fa-chevron-left'></i>",
-                    previous: "<i class='fa fa-chevron-left'></i>",
-                    next: "<i class='fa fa-chevron-right'></i>",
-                    last: "<i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>"
-                }
-            },
-            fnDrawCallback: function( o ){
-                var total  = o._iRecordsTotal,
-                    length = o._iDisplayLength,
-                    stop   = o._iDisplayStart + length,
-                    page   = stop / length,
-                    pages  = total / length;
-                if(pages > parseInt(pages))
-                    pages = parseInt(pages) + 1;
-                if(total==0)
-                    page = 0;
-                // Update total count element
-                $('#total' + type.substring(0,1).toUpperCase() + type.substring(1)).text(numeral(o._iRecordsTotal).format('0,0'));
-                // Add 'Page X of Y' in between previous/next buttons
-                $('#tab-pane-' + type + ' .paginate_button.previous').after('&nbsp;&nbsp;Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0') + '&nbsp;&nbsp;')
-                // Track first and last shown tx_index (used for offset tracking)
-                if(o.json.data && o.json.data.length){
-                    var first = o.json.data[0],
-                        last  = o.json.data[o.json.data.length-1];
-                    misc[type + '_offset_first'] = first[first.length-1];
-                    misc[type + '_offset_last']  = last[last.length-1];
-                } else {
-                    misc[type + '_offset_first'] = 0;
-                    misc[type + '_offset_last']  = 0;
-                }
-                // Save the start so we can determine direction when user clicks (prev/next)
-                misc[type + '_last_start'] = o._iDisplayStart;
-                misc[type + '_total_records'] = o._iRecordsTotal;
-            },
-            createdRow: rowFn
-        });
-    }
-
-    // Handle updating BTC balance on the page
-    function updateBTCBalance(balance, link){
-        var txt = numeral(balance).format('0,0.00000000');
-        if(btc_usd)
-            txt += '&nbsp;<span class="badge bg-success text-decoration-none">$' + numeral(balance * btc_usd).format('0,0.00') + '</span>';
-        $('#btc-balance').html(txt);
-        if(link)
-            $('#address a').attr('href',link);
-    }
-
-    // Collapsible panels
-    $(document).on('click', '.panel-heading.collapsible', function(e){
-        var $this  = $(this),
-            panel  = $this.parents('.panel').find('.panel-content'),
-            icon   = $this.find('i'),
-            qrcode = $('.qrcode');
-        if(!$this.hasClass('panel-collapsed')){
-            panel.slideUp();
-            $this.addClass('panel-collapsed');
-            icon.removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down');
-            qrcode.fadeOut();
-        } else {
-            panel.slideDown();
-            $this.removeClass('panel-collapsed');
-            icon.removeClass('glyphicon-chevron-down').addClass('glyphicon-chevron-up');
-            qrcode.fadeIn();
-        }
-    });
-
+    // Build out a list of tabs
+    var tabs = [
+        'recent',
+        'address',
+        'airdrop',
+        'batch',
+        'balance',
+        'broadcast',
+        'callback',
+        'credit',
+        'debit',
+        'destroy',
+        'dispenser',
+        'dispense',
+        'dividend',
+        'escrow',
+        'file',
+        'issue',
+        'link',
+        'list',
+        'message',
+        'mint',
+        'order',
+        'send',
+        'sleep',
+        'swap',
+        'sweep',
+        'token'
+    ];
 
     $(document).ready(function(){
-
-        // Detect any 'per page' changes and update all tables on page to use new 'per page' setting
-        var ignore = false;
-        $('.table').on( 'length.dt', function ( e, settings, length ){
-            sm.setItem('records_per_page_address',length);
-            if(ignore==false){
-                ignore = true;
-                $('.dataTable').each(function(){
-                    $(this).DataTable().page.len( length ).draw();
-                });
-                ignore = false;
-            }
-        });  
-
-
-        // Get current USD price of XCP
-        $.getJSON( '/api/network', function( o ){ 
-            if(o){
-                var btc = false,
-                    xcp = false;
-                o.currency_info.forEach(function(obj){
-                    if(obj.id=='bitcoin')
-                        btc = obj;
-                    if(obj.id=='counterparty')
-                        xcp = obj;
-                });
-                // Save current price to localStorage (so we can use on other pages)
-                sm.setItem('xcpPrice',xcp.price_usd);
-                sm.setItem('btcPrice',btc.price_usd);
-                xcp_usd = xcp.price_usd;
-                btc_usd = btc.price_usd;
-            }
-        });
-
-
-        // Get basic address information
-        $.get('/api/address/' + address, function( o ){
-            if(!o.error){
-                // Total Estimated value
-                var txt = '';
-                if(btc_usd){
-                    txt += numeral(o.value.btc).format('0,0.00000000');
-                    txt += '&nbsp;BTC';
-                    txt += '&nbsp;<span class="badge bg-success text-decoration-none">$' + numeral(o.value.usd).format('0,0.00') + '</span>';
-                }
-                $('#total-value').html(txt);
-                // var net = (testnet) ? 'tBTC' : 'BTC';
-                // $('#address').html('<a href="https://blocktrail.com/'+net+'/address/' + o.address + '" target="_blank">' + o.address + '</a>');
-                // var net = (testnet) ? 'testnet/' : '';
-                // $('#address').html('<a href="https://blockstream.info/' + net + 'address/' + o.address + '" target="_blank">' + o.address + '</a>');
-            }
-        });
-
-
-        // Handle requesting BTC balance info from blockstream.info (supports segwit)
-        var net  = (testnet) ? '/testnet' : '',
-            bal  = 0,
-            link = '';
-        $.get('https://blockstream.info' + net + '/api/address/' + address, function( o ){
-            // Address is valid, so we can display it
-            if(o.address)
-                $('#address a').text(address);
-            // If we got balance from blockstream, use it
-            if(typeof o.chain_stats.funded_txo_sum != 'undefined'){
-                var sat  = o.chain_stats.funded_txo_sum - o.chain_stats.spent_txo_sum,
-                    net  = (testnet) ? '/testnet' : '',
-                    bal  = (sat) ? numeral(sat * 0.00000001).format('0.00000000') : '0.00000000',
-                    link = 'https://blockstream.info' + net + '/address/' + address;
-                updateBTCBalance(bal, link);
-            } else {
-                // Failover to blockcypher
-                var net = (testnet) ? 'test3' : 'main';
-                $.get('https://api.blockcypher.com/v1/btc/' + net + '/addrs/' + address + '/balance', function( o ){
-                    if(typeof o.final_balance === 'number'){
-                        bal  = numeral(o.final_balance * 0.00000001).format('0.00000000');
-                        net  = (testnet) ? 'btc-testnet' : 'btc';
-                        link = 'https://live.blockcypher.com/' + net + '/address/' + address;
-                        updateBTCBalance(bal, link);
-                    } else {
-                        // Failover to indexd (slow)
-                        $.ajax({
-                            type: 'POST',
-                            url: 'https://counterwallet.coindaddy.io/_api',
-                            data: JSON.stringify({
-                                jsonrpc: "2.0",
-                                id: 0,
-                                method: "get_chain_address_info",
-                                params: {
-                                    addresses: [address],
-                                    with_last_txn_hashes: 1
-                                },
-                            }),
-                            success: function(o){
-                                if(o && o.result){
-                                    bal = numeral(o.result[0].info.balance).format('0,0.00000000');
-                                    updateBTCBalance(bal);
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-        });
-
-        // Build out QR code for address
-        $('.address_qrcode').qrcode({
-            text: address,
-            height: 180,
-            width: 180
-        });
-        var a = $('#address_data'),
-            b = $('#qrcode'),
-            h = Math.max(a.height(), b.height());
-        a.height(h);
-        b.height(h);
-
-        // Handle requesting reputation info from coindaddy.io
-        $.getJSON('https://reputation.coindaddy.io/api/address/' + address, function( o ){ 
-            if(!o.error){
-                var arr = ['current','30day','6month','1year'];
-                arr.forEach(function(name){
-                    var rating = o['rating_' + name],
-                        text   = (rating>0) ? rating : 'NA';
-                    $('#rating_' + name).html('<a href="https://reputation.coindaddy.io/address/' + address + '"><div class="rateit" data-rateit-readonly="true" data-rateit-value="' + rating + '" data-rateit-ispreset="true"></div></a> <span class="rateit-score">' + text + '</span>')
-                });
-                $('#reputationInfo').show();
-                $('.rateit').rateit();
-            }
-        });
-
-        // Balances
-        // load_transactions('balances',function(row, data, idx){
-        //     $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-        //     var info  = data[1].split('|'),
-        //         icon  = info[0],
-        //         asset = (info[1]!='') ? info[1] : info[0];
-        //     $('td', row).eq(1).html('<a href="/asset/' + asset + '"><img src="/icon/' + icon + '.png" class="asset-icon-sm pull-left">' + asset + '</a>');
-        //     var fmt = (String(data[2]).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-        //     $('td', row).eq(2).html(numeral(data[2]).format(fmt));
-        //     var value = numeral(data[4]).format('0,0.00000000');
-        //         value += '&nbsp;BTC';
-        //         value += '&nbsp;<span class="label label-info label-100">$' + numeral(data[4] * btc_usd).format('0,0.00') + '</span>';
-        //     $('td', row).eq(4).html(value);
-        //     $('td', row).eq(5).html('<a href="/asset/' + asset + '" class="btn btn-xs btn-success pull-right">view</a>');
-        // });
-
-        // Tokens
-        load_transactions('balances',function(row, data, idx){
-            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-            $('td', row).eq(1).html(formatLink('/token/' + data[1], data[1], data[1] + '.png'));
-            $('td', row).eq(2).text(formatAmount(data[2]));
-            $('td', row).eq(3).text(formatAmount(data[3]));
-            var value = numeral(data[4]).format('0,0.00000000');
-                value += '&nbsp;BTC';
-                value += '&nbsp;<span class="badge bg-success text-decoration-none">$' + numeral(data[4] * btc_usd).format('0,0.00') + '</span>';
-            $('td', row).eq(4).html(value);
-        });
-
-
-        
-        // Loop through transaction types and setup listeners to load content on tab click
-        var tabs      = ['addresses','airdrops','bets','callbacks','credits','debits','destroys','dispensers','dispenses','dividends','issues','lists','mints','rugs','sends','sleeps','sweeps','tokens','mempool'],
-            tabStatus = [];
-
-        tabs.forEach(function(type){
-            tabStatus[type] = false;
-
-            // Setup listeners on tabs to load content when clicked
-            $('#tab-' + type).click(function(){
-                if(!tabStatus[type]){
-                    // Set flag to indicate the tab has been loaded already
-                    tabStatus[type] = true;
-                    console.log("caught load type=",type);
-
-                    // Addresses
-                    if(type=='addresses'){
-                        load_transactions('addresses',function(row, data, idx){
-                            var cls = (data[6]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            var txt = (data[4]==1) ? 'Destroy' : 'Donate';
-                            $('td', row).eq(3).html(txt);
-                            var txt = (data[5]==1) ? 'True' : 'False';
-                            $('td', row).eq(4).html(txt);
-                            $('td', row).eq(5).html(formatLink('/tx/' + data[7], 'view', null, true));
-                        });
-                    }
-
-                    // Airdrops
-                    if(type=='airdrops'){
-                        load_transactions('airdrops',function(row, data, idx){
-                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[4], data[4], data[4] + '.png'));
-                            $('td', row).eq(4).html(formatAmount(data[5]));
-                            $('td', row).eq(5).html(formatAmount(data[6]));
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
-                        });
-                    }
-                    
-                    // Assets
-                    // if(type=='assets'){
-                    //     load_transactions('assets',function(row, data, idx){
-                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                    //         $('td', row).eq(1).html('<a href="/block/' + data[1] + '">' + numeral(data[1]).format('0,0') + '</a>');
-                    //         $('td', row).eq(2).html('<span data-livestamp='  + data[2] + ' class="nowrap"></span>');
-                    //         var info  = data[3].split('|'),
-                    //             icon  = info[0],
-                    //             asset = (info[1]!='') ? info[1] : info[0];
-                    //         $('td', row).eq(3).html('<a href="/asset/' + asset + '"><img src="/icon/' + icon + '.png" class="asset-icon-sm pull-left">' + asset + '</a>');
-                    //         $('td', row).eq(4).text(data[4]);
-                    //         var fmt = (String(data[5]).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //         $('td', row).eq(5).html(numeral(data[5]).format(fmt));
-                    //         $('td', row).eq(8).html('<a href="/asset/' + asset + '" class="btn btn-xs btn-success pull-right">view</a>');
-                    //     });
-                    // }
-
-                    // // Bets
-                    // if(type=='bets'){
-                    //     load_transactions('bets',function(row, data, idx){
-                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                    //         $('td', row).eq(1).html('<a href="/block/' + data[1] + '">' + numeral(data[1]).format('0,0') + '</a>');
-                    //         $('td', row).eq(2).html('<span data-livestamp='  + data[2] + ' class="nowrap"></span>');
-                    //         $('td', row).eq(3).html('<a href="/address/' + data[4] + '">' + data[4] + '</a>');
-                    //         $('td', row).eq(4).html(bet_types[data[5]]);
-                    //         $('td', row).eq(5).html(data[6]);
-                    //         $('td', row).eq(6).html(numeral(data[7]).format('0,0.00000000'));
-                    //         $('td', row).eq(7).html(numeral(data[8]).format('0,0.00000000'));
-                    //         $('td', row).eq(8).html('<a href="/tx/' + data[9] + '" class="btn btn-xs btn-success pull-right">view</a>');
-                    //     });
-                    // }
-
-                    // Callbacks
-                    if(type=='callbacks'){
-                        load_transactions('callbacks',function(row, data, idx){
-                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[4], data[4], data[4] + '.png'));
-                            $('td', row).eq(4).html(formatLink('/token/' + data[5], data[5], data[5] + '.png'));
-                            $('td', row).eq(5).html(formatAmount(data[6]));
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
-                        });
-                    }
-
-                    // Credits
-                    if(type=='credits'){
-                        load_transactions('credits',function(row, data, idx){
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[3], data[3], data[3] + '.png'));
-                            $('td', row).eq(4).html('<div class="fw-bold text-success">+' + formatAmount(data[4]) + '</div>');
-                            $('td', row).eq(5).html(data[6]);
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[7], 'view', null, true));
-                        });
-                    }
-
-                    // Debits
-                    if(type=='debits'){
-                        load_transactions('debits',function(row, data, idx){
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[3], data[3], data[3] + '.png'));
-                            $('td', row).eq(4).html('<div class="fw-bold text-danger">-' + formatAmount(data[4]) + '</div>');
-                            $('td', row).eq(5).html(data[6]);
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[7], 'view', null, true));
-                        });
-                    }
-
-                    // Destroys
-                    if(type=='destroys'){
-                        load_transactions('destroys',function(row, data, idx){
-                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[3], data[3], data[3] + '.png'));
-                            $('td', row).eq(4).html(formatAmount(data[4]));
-                            $('td', row).eq(5).html(data[6]);
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
-                        });
-                    }
-
-                    // // Dispensers
-                    // if(type=='dispensers'){
-                    //     load_transactions('dispensers',function(row, data, idx){
-                    //         // Tweak the row color to indicate if dispenser is open or closed
-                    //         var cls = (data[7]==0) ? 'bg-green' : 'bg-red';
-                    //         $(row).addClass(cls);
-                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                    //         $('td', row).eq(1).html('<a href="/block/' + data[1] + '">' + numeral(data[1]).format('0,0') + '</a>');
-                    //         $('td', row).eq(2).html('<span data-livestamp='  + data[2] + ' class="nowrap"></span>');
-                    //         var fmt = (String(data[5]).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //         var info  = data[4].split('|'),
-                    //             icon  = info[0],
-                    //             asset = (info[1]!='') ? info[1] : info[0];
-                    //         $('td', row).eq(3).html(numeral(data[5]).format(fmt) + ' <a href="/asset/' + asset + '"><img src="/icon/' + icon + '.png" class="asset-icon-sm pull-left">' + asset + '</a>');
-                    //         $('td', row).eq(4).html(numeral(data[6]).format('0,0.00000000') + ' <img src="/icon/BTC.png" class="asset-icon-sm pull-left"> BTC');
-                    //         $('td', row).eq(5).html('<a href="/tx/' + data[8] + '" class="btn btn-xs btn-success pull-right">view</a>');
-                    //     });
-                    // }
-
-                    // // Dispenses
-                    // if(type=='dispenses'){
-                    //     load_transactions('dispenses',function(row, data, idx){
-                    //         // Tweak the row color to indicate if dispenser is open or closed
-                    //         // var cls = (data[3]==address) ? 'bg-green' : 'bg-red';
-                    //         // $(row).addClass(cls);
-                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                    //         $('td', row).eq(1).html('<a href="/block/' + data[1] + '">' + numeral(data[1]).format('0,0') + '</a>');
-                    //         $('td', row).eq(2).html('<span data-livestamp='  + data[2] + ' class="nowrap"></span>');
-                    //         $('td', row).eq(3).html('<a href="/address/' + data[3] + '">' + data[3] + '</a>');
-                    //         var fmt = (String(data[5]).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //         var info  = data[4].split('|'),
-                    //             icon  = info[0],
-                    //             asset = (info[1]!='') ? info[1] : info[0];
-                    //         $('td', row).eq(4).html(numeral(data[5]).format(fmt) + ' <a href="/asset/' + asset + '"><img src="/icon/' + icon + '.png" class="asset-icon-sm pull-left">' + asset + '</a>');
-                    //         $('td', row).eq(5).html(numeral(data[6]).format('0,0.00000000') + ' BTC');
-                    //         $('td', row).eq(6).html('<a href="/tx/' + data[7] + '" class="btn btn-xs btn-success pull-right">view</a>');
-                    //     });
-                    // }
-
-                    // Dividends
-                    if(type=='dividends'){
-                        load_transactions('dividends',function(row, data, idx){
-                            var cls = (data[7]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[4], data[4], data[4] + '.png'));
-                            $('td', row).eq(4).html(formatLink('/token/' + data[5], data[5], data[5] + '.png'));
-                            $('td', row).eq(5).html(formatAmount(data[6]));
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[8], 'view', null, true));
-                        });
-                    }
-
-
-                    // Issues
-                    if(type=='issues'){
-                        load_transactions('issues',function(row, data, idx){
-                            // Tweak the row color to indicate if orders is open or not
-                            var cls = (data[8]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[3], data[3], data[3] + '.png'));
-                            var desc = (data[4]!=null) ? data[4] : '';
-                            $('td', row).eq(4).text(desc);
-                            $('td', row).eq(5).text(formatAmount(data[5]));
-                            $('td', row).eq(6).text(formatAmount(data[6]));
-                            $('td', row).eq(7).html(formatLocks(data[7]));
-                            $('td', row).eq(8).html(formatLink('/tx/' + data[9], 'view', null, true));
-                        });
-                    }
-
-                    // Lists
-                    if(type=='lists'){
-                        load_transactions('lists',function(row, data, idx){
-                            // Tweak the row color to indicate if orders is open or not
-                            var cls = (data[6]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            var type = '';
-                            if(data[3]==1) type='Ticker';
-                            if(data[3]==2) type='Asset';
-                            if(data[3]==3) type='Address';
-                            $('td', row).eq(3).html(type);
-                            $('td', row).eq(4).html(numeral(data[4]).format('0,0'));
-                            $('td', row).eq(5).text(numeral(data[5]).format('0,0'));
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[7], 'view', null, true));
-                        });
-                    }
-
-
-                    // Mints
-                    if(type=='mints'){
-                        load_transactions('mints',function(row, data, idx){
-                            // Tweak the row color to indicate if orders is open or not
-                            var cls = (data[6]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[3], data[3], data[3] + '.png'));
-                            $('td', row).eq(4).text(formatAmount(data[4]));
-                            $('td', row).eq(5).html(formatLink('/address/' + data[5], data[5]));
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[7], 'view', null, true));
-                        });
-                    }
-
-                    // Sends
-                    if(type=='sends'){
-                        load_transactions('sends',function(row, data, idx){
-                            var cls = (data[8]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[3], data[3], data[3] + '.png'));
-                            $('td', row).eq(4).html(formatAmount(data[4]));
-                            $('td', row).eq(5).html(formatLink('/address/' + data[5], data[5]));
-                            $('td', row).eq(6).html(formatLink('/tx/' + data[9], 'view', null, true));
-                        });
-                    }
-
-                    // Sweeps
-                    if(type=='sweeps'){
-                        load_transactions('sweeps',function(row, data, idx){
-                            var cls = (data[6]==1) ? 'bg-green' : 'bg-red';
-                            $(row).addClass(cls);
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            // $('td', row).eq(3).html(formatLink('/address/' + data[3], data[3]));
-                            $('td', row).eq(3).html(formatLink('/address/' + data[4], data[4]));
-                            $('td', row).eq(4).html(formatLink('/tx/' + data[7], 'view', null, true));
-                        });
-                    }
-
-                    // Tokens
-                    if(type=='tokens'){
-                        load_transactions('tokens',function(row, data, idx){
-                            $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                            $('td', row).eq(1).html(formatLink('/block/' + data[1], numeral(data[1]).format('0,0')));
-                            $('td', row).eq(2).html(formatLivestamp(data[2]));
-                            $('td', row).eq(3).html(formatLink('/token/' + data[3], data[3], data[3] + '.png'));
-                            $('td', row).eq(4).text(formatAmount(data[4]));
-                            $('td', row).eq(5).text(formatAmount(data[5]));
-                            $('td', row).eq(6).text(formatAmount(data[6]));
-                            $('td', row).eq(7).html(formatLocks(data[7]));
-                            $('td', row).eq(8).html(formatLink('/token/' + data[3], 'view', null, true));
-                        });
-                    }
-
-                    // // Mempool / Unconfirmed Transactions
-                    // if(type=='mempool'){
-                    //     load_transactions('mempool',function(row, data, idx){
-                    //         var type = data[2],
-                    //             json = JSON.parse(data[4]),
-                    //             icon = '';
-                    //         if(type=='Bet')         icon = 'fa-trophy';
-                    //         if(type=='Broadcast')   icon = 'fa-bullhorn';
-                    //         if(type=='Burn')        icon = 'fa-fire';
-                    //         if(type=='Destruction') icon = 'fa-trash';
-                    //         if(type=='Dispense')    icon = 'fa-btc';
-                    //         if(type=='Dispenser')   icon = 'fa-arrows-h';
-                    //         if(type=='Dividend')    icon = 'fa-sitemap';
-                    //         if(type=='Issuance')    icon = 'fa-bank';
-                    //         if(type=='Order')       icon = 'fa-book';
-                    //         if(type=='Send')        icon = 'fa-send';
-                    //         if(type=='Cancel')      icon = 'fa-ban';
-                    //         $('td', row).eq(0).html(numeral(data[0]).format('0,0'));
-                    //         $('td', row).eq(1).html('<span data-livestamp='  + data[1] + ' class="nowrap"></span>');
-                    //         $('td', row).eq(2).html('<i class="fa fa-lg '  + icon + '"></i>&nbsp;' + type + '</span>');
-                    //         $('td', row).eq(3).html('<a href="/address/' + data[3] + '">' + data[3] + '</a>');
-                    //         // Build out basic description of what is happening in transaction
-                    //         var txt = data[4];
-                    //         if(type=='Bet'){
-                    //             txt = '<img src="/icon/XCP.png" class="asset-icon-sm pull-left">' + numeral(json.wager_quantity).format('0,0.00000000') + ' <a href="/asset/XCP">XCP</a> at ' + numeral(json.fee).format('0,0.00') + '% on feed <a href="/address' +  json.feed_address + '">' + json.feed_address + '</a>';
-                    //         } else if(type=='Broadcast'){
-                    //             txt = json.text;
-                    //         } else if(type=='Burn'){
-                    //             txt = numeral(json.burned).format('0,0.00000000') + ' BTC burned for ' + numeral(json.earned).format('0,0.00000000') + ' <a href="/asset/XCP">XCP</a>';
-                    //         } else if(type=='Cancel'){
-                    //             txt = 'Cancel order <a href="/tx/' +  json.offer_hash + '">' + json.offer_hash + '</a>';
-                    //         } else if(type=='Destruction'){
-                    //             var fmt = (String(json.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //             txt = 'Destroy ' + numeral(json.quantity).format(fmt) + ' <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  asset + '">' + asset + '</a>';
-                    //         } else if(type=='Dispenser'){
-                    //             if(json.give_quantity){
-                    //                 var fmt = (String(json.give_quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //                     btc = numeral((json.satoshirate||0) * 0.00000001).format('0,0.00000000'),
-                    //                     qty = numeral((json.give_quantity||0)).format(fmt),
-                    //                     txt = qty + ' <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.asset + '">' + json.asset + '</a> for  <img src="/icon/BTC.png" class="asset-icon-sm">' + btc + ' BTC';
-                    //             } else {
-                    //                 var txt = 'Close <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.asset + '">' + json.asset + '</a> Dispenser';
-                    //             }
-                    //         } else if(type=='Dispense'){
-                    //             var fmt = (json.divisible==true) ? '0,0.00000000': '0,0',
-                    //                 qty = (json.divisible==true) ? (json.dispense_quantity * 0.00000001) : json.dispense_quantity,
-                    //                 qty = numeral((qty||0)).format(fmt),
-                    //                 txt = 'Buying ' + qty + ' <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.asset + '">' + json.asset + '</a> from <a href="/tx/' + json.dispenser_tx_hash + '">' + data[3] + '</a>';
-                    //             $('td', row).eq(3).html('<a href="/address/' + json.destination + '">' + json.destination + '</a>');
-                    //         } else if(type=='Dividend'){
-                    //             var fmt = (String(json.quantity_per_unit).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //             txt = numeral(json.quantity_per_unit).format(fmt) + ' <img src="/icon/' + json.dividend_asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.dividend_asset + '">' + json.dividend_asset + '</a> to holders of <img src="/icon/' + json.asset + '.png" class="asset-icon-sm"><a href="/asset/' +  json.asset + '">' + json.asset + '</a>';
-                    //         } else if(type=='Issuance'){
-                    //             if(json.transfer){
-                    //                 txt = 'Transfer ownership of <img src="/icon/' + json.asset + '.png" class="asset-icon-sm"> <a href="/asset/' +  json.asset + '">' + json.asset + '</a> to <a href="/address/' + json.issuer + '">' + json.issuer + '</a>';
-                    //             } else if(json.locked){
-                    //                 txt = 'Lock supply of <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.asset + '">' + json.asset + '</a>';
-                    //             } else if(json.quantity){
-                    //                 var fmt = (String(json.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //                 txt = 'Issue ' + numeral(json.quantity).format(fmt) + ' <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.asset + '">' + json.asset + '</a> tokens';
-                    //             } else {
-                    //                 txt = 'Register / Update <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"> <a href="/asset/' +  json.asset + '">' + json.asset + '</a>';
-                    //             }
-                    //         } else if(type=='Order'){
-                    //             var fmtA = (String(json.get_quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000',
-                    //                 fmtB = (String(json.give_quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //             txt = numeral(json.get_quantity).format(fmtA)  + ' <img src="/icon/' + json.get_asset  + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.get_asset + '">' + json.get_asset + '</a> for ' +
-                    //                   ' <img src="/icon/' + json.give_asset + '.png" class="asset-icon-sm">' + numeral(json.give_quantity).format(fmtB) + ' <a href="/asset/' +  json.give_asset + '">' + json.give_asset + '</a>';
-                    //         } else if(type=='Send'){
-                    //             var fmt = (String(json.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
-                    //             txt = numeral(json.quantity).format(fmt) + ' <img src="/icon/' + json.asset + '.png" class="asset-icon-sm pull-left"><a href="/asset/' +  json.asset + '">' + json.asset + '</a> to <a href="/address/' + json.destination + '">' + json.destination + '</a>';
-                    //         }
-                    //         $('td', row).eq(4).html(txt);
-                    //         $('td', row).eq(5).html('<a href="/tx/' + data[5] + '" class="btn btn-xs btn-success pull-right">view</a>');
-                    //     });                        
-                    // }
-
-                }
-            });
-
-        });
 
         // Setup the automatic collapsing tabs to only display what we can fit on screen
         setupAutoCollapseTabs();
 
-        // If the user specified an active tab on the querystring, then make that tab active
-        if(active && tabs.includes(active)){
-            $('#tab-' + active).click();
-        }
+        // Loop through tabs and dropdown menus to setup listeners to load content when clicked
+        var tabStatus = [];
+        tabs.forEach(function(tab){
+            tabStatus[tab] = false;
+
+            // Setup listeners on tabs to load content when clicked
+            $('#tab-' + tab).click(function(){
+                if(!tabStatus[tab]){
+                    // Set flag to indicate the tab has been loaded already
+                    tabStatus[tab] = true;
+                    console.log('loading ' + tab);
+                    let action = tab,
+                        query  = XC.query,
+                        type   = 'address';
+
+                    if(action=='recent')
+                        action = 'history';
+
+                    // Load all `address` actions
+                    loadDatatablesData('BTC', action, query, type);
+                }
+            });
+
+            // Setup listeners on tab dropdown menu to load content when clicked
+            $('#tab-more-' + tab).click(function(){
+                $('#tab-' + tab).click();
+            });
+        });
+
+        // Activate the first tab by faking a click
+        $('#tab-balance').click();
 
     });
 </script>

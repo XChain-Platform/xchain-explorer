@@ -11,7 +11,11 @@ XC = {
     debug: true,
 
     // List of supported coins
-    coins: ['BTC', 'LTC', 'DOGE'],
+    coins: { 
+        'BTC': 'Bitcoin', 
+        'LTC': 'Litecoin', 
+        'DOGE': 'Dogecoin'
+    },
 
     // List of supported coin networks
     networks: {
@@ -52,12 +56,16 @@ XC = {
 
     // Placeholder for current coin, network, query, and query type
     coin:    null,
+    name:    null,
     network: null,
     query:   null,
     type:    null,
 
     // Placeholer object to track datatables info
-    datatables: {}
+    datatables: {},
+
+    // Placeholder for a list of data panels 
+    panels: []
 
 }
 
@@ -65,12 +73,13 @@ XC = {
 function setXChainParams(){
     let path = String(window.location.pathname).split('/');
     // Loop through possible coins and networks and set valid coin and network values
-    for(let coin of XC.coins){
+    for(let coin in XC.coins){
         if(XC.coin==null){
             for(let network in XC.networks){
                 let name = XC.networks[network] + coin;
                 if(String(path[1]).toLowerCase()==String(name).toLowerCase()){
                     XC.coin    = name;
+                    XC.name    = XC.coins[coin];
                     XC.network = network;
                     break;
                 }
@@ -126,92 +135,23 @@ function base64ToHex(str) {
     return result;
 }
 
-// General function to setup collapsible tabs
-function setupAutoCollapseTabs(){
-    // Automatically collapse any tabs to only display what we can fit on screen nicely
-    autoCollapseTabs();
-    // // Make sure only one tab is active at a time (fixes issue where multiple items in the 'More' menu can appear as active)
-    // $('#data-tabs').on('click', '.dropdown-menu', $.debounce(100,function(e){ 
-    //     var tab = $(e.target).closest('li').attr('data-toggle');
-    //     if(tab)
-    //         $('#tab-' + tab).click();
-    // }));
-    // Define placeholders
-    var lastWidth  = 0,
-        lastHeight = 0;
-    // Unbind the event to prevent duplicate listeners
-    $(window).unbind('resize');
-    // Detect any window resizes and resize datatables to fit 
-    $(window).resize($.debounce(10,function(e){
-        var win    = $(window),
-            height = win.height(),
-            width  = win.width();
-        // Fit max amount of tabs on screen (horizontally)
-        if(width!=lastWidth)
-            autoCollapseTabs();
-        lastWidth  = width;
-        lastHeight = height;
-    }));
-}
-
-// Handle automatically collapsing/expanding tabs to the 'More' menu item
-function autoCollapseTabs(rerun=false){
-    var tabs  = $('#data-tabs'),
-        more  = $('#data-tabs-more'),
-        last  = $('#data-last-tab'),
-        max   = tabs.width(),
-        width = last.width(),
-        ready = (document.readyState=='complete') ? true : false,
-        space = (ready) ? 0 : 20, // Calculate extra space for icons if document is not ready yet
-        menu  = [];
-    // Loop through menu items, show what we can, put rest in menu array
-    tabs.find('li.nav-item').each(function(idx, item){
-        var tab = $(item),
-            w   = tab.width() + space;
-        width += w;
-        if(width <= max){
-            tab.show();
-        } else if(item.id!='data-last-tab'){
-            tab.hide();
-            menu.push(String(tab.children()[0].id).replace('tab-',''));
+// Handle hiding and showing collapse content and changing collapse icon
+function toggleCollapseContent(id, init){
+    let ls   = localStorage,
+        el   = $('#' + id);
+        name = el.attr('data-bs-target').replace('#',''),
+        icon = el.find('.collapse-icon'),
+        hide = (icon.hasClass('fa-chevron-up')) ? true : false,
+        cls  = (hide) ? 'fa-chevron-down' : 'fa-chevron-up';
+    if(init){
+        if(ls.getItem(name + '-collapsed')=='true'){
+            $('#' + name).removeClass('show');
+            icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         }
-    });
-    // Populate the 'More' dropdown menu items from the tabs list
-    if(more.children().length==0){
-        var html = '';
-        tabs.find('li.nav-item').each(function(idx, item){
-            if(item.id!='data-last-tab'){
-                var el   = $(item),
-                    arr  = el.find('i.fa').attr("class").split(/\s+/),
-                    icon = arr[arr.length-1],
-                    text = String(item.innerText).trim(),
-                    name = String(el.children()[0].id).replace('tab-','');
-                html += '<li id="tab-more-' + name + '" data-toggle="' + name + '"><a class="dropdown-item" href="#"><span class="wrapicon-25"><i class="fa fa-lg ' + icon + '"></i></span>' + text + '</a></li>';
-            }
-        });
-        more.html(html);
+    } else {
+        icon.removeClass('fa-chevron-up fa-chevron-down').addClass(cls);
+        ls.setItem(name + '-collapsed', hide);
     }
-    // Update dropdown list to hide/display correct items
-    more.children().each(function(idx,item){
-        var el   = $(item);
-            name = item.id.replace('tab-more-',''),
-            show = (menu.indexOf(name)!=-1) ? true : false;
-        if(show)
-            el.show();
-        else
-            el.hide();
-    });
-    // Handle hiding/showing the 'More' menu
-    if(menu.length==0)
-        last.hide();
-    else
-        last.show();
-    // If the document is not fully ready, re-run the collapse tabs code after a brief delay
-    if(!ready)
-        setTimeout(function(){ autoCollapseTabs() }, 500);
-    // If the tab bar is taller than 50 pixels, we are too tall, re-run the logic
-    // if(tabs.height()>50 && !rerun)
-    //     autoCollapseTabs(true);
 }
 
 // Simple function to change bootstrap theme
@@ -318,6 +258,44 @@ function isCryptoAddress(address){
     return false;
 }
 
+// Handle setting up listeners on action dropdowns to load content when clicked 
+function setupActionListeners(){
+    for(let action of XC.panels){
+        $('#tab-dropdown-' + action).click(function(){
+            // Hide all tab panels and only show the active one
+            $('.tab-pane').removeClass('active show');
+            $('#tab-pane-' + action).addClass('active show');
+            // Update datatable header to show correct icon and text for the data
+            var icon = $(this).find('i').attr('class'),
+                text = $(this).text();
+            $('#datatable-header-icon').removeClass().addClass(icon);
+            $('#datatable-header-text').text(text);
+            // Handle initilizing the datatable for this action
+            if(!XC.datatables[action]){
+                XC.datatables[action] = {};
+                if(XC.debug)
+                    console.log('loading ' + action + ' data...');
+                // Set flag to indicate the tab has been loaded already
+                let query  = (isNull(XC.query)) ? null : XC.query,
+                    type   = (isNull(XC.type)) ? null : XC.type;
+                // Set history to recent type if typ eis not already set
+                if(action=='history' && isNull(type))
+                    type   = 'recent';
+                // Load data for the given action into the datatable
+                loadDatatablesData(XC.coin, action, query, type);
+            }
+        });
+    }
+}
+
+// Handle setting up collapsible headers and restoring the last known state
+function setupCollapsibleHeaders(){
+    // Detect header collapse clicks and change icon
+    $('.collapse-header').click(function(){ toggleCollapseContent($(this).attr('id')); });
+    // Restore collapsed header states
+    $('.collapse-header').each(function(){ toggleCollapseContent($(this).attr('id'), true); });
+}
+
 /**********************************************************************
  * Handle loading data into a datatables table from the explorer API endpoints
  * 
@@ -339,11 +317,10 @@ function isCryptoAddress(address){
  *********************************************************************/
 function loadDatatablesData(coin, action, query, type){
     // Handle initializing datatable object for this action
-    if(!XC.datatables[action]){
-        XC.datatables[action] = {
-            last_start: 0
-        }
-    }
+    if(!XC.datatables[action])
+        XC.datatables[action] = {}
+    if(!XC.datatables[action].last_start)
+        XC.datatables[action].last_start = 0;
     // Setup short alias for tracking action specific datatable info
     let track = XC.datatables[action];
     // Set the name of the datatable to load data into
@@ -400,8 +377,9 @@ function loadDatatablesData(coin, action, query, type){
                 delete data.draw;
             }
         },
+        lengthMenu: [[10,20,30,40,50,60,70,80,90,100],[10,20,30,40,50,60,70,80,90,100]],
         pageLength: page,
-        dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t>',
+        dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
         pagingType: "full",
         serverSide: true,
         searching: false,
@@ -498,7 +476,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','block'].includes(action)){
+            if(!['balance','credit','debit','token','block','fee'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -663,6 +641,18 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
+            }
+            // Fee
+            if(action=='fee'){
+                token  = data[4];
+                amount = data[5];
+                type2  = data[6];
+                // Fee payment method
+                txt  = (type2==1) ? 'Destroy' : 'Donate';
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(6).text(txt);
+                $('td', row).eq(8).html(action_link);
             }
             // File
             if(action=='file'){
@@ -910,7 +900,6 @@ function loadApiData(coin, action, query, type, callback){
                 callback(o);
         }
     });
-
 }
 
 $(document).ready(function(){
@@ -936,9 +925,13 @@ $(document).ready(function(){
     // Set the copyright as the current year
     $('#copyright-year').text(new Date().getFullYear())
 
+    // Setup collapsible headers and restore last known state
+    setupCollapsibleHeaders();
+
     // Display debug information
     if(XC.debug){
         console.log('XC.coin=',XC.coin);
+        console.log('XC.name=',XC.name);
         console.log('XC.network=',XC.network);
         console.log('XC.type=',XC.type);
         console.log('XC.query=',XC.query);

@@ -53,9 +53,9 @@ body {
     background-image: url('../images/xchain-icon-20.png');
     background-repeat: no-repeat;
     width: 20px;
-    height: 20px;
+    height: 18px;
     position: relative;
-    top: 5px;  
+    top: 2px;  
 }
 .fa-freewallet {
     background-image: url('../img/freewallet-icon-20.png');
@@ -148,14 +148,18 @@ table.dataTable.cell-border.view-button tbody tr td:nth-last-child(2){
     border-right: 0px;
 }
 
-table.dataTable tbody th, table.dataTable tbody td {
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 5px;
-    padding-right: 5px;
+table.dataTable thead th, 
+table.dataTable thead td,
+table.dataTable tbody th, 
+table.dataTable tbody td {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    padding-left: 5px !important;
+    padding-right: 5px !important;
     border-bottom: 1px;
     border-top: 0px;
 }
+
 
 /* Wrapper around icons to standardize the size and make content line up*/
 .wrapicon-25 {
@@ -266,7 +270,7 @@ table.token-info tr th,
 table.token-info tr td {
     white-space: nowrap;  
     overflow: hidden;  
-    text-overflow: ellipsis;             
+    text-overflow: ellipsis;
 }
 
 table.token-info-hide tr {
@@ -282,7 +286,7 @@ table.lock-info tr th,
 table.lock-info tr td {
     white-space: nowrap;  
     overflow: hidden;
-
+}
 
 table.no-outer-borders tr th:first-child {
     border-left-width: 0px !important;
@@ -326,4 +330,11 @@ table.no-outer-borders tr:last-child {
 .highlight-search-term {
   background-color: yellow;
   font-weight: bold;  
+}
+
+.rounded-corners {
+    border-top-left-radius: 6px !important;
+    border-top-right-radius: 6px !important;
+    border-bottom-left-radius: 6px !important;
+    border-bottom-right-radius: 6px !important;
 }

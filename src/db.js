@@ -516,6 +516,7 @@ class Database {
      * /{COIN}/api/destroys/{QUERY}/{TYPE}        getDestroys      block, address, token
      * /{COIN}/api/dispensers/{QUERY}/{TYPE}      getDispensers    block, address, token, source, destination
      * /{COIN}/api/dispenses/{QUERY}/{TYPE}       getDispenses     block, address, token, source, destination
+     * /{COIN}/api/fees/{QUERY}/{TYPE}            getFees          block, address, token, source, destination
      * /{COIN}/api/files/{QUERY}/{TYPE}           getFiles         block, address
      * /{COIN}/api/issues/{QUERY}/{TYPE}          getIssues        block, address, token
      * /{COIN}/api/links/{QUERY}/{TYPE}           getLinks         block, address
@@ -553,6 +554,7 @@ class Database {
      * /{COIN}/explorer/dispensers/{QUERY}/{TYPE}    getDispensers   block, address, token
      * /{COIN}/explorer/dispenses/{QUERY}/{TYPE}     getDispenses    block, address, token
      * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
+     * /{COIN}/explorer/fees/{QUERY}/{TYPE}          getFees         block, address, token
      * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
      * /{COIN}/explorer/holders/{TYPE}               getHolders      token
      * /{COIN}/explorer/history/{QUERY}/{TYPE}       getHistory      block, address, token, recent
@@ -986,6 +988,50 @@ class Database {
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
+
+    // Get list of FEE actions
+    async getFees(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        fees m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id) 
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.action_index,
+                        a4.action,
+                        a2.address as source,
+                        a3.address as destination,
+                        t3.tick,
+                        m.method,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index
+                    FROM
+                        fees m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id) 
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }  
 
     // Get list of FILE actions
     async getFiles(config){

@@ -81,6 +81,7 @@ class XChainExplorer {
                 '/{COIN}/dividends'     : 'dividends.html',
                 '/{COIN}/dispensers'    : 'dispensers.html',
                 '/{COIN}/dispenses'     : 'dispenses.html',
+                '/{COIN}/fees'          : 'fees.html',
                 '/{COIN}/files'         : 'files.html',
                 '/{COIN}/history'       : 'history.html',
                 '/{COIN}/issues'        : 'issues.html',
@@ -125,6 +126,7 @@ class XChainExplorer {
                 '/{COIN}/api/dividends/{QUERY}/{TYPE}'     : ['getDividends',    ['block', 'address', 'token']],
                 '/{COIN}/api/dispensers/{QUERY}/{TYPE}'    : ['getDispensers',   ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/dispenses/{QUERY}/{TYPE}'     : ['getDispenses',    ['block', 'address', 'source', 'destination', 'token']],
+                '/{COIN}/api/fees/{QUERY}/{TYPE}'          : ['getFees',         ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/files/{QUERY}/{TYPE}'         : ['getFiles',        ['block', 'address']],
                 '/{COIN}/api/issues/{QUERY}/{TYPE}'        : ['getIssues',       ['block', 'address', 'token']],
                 '/{COIN}/api/links/{QUERY}/{TYPE}'         : ['getLinks',        ['block', 'address']],
@@ -175,6 +177,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/dispenses/{QUERY}/{TYPE}'  : ['getDispenses',  ['block', 'address', 'token']],
                 '/{COIN}/explorer/dividends/{QUERY}/{TYPE}'  : ['getDividends',  ['block', 'address', 'token']], 
                 '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'    : ['getEscrows',    ['block', 'address']],
+                '/{COIN}/explorer/fees/{QUERY}/{TYPE}'       : ['getFees',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/files/{QUERY}/{TYPE}'      : ['getFiles',      ['block', 'address']],
                 '/{COIN}/explorer/holders/{QUERY}'           : ['getHolders',    'token'],
                 '/{COIN}/explorer/history/{QUERY}/{TYPE}'    : ['getHistory',    ['block', 'address', 'token', 'recent']],
@@ -570,6 +573,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispense_tick, info.dispense_amount, info.trigger_tick, info.trigger_amount, status, info.action_index];
                     if(method=='getDividends')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.dividend_tick, info.amount, status, info.action_index];
+                    if(method=='getFees')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.method, info.action, info.action_index];
                     if(method=='getFiles')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, status, info.action_index];
                     if(method=='getHistory')

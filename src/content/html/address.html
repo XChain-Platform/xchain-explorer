@@ -1,14 +1,17 @@
-<!-- Information Header  -->
+<!-- Address  -->
 <div class="container mt-3">
     <div class="row">
 
         <!-- Address Stats -->
         <div class="col-xl-10 pe-xl-0 pb-3">
             <div class="card">
-                <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-xchain asset-icon-sm pull-left"></i> Address Information
-                </div>
-                <div class="row table-responsive">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#address-stats" aria-expanded="false" aria-controls="address-stats" id="address-stats-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-xchain asset-icon-sm"></i> Address Information
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="row table-responsive collapse show" id="address-stats">
                     <div class="col-12 col-md-6 pe-md-0">
                         <table class="table table-sm table-striped table-bordered mb-0 table-address-stats">
                         <tbody>
@@ -65,69 +68,62 @@
     </div>
 </div>
 
-<!-- Latest Transactions -->
+<!-- Transactions -->
 <div class="container">
     <div class="row">
         <div class="col-sm-12">
 
-            <!-- Navbar Tabs -->
-            <ul class="nav nav-tabs" id="data-tabs" role="tablist">
-                <!-- TODO: Add Recent history  -->
-                <!-- <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-recent"    data-bs-toggle="tab" data-bs-target="#tab-pane-recent"    type="button" role="tab" aria-controls="tab-pane-recent"    aria-selected="true"><i class="fa fa-clock-o"      ></i> Recent</button></li> -->
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-address"   data-bs-toggle="tab" data-bs-target="#tab-pane-address"   type="button" role="tab" aria-controls="tab-pane-address"   aria-selected="true"><i class="fa fa-gears"        ></i> Addresses</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-airdrop"   data-bs-toggle="tab" data-bs-target="#tab-pane-airdrop"   type="button" role="tab" aria-controls="tab-pane-airdrop"   aria-selected="true"><i class="fa fa-parachute-box"></i> Airdrops</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-balance"   data-bs-toggle="tab" data-bs-target="#tab-pane-balance"   type="button" role="tab" aria-controls="tab-pane-balance"   aria-selected="true"><i class="fa fa-list"         ></i> Balances</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-batch"     data-bs-toggle="tab" data-bs-target="#tab-pane-batch"     type="button" role="tab" aria-controls="tab-pane-batch"     aria-selected="true"><i class="fa fa-layer-group"  ></i> Batches</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-broadcast" data-bs-toggle="tab" data-bs-target="#tab-pane-broadcast" type="button" role="tab" aria-controls="tab-pane-broadcast" aria-selected="true"><i class="fa fa-bullhorn"     ></i> Broadcasts</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-callback"  data-bs-toggle="tab" data-bs-target="#tab-pane-callback"  type="button" role="tab" aria-controls="tab-pane-callback"  aria-selected="true"><i class="fa fa-recycle"      ></i> Callbacks</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-credit"    data-bs-toggle="tab" data-bs-target="#tab-pane-credit"    type="button" role="tab" aria-controls="tab-pane-credit"    aria-selected="true"><i class="fa fa-plus"         ></i> Credits</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-debit"     data-bs-toggle="tab" data-bs-target="#tab-pane-debit"     type="button" role="tab" aria-controls="tab-pane-debit"     aria-selected="true"><i class="fa fa-minus"        ></i> Debits</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-destroy"   data-bs-toggle="tab" data-bs-target="#tab-pane-destroy"   type="button" role="tab" aria-controls="tab-pane-destroy"   aria-selected="true"><i class="fa fa-trash"        ></i> Destroys</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispenser" data-bs-toggle="tab" data-bs-target="#tab-pane-dispenser" type="button" role="tab" aria-controls="tab-pane-dispenser" aria-selected="true"><i class="fa fa-arrows-h"     ></i> Dispensers</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dispense"  data-bs-toggle="tab" data-bs-target="#tab-pane-dispense"  type="button" role="tab" aria-controls="tab-pane-dispense"  aria-selected="true"><i class="fa fa-btc"          ></i> Dispenses</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-dividend"  data-bs-toggle="tab" data-bs-target="#tab-pane-dividend"  type="button" role="tab" aria-controls="tab-pane-dividend"  aria-selected="true"><i class="fa fa-sitemap"      ></i> Dividends</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-escrow"    data-bs-toggle="tab" data-bs-target="#tab-pane-escrow"    type="button" role="tab" aria-controls="tab-pane-escrow"    aria-selected="true"><i class="fa fa-lock"         ></i> Escrows</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-file"      data-bs-toggle="tab" data-bs-target="#tab-pane-file"      type="button" role="tab" aria-controls="tab-pane-file"      aria-selected="true"><i class="fa fa-file"         ></i> Files</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-issue"     data-bs-toggle="tab" data-bs-target="#tab-pane-issue"     type="button" role="tab" aria-controls="tab-pane-issue"     aria-selected="true"><i class="fa fa-bank"         ></i> Issues</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-link"      data-bs-toggle="tab" data-bs-target="#tab-pane-link"      type="button" role="tab" aria-controls="tab-pane-link"      aria-selected="true"><i class="fa fa-chain"        ></i> Links</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-list"      data-bs-toggle="tab" data-bs-target="#tab-pane-list"      type="button" role="tab" aria-controls="tab-pane-list"      aria-selected="true"><i class="fa fa-list"         ></i> Lists</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-message"   data-bs-toggle="tab" data-bs-target="#tab-pane-message"   type="button" role="tab" aria-controls="tab-pane-message"   aria-selected="true"><i class="fa fa-message"      ></i> Messages</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-mint"      data-bs-toggle="tab" data-bs-target="#tab-pane-mint"      type="button" role="tab" aria-controls="tab-pane-mint"      aria-selected="true"><i class="fa fa-print"        ></i> Mints</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-order"     data-bs-toggle="tab" data-bs-target="#tab-pane-order"     type="button" role="tab" aria-controls="tab-pane-order"     aria-selected="true"><i class="fa fa-book"         ></i> Orders</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-send"      data-bs-toggle="tab" data-bs-target="#tab-pane-send"      type="button" role="tab" aria-controls="tab-pane-send"      aria-selected="true"><i class="fa fa-send"         ></i> Sends</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sleep"     data-bs-toggle="tab" data-bs-target="#tab-pane-sleep"     type="button" role="tab" aria-controls="tab-pane-sleep"     aria-selected="true"><i class="fa fa-snooze"       ></i> Sleeps</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-swap"      data-bs-toggle="tab" data-bs-target="#tab-pane-swap"      type="button" role="tab" aria-controls="tab-pane-swap"      aria-selected="true"><i class="fa fa-exchange"     ></i> Swaps</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-sweep"     data-bs-toggle="tab" data-bs-target="#tab-pane-sweep"     type="button" role="tab" aria-controls="tab-pane-sweep"     aria-selected="true"><i class="fa fa-truck"        ></i> Sweeps</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link"        id="tab-token"     data-bs-toggle="tab" data-bs-target="#tab-pane-token"     type="button" role="tab" aria-controls="tab-pane-token"     aria-selected="true"><i class="fa fa-database"     ></i> Tokens</button></li>
-                <li class="nav-item dropdown" id="data-last-tab">
-                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">More</a>
-                    <ul class="dropdown-menu" id="data-tabs-more">
-                    </ul>
-                </li>
-            </ul>
-
             <!-- Tab Content -->
-            <div class="tab-content border border-top-0 mb-3" id="data-panels">
+            <div class="tab-content border mb-3 rounded-corners" id="data-panels">
 
-                <!--  Recent Transactions (Confirmed) -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-recent" role="tabpanel" aria-labelledby="tab-recent" tabindex="0">
-                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-history">
-                    <thead>
-                        <tr class="info">
-                            <th class="record">#</th>
-                            <th class="block">Block</th>
-                            <th class="time">Time</th>
-                            <th class="asset-name">Action</th>
-                            <th class="">Details</th>
-                            <th class="view"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                    </table>
+                <!-- Current data display and action selector -->
+                <div class="container">
+                    <div class="row border-bottom">
+                        <div class="col-6 text-start pt-1 pb-1 ps-1 align-top fw-bold">
+                            <i id="datatable-header-icon"></i>
+                            <span id="datatable-header-text"></span>
+                        </div>
+                        <div class="col-6 text-end   pt-0 pb-1 pe-1 align-middle">
+                            <div class="dropdown">
+                                <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    more info
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" id="tab-dropdown-address"  ><i class="fa fa-gears"        ></i> Addresses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"  ><i class="fa fa-parachute-box"></i> Airdrops</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-balance"  ><i class="fa fa-list"         ></i> Balances</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-batch"    ><i class="fa fa-layer-group"  ></i> Batches</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-broadcast"><i class="fa fa-bullhorn"     ></i> Broadcasts</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-callback" ><i class="fa fa-recycle"      ></i> Callbacks</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-credit"   ><i class="fa fa-plus"         ></i> Credits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-debit"    ><i class="fa fa-minus"        ></i> Debits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"  ><i class="fa fa-trash"        ></i> Destroys</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"><i class="fa fa-arrows-h"     ></i> Dispensers</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispense" ><i class="fa fa-btc"          ></i> Dispenses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dividend" ><i class="fa fa-sitemap"      ></i> Dividends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-escrow"   ><i class="fa fa-clock"        ></i> Escrows</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign"    ></i> Fees</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-file"     ><i class="fa fa-file"         ></i> Files</a></li>
+                                    <!-- <li><a class="dropdown-item" id="tab-dropdown-history"  ><i class="fa fa-clock-o"      ></i> History</a></li> -->
+                                    <li><a class="dropdown-item" id="tab-dropdown-issue"    ><i class="fa fa-bank"         ></i> Issues</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-link"     ><i class="fa fa-chain"        ></i> Links</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-list"     ><i class="fa fa-list"         ></i> Lists</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-message"  ><i class="fa fa-message"      ></i> Messages</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa fa-print"        ></i> Mints</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"         ></i> Orders</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"         ></i> Sends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-snooze"       ></i> Sleeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa fa-exchange"     ></i> Swaps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sweep"    ><i class="fa fa-truck"        ></i> Sweeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-token"    ><i class="fa fa-database"     ></i> Tokens</a></li>
+
+                                </ul>
+                            </div>                              
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Latest Addresses -->
+                <!-- Addresses -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-address" role="tabpanel" aria-labelledby="tab-address" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-address">
                     <thead>
@@ -146,7 +142,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Airdrops -->
+                <!-- Airdrops -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-airdrop" role="tabpanel" aria-labelledby="tab-airdrop" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-airdrop">
                     <thead>
@@ -166,7 +162,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Balances -->
+                <!-- Balances -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-balance" role="tabpanel" aria-labelledby="tab-balance" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-balance">
                     <thead>
@@ -185,7 +181,7 @@
                 </div>
 
 
-                <!-- Latest Batches -->
+                <!-- Batches -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-batch" role="tabpanel" aria-labelledby="tab-batch" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-batch">
                     <thead>
@@ -203,7 +199,7 @@
                 </div>
 
 
-                <!-- Latest Broadcasts -->
+                <!-- Broadcasts -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-broadcast" role="tabpanel" aria-labelledby="tab-broadcast" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-broadcast">
                     <thead>
@@ -223,7 +219,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Callbacks -->
+                <!-- Callbacks -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-callback" role="tabpanel" aria-labelledby="tab-callback" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-callback">
                     <thead>
@@ -243,7 +239,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Credits -->
+                <!-- Credits -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-credit" role="tabpanel" aria-labelledby="tab-credit" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-credit">
                     <thead>
@@ -263,7 +259,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Debits -->
+                <!-- Debits -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-debit" role="tabpanel" aria-labelledby="tab-debit" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-debit">
                     <thead>
@@ -283,7 +279,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Destroys -->
+                <!-- Destroys -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-destroy" role="tabpanel" aria-labelledby="tab-destroy" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-destroy">
                     <thead>
@@ -302,7 +298,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Dispensers -->
+                <!-- Dispensers -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-dispenser" role="tabpanel" aria-labelledby="tab-dispenser" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dispenser">
                     <thead>
@@ -321,7 +317,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Dispense -->
+                <!-- Dispense -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-dispense" role="tabpanel" aria-labelledby="tab-dispense" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dispense">
                     <thead>
@@ -340,7 +336,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Dividends -->
+                <!-- Dividends -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-dividend" role="tabpanel" aria-labelledby="tab-dividend" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dividend">
                     <thead>
@@ -360,7 +356,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Escrows -->
+                <!-- Escrows -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-escrow" role="tabpanel" aria-labelledby="tab-pane-escrow" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-escrow">
                     <thead>
@@ -380,7 +376,28 @@
                     </table>
                 </div>
 
-                <!-- Latest Files -->
+                <!-- Fees -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-fee" role="tabpanel" aria-labelledby="tab-fee" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-fee">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="token">Token</th>
+                            <th class="">Amount</th>
+                            <th class="">Method</th>
+                            <th class="">Action</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Files -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-file" role="tabpanel" aria-labelledby="tab-file" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-file">
                     <thead>
@@ -400,7 +417,25 @@
                     </table>
                 </div>
 
-                <!-- Latest Issues -->
+                <!--  History -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-history" role="tabpanel" aria-labelledby="tab-history" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-history">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="asset-name">Action</th>
+                            <th class="">Details</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Issues -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-issue" role="tabpanel" aria-labelledby="tab-issue" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-issue">
                     <thead>
@@ -421,7 +456,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Links -->
+                <!-- Links -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-link" role="tabpanel" aria-labelledby="tab-link" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-link">
                     <thead>
@@ -441,7 +476,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Lists -->
+                <!-- Lists -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-list" role="tabpanel" aria-labelledby="tab-list" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-list">
                     <thead>
@@ -461,7 +496,7 @@
                 </div>
 
 
-                <!-- Latest Messages -->
+                <!-- Messages -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-message" role="tabpanel" aria-labelledby="tab-message" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-message">
                     <thead>
@@ -481,7 +516,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Mints -->
+                <!-- Mints -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-mint" role="tabpanel" aria-labelledby="tab-mint" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-mint">
                     <thead>
@@ -500,7 +535,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Orders -->
+                <!-- Orders -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-order" role="tabpanel" aria-labelledby="tab-order" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-order">
                     <thead>
@@ -521,7 +556,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Sends -->
+                <!-- Sends -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-send" role="tabpanel" aria-labelledby="tab-send" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-send">
                     <thead>
@@ -542,7 +577,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Sleeps -->
+                <!-- Sleeps -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-sleep" role="tabpanel" aria-labelledby="tab-sleep" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-sleep">
                     <thead>
@@ -562,7 +597,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Swaps -->
+                <!-- Swaps -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-swap" role="tabpanel" aria-labelledby="tab-swap" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-swap">
                     <thead>
@@ -583,7 +618,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Sweeps -->
+                <!-- Sweeps -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-sweep" role="tabpanel" aria-labelledby="tab-sweep" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-sweep">
                     <thead>
@@ -601,7 +636,7 @@
                     </table>
                 </div>
 
-                <!-- Latest Tokens -->
+                <!-- Tokens -->
                 <div class="tab-pane fade show table-responsive" id="tab-pane-token" role="tabpanel" aria-labelledby="tab-token" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-token">
                     <thead>
@@ -630,73 +665,44 @@
 
 <script type="text/javascript" src="/js/jquery.qrcode.min.js"></script>
 <script type="text/javascript">
-
-    // Build out a list of tabs
-    var tabs = [
-        'recent',
-        'address',
-        'airdrop',
-        'batch',
-        'balance',
-        'broadcast',
-        'callback',
-        'credit',
-        'debit',
-        'destroy',
-        'dispenser',
-        'dispense',
-        'dividend',
-        'escrow',
-        'file',
-        'issue',
-        'link',
-        'list',
-        'message',
-        'mint',
-        'order',
-        'send',
-        'sleep',
-        'swap',
-        'sweep',
-        'token'
-    ];
-
     $(document).ready(function(){
 
-        // Setup the automatic collapsing tabs to only display what we can fit on screen
-        setupAutoCollapseTabs();
+        // Build out a list of data panels for this page
+        XC.panels = [
+            'address',
+            'airdrop',
+            'batch',
+            'balance',
+            'broadcast',
+            'callback',
+            'credit',
+            'debit',
+            'destroy',
+            'dispenser',
+            'dispense',
+            'dividend',
+            'escrow',
+            'fee',
+            'file',
+            'history',
+            'issue',
+            'link',
+            'list',
+            'message',
+            'mint',
+            'order',
+            'send',
+            'sleep',
+            'swap',
+            'sweep',
+            'token'
+        ];
 
-        // Loop through tabs and dropdown menus to setup listeners to load content when clicked
-        var tabStatus = [];
-        tabs.forEach(function(tab){
-            tabStatus[tab] = false;
-
-            // Setup listeners on tabs to load content when clicked
-            $('#tab-' + tab).click(function(){
-                if(!tabStatus[tab]){
-                    // Set flag to indicate the tab has been loaded already
-                    tabStatus[tab] = true;
-                    console.log('loading ' + tab);
-                    let action = tab,
-                        query  = XC.query,
-                        type   = 'address';
-
-                    if(action=='recent')
-                        action = 'history';
-
-                    // Load all `address` actions
-                    loadDatatablesData('BTC', action, query, type);
-                }
-            });
-
-            // Setup listeners on tab dropdown menu to load content when clicked
-            $('#tab-more-' + tab).click(function(){
-                $('#tab-' + tab).click();
-            });
-        });
+        // Setup listeners to load data panel when an action button is clicked
+        setupActionListeners();
 
         // Activate the first tab by faking a click
-        $('#tab-balance').click();
+        $('#tab-dropdown-balance').click();
 
     });
 </script>

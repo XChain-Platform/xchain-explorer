@@ -5,7 +5,7 @@
             <div class="card">
                 <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#xchain-stats" aria-expanded="false" aria-controls="xchain-stats" id="xchain-stats-header">
                     <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-xchain asset-icon-sm"></i> XChain Bitcoin (BTC) Information
+                        <i class="fa fa-xchain asset-icon-sm"></i> XChain <span id="coin-network-name"></span> Information
                         <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
                     </div>
                 </a>
@@ -44,7 +44,7 @@
                             <td id="totalDispensers">0</td>
                         </tr>
                         <tr>
-                            <th><i class="fa icon-20 fa-btc"></i> Dispenses</th>
+                            <th><i class="fa icon-20 fa-hand-holding-heart"></i> Dispenses</th>
                             <td id="totalDispenses">0</td>
                         </tr>
                         <tr>
@@ -177,29 +177,29 @@
                                     more info
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" id="tab-dropdown-address"  ><i class="fa fa-gears"        ></i> Addresses</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"  ><i class="fa fa-parachute-box"></i> Airdrops</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-batch"    ><i class="fa fa-layer-group"  ></i> Batches</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-broadcast"><i class="fa fa-bullhorn"     ></i> Broadcasts</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-callback" ><i class="fa fa-recycle"      ></i> Callbacks</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"  ><i class="fa fa-trash"        ></i> Destroys</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"><i class="fa fa-arrows-h"     ></i> Dispensers</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispense" ><i class="fa fa-btc"          ></i> Dispenses</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dividend" ><i class="fa fa-sitemap"      ></i> Dividends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign"    ></i> Fees</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-file"     ><i class="fa fa-file"         ></i> Files</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-history"  ><i class="fa fa-clock-o"      ></i> History</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-issue"    ><i class="fa fa-bank"         ></i> Issues</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-link"     ><i class="fa fa-chain"        ></i> Links</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-list"     ><i class="fa fa-list"         ></i> Lists</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-message"  ><i class="fa fa-message"      ></i> Messages</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa fa-print"        ></i> Mints</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"         ></i> Orders</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"         ></i> Sends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-snooze"       ></i> Sleeps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa fa-exchange"     ></i> Swaps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-sweep"    ><i class="fa fa-truck"        ></i> Sweeps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-token"    ><i class="fa fa-database"     ></i> Tokens</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-address"  ><i class="fa fa-gears"             ></i> Addresses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"  ><i class="fa fa-parachute-box"     ></i> Airdrops</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-batch"    ><i class="fa fa-layer-group"       ></i> Batches</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-broadcast"><i class="fa fa-bullhorn"          ></i> Broadcasts</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-callback" ><i class="fa fa-recycle"           ></i> Callbacks</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"  ><i class="fa fa-trash"             ></i> Destroys</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"><i class="fa fa-arrows-h"          ></i> Dispensers</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispense" ><i class="fa fa-hand-holding-heart"></i> Dispenses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dividend" ><i class="fa fa-sitemap"           ></i> Dividends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign"         ></i> Fees</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-file"     ><i class="fa fa-file"              ></i> Files</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-history"  ><i class="fa fa-clock-o"           ></i> History</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-issue"    ><i class="fa fa-bank"              ></i> Issues</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-link"     ><i class="fa fa-chain"             ></i> Links</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-list"     ><i class="fa fa-list"              ></i> Lists</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-message"  ><i class="fa fa-message"           ></i> Messages</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa fa-print"             ></i> Mints</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"              ></i> Orders</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"              ></i> Sends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-snooze"            ></i> Sleeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa fa-exchange"          ></i> Swaps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sweep"    ><i class="fa fa-truck"             ></i> Sweeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-token"    ><i class="fa fa-database"          ></i> Tokens</a></li>
 
                                 </ul>
                             </div>                              
@@ -705,6 +705,10 @@
 
         // Activate the first tab by faking a click
         $('#tab-dropdown-history').click();
+
+        // Set the network name in the header
+        $('#coin-network-name').text(XC.name + ' (' + XC.coin + ')');
+
 
     });
 </script>

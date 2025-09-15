@@ -4,11 +4,17 @@
  * Custom javascript for xchain explorer
  */
 
+// Setup short alias to localStorage
+let ls = localStorage;
+
 // Define XC Namespace object to track various properties
 XC = {
 
     // Flag to show debug information in console
     debug: true,
+
+    // Flag to indicate if we were unable to detect coin and used default coin
+    default: false,
 
     // List of supported coins
     coins: { 
@@ -69,6 +75,59 @@ XC = {
 
 }
 
+// Function to handle initializing page 
+function initPage(){
+    // Initialize the XChain request params
+    setXChainParams();
+
+    // Initialize the main menu
+    initMainMenu();
+
+    // Handle restoring the preferred viewing mode
+    var mode = ls.getItem('view-theme') || 'light';
+    updateTheme(mode);
+
+    // Handle theme switching
+    $('#btn-dark-mode').click(function(){   updateTheme('dark');    });
+    $('#btn-light-mode').click(function(){  updateTheme('light');   });
+
+    // Handle doing search when user clicks search button
+    $('#button-search').click(function(){  $('#form-search').submit(); });
+
+    // Set the copyright as the current year
+    $('#copyright-year').text(new Date().getFullYear())
+
+    // Setup collapsible headers and restore last known collapse state
+    setupCollapsibleHeaders();
+}
+
+// Handle initializing the main menu to display info and menu items based on coin
+function initMainMenu(){
+    // Update any /{COIN}/ links to the correct coin
+    $('#main-menu a').each(function(){
+        let el  = $(this),
+            url = el.attr('href').replace('{COIN}',XC.coin);
+            el.attr('href',url);
+    });
+    // Update header if we actually detected a valid coin/network config
+    if(XC.default==false){
+
+        // Update Network icon to current network
+        let icon = 'fa-xchain-' + XC.name + '-' + XC.network;
+        $('#network-icon').removeClass('fa-database').addClass(icon.toLowerCase());
+
+        // Update header logo to link to main network landing page
+        $('#header-logo').attr('href','/' + XC.coin);
+
+        // Show the 'Data' and 'API' dropdowns
+        $('#data-menu').removeClass('d-none');
+        $('#api-menu').removeClass('d-none');
+
+        // Update search form to include COIN
+        $("#form-search [name='coin']").val(XC.coin);
+    }  
+}
+
 // Function to handle setting current COIN and QUERY values
 function setXChainParams(){
     let path = String(window.location.pathname).split('/');
@@ -78,8 +137,8 @@ function setXChainParams(){
             for(let network in XC.networks){
                 let name = XC.networks[network] + coin;
                 if(String(path[1]).toLowerCase()==String(name).toLowerCase()){
-                    XC.coin    = name;
-                    XC.name    = XC.coins[coin];
+                    XC.coin = name;
+                    XC.name = XC.coins[coin];
                     XC.network = network;
                     break;
                 }
@@ -88,7 +147,9 @@ function setXChainParams(){
     }
     // Default to BTC Mainnet
     if(isNull(XC.coin)){
-        XC.coin     = 'BTC';
+        XC.default = true;
+        XC.coin    = 'BTC';
+        XC.name    = XC.coins[XC.coin];
         XC.network = 'mainnet';
     }
     // Set query and query type to a valid value
@@ -904,29 +965,8 @@ function loadApiData(coin, action, query, type, callback){
 
 $(document).ready(function(){
 
-    // Initialize the XChain request params
-    setXChainParams();
-
-    // Handle restoring the preferred viewing mode
-    var ls   = localStorage,
-        mode = ls.getItem('view-theme') || 'light';
-    updateTheme(mode);
-
-    // Handle theme switching
-    $('#btn-dark-mode').click(function(){   updateTheme('dark');    });
-    $('#btn-light-mode').click(function(){  updateTheme('light');   });
-
-    // Handle doing search when user clicks search button
-    $('#button-search').click(function(){ 
-        console.log('test');
-        $('#form-search').submit();
-    });
-
-    // Set the copyright as the current year
-    $('#copyright-year').text(new Date().getFullYear())
-
-    // Setup collapsible headers and restore last known state
-    setupCollapsibleHeaders();
+    // Handle initializing the page 
+    initPage();
 
     // Display debug information
     if(XC.debug){

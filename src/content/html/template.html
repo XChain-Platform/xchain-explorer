@@ -30,7 +30,7 @@
     <!-- Header -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark pt-0 pb-0 border-bottom" aria-label="Main Menu">
         <div class="container">
-            <a class="navbar-brand" href="/" title="XChain - BTNS Block Explorer">
+            <a class="navbar-brand" href="/" id="header-logo" title="XChain - Block Explorer">
                 <img src="/images/header-xchain-logo.png" alt="XChain - Block Explorer" border="0"/>
             </a>
 
@@ -41,43 +41,49 @@
             <div class="collapse navbar-collapse" id="main-menu">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-database"></i> Networks</a>
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-database" id="network-icon"></i> Networks</a>
                         <ul class="dropdown-menu mt-1">
-                            <li><a class="dropdown-item" href="/BTC/"                   title="Bitcoin (Mainnet)"  ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Bitcoin (Mainnet)</a></li>
-                            <li><a class="dropdown-item" href="/tBTC/"                  title="Bitcoin (Testnet)"  ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Bitcoin (Testnet)</a></li>
-                            <li><a class="dropdown-item" href="/DOGE/"                  title="Dogecoin (Mainnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Dogecoin (Mainnet)</a></li>
-                            <li><a class="dropdown-item" href="/tDOGE/"                 title="Dogecoin (Testnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Dogecoin (Testnet)</a></li>
-                            <li><a class="dropdown-item" href="/LTC/"                   title="Dogecoin (Mainnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Litecoin (Mainnet)</a></li>
-                            <li><a class="dropdown-item" href="/tLTC/"                  title="Dogecoin (Testnet)" ><span class="wrapicon-25"><i class="fa fa-btns"></i></span> Litecoin (Testnet)</a></li>
+                            <li><h6 class="dropdown-header">Mainnet</h6></li>
+                            <li><a class="dropdown-item" href="/BTC/"  title="Bitcoin"  ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-mainnet" ></i></span>Bitcoin</a></li>
+                            <li><a class="dropdown-item" href="/DOGE/" title="Dogecoin" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-mainnet"></i></span>Dogecoin</a></li>
+                            <li><a class="dropdown-item" href="/LTC/"  title="Litecoin" ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-mainnet"></i></span>Litecoin</a></li>
+                            <li><h6 class="dropdown-header">Testnet</h6></li>
+                            <li><a class="dropdown-item" href="/tBTC/"  title="Bitcoin Testnet"  ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-testnet" ></i></span>Bitcoin</a></li>
+                            <li><a class="dropdown-item" href="/tDOGE/" title="Dogecoin Testnet" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-testnet"></i></span>Dogecoin</a></li>
+                            <li><a class="dropdown-item" href="/tLTC/"  title="Litecoin Testnet" ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-testnet"></i></span>Litecoin</a></li>
+                            <li><h6 class="dropdown-header">Regtest</h6></li>
+                            <li><a class="dropdown-item" href="/rBTC/"  title="Bitcoin Regtest"  ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-regtest" ></i></span>Bitcoin</a></li>
+                            <li><a class="dropdown-item" href="/rDOGE/" title="Dogecoin Regtest" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-regtest"></i></span>Dogecoin</a></li>
+                            <li><a class="dropdown-item" href="/rLTC/"  title="Litecoin Regtest" ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-regtest"></i></span>Litecoin</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item dropdown">
+                    <li class="nav-item dropdown d-none" id="data-menu">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-tachometer"></i> Data</a>
                         <ul class="dropdown-menu mt-1">
-                            <li><a class="dropdown-item" href="/BTC/addresses"    title="XChain Addresses"    ><span class="wrapicon-25"><i class="fa fa-gears"        ></i></span>Addresses</a></li>
-                            <li><a class="dropdown-item" href="/BTC/airdrops"     title="XChain Airdrops"     ><span class="wrapicon-25"><i class="fa fa-parachute-box"></i></span>Airdrops</a></li>
-                            <li><a class="dropdown-item" href="/BTC/batches"      title="XChain Batches"      ><span class="wrapicon-25"><i class="fa fa-layer-group"  ></i></span>Batches</a></li>
-                            <li><a class="dropdown-item" href="/BTC/broadcasts"   title="XChain Broadcasts"   ><span class="wrapicon-25"><i class="fa fa-bullhorn"     ></i></span>Broadcasts</a></li>
-                            <li><a class="dropdown-item" href="/BTC/blocks"       title="XChain Blocks"       ><span class="wrapicon-25"><i class="fa fa-cube"         ></i></span>Blocks</a></li>
-                            <li><a class="dropdown-item" href="/BTC/callbacks"    title="XChain Callbacks"    ><span class="wrapicon-25"><i class="fa fa-recycle"      ></i></span>Callbacks</a></li>
-                            <li><a class="dropdown-item" href="/BTC/destroys"     title="XChain Destroys"     ><span class="wrapicon-25"><i class="fa fa-trash"        ></i></span>Destroys</a></li>
-                            <li><a class="dropdown-item" href="/BTC/dispensers"   title="XChain Dispensers"   ><span class="wrapicon-25"><i class="fa fa-arrows-h"     ></i></span>Dispensers</a></li>
-                            <li><a class="dropdown-item" href="/BTC/dispenses"    title="XChain Dispenses"    ><span class="wrapicon-25"><i class="fa fa-btc"          ></i></span>Dispenses</a></li>
-                            <li><a class="dropdown-item" href="/BTC/dividends"    title="XChain Dividends"    ><span class="wrapicon-25"><i class="fa fa-sitemap"      ></i></span>Dividends</a></li>
-                            <li><a class="dropdown-item" href="/BTC/fees"         title="XChain Fees"         ><span class="wrapicon-25"><i class="fa fa-cent-sign"    ></i></span>Fees</a></li>
-                            <li><a class="dropdown-item" href="/BTC/files"        title="XChain Files"        ><span class="wrapicon-25"><i class="fa fa-file"         ></i></span>Files</a></li>
-                            <li><a class="dropdown-item" href="/BTC/history"      title="XChain History"      ><span class="wrapicon-25"><i class="fa fa-clock"        ></i></span>History</a></li>
-                            <li><a class="dropdown-item" href="/BTC/issues"       title="XChain Issues"       ><span class="wrapicon-25"><i class="fa fa-bank"         ></i></span>Issues</a></li>
-                            <li><a class="dropdown-item" href="/BTC/links"        title="XChain Links"        ><span class="wrapicon-25"><i class="fa fa-link"         ></i></span>Links</a></li>
-                            <li><a class="dropdown-item" href="/BTC/lists"        title="XChain Lists"        ><span class="wrapicon-25"><i class="fa fa-list"         ></i></span>Lists</a></li>
-                            <li><a class="dropdown-item" href="/BTC/messages"     title="XChain Messages"     ><span class="wrapicon-25"><i class="fa fa-message"      ></i></span>Messages</a></li>
-                            <li><a class="dropdown-item" href="/BTC/mints"        title="XChain Mints"        ><span class="wrapicon-25"><i class="fa fa-print"        ></i></span>Mints</a></li>
-                            <li><a class="dropdown-item" href="/BTC/orders"       title="XChain Orders"       ><span class="wrapicon-25"><i class="fa fa-book"         ></i></span>Orders</a></li>
-                            <li><a class="dropdown-item" href="/BTC/sends"        title="XChain Sends"        ><span class="wrapicon-25"><i class="fa fa-send"         ></i></span>Sends</a></li>
-                            <li><a class="dropdown-item" href="/BTC/sleeps"       title="XChain Sleeps"       ><span class="wrapicon-25"><i class="fa fa-snooze"       ></i></span>Sleeps</a></li>
-                            <li><a class="dropdown-item" href="/BTC/swaps"        title="XChain Swaps"        ><span class="wrapicon-25"><i class="fa fa-exchange"     ></i></span>Swaps</a></li>
-                            <li><a class="dropdown-item" href="/BTC/sweeps"       title="XChain Sweeps"       ><span class="wrapicon-25"><i class="fa fa-truck"        ></i></span>Sweeps</a></li>
-                            <li><a class="dropdown-item" href="/BTC/tokens"       title="XChain Tokens"       ><span class="wrapicon-25"><i class="fa fa-database"     ></i></span>Tokens</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/addresses"    title="XChain Addresses" ><span class="wrapicon-25"><i class="fa fa-gears"             ></i></span>Addresses</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/airdrops"     title="XChain Airdrops"  ><span class="wrapicon-25"><i class="fa fa-parachute-box"     ></i></span>Airdrops</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/batches"      title="XChain Batches"   ><span class="wrapicon-25"><i class="fa fa-layer-group"       ></i></span>Batches</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/broadcasts"   title="XChain Broadcasts"><span class="wrapicon-25"><i class="fa fa-bullhorn"          ></i></span>Broadcasts</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/blocks"       title="XChain Blocks"    ><span class="wrapicon-25"><i class="fa fa-cube"              ></i></span>Blocks</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/callbacks"    title="XChain Callbacks" ><span class="wrapicon-25"><i class="fa fa-recycle"           ></i></span>Callbacks</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/destroys"     title="XChain Destroys"  ><span class="wrapicon-25"><i class="fa fa-trash"             ></i></span>Destroys</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/dispensers"   title="XChain Dispensers"><span class="wrapicon-25"><i class="fa fa-arrows-h"          ></i></span>Dispensers</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/dispenses"    title="XChain Dispenses" ><span class="wrapicon-25"><i class="fa fa-hand-holding-heart"></i></span>Dispenses</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/dividends"    title="XChain Dividends" ><span class="wrapicon-25"><i class="fa fa-sitemap"           ></i></span>Dividends</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/fees"         title="XChain Fees"      ><span class="wrapicon-25"><i class="fa fa-cent-sign"         ></i></span>Fees</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/files"        title="XChain Files"     ><span class="wrapicon-25"><i class="fa fa-file"              ></i></span>Files</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/history"      title="XChain History"   ><span class="wrapicon-25"><i class="fa fa-clock"             ></i></span>History</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/issues"       title="XChain Issues"    ><span class="wrapicon-25"><i class="fa fa-bank"              ></i></span>Issues</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/links"        title="XChain Links"     ><span class="wrapicon-25"><i class="fa fa-link"              ></i></span>Links</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/lists"        title="XChain Lists"     ><span class="wrapicon-25"><i class="fa fa-list"              ></i></span>Lists</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/messages"     title="XChain Messages"  ><span class="wrapicon-25"><i class="fa fa-message"           ></i></span>Messages</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/mints"        title="XChain Mints"     ><span class="wrapicon-25"><i class="fa fa-print"             ></i></span>Mints</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/orders"       title="XChain Orders"    ><span class="wrapicon-25"><i class="fa fa-book"              ></i></span>Orders</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/sends"        title="XChain Sends"     ><span class="wrapicon-25"><i class="fa fa-send"              ></i></span>Sends</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/sleeps"       title="XChain Sleeps"    ><span class="wrapicon-25"><i class="fa fa-snooze"            ></i></span>Sleeps</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/swaps"        title="XChain Swaps"     ><span class="wrapicon-25"><i class="fa fa-exchange"          ></i></span>Swaps</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/sweeps"       title="XChain Sweeps"    ><span class="wrapicon-25"><i class="fa fa-truck"             ></i></span>Sweeps</a></li>
+                            <li><a class="dropdown-item" href="/{COIN}/tokens"       title="XChain Tokens"    ><span class="wrapicon-25"><i class="fa fa-database"          ></i></span>Tokens</a></li>
                         </ul>
                     </li>
                     <!--
@@ -94,11 +100,12 @@
                         </ul>                        
                     </li>
                     -->
-                    <li class="nav-item"><a class="nav-link" href="/api" title="BTNS API"><i class="fa fa-cogs fa-lg"></i> API</a></li>
+                    <li class="nav-item d-none" id="api-menu"><a class="nav-link" href="/{COIN}/api" title="BTNS API"><i class="fa fa-cogs fa-lg"></i> API</a></li>
                     <li class="nav-item"><a class="nav-link" href="/about" title="About XChain"><i class="fa fa-info-circle fa-lg"></i> About</a></li>
                 </ul>
                 <form action="/search" role="search" method="GET" id="form-search">
                     <div class="input-group">
+                        <input type="hidden" name="coin" id="coin-search">
                         <input type="text" name="query" class="form-control" placeholder="Search" aria-label="Search" aria-describedby="button-search">
                         <button class="btn btn-success" type="button" id="button-search"><i class="fa fa-search fa-lg"></i></button>
                     </div>

@@ -9,46 +9,6 @@ body {
 }
 
 /* CSS for icons in main menu */
-.fa-counterparty {
-    background-image: url('../img/counterparty-icon-20.png');
-    background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
-    position: relative;
-    top: 3px;  
-}
-.fa-dogeparty {
-    background-image: url('../img/dogeparty-icon-20.png');
-    background-repeat: no-repeat;
-    width: 20px;
-    height: 22px;
-    position: relative;
-    top: 5px;  
-}
-.fa-btns {
-    background-image: url('../img/btns-icon-black-20.png');
-    background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
-    position: relative;
-    top: 3px;  
-}
-.fa-btns-yellow {
-    background-image: url('../img/btns-icon-yellow-20.png');
-    background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
-    position: relative;
-    top: 3px;  
-}
-.fa-coindaddy {
-    background-image: url('../img/coindaddy-icon-20.png');
-    background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
-    position: relative;
-    top: -4px;  
-}
 .fa-xchain {
     background-image: url('../images/xchain-icon-20.png');
     background-repeat: no-repeat;
@@ -57,44 +17,77 @@ body {
     position: relative;
     top: 2px;  
 }
-.fa-freewallet {
-    background-image: url('../img/freewallet-icon-20.png');
+.fa-xchain-bitcoin-mainnet {
+    background-image: url('../images/bitcoin-mainnet-icon-20.png');
     background-repeat: no-repeat;
     width: 20px;
     height: 20px;
     position: relative;
+    top: 5px;  
 }
-.fa-mempool {
-    background-image: url('../img/mempool-icon-20.png');
+.fa-xchain-bitcoin-testnet {
+    background-image: url('../images/bitcoin-testnet-icon-20.png');
     background-repeat: no-repeat;
     width: 20px;
     height: 20px;
     position: relative;
-    top: 0px;  
+    top: 5px;  
 }
-.fa-blockstream {
-    background-image: url('../img/blockstream-icon-20.png');
+.fa-xchain-bitcoin-regtest {
+    background-image: url('../images/bitcoin-regtest-icon-20.png');
     background-repeat: no-repeat;
     width: 20px;
     height: 20px;
     position: relative;
-    top: 0px;  
+    top: 5px;  
 }
-.fa-blockcypher {
-    background-image: url('../img/blockcypher-icon-20.png');
+.fa-xchain-litecoin-mainnet {
+    background-image: url('../images/litecoin-mainnet-icon-20.png');
     background-repeat: no-repeat;
     width: 20px;
     height: 20px;
     position: relative;
-    top: 0px;  
+    top: 5px;  
 }
-.fa-blockchair {
-    background-image: url('../img/blockchair-icon-20.png');
+.fa-xchain-litecoin-testnet {
+    background-image: url('../images/litecoin-testnet-icon-20.png');
     background-repeat: no-repeat;
     width: 20px;
     height: 20px;
     position: relative;
-    top: 0px;  
+    top: 5px;  
+}
+.fa-xchain-litecoin-regtest {
+    background-image: url('../images/litecoin-regtest-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 5px;  
+}
+.fa-xchain-dogecoin-mainnet {
+    background-image: url('../images/dogecoin-mainnet-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 5px;  
+}
+.fa-xchain-dogecoin-testnet {
+    background-image: url('../images/dogecoin-testnet-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 5px;  
+}
+.fa-xchain-dogecoin-regtest {
+    background-image: url('../images/dogecoin-regtest-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 5px;  
 }
 
 /* CSS for sticky footer (also requires html/)*/

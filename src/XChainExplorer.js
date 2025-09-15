@@ -68,6 +68,7 @@ class XChainExplorer {
                 '/'                     : 'home.html',
                 '/about'                : 'about.html',
                 '/privacy'              : 'privacy.html',
+                '/search'               : 'search.html',
                 '/terms'                : 'terms.html',
                 '/404'                  : '404.html',
                 // Actions
@@ -97,7 +98,7 @@ class XChainExplorer {
                 '/{COIN}/swap_matches'  : 'swaps.html',
                 '/{COIN}/sweeps'        : 'sweeps.html',
                 // Misc 
-                '/{COIN}/'              : 'home_coin.html',
+                '/{COIN}'               : 'home_coin.html',
                 '/{COIN}/api'           : 'api.html',
                 '/{COIN}/blocks'        : 'blocks.html',
                 '/{COIN}/markets'       : 'markets.html',
@@ -245,8 +246,11 @@ class XChainExplorer {
             },
         };
 
+        // Clean up path to remove any leading and trailing slashes
+        let cleanPath = String(req.path).substring(1).replace(/\/$/,'');
+
         // Split the url path up into its various parts
-        let urlPath = String(req.path).substring(1).split('/');
+        let urlPath = cleanPath.split('/');
 
         // Convert any 'null' string value to an actual null value (so isNull evaluates it properly)
         urlPath.forEach(function(value, idx){
@@ -275,8 +279,17 @@ class XChainExplorer {
             let searchType = false;
 
             // Handle html page matches
-            if(cfg.type=='html' && (req.path==url || parts[1]==String(urlPath[1]).toLowerCase()))
-                match = true;
+            if(cfg.type=='html'){
+                // Handle exact page matches
+                if(String(req.path).toLowerCase()==String(url).toLowerCase())
+                    match = true;
+                // Handle COIN match
+                if(parts.length==1 && urlPath.length==1 && parts[0]=='{COIN}' && !this.util.isNull(cfg.coin))
+                    match = true;
+                // Handle COIN action matches
+                if(parts.length > 1 && parts[1]==String(urlPath[1]).toLowerCase())
+                    match = true;
+            }
 
             // Handle explorer and api request matches
             if(!match && ['api','explorer'].includes(cfg.type)){

@@ -306,7 +306,7 @@ class XChainExplorer {
                             searchType = info[1];
                         if(infoType=='object' && info[1].includes(search))
                             searchType = search;
-                        if(searchType)
+                        if(searchType || infoType=='undefined')
                             match = true;
                     }
                 }

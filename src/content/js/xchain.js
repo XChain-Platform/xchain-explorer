@@ -319,6 +319,31 @@ function isCryptoAddress(address){
     return false;
 }
 
+// Handle updating coin network information and passing it to callback function for processing
+// NOTE: This information is cached in localStorage and updated every 5 minutes as
+function getCoinNetworkInfo(callback, force){
+    let name   = XC.coin + '-network-info',
+        info   = ls.getItem(name),
+        json   = (info) ? JSON.parse(info) : false;
+        last   = (json && json.timestamp) ? json.timestamp : 0,
+        ms     = 300000, // 5 minutes
+        update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
+    if(update){
+        if(XC.debug)
+            console.log('Updating network information...');
+        // Request updated network information and store the response in localStorage
+        loadApiData(XC.coin, 'network', null, null, function(json){
+            json.timestamp = Date.now();
+            ls.setItem(name,JSON.stringify(json));
+            if(typeof callback=='function')
+                callback(json);
+        });
+    } else {
+        if(typeof callback=='function')
+            callback(json);
+    }
+}
+
 // Handle setting up listeners on action dropdowns to load content when clicked 
 function setupActionListeners(){
     for(let action of XC.panels){
@@ -943,7 +968,7 @@ function loadApiData(coin, action, query, type, callback){
     let endpoint = action + 's';
     if(['address','batch'].includes(action)){
         endpoint = action + 'es';
-    } else if (['history','block'].includes(action)){
+    } else if (['history','block','network'].includes(action)){
         endpoint = action;
     }
     // Set the explorer API url

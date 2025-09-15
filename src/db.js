@@ -2119,8 +2119,56 @@ class Database {
     }
 
     // Get network information
+    // TODO: Update to pull this data from xchain-hub which is updated periodically instead of 
     async getNetwork(config){
-        // TODO
+        let data = {
+            // Placeholder for action counts totals[action] = count;
+            totals : {},
+            // Placeholder for network information
+            network: {
+                block : 123456,
+                unconfirmed: 5,
+            },
+            // Network fee information
+            fee: {
+                low: 1,
+                medium: 2,
+                high: 3
+            },
+            // Coin information (price, etc)
+            coin: {
+                name: 'Bitcoin',
+                symbol: 'BTC',
+                price: {
+                    btc: '1.00000000',
+                    usd: '115400.00'
+                }
+            },
+            // XChain information (price, etc)
+            xchain: {
+                name: 'XChain',
+                symbol: 'XCHAIN',
+                price: {
+                    btc: '0.00010000',
+                    usd: '11.54'
+                }
+            }
+        };
+        // Build out a list of tables to get stats on
+        let tables = structuredClone(this.actionTables);
+        tables.push('tokens');
+        // Loop through tables and get count
+        for(let table of tables){
+            // Get total number of matching records for this type of action and add to grand total
+            let count = `SELECT
+                        count(*) as count
+                    FROM
+                        ` + table;
+            let results = await this.doQuery(config, count);
+            if(results && results.length)
+                data.totals[table] = results[0].count;
+        }
+        return [data];
     }
 
     // Get token information

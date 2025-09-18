@@ -17,19 +17,19 @@
                         <tbody>
                         <tr>
                             <th>Address</th>
-                            <td id="address">0</td>
+                            <td id="address" class="text-truncate">0</td>
                         </tr>
                         <tr>
                             <th>Confirmed Balance</th>
-                            <td id="totalBatches">0</td>
+                            <td id="balance-confirmed">0</td>
                         </tr>
                         <tr>
                             <th>Pending Balance</th>
-                            <td id="totalBets">0</td>
+                            <td id="balance-pending">0</td>
                         </tr>
                         <tr>
                             <th>Total Received</th>
-                            <td id="totalCallbacks">0</td>
+                            <td id="total-received">0</td>
                         </tr>
                         </tbody>
                         </table>
@@ -39,19 +39,19 @@
                         <tbody>
                         <tr>
                             <th>Address Type</th>
-                            <td id="totalAirdrops">0</td>
+                            <td id="address-type">0</td>
                         </tr>
                         <tr>
                             <th>Confirmed UTXOs</th>
-                            <td id="totalBatches">0</td>
+                            <td id="utxos-confirmed">0</td>
                         </tr>
                         <tr>
                             <th>Pending UTXOs</th>
-                            <td id="totalBets">0</td>
+                            <td id="utxos-pending">0</td>
                         </tr>
                         <tr>
                             <th>Estimated Value</th>
-                            <td id="totalCallbacks">0</td>
+                            <td id="estimated-value">0</td>
                         </tr>
                         </tbody>
                         </table>
@@ -61,7 +61,7 @@
         </div>
 
         <!-- Address QR Code-->
-        <div class="col-12 pt-2 col-lg-2 pt-lg-0 qrcode text-center">
+        <div class="col-12 pt-2 col-lg-2 pt-lg-0 qrcode text-center pb-3">
             <div class="address_qrcode"></div>
         </div>
 
@@ -697,6 +697,32 @@
             'sweep',
             'token'
         ];
+
+        // Request information on this address and update the header with this information
+        loadApiData(XC.coin, 'address', XC.query, null, function(o){
+            if(o){
+                $('#address').html(o.address);
+                $('#address-type').html(o.type);
+                $('#balance-confirmed').text(o.balances.confirmed);
+                $('#balance-pending').text(o.balances.pending);
+                $('#total-received').text(o.balances.received);
+                $('#utxos-confirmed').text(o.utxos.confirmed);
+                $('#utxos-pending').text(o.utxos.pending);
+                $('#estimated-value').text(o.estimated_value.btc);
+
+                // Build out QR code for address
+                $('.address_qrcode').qrcode({
+                    text: o.address,
+                    height: 166,
+                    width: 166
+                });
+                var a = $('#address_data'),
+                    b = $('#qrcode'),
+                    h = Math.max(a.height(), b.height());
+                a.height(h);
+                b.height(h);
+            }
+        });
 
         // Setup listeners to load data panel when an action button is clicked
         setupActionListeners();

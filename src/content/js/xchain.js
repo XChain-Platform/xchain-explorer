@@ -198,20 +198,27 @@ function base64ToHex(str) {
 
 // Handle hiding and showing collapse content and changing collapse icon
 function toggleCollapseContent(id, init){
-    let ls   = localStorage,
-        el   = $('#' + id);
-        name = el.attr('data-bs-target').replace('#',''),
-        icon = el.find('.collapse-icon'),
-        hide = (icon.hasClass('fa-chevron-up')) ? true : false,
-        cls  = (hide) ? 'fa-chevron-down' : 'fa-chevron-up';
+    let ls     = localStorage,
+        el     = $('#' + id);
+        name   = el.attr('data-bs-target').replace('#',''),
+        icon   = el.find('.collapse-icon'),
+        hide   = (icon.hasClass('fa-chevron-up')) ? true : false,
+        cls    = (hide) ? 'fa-chevron-down' : 'fa-chevron-up',
+        qrcode = $('.address_qrcode');
     if(init){
         if(ls.getItem(name + '-collapsed')=='true'){
             $('#' + name).removeClass('show');
+            qrcode.hide();
             icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         }
     } else {
         icon.removeClass('fa-chevron-up fa-chevron-down').addClass(cls);
         ls.setItem(name + '-collapsed', hide);
+        if(hide){
+            qrcode.hide();
+        } else {
+            qrcode.show();
+        }
     }
 }
 
@@ -966,10 +973,10 @@ function loadDatatablesData(coin, action, query, type){
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
     let endpoint = action + 's';
-    if(['address','batch'].includes(action)){
-        endpoint = action + 'es';
-    } else if (['history','block','network'].includes(action)){
+    if (['history','block','network'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
+    } else if(['address','batch'].includes(action)){
+        endpoint = action + 'es';
     }
     // Set the explorer API url
     let url = '/' + coin + '/api/' + endpoint;
@@ -977,6 +984,8 @@ function loadApiData(coin, action, query, type, callback){
         url += '/' + query;
     if(type)
         url += '/' + type;
+    if(XC.debug)
+        console.log('Requesting API data from endpoint ' + url);
     // Make request to get the API data and return to the callback function
     $.getJSON(url, function(o){
         if(o.error){

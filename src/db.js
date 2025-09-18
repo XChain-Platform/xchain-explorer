@@ -1913,8 +1913,25 @@ class Database {
     }
 
     // Get address information for a given address (tokens held/owned, estimated value, XCHAIN balance, etc)
+    // TODO: Update this API call to pull data from the utxo-tracker API
     async getAddress(config){
-        // TODO
+        let data = {
+            address: config.data.search,
+            type: "p2pkh",
+            balances: {
+                confirmed: "1.23456789",
+                pending: "0.00001234",
+                received: "1.23458023"
+            },
+            utxos: {
+                confirmed: 5,
+                pending: 1
+            },
+            estimated_value: {
+                btc: "1.12345678"
+            }
+        };
+        return [data];
     }
 
     // Get list of address balances

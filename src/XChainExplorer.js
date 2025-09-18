@@ -505,7 +505,8 @@ class XChainExplorer {
             // Stash the reverse count since latest is first in most cases
             count_reverse = this.util.bcsub(total,this.util.bcsub(count, 1),0);
 
-            if((cnt > start && cnt <= limit) || offset || action=='last'){
+            // Display only the results we care about showing
+            if((cnt > start && cnt <= limit) || offset){
                 let info   = data[idx-1];
                 // For Explorer requests, pass array of fields in specific order
                 if(type=='explorer'){

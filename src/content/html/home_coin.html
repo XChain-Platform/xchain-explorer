@@ -700,15 +700,8 @@
             'token'
         ];
 
-        // Setup listeners to load data panel when an action button is clicked
-        setupActionListeners();
-
-        // Activate the first tab by faking a click
-        $('#tab-dropdown-history').click();
-
         // Set the network name in the header
         $('#coin-network-name').text(XC.name + ' (' + XC.coin + ')');
-        let ls = localStorage;
 
         // Request coin network information and update the page with the returned info
         getCoinNetworkInfo(function(o){
@@ -730,6 +723,12 @@
                 $('#xchain-price').html(xchain_price);
             }
         });
+
+        // Setup listeners to load data panel when an action button is clicked
+        setupActionListeners();
+
+        // Activate the history tab by faking a click
+        $('#tab-dropdown-history').click();
 
     });
 </script>

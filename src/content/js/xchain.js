@@ -67,6 +67,9 @@ XC = {
     query:   null,
     type:    null,
 
+    // Default coin price to 0.00 (USD)
+    coin_price: 0.00,
+    
     // Placeholer object to track datatables info
     datatables: {},
 
@@ -79,6 +82,9 @@ XC = {
 function initPage(){
     // Initialize the XChain request params
     setXChainParams();
+
+    // Get basic information on the COIN network
+    getCoinNetworkInfo();
 
     // Initialize the main menu
     initMainMenu();
@@ -335,6 +341,14 @@ function getCoinNetworkInfo(callback, force){
         last   = (json && json.timestamp) ? json.timestamp : 0,
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
+    // Define callback function to handle processing data once we have it
+    let cb = function(json){
+        // Set the current USD price for COIN
+        XC.coin_price = json.coin.price.usd;
+        // Handle processing the callback if we have one
+        if(typeof callback=='function')
+            callback(json);
+    }
     if(update){
         if(XC.debug)
             console.log('Updating network information...');
@@ -342,12 +356,10 @@ function getCoinNetworkInfo(callback, force){
         loadApiData(XC.coin, 'network', null, null, function(json){
             json.timestamp = Date.now();
             ls.setItem(name,JSON.stringify(json));
-            if(typeof callback=='function')
-                callback(json);
+            cb(json);
         });
     } else {
-        if(typeof callback=='function')
-            callback(json);
+        cb(json);
     }
 }
 
@@ -419,11 +431,13 @@ function loadDatatablesData(coin, action, query, type){
     // Set the name of the datatable to load data into
     let tableId = 'datatable-' + action;
     // Set the explorer API endpoint name based on the action
-    let endpoint = action + 's';
-    if(['address','batch'].includes(action)){
-        endpoint = action + 'es';
-    } else if (action=='history'){
+    let endpoint = null;
+    if(action=='history'){
         endpoint = action;
+    } else if(['address','batch'].includes(action)){
+        endpoint = action + 'es';
+    } else {
+        endpoint = action + 's';       
     }
     // Set the explorer API url
     let url = '/' + coin + '/explorer/' + endpoint;
@@ -524,19 +538,37 @@ function loadDatatablesData(coin, action, query, type){
             track['last_start'] = o._iDisplayStart;
             // Save total, so we can pass back in API requests (used to calculate how many records to display on 'last' page)
             track['total'] = o.json.recordsTotal;
-            // Handle hiding address if we are on address page
-            if(type=='address'){
-                $('[id^="datatable-"]').each(function(idx, item){
-                    let el = $(this);
+            // Handle hiding fields with unnecessary info (address / token)
+            if(['address','token'].includes(type)){
+                // Set the index for the field to hide
+                let ids = [];
+                if(type=='address') 
+                    ids.push(3);
+                if(type=='token'){
+                    if(action=='sleep')
+                        ids.push(5);
+                    else 
+                        ids.push(4);
+                }
+                $('[id^="datatable-"]').each(function(){
+                    let el  = $(this);
                     let table = String(el.attr('id')).replace('datatable-','');
-                    if(!table.includes('_') && !table.includes('-') && !['balance','token','issue'].includes(table)){
-                        let tr = el.find('tr');
-                        tr.find('th:eq(3)').hide();
-                        tr.find('td:eq(3)').hide();
+                    if(table==action){
+                        let hide = true;
+                        if(type=='address' && ['balance','token'].includes(table))
+                            hide = false;
+                        if(type=='token' && ['holder'].includes(table))
+                            hide = false;
+                        if(hide){
+                            let tr = el.find('tr');
+                            for(let idx of ids){
+                                tr.find('th:eq(' + idx + ')').hide();
+                                tr.find('td:eq(' + idx + ')').hide();
+                            }
+                        }
                     }
                 });
             }
-
         },
         createdRow: function(row, data, idx){
             // Parse the row data into the standard fields
@@ -561,15 +593,20 @@ function loadDatatablesData(coin, action, query, type){
             let fee          = false;
             let locks        = false;
             let memo         = false;
-            let txt          = false;
             let edit         = false;
             let type2        = false;
+            let txt          = '';
+            let html         = '';
+            // Define the various numeral formats used
+            let fmtInteger   = '0,0';
+            let fmtCurrency  = '0,0.00';
+            let fmtCoin      = '0,0.00000000';
             // Define the link to the action_index
             let action_link  = formatLink('/' + coin + '/action/' + action_index, 'view', null, true);
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','block','fee'].includes(action)){
+            if(!['balance','credit','debit','token','block','fee','holder'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -581,7 +618,6 @@ function loadDatatablesData(coin, action, query, type){
             $('td', row).eq(1).html(block_link);
             $('td', row).eq(2).html(formatLivestamp(timestamp));
             $('td', row).eq(3).html(source_link);
-
             // Address
             if(action=='address'){
                 txt = (data[4]==1) ? 'Destroy' : 'Donate';
@@ -600,12 +636,16 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Balance
             if(action=='balance'){
-                token  = data[1];
-                amount = data[2];
+                token   = data[1];
+                amount  = data[2];
+                percent = data[3];
+                value   = data[4];
                 $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
                 $('td', row).eq(2).html(formatAmount(amount));
-                // $('td', row).eq(3).html(formatAmount(amount));
-                // $('td', row).eq(4).html(formatAmount(amount));
+                $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
+                html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
+                html += ' <span class="badge text-bg-info text-white">$' + numeral(value * XC.coin_price).format('0,0.00') + '</span>';
+                $('td', row).eq(4).html(html);
                 $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
             }
             // Batch
@@ -620,7 +660,6 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(0).html(formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0')));
                 $('td', row).eq(1).html(formatLivestamp(timestamp));
                 $('td', row).eq(3).html(formatLink('/' + coin + '/block/' + block_index, 'view', null, true));
-                var html    = '';
                 actions.forEach(function(val, idx){
                     if(val>0){
                         var num  = numeral(val).format('0,0'),
@@ -665,7 +704,7 @@ function loadDatatablesData(coin, action, query, type){
                 value   = data[5];
                 fee     = data[6];
                 $('td', row).eq(4).text(message);
-                var fmt = (String(value).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                var fmt = (String(value).indexOf('.')==-1) ? fmtInteger : fmtCoin;
                 $('td', row).eq(5).html(numeral(value).format(fmt));
                 $('td', row).eq(6).html(fee);
                 $('td', row).eq(7).html(action_link);
@@ -700,14 +739,9 @@ function loadDatatablesData(coin, action, query, type){
             if(action=='destroy'){
                 token  = data[4];
                 amount = data[5];
-                if(type=='token'){
-                    $('td', row).eq(4).html(formatAmount(amount));
-                    $('td', row).eq(5).html(action_link);
-                } else {
-                    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
-                    $('td', row).eq(5).html(formatAmount(amount));
-                    $('td', row).eq(6).html(action_link);
-                }
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(6).html(action_link);
             }
             // Dispenser
             if(action=='dispenser'){
@@ -753,7 +787,17 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Holder
             if(action=='holder'){
-                // TODO
+                address = data[1];
+                amount  = data[2];
+                percent = data[3];
+                value   = data[4];
+                $('td', row).eq(1).html(formatLink('/' + coin + '/address/' + address, address));
+                $('td', row).eq(2).html(formatAmount(amount));
+                $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
+                html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
+                html += ' <span class="badge text-bg-info text-white">$' + numeral(value * XC.coin_price).format('0,0.00') + '</span>';
+                $('td', row).eq(4).html(html);
+                $('td', row).eq(5).html(formatLink('/' + coin + '/address/' + address, 'view', null, true));
             }
             // Issue
             if(action=='issue'){
@@ -972,11 +1016,13 @@ function loadDatatablesData(coin, action, query, type){
  *********************************************************************/
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
-    let endpoint = action + 's';
-    if (['history','block','network'].includes(action) || (action=='address' && type==null)){
+    let endpoint = null;
+    if(['history','block','network','token'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
     } else if(['address','batch'].includes(action)){
         endpoint = action + 'es';
+    } else {
+        endpoint = action + 's';        
     }
     // Set the explorer API url
     let url = '/' + coin + '/api/' + endpoint;
@@ -1009,6 +1055,7 @@ $(document).ready(function(){
         console.log('XC.network=',XC.network);
         console.log('XC.type=',XC.type);
         console.log('XC.query=',XC.query);
+        console.log('XC.coin_price', XC.coin_price);
     }
 
 });

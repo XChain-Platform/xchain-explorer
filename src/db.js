@@ -199,6 +199,9 @@ class Database {
             let start  = (q.start) ? q.start : 0;
             let length = (q.length) ? q.length : 10;
             let action = (q.action) ? q.action : false;
+            // Tweak the action in special cases to display data in correct order
+            if(['getHolders','getBalances'].includes(data.method) && ['prev','last'].includes(action))
+                config.data.query.action = config.data.offset.action = action = 'next';
             // Set limit to the length
             limit = length;
             // Limit results to 100 max (except in special cases where we can not use an offset)
@@ -207,8 +210,8 @@ class Database {
             // Tweak the limit on the last page
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
-            // Tweak limit for getBalances since we can't select just the data we want using offsets
-            if(['getBalances'].includes(data.method))
+            // Tweak limit in certain cases where we can't select just the data we want using offsets
+            if(['getBalances', 'getHolders'].includes(data.method))
                 limit = this.util.bcadd(start,length);
             // Set the order to ascending for previous and last requests
             if(['prev','last'].includes(action))
@@ -275,13 +278,8 @@ class Database {
                 sql += ' AND a3.address=?';
             if(type=='source')
                 sql += ' AND a2.address=?';
-            if(type=='token'){
-                if(['getOrders','getSwaps'].includes(method)){
-                    sql += ' AND (t3.tick=? OR t4.tick=?)';
-                } else {
-                    sql += ' AND t3.tick=?';
-                }
-            }
+            if(type=='token')
+                sql += ' AND t3.tick=?';
         }
         return sql;
     }
@@ -344,7 +342,7 @@ class Database {
         let limit  = 1;
         let order  = 'DESC';
         // Bail out in certain instances
-        if(method=='getBalances')
+        if(['getBalances','getHolders'].includes(method))
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
@@ -373,6 +371,8 @@ class Database {
             } else if(type=='token'){
                 if(['getOrders','getSwaps'].includes(method)){
                     where = ` AND (m.get_tick_id=` + id + ` OR m.give_tick_id=` + id + `)`;
+                } else if(['getDispensers','getDispenses'].includes(method)){
+                    where = ` AND m.get_tick_id=` + id;
                 } else {
                     where = ` AND m.tick_id=` + id;
                 }
@@ -1110,7 +1110,6 @@ class Database {
                         m.lock_mint_supply,
                         m.lock_max_mint,
                         m.lock_description,
-                        m.lock_rug,
                         m.lock_sleep,
                         m.lock_callback,
                         m.callback_block,
@@ -1865,7 +1864,6 @@ class Database {
                         m.lock_mint_supply,
                         m.lock_max_mint,
                         m.lock_description,
-                        m.lock_rug,
                         m.lock_sleep,
                         m.lock_callback,
                         b1.block_index,
@@ -1943,14 +1941,19 @@ class Database {
                         balances m
                         INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                        INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         t1.tick,
-                        m.amount
+                        m.amount,
+                        t4.supply,
+                        t4.decimals,
+                        t4.coin_price
                     FROM
                         balances m
                         INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                        INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data + `
                     ORDER BY t1.tick ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2116,16 +2119,21 @@ class Database {
                         balances m
                         INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                        INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a2.address,
-                        m.amount
+                        m.amount,
+                        t4.supply,
+                        t4.decimals,
+                        t4.coin_price
                     FROM
                         balances m
                         INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
-                    WHERE ` + sql.where + `
-                    ORDER BY m.amount ` + sql.order + `
+                        INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
+                    WHERE ` + sql.where.data + `
+                    ORDER BY ABS(m.amount) ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -2204,7 +2212,6 @@ class Database {
                         t1.lock_mint_supply,
                         t1.lock_max_mint,
                         t1.lock_description,
-                        t1.lock_rug,
                         t1.lock_sleep,
                         t1.lock_callback,
                         t1.callback_block,
@@ -2217,7 +2224,8 @@ class Database {
                         t1.mint_start_block,
                         t1.mint_stop_block,
                         a1.address as owner,
-                        t1.coin_price
+                        t1.coin_price,
+                        t1.coin_floor
                     FROM
                         tokens t1
                         INNER JOIN index_tickers      t2 ON (t2.id=t1.tick_id)
@@ -2230,12 +2238,46 @@ class Database {
         let results = await this.doQuery(config, query, args);
         if(results && results.length){
             let row = results[0];
+            // Define basic token data object format
             data = {
-                callback: {},
-                lists: {},
-                locks: {},
-                mints: {},
-                supply: {}
+                info: {
+                    coin: config.coin,   // Current COIN (BTC, LTC, DOGE, etc)
+                    tick: null,
+                    description : null,
+                    owner: null
+                },
+                callback: {
+                    tick: null,  // Callback tick
+                    price: null, // Callback tick price (tokens.coin_price)
+                    block: null, // Callback block
+                    amount: null // Callback amount
+                },
+                market: {
+                    price: null, // Tick  price (tokens.coin_price)
+                    floor: null, // Floor price (tokens.floor_price)
+                },
+                lists: {
+                    allow: null,
+                    block: null
+                },
+                locks: {
+                    callback: false,
+                    description: false,
+                    mint: false,
+                    mint_supply: false,
+                    max_mint: false,
+                    sleep: false
+                },
+                mints: {
+                    max: null,
+                    address_max: null,
+                    start_block: null,
+                    stop_block: null
+                },
+                supply: {
+                    current: null,
+                    max: null
+                }
             };
             for( let key in row ){
                 let name  = key;
@@ -2269,8 +2311,12 @@ class Database {
                     if(name=='supply')     name = 'current';
                     if(name=='max_supply') name = 'max';
                     data.supply[name] = this.util.bcformat(value, row['decimals']);
+                // Group COIN fields
+                } else if(String(key).substring(0,5)=='coin_'){
+                    name = String(key).replace('coin_','');
+                    data.market[name] = Number(value);
                 } else {
-                    data[name] = value;
+                    data.info[name] = value;
                 }
             }
         }
@@ -2577,7 +2623,6 @@ class Database {
                             i1.lock_mint_supply,
                             i1.lock_max_mint,
                             i1.lock_description,
-                            i1.lock_rug,
                             i1.lock_sleep,
                             i1.lock_callback,
                             i1.callback_block,

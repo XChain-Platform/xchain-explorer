@@ -511,6 +511,9 @@ class XChainExplorer {
                 // For Explorer requests, pass array of fields in specific order
                 if(type=='explorer'){
                     let status = (info.status=='valid') ? 1 : 0; // 1=valid, 2=invalid
+                    let percent = 0;                             // Percentage of total supply
+                    let value   = 0;                             // Estimated value
+                    let amount  = 0;                             // Amount formatted to correct decimal precision
 
                     // Handle building out locks info into nice string
                     let locks = false;
@@ -562,13 +565,20 @@ class XChainExplorer {
                         actions = arr.join('|');
                     }
 
+                    if(['getBalances','getHolders'].includes(method)){
+                        // Force amount to display in coin decimal precision
+                        amount  = String(this.util.bcformat(info.amount, info.decimals));
+                        percent = String(this.util.bcmul(this.util.bcdiv(info.amount,info.supply, 8), 100, 8));
+                        value   = String(this.util.bcmul(info.amount, info.coin_price, 8));
+                    }
+
                     // Build out the correct response array based on method type
                     if(method=='getAddresses')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
                     if(method=='getAirdrops')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.memo, status, info.action_index];
                     if(method=='getBalances')
-                        info = [count, info.tick, info.amount, null, null, null];
+                        info = [count, info.tick, amount, percent, value, null];
                     if(method=='getBatches')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, status, info.action_index];
                     if(method=='getBlocks')
@@ -593,6 +603,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, status, info.action_index];
                     if(method=='getHistory')
                         info = [count_reverse, info.block_index, info.timestamp, info.action, info.details, status, info.action_index];
+                    if(method=='getHolders')
+                        info = [count, info.address, amount, percent, value, null];
                     if(method=='getIssues')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.max_supply, info.max_mint, locks, status, info.action_index];
                     if(method=='getLinks')

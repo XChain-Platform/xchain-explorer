@@ -109,13 +109,24 @@ body {
     text-decoration: none;
 }
 
+/* CSS to auto-truncate header overflows */
+#address-stats td,
+#token-info td {
+    max-width: 200px;
+    min-width: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* CSS for datatables */
-.dataTables_wrapper th, .dataTables_wrapper td {
-  max-width: 200px;
-  min-width: 5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.dataTables_wrapper th, 
+.dataTables_wrapper td {
+    max-width: 200px;
+    min-width: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .dataTables_wrapper .dataTables_info,
@@ -133,7 +144,7 @@ body {
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button {
-  padding: 0em 0.5em;
+    padding: 0em 0.5em;
 }
 
 /* Do not put border on 2nd from last field next to status field */

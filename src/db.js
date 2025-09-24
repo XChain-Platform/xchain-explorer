@@ -2217,6 +2217,7 @@ class Database {
                         t1.callback_block,
                         t3.tick as callback_tick,
                         t4.decimals as callback_decimals,
+                        t4.coin_price as callback_coin_price,
                         t1.callback_amount,
                         t1.allow_list,
                         t1.block_list,
@@ -2300,7 +2301,7 @@ class Database {
                     data.mints[name] = Number(value);
                 // Group CALLBACK fields
                 } else if(String(key).substring(0,9)=='callback_'){
-                    name = String(key).replace('callback_','');
+                    name = String(key).replace('callback_','').replace('coin_','');
                     if(name=='amount'){
                         data.callback[name] = this.util.bcformat(value, row['callback_decimals']);
                     } else {

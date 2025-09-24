@@ -341,6 +341,9 @@ function getCoinNetworkInfo(callback, force){
         last   = (json && json.timestamp) ? json.timestamp : 0,
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
+    // Set the coin price from the last known price
+    if(json && json.coin && json.coin.price && json.coin.price.usd)
+        XC.coin_price = json.coin.price.usd;
     // Define callback function to handle processing data once we have it
     let cb = function(json){
         // Set the current USD price for COIN
@@ -399,6 +402,56 @@ function setupCollapsibleHeaders(){
     $('.collapse-header').click(function(){ toggleCollapseContent($(this).attr('id')); });
     // Restore collapsed header states
     $('.collapse-header').each(function(){ toggleCollapseContent($(this).attr('id'), true); });
+}
+
+/******************************************************************
+ * Basic Calculator (BC) math functions
+ ******************************************************************/
+
+// Handle converting a string number to an integer or float
+function bcnum(num){
+    if(String(num).indexOf('.')!=-1)
+        return parseFloat(num);
+    else
+        return parseInt(num);
+}
+
+// Handle returning a number to a given decimal point precision
+function bcformat(num, decimals){
+    let d = (!sNull(decimals)) ? parseInt(decimals) : 0;
+    return math.format(bcnum(num),{notation: 'fixed', precision: d});
+}
+
+// Handle subtracting 2 big numbers
+function bcsub(numA, numB, decimals){
+    let a = (!isNull(numA)) ? numA : 0;
+    let b = (!isNull(numB)) ? numB : 0;
+    let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
+    return bcnum(math.format(math.subtract(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+}
+
+// Handle adding 2 big numbers
+function bcadd(numA, numB, decimals){
+    let a = (!isNull(numA)) ? numA : 0;
+    let b = (!isNull(numB)) ? numB : 0;
+    let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
+    return bcnum(math.format(math.add(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+}
+
+// Handle multiplying 2 big numbers
+function bcmul(numA, numB, decimals){
+    let a = (!isNull(numA)) ? numA : 0;
+    let b = (!isNull(numB)) ? numB : 0;
+    let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
+    return bcnum(math.format(math.multiply(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+}
+
+// Handle dividing 2 big numbers
+function bcdiv(numA, numB, decimals){
+    let a = (!isNull(numA)) ? numA : 0;
+    let b = (!isNull(numB)) ? numB : 0;
+    let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
+    return bcnum(math.format(math.divide(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
 }
 
 /**********************************************************************
@@ -644,7 +697,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(2).html(formatAmount(amount));
                 $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
                 html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
-                html += ' <span class="badge text-bg-info text-white">$' + numeral(value * XC.coin_price).format('0,0.00') + '</span>';
+                html += ' <span class="badge text-bg-info text-white">$' + numeral(bcmul(value, XC.coin_price, 8)).format('0,0.00') + '</span>';
                 $('td', row).eq(4).html(html);
                 $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
             }
@@ -777,7 +830,7 @@ function loadDatatablesData(coin, action, query, type){
                 // Fee payment method
                 txt  = (type2==1) ? 'Destroy' : 'Donate';
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
-                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(5).html(numeral(amount).format(fmtCoin));
                 $('td', row).eq(6).text(txt);
                 $('td', row).eq(8).html(action_link);
             }
@@ -795,7 +848,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(2).html(formatAmount(amount));
                 $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
                 html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
-                html += ' <span class="badge text-bg-info text-white">$' + numeral(value * XC.coin_price).format('0,0.00') + '</span>';
+                html += ' <span class="badge text-bg-info text-white">$' + numeral(value * XC.coin_price).format(fmtCurrency) + '</span>';
                 $('td', row).eq(4).html(html);
                 $('td', row).eq(5).html(formatLink('/' + coin + '/address/' + address, 'view', null, true));
             }
@@ -884,7 +937,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).text(txt);
                 if(token!='')
                     $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
-                $('td', row).eq(6).html(formatLink('/' + coin + '/block/' + block_index2, numeral(block_index2).format('0,0')));
+                $('td', row).eq(6).html(formatLink('/' + coin + '/block/' + block_index2, numeral(block_index2).format(fmtInteger)));
                 $('td', row).eq(7).html(action_link);
             }
             // Swap

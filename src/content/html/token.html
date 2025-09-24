@@ -61,18 +61,18 @@
                     <tbody>
                     <tr>
                         <th>Marketcap</th>
-                        <td>$<span id="market-marketcap-usd">0.00</span></td>
-                        <td><span id="market-marketcap-btc">0.00000000</span> <span class="xchain-coin"></span></td>
+                        <td>$<span id="market-marketcap-fiat">0.00</span></td>
+                        <td><span id="market-marketcap-coin">0.00000000</span> <span class="xchain-coin"></span></td>
                     </tr>
                     <tr>
                         <th>BTC Price</th>
-                        <td>$<span id="market-btc-price-usd">0.00</span></td>
-                        <td><span id="market-btc-price-btc">0.00000000</span> <span class="xchain-coin"></span></td>
+                        <td>$<span id="market-price-fiat">0.00</span></td>
+                        <td><span id="market-price-coin">0.00000000</span> <span class="xchain-coin"></span></td>
                     </tr>
                     <tr>
                         <th>BTC Floor</th>
-                        <td>$<span id="market-btc-floor-usd">0.00</span></td>
-                        <td><span id="market-btc-floor-btc">0.00000000</span> <span class="xchain-coin"></span></td>
+                        <td>$<span id="market-floor-fiat">0.00</span></td>
+                        <td><span id="market-floor-coin">0.00000000</span> <span class="xchain-coin"></span></td>
                     </tr>
                     </tbody>
                     </table>
@@ -89,7 +89,7 @@
                     <tr>
                         <th>Amount</th>
                         <td id="callback-amount">0.00000000</td>
-                        <td id="callback-amount-coin">0.00000000 <span class="xchain-coin"></span></td>
+                        <td><span id="callback-price-coin">0.00000000</span> <span class="xchain-coin"></span></td>
                     </tr>
                     </tbody>
                     </table>
@@ -377,6 +377,7 @@
                             <th class="block">Block</th>
                             <th class="time">Time</th>
                             <th class="address">Source</th>
+                            <th class="token">Token</th>
                             <th class="token">Callback Token</th>
                             <th class="quantity">Quantity</th>
                             <th class="view"></th>
@@ -772,9 +773,11 @@
                     https = /^https:\/\//,
                     ord   = /^ord:/i,
                     ipfs  = /^ipfs:/i,
-                    fmtA  = '0,0.00000000',
-                    fmtB  = '0,0.00',
                     arr   = false;
+
+                // Define the various numeral formats to use
+                let fmtCoin  = '0,0.00000000',
+                    fmtFiat  = '0,0.00';
 
                 // Basic Token Information
                 $('.xchain-tick').text(o.info.tick);
@@ -794,24 +797,24 @@
                 }
 
                 // Marketcap and Pricing Information
-                let coin_usd = '115000.00';
                 $('.xchain-coin').text(o.info.coin);
-                $('#market-btc-price-btc').text(numeral(o.market.price).format(fmtA));
-                $('#market-btc-price-usd').text(numeral(o.market.price * coin_usd).format(fmtB));
-                $('#market-btc-floor-btc').text(numeral(o.market.floor).format(fmtA));
-                $('#market-btc-floor-usd').text(numeral(o.market.floor * coin_usd).format(fmtB));
-                var mcap = o.market.price * o.supply.current;
-                $('#market-marketcap-btc').text(numeral(mcap).format(fmtA));
-                $('#market-marketcap-usd').text(numeral(mcap * coin_usd).format(fmtB));
+                $('#market-price-coin').text(numeral(o.market.price).format(fmtCoin));
+                $('#market-price-fiat').text(numeral(bcmul(o.market.price, XC.coin_price, 2)).format(fmtFiat));
+                $('#market-floor-coin').text(numeral(o.market.floor).format(fmtCoin));
+                $('#market-floor-fiat').text(numeral(bcmul(o.market.floor, XC.coin_price, 2)).format(fmtFiat));
+                var mcap = bcmul(o.market.price, o.supply.current, 8);
+                $('#market-marketcap-coin').text(numeral(mcap).format(fmtCoin));
+                $('#market-marketcap-fiat').text(numeral(bcmul(mcap, XC.coin_price, 2)).format(fmtFiat));
 
                 // Callback Token Information
                 if(!isNull(o.callback.tick)){
                     $('#callback-tick').html(formatLink('/' + XC.coin + '/token/' + o.callback.tick, o.callback.tick));
                     $('#callback-block').html(formatLink('/' + XC.coin + '/block/' + o.callback.block, numeral(o.callback.block).format('0,0')));
-                    if(o.callback.amount)
+                    if(o.callback.amount){
                         $('#callback-amount').text(formatAmount(o.callback.amount));
+                        $('#callback-price-coin').text(numeral(bcmul(o.callback.amount, o.callback.price, 8)).format(fmtCoin));
+                    }
                 }
-
 
                 // Locks 
                 $('#lock-max-supply').html(showLockStatus(o.locks.max_supply));

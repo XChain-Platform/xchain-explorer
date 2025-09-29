@@ -627,6 +627,8 @@ function loadDatatablesData(coin, action, query, type){
                             hide = false;
                         if(type=='token' && ['holder'].includes(table))
                             hide = false;
+                        if(table=='history')
+                            hide = false;
                         if(hide){
                             let tr = el.find('tr');
                             for(let idx of ids){

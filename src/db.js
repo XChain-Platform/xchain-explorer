@@ -262,8 +262,15 @@ class Database {
             sql  = `m.address_id IS NOT NULL`;
         if(['getBlocks','getBlock'].includes(method))
             sql  = `b1.block_index IS NOT NULL`;
-        // Note getHistory handles generating its own WHERE sql
-        if(!['geHistory','getBlocks'].includes(method)){
+        // getHistory uses the mappings_actions table to pull data
+        if(method=='getHistory'){
+            if(type=='address')
+                sql += ' AND m.type_id=2 AND m.id=?';
+            if(type=='token')
+                sql += ' AND m.type_id=1 AND m.id=?';
+            if(type=='block')
+                sql += ' AND b1.block_index=?';
+        } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
                 if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
@@ -363,6 +370,8 @@ class Database {
                     where = ` AND m.owner_id=` + id;
                 } else if(['getCredits','getDebits','getEscrows'].includes(method)){
                     where = ` AND m.address_id=` + id;
+                } else if(['getHistory'].includes(method)){
+                    where = ` AND m.type_id=2 AND m.id=` + id;
                 } else {
                     where = ` AND m.source_id=` + id;
                 }
@@ -373,16 +382,13 @@ class Database {
                     where = ` AND (m.get_tick_id=` + id + ` OR m.give_tick_id=` + id + `)`;
                 } else if(['getDispensers','getDispenses'].includes(method)){
                     where = ` AND m.get_tick_id=` + id;
+                } else if(['getHistory'].includes(method)){
+                    where = ` AND m.type_id=1 AND m.id=` + id;
                 } else {
                     where = ` AND m.tick_id=` + id;
                 }
             } 
         }
-        // Translate method into table
-        table = String(method).toLowerCase().replace('get','');
-        // Tweak table in the case of getting full history
-        if(method=='getHistory')
-            table='actions';
         // Lookup start offset for first and last page requests
         if(['first','last'].includes(action)){
             // Get offset for first page requests
@@ -417,7 +423,22 @@ class Database {
                             ` + where + `
                         ORDER BY m.id ` + order + ` 
                         LIMIT ` + limit;
+            } else if(method=='getHistory'){
+                sql = `SELECT 
+                            m.action_index as offset
+                        FROM
+                            mappings_actions m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        WHERE 
+                            m.action_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY m.action_index ` + order + ` 
+                        LIMIT ` + limit;
             } else {
+                // Translate method into table
+                table = String(method).toLowerCase().replace('get','');
                 sql = `SELECT 
                             m.action_index as offset
                         FROM
@@ -452,19 +473,33 @@ class Database {
                 } else {
                     offset2 = this.util.bcsub(this.util.bcsub(offset1,1),q.length);
                 }
-            } else if(method!='getHistory'){
+            } else {
                 limit = this.util.bcadd(length,1);
                 order = 'DESC';
                 // If we have offset value and action, use it to speed up SQL query by pulling less data
                 if(action && offset1){
                     if(action=='prev'){
-                        where += ' AND action_index > ' + offset1;
+                        where += ' AND m.action_index > ' + offset1;
                     } else {
-                        where += ' AND action_index < ' + offset1;
+                        where += ' AND m.action_index < ' + offset1;
                     }
                 }
                 // Build out SQL to get stop offset
-                sql = `SELECT 
+                if(method=='getHistory'){
+                    sql = `SELECT 
+                            m.action_index as offset
+                        FROM
+                            mappings_actions m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        WHERE 
+                            m.action_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY m.action_index ` + order + ` 
+                        LIMIT ` + limit;
+                } else {
+                    sql = `SELECT 
                             m.action_index as offset
                         FROM
                             ` + table + ` m
@@ -473,6 +508,7 @@ class Database {
                             ` + where + `
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
+                }
                 // Run Query to try and get offset information 
                 rows = await this.doQuery(config, sql);
                 // Only set the stop offset number if we have more data to show
@@ -3674,10 +3710,11 @@ class Database {
         let total     = 0;
         let id        = 0;
         let history   = [];
+        let args      = [];
         let results   = null;
         let count     = null;
         let query     = null;
-        // let where1    = sql.where.data;
+        let where     = sql.where.data;
         // Get any IDs based on the query type
         if(type=='address')
             id = await this.getAddressId(config, config.data.search);
@@ -3695,164 +3732,67 @@ class Database {
             if(results && results.length)
                 q.total = Number(results[0].action_index);
         }
+        // Build out the correct WHERE sql arguments based on search type
+        args = (type=='block') ? [config.data.search] : [id];
+        // If we have a total passed on the querystring, then skip getting total count (speed up explorer queries)            
+        if(q && q.total){
+            total = q.total;
+        } else {
+            // Get total number of matching records for this type of action and add to grand total
+            count = `SELECT
+                        count(DISTINCT(m.action_index)) as count
+                    FROM
+                        mappings_actions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE ` + where;
+            results = await this.doQuery(config, count, args);
+            if(results && results.length)
+                total = this.util.bcadd(total, results[0].count, 0);
+        }
         // If we have offset value and action, use it to speed up SQL query by pulling less data
-        let offsetWhere = '';
         if(action && start){
             if(action=='prev'){
-                offsetWhere += ' AND m.action_index > ' + start;
-                offsetWhere += ' AND m.action_index < ' + this.util.bcadd(start,this.util.bcadd(limit,1));
+                where += ' AND m.action_index > ' + start;
+                // where += ' AND m.action_index < ' + this.util.bcadd(start,this.util.bcadd(limit,1));
             } else {
-                offsetWhere += ' AND m.action_index < ' + start;
-                offsetWhere += ' AND m.action_index > ' + this.util.bcsub(start,this.util.bcadd(limit,1));
-            }
-        }        
-        // console.log('getHistoryData config=',config);
-        let args  = [];
-        for(let table of this.actionTables){
-            // Parse in the SQL config data
-            let where = sql.where.data + offsetWhere;
-            // Build out the correct WHERE sql based on the search type
-            if(type=='address'){
-                where += ' AND m.source_id=?';
-                args = [id];
-            }
-            if(type=='block'){
-                // where += ' AND b1.block_index=?';
-                args = [config.data.search];
-            }
-            if(type=='token'){
-                if(['dispensers','dispenses','orders','swaps'].includes(table)){
-                    where += ' AND (m.give_tick_id=? OR m.get_tick_id=?)';
-                    args = [id,id];
-            } else {
-                    where += ' AND m.tick_id=?';
-                    args = [id];
-                }
-            }
-            // Handle skipping certain tables for certain query types
-            // TODO : Revisit this code and see if it can be cleaned up to dump more data
-            let skip = false;
-            if(type=='token' && ['addresses','batches','broadcasts','files','links','lists','messages','order_cancels','order_edits','order_matches','swap_cancels','swap_edits','swap_matches', 'sweeps'].includes(table))
-                skip = true;
-            if(type=='address' && ['order_matches','swap_matches'].includes(table))
-                skip = true;
-            if(skip)
-                continue;
-            // If we have a total passed on the querystring, then skip getting total count (speed up explorer queries)            
-            if(q && q.total){
-                total = q.total;
-            } else {
-                // Get total number of matching records for this type of action and add to grand total
-                count = `SELECT
-                            count(*) as count
-                        FROM
-                            ` + table + ` m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        WHERE ` + sql.where.data;
-                results = await this.doQuery(config, count, args);
-                if(results && results.length)
-                    total = this.util.bcadd(total, results[0].count, 0);
-            }
-            // If we have any records, then run the SQL query to pull the data
-            if(total){
-                // Get basic action data
-                query = `SELECT
-                            a2.action, 
-                            m.action_index,
-                            b1.block_index,
-                            b1.block_time as timestamp,
-                            t2.hash as tx_hash,
-                            t1.tx_index,
-                            s1.status
-                        FROM
-                            ` + table + ` m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        WHERE ` + where + `
-                        ORDER BY m.action_index ` + sql.order + `
-                        LIMIT ` + sql.limit;
-                results = await this.doQuery(config, query, args);
-                if(results && results.length){
-                    for(let row of results){
-                        let idx = Number(row.action_index);
-                        history[idx] = row;
-                    }
-                }
+                where += ' AND m.action_index < ' + start;
+                // where += ' AND m.action_index > ' + this.util.bcsub(start,this.util.bcadd(limit,1));
             }
         }
-        // Handle looking up any UNKNOWN transactions and add them to the history data
-        let where = sql.where.data;
-        where += ` AND a2.action='UNKNOWN' `;
-        // Get count of UNKNOWN actions
-        count = `SELECT
-                    count(*) as count
-                FROM
-                    actions                       m
-                    INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                    INNER JOIN index_actions      a2 ON (a2.id=m.action_id)
-                    INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                WHERE ` + where;
-        results = await this.doQuery(config, count, args);
-        if(results && results.length){
-            total = this.util.bcadd(total, results[0].count, 0);
-            where += offsetWhere;
-            // If we have any UNKNOWN transactions, then run the SQL query to pull the data
+        // If we have any records, then run the SQL query to pull the data
+        if(total){
+            // Get basic action data
             query = `SELECT
+                        DISTINCT(m.action_index) as action_index,
                         a2.action,
-                        m.action_index,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
-                        t1.tx_index
+                        t1.tx_index            
                     FROM
-                        actions                       m
-                        INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
+                        mappings_actions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_actions      a2 ON (a2.id=m.action_id)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
             results = await this.doQuery(config, query, args);
             if(results && results.length){
-                for(let row of results){
-                    let idx = Number(row.action_index);
-                    history[idx] = row;
-                }
+                for(let row of results)
+                    history.push(row);
             }
         }
-        // Sort the history data by action_index in ascending order
-        history = this.util.ksort(history);
-        // Convert history object (assoc array) back to normal array
-        history = Object.values(history);
-        // Sort the history data by action_index in descending order (if that is given sort order)
-        if(sql.order=='DESC')
-            history = history.reverse();
-        // Limit the history data to the correct LIMIT amount (we selected limit from each table, so prolly got way more history than we need)
-        // Note: We do this now, so that we don't waste a bunch of time doing unnecessary getActionData() calls for records we will never show
-        let arr = [];
-        let cnt = 0;
-        for(let item of history){
-            cnt++;
-            if(cnt<=limit)
-                arr.push(item);
-        }
-        history = arr;
         // Define a list of detail fields we want to pass forward in history items
         // Note: We limit this to just enough details to show basic history info, user can request full info on action if they want more info
         let detailFields = [
-            // Common fields
-            'coin', 'tick',  'amount', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common Fields
+            'coin', 'tick',  'amount', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
             'fee_preference', 'require_memo',                                                                    // Addresses
             'message',                                                                                           // Broadcasts
             'callback_tick', 'callback_amount',                                                                  // Callbacks
@@ -3868,10 +3808,9 @@ class Database {
             'balances', 'ownerships'                                                                             // Sweeps
         ];
         // Lookup extended information on the action_index
-        for(let item of history){
-            // console.log('item=',item);
-            let info    = await this.getActionData(config, item.action_index);
-            // console.log('info=',info);
+        for(let data of history){
+            let info = await this.getActionData(config, data.action_index);
+            data.status = info.status;
             let details = false;
             for(let name of detailFields){
                 if(info[name]){
@@ -3882,7 +3821,7 @@ class Database {
                     details[name] = info[name];
                 }
             }
-            item.details = details;
+            data.details = details;
         }
         let data = history;
         return [data, total];

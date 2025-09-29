@@ -346,23 +346,38 @@ function getCoinNetworkInfo(callback, force){
         XC.coin_price = json.coin.price.usd;
     // Define callback function to handle processing data once we have it
     let cb = function(json){
-        // Set the current USD price for COIN
-        XC.coin_price = json.coin.price.usd;
-        // Handle processing the callback if we have one
-        if(typeof callback=='function')
-            callback(json);
+        if(json){
+            // Set the current USD price for COIN
+            XC.coin_price = json.coin.price.usd;
+            // Handle processing the callback if we have one
+            if(typeof callback=='function')
+                callback(json);
+        }
     }
+    // Do not update if we already have a pending request
+    if(XC.pendingNetworkInfoRequest)
+        update = false;
     if(update){
+        // Set flag to indicate we have a pending request to prevent duplicate requests
+        XC.pendingNetworkInfoRequest = true;
         if(XC.debug)
             console.log('Updating network information...');
         // Request updated network information and store the response in localStorage
         loadApiData(XC.coin, 'network', null, null, function(json){
+            XC.pendingNetworkInfoRequest = false;
             json.timestamp = Date.now();
             ls.setItem(name,JSON.stringify(json));
             cb(json);
         });
     } else {
-        cb(json);
+        // If we have a pending Network request, try again in 1000ms
+        if(XC.pendingNetworkInfoRequest){
+            setTimeout(function(){
+                getCoinNetworkInfo(callback);
+            }, 1000);
+        } else {
+            cb(json);
+        }
     }
 }
 

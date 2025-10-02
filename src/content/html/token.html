@@ -126,6 +126,7 @@
                                     <li><a class="dropdown-item" id="tab-dropdown-dispenser"  ><i class="fa fa-arrows-h"          ></i> Dispensers</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-dispense"   ><i class="fa fa-hand-holding-heart"></i> Dispenses</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-dividend"   ><i class="fa fa-sitemap"           ></i> Dividends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-file"       ><i class="fa fa-file"              ></i> Files</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-history"    ><i class="fa fa-clock-o"           ></i> History</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-holder"     ><i class="fa fa-users"             ></i> Holders</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-info"       ><i class="fa fa-paperclip"         ></i> Information</a></li>
@@ -466,6 +467,26 @@
                     </table>
                 </div>
 
+                <!-- Files -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-file" role="tabpanel" aria-labelledby="tab-file" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-file">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="address">Source</th>
+                            <th class="">Name</th>
+                            <th class="">Type</th>
+                            <th class="">Title</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
                 <!--  History -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-history" role="tabpanel" aria-labelledby="tab-history" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-history">
@@ -759,6 +780,7 @@
             'dispenser',
             'dispense',
             'dividend',
+            'file',
             'history',
             'holder',
             'info',

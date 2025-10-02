@@ -285,8 +285,13 @@ class Database {
                 sql += ' AND a3.address=?';
             if(type=='source')
                 sql += ' AND a2.address=?';
-            if(type=='token')
-                sql += ' AND t3.tick=?';
+            if(type=='token'){
+                if(method=='getFiles'){
+                    sql += ' AND m.type_id=1 AND t4.tick=?';
+                } else {
+                    sql += ' AND t3.tick=?';
+                }
+            }
         }
         return sql;
     }
@@ -382,13 +387,15 @@ class Database {
                     where = ` AND (m.get_tick_id=` + id + ` OR m.give_tick_id=` + id + `)`;
                 } else if(['getDispensers','getDispenses'].includes(method)){
                     where = ` AND m.get_tick_id=` + id;
-                } else if(['getHistory'].includes(method)){
+                } else if(['getHistory','getFiles'].includes(method)){
                     where = ` AND m.type_id=1 AND m.id=` + id;
                 } else {
                     where = ` AND m.tick_id=` + id;
                 }
             } 
         }
+        // Translate method into table for use in SQL queries
+        table = String(method).toLowerCase().replace('get','');
         // Lookup start offset for first and last page requests
         if(['first','last'].includes(action)){
             // Get offset for first page requests
@@ -436,9 +443,20 @@ class Database {
                             ` + where + `
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
-            } else {
-                // Translate method into table
-                table = String(method).toLowerCase().replace('get','');
+            } else if(method=='getFiles' && type=='token'){
+                sql = `SELECT 
+                            m.action_index as offset
+                        FROM
+                            mappings_files m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        WHERE 
+                            m.action_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY m.action_index ` + order + ` 
+                        LIMIT ` + limit;
+             } else {
                 sql = `SELECT 
                             m.action_index as offset
                         FROM
@@ -490,6 +508,19 @@ class Database {
                             m.action_index as offset
                         FROM
                             mappings_actions m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        WHERE 
+                            m.action_index IS NOT NULL
+                            ` + where + `
+                        ORDER BY m.action_index ` + order + ` 
+                        LIMIT ` + limit;
+            } else if(method=='getFiles' && type=='token'){
+                sql = `SELECT 
+                            m.action_index as offset
+                        FROM
+                            mappings_files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
@@ -553,7 +584,7 @@ class Database {
      * /{COIN}/api/dispensers/{QUERY}/{TYPE}      getDispensers    block, address, token, source, destination
      * /{COIN}/api/dispenses/{QUERY}/{TYPE}       getDispenses     block, address, token, source, destination
      * /{COIN}/api/fees/{QUERY}/{TYPE}            getFees          block, address, token, source, destination
-     * /{COIN}/api/files/{QUERY}/{TYPE}           getFiles         block, address
+     * /{COIN}/api/files/{QUERY}/{TYPE}           getFiles         block, address, token
      * /{COIN}/api/issues/{QUERY}/{TYPE}          getIssues        block, address, token
      * /{COIN}/api/links/{QUERY}/{TYPE}           getLinks         block, address
      * /{COIN}/api/lists/{QUERY}/{TYPE}           getLists         block, address
@@ -591,7 +622,7 @@ class Database {
      * /{COIN}/explorer/dispenses/{QUERY}/{TYPE}     getDispenses    block, address, token
      * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
      * /{COIN}/explorer/fees/{QUERY}/{TYPE}          getFees         block, address, token
-     * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address
+     * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address, token
      * /{COIN}/explorer/holders/{TYPE}               getHolders      token
      * /{COIN}/explorer/history/{QUERY}/{TYPE}       getHistory      block, address, token, recent
      * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
@@ -1072,44 +1103,91 @@ class Database {
     // Get list of FILE actions
     async getFiles(config){
         let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        files m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.action_index,
-                        m.name,
-                        m.title,
-                        t3.type as type,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        files m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
+        let count = null;
+        let query = null;
+        if(config.data.type=='token'){
+            count = `SELECT
+                            count(*) as total
+                        FROM
+                            mappings_files m
+                            INNER JOIN files              f1 ON (f1.action_index=m.action_index)
+                            INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN index_addresses    a2 ON (a2.id=f1.source_id)
+                            INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
+                            INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                            INNER JOIN index_tickers      t4 on (t4.id=m.id)
+                        WHERE ` + sql.where.data;
+            query = `SELECT
+                            f1.action_index,
+                            f1.name,
+                            f1.title,
+                            t3.type as type,
+                            a2.address as source,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m1.memo,
+                            s1.status
+                        FROM
+                            mappings_files m
+                            INNER JOIN files              f1 ON (f1.action_index=m.action_index)
+                            INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN index_addresses    a2 ON (a2.id=f1.source_id)
+                            INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
+                            INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                            INNER JOIN index_tickers      t4 on (t4.id=m.id)
+                        WHERE ` + sql.where.data + sql.where.offset +`
+                        ORDER BY m.action_index ` + sql.order + `
+                        LIMIT ` + sql.limit;
+        } else {
+            count = `SELECT
+                            count(*) as total
+                        FROM
+                            files m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                            INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                        WHERE ` + sql.where.data;
+            query = `SELECT
+                            m.action_index,
+                            m.name,
+                            m.title,
+                            t3.type as type,
+                            a2.address as source,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m1.memo,
+                            s1.status
+                        FROM
+                            files m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                            INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                        WHERE ` + sql.where.data + sql.where.offset +`
+                        ORDER BY m.action_index ` + sql.order + `
+                        LIMIT ` + sql.limit;
+        }
         return [query, null, count];
     }    
 
@@ -2726,9 +2804,10 @@ class Database {
                 query1 = `SELECT
                             a2.action,
                             l1.action_index,
-                            l1.link_action_index,
-                            c1.coin,
-                            l1.coin_action_index,
+                            c1.coin as coin1,
+                            c2.coin as coin2,
+                            l1.coin1_action_index,
+                            l1.coin2_action_index,
                             a3.address as source,
                             b1.block_index,
                             b1.block_time as timestamp,
@@ -2746,7 +2825,8 @@ class Database {
                             INNER JOIN index_memos        m1 ON (m1.id=l1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_coins        c1 ON (c1.id=l1.coin_id)
+                            INNER JOIN index_coins        c1 ON (c1.id=l1.coin1_id)
+                            INNER JOIN index_coins        c2 ON (c2.id=l1.coin2_id)
                         WHERE 
                             l1.action_index=?
                         LIMIT 1`;

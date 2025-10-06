@@ -89,6 +89,54 @@ body {
     position: relative;
     top: 5px;  
 }
+.fa-mempool {
+    background-image: url('../images/mempool-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-blockstream {
+    background-image: url('../images/blockstream-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-blockcypher {
+    background-image: url('../images/blockcypher-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-blockchair {
+    background-image: url('../images/blockchair-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-litecoinspace {
+    background-image: url('../images/litecoinspace-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
+.fa-sochain {
+    background-image: url('../images/sochain-icon-20.png');
+    background-repeat: no-repeat;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    top: 0px;  
+}
 
 /* CSS for sticky footer (also requires html/)*/
 .footer {

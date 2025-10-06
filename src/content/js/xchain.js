@@ -26,8 +26,8 @@ XC = {
     // List of supported coin networks
     networks: {
         mainnet: '',
-        testnet: 't',
-        regtest: 'r'
+        testnet: 'T',
+        regtest: 'R'
     },
 
     // List of supported actions
@@ -141,8 +141,8 @@ function setXChainParams(){
     for(let coin in XC.coins){
         if(XC.coin==null){
             for(let network in XC.networks){
-                let name = XC.networks[network] + coin;
-                if(String(path[1]).toLowerCase()==String(name).toLowerCase()){
+                let name = String(XC.networks[network] + coin).toUpperCase();;
+                if(String(path[1]).toUpperCase()==name){
                     XC.coin = name;
                     XC.name = XC.coins[coin];
                     XC.network = network;
@@ -161,9 +161,9 @@ function setXChainParams(){
     // Set query and query type to a valid value
     let type  = String(path[2]).toLowerCase();
     let query = path[path.length-1];
-    if(['block','address','token'].includes(type)){
+    if(['block','address','token','action'].includes(type)){
         let valid = false;
-        if((type=='block'   && isNumeric(query)) ||
+        if((['block','action'].includes(type)  && isNumeric(query)) ||
            (type=='address' && isCryptoAddress(query)) ||
            (type=='token'   && typeof(query)=='string')){
             XC.type  = type;
@@ -284,17 +284,38 @@ function formatLivestamp(timestamp=null){
 
 // Build out nice links to view transactions in other explorers
 function formatTransactionLink(tx){
-    var testnet = (location.hostname.indexOf('testnet')!=-1) ? true : false,
-        html    = tx;
-    if(testnet){
-        html += '<a href="https://testnet.xchain.io/tx/'                + tx + '" target="_blank" title="XChain"       ><i class="ms-1 fa fa-lg fa-xchain"></i></a>';
-        html += '<a href="https://blockstream.info/testnet/tx/'         + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
-    } else {
-        html += '<a href="https://xchain.io/tx/'                        + tx + '" target="_blank" title="XChain"       ><i class="ms-1 fa fa-lg fa-xchain"></i></a>';
+    let html = tx;
+    let coin = XC.coin;
+    html += '<a href="/' + XC.coin + '/tx/'                              + tx + '" target="_blank" title="XChain"       ><i class="ms-1 fa fa-lg icon-20 fa-xchain"></i></a>';
+    if(coin=='BTC'){
         html += '<a href="https://mempool.space/tx/'                    + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
         html += '<a href="https://blockstream.info/tx/'                 + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
         html += '<a href="https://live.blockcypher.com/btc/tx/'         + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
         html += '<a href="https://blockchair.com/bitcoin/transaction/'  + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
+        html += '<a href="https://chain.so/tx/BTC/'                     + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
+    } else if(coin=='TBTC'){
+        // Testnet 3 
+        // html += '<a href="https://mempool.space/testnet3/tx/'           + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
+        // html += '<a href="https://blockstream.info/testnet/tx/'         + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
+        // html += '<a href="https://live.blockcypher.com/btc-testnet/tx/' + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
+        // Testnet 4
+        html += '<a href="https://mempool.space/testnet4/tx/'           + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
+        html += '<a href="https://chain.so/tx/BTCTEST/'                 + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
+    } else if(coin=='LTC'){
+        html += '<a href="https://live.blockcypher.com/ltc/tx/'         + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
+        html += '<a href="https://blockchair.com/litecoin/transaction/' + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
+        html += '<a href="https://litecoinspace.org/tx/'                + tx + '" target="_blank" title="LitecoinSpace"><i class="ms-1 fa fa-lg fa-litecoinspace"></i></a>';
+        html += '<a href="https://chain.so/tx/LTC/'                     + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
+    } else if(coin=='TLTC'){
+        html += '<a href="https://litecoinspace.org/testnet/tx/'        + tx + '" target="_blank" title="LitecoinSpace"><i class="ms-1 fa fa-lg fa-litecoinspace"></i></a>';
+        html += '<a href="https://chain.so/tx/LTCTEST/'                 + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
+    } else if(coin=='DOGE'){
+        html += '<a href="https://live.blockcypher.com/doge/tx/'        + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
+        html += '<a href="https://blockchair.com/dogecoin/transaction/' + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
+        html += '<a href="https://chain.so/tx/DOGE/'                    + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
+    } else if(coin=='TDOGE'){
+        html += '<a href="https://litecoinspace.org/testnet/tx/'        + tx + '" target="_blank" title="LitecoinSpace"><i class="ms-1 fa fa-lg fa-litecoinspace"></i></a>';
+        html += '<a href="https://chain.so/tx/DOGETEST/'                + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     }
     $('#tx-hash').html(html);
 }
@@ -393,8 +414,12 @@ function setupActionListeners(){
                 text = $(this).text();
             $('#datatable-header-icon').removeClass().addClass(icon);
             $('#datatable-header-text').text(text);
+            let load = true;
+            // Skip loading data in certain cases (like actions where all data already exists in the API call)
+            if(XC.type=='action')
+                load = false;
             // Handle initilizing the datatable for this action
-            if(!XC.datatables[action]){
+            if(!XC.datatables[action] && load){
                 XC.datatables[action] = {};
                 if(XC.debug)
                     console.log('loading ' + action + ' data...');
@@ -881,12 +906,13 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Link
             if(action=='link'){
-                coin_index  = data[4];
-                coin2       = data[5];
-                coin2_index = data[6];
-                memo        = data[7];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/action/' + coin_index, coin_index));
-                $('td', row).eq(5).html(formatLink('/' + coin2 + '/action/' + coin2_index, coin2_index));
+                coin1       = data[4];
+                coin1_index = data[5];
+                coin2       = data[6];
+                coin2_index = data[7];
+                memo        = data[8];
+                $('td', row).eq(4).html(formatLink('/' + coin1 + '/action/' + coin1_index, coin1 + '-' + coin1_index));
+                $('td', row).eq(5).html(formatLink('/' + coin2 + '/action/' + coin2_index, coin2 + '-' + coin2_index));
                 $('td', row).eq(6).text(memo);
                 $('td', row).eq(7).html(action_link);
             }
@@ -1087,7 +1113,7 @@ function loadDatatablesData(coin, action, query, type){
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
     let endpoint = null;
-    if(['history','block','network','token'].includes(action) || (action=='address' && type==null)){
+    if(['history','block','network','token','action'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
     } else if(['address','batch'].includes(action)){
         endpoint = action + 'es';

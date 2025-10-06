@@ -3355,7 +3355,7 @@ class Database {
                 if(results && results.length)
                     data.credits = results;
             }
-            // Handle looking up any CREDITS associated with this action
+            // Handle looking up any DEBITS associated with this action
             if(debits){
                 query = `SELECT
                             a1.address,
@@ -3373,7 +3373,7 @@ class Database {
                 if(results && results.length)
                     data.debits = results;
             }
-            // Handle looking up any CREDITS associated with this action
+            // Handle looking up any ESCROWS associated with this action
             if(escrows){
                 query = `SELECT
                             a1.address,

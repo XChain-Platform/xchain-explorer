@@ -2456,18 +2456,21 @@ class Database {
         let type = await this.getActionType(config, action_index);
         if(type){
             // Placeholders for queries and arguments
-            let query1  = null;
+            let query   = null;
             let query2  = null;
             let query3  = null;
-            let query4  = null;
-            let args1   = [action_index];
-            let args2   = null;
-            let args3   = null;
-            let args4   = null;
+            let args    = [action_index];
             let results = null;
+            // Flag to indicate if we should return credits/debits/escrow data
+            let credits = true;
+            let debits  = true;
+            let escrows = true;
+            // Set credits/debits/escrow flags to false in certain cases
+            if(['ADDRESS','BROADCAST'].includes(type))
+                credits = debits = escrows = false;
             // ADDRESS action
             if(type=='ADDRESS'){
-                query1 = `SELECT
+                query = `SELECT
                             a3.action,
                             a2.action_format,
                             a1.action_index,
@@ -2496,7 +2499,7 @@ class Database {
             }
             // AIRDROP action
             if(type=='AIRDROP'){
-                query1 = `SELECT
+                query = `SELECT
                             a3.action,
                             a2.action_format,
                             a1.action_index,
@@ -2524,24 +2527,10 @@ class Database {
                         WHERE 
                             a1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers      t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses    a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? AND
-                            c1.amount=?
-                        ORDER BY 
-                            a1.address ASC`;
             }
             // BATCH action
             if(type=='BATCH'){
-                query1 = `SELECT
+                query = `SELECT
                             a3.action,
                             a2.action_format,
                             b1.action_index,
@@ -2576,7 +2565,7 @@ class Database {
             }
             // BROADCAST action
             if(type=='BROADCAST'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             b1.action_index,
@@ -2607,7 +2596,7 @@ class Database {
             }
             // CALLBACK action
             if(type=='CALLBACK'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             c1.action_index,
@@ -2636,38 +2625,11 @@ class Database {
                         WHERE 
                             c1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            c1.amount DESC`;
-                // Debits
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            d1.amount
-                        FROM
-                            debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
-                        WHERE 
-                            d1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            d1.amount DESC`;
+
             }
             // DESTROY action
             if(type=='DESTROY'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             d1.action_index,
@@ -2705,7 +2667,7 @@ class Database {
             }
             // FILE action
             if(type=='FILE'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             f1.action_index,
@@ -2737,7 +2699,7 @@ class Database {
             }
             // ISSUE action
             if(type=='ISSUE'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             i1.action_index,
@@ -2786,38 +2748,10 @@ class Database {
                         WHERE 
                             i1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            c1.amount DESC`;
-                // Debits
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            d1.amount
-                        FROM
-                            debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
-                        WHERE 
-                            d1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            d1.amount DESC`;
             }
             // LINK action
             if(type=='LINK'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             l1.action_index,
@@ -2850,7 +2784,7 @@ class Database {
             }
             // LIST action
             if(type=='LIST'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             l1.action_index,
@@ -2900,7 +2834,7 @@ class Database {
             }
             // MESSAGE action
             if(type=='MESSAGE'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             m1.action_index,
@@ -2931,7 +2865,7 @@ class Database {
             }
             // MINT action
             if(type=='MINT'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             m1.action_index,
@@ -2960,38 +2894,10 @@ class Database {
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            c1.amount DESC`;
-                // Debits
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            d1.amount
-                        FROM
-                            debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
-                        WHERE 
-                            d1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            d1.amount DESC`;
             }
             // ORDER action
             if(type=='ORDER'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             o1.action_index,
@@ -3030,38 +2936,10 @@ class Database {
                         WHERE 
                             o1.action_index=?
                         LIMIT 1`;
-                // Debits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            d1.amount
-                        FROM
-                            debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
-                        WHERE 
-                            d1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            d1.amount DESC`;
-                // Escrows
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            e1.amount
-                        FROM
-                            escrows e1
-                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
-                        WHERE 
-                            e1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            e1.amount DESC`;
             }
             // ORDER_CANCEL action
             if(type=='ORDER_CANCEL'){
-                query1 = `SELECT
+                query = `SELECT
                         a2.action,
                         a1.action_format,
                         o1.action_index,
@@ -3086,36 +2964,10 @@ class Database {
                     WHERE 
                         o1.action_index=?
                     LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? 
-                        ORDER BY
-                            c1.amount DESC`;
-                // Escrows
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            e1.amount
-                        FROM
-                            escrows e1
-                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
-                        WHERE 
-                            e1.action_index=? 
-                        ORDER BY
-                            e1.amount DESC`;
             }
             // ORDER_EDIT action
             if(type=='ORDER_EDIT'){
-                query1 = `SELECT
+                query = `SELECT
                         a2.action,
                         a1.action_format,
                         o1.action_index,
@@ -3146,7 +2998,7 @@ class Database {
             }
             // ORDER_MATCH action
             if(type=='ORDER_MATCH'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             m1.action_index,
@@ -3170,37 +3022,11 @@ class Database {
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? 
-                        ORDER BY
-                            c1.amount DESC`;
-                // Escrows
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            e1.amount
-                        FROM
-                            escrows e1
-                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
-                        WHERE 
-                            e1.action_index=? 
-                        ORDER BY
-                            e1.amount DESC`;
             }
             // SEND action
             // TODO: Revisit this code and optimize it to support Multi-sends (right now shows first send status instead of every send status as it should)
             if(type=='SEND'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             s1.action_index,
@@ -3229,36 +3055,10 @@ class Database {
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? 
-                        ORDER BY
-                            c1.amount DESC`;
-                // Debits
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            d1.amount
-                        FROM
-                            debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
-                        WHERE 
-                            d1.action_index=?
-                        ORDER BY
-                            d1.amount DESC`;                    
             }
             // SLEEP action
             if(type=='SLEEP'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             s1.action_index,
@@ -3289,7 +3089,7 @@ class Database {
             }
             // SWAP action
             if(type=='SWAP'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             s1.action_index,
@@ -3328,38 +3128,10 @@ class Database {
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
-                // Debits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            d1.amount
-                        FROM
-                            debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
-                        WHERE 
-                            d1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            d1.amount DESC`;
-                // Escrows
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            e1.amount
-                        FROM
-                            escrows e1
-                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
-                        WHERE 
-                            e1.action_index=? AND 
-                            t1.tick=?
-                        ORDER BY
-                            e1.amount DESC`;
             }
             // SWAP_CANCEL action
             if(type=='SWAP_CANCEL'){
-                query1 = `SELECT
+                query = `SELECT
                         a2.action,
                         a1.action_format,
                         s1.action_index,
@@ -3384,37 +3156,10 @@ class Database {
                     WHERE 
                         s1.action_index=?
                     LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? 
-                        ORDER BY
-                            c1.amount DESC`;
-                // Escrows
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            e1.amount
-                        FROM
-                            escrows e1
-                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
-                        WHERE 
-                            e1.action_index=? 
-                        ORDER BY
-                            e1.amount DESC`;
-
             }
             // SWAP_EDIT action
             if(type=='SWAP_EDIT'){
-                query1 = `SELECT
+                query = `SELECT
                         a2.action,
                         a1.action_format,
                         s1.action_index,
@@ -3445,7 +3190,7 @@ class Database {
             }
             // SWAP_MATCH action
             if(type=='SWAP_MATCH'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             m1.action_index,
@@ -3469,36 +3214,10 @@ class Database {
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? 
-                        ORDER BY
-                            c1.amount DESC`;
-                // Escrows
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            e1.amount
-                        FROM
-                            escrows e1
-                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
-                        WHERE 
-                            e1.action_index=? 
-                        ORDER BY
-                            e1.amount DESC`;
             }
             // SWEEP
             if(type=='SWEEP'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             s1.action_index,
@@ -3526,35 +3245,9 @@ class Database {
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
-                // Credits
-                query2 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            c1.amount
-                        FROM
-                            credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
-                        WHERE 
-                            c1.action_index=? 
-                        ORDER BY
-                            c1.amount DESC`;
-                // Debits
-                query3 = `SELECT
-                            a1.address,
-                            t1.tick,
-                            d1.amount
-                        FROM
-                            debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
-                        WHERE 
-                            d1.action_index=?
-                        ORDER BY
-                            d1.amount DESC`;
                 // Issues
                 // TODO: Update query once each sweep issue is its own action_index
-                query4 = `SELECT
+                query2 = `SELECT
                             a1.address,
                             t1.tick
                         FROM
@@ -3568,7 +3261,7 @@ class Database {
             }
             // UNKNOWN
             if(type=='UNKNOWN'){
-                query1 = `SELECT
+                query = `SELECT
                             a2.action,
                             a1.action_format,
                             a1.action_index,
@@ -3590,91 +3283,113 @@ class Database {
                         LIMIT 1`;
             }
             // Run the SQL query to get the information on the action_index
-            if(query1){
-                results = await this.doQuery(config, query1, args1);
+            if(query){
+                results = await this.doQuery(config, query, args);
                 if(results && results.length)
                     data = results[0];
             }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
                 // Set correct arguments for the query
-                args2 = [action_index];
-                if(type=='AIRDROP'){
-                    args2.push(data.amount);
-                } else if(type=='BATCH'){
-                    args2.push(data.tx_index);                
-                } else if(type=='CALLBACK'){
-                    args2.push(data.callback_tick);
-                } else if(['ISSUE','MINT'].includes(type)){
-                    args2.push(data.tick);
-                } else if(['ORDER','SWAP'].includes(type)){
-                    args2.push(data.give_tick);
-                }
-                // Run the secondary query and process the results
+                let args2 = [action_index];
+                if(type=='BATCH')
+                    args2.push(data.tx_index);
                 results = await this.doQuery(config, query2, args2);
                 if(results && results.length){
-                    // Insert the data at the correct place in the data object
-                    if(['ORDER','SWAP'].includes(type)){
-                        data.debits = results
                     // Loop through action_indexes and add to actions array
-                    } else if(type=='BATCH'){
+                    if(type=='BATCH'){
                         let actions = [];
                         for(let row of results){
                             let info = await this.getActionData(config, Number(row.action_index));
                             actions.push(info);
                         }
                         data.actions = actions;
+                    }
                     // Handle populating the list based off the list TYPE field
-                    }  else if(type=='LIST'){
+                    if(type=='LIST'){
                         let list = [];
                         for(let row of results){
                             if(data.type==1) list.push(row.tick);
                             if(data.type==2) list.push(row.address);
                         }
                         data.list = list.sort();
-                    } else {
-                        data.credits = results;
+                    }
+                    // Add any ISSUES to the sweep data
+                    if(type=='SWEEP'){
+                        data.issues = results;
                     }
                 }
             }
             // If we have a third query defined, run it and apply the data to the correct place in the data object
             if(query3){
                 // Set correct arguments for the query
-                args3 = [action_index];
-                if(['CALLBACK','ISSUE','MINT'].includes(type)){
-                    args3.push(data.tick);
-                } else if(['ORDER','SWAP'].includes(type)){
-                    args3.push(data.give_tick);
-                }
-                // Run the third query and process the results
+                let args3 = [action_index];
                 results = await this.doQuery(config, query3, args3);
                 if(results && results.length){
-                    // Insert the data at the correct place in the data object
-                    if(['ORDER','ORDER_MATCH','ORDER_CANCEL','SWAP','SWAP_MATCH','SWAP_CANCEL'].includes(type)){
-                        data.escrows = results;
                     // Handle populating the list edits based off the list TYPE field
-                    } else if(type=='LIST'){
+                    if(type=='LIST'){
                         let edits = [];
                         for(let row of results){
                             if(data.type==1) edits.push({ tick: row.tick, status: row.status });
                             if(data.type==2) edits.push({ address: row.address, status: row.status });
                         }
                         data.edits = edits.sort();
-                    } else {
-                        data.debits = results;
                     }
                 }
             }
-            // If we have a fourth query defined, run it and apply the data to the correct place in the data object
-            if(query4){
-                // Set correct arguments for the query
-                args4 = [action_index];
-                // Run the fourth query and process the results
-                results = await this.doQuery(config, query4, args4);
-                if(results && results.length){
-                    if(type=='SWEEP') 
-                        data.issues = results;
-                }            
+            // Handle looking up any CREDITS associated with this action
+            if(credits){
+                query = `SELECT
+                            a1.address,
+                            t1.tick,
+                            c1.amount
+                        FROM
+                            credits c1
+                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
+                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
+                        WHERE 
+                            c1.action_index=?
+                        ORDER BY
+                            c1.amount DESC`;
+                results = await this.doQuery(config, query, args);
+                if(results && results.length)
+                    data.credits = results;
+            }
+            // Handle looking up any CREDITS associated with this action
+            if(debits){
+                query = `SELECT
+                            a1.address,
+                            t1.tick,
+                            d1.amount
+                        FROM
+                            debits d1
+                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
+                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
+                        WHERE 
+                            d1.action_index=?
+                        ORDER BY
+                            d1.amount DESC`;
+                results = await this.doQuery(config, query, args);
+                if(results && results.length)
+                    data.debits = results;
+            }
+            // Handle looking up any CREDITS associated with this action
+            if(escrows){
+                query = `SELECT
+                            a1.address,
+                            t1.tick,
+                            e1.amount
+                        FROM
+                            escrows e1
+                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
+                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
+                        WHERE 
+                            e1.action_index=?
+                        ORDER BY
+                            e1.amount DESC`;
+                results = await this.doQuery(config, query, args);
+                if(results && results.length)
+                    data.escrows = results;
             }
             // Include any fee associated with this action_index
             let fee = await this.getActionFeeData(config, action_index);

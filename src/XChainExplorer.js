@@ -608,7 +608,7 @@ class XChainExplorer {
                     if(method=='getIssues')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.max_supply, info.max_mint, locks, status, info.action_index];
                     if(method=='getLinks')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.link_action_index, info.coin, info.coin_action_index, info.memo, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.coin1, info.coin1_action_index, info.coin2, info.coin2_action_index, info.memo, status, info.action_index];
                     if(method=='getLists')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.edit, status, info.action_index];
                     if(method=='getMessages')
@@ -638,6 +638,8 @@ class XChainExplorer {
         // Reverse the results if action is previous or last
         if(['prev','last'].includes(action))
             show = show.reverse();
+
+        // replace any null values with ""
 
         return show;
     }

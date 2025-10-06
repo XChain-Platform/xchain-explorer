@@ -370,7 +370,7 @@ class Database {
             // Build out where SQL 
             if(type=='address'){
                 if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
-                    where = ` AND (m.source_id=` + id + ` OR m.destination_id=` + id + `)`;
+                    where = ` AND (t1.source_id=` + id + ` OR m.destination_id=` + id + `)`;
                 } else if(['getTokens'].includes(method)){
                     where = ` AND m.owner_id=` + id;
                 } else if(['getCredits','getDebits','getEscrows'].includes(method)){
@@ -378,7 +378,7 @@ class Database {
                 } else if(['getHistory'].includes(method)){
                     where = ` AND m.type_id=2 AND m.id=` + id;
                 } else {
-                    where = ` AND m.source_id=` + id;
+                    where = ` AND t1.source_id=` + id;
                 }
             } else if(type=='block' && !this.util.isNull(config.data.search)){
                 where = ` AND b1.block_index=` + config.data.search;
@@ -470,6 +470,7 @@ class Database {
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
             }
+            console.log('sql1=',sql);
             // Run Query to try and get offset information 
             rows = await this.doQuery(config, sql);
             if(rows.length>0){
@@ -534,12 +535,16 @@ class Database {
                             m.action_index as offset
                         FROM
                             ` + table + ` m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         WHERE 
                             m.action_index IS NOT NULL
                             ` + where + `
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
                 }
+                console.log('sql2=',sql);
                 // Run Query to try and get offset information 
                 rows = await this.doQuery(config, sql);
                 // Only set the stop offset number if we have more data to show
@@ -648,7 +653,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -669,7 +674,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -689,7 +694,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -712,7 +717,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -733,7 +738,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data;
@@ -750,7 +755,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -769,7 +774,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -792,7 +797,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -812,7 +817,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -836,7 +841,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -858,7 +863,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -880,7 +885,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -906,7 +911,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -937,7 +942,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -967,7 +972,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -996,7 +1001,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1020,7 +1025,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1044,7 +1049,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1066,7 +1071,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -1089,7 +1094,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -1156,7 +1161,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1179,7 +1184,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1201,7 +1206,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1245,7 +1250,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1268,17 +1273,19 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.coin1_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.coin2_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
-                        m.link_action_index,
-                        c1.coin,
-                        m.coin_action_index,
+                        c1.coin as coin1,
+                        m.coin1_action_index,
+                        c2.coin as coin2,
+                        m.coin2_action_index,
                         a2.address as source,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -1291,11 +1298,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.coin1_id)
+                        INNER JOIN index_coins        c2 ON (c2.id=m.coin2_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1312,7 +1320,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data;
@@ -1332,7 +1340,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -1355,7 +1363,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1378,7 +1386,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1404,7 +1412,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1428,7 +1436,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1454,7 +1462,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m2 ON (m2.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1488,7 +1496,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1513,7 +1521,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1533,7 +1541,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1553,7 +1561,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1576,7 +1584,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1639,7 +1647,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1663,7 +1671,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1685,7 +1693,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1708,7 +1716,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1733,7 +1741,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1767,7 +1775,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1792,7 +1800,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1812,7 +1820,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1832,7 +1840,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1855,7 +1863,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1918,7 +1926,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -1941,7 +1949,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2461,6 +2469,7 @@ class Database {
             if(type=='ADDRESS'){
                 query1 = `SELECT
                             a3.action,
+                            a2.action_format,
                             a1.action_index,
                             a4.address as source,
                             a1.fee_preference,
@@ -2477,7 +2486,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a3 ON (a3.id=a2.action_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=a1.source_id)
+                            INNER JOIN index_addresses    a4 ON (a4.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2489,6 +2498,7 @@ class Database {
             if(type=='AIRDROP'){
                 query1 = `SELECT
                             a3.action,
+                            a2.action_format,
                             a1.action_index,
                             a4.address as source,
                             t3.tick,
@@ -2506,7 +2516,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a3 ON (a3.id=a2.action_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=a1.source_id)
+                            INNER JOIN index_addresses    a4 ON (a4.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2533,6 +2543,7 @@ class Database {
             if(type=='BATCH'){
                 query1 = `SELECT
                             a3.action,
+                            a2.action_format,
                             b1.action_index,
                             a4.address as source,
                             b2.block_index,
@@ -2546,7 +2557,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                             INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
                             INNER JOIN index_actions      a3 ON (a3.id=a2.action_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=b1.source_id)
+                            INNER JOIN index_addresses    a4 ON (a4.id=t1.source_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
@@ -2567,6 +2578,7 @@ class Database {
             if(type=='BROADCAST'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             b1.action_index,
                             b1.message,
                             b1.value,
@@ -2585,7 +2597,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=b1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=b1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2597,6 +2609,7 @@ class Database {
             if(type=='CALLBACK'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             c1.action_index,
                             a3.address as source,
                             t3.tick,
@@ -2614,7 +2627,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=c1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=c1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=c1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2656,6 +2669,7 @@ class Database {
             if(type=='DESTROY'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             d1.action_index,
                             a3.address as source,
                             t3.tick,
@@ -2672,7 +2686,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=d1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2693,6 +2707,7 @@ class Database {
             if(type=='FILE'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             f1.action_index,
                             f1.name,
                             f1.title,
@@ -2710,7 +2725,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=f1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2724,6 +2739,7 @@ class Database {
             if(type=='ISSUE'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             i1.action_index,
                             t3.tick,
                             i1.max_supply,
@@ -2760,7 +2776,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=i1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    a4 ON (a4.id=i1.transfer_id)
                             LEFT  JOIN index_addresses    a5 ON (a5.id=i1.transfer_supply_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=i1.status_id)
@@ -2803,6 +2819,7 @@ class Database {
             if(type=='LINK'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             l1.action_index,
                             c1.coin as coin1,
                             c2.coin as coin2,
@@ -2821,7 +2838,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=l1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=l1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2835,6 +2852,7 @@ class Database {
             if(type=='LIST'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             l1.action_index,
                             l1.type,
                             l1.edit,
@@ -2851,7 +2869,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=l1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
@@ -2884,6 +2902,7 @@ class Database {
             if(type=='MESSAGE'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             m1.action_index,
                             a3.address as source,
                             a4.address as destination,
@@ -2902,7 +2921,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=m1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_addresses    a4 ON (a4.id=m1.destination_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2914,6 +2933,7 @@ class Database {
             if(type=='MINT'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             m1.action_index,
                             a3.address as source,
                             a4.address as destination,
@@ -2931,7 +2951,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=m1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_addresses    a4 ON (a4.id=m1.destination_id)
                             INNER JOIN index_memos        m2 ON (m2.id=m1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
@@ -2973,6 +2993,7 @@ class Database {
             if(type=='ORDER'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             o1.action_index,
                             c1.coin as give_coin,
                             t3.tick as give_tick,
@@ -2997,7 +3018,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=o1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_addresses    a4 ON (a4.id=o1.get_address_id)
                             INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
@@ -3042,6 +3063,7 @@ class Database {
             if(type=='ORDER_CANCEL'){
                 query1 = `SELECT
                         a2.action,
+                        a1.action_format,
                         o1.action_index,
                         o1.order_action_index,
                         a3.address as source,
@@ -3057,7 +3079,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=o1.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                         INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3095,6 +3117,7 @@ class Database {
             if(type=='ORDER_EDIT'){
                 query1 = `SELECT
                         a2.action,
+                        a1.action_format,
                         o1.action_index,
                         o1.order_action_index,
                         a3.address as source,
@@ -3113,7 +3136,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=o1.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                         INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3125,6 +3148,7 @@ class Database {
             if(type=='ORDER_MATCH'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             m1.action_index,
                             c1.coin as give_coin,
                             m1.give_action_index,
@@ -3178,6 +3202,7 @@ class Database {
             if(type=='SEND'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             s1.action_index,
                             a3.address as source,
                             a4.address as destination,
@@ -3195,7 +3220,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_addresses    a4 ON (a4.id=s1.destination_id)
                             INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                             INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
@@ -3235,6 +3260,7 @@ class Database {
             if(type=='SLEEP'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             s1.action_index,
                             s1.type,
                             a3.address as source,
@@ -3252,7 +3278,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                             INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3265,6 +3291,7 @@ class Database {
             if(type=='SWAP'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             s1.action_index,
                             c1.coin as give_coin,
                             t3.tick as give_tick,
@@ -3289,7 +3316,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_addresses    a4 ON (a4.id=s1.get_address_id)
                             INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                             INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
@@ -3334,6 +3361,7 @@ class Database {
             if(type=='SWAP_CANCEL'){
                 query1 = `SELECT
                         a2.action,
+                        a1.action_format,
                         s1.action_index,
                         s1.swap_action_index,
                         a3.address as source,
@@ -3349,7 +3377,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                         INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                         INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3388,6 +3416,7 @@ class Database {
             if(type=='SWAP_EDIT'){
                 query1 = `SELECT
                         a2.action,
+                        a1.action_format,
                         s1.action_index,
                         s1.swap_action_index,
                         a3.address as source,
@@ -3406,7 +3435,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                         INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                         INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3418,6 +3447,7 @@ class Database {
             if(type=='SWAP_MATCH'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             m1.action_index,
                             c1.coin as give_coin,
                             m1.give_action_index,
@@ -3470,6 +3500,7 @@ class Database {
             if(type=='SWEEP'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             s1.action_index,
                             a3.address as source,
                             a4.address as destination,
@@ -3487,7 +3518,7 @@ class Database {
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=s1.source_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             INNER JOIN index_addresses    a4 ON (a4.id=s1.destination_id)
                             INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                             INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
@@ -3539,10 +3570,13 @@ class Database {
             if(type=='UNKNOWN'){
                 query1 = `SELECT
                             a2.action,
+                            a1.action_format,
                             a1.action_index,
+                            a3.address as source,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
+                            'invalid' as status,
                             t1.tx_index
                         FROM
                             actions                       a1
@@ -3550,6 +3584,7 @@ class Database {
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                         WHERE 
                             a1.action_index=?
                         LIMIT 1`;
@@ -3646,9 +3681,9 @@ class Database {
             if(fee)
                 data.fee = fee;
             // Include any related action_indexes
-            let related = await this.getRelatedActions(config, action_index);
-            if(related)
-                data.related_actions = related;
+            // let related = await this.getRelatedActions(config, action_index);
+            // if(related)
+            //     data.related_actions = related;
         }
         return data;
     }
@@ -3658,16 +3693,18 @@ class Database {
         let fee   = null;
         let args  = [action_index];
         let query = `SELECT
-                        a1.address as source,
-                        a2.address as destination,
-                        t1.tick,
+                        a2.address as source,
+                        a3.address as destination,
+                        t2.tick,
                         f1.amount,
                         f1.method
                     FROM
                         fees f1
-                        INNER JOIN index_tickers   t1 ON (t1.id=f1.tick_id)
-                        INNER JOIN index_addresses a1 ON (a1.id=f1.source_id)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=f1.destination_id)
+                        INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)
+                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE 
                         f1.action_index=?`;
         let results = await this.doQuery(config, query, args);
@@ -3728,6 +3765,7 @@ class Database {
     }
 
     // Get actions related to a given action_index
+    // TODO: Circle back through and get related actions working
     async getRelatedActions(config, action_index){
         let type    = await this.getActionType(config, action_index);
         let actions = [{ foo: 'bar' }];
@@ -3748,30 +3786,6 @@ class Database {
         //     type = results[0].action;
         return actions;
     }
-
-    // Get fee information for a given action_index
-    async getActionFeeData(config, action_index){
-        let fee   = null;
-        let args  = [action_index];
-        let query = `SELECT
-                        a1.address as source,
-                        a2.address as destination,
-                        t1.tick,
-                        f1.amount,
-                        f1.method
-                    FROM
-                        fees f1
-                        INNER JOIN index_tickers   t1 ON (t1.id=f1.tick_id)
-                        INNER JOIN index_addresses a1 ON (a1.id=f1.source_id)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=f1.destination_id)
-                    WHERE 
-                        f1.action_index=?`;
-        let results = await this.doQuery(config, query, args);
-        if(results && results.length)
-            fee = results[0];
-        return fee;
-    }
-
     // Get history information for a given address
     // NOTE: Supports following search types ('block', 'address', 'token', 'recent')
     async getHistoryData(config){

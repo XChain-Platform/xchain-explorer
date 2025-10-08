@@ -60,6 +60,38 @@ XC = {
         'sweeps'
     ],
 
+    // List of supported fee prefences
+    fee_preferences: {
+        1: 'Fee is destroyed, lowering supply',
+        2: 'Fee is donated to XChain protocol development', // default
+        3: 'Fee is donated to XChain community development'
+    },
+
+    // List of supported sleep types
+    sleep_types: {
+        1: 'Address',
+        2: 'Token'
+    },
+
+    // List of lists types
+    list_types: {
+        1: 'Token',
+        2: 'Address'
+    },
+
+    // List of list edit types
+    list_edit_types: {
+        0: 'Create',
+        1: 'Add',
+        2: 'Remove'
+    },
+
+    // List of supported message encryption methods
+    encryption_methods: {
+        1: 'Elliptic-Curve Diffie–Hellman (ECDH)',
+        2: 'Advanced Encryption Standard (AES)'
+    },
+
     // Placeholder for current coin, network, query, and query type
     coin:    null,
     name:    null,
@@ -265,7 +297,7 @@ function formatLink(url=null, text=null, icon=false, btn=false){
     var html = '',
         cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
         html += '<a href="' + url + '" class="' + cls + '">';
-    if(icon)
+    if(icon && icon!='.png')
         html += '<img src="/images/icons/default.png" class="icon-20 ms-1 me-1">';
         // html += '<img src="/images/icons/' + icon + '" class="icon-20 float-start me-1">';
     if(text)
@@ -406,18 +438,23 @@ function getCoinNetworkInfo(callback, force){
 function setupActionListeners(){
     for(let action of XC.panels){
         $('#tab-dropdown-' + action).click(function(){
+            let load = true;
             // Hide all tab panels and only show the active one
             $('.tab-pane').removeClass('active show');
             $('#tab-pane-' + action).addClass('active show');
             // Update datatable header to show correct icon and text for the data
             var icon = $(this).find('i').attr('class'),
                 text = $(this).text();
+            // Skip loading data in certain cases (like actions where all data already exists in the API call)
+            if(XC.type=='action'){
+                load = false;
+                if(action=='info'){
+                    icon = 'fa fa-info-circle';
+                    text = 'Action Details';
+                }
+            }
             $('#datatable-header-icon').removeClass().addClass(icon);
             $('#datatable-header-text').text(text);
-            let load = true;
-            // Skip loading data in certain cases (like actions where all data already exists in the API call)
-            if(XC.type=='action')
-                load = false;
             // Handle initilizing the datatable for this action
             if(!XC.datatables[action] && load){
                 XC.datatables[action] = {};
@@ -492,6 +529,123 @@ function bcdiv(numA, numB, decimals){
     let b = (!isNull(numB)) ? numB : 0;
     let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
     return bcnum(math.format(math.divide(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+}
+
+// Handle initializing datatables with static data (pre-populated)
+function initStaticDatatable(tableId, autoWidth=true){
+    // Set number of records per page to display
+    var sm   = localStorage,
+        rec  = sm.getItem('records_per_page');
+        page = (rec) ? parseInt(rec) : 10;
+    // Detect any 'per page' changes and save to localStorage
+    $('#' + tableId).on( 'length.dt', function ( e, settings, length ){
+        sm.setItem('records_per_page',length);
+    });
+    // Initialized the datatable
+    $('#' + tableId).dataTable({
+        lengthMenu: [[10,20,30,40,50,60,70,80,90,100],[10,20,30,40,50,60,70,80,90,100]],
+        pageLength: page,
+        dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
+        pagingType: "full",
+        serverSide: false,
+        searching: false,
+        ordering: true,
+        processing: true,
+        autoWidth: autoWidth,
+        language: {
+            lengthMenu: "_MENU_ per page",
+            zeroRecords: "No records found",
+            info: "_TOTAL_ results",
+            infoEmpty: "No records available",
+            paginate: {
+                first: "<i class='fa fa-chevron-left'></i><i class='fa fa-chevron-left'></i>",
+                previous: "<i class='fa fa-chevron-left'></i><span id='" + tableId + "-paginate-info'></span>",
+                next: "<i class='fa fa-chevron-right'></i>",
+                last: "<i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>"
+            }
+        },
+        fnDrawCallback: function(o){
+            var total  = o.fnRecordsTotal(),
+                length = o._iDisplayLength,
+                stop   = o._iDisplayStart + length,
+                page   = stop / length,
+                pages  = total / length;
+            if(pages > parseInt(pages))
+                pages = parseInt(pages) + 1;
+            // Add 'Page X of Y' in between previous/next buttons
+            var page_status = $('#' + tableId + '_wrapper .page-status');
+            if(page_status.length==0){
+                $('#' + tableId + '_wrapper .paginate_button.previous').after('<span class="page-status">page status here</span>');
+                page_status = $('#' + tableId + '_wrapper .page-status');
+            }
+            page_status.text('Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0'));
+        }
+    });
+}
+
+// Handle getting a quick summary of action details
+function getActionDetails(action, info){
+    let html = '';
+    let coin = XC.coin; // TODO: update when XChain adds cross-network support
+    if(action=='ADDRESS'){
+        let pref = (info.fee_preference==1) ? 'Destroy' : 'Donate';
+        let memo = (info.require_memo==1) ? 'True' : 'False';
+        html += 'Fee Preference: ' + pref + '; Require Memo: ' + memo ;
+    }
+    if(action=='AIRDROP'){
+        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' to ';
+        html += 'List ' + formatLink('/' + coin + '/token/' + info.list_action_index, info.list_action_index);
+    }
+    if(action=='BROADCAST')
+        html = info.message;
+    if(action=='CALLBACK'){
+        html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' for ' ;
+        html += info.callback_amount  + formatLink('/' + XC.coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick + '.png');
+    }
+    if(action=='FILE')
+        html = info.type + ' - ' + info.name + ' - ' + info.title;
+    if(action=='ISSUE')
+        html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
+    if(action=='LINK'){
+        html += coin + ' action ' + formatLink('/' + coin + '/token/' + info.link_action_index, info.link_action_index) + ' to ';
+        html += info.coin + ' action ' + formatLink('/' + info.coin + '/token/' + info.coin_action_index, info.coin_action_index);
+    }
+    if(action=='LIST'){
+        let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
+        let type2   = (info.type==2) ? 'Token' : 'Address';
+        html = action3 + ' ' + type2 + ' List';
+    }
+    if(action=='MESSAGE'){
+        if([1,2].includes(info.encryption_method)){
+            html = 'Encryption key exchange with ' + formatLink('/' + coin + '/address/' + info.destination, info.destination);
+        } else if(info.plaintext_message){
+            html = info.plaintext_message;
+        } else {
+            html = 'Encrypted message to ' + formatLink('/' + coin + '/address/' + info.destination, info.destination);
+        }
+    }
+    if(action=='MINT')
+        html = info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
+    if(['ORDER','SWAP'].includes(action)){
+        html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick + '.png') + ' for ' ;
+        html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick + '.png');
+    }
+    if(action=='SWAP_CANCEL')
+        html += 'Cancel swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
+    if(action=='SWAP_EDIT')
+        html += 'Edit swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
+    if(action=='SEND'){
+        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' to ';
+        html +=formatLink('/' + coin + '/address/' + info.destination, info.destination);
+    }
+    if(action=='SLEEP'){
+        if(info.type==1)
+            html = 'Address';
+        if(info.type==2)
+            html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
+        html += ' until block ' + formatAmount(info.resume_block);
+    }
+    return html;
 }
 
 /**********************************************************************
@@ -614,9 +768,6 @@ function loadDatatablesData(coin, action, query, type){
                 page_status = $('#' + tableId + '_wrapper .page-status');
             }
             page_status.text('Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0'));
-            // Add 'Page X of Y' in between previous/next buttons
-            // $('.paginate_button.previous').after('&nbsp;&nbsp;Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0') + '&nbsp;&nbsp;');
-            // $('#' + tableId + "-paginate-info").text('Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0'));
             // Track first and last shown action_index (used for offset tracking)
             if(o.json.data && o.json.data.length){
                 var first = o.json.data[0],
@@ -1024,65 +1175,7 @@ function loadDatatablesData(coin, action, query, type){
                 let action2 = data[3];
                 let info    = data[4];
                 $('td', row).eq(3).html(action2);
-                let html = '';
-                if(action2=='ADDRESS'){
-                    let pref = (info.fee_preference==1) ? 'Destroy' : 'Donate';
-                    let memo = (info.require_memo==1) ? 'True' : 'False';
-                    html += 'Fee Preference: ' + pref + '; Require Memo: ' + memo ;
-                }
-                if(action2=='AIRDROP'){
-                    html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' to ';
-                    html += 'List ' + formatLink('/' + coin + '/token/' + info.list_action_index, info.list_action_index);
-                }
-                if(action2=='BROADCAST')
-                    html = info.message;
-                if(action2=='CALLBACK'){
-                    html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' for ' ;
-                    html += info.callback_amount  + formatLink('/' + coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick + '.png');
-                }
-                if(action2=='FILE')
-                    html = info.type + ' - ' + info.name + ' - ' + info.title;
-                if(action2=='ISSUE')
-                    html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
-                if(action2=='LINK'){
-                    html += coin + ' action ' + formatLink('/' + coin + '/token/' + info.link_action_index, info.link_action_index) + ' to ';
-                    html += info.coin + ' action ' + formatLink('/' + info.coin + '/token/' + info.coin_action_index, info.coin_action_index);
-                }
-                if(action2=='LIST'){
-                    let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
-                    let type2   = (info.type==2) ? 'Token' : 'Address';
-                    html = action3 + ' ' + type2 + ' List';
-                }
-                if(action2=='MESSAGE'){
-                    if([1,2].includes(info.encryption_method)){
-                        html = 'Encryption key exchange with ' + formatLink('/' + coin + '/address/' + info.destination, info.destination);
-                    } else if(info.plaintext_message){
-                        html = info.plaintext_message;
-                    } else {
-                        html = 'Encrypted message to ' + formatLink('/' + coin + '/address/' + info.destination, info.destination);
-                    }
-                }
-                if(action2=='MINT')
-                    html = info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
-                if(['ORDER','SWAP'].includes(action2)){
-                    html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick + '.png') + ' for ' ;
-                    html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick + '.png');
-                }
-                if(action2=='SWAP_CANCEL')
-                    html += 'Cancel swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
-                if(action2=='SWAP_EDIT')
-                    html += 'Edit swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
-                if(action2=='SEND'){
-                    html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' to ';
-                    html +=formatLink('/' + coin + '/address/' + info.destination, info.destination);
-                }
-                if(action2=='SLEEP'){
-                    if(info.type==1)
-                        html = 'Address';
-                    if(info.type==2)
-                        html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
-                    html += ' until block ' + formatAmount(info.resume_block);
-                }
+                let html = getActionDetails(action2, info);
                 $('td', row).eq(4).html(html);
                 $('td', row).eq(5).html(action_link);
             }
@@ -1137,6 +1230,351 @@ function loadApiData(coin, action, query, type, callback){
                 callback(o);
         }
     });
+}
+
+// Handle converting null values in an object to empty strings 
+function null2string(obj){
+    if(obj === null)
+        return '';
+    if(typeof obj === 'object' && !Array.isArray(obj)){
+        const newObj = {};
+        for(const key in obj){
+          if(Object.prototype.hasOwnProperty.call(obj, key))
+            newObj[key] = null2string(obj[key]);
+        }
+        return newObj;
+    }
+    if(Array.isArray(obj))
+        return obj.map(item => null2string(item));
+    return obj;
+}
+
+// Handle displaying action details
+function showActionDetails(){
+    // Setup short alias to action info object
+    let o = XC.actionInfo;
+    // Update page with basic transaction details
+    let source        = (o.source)       ? formatLink('/' + XC.coin + '/address/' + o.source, o.source) : '-';
+    let tx_index      = (o.tx_index)     ? formatLink('/' + XC.coin + '/tx/' + o.tx_index, formatAmount(o.tx_index)) : '-';
+    let block_index   = (o.block_index)  ? formatLink('/' + XC.coin + '/block/' + o.block_index, formatAmount(o.block_index)) : '-';
+    let action_index  = (o.action_index) ? formatLink('/' + XC.coin + '/action/' + o.action_index, formatAmount(o.action_index)) : '-';
+    let action_format = (isNumeric(o.action_format)) ? o.action_format : '-';
+    let action        = (o.action) ? o.action : '-';
+    let status        = (o.status) ? o.status : '-';
+    $('#tx-index').html(tx_index);
+    $('#block').html(block_index);
+    $('#action-command').text(action);
+    $('#action-format').text(action_format);
+    $('#action-index').html(action_index);
+    $('#action-status').text(status);    
+    $('#source').html(source);
+    $('#timestamp').html(formatLivestamp(o.timestamp) + ' (' + moment.unix(o.timestamp).utcOffset(0).format() + ' GMT)');
+    // Add links to block explorers next to transaction hash
+    if(o.tx_hash){
+        formatTransactionLink(o.tx_hash);
+    } else {
+       $('#tx-hash').text('-');
+    }
+    // Display the specific actions for this tranaction
+    // TODO: Cleanup this code once all actions are working (reduce to just call on show{ACTION}Details(o))
+    var found = false;
+    if(o.action=='ADDRESS'){     found = true;  showAddressDetails(o);    }
+    if(o.action=='AIRDROP'){     found = true;  showAirdropDetails(o);    }
+    if(o.action=='BATCH'){       found = true;  showBatchDetails(o);      }
+    if(o.action=='BROADCAST'){   found = true;  showBroadcastDetails(o);  }
+    if(o.action=='CALLBACK'){    found = true;  showCallbackDetails(o);   }
+    if(o.action=='DESTROY'){     found = true;  showDestroyDetails(o);    }
+    // if(o.action=='DISPENSER'){   found = true;  showDispenserDetails(o);  }
+    // if(o.action=='DISPENSE'){    found = true;  showDispenseDetails(o);   }
+    // if(o.action=='DIVIDEND'){    found = true;  showDividendDetails(o);   }
+    if(o.action=='FILE'){        found = true;  showFileDetails(o);       }
+    if(o.action=='ISSUE'){       found = true;  showIssueDetails(o);      }
+    if(o.action=='LINK'){        found = true;  showLinkDetails(o);       }
+    if(o.action=='LIST'){        found = true;  showListDetails(o);       }
+    if(o.action=='MESSAGE'){     found = true;  showMessageDetails(o);    }
+    if(o.action=='MINT'){        found = true;  showMintDetails(o);       }
+    if(o.action=='ORDER'){       found = true;  showOrderDetails(o);      }
+    if(o.action=='ORDER_MATCH'){ found = true;  showOrderMatchDetails(o); }
+    if(o.action=='SEND'){        found = true;  showSendDetails(o);       }
+    if(o.action=='SLEEP'){       found = true;  showSleepDetails(o);      }
+    if(o.action=='SWAP'){        found = true;  showSwapDetails(o);       }
+    if(o.action=='SWAP_MATCH'){  found = true;  showSwapMatchDetails(o);  }
+    if(o.action=='SWEEP'){       found = true;  showSweepDetails(o);      }
+    // Load the action table data for credits/debits/escrow/fees
+    showActionDatatable('credit',o.credits);
+    showActionDatatable('debit', o.debits);
+    showActionDatatable('escrow',o.escrows);
+    // Display any fees for the action
+    showActionFeeDetails(o.fee);
+    // Display the correct ACTION section and hide the 'No information available' message
+    if(found){
+        let name  = String(o.action).replaceAll('_','-').toLowerCase();
+        $('#info-' + name).removeClass('d-none');
+        $('#additionalInfoNotAvailable').hide();
+    }
+}
+
+// Display ADDRESS action information
+function showAddressDetails(data){
+    let preference   = (data.fee_preference) ? (' - ' + XC.fee_preferences[data.fee_preference]) : '';
+    let require_memo = (data.require_memo==1) ? 'true' : 'false';
+    $('#info-address .address-fee-preference').text(data.fee_preference + preference);
+    $('#info-address .address-require-memo').text(require_memo);
+    $('#info-address .address-memo').text(data.memo);
+}
+
+// Display AIRDROP action information
+function showAirdropDetails(data){
+    $('#info-airdrop .airdrop-list').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
+    $('#info-airdrop .airdrop-token').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-airdrop .airdrop-amount').html(formatAmount(data.amount));
+    $('#info-airdrop .airdrop-memo').text(data.memo);
+}
+
+// Display BATCH action information
+function showBatchDetails(data){
+    showActionDatatable('batch',data.actions);
+}
+
+// Display BROADCAST action information
+function showBroadcastDetails(data){
+    let percent = (data.fee) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.fee, 100, 2) + '%</span>') : '';
+    $('#info-broadcast .broadcast-message').text(data.message);
+    $('#info-broadcast .broadcast-value').text(formatAmount(data.value));
+    $('#info-broadcast .broadcast-fee').html(data.fee + percent);
+    $('#info-broadcast .broadcast-memo').text(data.memo);
+}
+
+// Display CALLBACK action information
+function showCallbackDetails(data){
+    $('#info-callback .callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-callback .callback-callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.callback_tick, data.callback_tick, data.callback_tick + '.png'));
+    $('#info-callback .callback-amount').html(formatAmount(data.callback_amount));
+    $('#info-callback .callback-memo').text(data.memo);
+}
+
+// Display DESTROY action information
+function showDestroyDetails(data){
+    $('#info-destroy .destroy-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-destroy .destroy-amount').html(formatAmount(data.amount));
+    $('#info-destroy .destroy-memo').text(data.memo);
+}
+
+// Display FILE action information
+function showFileDetails(data){
+    $('#info-file .file-name').text(data.name);
+    $('#info-file .file-title').text(data.title);
+    $('#info-file .file-type').text(data.type);
+    $('#info-file .file-memo').text(data.memo);
+}
+
+// Display ISSUE action information
+function showIssueDetails(data){
+    $('#info-issue .issue-transfer').html(formatLink('/' + XC.coin + '/address/' + data.transfer, data.transfer));
+    $('#info-issue .issue-ticker').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-issue .issue-decimals').text(data.decimals);
+    $('#info-issue .issue-max-supply').text(data.max_supply);
+    $('#info-issue .issue-max-mint').text(data.max_mint);
+    $('#info-issue .issue-mint-supply').text(data.mint_supply);
+    $('#info-issue .issue-transfer-supply').html(formatLink('/' + XC.coin + '/address/' + data.transfer_supply, data.transfer_supply));
+    $('#info-issue .issue-callback-block').text(data.callback_block);
+    $('#info-issue .issue-callback-tick').text(data.callback_tick);
+    $('#info-issue .issue-callback-amount').text(data.callback_amount);
+    $('#info-issue .issue-description').text(data.description);
+    $('#info-issue .issue-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-issue .issue-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-issue .issue-mint-address-max').text(data.mint_address_max);
+    $('#info-issue .issue-mint-start-block').text(data.mint_start_block);
+    $('#info-issue .issue-mint-stop-block').text(data.mint_stop_block);
+    $('#info-issue .issue-lock-max-supply').text(data.lock_max_supply);
+    $('#info-issue .issue-lock-mint').text(data.lock_mint);
+    $('#info-issue .issue-lock-mint-supply').text(data.lock_mint_supply);
+    $('#info-issue .issue-lock-description').text(data.lock_description);
+    $('#info-issue .issue-lock-rug').text(data.lock_rug);
+    $('#info-issue .issue-lock-sleep').text(data.lock_sleep);
+    $('#info-issue .issue-lock-callback').text(data.lock_callback);    
+}
+
+// Display LINK action information
+function showLinkDetails(data){
+    $('#info-link .link-coin1').text(data.coin1);
+    $('#info-link .link-coin1-action-index').html(formatLink('/' + data.coin1 + '/action/' + data.coin1_action_index, formatAmount(data.coin1_action_index)));
+    $('#info-link .link-coin2').text(data.coin2);
+    $('#info-link .link-coin2-action-index').html(formatLink('/' + data.coin2 + '/action/' + data.coin2_action_index, formatAmount(data.coin2_action_index)));
+    $('#info-link .link-memo').text(data.memo);
+}
+
+// Display LIST action information
+function showListDetails(data){
+    if(!data.edit)
+        data.edit = 0;
+    let list_type = XC.list_types[data.type];
+    let type = (data.type) ? (data.type + ' - ' + list_type) : '';
+    let edit = (isNumeric(data.edit)) ? (data.edit + ' - ' + XC.list_edit_types[data.edit]) : '';
+    $('#info-list .list-type').text(type);
+    $('#info-list .list-edit-type').text(edit);
+    $('#info-list .list-action-index').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
+    // Add header columns
+    $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
+    $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');
+    showActionDatatable('list-edits', data.edits, list_type, false);
+    showActionDatatable('list-items', data.list,  list_type, false);
+
+}
+
+// Display MESSAGE action information
+function showMessageDetails(data){
+    let encryption_method = (XC.encryption_methods[data.encryption_method]) ? (data.encryption_method + ' - ' + XC.encryption_methods[data.encryption_method]) : '';
+    $('#info-message .message-method').text(encryption_method);
+    $('#info-message .message-key').text(data.encryption_key);
+    $('#info-message .message-plaintext').text(data.plaintext_message);
+    $('#info-message .message-encrypted').text(data.encrypted_message);
+    $('#info-message .message-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+}
+
+// Display MINT action information
+function showMintDetails(data){
+    $('#info-mint .mint-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-mint .mint-amount').html(formatAmount(data.amount));
+    $('#info-mint .mint-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    $('#info-mint .mint-memo').text(data.memo);
+}
+
+// Display ORDER action information
+function showOrderDetails(data){
+    $('#info-order .order-give-coin').text(data.give_coin);
+    $('#info-order .order-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick + '.png'));
+    $('#info-order .order-give-amount').html(formatAmount(data.give_amount));
+    $('#info-order .order-get-coin').text(data.get_coin);
+    $('#info-order .order-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick + '.png'));
+    $('#info-order .order-get-amount').html(formatAmount(data.get_amount));
+    $('#info-order .order-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-order .order-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-order .order-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-order .order-memo').text(data.memo);
+}
+
+// Display ORDER_MATCH action information
+function showOrderMatchDetails(data){
+    $('#info-order-match .order-match-order1-coin').text(data.give_coin);
+    $('#info-order-match .order-match-order1-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-order-match .order-match-order2-coin').text(data.get_coin);
+    $('#info-order-match .order-match-order2-action-index').html(formatLink('/' + data.get_coin + '/action/' + data.get_action_index, formatAmount(data.get_action_index)));
+}
+
+// Display SEND action information
+function showSendDetails(data){
+    showActionDatatable('send',data.sends);
+}
+
+// Display SLEEP action information
+function showSleepDetails(data){
+    let sleep_type = data.type + ' - Sleep ' + XC.sleep_types[data.type];
+    $('#info-sleep .sleep-type').text(sleep_type);
+    $('#info-sleep .sleep-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-sleep .sleep-resume-block').html(formatLink('/' + XC.coin + '/block/' + data.resume_block, formatAmount(data.resume_block)));
+    $('#info-sleep .sleep-memo').text(data.memo);
+}
+
+// Display SWAP action information
+function showSwapDetails(data){
+    $('#info-swap .swap-give-coin').text(data.give_coin);
+    $('#info-swap .swap-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick + '.png'));
+    $('#info-swap .swap-give-amount').html(formatAmount(data.give_amount));
+    $('#info-swap .swap-get-coin').text(data.get_coin);
+    $('#info-swap .swap-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick + '.png'));
+    $('#info-swap .swap-get-amount').html(formatAmount(data.get_amount));
+    $('#info-swap .swap-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-swap .swap-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-swap .swap-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-swap .swap-memo').text(data.memo);
+}
+
+// Display SWAP_MATCH action information
+function showSwapMatchDetails(data){
+    $('#info-swap-match .swap-match-swap1-coin').text(data.give_coin);
+    $('#info-swap-match .swap-match-swap1-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-swap-match .swap-match-swap2-coin').text(data.get_coin);
+    $('#info-swap-match .swap-match-swap2-action-index').html(formatLink('/' + data.get_coin + '/action/' + data.get_action_index, formatAmount(data.get_action_index)));
+}
+
+// Display SWEEP action information
+function showSweepDetails(data){
+    $('#info-sweep .sweep-balances').html(data.balances);
+    $('#info-sweep .sweep-ownerships').html(data.ownerships);
+    $('#info-sweep .sweep-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    $('#info-sweep .sweep-memo').text(data.memo);
+}
+
+// Display FEE details
+function showActionFeeDetails(data){
+    if(data){
+        let method = (data.method) ? (' - ' + XC.fee_preferences[data.method]) : '';
+        let tick   = (data.tick!='') ? data.tick : false;
+        $('#info-fee .fee-tick').html(formatLink('/' + XC.coin + '/token/' + tick, tick, tick + '.png'));
+        $('#info-fee .fee-amount').html(formatAmount(data.amount));
+        $('#info-fee .fee-method').html(data.method + method);
+        $('#info-fee .fee-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    }
+}
+
+// Display action datatables
+function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
+    var id   = 'datatable-' + type,
+        body = $('#' + id + ' tbody'),
+        html = '';
+    if(data && data.length>=1){
+        // Loop through data and add to the datatables before initialization
+        data.forEach(function(info, idx){
+            var cls = (info.status=='valid') ? 'bg-green' : 'bg-red';
+            if(type=='batch'){
+                html += '<tr class="' + cls + '">'
+                html += '    <td>' + (idx+1) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, formatAmount(info.action_index)) + '</td>';
+                html += '    <td>' + info.action + '</td>';
+                html += '    <td>' + getActionDetails(info.action, info) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, 'view', null, true) + '</td>';
+                html += '</tr>';
+            } else if(type=='list-items'){
+                html += '<tr>'
+                html += '    <td>' + (idx+1) + '</td>';
+                if(dataType=='Address')
+                    html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info, info) + '</td>';
+                if(dataType=='Token')
+                    html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info, info) + '</td>';
+                html += '</tr>';
+            } else if(type=='list-edits'){
+                html += '<tr class="' + cls + '">'
+                html += '    <td>' + (idx+1) + '</td>';
+                if(dataType=='Address')
+                    html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
+                if(dataType=='Token')
+                    html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick) + '</td>';
+                html += '    <td>' + info.status + '</td>';
+                html += '</tr>';
+            } else if(type=='send'){
+                var cls = (info.status=='valid') ? 'bg-green' : 'bg-red';
+                html += '<tr class="' + cls + '">'
+                html += '    <td>' + (idx+1) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.destination, info.destination) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick + '.png') + '</td>';
+                html += '    <td>' + formatAmount(info.amount) + '</td>';
+                html += '    <td>' + info.status + '</td>';
+                html += '</tr>';
+            } else {
+                html += '<tr>'
+                html += '    <td>' + (idx+1) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick + '.png') + '</td>';
+                html += '    <td>' + formatAmount(info.amount) + '</td>';
+                html += '</tr>';
+            }
+        });
+        body.html(html);
+    }
+    initStaticDatatable(id, autoWidth);
 }
 
 $(document).ready(function(){

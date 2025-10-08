@@ -1,0 +1,873 @@
+<!-- Transaction Information -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-xs-12">
+
+            <!-- Transaction Information -->
+            <div class="card table-responsive mb-3">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#transaction-info" aria-expanded="false" aria-controls="transaction-info" id="transaction-info-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-chain asset-icon-sm"></i> Transaction Information
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="transaction-info">
+                    <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                    <tbody>
+                    <tr>
+                        <th width="155">Transaction Hash</th>
+                        <td id="tx-hash"></td>
+                    </tr>
+                    <tr>
+                        <th>Transaction Index</th>
+                        <td id="tx-index"></td>
+                    </tr>
+                    <tr>
+                        <th>Source</th>
+                        <td id="source"></td>
+                    </tr>
+                    <tr>
+                        <th>Block #</th>
+                        <td id="block"></td>
+                    </tr>
+                    <tr>
+                        <th>Time</th>
+                        <td id="timestamp"></td>
+                    </tr>
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Action Information -->
+            <div class="card table-responsive mb-3">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#action-info" aria-expanded="false" aria-controls="action-info" id="action-info-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-chain asset-icon-sm"></i> Action Information
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="action-info">
+                    <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                    <tbody>
+                    <tr>
+                        <th width="155">Action</th>
+                        <td id="action-command"></td>
+                    </tr>
+                    <tr>
+                        <th>Action Index</th>
+                        <td id="action-index"></td>
+                    </tr>
+                    <tr>
+                        <th>Action Format</th>
+                        <td id="action-format"></td>
+                    </tr>
+                    <tr>
+                        <th>Action Status</th>
+                        <td id="action-status"></td>
+                    </tr>
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Action Information Dropdown -->
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12">
+
+            <!-- Tab Content -->
+            <div class="tab-content border mb-3 rounded-corners" id="data-panels">
+
+                <!-- Current data display and action selector -->
+                <div class="container">
+                    <div class="row border-bottom">
+                        <div class="col-6 text-start pt-1 pb-1 ps-1 align-top fw-bold">
+                            <i id="datatable-header-icon" class="fa fa-info-circle"></i>
+                            <span id="datatable-header-text">Action Details</span>
+                        </div>
+                        <div class="col-6 text-end   pt-0 pb-1 pe-1 align-middle">
+                            <div class="dropdown">
+                                <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    more info
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" id="tab-dropdown-info"     ><i class="fa fa-info-circle"       ></i> Details</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-credit"   ><i class="fa fa-plus"              ></i> Credits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-debit"    ><i class="fa fa-minus"             ></i> Debits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-escrow"   ><i class="fa fa-clock"             ></i> Escrows</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign"         ></i> Fees</a></li>
+                                </ul>
+                            </div>                              
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Action Information -->
+                <div class="tab-pane active fade show active table-responsive" id="tab-pane-info" role="tabpanel" aria-labelledby="tab-info" tabindex="0">
+                    <div class="table-responsive">
+
+                        <div id="additionalInfoNotAvailable">
+                            <div class="panel-body p-5">
+                                <center>No additional information is available at this time</center>
+                            </div>
+                        </div>
+
+                        <!-- ADDRESS Action -->
+                        <div class="d-none" id="info-address">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="150">Fee Preference</th>
+                                <td class="address-fee-preference"></td>
+                            </tr>
+                            <tr>
+                                <th>Require Memo</th>
+                                <td class="address-require-memo" style="overflow-wrap: anywhere;"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="address-memo"></td>
+                            </tr>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- AIRDROP Action -->
+                        <div class="d-none" id="info-airdrop">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">List</th>
+                                <td class="airdrop-list"></td>
+                            </tr>
+                            <tr>
+                                <th>Token</th>
+                                <td class="airdrop-token"></td>
+                            </tr>
+                            <tr>
+                                <th>Amount</th>
+                                <td class="airdrop-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="airdrop-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- BATCH action -->
+                        <div class="d-none" id="info-batch">
+                            <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-batch">
+                            <thead>
+                                <tr class="info">
+                                    <th class="record">#</th>
+                                    <th class="">Action Index</th>
+                                    <th class="">Action</th>
+                                    <th class="">Details</th>
+                                    <th class=""></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- BROADCAST Action -->
+                        <div class="d-none" id="info-broadcast">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Message</th>
+                                <td class="broadcast-message"></td>
+                            </tr>
+                            <tr>
+                                <th>Value</th>
+                                <td class="broadcast-value"></td>
+                            </tr>
+                            <tr>
+                                <th>Fee</th>
+                                <td class="broadcast-fee"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="broadcast-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- CALLBACK Action -->
+                        <div class="d-none" id="info-callback">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Token</th>
+                                <td class="callback-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Callback Token</th>
+                                <td class="callback-callback-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Callback Amount</th>
+                                <td class="callback-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="callback-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- DESTROY Action -->
+                        <div class="d-none" id="info-destroy">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Token</th>
+                                <td class="destroy-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Amount</th>
+                                <td class="destroy-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="destroy-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- FILE Action -->
+                        <div class="d-none" id="info-file">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Name</th>
+                                <td class="file-name"></td>
+                            </tr>
+                            <tr>
+                                <th>Title</th>
+                                <td class="file-title"></td>
+                            </tr>
+                            <tr>
+                                <th>Type</th>
+                                <td class="file-type"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="file-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <thead>
+                            <tr>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-file"></i> File Viewer</th>                                    
+                            </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                            </table>
+                            <div class="panel-body p-5">
+                                <center>File Viewer Coming Soon</center>
+                            </div>
+                        </div>
+
+
+                        <!-- ISSUE action -->
+                        <div class="d-none" id="info-issue">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="150">Ticker</th>
+                                <td class="issue-ticker"></td>
+                            </tr>
+                            <tr>
+                                <th>Description</th>
+                                <td class="issue-description" style="overflow-wrap: anywhere;"></td>
+                            </tr>
+                            <tr>
+                                <th>Decimals</th>
+                                <td class="issue-decimals"></td>
+                            </tr>
+                            <tr>
+                                <th>Max Supply</th>
+                                <td class="issue-max-supply"></td>
+                            </tr>
+                            <tr>
+                                <th>Mint Supply</th>
+                                <td class="issue-mint-supply"></td>
+                            </tr>
+                            <tr>
+                                <th>Transfer Supply</th>
+                                <td class="issue-transfer-supply"></td>
+                            </tr>
+                            <tr>
+                                <th>Transfer Owner</th>
+                                <td class="issue-transfer"></td>
+                            </tr>
+                            <tr>
+                                <th>Allow List</th>
+                                <td class="issue-allow-list"></td>
+                            </tr>
+                            <tr>
+                                <th>Block List</th>
+                                <td class="issue-block-list"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <thead>
+                            <tr>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-print"></i> Mints</th>                                    
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <th width="150">Mint Max</th>
+                                <td class="issue-max-mint"></td>
+                            </tr>
+                            <tr>
+                                <th>Mint Address Max</th>
+                                <td class="issue-mint-address-max"></td>
+                            </tr>
+                            <tr>
+                                <th>Mint Start Block</th>
+                                <td class="issue-mint-start-block"></td>
+                            </tr>
+                            <tr>
+                                <th>Mint Stop Block</th>
+                                <td class="issue-mint-stop-block"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <thead>
+                            <tr>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-recycle"></i> Callback</th>                                    
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <th>Callback Block</th>
+                                <td class="issue-callback-block"></td>
+                            </tr>
+                            <tr>
+                                <th>Callback Ticker</th>
+                                <td class="issue-callback-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Callback Amount</th>
+                                <td class="issue-callback-amount"></td>
+                            </tr>
+                            </tbody>
+                            <thead>
+                            <tr>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-lock"></i> Locks</th>                                    
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <th width="150">Lock Max Supply</th>
+                                <td class="issue-lock-max-supply"></td>
+                            </tr>
+                            <tr>
+                                <th>Lock Mint</th>
+                                <td class="issue-lock-mint"></td>
+                            </tr>
+                            <tr>
+                                <th>Lock Max Mint</th>
+                                <td class="issue-lock-max-mint"></td>
+                            </tr>
+                            <tr>
+                                <th>Lock Mint Supply</th>
+                                <td class="issue-lock-mint-supply"></td>
+                            </tr>
+                            <tr>
+                                <th>Lock Description</th>
+                                <td class="issue-lock-description"></td>
+                            </tr>
+                            <tr>
+                                <th>Lock Sleep</th>
+                                <td class="issue-lock-sleep"></td>
+                            </tr>
+                            <tr>
+                                <th>Lock Callback</th>
+                                <td class="issue-lock-callback"></td>
+                            </tr>
+                            </tbody>
+                            </table>                            
+                        </div>
+
+                        <!-- LINK Action -->
+                        <div class="d-none" id="info-link">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="175">Coin1</th>
+                                <td class="link-coin1"></td>
+                            </tr>
+                            <tr>
+                                <th>Coin1 Action Index</th>
+                                <td class="link-coin1-action-index"></td>
+                            </tr>
+                            <tr>
+                                <th>Coin2</th>
+                                <td class="link-coin2"></td>
+                            </tr>
+                            <tr>
+                                <th>Coin2 Action Index</th>
+                                <td class="link-coin2-action-index"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="link-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+
+                        <!-- LIST Action -->
+                        <div class="d-none" id="info-list">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">List Type</th>
+                                <td class="list-type"></td>
+                            </tr>
+                            <tr>
+                                <th>Edit Type</th>
+                                <td class="list-edit-type"></td>
+                            </tr>
+                            <tr>
+                                <th>List Action Index</th>
+                                <td class="list-action-index"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <thead>
+                            <tr>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-list"></i> List Information</th>                                    
+                            </tr>
+                            </thead>
+                            </table>
+                            <ul class="nav nav-pills nav-justified" id="list-tabs" role="tablist">
+                                  <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="list-edits-tab" data-bs-toggle="tab" data-bs-target="#list-edits-panel" type="button" role="tab" aria-controls="list-edits-panel" aria-selected="true"><i class="fa fa-lg fa-edit"></i> List Edits</button>
+                                  </li>
+                                  <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="list-items-tab" data-bs-toggle="tab" data-bs-target="#list-items-panel" type="button" role="tab" aria-controls="list-items-panel" aria-selected="false"><i class="fa fa-lg fa-list"></i> Full List</button>
+                                  </li>
+                            </ul>
+                            <div class="tab-content" id="list-tab-content">
+                                <!-- LIST Edits -->
+                                <div class="tab-pane fade show active" id="list-edits-panel" role="tabpanel" aria-labelledby="list-edits-tab">
+                                    <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-list-edits">
+                                    <thead>
+                                    </thead>
+                                    <tbody>
+                                    </tbody>
+                                    </table>
+                                </div>
+                                <!-- LIST Items -->
+                                <div class="tab-pane fade" id="list-items-panel" role="tabpanel" aria-labelledby="list-items-tab">
+                                    <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-list-items">
+                                    <thead>
+                                    </thead>
+                                    <tbody>
+                                    </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MESSAGE Action -->
+                        <div class="d-none" id="info-message">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="175">Encryption Method</th>
+                                <td class="message-method"></td>
+                            </tr>
+                            <tr>
+                                <th>Encryption Key</th>
+                                <td class="message-key"></td>
+                            </tr>
+                            <tr>
+                                <th>Encrypted Message</th>
+                                <td class="message-encrypted"></td>
+                            </tr>
+                            <tr>
+                                <th>Plaintext Message</th>
+                                <td class="message-plaintext"></td>
+                            </tr>
+                            <tr>
+                                <th>Destination</th>
+                                <td class="message-destination"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- MINT Action -->
+                        <div class="d-none" id="info-mint">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Token</th>
+                                <td class="mint-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Amount</th>
+                                <td class="mint-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Destination</th>
+                                <td class="mint-destination"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="mint-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ORDER Action -->
+                        <div class="d-none" id="info-order">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="175">Give Coin</th>
+                                <td class="order-give-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Give Token</th>
+                                <td class="order-give-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Give Amount</th>
+                                <td class="order-give-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Coin</th>
+                                <td class="order-get-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Token</th>
+                                <td class="order-get-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Amount</th>
+                                <td class="order-get-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Address</th>
+                                <td class="order-get-address"></td>
+                            </tr>
+                            <tr>
+                                <th>Expiration</th>
+                                <td class="order-expiration"></td>
+                            </tr>
+                            <tr>
+                                <th>Allow List</th>
+                                <td class="order-allow-list"></td>
+                            </tr>
+                            <tr>
+                                <th>Block List</th>
+                                <td class="order-block-list"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="order-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ORDER_MATCH Action -->
+                        <div class="d-none" id="info-order-match">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="175">Order1 Coin</th>
+                                <td class="order-match-order1-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Order1 Action Index</th>
+                                <td class="order-match-order1-action-index"></td>
+                            </tr>
+                            <tr>
+                                <th>Order2 Coin</th>
+                                <td class="order-match-order2-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Order2 Action Index</th>
+                                <td class="order-match-order2-action-index"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- SEND Action -->
+                        <div class="d-none" id="info-send">
+                            <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-send">
+                            <thead>
+                                <tr class="info">
+                                    <th class="record">#</th>
+                                    <th class="address">Address</th>
+                                    <th class="token">Token</th>
+                                    <th class="quantity">Amount</th>
+                                    <th class="status">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- SLEEP Action -->
+                        <div class="d-none" id="info-sleep">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Type</th>
+                                <td class="sleep-type"></td>
+                            </tr>
+                            <tr>
+                                <th>Token</th>
+                                <td class="sleep-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Resume Block</th>
+                                <td class="sleep-resume-block"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="sleep-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- SWAP Action -->
+                        <div class="d-none" id="info-swap">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="175">Give Coin</th>
+                                <td class="swap-give-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Give Token</th>
+                                <td class="swap-give-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Give Amount</th>
+                                <td class="swap-give-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Coin</th>
+                                <td class="swap-get-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Token</th>
+                                <td class="swap-get-tick"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Amount</th>
+                                <td class="swap-get-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Get Address</th>
+                                <td class="swap-get-address"></td>
+                            </tr>
+                            <tr>
+                                <th>Expiration</th>
+                                <td class="swap-expiration"></td>
+                            </tr>
+                            <tr>
+                                <th>Allow List</th>
+                                <td class="swap-allow-list"></td>
+                            </tr>
+                            <tr>
+                                <th>Block List</th>
+                                <td class="swap-block-list"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="swap-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- SWAP_MATCH Action -->
+                        <div class="d-none" id="info-swap-match">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="175">Swap1 Coin</th>
+                                <td class="swap-match-swap1-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Swap1 Action Index</th>
+                                <td class="swap-match-swap1-action-index"></td>
+                            </tr>
+                            <tr>
+                                <th>Swap2 Coin</th>
+                                <td class="swap-match-swap2-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Swap2 Action Index</th>
+                                <td class="swap-match-swap2-action-index"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- SWEEP Action -->
+                        <div class="d-none" id="info-sweep">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Balances</th>
+                                <td class="sweep-balances"></td>
+                            </tr>
+                            <tr>
+                                <th>Ownerships</th>
+                                <td class="sweep-ownerships"></td>
+                            </tr>
+                            <tr>
+                                <th>Destination</th>
+                                <td class="sweep-destination"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="sweep-memo"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Credits -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-credit" role="tabpanel" aria-labelledby="tab-credit" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-credit">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="">Address</th>
+                            <th class="">Token</th>
+                            <th class="">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Debits -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-debit" role="tabpanel" aria-labelledby="tab-debit" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-debit">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="address">Address</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Escrows -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-escrow" role="tabpanel" aria-labelledby="tab-pane-escrow" tabindex="0">
+                    <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-escrow">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="address">Address</th>
+                            <th class="token">Token</th>
+                            <th class="quantity">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Fees -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-fee" role="tabpanel" aria-labelledby="tab-fee" tabindex="0">
+                    <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%" id="info-fee">
+                    <tbody>
+                    <tr>
+                        <th width="155">Token</th>
+                        <td class="fee-tick"></td>
+                    </tr>
+                    <tr>
+                        <th>Amount</th>
+                        <td class="fee-amount"></td>
+                    </tr>
+                    <tr>
+                        <th>Method</th>
+                        <td class="fee-method"></td>
+                    </tr>
+                    <tr>
+                        <th>Destination</th>
+                        <td class="fee-destination"></td>
+                    </tr>
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Code to load/update data -->
+<!-- <script type="text/javascript" src="/js/action.js"></script> -->
+<script type="text/javascript">
+
+$(document).ready(function(){
+
+    // Build out a list of data panels for this page
+    XC.panels = [
+        'credit',
+        'debit',
+        'escrow',
+        'fee',
+        'info'
+    ];
+
+    if(XC.query){
+
+        // Request information on this action, store the response in XC.actionInfo, and update the page with the details
+        loadApiData(XC.coin, 'action', XC.query, null, function(o){
+            XC.actionInfo = null2string(o);
+            showActionDetails();
+        });
+
+        // Setup listeners to load data panel when an action button is clicked
+        setupActionListeners();
+
+    }
+
+});
+</script>

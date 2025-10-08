@@ -1298,6 +1298,8 @@ function showActionDetails(){
     if(o.action=='SEND'){        found = true;  showSendDetails(o);       }
     if(o.action=='SLEEP'){       found = true;  showSleepDetails(o);      }
     if(o.action=='SWAP'){        found = true;  showSwapDetails(o);       }
+    if(o.action=='SWAP_CANCEL'){ found = true;  showSwapCancelDetails(o); }
+    if(o.action=='SWAP_EDIT'){   found = true;  showSwapEditDetails(o);   }
     if(o.action=='SWAP_MATCH'){  found = true;  showSwapMatchDetails(o);  }
     if(o.action=='SWEEP'){       found = true;  showSweepDetails(o);      }
     // Load the action table data for credits/debits/escrow/fees
@@ -1455,6 +1457,21 @@ function showOrderDetails(data){
     $('#info-order .order-memo').text(data.memo);
 }
 
+// Display ORDER_CANCEL action information
+function showOrderCancelDetails(data){
+    $('#info-order-cancel .swap-order-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-cancel .swap-order-memo').text(data.memo);
+}
+
+// Display ORDER_EDIT action information
+function showOrderEditDetails(data){
+    $('#info-order-edit .swap-order-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-edit .swap-order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-order-edit .swap-order-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-order-edit .swap-order-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-order-edit .swap-order-memo').text(data.memo);
+}
+
 // Display ORDER_MATCH action information
 function showOrderMatchDetails(data){
     $('#info-order-match .order-match-order1-coin').text(data.give_coin);
@@ -1490,6 +1507,21 @@ function showSwapDetails(data){
     $('#info-swap .swap-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
     $('#info-swap .swap-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-swap .swap-memo').text(data.memo);
+}
+
+// Display SWAP_CANCEL action information
+function showSwapCancelDetails(data){
+    $('#info-swap-cancel .swap-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    $('#info-swap-cancel .swap-cancel-memo').text(data.memo);
+}
+
+// Display SWAP_EDIT action information
+function showSwapEditDetails(data){
+    $('#info-swap-edit .swap-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-swap-edit .swap-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-swap-edit .swap-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-swap-edit .swap-edit-memo').text(data.memo);
 }
 
 // Display SWAP_MATCH action information

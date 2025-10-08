@@ -242,8 +242,8 @@ class Database {
             try {
                 result = await db.query(query, args);
             } catch (error){
-                // TODO : clean this up so we don't die on one bad query
-                this.util.logError('Error running query:', error);
+                console.log('SQL Query Error: ', error);
+                // this.util.logError('Error running query:', error);
             }
             await this.releaseConnection();
         }
@@ -470,7 +470,6 @@ class Database {
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
             }
-            console.log('sql1=',sql);
             // Run Query to try and get offset information 
             rows = await this.doQuery(config, sql);
             if(rows.length>0){
@@ -544,7 +543,6 @@ class Database {
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
                 }
-                console.log('sql2=',sql);
                 // Run Query to try and get offset information 
                 rows = await this.doQuery(config, sql);
                 // Only set the stop offset number if we have more data to show
@@ -1119,7 +1117,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=f1.source_id)
+                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1144,7 +1142,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=f1.source_id)
+                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                             INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3024,22 +3022,17 @@ class Database {
                         LIMIT 1`;
             }
             // SEND action
-            // TODO: Revisit this code and optimize it to support Multi-sends (right now shows first send status instead of every send status as it should)
             if(type=='SEND'){
+                // Get basic information on the send
                 query = `SELECT
                             a2.action,
                             a1.action_format,
                             s1.action_index,
                             a3.address as source,
-                            a4.address as destination,
-                            t3.tick,
-                            s1.amount,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
-                            t1.tx_index,
-                            m2.memo,
-                            s2.status
+                            t1.tx_index
                         FROM
                             sends s1
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
@@ -3047,14 +3040,25 @@ class Database {
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                             INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=s1.destination_id)
-                            INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                            INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=s1.tick_id)
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
+                // Get a list of sends
+                query2 = `SELECT
+                            a1.address as destination,
+                            t1.tick,
+                            s1.amount,
+                            m1.memo,
+                            s2.status
+                        FROM
+                            sends s1
+                            INNER JOIN index_addresses    a1 ON (a1.id=s1.destination_id)
+                            INNER JOIN index_memos        m1 ON (m1.id=s1.memo_id)
+                            INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                            INNER JOIN index_tickers      t1 ON (t1.id=s1.tick_id)
+                        WHERE 
+                            s1.action_index=?`;
             }
             // SLEEP action
             if(type=='SLEEP'){
@@ -3315,9 +3319,11 @@ class Database {
                         data.list = list.sort();
                     }
                     // Add any ISSUES to the sweep data
-                    if(type=='SWEEP'){
+                    if(type=='SWEEP')
                         data.issues = results;
-                    }
+                    // Add any SENDS to the send data
+                    if(type=='SEND')
+                        data.sends = results;
                 }
             }
             // If we have a third query defined, run it and apply the data to the correct place in the data object

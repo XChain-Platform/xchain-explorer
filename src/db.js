@@ -655,9 +655,12 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         m.fee_preference,
                         m.require_memo,
@@ -676,6 +679,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -697,9 +701,12 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         t3.tick,
                         m.list_action_index,
@@ -720,6 +727,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -739,9 +747,12 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -756,6 +767,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -776,9 +788,12 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         m.message,
                         m.value,
                         m.fee,
@@ -799,6 +814,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -821,9 +837,12 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         t3.tick,
                         t4.tick as callback_tick,
@@ -845,6 +864,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -866,9 +886,12 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         t3.tick,
                         m.amount,
@@ -888,6 +911,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -918,9 +942,12 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         a3.address as address,
                         c1.coin as give_coin,
@@ -949,6 +976,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -978,9 +1006,12 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         a3.address as address,
                         c1.coin as give_coin,
@@ -1007,6 +1038,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1029,9 +1061,12 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         t3.tick,
                         t4.tick as dividend_tick,
@@ -1053,6 +1088,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1077,6 +1113,7 @@ class Database {
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
+                        a1.action_format, 
                         a4.action,
                         a2.address as source,
                         a3.address as destination,
@@ -1123,9 +1160,12 @@ class Database {
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
                             INNER JOIN index_tickers      t4 on (t4.id=m.id)
+                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data;
             query = `SELECT
+                            a3.action,
                             f1.action_index,
+                            a1.action_format, 
                             f1.name,
                             f1.title,
                             t3.type as type,
@@ -1148,6 +1188,7 @@ class Database {
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
                             INNER JOIN index_tickers      t4 on (t4.id=m.id)
+                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data + sql.where.offset +`
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
@@ -1164,9 +1205,12 @@ class Database {
                             INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data;
             query = `SELECT
+                            a3.action,
                             m.action_index,
+                            a1.action_format, 
                             m.name,
                             m.title,
                             t3.type as type,
@@ -1187,6 +1231,7 @@ class Database {
                             INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data + sql.where.offset +`
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
@@ -1211,9 +1256,12 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                        INNER JOIN index_actions      a5 ON (a5.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a5.action,
                         m.action_index,
+                        a1.action_format, 
                         t3.tick,
                         m.max_supply,
                         m.max_mint,
@@ -1255,6 +1303,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                        INNER JOIN index_actions      a5 ON (a5.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1277,9 +1326,12 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.coin1_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.coin2_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         c1.coin as coin1,
                         m.coin1_action_index,
                         c2.coin as coin2,
@@ -1302,6 +1354,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.coin1_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.coin2_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1321,9 +1374,12 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         m.type,
                         m.edit,
                         m.list_action_index,
@@ -1341,6 +1397,7 @@ class Database {
                         INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1365,9 +1422,12 @@ class Database {
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         a3.address as destination,
                         m.encryption_method,
@@ -1388,13 +1448,12 @@ class Database {
                         INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
     }
-
-
 
     // Get list of MINT actions
     async getMints(config){
@@ -1416,9 +1475,12 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         a3.address as destination,
                         t3.tick,
@@ -1440,6 +1502,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1469,9 +1532,12 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         c1.coin as give_coin,
                         t3.tick as give_tick,
                         m.give_amount,
@@ -1503,6 +1569,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1523,9 +1590,12 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         m.order_action_index,
                         a2.address as source,
                         b1.block_index,
@@ -1543,6 +1613,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1563,9 +1634,12 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         m.order_action_index,
                         a2.address as source,
                         m.expiration,
@@ -1586,6 +1660,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1606,9 +1681,12 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a2.action,
                         m.action_index,
+                        a1.action_format, 
                         c1.coin as give_coin,
                         m.give_action_index,
                         c2.coin as get_coin,
@@ -1625,6 +1703,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1651,9 +1730,12 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         a3.address as destination,
                         t3.tick,
@@ -1675,6 +1757,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1696,9 +1779,12 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         m.type,
                         a2.address as source,
                         t3.tick,
@@ -1719,6 +1805,7 @@ class Database {
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1748,9 +1835,12 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         c1.coin as give_coin,
                         t3.tick as give_tick,
                         m.give_amount,
@@ -1782,6 +1872,7 @@ class Database {
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1802,9 +1893,12 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         m.swap_action_index,
                         a2.address as source,
                         b1.block_index,
@@ -1822,6 +1916,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1842,9 +1937,12 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a3.action,
                         m.action_index,
+                        a1.action_format, 
                         m.swap_action_index,
                         a2.address as source,
                         m.expiration,
@@ -1865,6 +1963,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1885,9 +1984,12 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a2.action,
                         m.action_index,
+                        a1.action_format, 
                         c1.coin as give_coin,
                         m.give_action_index,
                         c2.coin as get_coin,
@@ -1904,6 +2006,7 @@ class Database {
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
                         INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1929,9 +2032,12 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
+                        a4.action,
                         m.action_index,
+                        a1.action_format, 
                         a2.address as source,
                         a3.address as destination,
                         m.balances,
@@ -1952,6 +2058,7 @@ class Database {
                         INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;

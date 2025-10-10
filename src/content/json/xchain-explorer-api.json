@@ -5,30 +5,27 @@
         "description": "XChain Platform APIs which provide information on transactions and actions within the XChain Platform.",
         "version": "1.0.0"
     },
-    "tags": [
-        {
+    "tags": [{
+            "name": "General",
+            "description": "API endpoints that return XChain platform data"
+        },{
             "name": "Actions",
-            "description": "API endpoints that return specific XChain platform ACTION data",
+            "description": "API endpoints that return XChain platform ACTION data",
             "externalDocs": {
                 "description": "ACTION Documentation",
                 "url": "https://github.com/XChain-platform/xchain-documentation/blob/master/actions/README.md"
             }
-        },
-        {
-            "name": "Misc",
-            "description": "API endpoints that return miscellaneous XChain platform data"
-        }, {
+        },{
             "name": "Orders",
             "description": "API endpoints that return XChain platform order data"
-        }, {
+        },{
             "name": "Swaps",
             "description": "API endpoints that return XChain platform swap data"
-        },
-    ],
+    }],
     "paths": {
         "/{COIN}/api/action/{QUERY}": {
             "get": {
-                "tags": ["Actions"],
+                "tags": ["Actions", "General"],
                 "summary": "Get full details for a given action",
                 "description": "Retrieves full action information on a given action_index.",
                 "parameters": [{
@@ -42,6 +39,9 @@
                         "description": "successful operation",
                         "content": {
                             "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionDetail"
+                                }
                             }
                         }
                     }
@@ -1165,7 +1165,7 @@
         },
         "/{COIN}/api/address/{QUERY}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get COIN address information",
                 "description": "Retrieves COIN address information for a given address (type, balances, utxos, estimated value)",
                 "parameters": [{
@@ -1190,7 +1190,7 @@
         },
         "/{COIN}/api/balances/{QUERY}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get address token balance information",
                 "description": "Retrieves address token balances information",
                 "parameters": [{
@@ -1229,7 +1229,7 @@
         },
         "/{COIN}/api/block/{QUERY}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get block information",
                 "description": "Retrieves block information",
                 "parameters": [{
@@ -1260,7 +1260,7 @@
         },
         "/{COIN}/api/credits/{QUERY}/{TYPE}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get credit information",
                 "description": "Retrieves credit information for a given address or block",
                 "parameters": [{
@@ -1303,7 +1303,7 @@
         }, 
         "/{COIN}/api/debits/{QUERY}/{TYPE}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get debit information",
                 "description": "Retrieves debit information for a given address or block",
                 "parameters": [{
@@ -1346,7 +1346,7 @@
         }, 
         "/{COIN}/api/escrows/{QUERY}/{TYPE}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get escrow information",
                 "description": "Retrieves escrow information for a given address or block",
                 "parameters": [{
@@ -1389,7 +1389,7 @@
         }, 
         "/{COIN}/api/fees/{QUERY}/{TYPE}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get action fee information",
                 "description": "Retrieves action fee information",
                 "parameters": [{
@@ -1432,7 +1432,7 @@
         },
          "/{COIN}/api/history/{QUERY}/{TYPE}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get action history information",
                 "description": "Retrieves action history information",
                 "parameters": [{
@@ -1475,7 +1475,7 @@
         },
          "/{COIN}/api/holders/{QUERY}": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get token holder information",
                 "description": "Retrieves token holder information",
                 "parameters": [{
@@ -1496,16 +1496,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "allOf": [{
-                                        "type": "object",
-                                        "properties": {
-                                            "data": {
-                                                "$ref": "#/components/schemas/Holder",
-                                            }
-                                        }
-                                    },{
-                                        "$ref": "#/components/schemas/ApiResponse"
-                                   }]
+                                    "$ref": "#/components/schemas/Holder",
                                 }
                             }
                         }
@@ -1515,7 +1506,7 @@
         },
          "/{COIN}/api/network": {
             "get": {
-                "tags": ["Misc"],
+                "tags": ["General"],
                 "summary": "Get COIN network information",
                 "description": "Retrieves COIN network information",
                 "parameters": [{
@@ -1535,7 +1526,59 @@
                 }
             }
         },
-
+         "/{COIN}/api/token/{QUERY}": {
+            "get": {
+                "tags": ["General"],
+                "summary": "Get token information",
+                "description": "Retrieves token information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY-TOKEN",
+                    "description": "String to search for (token)",
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Token"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+         "/{COIN}/api/transaction/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["General"],
+                "summary": "Get transaction information",
+                "description": "Retrieves transaction information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE-TRANSACTION",
+                    "description": "Type of search to perform (tx_hash, tx_index)",
+                },{
+                    "$ref": "#/components/parameters/QUERY-TRANSACTION",
+                    "description": "String to search for (tx_hash, tx_index)",
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Transaction"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
     },
     "components": {
         "schemas": {
@@ -1587,6 +1630,97 @@
                     "tx_index": {
                         "type": "integer"
                     }
+                }
+            },
+            "ActionDetail": {
+                "type": "object",
+                "description": "Fields passed with detailed action responses (Response can also include fields from any action schema)",
+                "properties": {
+                    "action": {
+                        "type": "string"
+                    },
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    },
+                    "credits": {
+                        "type": "array",
+                        "description": "Array of credits associated with the action",
+                        "properties": {
+                            "address": {
+                                "type": "string"
+                            },
+                            "amount": {
+                                "type": "string"
+                            },
+                            "tick": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "debits": {
+                        "type": "array",
+                        "description": "Array of debits associated with the action",
+                        "properties": {
+                            "address": {
+                                "type": "string"
+                            },
+                            "amount": {
+                                "type": "string"
+                            },
+                            "tick": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "escrows": {
+                        "type": "array",
+                        "description": "Array of escrows associated with the action",
+                        "properties": {
+                            "address": {
+                                "type": "string"
+                            },
+                            "amount": {
+                                "type": "string"
+                            },
+                            "tick": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "fee": {
+                        "type": "object",
+                        "description": "Action fee information",
+                        "properties": {
+                            "amount": {
+                                "type": "string"
+                            },
+                            "destination": {
+                                "type": "string"
+                            },
+                            "method": {
+                                "type": "integer"
+                            },
+                            "source": {
+                                "type": "string"
+                            },
+                            "tick": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Amount of time to execute and return the data"
+                    },
+                    "status": {
+                        "type": "integer"
+                    },
+                    "timestamp": {
+                        "type": "integer"
+                    },
                 }
             },
             "Address": {
@@ -2051,21 +2185,37 @@
                 "type": "object",
                 "description": "Token holder data",
                 "properties": {
-                    "address": {
-                        "type": "string"
-                    },
-                    "amount": {
-                        "type": "string"
-                    },
                     "coin_price": {
                         "type": "string"
+                    },
+                    "data": {
+                        "type": "array",
+                        "properties": {
+                            "address": {
+                                "type": "string"
+                            },
+                            "amount": {
+                                "type": "string"
+                            },
+                        }
                     },
                     "decimals": {
                         "type": "integer"
                     },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Amount of time to execute and return the data"
+                    },
                     "supply": {
                         "type": "string"
-                    }                        
+                    },
+                    "tick": {
+                        "type": "string"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "description": "Total number of records available"
+                    }
                 }
             },
             "Issue": {
@@ -2705,6 +2855,157 @@
                     }
                }]
             },
+            "Token": {
+                "type": "object",
+                "description": "Token data",
+                "properties": {
+                    "callback" : {
+                        "type": "object",
+                        "properties": {
+                            "tick" : {
+                                "type": "string"
+                            },
+                            "price" : {
+                                "type": "string"
+                            },
+                            "block" : {
+                                "type": "integer"
+                            },
+                            "amount" : {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "info" : {
+                        "type": "object",
+                        "properties": {
+                            "coin" : {
+                                "type": "string"
+                            },
+                            "tick" : {
+                                "type": "string"
+                            },
+                            "description" : {
+                                "type": "string"
+                            },
+                            "owner" : {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "lists" : {
+                        "type": "object",
+                        "properties": {
+                            "allow" : {
+                                "type": "integer"
+                            },
+                            "block" : {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "locks" : {
+                        "type": "object",
+                        "properties": {
+                            "callback" : {
+                                "type": "boolean"
+                            },
+                            "description" : {
+                                "type": "boolean"
+                            },
+                            "max_mint" : {
+                                "type": "boolean"
+                            },
+                            "max_supply" : {
+                                "type": "boolean"
+                            },
+                            "mint" : {
+                                "type": "boolean"
+                            },
+                            "mint_supply" : {
+                                "type": "boolean"
+                            },
+                            "sleep" : {
+                                "type": "boolean"
+                            },
+                        }
+                    },
+                    "markets" : {
+                        "type": "object",
+                        "properties": {
+                            "price" : {
+                                "type": "string"
+                            },
+                            "floor" : {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "mints" : {
+                        "type": "object",
+                        "properties": {
+                            "max" : {
+                                "type": "string"
+                            },
+                            "address_max" : {
+                                "type": "string"
+                            },
+                            "start_block" : {
+                                "type": "integer"
+                            },
+                            "stop_block" : {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Amount of time to execute and return the data"
+                    },
+                    "supply" : {
+                        "type": "object",
+                        "properties": {
+                            "current" : {
+                                "type": "string"
+                            },
+                            "max" : {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "Transaction": {
+                "type": "object",
+                "description": "Transaction data",
+                "properties": {
+                    "actions": {
+                        "type": "array",
+                        "description": "Array of actions for this transaction"
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "integer"
+                    },
+                    "tx_hash": {
+                        "type": "string"
+                    },
+                    "tx_index": {
+                        "type": "integer"
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Amount of time to execute and return the data"
+
+                    },
+                }
+            },
+
         },
         "parameters": {
             "COIN": {
@@ -2738,6 +3039,17 @@
                 "schema": {
                     "type": "string",
                     "example": "block"
+                }
+            },
+            "TYPE-TRANSACTION": {
+                "name": "TYPE",
+                "in": "path",
+                "description": "Type of search to perform (tx_hash, tx_index)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "tx_hash"
                 }
             },
             "QUERY": {
@@ -2782,6 +3094,17 @@
                 "schema": {
                     "type": "string",
                     "example": "GAS"
+                }
+            },
+            "QUERY-TRANSACTION": {
+                "name": "QUERY",
+                "in": "path",
+                "description": "String to search for (tx_hash)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "8b6372c086d75cfef7b3bd4b46dd013640d2c211415f335023a6c425d82136cc"
                 }
             },
             "limit": {

@@ -2558,7 +2558,13 @@ class Database {
 
     // Get information for a given action_index, this includes looking up any related data
     async getActionData(config, action_index){
-        let data = null;
+        // Define the basic data object with standardized fields
+        let data = {
+            credits: null,
+            debits:  null,
+            escrows: null,
+            fee:    null
+        };
         let type = await this.getActionType(config, action_index);
         if(type){
             // Placeholders for queries and arguments
@@ -3398,7 +3404,7 @@ class Database {
             if(query){
                 results = await this.doQuery(config, query, args);
                 if(results && results.length)
-                    data = results[0];
+                    data = Object.assign({}, data, results[0]);
             }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){

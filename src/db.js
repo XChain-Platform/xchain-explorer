@@ -2492,9 +2492,10 @@ class Database {
                 locks: {
                     callback: false,
                     description: false,
+                    max_mint: false,
+                    max_supply: false,
                     mint: false,
                     mint_supply: false,
-                    max_mint: false,
                     sleep: false
                 },
                 mints: {

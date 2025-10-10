@@ -2351,6 +2351,7 @@ class Database {
         let query = `SELECT
                         a2.address,
                         m.amount,
+                        t3.tick,
                         t4.supply,
                         t4.decimals,
                         t4.coin_price

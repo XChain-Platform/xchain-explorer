@@ -59,6 +59,7 @@ class XChainExplorer {
                 'css',
                 'fonts',
                 'images',
+                'json',
                 'js'
             ],
 
@@ -67,6 +68,7 @@ class XChainExplorer {
                 // Top level pages
                 '/'                     : 'home.html',
                 '/about'                : 'about.html',
+                '/api'                  : 'api.html',
                 '/privacy'              : 'privacy.html',
                 '/search'               : 'search.html',
                 '/terms'                : 'terms.html',
@@ -99,7 +101,6 @@ class XChainExplorer {
                 '/{COIN}/sweeps'        : 'sweeps.html',
                 // Misc 
                 '/{COIN}'               : 'home_coin.html',
-                '/{COIN}/api'           : 'api.html',
                 '/{COIN}/blocks'        : 'blocks.html',
                 '/{COIN}/markets'       : 'markets.html',
                 '/{COIN}/search'        : 'search.html',
@@ -342,9 +343,20 @@ class XChainExplorer {
 
             // If we have a total then we are dealing with results, so get only the results we want to return
             if(this.util.isNumeric(total)){
-                // Return total number of records found
-                if(cfg.type=='api')
+                if(cfg.type=='api'){
+                    // Return total number of records found
                     json.total = total;
+
+                    // Handle pushing some data to the top level of the JSON response
+                    // Note: we do this so we don't pass these fields in the data array since they are all the same values
+                    if(cfg.data.method=='getHolders'){
+                        let info = data[0];
+                        json.tick       = info.tick;
+                        json.supply     = info.supply;
+                        json.decimals   = info.decimals;
+                        json.coin_price = info.coin_price;
+                    }
+                }
                 // Return total number of records found in format that datatables expects (https://datatables.net/manual/server-side#Returned-data)
                 if(cfg.type=='explorer'){
                     // If a total number of records was passed in the request, use it as total
@@ -362,8 +374,6 @@ class XChainExplorer {
             // Special case JSON customizations based on method called
             if(cfg.data.method=='getBalances')
                 json.address = cfg.data.search;
-            if(cfg.data.method=='getHolders')
-                json.tick = cfg.data.search;
 
             // Sort the json data and object properties alphabetically (OCD much?)
             if(cfg.type=='api'){
@@ -508,6 +518,16 @@ class XChainExplorer {
             // Display only the results we care about showing
             if((cnt > start && cnt <= limit) || offset){
                 let info   = data[idx-1];
+                // For API requests, pass fields in the correct place
+                if(type=='api'){
+                    // Only pass address and amount for holders (token data is already passed at the top level)
+                    if(method=='getHolders'){
+                        info = {
+                            'address': info.address,
+                            'amount':  info.amount
+                        };
+                    }
+                }
                 // For Explorer requests, pass array of fields in specific order
                 if(type=='explorer'){
                     let status = (info.status=='valid') ? 1 : 0; // 1=valid, 2=invalid

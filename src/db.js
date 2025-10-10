@@ -262,6 +262,8 @@ class Database {
             sql  = `m.address_id IS NOT NULL`;
         if(['getBlocks','getBlock'].includes(method))
             sql  = `b1.block_index IS NOT NULL`;
+        if(method=='getTransaction')
+            sql  = `m.tx_index IS NOT NULL`;
         // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
             if(type=='address')
@@ -354,7 +356,7 @@ class Database {
         let limit  = 1;
         let order  = 'DESC';
         // Bail out in certain instances
-        if(['getBalances','getHolders'].includes(method))
+        if(['getBalances','getHolders','getTransaction'].includes(method))
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
@@ -2114,21 +2116,21 @@ class Database {
     /******************************************************************
      * XChain API Misc Endpoints
      * 
-     * Endpoints                           Method Name      Query Types
+     * Endpoints                              Method Name      Query Types
      * -----------------------------------------------------------------
-     * /{COIN}/api/action/{QUERY}           getAction       action_index
-     * /{COIN}/api/address/{QUERY}          getAddress      address
-     * /{COIN}/api/balances/{QUERY}/{TYPE}  getBalances     address
-     * /{COIN}/api/block/{QUERY}            getBlock        block
-     * /{COIN}/api/credits/{QUERY}/{TYPE}   getCredits      block, address
-     * /{COIN}/api/debits/{QUERY}/{TYPE}    getDebits       block, address
-     * /{COIN}/api/escrows/{QUERY}/{TYPE}   getEscrows      block, address
-     * /{COIN}/api/history/{QUERY}/{TYPE}   getHistory      block, address, token
-     * /{COIN}/api/holders/{QUERY}          getHolders      token
-     * /{COIN}/api/mempool/{QUERY}/{TYPE}   getMempool      address, token,
-     * /{COIN}/api/network                  getNetwork
-     * /{COIN}/api/token/{QUERY}            getToken        token
-     * /{COIN}/api/tx/{QUERY}               getTransaction  tx_hash
+     * /{COIN}/api/action/{QUERY}             getAction       action_index
+     * /{COIN}/api/address/{QUERY}            getAddress      address
+     * /{COIN}/api/balances/{QUERY}/{TYPE}    getBalances     address
+     * /{COIN}/api/block/{QUERY}              getBlock        block
+     * /{COIN}/api/credits/{QUERY}/{TYPE}     getCredits      block, address
+     * /{COIN}/api/debits/{QUERY}/{TYPE}      getDebits       block, address
+     * /{COIN}/api/escrows/{QUERY}/{TYPE}     getEscrows      block, address
+     * /{COIN}/api/history/{QUERY}/{TYPE}     getHistory      block, address, token
+     * /{COIN}/api/holders/{QUERY}            getHolders      token
+     * /{COIN}/api/mempool/{QUERY}/{TYPE}     getMempool      address, token,
+     * /{COIN}/api/network                    getNetwork
+     * /{COIN}/api/token/{QUERY}              getToken        token
+     * /{COIN}/api/transaction/{QUERY}/{TYPE} getTransaction  tx_hash, tx_index
      ******************************************************************/
 
     // Get information on a given action_index
@@ -2552,6 +2554,57 @@ class Database {
         }
         return [data];
     }
+
+    // Get transaction information
+    async getTransaction(config){
+        let data = {
+            actions: []
+        };
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let where = '';
+        if(config.data.type=='tx_hash')
+            where = ' AND t1.hash=?';
+        if(config.data.type=='tx_index')
+            where = ' AND m.tx_index=?';
+        // Lookup transaction information
+        let query = `SELECT
+                        m.tx_index,
+                        t1.hash as tx_hash,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        a1.address as source
+                    FROM
+                        transactions m
+                        INNER JOIN index_transactions t1 ON (t1.id=m.tx_hash_id)
+                        INNER JOIN index_addresses    a1 ON (a1.id=m.source_id)
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                    WHERE 
+                        ` + sql.where.data + where + `
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length)
+            data = Object.assign({}, data, results[0]);
+        // Lookup actions associated with transaction
+        if(data.tx_index){
+            args = [data.tx_index];
+            query = `SELECT
+                            m.action_index
+                        FROM
+                            actions m
+                        WHERE 
+                            m.tx_index=?`;
+            results = await this.doQuery(config, query, args);
+            if(results && results.length){
+                for(let row of results){
+                    let info = await this.getActionData(config, Number(row.action_index));
+                    data.actions.push(info);
+                }
+            }
+        }
+        return [data]
+    }
+
 
     /******************************************************************
      * Commonly used functions 

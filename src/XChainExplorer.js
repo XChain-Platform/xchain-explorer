@@ -159,7 +159,7 @@ class XChainExplorer {
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'       : ['getMempool',      ['address', 'token']],
                 '/{COIN}/api/network'                      : ['getNetwork'],
                 '/{COIN}/api/token/{QUERY}'                : ['getToken',        'token'],
-                '/{COIN}/api/tx/{QUERY}'                   : ['getTransaction',  'tx_hash']
+                '/{COIN}/api/transaction/{QUERY}/{TYPE}'   : ['getTransaction',  ['tx_hash', 'tx_index']]
             }, 
 
             // List of explorer endpoints and the related method

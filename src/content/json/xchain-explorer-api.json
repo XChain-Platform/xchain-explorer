@@ -1,0 +1,2818 @@
+{
+    "openapi": "3.1.1",
+    "info": {
+        "title": "XChain Explorer APIs",
+        "description": "XChain Platform APIs which provide information on transactions and actions within the XChain Platform.",
+        "version": "1.0.0"
+    },
+    "tags": [
+        {
+            "name": "Actions",
+            "description": "API endpoints that return specific XChain platform ACTION data",
+            "externalDocs": {
+                "description": "ACTION Documentation",
+                "url": "https://github.com/XChain-platform/xchain-documentation/blob/master/actions/README.md"
+            }
+        },
+        {
+            "name": "Misc",
+            "description": "API endpoints that return miscellaneous XChain platform data"
+        }, {
+            "name": "Orders",
+            "description": "API endpoints that return XChain platform order data"
+        }, {
+            "name": "Swaps",
+            "description": "API endpoints that return XChain platform swap data"
+        },
+    ],
+    "paths": {
+        "/{COIN}/api/action/{QUERY}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get full details for a given action",
+                "description": "Retrieves full action information on a given action_index.",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY-ACTION",
+                    "description": "String to search for (action_index)",
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "/{COIN}/api/addresses/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get ADDRESS actions",
+                "description": "Retrieves ADDRESS action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Address",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/airdrops/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get AIRDROP actions",
+                "description": "Retrieves AIRDROP action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Airdrop",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/batches/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get BATCH actions",
+                "description": "Retrieves BATCH action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Batch",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/broadcasts/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get BROADCAST actions",
+                "description": "Retrieves BROADCAST action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Broadcast",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/callbacks/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get CALLBACK actions",
+                "description": "Retrieves CALLBACK action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Callback",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/destroys/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get DESTROY actions",
+                "description": "Retrieves DESTROY action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Destroy",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/dispensers/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get DISPENSER actions",
+                "description": "Retrieves DISPENSER action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Dispenser",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/dispenses/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get DISPENSE actions",
+                "description": "Retrieves DISPENSE action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Dispense",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }, 
+        "/{COIN}/api/dividends/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get DIVIDEND actions",
+                "description": "Retrieves DIVIDEND action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Dividend",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/files/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get FILE actions",
+                "description": "Retrieves FILE action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/File",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/issues/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get ISSUE actions",
+                "description": "Retrieves ISSUE action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Issue",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/links/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get LINK actions",
+                "description": "Retrieves LINK action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Link",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/lists/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get LIST actions",
+                "description": "Retrieves LIST action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/List",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/messages/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get MESSAGE actions",
+                "description": "Retrieves MESSAGE action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, source, destination)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, source, destination)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Message",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/mints/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get MINT actions",
+                "description": "Retrieves MINT action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Mint",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/orders/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Orders"],
+                "summary": "Get ORDER actions",
+                "description": "Retrieves ORDER action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Order",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/order_edits/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Orders"],
+                "summary": "Get ORDER_EDIT actions",
+                "description": "Retrieves ORDER_EDIT action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/OrderEdit",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/order_cancel/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Orders"],
+                "summary": "Get ORDER_CANCEL actions",
+                "description": "Retrieves ORDER_CANCEL action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/OrderCancel",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/order_matches/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Orders"],
+                "summary": "Get ORDER_MATCH actions",
+                "description": "Retrieves ORDER_MATCH action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE-BLOCK",
+                },{
+                    "$ref": "#/components/parameters/QUERY-BLOCK",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/OrderMatch",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/sends/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get SEND actions",
+                "description": "Retrieves SEND action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Send",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/sleeps/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get SLEEP actions",
+                "description": "Retrieves SLEEP action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Sleep",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/swaps/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Swaps"],
+                "summary": "Get SWAP actions",
+                "description": "Retrieves SWAP action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Swap",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/swap_edits/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Swaps"],
+                "summary": "Get SWAP_EDIT actions",
+                "description": "Retrieves ORDER_EDIT action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/SwapEdit",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/swap_cancel/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Swaps"],
+                "summary": "Get SWAP_CANCEL actions",
+                "description": "Retrieves SWAP_CANCEL action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/SwapCancel",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/swap_matches/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Swaps"],
+                "summary": "Get SWAP_MATCH actions",
+                "description": "Retrieves SWAP_MATCH action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE-BLOCK",
+                },{
+                    "$ref": "#/components/parameters/QUERY-BLOCK",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/SwapMatch",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/sweeps/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get SWEEP actions",
+                "description": "Retrieves SWEEP action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Sweep",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/address/{QUERY}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get COIN address information",
+                "description": "Retrieves COIN address information for a given address (type, balances, utxos, estimated value)",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address)",
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AddressInfo"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/balances/{QUERY}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get address token balance information",
+                "description": "Retrieves address token balances information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Balance",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }            }
+        },
+        "/{COIN}/api/block/{QUERY}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get block information",
+                "description": "Retrieves block information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY-BLOCK",
+                    "description": "String to search for (block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Block",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/credits/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get credit information",
+                "description": "Retrieves credit information for a given address or block",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Credit",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }, 
+        "/{COIN}/api/debits/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get debit information",
+                "description": "Retrieves debit information for a given address or block",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Debit",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }, 
+        "/{COIN}/api/escrows/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get escrow information",
+                "description": "Retrieves escrow information for a given address or block",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Escrow",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }, 
+        "/{COIN}/api/fees/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get action fee information",
+                "description": "Retrieves action fee information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, source, destination, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Fee",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+         "/{COIN}/api/history/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get action history information",
+                "description": "Retrieves action history information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block, token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/History",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+         "/{COIN}/api/holders/{QUERY}": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get token holder information",
+                "description": "Retrieves token holder information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY-TOKEN",
+                    "description": "String to search for (token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Holder",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+         "/{COIN}/api/network": {
+            "get": {
+                "tags": ["Misc"],
+                "summary": "Get COIN network information",
+                "description": "Retrieves COIN network information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Network"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+    },
+    "components": {
+        "schemas": {
+            "ApiResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                    },
+                    "total": {
+                        "type": "integer",
+                        "description": "Total number of records available"
+
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Amount of time to execute and return the data"
+                    }
+                }
+            },
+            "Action": {
+                "type": "object",
+                "description": "Fields passed with every action response",
+                "properties": {
+                    "action": {
+                        "type": "string"
+                    },
+                    "action_format": {
+                        "type": "integer"
+                    },
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "integer"
+                    },
+                    "timestamp": {
+                        "type": "integer"
+                    },
+                    "tx_hash": {
+                        "type": "string"
+                    },
+                    "tx_index": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Address": {
+                "type": "object",
+                "description": "ADDRESS action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "fee_preference": {
+                            "type": "integer"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "require_memo": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "AddressInfo": {
+                "type": "object",
+                "description": "address information (type, balances, utxos, estimated value)",
+                "properties": {
+                    "address": {
+                        "type": "string"
+                    },
+                    "balances": {
+                        "type": "object",
+                        "description": "Balances of COIN (BTC, LTC, DOGE, etc)",
+                        "properties": {
+                            "confirmed": {
+                                "type": "string"
+                            },
+                            "pending": {
+                                "type": "string"
+                            },
+                            "received": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "estimated_value": {
+                        "type": "object",
+                        "description": "Estimated value in COIN (BTC, LTC, DOGE, etc)",
+                        "oneOf": [{
+                            "type": "string",
+                            "properties": {
+                                "btc": {
+                                    "type": "string"
+                                }
+                            }
+                        },{
+                            "type": "string",
+                            "properties": {
+                                "ltc": {
+                                    "type": "string"
+                                }
+                            }
+                        },{
+                            "type": "string",
+                            "properties": {
+                                "doge": {
+                                    "type": "string"
+                                }
+                            }
+                        }]
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Address Type (P2PKH, P2SH, Bech32, P2TR)"
+                    },
+                    "utxos": {
+                        "type": "object",
+                        "description": "Unspent Transaction Object Counts (UTXOs)",
+                        "properties": {
+                            "confirmed": {
+                                "type": "integer"
+                            },
+                            "pending": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "runtime": {
+                        "type": "integer",
+                        "description": "Amount of time to execute and return the data"
+                    }
+                }
+            },
+            "Airdrop": {
+                "type": "object",
+                "description": "AIRDROP action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string"
+                        },
+                        "list_action_index": {
+                            "type": "integer"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "tick": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Balance": {
+                "type": "object",
+                "description": "Address token balance data",
+                "properties": {
+                    "amount": {
+                        "type": "string"
+                    },
+                    "coin_price": {
+                        "type": "string"
+                    },
+                    "decimals": {
+                        "type": "integer"
+                    },
+                    "supply": {
+                        "type": "string"
+                    },
+                    "tick": {
+                        "type": "string"
+                    }                        
+                }
+            },
+            "Block": {
+                "type": "object",
+                "description": "COIN block data",
+                "properties": {
+                    "actions_hash": {
+                        "type": "string"
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    },
+                    "credits_hash": {
+                        "type": "string"
+                    },
+                    "debits_hash": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "integer"
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Amount of time to execute and return the data"
+                    }
+                }
+            },
+            "Batch": {
+                "type": "object",
+                "description": "BATCH action data",
+                "$ref": "#/components/schemas/Action"
+            },
+            "Broadcast": {
+                "type": "object",
+                "description": "BROADCAST action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "broadcast_action_index": {
+                            "type": "integer"
+                        },
+                        "fee": {
+                            "type": "string"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "message": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "Callback": {
+                "type": "object",
+                "description": "CALLBACK action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "callback_tick": {
+                            "type": "string"
+                        },
+                        "callback_amount": {
+                            "type": "string"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "tick": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Credit": {
+                "type": "object",
+                "description": "Credit data",
+                "properties": {
+                    "action": {
+                        "type": "string"
+                    },
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "address": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "string"
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    },
+                    "tick": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "integer"
+                    },
+                    "tx_hash": {
+                        "type": "string"
+                    },
+                    "tx_index": {
+                        "type": "integer"
+                    },
+                }
+            },
+            "Debit": {
+                "type": "object",
+                "description": "Debit data",
+                "$ref": "#/components/schemas/Credit"
+            },            
+            "Destroy": {
+                "type": "object",
+                "description": "DESTROY action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "tick": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Dividend": {
+                "type": "object",
+                "description": "DIVIDEND action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string"
+                        },
+                        "dividend_tick": {
+                            "type": "string"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "tick": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Dispense": {
+                "type": "object",
+                "description": "DISPENSE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "get_coin": {
+                            "type": "string"
+                        },
+                        "get_tick": {
+                            "type": "string"
+                        },
+                        "get_amount": {
+                            "type": "string"
+                        },
+                        "get_address": {
+                            "type": "string"
+                        },
+                        "give_coin": {
+                            "type": "string"
+                        },
+                        "give_tick": {
+                            "type": "string"
+                        },
+                        "give_amount": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Dispenser": {
+                "type": "object",
+                "description": "DISPENSER action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "allow_list": {
+                            "type": "integer"
+                        },
+                        "block_list": {
+                            "type": "integer"
+                        },
+                        "expiration": {
+                            "type": "integer"
+                        },
+                        "get_coin": {
+                            "type": "string"
+                        },
+                        "get_tick": {
+                            "type": "string"
+                        },
+                        "get_escrow": {
+                            "type": "string"
+                        },
+                        "get_amount": {
+                            "type": "string"
+                        },
+                        "get_address": {
+                            "type": "string"
+                        },
+                        "give_coin": {
+                            "type": "string"
+                        },
+                        "give_tick": {
+                            "type": "string"
+                        },
+                        "give_escrow": {
+                            "type": "string"
+                        },
+                        "give_amount": {
+                            "type": "string"
+                        },
+                         "memo": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Escrow": {
+                "type": "object",
+                "description": "Escrow data",
+                "$ref": "#/components/schemas/Credit"
+            },            
+            "Fee": {
+                "type": "object",
+                "description": "Action fee data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string"
+                        },
+                        "destination": {
+                            "type": "string"
+                        },
+                        "method": {
+                            "type": "integer"
+                        },
+                        "tick": {
+                            "type": "string"
+                        },
+                    }
+               }]
+            },
+            "File": {
+                "type": "object",
+                "description": "FILE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "memo": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "title": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "History": {
+                "type": "object",
+                "description": "History data",
+                "properties": {
+                    "action": {
+                        "type": "string"
+                    },
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    },
+                    "details": {
+                        "type": "object",
+                        "description": "Basic details on the action"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "integer"
+                    },
+                    "tx_hash": {
+                        "type": "string"
+                    },
+                    "tx_index": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Holder": {
+                "type": "object",
+                "description": "Token holder data",
+                "properties": {
+                    "address": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "string"
+                    },
+                    "coin_price": {
+                        "type": "string"
+                    },
+                    "decimals": {
+                        "type": "integer"
+                    },
+                    "supply": {
+                        "type": "string"
+                    }                        
+                }
+            },
+            "Issue": {
+                "type": "object",
+                "description": "ISSUE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "allow_list": {
+                            "type": "integer"
+                        },
+                        "block_list": {
+                            "type": "integer"
+                        },
+                        "callback_block": {
+                            "type": "integer"
+                        },
+                        "callback_tick_id": {
+                            "type": "string"
+                        },
+                        "callback_amount": {
+                            "type": "string"
+                        },
+                        "decimals": {
+                            "type": "integer"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "lock_max_supply": {
+                            "type": "integer"
+                        },
+                        "lock_mint": {
+                            "type": "integer"
+                        },
+                        "lock_mint_supply": {
+                            "type": "integer"
+                        },
+                        "lock_max_mint": {
+                            "type": "integer"
+                        },
+                        "lock_description": {
+                            "type": "integer"
+                        },
+                        "lock_sleep": {
+                            "type": "integer"
+                        },
+                        "lock_callback": {
+                            "type": "integer"
+                        },
+                        "max_mint": {
+                            "type": "string"
+                        },
+                        "max_supply": {
+                            "type": "string"
+                        },
+                        "mint_address_max": {
+                            "type": "string"
+                        },
+                        "mint_start_block": {
+                            "type": "integer"
+                        },
+                        "mint_stop_block": {
+                            "type": "integer"
+                        },
+                        "mint_supply": {
+                            "type": "string"
+                        },
+                        "transfer": {
+                            "type": "string"
+                        },
+                        "transfer_supply": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Link": {
+                "type": "object",
+                "description": "LINK action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "coin1": {
+                            "type": "string"
+                        },
+                        "coin1_action_index": {
+                            "type": "integer"
+                        },
+                        "coin2": {
+                            "type": "string"
+                        },
+                        "coin2_action_index": {
+                            "type": "integer"
+                        },
+                        "memo": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "List": {
+                "type": "object",
+                "description": "LIST action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "integer"
+                        },
+                        "edit": {
+                            "type": "integer"
+                        },
+                        "list_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "Message": {
+                "type": "object",
+                "description": "MESSAGE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "destination": {
+                            "type": "string"
+                        },
+                        "encrypted_message": {
+                            "type": "string"
+                        },
+                        "encryption_method": {
+                            "type": "integer"
+                        },
+                        "encryption_key": {
+                            "type": "string"
+                        },
+                        "plaintext_message": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Mint": {
+                "type": "object",
+                "description": "MINT action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string"
+                        },
+                        "destination": {
+                            "type": "string"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "tick": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Network": {
+                "type": "object",
+                "description": "COIN network data",
+                "properties": {
+                    "coin": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "symbol": {
+                                "type": "string"
+                            },
+                            "price": {
+                                "type": "object",
+                                "properties": {
+                                    "btc": {
+                                        "type": "string"
+                                    },
+                                    "usd": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "fee": {
+                        "type": "object",
+                        "properties": {
+                            "low": {
+                                "type": "integer"
+                            },
+                            "medium": {
+                                "type": "integer"
+                            },
+                            "high": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "network": {
+                        "type": "object",
+                        "properties": {
+                            "block": {
+                                "type": "integer"
+                            },
+                            "unconfirmed": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "totals": {
+                        "type": "object",
+                        "properties": {
+                            "addresses": { 
+                                "type": "integer" 
+                            },
+                            "airdrops": { 
+                                "type": "integer" 
+                            },
+                            "batches": { 
+                                "type": "integer" 
+                            },
+                            "broadcasts": { 
+                                "type": "integer" 
+                            },
+                            "callbacks": { 
+                                "type": "integer" 
+                            },
+                            "destroys": { 
+                                "type": "integer" 
+                            },
+                            "dispensers": { 
+                                "type": "integer" 
+                            },
+                            "dispenses": { 
+                                "type": "integer" 
+                            },
+                            "dividends": { 
+                                "type": "integer" 
+                            },
+                            "files": { 
+                                "type": "integer" 
+                            },
+                            "issues": { 
+                                "type": "integer" 
+                            },
+                            "links": { 
+                                "type": "integer" 
+                            },
+                            "lists": { 
+                                "type": "integer" 
+                            },
+                            "messages": { 
+                                "type": "integer" 
+                            },
+                            "mints": { 
+                                "type": "integer" 
+                            },
+                            "orders": { 
+                                "type": "integer" 
+                            },
+                            "order_cancels": { 
+                                "type": "integer" 
+                            },
+                            "order_edits": { 
+                                "type": "integer" 
+                            },
+                            "order_matches": { 
+                                "type": "integer" 
+                            },
+                            "sends": { 
+                                "type": "integer" 
+                            },
+                            "sleeps": { 
+                                "type": "integer" 
+                            },
+                            "swaps": { 
+                                "type": "integer" 
+                            },
+                            "swap_cancels": { 
+                                "type": "integer" 
+                            },
+                            "swap_edits": { 
+                                "type": "integer" 
+                            },
+                            "swap_matches": { 
+                                "type": "integer" 
+                            },
+                            "sweeps": { 
+                                "type": "integer" 
+                            },
+                            "tokens": { 
+                                "type": "integer" 
+                            }
+                        }
+                    },
+                    "xchain": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "symbol": {
+                                "type": "string"
+                            },
+                            "price": {
+                                "type": "object",
+                                "properties": {
+                                    "btc": {
+                                        "type": "string"
+                                    },
+                                    "usd": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "runtime": {
+                        "type": "string"
+                    }
+                }
+            },   
+            "Order": {
+                "type": "object",
+                "description": "ORDER action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "allow_list": {
+                            "type": "integer"
+                        },
+                        "block_list": {
+                            "type": "integer"
+                        },
+                        "expiration": {
+                            "type": "integer"
+                        },
+                        "get_coin": {
+                            "type": "string"
+                        },
+                        "get_tick": {
+                            "type": "string"
+                        },
+                        "get_escrow": {
+                            "type": "string"
+                        },
+                        "get_amount": {
+                            "type": "string"
+                        },
+                        "get_address": {
+                            "type": "string"
+                        },
+                        "give_coin": {
+                            "type": "string"
+                        },
+                        "give_tick": {
+                            "type": "string"
+                        },
+                        "give_escrow": {
+                            "type": "string"
+                        },
+                        "give_amount": {
+                            "type": "string"
+                        },
+                         "memo": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "OrderEdit": {
+                "type": "object",
+                "description": "ORDER_EDIT action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "allow_list": {
+                            "type": "integer"
+                        },
+                        "block_list": {
+                            "type": "integer"
+                        },
+                        "expiration": {
+                            "type": "integer"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "order_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "OrderCancel": {
+                "type": "object",
+                "description": "ORDER_CANCEL action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "memo": {
+                            "type": "string"
+                        },
+                        "order_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "OrderMatch": {
+                "type": "object",
+                "description": "ORDER_MATCH action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "get_coin": {
+                            "type": "string"
+                        },
+                        "get_action_index": {
+                            "type": "integer"
+                        },
+                        "give_coin": {
+                            "type": "string"
+                        },
+                        "give_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "Send": {
+                "type": "object",
+                "description": "SEND action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "string"
+                        },
+                        "destination": {
+                            "type": "string"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "tick": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "Sleep": {
+                "type": "object",
+                "description": "SLEEP action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "memo": {
+                            "type": "string"
+                        },
+                        "resume_block": {
+                            "type": "integer"
+                        },
+                        "tick": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "Swap": {
+                "type": "object",
+                "description": "SWAP action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "allow_list": {
+                            "type": "integer"
+                        },
+                        "block_list": {
+                            "type": "integer"
+                        },
+                        "expiration": {
+                            "type": "integer"
+                        },
+                        "get_coin": {
+                            "type": "string"
+                        },
+                        "get_tick": {
+                            "type": "string"
+                        },
+                        "get_escrow": {
+                            "type": "string"
+                        },
+                        "get_amount": {
+                            "type": "string"
+                        },
+                        "get_address": {
+                            "type": "string"
+                        },
+                        "give_coin": {
+                            "type": "string"
+                        },
+                        "give_tick": {
+                            "type": "string"
+                        },
+                        "give_escrow": {
+                            "type": "string"
+                        },
+                        "give_amount": {
+                            "type": "string"
+                        },
+                         "memo": {
+                            "type": "string"
+                        }
+                    }
+               }]
+            },
+            "SwapEdit": {
+                "type": "object",
+                "description": "SWAP_EDIT action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "allow_list": {
+                            "type": "integer"
+                        },
+                        "block_list": {
+                            "type": "integer"
+                        },
+                        "expiration": {
+                            "type": "integer"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "swap_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "SwapCancel": {
+                "type": "object",
+                "description": "SWAP_CANCEL action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "memo": {
+                            "type": "string"
+                        },
+                        "swap_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "SwapMatch": {
+                "type": "object",
+                "description": "SWAP_MATCH action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "get_coin": {
+                            "type": "string"
+                        },
+                        "get_action_index": {
+                            "type": "integer"
+                        },
+                        "give_coin": {
+                            "type": "string"
+                        },
+                        "give_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "Sweep": {
+                "type": "object",
+                "description": "SWEEP action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "balances": {
+                            "type": "integer"
+                        },
+                        "destination": {
+                            "type": "string"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "ownerships": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+        },
+        "parameters": {
+            "COIN": {
+                "name": "COIN",
+                "in": "path",
+                "description": "Name of Coin (BTC, LTC, DOGE, etc)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "BTC"
+                }
+            },
+            "TYPE": {
+                "name": "TYPE",
+                "in": "path",
+                "description": "Type of search to perform",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "address"
+                }
+            },
+            "TYPE-BLOCK": {
+                "name": "TYPE",
+                "in": "path",
+                "description": "Type of search to perform (block)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "block"
+                }
+            },
+            "QUERY": {
+                "name": "QUERY",
+                "in": "path",
+                "description": "Address or Block to query",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev"
+                }
+            },
+            "QUERY-ACTION": {
+                "name": "QUERY",
+                "in": "path",
+                "description": "String to search for (action_index)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": 1
+                }
+            },
+            "QUERY-BLOCK": {
+                "name": "QUERY",
+                "in": "path",
+                "description": "String to search for (block)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "integer",
+                    "example": 862642
+                }
+            },
+            "QUERY-TOKEN": {
+                "name": "QUERY",
+                "in": "path",
+                "description": "String to search for (token)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "GAS"
+                }
+            },
+            "limit": {
+                "name": "limit",
+                "in": "query",
+                "description": "Limit number of records to return (100 max)",
+                "style": "simple",
+                "schema": {
+                    "type": "integer"
+                }
+            },
+            "page": {
+                "name": "page",
+                "in": "query",
+                "description": "Page number of data to return",
+                "schema": {
+                    "type": "integer"
+                }
+            },
+            "sortorder": {
+                "name": "sortorder",
+                "in": "query",
+                "description": "Order to sort results (ASC or DESC)",
+                "schema": {
+                    "type": "string"
+                }
+            }
+
+        },
+        "responses": {
+
+        }
+    },
+}

@@ -157,9 +157,8 @@ function initMainMenu(){
         // Update header logo to link to main network landing page
         $('#header-logo').attr('href','/' + XC.coin);
 
-        // Show the 'Data' and 'API' dropdowns
+        // Show the 'Data' dropdown
         $('#data-menu').removeClass('d-none');
-        $('#api-menu').removeClass('d-none');
 
         // Update search form to include COIN
         $("#form-search [name='coin']").val(XC.coin);

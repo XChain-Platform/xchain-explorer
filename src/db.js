@@ -2148,6 +2148,7 @@ class Database {
      * /{COIN}/api/holders/{QUERY}            getHolders      token
      * /{COIN}/api/mempool/{QUERY}/{TYPE}     getMempool      address, token,
      * /{COIN}/api/network                    getNetwork
+     * /{COIN}/api/status                     getStatus
      * /{COIN}/api/token/{QUERY}              getToken        token
      * /{COIN}/api/transaction/{QUERY}/{TYPE} getTransaction  tx_hash, tx_index
      ******************************************************************/
@@ -2442,6 +2443,15 @@ class Database {
             if(results && results.length)
                 data.totals[table] = results[0].count;
         }
+        return [data];
+    }
+
+    // Get explorer status
+    async getStatus(config){
+        let data  = {
+            supported: this.config['COIN_SUPPORTED'],
+            available: this.config['COIN_AVAILABLE']
+        };
         return [data];
     }
 

@@ -57,7 +57,11 @@ module.exports = {
         let coinConfig = {};
 
         // Define list of COINs supported in XChain Platform (BTC, LTC, DOGE, etc)
-        config['COIN_NETWORKS'] = ['BTC','LTC','DOGE'];
+        config['COIN_NETWORKS'] = {
+            BTC:  'Bitcoin',
+            LTC:  'Litecoin',
+            DOGE: 'Dogecoin'
+        };
 
         // Define list of acceptable coin Prefixes (T=Testnet, R=Regtest)
         config['COIN_PREFIXES'] = {
@@ -67,15 +71,18 @@ module.exports = {
         };
 
         // Define list of COIN networks supported in XChain Platform (BTC, tBTC, rBTC, etc)
-        config['COIN_SUPPORTED'] = [];
-        for(let coin of config['COIN_NETWORKS']){
+        config['COIN_SUPPORTED'] = {};
+        for(let coin in config['COIN_NETWORKS']){
             for(let network in config['COIN_PREFIXES']){
-                config['COIN_SUPPORTED'].push(config['COIN_PREFIXES'][network] + coin);
+                let prefix = config['COIN_PREFIXES'][network],
+                    code   = prefix + coin,
+                    name   = config['COIN_NETWORKS'][coin] + ' (' + network + ')';
+                config['COIN_SUPPORTED'][code] = name;
             }
         }
 
         // Define list of COIN networks available in this explorer instance
-        config['COIN_AVAILABLE'] = [];
+        config['COIN_AVAILABLE'] = {};
 
         // Pass forward explorer API information
         config['API'] = {
@@ -122,10 +129,13 @@ module.exports = {
                 };
             }
 
-            // Add COIN and NETWORK to list of supported coins to be used as explorer prefixes
-            config['COIN_AVAILABLE'].push(config['COIN_PREFIXES'][info.network] + info.coin);
+            let prefix = config['COIN_PREFIXES'][info.network],
+                code   = prefix + info.coin,
+                name   = info.coin + ' (' + info.network + ')';
+            config['COIN_AVAILABLE'][code] = name;
+
         }
-            
+
         return config;
     },
 

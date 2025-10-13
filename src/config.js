@@ -54,7 +54,28 @@ module.exports = {
 
         // Define explorer and COIN config objects
         let config     = {};
-        let coinConfig = {}
+        let coinConfig = {};
+
+        // Define list of COINs supported in XChain Platform (BTC, LTC, DOGE, etc)
+        config['COIN_NETWORKS'] = ['BTC','LTC','DOGE'];
+
+        // Define list of acceptable coin Prefixes (T=Testnet, R=Regtest)
+        config['COIN_PREFIXES'] = {
+            'mainnet': '',
+            'testnet': 'T',
+            'regtest': 'R'
+        };
+
+        // Define list of COIN networks supported in XChain Platform (BTC, tBTC, rBTC, etc)
+        config['COIN_SUPPORTED'] = [];
+        for(let coin of config['COIN_NETWORKS']){
+            for(let network in config['COIN_PREFIXES']){
+                config['COIN_SUPPORTED'].push(config['COIN_PREFIXES'][network] + coin);
+            }
+        }
+
+        // Define list of COIN networks available in this explorer instance
+        config['COIN_AVAILABLE'] = [];
 
         // Pass forward explorer API information
         config['API'] = {
@@ -67,9 +88,6 @@ module.exports = {
                 https: API_PORT_HTTPS
             }
         }
-
-        // Define list of acceptable COIN prefixes to be used in explorer (ex. /COIN/api/... BTC, tBTC, rBTC, etc )
-        config['COINS'] = [];
 
         // Loop through all coins and networks in the json config and load up the coin/network specific data
         for(let info of jsonConfig.configs ){
@@ -104,13 +122,10 @@ module.exports = {
                 };
             }
 
-            // Add COIN and NETWORK to list of acceptable coins to be used as explorer prefixes
-            if(info.network=='mainnet') config['COINS'].push(info.coin);
-            if(info.network=='testnet') config['COINS'].push('T' + info.coin);
-            if(info.network=='regtest') config['COINS'].push('R' + info.coin);
+            // Add COIN and NETWORK to list of supported coins to be used as explorer prefixes
+            config['COIN_AVAILABLE'].push(config['COIN_PREFIXES'][info.network] + info.coin);
         }
-
-
+            
         return config;
     },
 

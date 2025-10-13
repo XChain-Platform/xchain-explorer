@@ -73,6 +73,7 @@ class XChainExplorer {
                 '/search'               : 'search.html',
                 '/terms'                : 'terms.html',
                 '/404'                  : '404.html',
+                '/coin-unavailable'     : 'coin_unavailable.html', 
                 // Actions
                 '/{COIN}/actions'       : 'actions.html',
                 '/{COIN}/addresses'     : 'addresses.html',
@@ -100,7 +101,7 @@ class XChainExplorer {
                 '/{COIN}/swap_matches'  : 'swaps.html',
                 '/{COIN}/sweeps'        : 'sweeps.html',
                 // Misc 
-                '/{COIN}'               : 'home_coin.html',
+                '/{COIN}'               : 'coin_home.html',
                 '/{COIN}/blocks'        : 'blocks.html',
                 '/{COIN}/markets'       : 'markets.html',
                 '/{COIN}/search'        : 'search.html',
@@ -265,12 +266,22 @@ class XChainExplorer {
 
         // Determine the COIN using the first part of the URL path (BTC, LTC, DOGE, etc)
         let coin = String(urlPath[0]).toUpperCase();
-        if(this.config['COINS'].includes(coin))
+        if(this.config['COIN_SUPPORTED'].includes(coin))
             cfg.coin = coin;
 
         // Determine what TYPE of request this is using the second part of the URL path
         let type = String(urlPath[1]).toLowerCase();
         cfg.type = (['api','explorer'].includes(type) && urlPath.length>2) ? type : 'html';
+
+        // Setup alias to req.path which we can easily tweak as needed
+        let requestPath = req.path;
+
+        // Set flag to indicate if this is a request for a COIN that is supported, but not available in this explorer
+        let validDataRequest = (this.config['COIN_SUPPORTED'].includes(coin) && this.config['COIN_AVAILABLE'].includes(coin)) ? true : false;
+
+        // If the COIN is supported but not available, return the 'COIN Unavailable' page
+        if(this.config['COIN_SUPPORTED'].includes(coin) && !this.config['COIN_AVAILABLE'].includes(coin))
+            requestPath = '/coin-unavailable';
 
         // Set type / file / info config info using url matching
         for(const url in this.urls[cfg.type]){
@@ -282,7 +293,7 @@ class XChainExplorer {
             // Handle html page matches
             if(cfg.type=='html'){
                 // Handle exact page matches
-                if(String(req.path).toLowerCase()==String(url).toLowerCase())
+                if(String(requestPath).toLowerCase()==String(url).toLowerCase())
                     match = true;
                 // Handle COIN match
                 if(parts.length==1 && urlPath.length==1 && parts[0]=='{COIN}' && !this.util.isNull(cfg.coin))
@@ -335,7 +346,7 @@ class XChainExplorer {
         }
 
         // If we have a method defined to get some data, retrieve the requested data from the database
-        if(!this.util.isNull(cfg.data.method)){
+        if(!this.util.isNull(cfg.data.method) && validDataRequest){
             [data, total] = await this.db.getData(cfg);
 
             // Placeholder for the JSON response object
@@ -391,6 +402,14 @@ class XChainExplorer {
             cfg.file = '404.html';
             cfg.type = 'html';
             response.code = 404;
+        }
+
+        // If this is not a valid data request, return a '503 - Service Unavailable' response
+        if(cfg.type!='html' && !this.util.isNull(cfg.data.method) && !validDataRequest){
+            response.code = 503;
+            response.json = {
+                error: 'Explorer not configured to support requests for ' + cfg.coin + ' data'
+            };
         }
 
         /**********************************************************

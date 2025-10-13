@@ -118,17 +118,32 @@ class Database {
     async getConnection(config){
         if(this.transactionConnection)
             return this.transactionConnection;
-        var connection = null;
-        while(connection == null){        
-            try {
-                connection = await this.pools[config.coin].pool.getConnection();
-                // console.log("Connected to database!");
-            } catch (e){
-                console.log("Can't connect to mariadb. Trying again...");
-                // console.log('e=',e);
-                connection = null;
-                await this.util.sleep(1000);
+        let connection = null,
+            retryCount = 0,
+            maxRetrys  = 10;
+        // Try to get connection from the database connection pool using config.coin
+        let pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
+        if(pool){
+            while(connection == null){        
+                try {
+                    connection = await pool.getConnection();
+                    // console.log("Connected to database!");
+                } catch (e){
+                    console.log("Can't connect to database. Trying again...");
+                    // console.log('e=',e);
+                    connection = null;
+                    // Retry getting a connection again after a brief delay
+                    if(retryCount <= maxRetrys){
+                        retryCount++;
+                        await this.util.sleep(1000);
+                    } else {
+                        console.log('Failed to get database connection error=',e)
+                        break;
+                    }
+                }
             }
+        } else {
+            console.log("Unable to get database connection pool for :", config.coin);
         }
         this.transactionConnection = connection;
         return connection;
@@ -238,12 +253,16 @@ class Database {
         if(!this.util.isNull(query)){
             // Get a database connection from the connection pool
             let db    = await this.getConnection(config);
-            // Run the database query
-            try {
-                result = await db.query(query, args);
-            } catch (error){
-                console.log('SQL Query Error: ', error);
-                // this.util.logError('Error running query:', error);
+            if(db){
+                // Run the database query
+                try {
+                    result = await db.query(query, args);
+                } catch (error){
+                    console.log('SQL Query Error: ', error);
+                    // this.util.logError('Error running query:', error);
+                }
+            } else {
+                console.log('Unable to get database connection to run SQL query');
             }
             await this.releaseConnection();
         }

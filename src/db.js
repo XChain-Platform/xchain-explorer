@@ -120,7 +120,7 @@ class Database {
             return this.transactionConnection;
         let connection = null,
             retryCount = 0,
-            maxRetrys  = 10;
+            maxRetrys  = 3;
         // Try to get connection from the database connection pool using config.coin
         let pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
         if(pool){
@@ -129,12 +129,12 @@ class Database {
                     connection = await pool.getConnection();
                     // console.log("Connected to database!");
                 } catch (e){
-                    console.log("Can't connect to database. Trying again...");
                     // console.log('e=',e);
                     connection = null;
                     // Retry getting a connection again after a brief delay
                     if(retryCount <= maxRetrys){
                         retryCount++;
+                        console.log("Can't connect to database. Trying again (attempt " + retryCount + ")...");
                         await this.util.sleep(1000);
                     } else {
                         console.log('Failed to get database connection error=',e)

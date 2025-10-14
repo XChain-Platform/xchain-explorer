@@ -99,6 +99,9 @@ XC = {
     query:   null,
     type:    null,
 
+    // Placeholder for xchain-explorer status
+    status:  null,
+
     // Default coin price to 0.00 (USD)
     coin_price: 0.00,
     
@@ -115,8 +118,8 @@ function initPage(){
     // Initialize the XChain request params
     setXChainParams();
 
-    // Get basic information on the COIN network
-    getCoinNetworkInfo();
+    // Get basic information on the xchain explorer configuration
+    getExplorerStatusInfo();
 
     // Initialize the main menu
     initMainMenu();
@@ -393,6 +396,9 @@ function getCoinNetworkInfo(callback, force){
         last   = (json && json.timestamp) ? json.timestamp : 0,
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
+    // Skip request for network info if network is not currently supported by the explorer
+    if(XC.status && isNull(XC.status.available[XC.coin]))
+        return;
     // Set the coin price from the last known price
     if(json && json.coin && json.coin.price && json.coin.price.usd)
         XC.coin_price = json.coin.price.usd;
@@ -432,6 +438,58 @@ function getCoinNetworkInfo(callback, force){
         }
     }
 }
+
+// Handle updating xchain-explorer configuration information and passing it to callback function for processing
+// NOTE: This information is cached in localStorage and updated every 5 minutes
+function getExplorerStatusInfo(callback, force){
+    let name   = 'xchain-explorer-status-info',
+        info   = ls.getItem(name),
+        json   = (info) ? JSON.parse(info) : false;
+        last   = (json && json.timestamp) ? json.timestamp : 0,
+        ms     = 300000, // 5 minutes
+        update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
+    // Set the coin price from the last known price
+    if(json)
+        XC.status = json;
+    // Define callback function to handle processing data once we have it
+    let cb = function(json){
+        if(json){
+            // Update the xchain-explorer status
+            XC.status = json;
+            // Get basic information on the COIN network
+            getCoinNetworkInfo();
+            // Handle processing the callback if we have one
+            if(typeof callback=='function')
+                callback(json);
+        }
+    }
+    // Do not update if we already have a pending request
+    if(XC.pendingStatusInfoRequest)
+        update = false;
+    if(update){
+        // Set flag to indicate we have a pending request to prevent duplicate requests
+        XC.pendingStatusInfoRequest = true;
+        if(XC.debug)
+            console.log('Updating status information...');
+        // Request updated status information and store the response in localStorage
+        loadApiData(XC.coin, 'status', null, null, function(json){
+            XC.pendingStatusInfoRequest = false;
+            json.timestamp = Date.now();
+            ls.setItem(name,JSON.stringify(json));
+            cb(json);
+        });
+    } else {
+        // If we have a pending Network request, try again in 1000ms
+        if(XC.pendingStatusInfoRequest){
+            setTimeout(function(){
+                getExplorerStatusInfo(callback);
+            }, 1000);
+        } else {
+            cb(json);
+        }
+    }
+}
+
 
 // Handle setting up listeners on action dropdowns to load content when clicked 
 function setupActionListeners(){
@@ -1205,7 +1263,7 @@ function loadDatatablesData(coin, action, query, type){
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
     let endpoint = null;
-    if(['history','block','network','token','action'].includes(action) || (action=='address' && type==null)){
+    if(['history','block','network','token','action','status'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
     } else if(['address','batch'].includes(action)){
         endpoint = action + 'es';

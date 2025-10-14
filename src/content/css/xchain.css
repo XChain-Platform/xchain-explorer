@@ -212,6 +212,12 @@ table.dataTable tbody td {
     border-top: 0px;
 }
 
+/* Set style for the `loading data` placeholder in datatables */
+table.dataTable tbody td.loading-data {
+    text-align: center;
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+}
 
 /* Wrapper around icons to standardize the size and make content line up*/
 .wrapicon-25 {

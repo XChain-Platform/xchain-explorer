@@ -2618,19 +2618,22 @@ class Database {
         if(data.tx_index){
             args = [data.tx_index];
             query = `SELECT
-                            m.action_index
+                            m.action_index,
+                            a1.action
                         FROM
                             actions m
+                            INNER JOIN index_actions a1 ON (a1.id=m.action_id)
                         WHERE 
                             m.tx_index=?`;
             results = await this.doQuery(config, query, args);
             if(results && results.length){
                 for(let row of results){
-                    let info = await this.getActionData(config, Number(row.action_index));
-                    data.actions.push(info);
+                    data.actions.push(row);
                 }
             }
         }
+        // Get summary data for actions
+        data.actions = await this.getActionSummaryData(config, data.actions);
         return [data]
     }
 
@@ -3801,6 +3804,13 @@ class Database {
                     history.push(row);
             }
         }
+        // Get summary data for actions
+        let data = await this.getActionSummaryData(config, history);
+        return [data, total];
+    }
+
+    // Get action summary information for a given action_index
+    async getActionSummaryData(config, actions){
         // Define a list of detail fields we want to pass forward in history items
         // Note: We limit this to just enough details to show basic history info, user can request full info on action if they want more info
         let detailFields = [
@@ -3820,7 +3830,7 @@ class Database {
             'balances', 'ownerships'                                                                             // Sweeps
         ];
         // Lookup extended information on the action_index
-        for(let data of history){
+        for(let data of actions){
             let info = await this.getActionData(config, data.action_index);
             data.status = info.status;
             let details = false;
@@ -3835,10 +3845,8 @@ class Database {
             }
             data.details = details;
         }
-        let data = history;
-        return [data, total];
-    }
-
+        return actions;
+    }        
 
     // Get list of blocks and a count of each transaction type for the given block_index
     async getBlocks(config){

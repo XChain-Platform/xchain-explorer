@@ -158,7 +158,8 @@ function initMainMenu(){
         $('#network-icon').removeClass('fa-database').addClass(icon.toLowerCase());
 
         // Update header logo to link to main network landing page
-        $('#header-logo').attr('href','/' + XC.coin);
+        if(XC.status && !isNull(XC.status.available[XC.coin]))
+            $('#header-logo').attr('href','/' + XC.coin);
 
         // Show the 'Data' dropdown
         $('#data-menu').removeClass('d-none');

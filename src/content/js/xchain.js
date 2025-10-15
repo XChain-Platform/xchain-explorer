@@ -196,13 +196,18 @@ function setXChainParams(){
     // Set query and query type to a valid value
     let type  = String(path[2]).toLowerCase();
     let query = path[path.length-1];
-    if(['block','address','token','action'].includes(type)){
+    if(['block','address','token','action','transaction'].includes(type)){
         let valid = false;
         if((['block','action'].includes(type)  && isNumeric(query)) ||
            (type=='address' && isCryptoAddress(query)) ||
            (type=='token'   && typeof(query)=='string')){
             XC.type  = type;
             XC.query = query;
+        }
+        // Set type to either tx_index or tx_hash for transactions
+        if(type=='transaction'){
+            XC.query = query;
+            XC.type  = (isNumeric(query)) ? 'tx_index' : 'tx_hash';
         }
 
     }
@@ -321,7 +326,7 @@ function formatLivestamp(timestamp=null){
 function formatTransactionLink(tx){
     let html = tx;
     let coin = XC.coin;
-    html += '<a href="/' + XC.coin + '/tx/'                              + tx + '" target="_blank" title="XChain"       ><i class="ms-1 fa fa-lg icon-20 fa-xchain"></i></a>';
+    html += '<a href="/' + XC.coin + '/transaction/'                     + tx + '" target="_blank" title="XChain"       ><i class="ms-1 fa fa-lg icon-20 fa-xchain"></i></a>';
     if(coin=='BTC'){
         html += '<a href="https://mempool.space/tx/'                    + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
         html += '<a href="https://blockstream.info/tx/'                 + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
@@ -504,7 +509,7 @@ function setupActionListeners(){
             var icon = $(this).find('i').attr('class'),
                 text = $(this).text();
             // Skip loading data in certain cases (like actions where all data already exists in the API call)
-            if(XC.type=='action'){
+            if(['action','tx_hash','tx_index'].includes(XC.type)){
                 load = false;
                 if(action=='info'){
                     icon = 'fa fa-info-circle';
@@ -1264,7 +1269,7 @@ function loadDatatablesData(coin, action, query, type){
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
     let endpoint = null;
-    if(['history','block','network','token','action','status'].includes(action) || (action=='address' && type==null)){
+    if(['history','block','network','token','action','status','transaction'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
     } else if(['address','batch'].includes(action)){
         endpoint = action + 'es';
@@ -1307,13 +1312,13 @@ function null2string(obj){
     return obj;
 }
 
-// Handle displaying action details
-function showActionDetails(){
+// Handle displaying transaction details
+function showTransactionDetails(){
     // Setup short alias to action info object
-    let o = XC.actionInfo;
+    let o = (XC.actionInfo) ? XC.actionInfo : XC.transactionInfo;
     // Update page with basic transaction details
     let source        = (o.source)       ? formatLink('/' + XC.coin + '/address/' + o.source, o.source) : '-';
-    let tx_index      = (o.tx_index)     ? formatLink('/' + XC.coin + '/tx/' + o.tx_index, formatAmount(o.tx_index)) : '-';
+    let tx_index      = (o.tx_index)     ? formatLink('/' + XC.coin + '/transaction/' + o.tx_index, formatAmount(o.tx_index)) : '-';
     let block_index   = (o.block_index)  ? formatLink('/' + XC.coin + '/block/' + o.block_index, formatAmount(o.block_index)) : '-';
     let action_index  = (o.action_index) ? formatLink('/' + XC.coin + '/action/' + o.action_index, formatAmount(o.action_index)) : '-';
     let action_format = (isNumeric(o.action_format)) ? o.action_format : '-';
@@ -1333,6 +1338,16 @@ function showActionDetails(){
     } else {
        $('#tx-hash').text('-');
     }
+    // Load the actions table data
+    showActionDatatable('actions',o.actions);
+}
+
+// Handle displaying action details
+function showActionDetails(){
+    // Setup short alias to action info object
+    let o = XC.actionInfo;
+    // Update page with transaction details
+    showTransactionDetails();
     // Display the specific actions for this tranaction
     // TODO: Cleanup this code once all actions are working (reduce to just call on show{ACTION}Details(o))
     var found = false;
@@ -1619,12 +1634,14 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
         // Loop through data and add to the datatables before initialization
         data.forEach(function(info, idx){
             var cls = (info.status=='valid') ? 'bg-green' : 'bg-red';
-            if(type=='batch'){
+            if(['actions','batch'].includes(type)){
+                let details = (info.details) ? info.details : info;
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, formatAmount(info.action_index)) + '</td>';
                 html += '    <td>' + info.action + '</td>';
-                html += '    <td>' + getActionDetails(info.action, info) + '</td>';
+                html += '    <td>' + getActionDetails(info.action, details) + '</td>';
+                html += '    <td>' + info.status + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, 'view', null, true) + '</td>';
                 html += '</tr>';
             } else if(type=='list-items'){
@@ -1644,8 +1661,15 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                     html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick) + '</td>';
                 html += '    <td>' + info.status + '</td>';
                 html += '</tr>';
+            // } else if(type=='actions'){
+            //     html += '<tr class="' + cls + '">'
+            //     html += '    <td>' + (idx+1) + '</td>';
+            //     html += '    <td>' + info.action + '</td>';
+            //     html += '    <td>' + getActionDetails(info.action, info) + '</td>';
+            //     html += '    <td>' + info.status + '</td>';
+            //     html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, 'view', null, true) + '</td>';
+            //     html += '</tr>';
             } else if(type=='send'){
-                var cls = (info.status=='valid') ? 'bg-green' : 'bg-red';
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.destination, info.destination) + '</td>';

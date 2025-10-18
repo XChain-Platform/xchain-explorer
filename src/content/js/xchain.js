@@ -109,8 +109,11 @@ XC = {
     datatables: {},
 
     // Placeholder for a list of data panels 
-    panels: []
+    panels: [],
 
+    // Placeholders to track if we found token information and display the correct sections
+    tokenInfoFound:    false,
+    someTokenInfoFound: false
 }
 
 // Function to handle initializing page 
@@ -1689,6 +1692,638 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
         body.html(html);
     }
     initStaticDatatable(id, autoWidth);
+}
+
+// Display lock status text and icon
+function showLockStatus(locked){
+    var icon = (locked) ? 'fa-lock' : 'fa-lock-open',
+        text = (locked) ? 'Locked' : 'Unlocked',
+        html = '<i class="fa pe-1 ' + icon + '"></i>' + text;
+    return html;
+}
+
+// Function to remove HTML content from string
+function stripHtml(html){
+    var tmp = document.createElement("DIV");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
+}
+
+// Handle getting record type from array
+function getArrayItemByType(arr, type){
+    rec = false;
+    arr.forEach(function(item){
+        if(item.type==type && !isNull(item))
+            rec = item
+    });
+    return rec;
+}
+
+// Handle loading remote image icon
+function displayTokenIcon(image){
+    // // var url = image;
+    // var url = relay + image;
+    // $.get( url, function(data){
+    //     if(String(data).trim().length)
+    //         $('#tokenIcon').attr('src', 'data:image/png;base64,' + data);
+    // });
+}
+
+// Simple function to resize iframe height to fit content
+function resizeIframe(id){
+    var el   = $(id),
+        body = el.contents().find('body');
+    el.height(body.height() + 16);
+}
+
+// Handle updating a table row with data removing the row
+function updateTokenTableRow(id=null, value=false, html=false){
+    if(id){
+        var el = $(id);
+        if(el){
+            // Update element with value if we have one
+            if(value && !isNull(value)){
+                if(html){
+                    el.html(html);
+                } else {
+                    el.text(value);
+                }
+                // Set flags to indicate if we found token info
+                XC.tokenInfoFound     = true;
+                XC.someTokenInfoFound  = true;
+            } else {
+                el.parent().remove();
+            }
+        }
+    }
+}
+
+// Handle updating a token section to display and reset token info found flag
+function updateTokenSection(id){
+    if(XC.tokenInfoFound){
+        let el = $(id);
+        if(el){
+            el.show();
+        }
+        // Reset the token info found flag for the next section
+        XC.tokenInfoFound = false;
+    }
+}
+
+// Handle displaying token content (images, audio, video, etc)
+function showTokenContent(json){
+    // Convert any legacy formated JSON to the new XChain Token Information Standard (TIS)
+    json = legacyJsonToXChainTIS(json);
+
+    // Cache JSON so we can easily reference it again when needed
+    cachedJson = json;
+
+    // Create short alias to json object
+    let o = json;
+
+    // Placeholders to indicate if there is audio/video/image/title content
+    var audio = false,
+        video = false,
+        image = false,
+        title = false;
+
+    // Basic Token Information
+    var main  = getArrayItemByType(o.categories, 'main'),
+        sub   = getArrayItemByType(o.categories, 'sub'),
+        other = getArrayItemByType(o.categories, 'other');
+    updateTokenTableRow('#tokenName', o.name);
+    updateTokenTableRow('#tokenWebsite', o.website, '<a href="' + getValidUrl(o.website) + '" target="_blank">' + o.website + '</a>');
+    updateTokenTableRow('#pgpSignature', o.pgpsig);
+    updateTokenTableRow('#tokenCategory', main.data);
+    updateTokenTableRow('#tokenSubCategory', sub.data);
+    updateTokenTableRow('#tokenCategoryOther', other.data);
+    updateTokenTableRow('#tokenExtendedDescription', o.description);
+    updateTokenSection('#additionalTokenInfo');
+
+    // Owner Information
+    updateTokenTableRow('#ownerName', o.owner.name);
+    updateTokenTableRow('#ownerTitle', o.owner.title);
+    updateTokenTableRow('#ownerOrganization', o.owner.organization);
+    updateTokenSection('#ownerInfo');
+
+    // Contacts)
+    if(o.contacts.length){
+        var table = $('#contactInfo table tbody');
+        table.empty();
+        o.contacts.slice(0,10).forEach(function(item){
+            var type = item.type.toLowerCase(),
+                html = '<tr><th>' + item.type + '</th><td>' + item.data + '</td></tr>';
+            if(type=='email')
+                html = '<tr><th>' + item.type + '</th><td><a href="mailto:'+ item.data + '">' + item.data + '</a></td></tr>'
+            if(type=='phone'||type=='fax')
+                html = '<tr><th>' + item.type + '</th><td><a href="tel:'+ item.data + '">' + item.data + '</a></td></tr>'
+            if(type=='url')
+                html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>'
+            table.append(html);
+            XC.tokenInfoFound = true;
+        });
+        updateTokenSection('#contactInfo');
+    }
+
+    // Social Media
+    if(o.social.length){
+        var table = $('#socialInfo table tbody');
+        table.empty();
+        o.social.slice(0,10).forEach(function(item){
+            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            table.append(html);
+            XC.tokenInfoFound = true;
+        });
+        updateTokenSection('#socialInfo');
+    }
+
+    // Images
+    if(o.images.length){
+        var table = $('#imagesInfo table tbody');
+        table.empty();
+        o.images.slice(0,10).forEach(function(item){
+            if(item.data.substring(0,4)=='data')
+                return;
+            let html = '<tr><th>' + item.type;
+            if(item.size)
+                html += ' (' + item.size + ')';
+            html += '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            table.append(html);
+            XC.tokenInfoFound = true;
+        });
+        updateTokenSection('#imagesInfo');
+        // Extract image from images array
+        var large    = getArrayItemByType(o.images, 'large'),
+            standard = getArrayItemByType(o.images, 'standard'),
+            first    = o.images[0].data;
+        image = (large) ? large.data : (standard) ? standard.data : first.data;
+        title = (large) ? large.name : (standard) ? standard.name : first.name;
+    }
+
+    // Audio
+    if(o.audio.length){
+        var table = $('#audioInfo table tbody');
+        table.empty();
+        o.audio.slice(0,10).forEach(function(item){
+            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            table.append(html);
+            XC.tokenInfoFound = true;
+        });
+        updateTokenSection('#audioInfo');
+        // Extract audio from audio array
+        var m4a   = getArrayItemByType(o.audio, 'm4a'),
+            mp3   = getArrayItemByType(o.audio, 'mp3'),
+            wav   = getArrayItemByType(o.audio, 'wav'),
+            first = o.audio[0].data;
+        audio = (m4a) ? m4a.data : (mp3) ? mp3.data : (wav) ? wav.data : first.data;
+        if(!title)
+            title = (m4a) ? m4a.name : (mp3) ? mp3.name : (wav) ? wav.name : first.name;
+
+    }
+
+    // Video
+    if(o.video.length){
+        var table = $('#videoInfo table tbody');
+        table.empty();
+        o.video.slice(0,10).forEach(function(item){
+            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            table.append(html);
+            XC.tokenInfoFound = true;
+        });
+        updateTokenSection('#videoInfo');
+        // Extract video from videos array
+        var mp4   = getArrayItemByType(o.video, 'mp4'),
+            mov   = getArrayItemByType(o.video, 'mov'),
+            wmv   = getArrayItemByType(o.video, 'wmv'),
+            first = o.video[0].data;
+        video = (mp4) ? mp4.data : (mov) ? mov.data : (wmv) ? wmv.data : first.data;
+        if(!title)
+            title = (mp4) ? mp4.name : (mov) ? mov.name : (wmv) ? wmv.name : first.name;
+    }
+
+    // Files
+    if(o.files.length){
+        var table = $('#fileInfo table tbody');
+        table.empty();
+        o.files.slice(0,10).forEach(function(item){
+            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            table.append(html);
+            XC.tokenInfoFound = true;
+        });
+        updateTokenSection('#fileInfo');
+    }
+
+    // DNS
+    if(o.dns.length){
+        var table = $('#dnsInfo table tbody');
+        table.empty();
+        table.append('<tr><th>Type</th><th>Host</th><th>Value</th></tr>')
+        o.dns.slice(0,10).forEach(function(item){
+            var html = '<tr><td>' + item.type + '</td><td>' + item.host + '</td><td>' + item.value + '</td></tr>';
+            table.append(html);
+            XC.tokenInfoFound = true;
+        });
+        updateTokenSection('#dnsInfo');
+    }
+
+    // Token Icon
+    var icon = false;
+    if(o.images.length){
+        // First try to find 48x48 icon
+        o.images.forEach(function(item){
+            if(!icon && item.type=='icon' && item.size=='48x48')
+                icon = item.data;
+        });
+        // If we couldn't find 48x48 icon, use the first icon in the list
+        o.images.forEach(function(item){
+            if(!icon && item.type=='icon')
+                icon = item.data;
+        });
+    }
+    // Use legacy "image" param if we couldn't find icon in the CIP25 images array
+    if(!icon && o.image)
+        icon = i.image;
+    // Handle displaying token icon image
+    if(icon)
+        displayTokenIcon(icon);
+
+    // Setup short alias to token description
+    var desc = $('#token-description').text();
+
+    // If we do not already have any audio/video/image content defined, check if this is one of the TIS defined formats
+    // https://github.com/XChain-platform/xchain-documentation/blob/master/Token_Information_Standard.md#supported-token-description-formats
+    if(!audio && !video && !image){
+        // Cleanup description a bit to remove leading/trailing spaces and some funky characters
+        desc = desc.trim().replace('\u001e','');
+        if(/^(imgur|youtube|soundcloud)/i.test(desc)){
+            // service/info;title format parsing
+            var [url, title, xtra] = desc.split(';'),
+                [service, code]    = url.split('/'),
+                title              = (xtra) ? title + ';' + xtra: title,
+                service            = service.toLowerCase();
+            // Cleanup some bad formats
+            if(service=='imgur.com')
+                service = 'imgur';
+            // Handle decoding some common characters
+            if(title)
+                title = title.replace('&#39;',"'");
+            if(service=='imgur')
+                image = 'https://i.imgur.com/' + code;
+            if(service=='youtube')
+                video = 'https://www.youtube.com/embed/' + code;
+            if(service=='soundcloud')
+                audio = 'https://api.soundcloud.com/tracks/' + code;
+            if(XC.debug)
+                console.log('service, code, title', service, code, title);
+        }
+    }
+
+    // Handle processing descriptions that include urls
+    if(!audio && !video && !image){
+        if(/http/.test(desc) || /i\.imgur\.com/.test(desc)){
+            var [url, qs] = desc.split('?'), // Ignore any querystring data
+                arr = url.split('.'),
+                url = desc,
+                ext = arr[arr.length-1].toLowerCase();
+            if(url.indexOf('http')==-1)
+                url = 'http://' + url;
+            // Handle images
+            var images = ['gif','jpg','jpeg','gif','png'],
+                audios = ['m4a','mp3','wav'],
+                videos = ['mp4','mov','wmv'];
+            if(images.indexOf(ext)!=-1)
+                image = url;
+            if(audios.indexOf(ext)!=-1)
+                audio = url;
+            if(videos.indexOf(ext)!=-1)
+                video = url;
+        }
+    }        
+
+    // If we have a title, display it
+    title = (title) ? String(title).replace('&#39;',"'") : null;
+    updateTokenTableRow('#artwork-title', title);
+    updateTokenSection('#artwork-information');
+
+
+    // If we have any image/audio/video content, display it
+    if(image||audio||video){
+        if(image){
+            $('#artwork-header').show();
+            var el = $('#artwork-image');
+            el.attr('src',image);
+            el.show();
+        }
+        if(video){
+            $('#video-header').show();
+            var el  = $('#video-wrapper'),
+                arr = video.split('.'),
+                ext = arr[arr.length-1].toLowerCase();
+            if(/youtube/.test(video)){
+                el   = $('#video-wrapper-youtube'),
+                html = '<iframe src="' + video + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
+            } else {
+                var type = '';
+                if(ext=='mp4') type = 'video/mp4';
+                if(ext=='wmv') type = 'video/x-ms-asf';
+                if(ext=='mov') type = 'video/quicktime'
+                html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + video + '"></video>';
+            }
+            el.html(html).show()
+        }
+        if(audio){
+            $('#audio-header').show();
+            var el = $('#audio-wrapper');
+            if(/soundcloud/.test(audio)){
+                el = $('#audio-wrapper-soundcloud');
+                html = '<iframe src="https://w.soundcloud.com/player/?url=' + audio + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
+            } else {
+                html = '<audio src="' + audio + '" autoplay="true" controls loop preload></audio>';
+            }
+            el.html(html).show();
+        }
+        // Display the 'Digital Artwork' sections
+        XC.tokenInfoFound = true;
+        XC.someTokenInfoFound = true;
+        updateTokenSection('#digitalArtInfo');
+    }
+
+    // Display any custom HTML content (with a warning before loading)
+    if(o.html && !isNull(o.html)){
+        XC.someTokenInfoFound = true;
+        $('#custom-content-header').show();
+        $('#custom-content-wrapper').show();
+        // Handle loading custom content when the use clicks the "Load Content" button
+        $('#loadCustomContentButton').click(function(){
+            $('#customContentWarning').hide();
+            var el   = $('#customContentViewer');
+                body = el.contents().find('body');
+            body.html(cachedJson.html);
+            el.show();
+            // Cheezy hack to resize the content as it loads
+            setTimeout(function(){ resizeIframe(); }, 100);
+            setTimeout(function(){ resizeIframe(); }, 250);
+            setTimeout(function(){ resizeIframe(); }, 500);
+            setTimeout(function(){ resizeIframe(); }, 1000);
+            setTimeout(function(){ resizeIframe(); }, 2000);
+        });
+        // Setup a listener for iframe resizes so we can recalculate the dimensions
+        var iframeWin = document.getElementById('customContentViewer').contentWindow;
+        $(iframeWin).on('resize', function(){ resizeIframe('#customContentViewer'); });
+    }
+
+    // Hide the "No additional information is available" section
+    if(XC.someTokenInfoFound)
+        $('#additionalInfoNotAvailable').hide();
+}
+
+// Handle displaying token details
+function showTokenInfo(){
+    // Setup short alias to token info object
+    let o = XC.tokenInfo;
+
+    // Setup short alias for token description
+    var desc  = o.info.description;
+
+    // Define the various numeral formats to use
+    let fmtCoin  = '0,0.00000000',
+        fmtFiat  = '0,0.00';
+
+    // Basic Token Information
+    $('.xchain-tick').text(o.info.tick);
+    $('#supply').text(formatAmount(o.supply.current));
+    $('#max-supply').text(formatAmount(o.supply.max));
+    $('#max-mint').text(formatAmount(o.mints.max));
+    $('#owner').html(formatLink('/' + XC.coin + '/address/' + o.info.owner, o.info.owner));
+    $('#token-description').text(desc);
+
+    // Marketcap and Pricing Information
+    $('.xchain-coin').text(o.info.coin);
+    $('#market-price-coin').text(numeral(o.market.price).format(fmtCoin));
+    $('#market-price-fiat').text(numeral(bcmul(o.market.price, XC.coin_price, 2)).format(fmtFiat));
+    $('#market-floor-coin').text(numeral(o.market.floor).format(fmtCoin));
+    $('#market-floor-fiat').text(numeral(bcmul(o.market.floor, XC.coin_price, 2)).format(fmtFiat));
+    var mcap = bcmul(o.market.price, o.supply.current, 8);
+    $('#market-marketcap-coin').text(numeral(mcap).format(fmtCoin));
+    $('#market-marketcap-fiat').text(numeral(bcmul(mcap, XC.coin_price, 2)).format(fmtFiat));
+
+    // Callback Token Information
+    if(!isNull(o.callback.tick)){
+        $('#callback-tick').html(formatLink('/' + XC.coin + '/token/' + o.callback.tick, o.callback.tick));
+        $('#callback-block').html(formatLink('/' + XC.coin + '/block/' + o.callback.block, numeral(o.callback.block).format('0,0')));
+        if(o.callback.amount){
+            $('#callback-amount').text(formatAmount(o.callback.amount));
+            $('#callback-price-coin').text(numeral(bcmul(o.callback.amount, o.callback.price, 8)).format(fmtCoin));
+        }
+    }
+
+    // Locks 
+    $('#lock-max-supply').html(showLockStatus(o.locks.max_supply));
+    $('#lock-max-mint').html(showLockStatus(o.locks.max_mint));
+    $('#lock-mint').html(showLockStatus(o.locks.mint));
+    $('#lock-mint-supply').html(showLockStatus(o.locks.mint_supply));
+    $('#lock-description').html(showLockStatus(o.locks.description));
+    $('#lock-rug').html(showLockStatus(o.locks.rug));
+    $('#lock-sleep').html(showLockStatus(o.locks.sleep));
+    $('#lock-callback').html(showLockStatus(o.locks.callback));    
+
+    // RegExp for pattern matching in description
+    let json  = /^(.*).json/i,
+        http  = /^http:\/\//,
+        https = /^https:\/\//,
+        ord   = /^ord:/i,
+        ipfs  = /^ipfs:/i;
+
+    // If the file starts with http and end with JSON, then assume it is valid url and link it
+    if(json.test(desc)||http.test(desc)||https.test(desc)){
+        var arr  = desc.split(';'),
+            html = '<a href="' + getValidUrl(arr[0]) + '" target="_blank">' + arr[0] + '</a>';
+        if(arr[1])
+            html += ';' + arr[1];
+        $('#token-description').html(html);
+    }
+
+    // Set the full url to get JSON content
+    let jsonUrl = false;
+    if(json.test(desc) || ipfs.test(desc) || ord.test(desc)){
+        if(ipfs.test(desc)){
+            jsonUrl = 'https://ipfs.io/ipfs/' + String(desc).replace(ipfs,'');
+        } else if(ord.test(desc)){
+            var hash = String(desc).replace(ord,'');
+            if(hash.length!=64)
+                hash = base64ToHex(hash);
+            jsonUrl = 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash;
+        } else {
+            jsonUrl = 'https://' + arr[0].replace('https://','').replace('http://','');
+        }
+    }
+
+    // Handle trying to load any JSON content and show the token content
+    if(jsonUrl){
+        if(XC.debug)
+            console.log('Attempting to get JSON...');
+        // Try to make a request for the JSON directly (might fail due to missing CORS headers)
+        $.getJSON( jsonUrl, function(o){ 
+            showTokenContent(o);
+        }).fail(function(){
+            if(XC.debug)
+                console.log('failed to get JSON... retrying using xchain-explorer relay')
+            // Try to request the JSON through the xchain relay
+            $.getJSON( '/api/relay?url=' + jsonUrl, function(o){ 
+                showTokenContent(o);
+            });
+        }); 
+    } else {
+        showTokenContent();
+    }
+}
+
+
+// Handle converting any legacy JSON to use the XChain Token Information Standard standard
+// https://github.com/XChain-platform/xchain-documentation/blob/master/Token_Information_Standard.md
+function legacyJsonToXChainTIS(o){
+    var json = {},
+        o    = (o) ? o : {};
+    // Pass basic token info fields forward
+    ['token','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
+    // Owner fields
+    json.owner = {};
+    if(o.owner)
+        ['name','title','organization'].forEach(function(name){ if(o.owner[name]) json.owner[name]=o.owner[name]; });
+    // Contacts Data
+    json.contacts = (typeof o.contacts === 'object') ? o.contacts : [];
+    if(o.contact_address_line_1)
+        json.contacts.push({ type: 'address', data: o.contact_address_line_1 + ' ' + o.contact_address_line_2 + ', ' +  o.contact_city + ', ' +  o.contact_state_province + ' ' +  o.contact_postal_code + ' ' + o.contact_country });
+    if(o.contact_email1)
+        json.contacts.push({ type: 'email', data: o.contact_email1 });
+    if(o.contact_email2)
+        json.contacts.push({ type: 'email', data: o.contact_email2 });
+    if(o.contact_phone)
+        json.contacts.push({ type: 'phone', data: o.contact_phone });
+    if(o.contact_fax)
+        json.contacts.push({ type: 'fax', data: o.contact_fax });
+    if(o.website_alternate1)
+        json.contacts.push({ type: 'url', data: o.website_alternate1 });
+    if(o.website_alternate2)
+        json.contacts.push({ type: 'url', data: o.website_alternate2 });
+    // Category Data
+    json.categories = (typeof o.categories === 'object') ? o.categories : [];
+    if(o.category)
+        json.categories.push({ type: 'main', data: o.category });
+    if(o.subcategory)
+        json.categories.push({ type: 'sub', data: o.subcategory });
+    if(o.category_custom)
+        json.categories.push({ type: 'other', data: o.category_custom });
+    // Social Media
+    json.social = (typeof o.social === 'object') ? o.social : [];
+    if(o.website_social_facebook)
+        json.social.push({ type: 'facebook', data: o.website_social_facebook });
+    if(o.website_social_github)
+        json.social.push({ type: 'github', data: o.website_social_github });
+    if(o.website_social_twitter)
+        json.social.push({ type: 'twitter', data: o.website_social_twitter });
+    if(o.website_social_reddit)
+        json.social.push({ type: 'reddit', data: o.website_social_reddit });
+    if(o.website_social_linkedin)
+        json.social.push({ type: 'linkedin', data: o.website_social_linkedin });
+    // Images
+    json.images = (typeof o.images === 'object') ? o.images : [];
+    // Add 'image' to images array if it does not already exist
+    if(o.image){
+        var found = false;
+        json.images.forEach(function(item){
+            if(item.data==o.image)
+                found = true;
+        });
+        if(!found)
+            json.images.push({ type: 'icon', data: o.image });
+    }
+    if(o.image_large)
+        json.images.push({ type: 'large', name: o.image_title, data: o.image_large });
+    if(o.image_large_hd)
+        json.images.push({ type: 'hires', name: o.image_title, data: o.image_large_hd });
+    // Audio
+    json.audio = (typeof o.audio === 'object') ? o.audio : [];
+    if(o.audio!='' && typeof o.audio === 'string')
+        json.audio.push({ type: o.audio.slice(-3), data: o.audio });
+    // Video
+    json.video = (typeof o.video === 'object') ? o.video : [];
+    if(o.video!='' && typeof o.video === 'string')
+        json.video.push({ type: o.video.slice(-3), data: o.video });
+    // Files
+    json.files = (typeof o.files === 'object') ? o.files : [];
+    // DNS
+    json.dns = (typeof o.dns === 'object') ? o.dns : [];
+    // Handle trying to extact image/video/audio data from the html description
+    var urls   = String(o.description).match(/(((https?:\/\/)|(www\.))[^\s]+)/g),
+        images = ['gif','jpg','jpeg','gif','png'],
+        audios = ['m4a','mp3','wav'],
+        videos = ['mp4','mov','wmv'];
+    // Loop through any extracted urls and try to detect the content type and add to the appropriate array
+    if(urls){
+        urls.forEach(function(str){
+            var [url, qs] = String(str).split('?'),
+                url   = url.replace('"',''),
+                arr   = url.split('.'),
+                ext   = arr[arr.length-1].toLowerCase(),
+                found = false;
+            // Extract images
+            if(images.indexOf(ext)!=-1 && json.images){
+                json.images.forEach(function(item){
+                    if(item.data==url)
+                        found = true;
+                });
+                if(!found){
+                    var type = (/hires/.test(url)!=-1) ? 'hires' : 'standard';
+                    json.images.push({ type: type, data: url });
+                }
+            }
+            // Extract video
+            if(videos.indexOf(ext)!=-1 && json.videos){
+                json.videos.forEach(function(item){
+                    if(item.data==url)
+                        found = true;
+                });
+                if(!found)
+                    json.videos.push({ type: ext, data: url });
+            }
+            // Extract audio
+            if(audios.indexOf(ext)!=-1 && json.audio){
+                json.audio.forEach(function(item){
+                    if(item.data==url)
+                        found = true;
+                });
+                if(!found)
+                    json.audio.push({ type: ext, data: url });
+            }
+        });
+    }
+    // Pass forward the HTML tag if it exists
+    if(o.html)
+        json.html = o.html;
+    // Parse JSON description and detect attempts to inject HTML and javascript into description
+    if(json.description){
+        var filters = ['<script', '<iframe', 'onload'],
+            desc    = String(json.description).replace('&lt;','<').replace('&gt;','>'),
+            html    = false;
+        filters.forEach(function(filter){
+            var re = new RegExp(filter, 'ig');
+            if(re.test(desc))
+                html = true;
+        });
+        if(html)
+            json.html = json.description;
+        // Remove any attempts to inject HTML or javascript via description field
+        var desc = String(json.description).replace('&lt;','<').replace('&gt;','>').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,'').trim();
+        json.description = stripHtml(desc);
+    }
+    if(XC.debug){
+        console.log('--- Begin JSON ---');
+        console.log(JSON.stringify(json));
+        console.log('--- End JSON ---');
+
+    }
+    return json;
 }
 
 $(document).ready(function(){

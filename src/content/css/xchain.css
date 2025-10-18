@@ -314,18 +314,25 @@ th.address {
 }
 
 /* Custom styles for enhanced asset info display */
-table.token-info {
+table.token-info,
+table.enhanced-token-info {
     table-layout:fixed;                            
 }
 
 table.token-info tr th {
     width: 120px !important;
-/*    background-color: #d9edf7 !important;*/
+    text-transform: capitalize;
+}
+
+table.enhanced-token-info tr th {
+    width: 140px !important;
     text-transform: capitalize;
 }
 
 table.token-info tr th,
-table.token-info tr td {
+table.token-info tr td,
+table.enhanced-token-info tr th,
+table.enhanced-token-info tr td {
     white-space: nowrap;  
     overflow: hidden;  
     text-overflow: ellipsis;

@@ -15,4 +15,4 @@ in order to be able to reference token icons in a standardized way.
 
 To generate icons for use in the explorer run the following script:
 
-`xchain-explorer/src/createIcons.js`
+`xchain-explorer/src/createTokenIcons.js`

@@ -16,7 +16,7 @@
                     <tr>
                         <th>Token&nbsp;Name</th>
                         <td class="xchain-tick"></td>
-                        <td width="65" rowspan="2" valign="middle" align="center" ><img src="/icon/{TICK}.png" id="tokenIcon" border="0"></td>
+                        <td width="65" rowspan="2" valign="middle" align="center" class="p-0"><img src="/icon/default.png" id="tokenIcon" border="0"></td>
                     </tr>
                     <tr>
                         <th>Description</th>
@@ -814,6 +814,10 @@
             'swap'
         ];
 
+        // Define the default token icon and try to load it (if it does not exist, will load default.png)
+        let defaultIcon = '/icon/' + XC.main + '/' + XC.network + '/' + XC.query + '.png';
+        displayTokenIcon(defaultIcon);
+
         // Request information on this token and update the header with this information
         loadApiData(XC.coin, 'token', XC.query, null, function(o){
             if(o){
@@ -822,11 +826,11 @@
                  * Debugging / Testing Information
                  *****************************************************/
 
-                // Legacy Description (Old CoinDaddy format)
-                // o.info.description = 'https://34ubrjs2k3ruwo2as6424n3k4yf26o33fuuwat77dpshw2rdbi4q.arweave.net/3ygYplpW40s7QJe5rjdq5guvO3stKWBP_xvke2ojCjk/MULLE.json';
-
                 // XChain Token Information Standard v1.0.0 Example
                 // o.info.description = 'https://xchain-explorer.test/json/xchain-token-information-standard-v1.0.0-example.json';
+
+                // Legacy Description (Old CoinDaddy format)
+                // o.info.description = 'https://34ubrjs2k3ruwo2as6424n3k4yf26o33fuuwat77dpshw2rdbi4q.arweave.net/3ygYplpW40s7QJe5rjdq5guvO3stKWBP_xvke2ojCjk/MULLE.json';
 
                 // JDOG token description (TIS working example)
                 // o.info.description = 'j-dog.net/json/JDOG.json';
@@ -844,6 +848,11 @@
 
             }
         });
+
+        // Detect any icon loading failures and load the default token icon
+        $('#tokenIcon').on('error', function(){
+            $(this).attr('src', defaultIcon);
+        })
 
         // Setup listeners to load data panel when an action button is clicked
         setupActionListeners();

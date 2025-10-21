@@ -1,6 +1,7 @@
 /* XChain Explorer Class */
 
 const express  = require('express');
+const fs       = require('fs');
 const path     = require('path');
 const util     = require('./util.js');
 const database = require('./db.js');
@@ -43,9 +44,6 @@ class XChainExplorer {
             time: null, // Placeholder for process request timer
             code: 200   // Placeholder for HTTP response code (Default to status OK response)
         };
-
-        // Setup wildcard listener to process requests 
-        app.get('*', (req, res) => { this.processRequest(req, res); });
     }
 
     // Function to define a list of explorer urls
@@ -199,9 +197,15 @@ class XChainExplorer {
             }
         };
 
+        // Setup listeners for icon requests
+        this.app.use('/icon', (req, res) => { this.processIconRequest(req, res); });
+
         // Setup listeners for STATIC file requests
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
+
+        // Setup wildcard listener to process all other requests (includes static failures)
+        this.app.get('*', (req, res) => { this.processRequest(req, res); });
 
         // Return the urls 
         return urls;
@@ -249,21 +253,14 @@ class XChainExplorer {
             },
         };
 
-        // Clean up path to remove any leading and trailing slashes
-        let cleanPath = String(req.path).substring(1).replace(/\/$/,'');
-
-        // Split the url path up into its various parts
-        let urlPath = cleanPath.split('/');
+        // Clean up path to remove any leading and trailing slashes and split the url path up into its various parts
+        let urlPath = String(req.path).substring(1).replace(/\/$/,'').split('/');
 
         // Convert any 'null' string value to an actual null value (so isNull evaluates it properly)
         urlPath.forEach(function(value, idx){
             if(String(value).toLowerCase()=='null')
                 urlPath[idx] = null;
         });
-
-        // Stop processing request for static content (already been processed)
-        if(this.urls['static'].includes(urlPath[0]))
-            return;
 
         // Determine the COIN using the first part of the URL path (BTC, LTC, DOGE, etc)
         let coin = String(urlPath[0]).toUpperCase();
@@ -410,7 +407,7 @@ class XChainExplorer {
         }
 
         // If this is not a valid data request, return a '503 - Service Unavailable' response
-        if(cfg.type!='html' && !this.util.isNull(cfg.data.method) && !validDataRequest){
+        if(['api','explorer'].includes(cfg.type) && !this.util.isNull(cfg.data.method) && !validDataRequest){
             response.code = 503;
             response.json = {
                 error: 'Explorer not configured to support data requests for this coin'
@@ -671,8 +668,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownership, status, info.action_index];
                     if(method=='getTokens')
                         info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.id];
-
                 }
+
                 // Add data to the response array
                 show.push(info);
 
@@ -683,10 +680,24 @@ class XChainExplorer {
         if(['prev','last'].includes(action))
             show = show.reverse();
 
-        // replace any null values with ""
-
+        // Return the data we want to show
         return show;
     }
+
+    // Handle additional processing on static requests 
+    async processIconRequest(req, res){
+        // Split the url path up into its various parts
+        let dirPath  = path.join(__dirname, 'content/icons'),
+            filePath = req.path,
+            fullPath = dirPath + filePath;
+        // Return the file or redirect to the default icon
+        if(fs.existsSync(fullPath)){
+            res.sendFile(fullPath);
+        } else {
+            res.redirect(302, '/icon/default.png');            
+        }
+    }    
+
 }
 
 module.exports = XChainExplorer;

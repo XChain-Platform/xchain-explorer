@@ -181,6 +181,7 @@ function setXChainParams(){
             for(let network in XC.networks){
                 let name = String(XC.networks[network] + coin).toUpperCase();;
                 if(String(path[1]).toUpperCase()==name){
+                    XC.main = coin;
                     XC.coin = name;
                     XC.name = XC.coins[coin];
                     XC.network = network;
@@ -308,9 +309,8 @@ function formatLink(url=null, text=null, icon=false, btn=false){
     var html = '',
         cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
         html += '<a href="' + url + '" class="' + cls + '">';
-    if(icon && icon!='.png')
-        html += '<img src="/images/icons/default.png" class="icon-20 ms-1 me-1">';
-        // html += '<img src="/images/icons/' + icon + '" class="icon-20 float-start me-1">';
+    if(icon && !isNull(icon))
+        html += '<img src="/icon/' + XC.coin + '/' + XC.network + '/' + icon + '" class="icon-20 ms-1 me-1">';
     if(text)
         html += text;
     html += '</a>'
@@ -659,19 +659,19 @@ function getActionDetails(action, info){
         html += 'Fee Preference: ' + pref + '; Require Memo: ' + memo ;
     }
     if(action=='AIRDROP'){
-        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' to ';
+        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
         html += 'List ' + formatLink('/' + coin + '/token/' + info.list_action_index, info.list_action_index);
     }
     if(action=='BROADCAST')
         html = info.message;
     if(action=='CALLBACK'){
-        html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' for ' ;
-        html += info.callback_amount  + formatLink('/' + XC.coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick + '.png');
+        html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' for ' ;
+        html += info.callback_amount  + formatLink('/' + XC.coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick);
     }
     if(action=='FILE')
         html = info.type + ' - ' + info.name + ' - ' + info.title;
     if(action=='ISSUE')
-        html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
+        html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
     if(action=='LINK'){
         html += coin + ' action ' + formatLink('/' + coin + '/token/' + info.link_action_index, info.link_action_index) + ' to ';
         html += info.coin + ' action ' + formatLink('/' + info.coin + '/token/' + info.coin_action_index, info.coin_action_index);
@@ -691,24 +691,24 @@ function getActionDetails(action, info){
         }
     }
     if(action=='MINT')
-        html = info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
+        html = info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
     if(['ORDER','SWAP'].includes(action)){
-        html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick + '.png') + ' for ' ;
-        html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick + '.png');
+        html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
+        html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
     }
     if(action=='SWAP_CANCEL')
         html += 'Cancel swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
     if(action=='SWAP_EDIT')
         html += 'Edit swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
     if(action=='SEND'){
-        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png') + ' to ';
+        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
         html +=formatLink('/' + coin + '/address/' + info.destination, info.destination);
     }
     if(action=='SLEEP'){
         if(info.type==1)
             html = 'Address';
         if(info.type==2)
-            html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick + '.png');
+            html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
         html += ' until block ' + formatAmount(info.resume_block);
     }
     return html;
@@ -942,7 +942,7 @@ function loadDatatablesData(coin, action, query, type){
             if(action=='airdrop'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -952,7 +952,7 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[2];
                 percent = data[3];
                 value   = data[4];
-                $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(2).html(formatAmount(amount));
                 $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
                 html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
@@ -1026,8 +1026,8 @@ function loadDatatablesData(coin, action, query, type){
                 token  = data[4];
                 token2 = data[5];
                 amount = data[6];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
-                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2 + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -1035,7 +1035,7 @@ function loadDatatablesData(coin, action, query, type){
             if(action=='credit'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -1043,7 +1043,7 @@ function loadDatatablesData(coin, action, query, type){
             if(action=='debit'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -1051,7 +1051,7 @@ function loadDatatablesData(coin, action, query, type){
             if(action=='destroy'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(6).html(action_link);
             }
@@ -1068,8 +1068,8 @@ function loadDatatablesData(coin, action, query, type){
                 token  = data[4];
                 token2 = data[5];
                 amount = data[6];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
-                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2 + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
                 $('td', row).eq(6).html(formatAmount(data[6]));
                 $('td', row).eq(7).html(action_link);
             }
@@ -1077,7 +1077,7 @@ function loadDatatablesData(coin, action, query, type){
             if(action=='escrow'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -1088,7 +1088,7 @@ function loadDatatablesData(coin, action, query, type){
                 type2  = data[6];
                 // Fee payment method
                 txt  = (type2==1) ? 'Destroy' : 'Donate';
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(numeral(amount).format(fmtCoin));
                 $('td', row).eq(6).text(txt);
                 $('td', row).eq(8).html(action_link);
@@ -1159,7 +1159,7 @@ function loadDatatablesData(coin, action, query, type){
             if(action=='mint'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(6).html(action_link);
             }
@@ -1169,9 +1169,9 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 token2  = data[6];
                 amount2 = data[7];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
-                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2 + '.png'));
+                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
                 $('td', row).eq(7).html(formatAmount(amount2));
                 $('td', row).eq(8).html(action_link);
             }
@@ -1180,7 +1180,7 @@ function loadDatatablesData(coin, action, query, type){
                 token       = data[4];
                 amount      = data[5];
                 destination = data[6];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/address/' + destination, destination));
                 $('td', row).eq(7).html(action_link);
@@ -1196,7 +1196,7 @@ function loadDatatablesData(coin, action, query, type){
                 if(type2==2) txt='Token';
                 $('td', row).eq(4).text(txt);
                 if(token!='')
-                    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/block/' + block_index2, numeral(block_index2).format(fmtInteger)));
                 $('td', row).eq(7).html(action_link);
             }
@@ -1206,9 +1206,9 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 token2  = data[6];
                 amount2 = data[7];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
-                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2 + '.png'));
+                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
                 $('td', row).eq(7).html(formatAmount(amount2));
                 $('td', row).eq(8).html(action_link);
             }
@@ -1229,7 +1229,7 @@ function loadDatatablesData(coin, action, query, type){
                 amount2 = data[5];
                 amount3 = data[6];
                 locks   = data[7];
-                $('td', row).eq(3).html(formatLink('/' + coin + '/token/' + token, token, token + '.png'));
+                $('td', row).eq(3).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(4).text(formatAmount(amount));
                 $('td', row).eq(5).text(formatAmount(amount2));
                 $('td', row).eq(6).text(formatAmount(amount3));
@@ -1404,7 +1404,7 @@ function showAddressDetails(data){
 // Display AIRDROP action information
 function showAirdropDetails(data){
     $('#info-airdrop .airdrop-list').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
-    $('#info-airdrop .airdrop-token').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-airdrop .airdrop-token').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-airdrop .airdrop-amount').html(formatAmount(data.amount));
     $('#info-airdrop .airdrop-memo').text(data.memo);
 }
@@ -1425,15 +1425,15 @@ function showBroadcastDetails(data){
 
 // Display CALLBACK action information
 function showCallbackDetails(data){
-    $('#info-callback .callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
-    $('#info-callback .callback-callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.callback_tick, data.callback_tick, data.callback_tick + '.png'));
+    $('#info-callback .callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-callback .callback-callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.callback_tick, data.callback_tick, data.callback_tick));
     $('#info-callback .callback-amount').html(formatAmount(data.callback_amount));
     $('#info-callback .callback-memo').text(data.memo);
 }
 
 // Display DESTROY action information
 function showDestroyDetails(data){
-    $('#info-destroy .destroy-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-destroy .destroy-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-destroy .destroy-amount').html(formatAmount(data.amount));
     $('#info-destroy .destroy-memo').text(data.memo);
 }
@@ -1449,7 +1449,7 @@ function showFileDetails(data){
 // Display ISSUE action information
 function showIssueDetails(data){
     $('#info-issue .issue-transfer').html(formatLink('/' + XC.coin + '/address/' + data.transfer, data.transfer));
-    $('#info-issue .issue-ticker').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-issue .issue-ticker').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-issue .issue-decimals').text(data.decimals);
     $('#info-issue .issue-max-supply').text(data.max_supply);
     $('#info-issue .issue-max-mint').text(data.max_mint);
@@ -1512,7 +1512,7 @@ function showMessageDetails(data){
 
 // Display MINT action information
 function showMintDetails(data){
-    $('#info-mint .mint-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-mint .mint-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-mint .mint-amount').html(formatAmount(data.amount));
     $('#info-mint .mint-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     $('#info-mint .mint-memo').text(data.memo);
@@ -1521,10 +1521,10 @@ function showMintDetails(data){
 // Display ORDER action information
 function showOrderDetails(data){
     $('#info-order .order-give-coin').text(data.give_coin);
-    $('#info-order .order-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick + '.png'));
+    $('#info-order .order-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
     $('#info-order .order-give-amount').html(formatAmount(data.give_amount));
     $('#info-order .order-get-coin').text(data.get_coin);
-    $('#info-order .order-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick + '.png'));
+    $('#info-order .order-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
     $('#info-order .order-get-amount').html(formatAmount(data.get_amount));
     $('#info-order .order-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
     $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
@@ -1565,7 +1565,7 @@ function showSendDetails(data){
 function showSleepDetails(data){
     let sleep_type = data.type + ' - Sleep ' + XC.sleep_types[data.type];
     $('#info-sleep .sleep-type').text(sleep_type);
-    $('#info-sleep .sleep-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick + '.png'));
+    $('#info-sleep .sleep-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-sleep .sleep-resume-block').html(formatLink('/' + XC.coin + '/block/' + data.resume_block, formatAmount(data.resume_block)));
     $('#info-sleep .sleep-memo').text(data.memo);
 }
@@ -1573,10 +1573,10 @@ function showSleepDetails(data){
 // Display SWAP action information
 function showSwapDetails(data){
     $('#info-swap .swap-give-coin').text(data.give_coin);
-    $('#info-swap .swap-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick + '.png'));
+    $('#info-swap .swap-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
     $('#info-swap .swap-give-amount').html(formatAmount(data.give_amount));
     $('#info-swap .swap-get-coin').text(data.get_coin);
-    $('#info-swap .swap-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick + '.png'));
+    $('#info-swap .swap-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
     $('#info-swap .swap-get-amount').html(formatAmount(data.get_amount));
     $('#info-swap .swap-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
     $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
@@ -1621,7 +1621,7 @@ function showActionFeeDetails(data){
     if(data){
         let method = (data.method) ? (' - ' + XC.fee_preferences[data.method]) : '';
         let tick   = (data.tick!='') ? data.tick : false;
-        $('#info-fee .fee-tick').html(formatLink('/' + XC.coin + '/token/' + tick, tick, tick + '.png'));
+        $('#info-fee .fee-tick').html(formatLink('/' + XC.coin + '/token/' + tick, tick, tick));
         $('#info-fee .fee-amount').html(formatAmount(data.amount));
         $('#info-fee .fee-method').html(data.method + method);
         $('#info-fee .fee-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
@@ -1676,7 +1676,7 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.destination, info.destination) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick + '.png') + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
                 html += '    <td>' + formatAmount(info.amount) + '</td>';
                 html += '    <td>' + info.status + '</td>';
                 html += '</tr>';
@@ -1684,7 +1684,7 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '<tr>'
                 html += '    <td>' + (idx+1) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick + '.png') + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
                 html += '    <td>' + formatAmount(info.amount) + '</td>';
                 html += '</tr>';
             }
@@ -1721,12 +1721,18 @@ function getArrayItemByType(arr, type){
 
 // Handle loading remote image icon
 function displayTokenIcon(image){
-    // // var url = image;
-    // var url = relay + image;
-    // $.get( url, function(data){
-    //     if(String(data).trim().length)
-    //         $('#tokenIcon').attr('src', 'data:image/png;base64,' + data);
-    // });
+    var icon = $('#tokenIcon');
+    // Set image src to local image
+    if(String(image).substr(0,1)=='/'){
+        icon.attr('src', image);
+    } else {
+        // Make request for URL via relay and load base64 content
+        var url = '/relay?url=' + image;
+        $.get( url, function(data){
+            if(String(data).trim().length)
+                icon.attr('src', 'data:image/png;base64,' + data);
+        });
+    }
 }
 
 // Simple function to resize iframe height to fit content
@@ -1929,12 +1935,17 @@ function showTokenContent(json){
     // Token Icon
     var icon = false;
     if(o.images.length){
-        // First try to find 48x48 icon
+        // First try to find 64x64 icon
+        o.images.forEach(function(item){
+            if(!icon && item.type=='icon' && item.size=='64x64')
+                icon = item.data;
+        });
+        // Failover to try to find 48x48 icon
         o.images.forEach(function(item){
             if(!icon && item.type=='icon' && item.size=='48x48')
                 icon = item.data;
         });
-        // If we couldn't find 48x48 icon, use the first icon in the list
+        // If we couldn't find an icon, use the first icon in the list
         o.images.forEach(function(item){
             if(!icon && item.type=='icon')
                 icon = item.data;
@@ -2169,7 +2180,7 @@ function showTokenInfo(){
             if(XC.debug)
                 console.log('failed to get JSON... retrying using xchain-explorer relay')
             // Try to request the JSON through the xchain relay
-            $.getJSON( '/api/relay?url=' + jsonUrl, function(o){ 
+            $.getJSON( '/relay?url=' + jsonUrl, function(o){ 
                 showTokenContent(o);
             });
         }); 
@@ -2333,6 +2344,7 @@ $(document).ready(function(){
 
     // Display debug information
     if(XC.debug){
+        console.log('XC.main=',XC.main);
         console.log('XC.coin=',XC.coin);
         console.log('XC.name=',XC.name);
         console.log('XC.network=',XC.network);

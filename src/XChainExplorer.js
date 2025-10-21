@@ -3,6 +3,7 @@
 const express  = require('express');
 const fs       = require('fs');
 const path     = require('path');
+const axios    = require('axios');
 const util     = require('./util.js');
 const database = require('./db.js');
 
@@ -197,8 +198,11 @@ class XChainExplorer {
             }
         };
 
-        // Setup listeners for icon requests
+        // Setup listener for icon requests
         this.app.use('/icon', (req, res) => { this.processIconRequest(req, res); });
+
+        // Setup listener for relay requests
+        this.app.use('/relay', (req, res) => { this.processRelayRequest(req, res); });
 
         // Setup listeners for STATIC file requests
         for(let directory of urls['static'])
@@ -684,9 +688,10 @@ class XChainExplorer {
         return show;
     }
 
-    // Handle additional processing on static requests 
+    /**********************************************************
+     * ICON request handler
+     *********************************************************/
     async processIconRequest(req, res){
-        // Split the url path up into its various parts
         let dirPath  = path.join(__dirname, 'content/icons'),
             filePath = req.path,
             fullPath = dirPath + filePath;
@@ -698,6 +703,45 @@ class XChainExplorer {
         }
     }    
 
+    /**********************************************************
+     * RELAY request handler
+     *
+     * Notes :
+     * - All content can be delivered via https/ssl (doesn't break browser SSL lock)
+     * - Most .json files do not pass Access-Control-Allow-Origin header (xhr refuses to make request)
+     *********************************************************/
+    async processRelayRequest(req, res){
+        // Only proceed if we were passed a URL
+        if(!this.util.isNull(req.query.url)){
+            let url   = req.query.url,
+                ext   = String(path.extname(url)).replace('.','').toLowerCase(),
+                regex = /https?:\/\//;
+
+            // Make sure url starts with http:// or https:// (default to http)
+            if(!regex.test(url))
+                url = 'http://' + url;
+
+            // Handle JSON files
+            if(ext=='json'){
+                let response = await axios.get(url);
+                if(!this.util.isNull(response.data)){
+                    res.json(response.data);
+                    return;
+                }
+            }
+
+            // Handle PNG images
+            if(ext=='png'){
+                let response    = await axios.get(url, { responseType: 'arraybuffer' });
+                let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                res.send(base64Image);
+                return;
+            }
+
+        }
+        // Return `503 - Service Unavailable` error message as last resort
+        res.status(503).send('service not available');
+    }
 }
 
 module.exports = XChainExplorer;

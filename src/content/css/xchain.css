@@ -195,6 +195,20 @@ body {
     padding: 0em 0.5em;
 }
 
+/* Force borders on datatables to look nice */
+table.dataTable.cell-border {
+    border-bottom: 1px solid #ddd !important;
+}
+table.dataTable.cell-border tbody tr:first-child td {
+    border-top: 1px solid #ddd !important;
+}
+table.dataTable.cell-border tbody tr td:first-child {
+    border-left-width: 0px;
+}
+table.dataTable.cell-border tbody tr td:last-child {
+    border-right-width: 0px;
+}
+
 /* Do not put border on 2nd from last field next to status field */
 table.dataTable.cell-border.view-button tbody tr td:nth-last-child(2){
     border-right: 0px;

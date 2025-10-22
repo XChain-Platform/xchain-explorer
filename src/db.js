@@ -172,7 +172,7 @@ class Database {
         // If query is an object, it is data, so just pass it forward the data and total
         if(typeof query === 'object'){
             data = query;
-            if(count)
+            if(this.util.isNumeric(count))
                 total = count;
         } else {
             // Default args to the search string if specific search args object was not given (null)
@@ -226,7 +226,7 @@ class Database {
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
             // Tweak limit in certain cases where we can't select just the data we want using offsets
-            if(['getBalances', 'getHolders'].includes(data.method))
+            if(['getBalances', 'getHolders','getSearch'].includes(data.method))
                 limit = this.util.bcadd(start,length);
             // Set the order to ascending for previous and last requests
             if(['prev','last'].includes(action))
@@ -375,7 +375,7 @@ class Database {
         let limit  = 1;
         let order  = 'DESC';
         // Bail out in certain instances
-        if(['getBalances','getHolders','getTransaction'].includes(method))
+        if(['getBalances','getHolders','getTransaction','getSearch'].includes(method))
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
@@ -3910,6 +3910,132 @@ class Database {
             }
         }
         return [data, null, total];
+    }
+
+    // Get list of search results for a given
+    async getSearch(config){
+        // Define list of search types
+        let searchTypes = ['address', 'broadcast', 'token', 'transaction'];
+        let dataType    = config.data.type;
+        let search      = '%' + config.data.search + '%';
+        let total       = 0;
+        let sql  = config.data.sql;
+        let data = {
+            data: [],
+            totals: {
+                addresses:    0,
+                broadcasts:   0,
+                tokens:       0,
+                transactions: 0
+            },
+        };
+        // Get counts of each search type 
+        for(let type of searchTypes){
+            let query  = false;
+            let args  = [search];
+            if(['broadcast','token'].includes(type))
+                args.push(search);
+            if(type=='address')
+                query = `SELECT COUNT(*) AS count FROM index_addresses WHERE LOWER(address) LIKE LOWER( ? )`;
+            if(type=='transaction')
+                query = `SELECT COUNT(*) AS count FROM index_transactions WHERE LOWER(hash) LIKE LOWER( ? )`;
+            if(type=='broadcast'){
+                query = `SELECT 
+                            COUNT(*) AS count 
+                        FROM 
+                            broadcasts b
+                            INNER JOIN index_memos m ON (m.id=b.memo_id)
+                        WHERE 
+                            LOWER(b.message) LIKE LOWER( ? ) OR
+                            LOWER(m.memo)    LIKE LOWER( ? )`;
+            }
+            if(type=='token'){
+                query = `SELECT 
+                            COUNT(*) AS count 
+                        FROM 
+                            tokens t1
+                            INNER JOIN index_tickers t2 ON (t2.id=t1.tick_id)
+                        WHERE 
+                            LOWER(t2.tick)        LIKE LOWER( ? ) OR
+                            LOWER(t1.description) LIKE LOWER( ? )`;
+            }
+            if(query){
+                let results = await this.doQuery(config, query, args);
+                if(results && results.length){
+                    let count = Number(results[0].count);
+                    if(type=='address')
+                        data.totals.addresses = count;
+                    if(type=='broadcast')
+                        data.totals.broadcasts = count;
+                    if(type=='token')
+                        data.totals.tokens = count;
+                    if(type=='transaction')
+                        data.totals.transactions = count;
+                    if(type==dataType)
+                        total = count;
+                }
+            }
+        }
+        // If we detected some search results dump the actual data
+        if(total){
+            let query = false;
+            let args  = [search];
+            if(['broadcast','token'].includes(dataType))
+                args.push(search);
+            if(dataType=='address')
+                query = `SELECT 
+                            address 
+                        FROM 
+                            index_addresses 
+                        WHERE 
+                            LOWER(address) LIKE LOWER( ? )
+                        ORDER BY address ASC
+                        LIMIT ` + sql.limit;
+            if(dataType=='transaction')
+                query = `SELECT 
+                            hash 
+                        FROM 
+                            index_transactions 
+                        WHERE 
+                            LOWER(hash) LIKE LOWER( ? )
+                        ORDER BY hash ASC
+                        LIMIT ` + sql.limit;
+            if(dataType=='broadcast')
+                query = `SELECT 
+                            b.message,
+                            m.memo,
+                            b.action_index,
+                            s.status
+                        FROM 
+                            broadcasts b
+                            INNER JOIN index_memos    m ON (m.id=b.memo_id)
+                            INNER JOIN index_statuses s ON (s.id=b.status_id)
+                        WHERE 
+                            LOWER(b.message) LIKE LOWER( ? ) OR
+                            LOWER(m.memo)    LIKE LOWER( ? )
+                        ORDER BY b.action_index DESC
+                        LIMIT ` + sql.limit;
+            if(dataType=='token'){
+                query = `SELECT 
+                            t2.tick,
+                            t1.description 
+                        FROM 
+                            tokens t1
+                            INNER JOIN index_tickers t2 ON (t2.id=t1.tick_id)
+                        WHERE 
+                            LOWER(t2.tick)        LIKE LOWER( ? ) OR
+                            LOWER(t1.description) LIKE LOWER( ? )
+                        ORDER BY t2.tick ASC
+                        LIMIT ` + sql.limit;
+            }
+            if(query){
+                let results = await this.doQuery(config, query, args);
+                if(results && results.length)
+                    data.data = results;
+            }
+        }
+        // Get count of total number of addresses
+        return [data, null, total]
     }
 }
 

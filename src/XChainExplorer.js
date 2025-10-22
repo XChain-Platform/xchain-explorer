@@ -191,6 +191,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/mints/{QUERY}/{TYPE}'      : ['getMints',      ['block', 'address', 'token']],
                 '/{COIN}/explorer/orders/{QUERY}/{TYPE}'     : ['getOrders',     ['block', 'address', 'token']],
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'      : ['getSends',      ['block', 'address', 'token']],
+                '/{COIN}/explorer/search/{QUERY}/{TYPE}'     : ['getSearch',     ['address', 'broadcast', 'token', 'transaction']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'     : ['getSleeps',     ['block', 'address', 'token']],
                 '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'      : ['getSwaps',      ['block', 'address', 'token']],
                 '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'     : ['getSweeps',     ['block', 'address']],
@@ -391,6 +392,10 @@ class XChainExplorer {
             // Special case JSON customizations based on method called
             if(cfg.data.method=='getBalances')
                 json.address = cfg.data.search;
+            if(cfg.data.method=='getSearch'){
+                delete data.data;
+                json = Object.assign({}, json, data);
+            }
 
             // Sort the json data and object properties alphabetically (OCD much?)
             if(cfg.type=='api' && !this.util.isNull(json)){
@@ -503,6 +508,12 @@ class XChainExplorer {
         let length = (q && q.length && this.util.isInteger(Number(q.length))) ? q.length : 10;
         let offset = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.start))  ? cfg.data.offset.start  : false;
         let action = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.action)) ? cfg.data.offset.action : false;        
+        let method = cfg.data.method;
+
+        // Update the data object to be the search results data
+        if(method=='getSearch')
+            data = data.data;
+
         // Set limit based on given limit and page params
         if(cfg.type=='api'){
             let page  = (q && q.page  && this.util.isInteger(Number(q.page))) ? q.page  : 1;
@@ -527,8 +538,6 @@ class XChainExplorer {
         for(let idx in data){
             cnt++;
             idx++;
-
-            let method = cfg.data.method;
 
             // Keep track of display count separate from actual count
             count = cnt;
@@ -672,6 +681,16 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownership, status, info.action_index];
                     if(method=='getTokens')
                         info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.id];
+                    if(method=='getSearch'){
+                        if(cfg.data.type=='address')
+                            info = [count, info.address, null];
+                        if(cfg.data.type=='broadcast')
+                            info = [count, info.message, info.memo, info.action_index];
+                        if(cfg.data.type=='token')
+                            info = [count, info.tick, info.description, null];
+                        if(cfg.data.type=='transaction')
+                            info = [count, info.hash, null];
+                    }
                 }
 
                 // Add data to the response array

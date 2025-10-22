@@ -3938,7 +3938,13 @@ class Database {
             if(type=='address')
                 query = `SELECT COUNT(*) AS count FROM index_addresses WHERE LOWER(address) LIKE LOWER( ? )`;
             if(type=='transaction')
-                query = `SELECT COUNT(*) AS count FROM index_transactions WHERE LOWER(hash) LIKE LOWER( ? )`;
+                query = `SELECT 
+                            COUNT(*) AS count 
+                        FROM
+                            transactions t1 
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE 
+                            LOWER(t2.hash) LIKE LOWER( ? )`;
             if(type=='broadcast'){
                 query = `SELECT 
                             COUNT(*) AS count 
@@ -3993,12 +3999,13 @@ class Database {
                         LIMIT ` + sql.limit;
             if(dataType=='transaction')
                 query = `SELECT 
-                            hash 
-                        FROM 
-                            index_transactions 
+                            t2.hash 
+                        FROM
+                            transactions t1 
+                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
-                            LOWER(hash) LIKE LOWER( ? )
-                        ORDER BY hash ASC
+                            LOWER(t2.hash) LIKE LOWER( ? )
+                        ORDER BY t2.hash ASC
                         LIMIT ` + sql.limit;
             if(dataType=='broadcast')
                 query = `SELECT 

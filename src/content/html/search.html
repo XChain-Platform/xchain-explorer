@@ -10,7 +10,7 @@
                 <input type="hidden" name="coin"  id="search-coin">
                 <div class="dropdown form-control" style="max-width: 150px">
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false" id="search-coin-dropdown"><i class="fas fa-database"></i> Network</a>
-                    <ul class="dropdown-menu mt-1">
+                    <ul class="dropdown-menu mt-1" id="search-coin-dropdown-menu">
                         <li><h6 class="dropdown-header">Mainnet</h6></li>
                         <li><a class="dropdown-item" data-coin="BTC"   title="Bitcoin"          ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-mainnet" ></i></span>Bitcoin</a></li>
                         <li><a class="dropdown-item" data-coin="DOGE"  title="Dogecoin"         ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-mainnet"></i></span>Dogecoin</a></li>
@@ -152,26 +152,7 @@
 </div>
 
 <script type="text/javascript">
-    // Update the search network
-    function setSearchNetwork(coin){
-        $('#search-form li a').each(function(){
-            var el = $(this);
-            if(el.data('coin')==coin){
-                let html = el.html();
-                $('#search-coin').val(coin);
-                $('#search-coin-dropdown').html(html);
-            }
-        });
-        // Handle displaying `Network not available` message
-        isNetworkAvailable(coin, function(supported){
-            var el = $('#networkNotSupported');
-            if(supported){
-                el.hide();
-            } else {
-                el.show();
-            }
-        });
-    }
+
 
     $(document).ready(function(){
 
@@ -198,22 +179,30 @@
         XC.type  = 'search';
 
         // Display debug information
-        showXChainParams();
+        if(XC.debug)
+            showXChainParams();
 
         // Hide the search box in the main menu
         $('#mainmenu-search').hide();
-
-        // Update the search form the current coin network
-        setSearchNetwork(XC.coin);
 
         // Update the search form with the current query
         if(!isNull(XC.query))
             $('#search-query').val(XC.query);
 
-        // Handle clicks on search for network by changing network 
-        $('#search-form li a').click(function(){
-            var coin = $(this).data('coin');
-            setSearchNetwork(coin);
+        // Handle getting the xchain-explorer status information
+        getExplorerStatusInfo(function(){
+
+            // populate the search network dropdown with supported networks
+            populateSearchNetworks('supported');
+
+            // Update the search form the current coin network
+            setSearchNetwork(XC.coin);
+
+            // Handle clicks on search for network by changing network 
+            $('#search-form li a').click(function(){
+                var coin = $(this).data('coin');
+                setSearchNetwork(coin);
+            });
         });
 
         // Activate the tokens tab by faking a click

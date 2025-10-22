@@ -1286,6 +1286,11 @@ function loadDatatablesData(coin, action, query, type){
                     $('td', row).eq(2).html(highlightSearchTerm(XC.query, description));
                     $('td', row).eq(3).html(formatLink('/' + coin + '/action/' + data[3], 'view', null, true));
                 }
+                if(type=='transaction'){
+                    let transaction = data[1];
+                    $('td', row).eq(1).html(formatLink('/' + coin + '/transaction/' + transaction, highlightSearchTerm(XC.query, transaction)));
+                    $('td', row).eq(2).html(formatLink('/' + coin + '/transaction/' + transaction, 'view', null, true));
+                }
             }
         }
     });
@@ -2414,6 +2419,54 @@ function highlightSearchTerm(term, text){
     return text;
 }
 
+// Handle update the search network on the search page
+function setSearchNetwork(coin){
+    $('#search-form li a').each(function(){
+        var el = $(this);
+        if(el.data('coin')==coin){
+            let html = el.html();
+            $('#search-coin').val(coin);
+            $('#search-coin-dropdown').html(html);
+        }
+    });
+    // Handle displaying `Network not available` message
+    isNetworkAvailable(coin, function(supported){
+        var el = $('#networkNotSupported');
+        if(supported){
+            el.hide();
+        } else {
+            el.show();
+        }
+    });
+}
+
+// Populate the search networks dropdown on the search page
+function populateSearchNetworks(type='supported'){
+    let o       = XC.status,
+        data    = (type=='available') ? o.available : o.supported,
+        mainnet = '',
+        testnet = '',
+        regtest = '';
+    // Loop through networks and generate menu items
+    for(let coin in data){
+        let info    = String(data[coin]).replace(')','').split('(');
+        let chain   = String(info[0]).trim();
+        let network = String(info[1]).toLowerCase();
+        let iconCls = 'fa-xchain-' + chain.toLowerCase() + '-' + network.toLowerCase();
+        let item    = '<li><a class="dropdown-item" data-coin="' + coin + '" title="' + chain + '" ><span class="wrapicon-25"><i class="fa ' + iconCls + '" ></i></span>' + chain + '</a></li>';
+        if(network=='mainnet') mainnet += item;
+        if(network=='testnet') testnet += item;
+        if(network=='regtest') regtest += item;
+    }
+    // Create the final menu with headers and menu items
+    let menu = '';
+    if(!isNull(mainnet)) menu += '<li><h6 class="dropdown-header">Mainnet</h6></li>' + mainnet;
+    if(!isNull(testnet)) menu += '<li><h6 class="dropdown-header">Testnet</h6></li>' + testnet;
+    if(!isNull(regtest)) menu += '<li><h6 class="dropdown-header">Regtest</h6></li>' + regtest;
+    // Update the search coin networks dropdown with the new menu
+    $('#search-coin-dropdown-menu').html(menu);
+}
+
 // Handle showing the various XChain parameters
 function showXChainParams(){
     console.log('XC.chain=',XC.chain);
@@ -2423,7 +2476,6 @@ function showXChainParams(){
     console.log('XC.type=',XC.type);
     console.log('XC.query=',XC.query);
     console.log('XC.coin_price', XC.coin_price);
-
 }
 
 $(document).ready(function(){

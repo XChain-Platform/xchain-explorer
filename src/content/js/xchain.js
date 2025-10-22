@@ -16,8 +16,8 @@ XC = {
     // Flag to indicate if we were unable to detect coin and used default coin
     default: false,
 
-    // List of supported coins
-    coins: { 
+    // List of supported chains
+    chains: { 
         'BTC': 'Bitcoin', 
         'LTC': 'Litecoin', 
         'DOGE': 'Dogecoin'
@@ -135,6 +135,10 @@ function initPage(){
     $('#btn-dark-mode').click(function(){   updateTheme('dark');    });
     $('#btn-light-mode').click(function(){  updateTheme('light');   });
 
+
+    // Handle updating search network to current network
+    $('#coin-search').val(XC.coin);
+
     // Handle doing search when user clicks search button
     $('#button-search').click(function(){  $('#form-search').submit(); });
 
@@ -173,35 +177,24 @@ function initMainMenu(){
 }
 
 // Function to handle setting current COIN and QUERY values
-function setXChainParams(){
+function setXChainParams(coin){
     let path = String(window.location.pathname).split('/');
-    // Loop through possible coins and networks and set valid coin and network values
-    for(let coin in XC.coins){
-        if(XC.coin==null){
-            for(let network in XC.networks){
-                let name = String(XC.networks[network] + coin).toUpperCase();;
-                if(String(path[1]).toUpperCase()==name){
-                    XC.main = coin;
-                    XC.coin = name;
-                    XC.name = XC.coins[coin];
-                    XC.network = network;
-                    break;
-                }
-            }
-        }
-    }
-    // Default to BTC Mainnet
+    // Set the coin based on passed coin or path
+    coin = (!isNull(coin)) ? coin : path[1];
+    // Try to set XC.coin (default to BTC)
+    XC.coin = getXChainParam(coin,'coin');
     if(isNull(XC.coin)){
         XC.default = true;
         XC.coin    = 'BTC';
-        XC.name    = XC.coins[XC.coin];
-        XC.network = 'mainnet';
     }
-    // Set query and query type to a valid value
+    // Set the remaining XChain Params (chain, name, network)
+    XC.chain   = getXChainParam(XC.coin,'chain');
+    XC.name    = getXChainParam(XC.coin,'name');
+    XC.network = getXChainParam(XC.coin,'network');
+    // Set query and query type to a valid value based on path
     let type  = String(path[2]).toLowerCase();
     let query = path[path.length-1];
     if(['block','address','token','action','transaction'].includes(type)){
-        let valid = false;
         if((['block','action'].includes(type)  && isNumeric(query)) ||
            (type=='address' && isCryptoAddress(query)) ||
            (type=='token'   && typeof(query)=='string')){
@@ -213,9 +206,31 @@ function setXChainParams(){
             XC.query = query;
             XC.type  = (isNumeric(query)) ? 'tx_index' : 'tx_hash';
         }
-
     }
 }
+
+// Function to return XChain param data for a given coin
+function getXChainParam(coin, type){
+    let value = null;
+    for(let chain in XC.chains){
+        for(let network in XC.networks){
+            let name = String(XC.networks[network] + chain).toUpperCase();;
+            if(String(coin).toUpperCase()==name){
+                if(type=='coin')
+                    value = name;
+                if(type=='chain')
+                    value = chain;
+                if(type=='network')
+                    value = network;
+                if(type=='name')
+                    value = XC.chains[chain];
+                break;
+            }
+        }
+    }
+    return value;
+}
+
 
 // Function to handle making a URL a url valid by ensuring it starts with http or https
 function getValidUrl( url ){
@@ -743,9 +758,14 @@ function loadDatatablesData(coin, action, query, type){
     let track = XC.datatables[action];
     // Set the name of the datatable to load data into
     let tableId = 'datatable-' + action;
+    // Handle searches a bit differently
+    if(type=='search'){
+        type   = action;
+        action = 'search';
+    }
     // Set the explorer API endpoint name based on the action
     let endpoint = null;
-    if(action=='history'){
+    if(['history','search'].includes(action)){
         endpoint = action;
     } else if(['address','batch'].includes(action)){
         endpoint = action + 'es';
@@ -918,7 +938,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','block','fee','holder'].includes(action)){
+            if(!['balance','credit','debit','token','block','fee','holder','search'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1244,6 +1264,28 @@ function loadDatatablesData(coin, action, query, type){
                 let html = getActionDetails(action2, info);
                 $('td', row).eq(4).html(html);
                 $('td', row).eq(5).html(action_link);
+            }
+            // Search
+            if(action=='search'){
+                if(type=='address'){
+                    let address = data[1];
+                    $('td', row).eq(1).html(formatLink('/' + coin + '/address/' + address, highlightSearchTerm(XC.query, address)));
+                    $('td', row).eq(2).html(formatLink('/' + coin + '/address/' + address, 'view', null, true));
+                }
+                if(type=='broadcast'){
+                    let message = data[1];
+                    let memo    = data[2];
+                    $('td', row).eq(1).html(highlightSearchTerm(XC.query, message));
+                    $('td', row).eq(2).html(highlightSearchTerm(XC.query, memo));
+                    $('td', row).eq(3).html(formatLink('/' + coin + '/action/' + data[3], 'view', null, true));
+                }
+                if(type=='token'){
+                    let tick        = data[1];
+                    let description = data[2];
+                    $('td', row).eq(1).html(highlightSearchTerm(XC.query, tick));
+                    $('td', row).eq(2).html(highlightSearchTerm(XC.query, description));
+                    $('td', row).eq(3).html(formatLink('/' + coin + '/action/' + data[3], 'view', null, true));
+                }
             }
         }
     });
@@ -2337,20 +2379,60 @@ function legacyJsonToXChainTIS(o){
     return json;
 }
 
+// Determine if a given network is supported in this xchain-explorer instance
+function isNetworkSupported(coin, callback){
+    getExplorerStatusInfo(function(o){
+        let supported = false;
+        if(o && o.supported && o.supported[coin])
+            supported = true;
+        if(typeof callback === 'function')
+            callback(supported);
+    });
+}
+
+// Determine if a given network is available in this xchain-explorer instance
+function isNetworkAvailable(coin, callback){
+    getExplorerStatusInfo(function(o){
+        let supported = false;
+        if(o && o.available && o.available[coin])
+            supported = true;
+        if(typeof callback === 'function')
+            callback(supported);
+    });
+}
+
+// Handle wrapping search terms in a span to highlight the term
+function highlightSearchTerm(term, text){
+    term = String(term),
+    text = String(text);
+    let regex = new RegExp(term, "gi");
+    let matches = text.match(regex);
+    if(matches){
+        for(let match of matches)
+            text = text.replaceAll(match,'<span class="highlight-search-term">' + match + '</span>');
+    }
+    return text;
+}
+
+// Handle showing the various XChain parameters
+function showXChainParams(){
+    console.log('XC.chain=',XC.chain);
+    console.log('XC.coin=',XC.coin);
+    console.log('XC.name=',XC.name);
+    console.log('XC.network=',XC.network);
+    console.log('XC.type=',XC.type);
+    console.log('XC.query=',XC.query);
+    console.log('XC.coin_price', XC.coin_price);
+
+}
+
 $(document).ready(function(){
 
     // Handle initializing the page 
     initPage();
 
     // Display debug information
-    if(XC.debug){
-        console.log('XC.main=',XC.main);
-        console.log('XC.coin=',XC.coin);
-        console.log('XC.name=',XC.name);
-        console.log('XC.network=',XC.network);
-        console.log('XC.type=',XC.type);
-        console.log('XC.query=',XC.query);
-        console.log('XC.coin_price', XC.coin_price);
-    }
+    if(XC.debug)
+        showXChainParams();
 
 });

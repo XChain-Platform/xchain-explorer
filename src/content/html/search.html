@@ -1,19 +1,224 @@
-<!-- Search -->
+<!-- Search  -->
 <div class="container mt-3">
+
+    <!-- Search Form -->
     <div class="row">
-
-        <!-- Privacy Policy -->
-        <div class="col-12">
-            <div class="card">
-                <div class="card-title mb-0 p-1 fw-bold border-bottom">
-                    <i class="fa fa-magnify-glass fa-lg"></i> Search
+        <div class="col-12 col-md-8 offset-md-2 col-lg-6 offset-lg-3 col-xl-4 offset-xl-4">
+            <form id="search-form" action="/search" role="search" method="GET" >
+            <div class="input-group mb-3">
+                <input type="text"   name="query" id="search-query" class="form-control" placeholder="Search...">
+                <input type="hidden" name="coin"  id="search-coin">
+                <div class="dropdown form-control" style="max-width: 150px">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false" id="search-coin-dropdown"><i class="fas fa-database"></i> Network</a>
+                    <ul class="dropdown-menu mt-1">
+                        <li><h6 class="dropdown-header">Mainnet</h6></li>
+                        <li><a class="dropdown-item" data-coin="BTC"   title="Bitcoin"          ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-mainnet" ></i></span>Bitcoin</a></li>
+                        <li><a class="dropdown-item" data-coin="DOGE"  title="Dogecoin"         ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-mainnet"></i></span>Dogecoin</a></li>
+                        <li><a class="dropdown-item" data-coin="LTC"   title="Litecoin"         ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-mainnet"></i></span>Litecoin</a></li>
+                        <li><h6 class="dropdown-header">Testnet</h6></li>
+                        <li><a class="dropdown-item" data-coin="TBTC"  title="Bitcoin Testnet"  ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-testnet" ></i></span>Bitcoin</a></li>
+                        <li><a class="dropdown-item" data-coin="TDOGE" title="Dogecoin Testnet" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-testnet"></i></span>Dogecoin</a></li>
+                        <li><a class="dropdown-item" data-coin="TLTC"  title="Litecoin Testnet" ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-testnet"></i></span>Litecoin</a></li>
+                        <li><h6 class="dropdown-header">Regtest</h6></li>
+                        <li><a class="dropdown-item" data-coin="RBTC"  title="Bitcoin Regtest"  ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-regtest" ></i></span>Bitcoin</a></li>
+                        <li><a class="dropdown-item" data-coin="RDOGE" title="Dogecoin Regtest" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-regtest"></i></span>Dogecoin</a></li>
+                        <li><a class="dropdown-item" data-coin="RLTC"  title="Litecoin Regtest" ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-regtest"></i></span>Litecoin</a></li>
+                    </ul>
                 </div>
-                <div class="card-body">
-                    Coming soon
-                </div>
+                <button type="submit" class="btn btn-success"><i class="fa fa-search fa-lg"></i> Search</button>
             </div>
+            </form>
         </div>
+    </div>
 
+    <!-- Coin Network not supported alert -->
+    <div class="alert alert-warning text-center mb-3" role="alert" id="networkNotSupported" style="display:none;">
+        This xchain-explorer instance is not currently configured to support requests for the requested coin network.
+    </div>
+
+</div>
+
+
+<!-- Search Results -->
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12">
+
+            <!-- Tab Content -->
+            <div class="tab-content border mb-3 rounded-corners" id="data-panels">
+
+                <!-- Current data display and action selector -->
+                <div class="container">
+                    <div class="row border-bottom">
+                        <div class="col-6 text-start pt-1 pb-1 ps-1 align-top fw-bold">
+                            <i id="datatable-header-icon"></i>
+                            <span id="datatable-header-text"></span>
+                        </div>
+                        <div class="col-6 text-end   pt-0 pb-1 pe-1 align-middle">
+                            <div class="dropdown">
+                                <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    more info
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" id="tab-dropdown-address"    ><i class="fa fa-qrcode"  ></i> Addresses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-broadcast"  ><i class="fa fa-bullhorn"></i> Broadcasts</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-token"      ><i class="fa fa-database"></i> Tokens</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-transaction"><i class="fa fa-chain"   ></i> Transactions</a></li>
+                                </ul>
+                            </div>                              
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Addresses -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-address" role="tabpanel" aria-labelledby="tab-address" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-address">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="">Address</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" class="loading-data">Loading address data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Broadcasts -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-broadcast" role="tabpanel" aria-labelledby="tab-broadcast" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-broadcast">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th>Message</th>
+                            <th>Memo</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" class="loading-data">Loading broadcast data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Tokens -->
+                <div class="tab-pane fade show table-responsive" id="tab-pane-token" role="tabpanel" aria-labelledby="tab-token" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-token">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th>Token</th>
+                            <th>Description</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="9" class="loading-data">Loading token data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Transactions -->
+                <div class="tab-pane fade show table-responsive" id="tab-pane-transaction" role="tabpanel" aria-labelledby="tab-transaction" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-transaction">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="">Transaction Hash</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="9" class="loading-data">Loading transaction data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+
+            </div>
+
+        </div>
     </div>
 </div>
+
+<script type="text/javascript">
+    // Update the search network
+    function setSearchNetwork(coin){
+        $('#search-form li a').each(function(){
+            var el = $(this);
+            if(el.data('coin')==coin){
+                let html = el.html();
+                $('#search-coin').val(coin);
+                $('#search-coin-dropdown').html(html);
+            }
+        });
+        // Handle displaying `Network not available` message
+        isNetworkAvailable(coin, function(supported){
+            var el = $('#networkNotSupported');
+            if(supported){
+                el.hide();
+            } else {
+                el.show();
+            }
+        });
+    }
+
+    $(document).ready(function(){
+
+        // Build out a list of data panels for this page
+        XC.panels = [
+            'address',
+            'broadcast',
+            'token',
+            'transaction'
+        ];
+
+        // Setup listeners to load data panel when an action button is clicked
+        setupActionListeners();
+
+        // Parse in the url params and populate the XChain params
+        const urlParams = new URLSearchParams(window.location.search);
+        XC.coin  = (!isNull(urlParams.get('coin'))) ? urlParams.get('coin') : 'BTC';
+
+        // Set the xchain params based on the coin
+        setXChainParams(XC.coin);
+
+        // Set the search type and query
+        XC.query = (!isNull(urlParams.get('query'))) ? urlParams.get('query') : null;
+        XC.type  = 'search';
+
+        // Display debug information
+        showXChainParams();
+
+        // Hide the search box in the main menu
+        $('#mainmenu-search').hide();
+
+        // Update the search form the current coin network
+        setSearchNetwork(XC.coin);
+
+        // Update the search form with the current query
+        if(!isNull(XC.query))
+            $('#search-query').val(XC.query);
+
+        // Handle clicks on search for network by changing network 
+        $('#search-form li a').click(function(){
+            var coin = $(this).data('coin');
+            setSearchNetwork(coin);
+        });
+
+        // Activate the tokens tab by faking a click
+        $('#tab-dropdown-token').click();
+
+    });
+</script>
 

@@ -32,10 +32,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `send` actions
-        loadDatatablesData('BTC', 'send', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'SEND Actions';
+    XC.pageInfo.description = 'Learn about the SEND actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of SEND actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/sends';
+    updatePageInfo();
 
-    });
+    // Load all `send` actions
+    loadDatatablesData('BTC', 'send', null, null);
+
+});
 </script>

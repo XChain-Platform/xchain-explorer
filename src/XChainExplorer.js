@@ -419,7 +419,15 @@ class XChainExplorer {
         if(['api','explorer'].includes(cfg.type) && !this.util.isNull(cfg.data.method) && !validDataRequest){
             response.code = 503;
             response.json = {
-                error: 'Explorer not configured to support data requests for this coin'
+                error: 'Explorer not configured to support data requests for this coin.'
+            };
+        }
+
+        // If we have no data and no total, return a '400 - Bad Request' response
+        if(['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
+            response.code = 400;
+            response.json = {
+                error: 'Explorer was unable to successfully process your request.'
             };
         }
 
@@ -442,12 +450,7 @@ class XChainExplorer {
 
             // Swap Content into template
             let pageContent = templateContent;
-
-            // TODO : Swap in the content to the template
-            pageContent = pageContent.replace('{TITLE}','');
-            pageContent = pageContent.replace('{CANONICAL}','');
-            pageContent = pageContent.replace('{DESCRIPTION}','');
-            pageContent = pageContent.replace('{CONTENT}',htmlContent);
+            pageContent     = pageContent.replace('{CONTENT}',htmlContent);
 
             // Store HTML response
             response.html = pageContent;

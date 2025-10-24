@@ -32,10 +32,17 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `file` actions
-        loadDatatablesData('BTC', 'file', null, null);
 
-    });
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'FILE Actions';
+    XC.pageInfo.description = 'Learn about the FILE actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of FILE actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/files';
+    updatePageInfo();
+
+    // Load all `file` actions
+    loadDatatablesData('BTC', 'file', null, null);
+
+});
 </script>

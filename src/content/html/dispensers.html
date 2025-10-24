@@ -31,10 +31,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `dispenser` actions
-        loadDatatablesData('BTC', 'dispenser', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'DISPENSER Actions';
+    XC.pageInfo.description = 'Learn about the DISPENSER actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of DISPENSER actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/dispensers';
+    updatePageInfo();
 
-    });
+    // Load all `dispenser` actions
+    loadDatatablesData('BTC', 'dispenser', null, null);
+
+});
 </script>

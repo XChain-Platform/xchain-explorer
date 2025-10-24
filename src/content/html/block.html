@@ -57,11 +57,19 @@ $(document).ready(function(){
 
         // Request information on this block and update the header with this information
         loadApiData(XC.coin, 'block', XC.query, null, function(o){
-            $('#blockIndex').text(numeral(o.block_index).format('0,0'));
+            let block_index = numeral(o.block_index).format('0,0');
+            $('#blockIndex').text(block_index);
             $('#blockTime').html(formatLivestamp(o.timestamp));
             $('#creditsHash').text(o.credits_hash);
             $('#debitsHash').text(o.debits_hash);
             $('#actionsHash').text(o.actions_hash);
+
+            // Update the page with SEO friendly info
+            XC.pageInfo.title       = 'Block #' + block_index;
+            XC.pageInfo.description = 'Learn about the actions in block ' + block_index + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of actions in block ' + block_index + ' on the XChain platform';
+            XC.pageInfo.canonical   = '/' + XC.coin + '/block/' + XC.query;
+            updatePageInfo();
+
         });
 
         // Load all `history` actions for the given block

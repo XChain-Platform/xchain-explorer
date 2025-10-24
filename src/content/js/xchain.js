@@ -113,7 +113,17 @@ XC = {
 
     // Placeholders to track if we found token information and display the correct sections
     tokenInfoFound:    false,
-    someTokenInfoFound: false
+    someTokenInfoFound: false,
+
+    // Placeholder for misc page components
+    pageInfo: {
+        title: null,
+        description: null,
+        canonical: null,
+        robots: null,
+        // set the default title
+        defaultTitle: 'XChain Platform Explorer'
+    }
 }
 
 // Function to handle initializing page 
@@ -135,6 +145,12 @@ function initPage(){
     $('#btn-dark-mode').click(function(){   updateTheme('dark');    });
     $('#btn-light-mode').click(function(){  updateTheme('light');   });
 
+    // Update the default page title to include the chain and network
+    if(!XC.default)
+        XC.pageInfo.defaultTitle += ' | ' + XC.name + ' (' + XC.network + ') blockchain';
+
+    // Handle updating the page meta-tags
+    updatePageInfo();
 
     // Handle updating search network to current network
     $('#coin-search').val(XC.coin);
@@ -178,9 +194,14 @@ function initMainMenu(){
 
 // Function to handle setting current COIN and QUERY values
 function setXChainParams(coin){
-    let path = String(window.location.pathname).split('/');
+    // Strip any HTML content from the pathname and split it up into its various parts
+    let path = String(stripHtml(window.location.pathname)).split('/');
     // Set the coin based on passed coin or path
-    coin = (!isNull(coin)) ? coin : path[1];
+    if(isNull(coin)){
+        let query = new URLSearchParams(window.location.search);
+        let qcoin  = query.get('coin');
+        coin = (!isNull(qcoin)) ? qcoin : path[1];
+    }
     // Try to set XC.coin (default to BTC)
     XC.coin = getXChainParam(coin,'coin');
     if(isNull(XC.coin)){
@@ -1463,7 +1484,7 @@ function showBatchDetails(data){
 
 // Display BROADCAST action information
 function showBroadcastDetails(data){
-    let percent = (data.fee) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.fee, 100, 2) + '%</span>') : '';
+    let percent = (isNumeric(data.fee)) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.fee, 100, 2) + '%</span>') : '';
     $('#info-broadcast .broadcast-message').text(data.message);
     $('#info-broadcast .broadcast-value').text(formatAmount(data.value));
     $('#info-broadcast .broadcast-fee').html(data.fee + percent);
@@ -2466,6 +2487,29 @@ function populateSearchNetworks(type='supported'){
     // Update the search coin networks dropdown with the new menu
     $('#search-coin-dropdown-menu').html(menu);
 }
+
+// Handle updating the page info (title, description, canonical, robots)
+function updatePageInfo(){
+    var info = XC.pageInfo;
+    // Update page title
+    let title = XC.pageInfo.defaultTitle;
+    if(!isNull(info.title))
+        title = info.title + ' | ' + XC.pageInfo.defaultTitle;
+    $('html head title').text(title);
+    // Update page description
+    if(!isNull(info.description))
+        $('meta[name="description"]').attr('content',info.description);
+    // Generate and update the Canonical URL 
+    let win  = window.location,
+        host = win.protocol + '//' + win.host,
+        path = (!isNull(info.canonical)) ? info.canonical : win.pathname,
+        url  = host + path;
+    $('link[rel="canonical"]').attr('src', url);
+    // Update robots tag
+    if(!isNull(info.robots))
+        $('meta[name="robots"]').attr('content',info.robots);
+}
+
 
 // Handle showing the various XChain parameters
 function showXChainParams(){

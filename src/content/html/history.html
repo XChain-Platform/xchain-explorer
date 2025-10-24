@@ -31,10 +31,16 @@
 
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `history` actions
-        loadDatatablesData('BTC', 'history', null, 'recent');
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'Action History';
+    XC.pageInfo.description = 'Learn about the action history on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of historic actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/history';
+    updatePageInfo();
 
-    });
+    // Load all `history` actions
+    loadDatatablesData('BTC', 'history', null, 'recent');
+
+});
 </script>

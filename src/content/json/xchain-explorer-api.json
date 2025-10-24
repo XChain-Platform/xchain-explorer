@@ -17,10 +17,10 @@
             }
         },{
             "name": "Orders",
-            "description": "API endpoints that return XChain platform order data"
+            "description": "API endpoints that return XChain platform ORDER data"
         },{
             "name": "Swaps",
-            "description": "API endpoints that return XChain platform swap data"
+            "description": "API endpoints that return XChain platform SWAP data"
     }],
     "paths": {
         "/{COIN}/api/action/{QUERY}": {

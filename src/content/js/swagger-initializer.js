@@ -3,7 +3,7 @@ window.onload = function() {
 
   // the following lines will be replaced by docker/configurator, when it runs in a docker-container
   window.ui = SwaggerUIBundle({
-    url: "/json/xchain-explorer-api.json",
+    url: "/json/xchain-platform-api.json",
     dom_id: '#swagger-ui',
     validatorUrl: null, // or undefined    
     deepLinking: true,

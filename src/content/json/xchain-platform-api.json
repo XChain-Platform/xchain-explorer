@@ -1,7 +1,7 @@
 {
     "openapi": "3.1.1",
     "info": {
-        "title": "XChain Explorer APIs",
+        "title": "XChain Platform APIs",
         "description": "XChain Platform APIs which provide information on transactions and actions within the XChain Platform.",
         "version": "1.0.0"
     },

@@ -588,6 +588,22 @@ class Database {
         return max;
     }
 
+    // Get decoder database name from config for the given COIN network
+    getDecoderDatabaseName(coin){
+        let name = null;
+        // Define list of acceptable networks and get correct config using COIN
+        let networks = ['mainnet', 'testnet', 'regtest'];
+        let info = this.config[coin];
+        for(let net in info){
+            if(networks.includes(net) && !this.util.isNull(info[net].database) && !this.util.isNull(info[net].database.decoder)){
+                let cfg = info[net].database;
+                if(!this.util.isNull(cfg.decoder) && this.util.isNull(name))
+                    name = cfg.decoder.name;
+            }
+        }
+        return name;
+    }
+
     /******************************************************************
      *
      * API Endpoints
@@ -2632,11 +2648,38 @@ class Database {
                 }
             }
         }
+        // Try to lookup raw transaction data
+        let txData = await this.getTransactionData(config, data.tx_hash);
+        data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
         // Get summary data for actions
         data.actions = await this.getActionSummaryData(config, data.actions);
         return [data]
     }
 
+    // Get raw transaction data from decoder database
+    async getTransactionData(config, hash){
+        let data = null;
+        let name = this.getDecoderDatabaseName(config.coin);
+        if(name){
+            let query = `SELECT
+                            t1.tx_index,
+                            t1.block_index,
+                            t2.hash,
+                            t1.fee,
+                            t1.amount,
+                            t1.data
+                        FROM
+                            ` + name + `.transactions t1
+                            INNER JOIN ` + name + `.index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE 
+                            t2.hash=?
+                        LIMIT 1`;
+            let results = await this.doQuery(config, query, [hash]);
+            if(results && results.length)
+                data = results[0];
+        }
+        return data;
+    }  
 
     /******************************************************************
      * Commonly used functions 
@@ -3601,6 +3644,9 @@ class Database {
             let fee = await this.getActionFeeData(config, action_index);
             if(fee)
                 data.fee = fee;
+            // Include raw transaction data
+            let txData = await this.getTransactionData(config, data.tx_hash);
+            data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
             // Include any related action_indexes
             // let related = await this.getRelatedActions(config, action_index);
             // if(related)
@@ -3832,7 +3878,6 @@ class Database {
         // Lookup extended information on the action_index
         for(let data of actions){
             let info = await this.getActionData(config, data.action_index);
-            console.log('info=',info);
             data.status = info.status;
             let details = false;
             for(let name of detailFields){

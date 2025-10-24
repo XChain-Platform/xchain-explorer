@@ -34,6 +34,10 @@
                         <th>Time</th>
                         <td id="timestamp"></td>
                     </tr>
+                    <tr>
+                        <th>Transaction Data</th>
+                        <td id="tx-data"></td>
+                    </tr>
                     </tbody>
                     </table>
                 </div>
@@ -51,29 +55,6 @@
 
             <!-- Tab Content -->
             <div class="tab-content border mb-3 rounded-corners" id="data-panels">
-
-                <!-- Actions header -->
-                <div class="container">
-                    <div class="row border-bottom">
-                        <div class="col-6 text-start pt-1 pb-1 ps-1 align-top fw-bold">
-                            <i id="datatable-header-icon" class="fa fa-info-circle"></i>
-                            <span id="datatable-header-text">Action Details</span>
-                        </div>
-                        <!--
-                        <div class="col-6 text-end   pt-0 pb-1 pe-1 align-middle">
-                            <div class="dropdown">
-                                <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    more info
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" id="tab-dropdown-info"   ><i class="fa fa-info-circle"></i> Details</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-rawdata"><i class="fa fa-code"       ></i> Raw Data</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                        -->
-                    </div>
-                </div>
 
                 <!--  Actions  -->
                 <div class="tab-pane fade table-responsive show active" id="tab-pane-info" role="tabpanel" aria-labelledby="tab-info" tabindex="0">
@@ -96,12 +77,6 @@
                     </table>
                 </div>
 
-                <!--  Raw Data  -->
-                <div class="tab-pane fade table-responsive" id="tab-pane-rawdata" role="tabpanel" aria-labelledby="tab-rawdata" tabindex="0">
-                    <div class="card-body">
-                        Coming soon...
-                    </div>
-                </div>
             </div>
         </div>
     </div>

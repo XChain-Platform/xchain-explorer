@@ -3148,6 +3148,10 @@
                     "tx_index": {
                         "type": "integer"
                     },
+                    "tx_data": {
+                        "type": "string",
+                        "description": "Raw transaction data"
+                    },
                     "runtime": {
                         "type": "string",
                         "description": "Amount of time to execute and return the data"

@@ -709,8 +709,8 @@ function getActionDetails(action, info){
     if(action=='ISSUE')
         html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
     if(action=='LINK'){
-        html += coin + ' action ' + formatLink('/' + coin + '/token/' + info.link_action_index, info.link_action_index) + ' to ';
-        html += info.coin + ' action ' + formatLink('/' + info.coin + '/token/' + info.coin_action_index, info.coin_action_index);
+        html += info.coin1 + ' action ' + formatLink('/' + info.coin1 + '/token/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
+        html += info.coin2 + ' action ' + formatLink('/' + info.coin2 + '/token/' + info.coin2_action_index, info.coin2_action_index);
     }
     if(action=='LIST'){
         let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 

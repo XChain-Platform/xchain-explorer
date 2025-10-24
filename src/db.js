@@ -3820,7 +3820,7 @@ class Database {
             'callback_tick', 'callback_amount',                                                                  // Callbacks
             'dividend_tick',                                                                                     // Dividends
             'name', 'title',                                                                                     // Files
-            'link_action_index', 'coin_action_index',                                                            // Links
+            'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                        // Links
             'list_action_index',                                                                                 // Lists
             'encryption_method', 'plaintext_message',                                                            // Messages
             'give_tick', 'get_tick', 'give_amount', 'get_amount',                                                // Orders, Swaps, Dispensers
@@ -3832,16 +3832,31 @@ class Database {
         // Lookup extended information on the action_index
         for(let data of actions){
             let info = await this.getActionData(config, data.action_index);
+            console.log('info=',info);
             data.status = info.status;
             let details = false;
             for(let name of detailFields){
+                let found  = false;
+                let detail = false;
                 if(info[name]){
+                    found  = true;
+                    detail = info[name];
+                }
+                // Handle sends by extracting the first send data
+                if(info.action=='SEND' && info.sends && info.sends.length>0){
+                    found = true;
+                    detail = info.sends[0][name];
+                    if(this.util.isNull(data.status))
+                        data.status = info.sends[0]['status'];
+                }
+                if(found){
                     // If details object does not exist yet, create it
                     if(!details)
                         details = {};
                     // Populate details object with fields we care about
-                    details[name] = info[name];
+                    details[name] = detail;
                 }
+
             }
             data.details = details;
         }

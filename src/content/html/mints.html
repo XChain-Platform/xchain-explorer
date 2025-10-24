@@ -31,10 +31,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `mint` actions
-        loadDatatablesData('BTC', 'mint', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'MINT Actions';
+    XC.pageInfo.description = 'Learn about the MINT actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of MINT actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/mints';
+    updatePageInfo();
 
-    });
+    // Load all `mint` actions
+    loadDatatablesData('BTC', 'mint', null, null);
+
+});
 </script>

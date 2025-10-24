@@ -29,10 +29,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `batch` actions
-        loadDatatablesData('BTC', 'batch', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'BATCH Actions';
+    XC.pageInfo.description = 'Learn about the BATCH actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of BATCH actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/batches';
+    updatePageInfo();
 
-    });
+    // Load all `batch` actions
+    loadDatatablesData('BTC', 'batch', null, null);
+
+});
 </script>

@@ -950,6 +950,13 @@ $(document).ready(function(){
         loadApiData(XC.coin, 'action', XC.query, null, function(o){
             XC.actionInfo = null2string(o);
             showActionDetails();
+
+            // Update the page with SEO friendly info
+            XC.pageInfo.title       =  o.action + ' Action Information';
+            XC.pageInfo.description = 'Learn about the ' + o.action + ' action on the XChain Platform — This page displays XChain platform information about the action index #' + o.action_index;
+            XC.pageInfo.canonical   = '/' + XC.coin + '/transaction/' + XC.query;
+            updatePageInfo();
+
         });
 
         // Setup listeners to load data panel when an action button is clicked

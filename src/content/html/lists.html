@@ -31,10 +31,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `list` actions
-        loadDatatablesData('BTC', 'list', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'LIST Actions';
+    XC.pageInfo.description = 'Learn about the LIST actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of LIST actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/lists';
+    updatePageInfo();
 
-    });
+    // Load all `list` actions
+    loadDatatablesData('BTC', 'list', null, null);
+
+});
 </script>

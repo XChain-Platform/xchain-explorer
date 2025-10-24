@@ -32,10 +32,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `message` actions
-        loadDatatablesData('BTC', 'message', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'MESSAGE Actions';
+    XC.pageInfo.description = 'Learn about the MESSAGE actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of MESSAGE actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/messages';
+    updatePageInfo();
 
-    });
+    // Load all `message` actions
+    loadDatatablesData('BTC', 'message', null, null);
+
+});
 </script>

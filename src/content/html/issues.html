@@ -33,10 +33,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `issue` actions
-        loadDatatablesData('BTC', 'issue', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'ISSUE Actions';
+    XC.pageInfo.description = 'Learn about the ISSUE actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of ISSUE actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/issues';
+    updatePageInfo();
 
-    });
+    // Load all `issue` actions
+    loadDatatablesData('BTC', 'issue', null, null);
+
+});
 </script>

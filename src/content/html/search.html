@@ -205,6 +205,12 @@
             });
         });
 
+        // Update the page with SEO friendly info
+        XC.pageInfo.title       = 'Search for `' + XC.query + '`';
+        XC.pageInfo.description = 'Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays XChain Platform search results for the search  for `' + XC.query + '`.';
+        XC.pageInfo.canonical   = '/search?' + window.location.search;
+        updatePageInfo();
+
         // Activate the tokens tab by faking a click
         $('#tab-dropdown-token').click();
 

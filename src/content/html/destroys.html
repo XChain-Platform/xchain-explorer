@@ -31,10 +31,16 @@
 </div>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+$(document).ready(function() {
 
-        // Load all `destroy` actions
-        loadDatatablesData('BTC', 'destroy', null, null);
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'DESTROY Actions';
+    XC.pageInfo.description = 'Learn about the DESTROY actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of DESTROY actions on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/destroys';
+    updatePageInfo();
 
-    });
+    // Load all `destroy` actions
+    loadDatatablesData('BTC', 'destroy', null, null);
+
+});
 </script>

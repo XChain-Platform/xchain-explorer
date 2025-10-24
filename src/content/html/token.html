@@ -846,7 +846,13 @@
                 // Display the token information and content
                 showTokenInfo();
 
-            }
+                // Update the page with SEO friendly info
+                tick = (!isNull(o.info) && !isNull(o.info.tick)) ? o.info.tick : XC.query;
+                XC.pageInfo.title       = tick + ' Token Information';
+                XC.pageInfo.description = 'Learn about the ' + tick + ' token on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays XChain Platform information for the ' + tick + ' token including airdrops, callbacks, destroys, dispensers, dispenses, dividends, files, history, issues, links, lists, mints, orders, sends, sleeps, swaps and additional information on this token including artwork like images, audio, video, and custom content associated with this token';
+                XC.pageInfo.canonical   = '/' + XC.coin + '/token/' + tick
+                updatePageInfo();
+            } 
         });
 
         // Detect any icon loading failures and load the default token icon

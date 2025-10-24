@@ -739,64 +739,69 @@
 
 <!-- Code to load/update data -->
 <script type="text/javascript">
-    $(document).ready(function(){
+$(document).ready(function(){
 
-        // Build out a list of data panels for this page
-        XC.panels = [
-            'address',
-            'airdrop',
-            'batch',
-            'broadcast',
-            'callback',
-            'destroy',
-            'dispenser',
-            'dispense',
-            'dividend',
-            'fee',
-            'file',
-            'history',
-            'issue',
-            'link',
-            'list',
-            'message',
-            'mint',
-            'order',
-            'send',
-            'sleep',
-            'swap',
-            'sweep',
-            'token'
-        ];
+    // Build out a list of data panels for this page
+    XC.panels = [
+        'address',
+        'airdrop',
+        'batch',
+        'broadcast',
+        'callback',
+        'destroy',
+        'dispenser',
+        'dispense',
+        'dividend',
+        'fee',
+        'file',
+        'history',
+        'issue',
+        'link',
+        'list',
+        'message',
+        'mint',
+        'order',
+        'send',
+        'sleep',
+        'swap',
+        'sweep',
+        'token'
+    ];
 
-        // Set the network name in the header
-        $('#coin-network-name').text(XC.name + ' (' + XC.coin + ')');
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'Home';
+    XC.pageInfo.description = 'This page lists information about XChain Platform transactions on the ' + XC.name + ' (' + XC.network + ') blockchain network including addresses, airdrops, batches, broadcasts, callbacks, destroys, dispensers, dispenses, dividends, fees, files, history, issues, links, lists, messages, mints, orders, sends, sleeps, swaps. sweeps, and tokens.' ;
+    updatePageInfo();
 
-        // Request coin network information and update the page with the returned info
-        getCoinNetworkInfo(function(o){
-            if(o){
-                // Update action totals
-                for(let action in o.totals)
-                    $('#total-' + action).text(numeral(o.totals[action]).format('0,0'));
-                // Update network information
-                $('#network-block-index').text(numeral(o.network.block).format('0,0'));
-                $('#network-unconfirmed').text(numeral(o.network.unconfirmed).format('0,0'));
-                // Determine USD price per satoshi and update fee information
-                var fee_sat  = (o.coin.price.usd / 100000000);
-                var fee_low  = numeral(o.fee.low).format('0,0')  + ' sats/byte' + '<span class="fw-bold text-warning float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.low) * fee_sat).format('0,0.00') + '</span>';
-                var fee_high = numeral(o.fee.high).format('0,0') + ' sats/byte' + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.high) * fee_sat).format('0,0.00') + '</span>';
-                $('#network-fee-low').html(fee_low);
-                $('#network-fee-high').html(fee_high);
-                // Update XCHain price
-                var xchain_price = numeral(o.xchain.price.btc).format('0,0.00000000') + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral(o.xchain.price.usd).format('0,0.00') + '</span>';
-                $('#xchain-price').html(xchain_price);
-            }
-        });
+    // Set the network name in the header
+    $('#coin-network-name').text(XC.name + ' (' + XC.coin + ')');
 
-        // Setup listeners to load data panel when an action button is clicked
-        setupActionListeners();
-
-        // Activate the history tab by faking a click
-        $('#tab-dropdown-history').click();
-
+    // Request coin network information and update the page with the returned info
+    getCoinNetworkInfo(function(o){
+        if(o){
+            // Update action totals
+            for(let action in o.totals)
+                $('#total-' + action).text(numeral(o.totals[action]).format('0,0'));
+            // Update network information
+            $('#network-block-index').text(numeral(o.network.block).format('0,0'));
+            $('#network-unconfirmed').text(numeral(o.network.unconfirmed).format('0,0'));
+            // Determine USD price per satoshi and update fee information
+            var fee_sat  = (o.coin.price.usd / 100000000);
+            var fee_low  = numeral(o.fee.low).format('0,0')  + ' sats/byte' + '<span class="fw-bold text-warning float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.low) * fee_sat).format('0,0.00') + '</span>';
+            var fee_high = numeral(o.fee.high).format('0,0') + ' sats/byte' + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.high) * fee_sat).format('0,0.00') + '</span>';
+            $('#network-fee-low').html(fee_low);
+            $('#network-fee-high').html(fee_high);
+            // Update XCHain price
+            var xchain_price = numeral(o.xchain.price.btc).format('0,0.00000000') + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral(o.xchain.price.usd).format('0,0.00') + '</span>';
+            $('#xchain-price').html(xchain_price);
+        }
     });
+
+    // Setup listeners to load data panel when an action button is clicked
+    setupActionListeners();
+
+    // Activate the history tab by faking a click
+    $('#tab-dropdown-history').click();
+
+});
 </script>

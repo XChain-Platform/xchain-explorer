@@ -131,7 +131,7 @@ module.exports = {
 
             let prefix = config['COIN_PREFIXES'][info.network],
                 code   = prefix + info.coin,
-                name   = config['COIN_NETWORKS'][info.coin] + ' (' + info.network + ')';
+                name   = info.coin + ' (' + info.network + ')';
             config['COIN_AVAILABLE'][code] = name;
 
         }

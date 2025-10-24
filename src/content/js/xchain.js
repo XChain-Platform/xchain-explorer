@@ -1395,6 +1395,7 @@ function showTransactionDetails(){
     let action_format = (isNumeric(o.action_format)) ? o.action_format : '-';
     let action        = (o.action) ? o.action : '-';
     let status        = (o.status) ? o.status : '-';
+    let tx_data       = (o.tx_data) ? o.tx_data : '-';
     $('#tx-index').html(tx_index);
     $('#block').html(block_index);
     $('#action-command').text(action);
@@ -1402,6 +1403,7 @@ function showTransactionDetails(){
     $('#action-index').html(action_index);
     $('#action-status').text(status);    
     $('#source').html(source);
+    $('#tx-data').text(tx_data);
     $('#timestamp').html(formatLivestamp(o.timestamp) + ' (' + moment.unix(o.timestamp).utcOffset(0).format() + ' GMT)');
     // Add links to block explorers next to transaction hash
     if(o.tx_hash){

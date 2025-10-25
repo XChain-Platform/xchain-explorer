@@ -1,5 +1,25 @@
-/* XChain Explorer Database Connector */
+/*********************************************************************
+ * 
+ * Copyright © 2025 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * Licensed under the Dankest Community License (Apache License 2.0 + Additional Terms).
+ * You may not use this file except in compliance with that License.
+ * 
+ * A copy of the License is available at:
+ *     https://dankest.llc/license
+ *
+ * This software is provided “AS IS”, without warranties or conditions of any kind.
+ * 
+ **********************************************************************
+ *
+ * XChain Explorer - Database Class
+ * 
+ * This file handles connecting to databases and running SQL queries
+ *
+ ********************************************************************/
 
+// Load required libraries
 const mariadb = require('mariadb');
 
 class Database {
@@ -107,7 +127,6 @@ class Database {
                 }
             }
         }
-        // console.log('pools=',this.pools);
     }
 
     /******************************************************************
@@ -129,7 +148,7 @@ class Database {
                     connection = await pool.getConnection();
                     // console.log("Connected to database!");
                 } catch (e){
-                    // console.log('e=',e);
+                    console.log('e=',e);
                     connection = null;
                     // Retry getting a connection again after a brief delay
                     if(retryCount <= maxRetrys){

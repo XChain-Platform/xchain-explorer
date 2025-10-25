@@ -1,10 +1,30 @@
-/* XChain Explorer Class */
+/*********************************************************************
+ * 
+ * Copyright © 2025 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * Licensed under the Dankest Community License (Apache License 2.0 + Additional Terms).
+ * You may not use this file except in compliance with that License.
+ * 
+ * A copy of the License is available at:
+ *     https://dankest.llc/license
+ *
+ * This software is provided “AS IS”, without warranties or conditions of any kind.
+ * 
+ **********************************************************************
+ *
+ * XChain Explorer - Explorer Class
+ * 
+ * This file handles starting the explorer, decoding requests, and returning data
+ *
+ ********************************************************************/
 
+// Load required libraries
 const express  = require('express');
 const fs       = require('fs');
 const path     = require('path');
 const axios    = require('axios');
-const util     = require('./util.js');
+const util     = require('./utility.js');
 const database = require('./db.js');
 
 class XChainExplorer {

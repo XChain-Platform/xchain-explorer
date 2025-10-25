@@ -1,5 +1,19 @@
 /*********************************************************************
- * XChain Explorer Configuration
+ * 
+ * Copyright © 2025 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * Licensed under the Dankest Community License (Apache License 2.0 + Additional Terms).
+ * You may not use this file except in compliance with that License.
+ * 
+ * A copy of the License is available at:
+ *     https://dankest.llc/license
+ *
+ * This software is provided “AS IS”, without warranties or conditions of any kind.
+ * 
+ **********************************************************************
+ *
+ * XChain Explorer - Configuration
  * 
  * This config file contains explorer specific configuration data
  * 
@@ -7,9 +21,10 @@
  *
  ********************************************************************/
 
+// Load required libraries
 const fs   = require('fs');
 const path = require('path');
-const util = require('./util.js');
+const util = require('./utility.js');
 
 // Define the API config 
 const API_HOST       = '127.0.0.1';

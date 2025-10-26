@@ -2,8 +2,7 @@
   "name": "xchain-explorer",
   "description": "xchain-explorer is a free open source token platform explorer and set of APIs to pull data from the XChain platform supported blockchains",
   "version": "1.0.0",
-  "author": "Jeremy Johnson <j-dog@j-dog.net>",
-  "license": "Creative Commons Attribution NonCommercial 4.0 International",
+  "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
     "url": "https://github.com/XChain-platform/xchain-explorer.git"

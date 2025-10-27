@@ -2252,14 +2252,12 @@ class Database {
         let query = `SELECT
                         b1.block_index,
                         b1.block_time as timestamp,
-                        t1.hash as credits_hash,
-                        t2.hash as debits_hash,
-                        t3.hash as actions_hash
+                        t1.hash as ledger_hash,
+                        t2.hash as actions_hash
                     FROM
                         blocks b1
-                        LEFT  JOIN index_transactions t1 ON (t1.id=b1.credits_hash_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=b1.debits_hash_id)
-                        LEFT  JOIN index_transactions t3 ON (t3.id=b1.actions_hash_id)
+                        LEFT  JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=b1.actions_hash_id)
                     WHERE ` + sql.where.data + `
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);

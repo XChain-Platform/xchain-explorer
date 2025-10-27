@@ -707,11 +707,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -731,11 +731,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -752,12 +752,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -778,12 +778,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -800,10 +800,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -820,10 +820,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -840,11 +840,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -866,11 +866,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -887,13 +887,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -914,13 +914,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -937,12 +937,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -962,12 +962,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -989,16 +989,16 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -1023,16 +1023,16 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1054,15 +1054,15 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -1086,15 +1086,15 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1111,13 +1111,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -1138,13 +1138,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1161,11 +1161,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id) 
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id) 
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
@@ -1185,11 +1185,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id) 
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id) 
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1210,13 +1210,13 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
-                            INNER JOIN index_tickers      t4 on (t4.id=m.id)
-                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                            LEFT  JOIN index_tickers      t4 on (t4.id=m.id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data;
             query = `SELECT
                             a3.action,
@@ -1238,13 +1238,13 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
-                            INNER JOIN index_tickers      t4 on (t4.id=m.id)
-                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                            LEFT  JOIN index_tickers      t4 on (t4.id=m.id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data + sql.where.offset +`
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
@@ -1256,12 +1256,12 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data;
             query = `SELECT
                             a3.action,
@@ -1282,12 +1282,12 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                            INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE ` + sql.where.data + sql.where.offset +`
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
@@ -1305,14 +1305,14 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        INNER JOIN index_actions      a5 ON (a5.id=a1.action_id)
+                        LEFT  JOIN index_actions      a5 ON (a5.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a5.action,
@@ -1352,14 +1352,14 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        INNER JOIN index_actions      a5 ON (a5.id=a1.action_id)
+                        LEFT  JOIN index_actions      a5 ON (a5.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1376,13 +1376,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.coin1_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.coin2_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin1_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.coin2_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -1404,13 +1404,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.coin1_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.coin2_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin1_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.coin2_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1427,10 +1427,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -1450,10 +1450,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1474,11 +1474,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -1500,11 +1500,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1525,13 +1525,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -1552,13 +1552,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1579,16 +1579,16 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -1616,16 +1616,16 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1642,11 +1642,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -1665,11 +1665,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1686,11 +1686,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -1712,11 +1712,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1733,11 +1733,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a2.action,
@@ -1755,11 +1755,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1780,13 +1780,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -1807,13 +1807,13 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1830,12 +1830,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -1856,12 +1856,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1882,16 +1882,16 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -1919,16 +1919,16 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1945,11 +1945,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -1968,11 +1968,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -1989,11 +1989,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a3.action,
@@ -2015,11 +2015,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2036,11 +2036,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a2.action,
@@ -2058,11 +2058,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        INNER JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2083,12 +2083,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
@@ -2109,12 +2109,12 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        INNER JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2132,8 +2132,8 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.owner_id)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -2158,9 +2158,9 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.owner_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        INNER JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2223,8 +2223,8 @@ class Database {
                         count(*) as total
                     FROM
                         balances m
-                        INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
-                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_tickers   t1 ON (t1.id=m.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=m.address_id)
                         INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
@@ -2235,8 +2235,8 @@ class Database {
                         t4.coin_price
                     FROM
                         balances m
-                        INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
-                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_tickers   t1 ON (t1.id=m.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=m.address_id)
                         INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data + `
                     ORDER BY t1.tick ` + sql.order + `
@@ -2257,9 +2257,9 @@ class Database {
                         t3.hash as actions_hash
                     FROM
                         blocks b1
-                        INNER JOIN index_transactions t1 ON (t1.id=b1.credits_hash_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=b1.debits_hash_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=b1.actions_hash_id)
+                        LEFT  JOIN index_transactions t1 ON (t1.id=b1.credits_hash_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=b1.debits_hash_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=b1.actions_hash_id)
                     WHERE ` + sql.where.data + `
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
@@ -2278,10 +2278,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
@@ -2298,10 +2298,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2318,10 +2318,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
@@ -2338,10 +2338,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2358,10 +2358,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
@@ -2378,10 +2378,10 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.address_id)
-                        INNER JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        INNER JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -2401,8 +2401,8 @@ class Database {
                         count(*) as total
                     FROM
                         balances m
-                        INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=m.address_id)
                         INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
@@ -2414,8 +2414,8 @@ class Database {
                         t4.coin_price
                     FROM
                         balances m
-                        INNER JOIN index_tickers   t3 ON (t3.id=m.tick_id)
-                        INNER JOIN index_addresses a2 ON (a2.id=m.address_id)
+                        LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=m.address_id)
                         INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data + `
                     ORDER BY ABS(m.amount) ` + sql.order + `
@@ -2523,8 +2523,8 @@ class Database {
                         t1.coin_floor
                     FROM
                         tokens t1
-                        INNER JOIN index_tickers      t2 ON (t2.id=t1.tick_id)
-                        INNER JOIN index_addresses    a1 ON (a1.id=t1.owner_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=t1.tick_id)
+                        LEFT  JOIN index_addresses    a1 ON (a1.id=t1.owner_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=t1.callback_tick_id)
                         LEFT  JOIN tokens             t4 ON (t4.tick_id=t1.callback_tick_id)
                     WHERE 
@@ -2640,8 +2640,8 @@ class Database {
                         a1.address as source
                     FROM
                         transactions m
-                        INNER JOIN index_transactions t1 ON (t1.id=m.tx_hash_id)
-                        INNER JOIN index_addresses    a1 ON (a1.id=m.source_id)
+                        LEFT  JOIN index_transactions t1 ON (t1.id=m.tx_hash_id)
+                        LEFT  JOIN index_addresses    a1 ON (a1.id=m.source_id)
                         INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
                     WHERE 
                         ` + sql.where.data + where + `
@@ -2657,7 +2657,7 @@ class Database {
                             a1.action
                         FROM
                             actions m
-                            INNER JOIN index_actions a1 ON (a1.id=m.action_id)
+                            LEFT  JOIN index_actions a1 ON (a1.id=m.action_id)
                         WHERE 
                             m.tx_index=?`;
             results = await this.doQuery(config, query, args);
@@ -2748,11 +2748,11 @@ class Database {
                             INNER JOIN actions            a2 ON (a2.action_index=a1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a3 ON (a3.id=a2.action_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a2.action_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=a1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             a1.action_index=?
                         LIMIT 1`;
@@ -2778,12 +2778,12 @@ class Database {
                             INNER JOIN actions            a2 ON (a2.action_index=a1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a3 ON (a3.id=a2.action_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=a1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=a1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=a1.tick_id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a2.action_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=a1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=a1.tick_id)
                         WHERE 
                             a1.action_index=?
                         LIMIT 1`;
@@ -2805,10 +2805,10 @@ class Database {
                             INNER JOIN actions            a2 ON (a2.action_index=b1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                             INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
-                            INNER JOIN index_actions      a3 ON (a3.id=a2.action_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=t1.source_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a2.action_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=t1.source_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=b1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             b1.action_index=?
                         LIMIT 1`;
@@ -2845,11 +2845,11 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=b1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b2 ON (b2.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=b1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=b1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=b1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=b1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             b1.action_index=?
                         LIMIT 1`;
@@ -2875,13 +2875,13 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=c1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=c1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=c1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=c1.tick_id)
-                            INNER JOIN index_tickers      t4 ON (t4.id=c1.callback_tick_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=c1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=c1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=c1.tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=c1.callback_tick_id)
                         WHERE 
                             c1.action_index=?
                         LIMIT 1`;
@@ -2907,12 +2907,12 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=d1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=d1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=d1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
                         WHERE 
                             d1.action_index=?
                         LIMIT 1`;
@@ -2946,12 +2946,12 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=f1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
                         WHERE 
                             f1.action_index=?
                         LIMIT 1`;
@@ -2997,13 +2997,13 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=i1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    a4 ON (a4.id=i1.transfer_id)
                             LEFT  JOIN index_addresses    a5 ON (a5.id=i1.transfer_supply_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=i1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=i1.tick_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=i1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=i1.tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=i1.callback_tick_id)
                         WHERE 
                             i1.action_index=?
@@ -3031,13 +3031,13 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=l1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=l1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_coins        c1 ON (c1.id=l1.coin1_id)
-                            INNER JOIN index_coins        c2 ON (c2.id=l1.coin2_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=l1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=l1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=l1.coin1_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=l1.coin2_id)
                         WHERE 
                             l1.action_index=?
                         LIMIT 1`;
@@ -3062,10 +3062,10 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=l1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=l1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=l1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             l1.action_index=?
                         LIMIT 1`;
@@ -3086,7 +3086,7 @@ class Database {
                             s1.status
                         FROM
                             list_edits l1
-                            INNER JOIN index_statuses  s1 ON (s1.id=l1.status_id)
+                            LEFT  JOIN index_statuses  s1 ON (s1.id=l1.status_id)
                             LEFT JOIN  index_addresses a1 ON (a1.id=l1.item_id)
                             LEFT JOIN  index_tickers   t1 ON (t1.id=l1.item_id)
                         WHERE 
@@ -3114,11 +3114,11 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=m1.destination_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=m1.destination_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
@@ -3144,13 +3144,13 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=m1.destination_id)
-                            INNER JOIN index_memos        m2 ON (m2.id=m1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=m1.tick_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=m1.destination_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=m1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=m1.tick_id)
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
@@ -3183,16 +3183,16 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=o1.get_address_id)
-                            INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
-                            INNER JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
-                            INNER JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=o1.get_address_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=o1.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
                         WHERE 
                             o1.action_index=?
                         LIMIT 1`;
@@ -3216,11 +3216,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_memos        m2 ON (m2.id=o1.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE 
                         o1.action_index=?
                     LIMIT 1`;
@@ -3247,11 +3247,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=o1.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_memos        m2 ON (m2.id=o1.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE 
                         o1.action_index=?
                     LIMIT 1`;
@@ -3274,11 +3274,11 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
-                            INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
@@ -3300,9 +3300,9 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
@@ -3315,10 +3315,10 @@ class Database {
                             s2.status
                         FROM
                             sends s1
-                            INNER JOIN index_addresses    a1 ON (a1.id=s1.destination_id)
-                            INNER JOIN index_memos        m1 ON (m1.id=s1.memo_id)
-                            INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                            INNER JOIN index_tickers      t1 ON (t1.id=s1.tick_id)
+                            LEFT  JOIN index_addresses    a1 ON (a1.id=s1.destination_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=s1.memo_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                            LEFT  JOIN index_tickers      t1 ON (t1.id=s1.tick_id)
                         WHERE 
                             s1.action_index=?`;
             }
@@ -3343,11 +3343,11 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                            INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT JOIN index_tickers       t3 ON (t3.id=s1.tick_id)
                         WHERE 
                             s1.action_index=?
@@ -3381,16 +3381,16 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=s1.get_address_id)
-                            INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                            INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
-                            INNER JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
-                            INNER JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
-                            INNER JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=s1.get_address_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
@@ -3414,11 +3414,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE 
                         s1.action_index=?
                     LIMIT 1`;
@@ -3445,11 +3445,11 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE 
                         s1.action_index=?
                     LIMIT 1`;
@@ -3472,11 +3472,11 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
-                            INNER JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
@@ -3502,12 +3502,12 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            INNER JOIN index_addresses    a4 ON (a4.id=s1.destination_id)
-                            INNER JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                            INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=s1.destination_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
@@ -3518,8 +3518,8 @@ class Database {
                             t1.tick
                         FROM
                             issues i1
-                            INNER JOIN index_tickers   t1 ON (t1.id=i1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=i1.transfer_id)
+                            LEFT  JOIN index_tickers   t1 ON (t1.id=i1.tick_id)
+                            LEFT  JOIN index_addresses a1 ON (a1.id=i1.transfer_id)
                         WHERE 
                             i1.action_index=?
                         ORDER BY
@@ -3541,9 +3541,9 @@ class Database {
                             actions                       a1
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                         WHERE 
                             a1.action_index=?
                         LIMIT 1`;
@@ -3613,8 +3613,8 @@ class Database {
                             c1.amount
                         FROM
                             credits c1
-                            INNER JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=c1.address_id)
+                            LEFT  JOIN index_tickers   t1 ON (t1.id=c1.tick_id)
+                            LEFT  JOIN index_addresses a1 ON (a1.id=c1.address_id)
                         WHERE 
                             c1.action_index=?
                         ORDER BY
@@ -3631,8 +3631,8 @@ class Database {
                             d1.amount
                         FROM
                             debits d1
-                            INNER JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=d1.address_id)
+                            LEFT  JOIN index_tickers   t1 ON (t1.id=d1.tick_id)
+                            LEFT  JOIN index_addresses a1 ON (a1.id=d1.address_id)
                         WHERE 
                             d1.action_index=?
                         ORDER BY
@@ -3649,8 +3649,8 @@ class Database {
                             e1.amount
                         FROM
                             escrows e1
-                            INNER JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
-                            INNER JOIN index_addresses a1 ON (a1.id=e1.address_id)
+                            LEFT  JOIN index_tickers   t1 ON (t1.id=e1.tick_id)
+                            LEFT  JOIN index_addresses a1 ON (a1.id=e1.address_id)
                         WHERE 
                             e1.action_index=?
                         ORDER BY
@@ -3688,8 +3688,8 @@ class Database {
                         fees f1
                         INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
-                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE 
                         f1.action_index=?`;
@@ -3741,7 +3741,7 @@ class Database {
                         a2.action
                     FROM
                         actions a1
-                        INNER JOIN index_actions a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_actions a2 ON (a2.id=a1.action_id)
                     WHERE
                         a1.action_index=?`;
         let results = await this.doQuery(config, sql, args);
@@ -3764,7 +3764,7 @@ class Database {
         //                 a2.action
         //             FROM
         //                 actions a1
-        //                 INNER JOIN index_actions a2 ON (a2.id=a1.action_id)
+        //                 LEFT  JOIN index_actions a2 ON (a2.id=a1.action_id)
         //             WHERE
         //                 a1.action_index=?`;
         // let results = await this.doQuery(config, sql, args);
@@ -3826,8 +3826,8 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where;
             results = await this.doQuery(config, count, args);
             if(results && results.length)
@@ -3858,8 +3858,8 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -4021,7 +4021,7 @@ class Database {
                             COUNT(*) AS count 
                         FROM
                             transactions t1 
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             LOWER(t2.hash) LIKE LOWER( ? )`;
             if(type=='broadcast'){
@@ -4029,7 +4029,7 @@ class Database {
                             COUNT(*) AS count 
                         FROM 
                             broadcasts b
-                            INNER JOIN index_memos m ON (m.id=b.memo_id)
+                            LEFT JOIN index_memos m ON (m.id=b.memo_id)
                         WHERE 
                             LOWER(b.message) LIKE LOWER( ? ) OR
                             LOWER(m.memo)    LIKE LOWER( ? )`;
@@ -4039,7 +4039,7 @@ class Database {
                             COUNT(*) AS count 
                         FROM 
                             tokens t1
-                            INNER JOIN index_tickers t2 ON (t2.id=t1.tick_id)
+                            LEFT  JOIN index_tickers t2 ON (t2.id=t1.tick_id)
                         WHERE 
                             LOWER(t2.tick)        LIKE LOWER( ? ) OR
                             LOWER(t1.description) LIKE LOWER( ? )`;
@@ -4081,7 +4081,7 @@ class Database {
                             t2.hash 
                         FROM
                             transactions t1 
-                            INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE 
                             LOWER(t2.hash) LIKE LOWER( ? )
                         ORDER BY t2.hash ASC
@@ -4094,8 +4094,8 @@ class Database {
                             s.status
                         FROM 
                             broadcasts b
-                            INNER JOIN index_memos    m ON (m.id=b.memo_id)
-                            INNER JOIN index_statuses s ON (s.id=b.status_id)
+                            LEFT  JOIN index_memos    m ON (m.id=b.memo_id)
+                            LEFT  JOIN index_statuses s ON (s.id=b.status_id)
                         WHERE 
                             LOWER(b.message) LIKE LOWER( ? ) OR
                             LOWER(m.memo)    LIKE LOWER( ? )
@@ -4107,7 +4107,7 @@ class Database {
                             t1.description 
                         FROM 
                             tokens t1
-                            INNER JOIN index_tickers t2 ON (t2.id=t1.tick_id)
+                            LEFT  JOIN index_tickers t2 ON (t2.id=t1.tick_id)
                         WHERE 
                             LOWER(t2.tick)        LIKE LOWER( ? ) OR
                             LOWER(t1.description) LIKE LOWER( ? )

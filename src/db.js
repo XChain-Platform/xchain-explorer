@@ -3770,6 +3770,7 @@ class Database {
         //     type = results[0].action;
         return actions;
     }
+
     // Get history information for a given address
     // NOTE: Supports following search types ('block', 'address', 'token', 'recent')
     async getHistoryData(config){
@@ -3878,8 +3879,9 @@ class Database {
         // Note: We limit this to just enough details to show basic history info, user can request full info on action if they want more info
         let detailFields = [
             'coin', 'tick',  'amount', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
+            'action_format',                                                                                     // Action details
             'fee_preference', 'require_memo',                                                                    // Addresses
-            'message',                                                                                           // Broadcasts
+            'message', 'value', 'broadcast_action_index', 'fee',                                                 // Broadcasts
             'callback_tick', 'callback_amount',                                                                  // Callbacks
             'dividend_tick',                                                                                     // Dividends
             'name', 'title',                                                                                     // Files
@@ -3900,7 +3902,7 @@ class Database {
             for(let name of detailFields){
                 let found  = false;
                 let detail = false;
-                if(info[name]){
+                if(typeof info[name] !== 'undefined'){
                     found  = true;
                     detail = info[name];
                 }

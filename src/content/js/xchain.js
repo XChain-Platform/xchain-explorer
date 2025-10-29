@@ -698,8 +698,18 @@ function getActionDetails(action, info){
         html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
         html += 'List ' + formatLink('/' + coin + '/token/' + info.list_action_index, info.list_action_index);
     }
-    if(action=='BROADCAST')
-        html = info.message;
+    if(action=='BROADCAST'){
+        let percent = bcmul(info.fee, 100, 2);
+        if(info.action_format==0){
+            html += info.message;
+        } else if(info.action_format==1){
+            html += '<b>Oracle:</b> ' + info.message + ' = ' + formatAmount(info.value) + ' <b>Fee:</b> ' + percent + '%';;
+        } else if(info.action_format==2){
+            html += '<b>Feed:</b> ' + info.message + ' <b>Fee:</b> ' + percent + '%';
+        } else if(info.action_format==3){
+            html += '<b>Feed Results:</b> ' + formatLink('/' + coin + '/action/' + info.broadcast_action_index, info.broadcast_action_index) + ' <b>Result:</b> ' + info.value;
+        }
+    }
     if(action=='CALLBACK'){
         html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' for ' ;
         html += info.callback_amount  + formatLink('/' + XC.coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick);
@@ -732,10 +742,14 @@ function getActionDetails(action, info){
         html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
         html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
     }
+    if(action=='ORDER_CANCEL')
+        html += 'Cancel order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
+    if(action=='ORDER_EDIT')
+        html += 'Edit order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
     if(action=='SWAP_CANCEL')
-        html += 'Cancel swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
+        html += 'Cancel swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
     if(action=='SWAP_EDIT')
-        html += 'Edit swap ' + formatLink('/' + coin + '/address/' + info.swap_action_index, formatAmount(info.swap_action_index));
+        html += 'Edit swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
     if(action=='SEND'){
         html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
         html +=formatLink('/' + coin + '/address/' + info.destination, info.destination);
@@ -1664,7 +1678,8 @@ function showSwapCancelDetails(data){
 // Display SWAP_EDIT action information
 function showSwapEditDetails(data){
     $('#info-swap-edit .swap-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
-    $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    if(!isNull(data.expiration))
+        $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap-edit .swap-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
     $('#info-swap-edit .swap-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-swap-edit .swap-edit-memo').text(data.memo);

@@ -1438,30 +1438,32 @@ function showActionDetails(){
     // Display the specific actions for this tranaction
     // TODO: Cleanup this code once all actions are working (reduce to just call on show{ACTION}Details(o))
     var found = false;
-    if(o.action=='ADDRESS'){     found = true;  showAddressDetails(o);    }
-    if(o.action=='AIRDROP'){     found = true;  showAirdropDetails(o);    }
-    if(o.action=='BATCH'){       found = true;  showBatchDetails(o);      }
-    if(o.action=='BROADCAST'){   found = true;  showBroadcastDetails(o);  }
-    if(o.action=='CALLBACK'){    found = true;  showCallbackDetails(o);   }
-    if(o.action=='DESTROY'){     found = true;  showDestroyDetails(o);    }
-    // if(o.action=='DISPENSER'){   found = true;  showDispenserDetails(o);  }
-    // if(o.action=='DISPENSE'){    found = true;  showDispenseDetails(o);   }
-    // if(o.action=='DIVIDEND'){    found = true;  showDividendDetails(o);   }
-    if(o.action=='FILE'){        found = true;  showFileDetails(o);       }
-    if(o.action=='ISSUE'){       found = true;  showIssueDetails(o);      }
-    if(o.action=='LINK'){        found = true;  showLinkDetails(o);       }
-    if(o.action=='LIST'){        found = true;  showListDetails(o);       }
-    if(o.action=='MESSAGE'){     found = true;  showMessageDetails(o);    }
-    if(o.action=='MINT'){        found = true;  showMintDetails(o);       }
-    if(o.action=='ORDER'){       found = true;  showOrderDetails(o);      }
-    if(o.action=='ORDER_MATCH'){ found = true;  showOrderMatchDetails(o); }
-    if(o.action=='SEND'){        found = true;  showSendDetails(o);       }
-    if(o.action=='SLEEP'){       found = true;  showSleepDetails(o);      }
-    if(o.action=='SWAP'){        found = true;  showSwapDetails(o);       }
-    if(o.action=='SWAP_CANCEL'){ found = true;  showSwapCancelDetails(o); }
-    if(o.action=='SWAP_EDIT'){   found = true;  showSwapEditDetails(o);   }
-    if(o.action=='SWAP_MATCH'){  found = true;  showSwapMatchDetails(o);  }
-    if(o.action=='SWEEP'){       found = true;  showSweepDetails(o);      }
+    if(o.action=='ADDRESS'){      found = true;  showAddressDetails(o);    }
+    if(o.action=='AIRDROP'){      found = true;  showAirdropDetails(o);    }
+    if(o.action=='BATCH'){        found = true;  showBatchDetails(o);      }
+    if(o.action=='BROADCAST'){    found = true;  showBroadcastDetails(o);  }
+    if(o.action=='CALLBACK'){     found = true;  showCallbackDetails(o);   }
+    if(o.action=='DESTROY'){      found = true;  showDestroyDetails(o);    }
+    // if(o.action=='DISPENSER'){    found = true;  showDispenserDetails(o);  }
+    // if(o.action=='DISPENSE'){     found = true;  showDispenseDetails(o);   }
+    // if(o.action=='DIVIDEND'){     found = true;  showDividendDetails(o);   }
+    if(o.action=='FILE'){         found = true;  showFileDetails(o);       }
+    if(o.action=='ISSUE'){        found = true;  showIssueDetails(o);      }
+    if(o.action=='LINK'){         found = true;  showLinkDetails(o);       }
+    if(o.action=='LIST'){         found = true;  showListDetails(o);       }
+    if(o.action=='MESSAGE'){      found = true;  showMessageDetails(o);    }
+    if(o.action=='MINT'){         found = true;  showMintDetails(o);       }
+    if(o.action=='ORDER'){        found = true;  showOrderDetails(o);      }
+    if(o.action=='ORDER_CANCEL'){ found = true;  showOrderCancelDetails(o); }
+    if(o.action=='ORDER_EDIT'){   found = true;  showOrderEditDetails(o);   }
+    if(o.action=='ORDER_MATCH'){  found = true;  showOrderMatchDetails(o); }
+    if(o.action=='SEND'){         found = true;  showSendDetails(o);       }
+    if(o.action=='SLEEP'){        found = true;  showSleepDetails(o);      }
+    if(o.action=='SWAP'){         found = true;  showSwapDetails(o);       }
+    if(o.action=='SWAP_CANCEL'){  found = true;  showSwapCancelDetails(o); }
+    if(o.action=='SWAP_EDIT'){    found = true;  showSwapEditDetails(o);   }
+    if(o.action=='SWAP_MATCH'){   found = true;  showSwapMatchDetails(o);  }
+    if(o.action=='SWEEP'){        found = true;  showSweepDetails(o);      }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -1625,11 +1627,12 @@ function showOrderCancelDetails(data){
 
 // Display ORDER_EDIT action information
 function showOrderEditDetails(data){
-    $('#info-order-edit .swap-order-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
-    $('#info-order-edit .swap-order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-order-edit .swap-order-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-order-edit .swap-order-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
-    $('#info-order-edit .swap-order-memo').text(data.memo);
+    $('#info-order-edit .order-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    if(!isNull(data.expiration))
+        $('#info-order-edit .order-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-order-edit .order-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-order-edit .order-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-order-edit .order-edit-memo').text(data.memo);
 }
 
 // Display ORDER_MATCH action information
@@ -1663,7 +1666,8 @@ function showSwapDetails(data){
     $('#info-swap .swap-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
     $('#info-swap .swap-get-amount').html(formatAmount(data.get_amount));
     $('#info-swap .swap-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
-    $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    if(!isNull(data.expiration))
+        $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap .swap-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
     $('#info-swap .swap-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-swap .swap-memo').text(data.memo);

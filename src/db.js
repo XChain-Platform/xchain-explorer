@@ -1731,8 +1731,8 @@ class Database {
                     FROM
                         order_matches m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
@@ -1753,8 +1753,8 @@ class Database {
                     FROM
                         order_matches m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
@@ -2034,8 +2034,8 @@ class Database {
                     FROM
                         swap_matches m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
@@ -2056,8 +2056,8 @@ class Database {
                     FROM
                         swap_matches m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
@@ -3175,7 +3175,8 @@ class Database {
                             t2.hash as tx_hash,
                             t1.tx_index,
                             m2.memo,
-                            s1.status
+                            s1.status,
+                            s2.order_status as current_status
                         FROM
                             orders o1
                             INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
@@ -3191,9 +3192,46 @@ class Database {
                             LEFT  JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
+                            LEFT  JOIN LATERAL (
+                                SELECT
+                                    s4.status as order_status
+                                FROM
+                                    order_statuses s3
+                                    INNER JOIN index_statuses s4 ON (s4.id=s3.status_id)
+                                WHERE
+                                    s3.order_action_index=o1.action_index
+                                ORDER BY 
+                                    s3.action_index DESC
+                                LIMIT 1
+                            ) s2 ON TRUE                
                         WHERE 
                             o1.action_index=?
                         LIMIT 1`;
+                // Get a list of order matches
+                query2 = `SELECT
+                            m.give_action_index,
+                            m.get_action_index,
+                            m.give_amount,
+                            m.get_amount
+                        FROM
+                            order_matches m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            (m.give_action_index=? OR m.get_action_index=?) AND
+                            s.status='valid'
+                        ORDER BY action_index ASC`;
+                // Get a list of order edits
+                query3 = `SELECT
+                            m.expiration,
+                            m.allow_list,
+                            m.block_list
+                        FROM
+                            order_edits m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            m.order_action_index=? AND
+                            s.status='valid'
+                        ORDER BY action_index ASC`;
             }
             // ORDER_CANCEL action
             if(type=='ORDER_CANCEL'){
@@ -3261,8 +3299,12 @@ class Database {
                             a1.action_format,
                             m1.action_index,
                             c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            m1.give_amount,
                             m1.give_action_index,
                             c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            m1.get_amount,
                             m1.get_action_index,
                             b1.block_index,
                             b1.block_time as timestamp,
@@ -3270,13 +3312,15 @@ class Database {
                         FROM
                             order_matches m1
                             INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
                             LEFT  JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=m1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=m1.get_tick_id)
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
@@ -3373,7 +3417,8 @@ class Database {
                             t2.hash as tx_hash,
                             t1.tx_index,
                             m2.memo,
-                            s2.status
+                            s2.status,
+                            s3.swap_status as current_status
                         FROM
                             swaps s1
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
@@ -3389,9 +3434,33 @@ class Database {
                             LEFT  JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
+                            LEFT  JOIN LATERAL (
+                                SELECT
+                                    s5.status as swap_status
+                                FROM
+                                    swap_statuses s4
+                                    INNER JOIN index_statuses s5 ON (s5.id=s4.status_id)
+                                WHERE
+                                    s4.swap_action_index=s1.action_index
+                                ORDER BY 
+                                    s4.action_index DESC
+                                LIMIT 1
+                            ) s3 ON TRUE
                         WHERE 
                             s1.action_index=?
                         LIMIT 1`;
+                // Get a list of swap edits
+                query3 = `SELECT
+                            m.expiration,
+                            m.allow_list,
+                            m.block_list
+                        FROM
+                            swap_edits m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            m.swap_action_index=? AND
+                            s.status='valid'
+                        ORDER BY action_index ASC`;
             }
             // SWAP_CANCEL action
             if(type=='SWAP_CANCEL'){
@@ -3459,8 +3528,12 @@ class Database {
                             a1.action_format,
                             m1.action_index,
                             c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            m1.give_amount,
                             m1.give_action_index,
                             c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            m1.get_amount,
                             m1.get_action_index,
                             b1.block_index,
                             b1.block_time as timestamp,
@@ -3468,13 +3541,15 @@ class Database {
                         FROM
                             swap_matches m1
                             INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_coins        c1 ON (c1.id=m1.give_coin_id)
                             LEFT  JOIN index_coins        c2 ON (c2.id=m1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=m1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=m1.get_tick_id)
                         WHERE 
                             m1.action_index=?
                         LIMIT 1`;
@@ -3552,12 +3627,26 @@ class Database {
                 if(results && results.length)
                     data = Object.assign({}, data, results[0]);
             }
+            // Create an state object with current state info
+            if(['ORDER','SWAP'].includes(type)){
+                data['state'] = {
+                    get_remaining:  data['get_amount'],
+                    give_remaining: data['give_amount'],
+                    expiration:     data['expiration'],
+                    allow_list:     data['allow_list'],
+                    block_list:     data['block_list'],
+                    status:         data['current_status']
+                }
+                delete data['current_status'];
+            }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
                 // Set correct arguments for the query
                 let args2 = [action_index];
                 if(type=='BATCH')
                     args2.push(data.tx_index);
+                if(type=='ORDER')
+                    args2.push(action_index);
                 results = await this.doQuery(config, query2, args2);
                 if(results && results.length){
                     // Loop through action_indexes and add to actions array
@@ -3584,6 +3673,20 @@ class Database {
                     // Add any SENDS to the send data
                     if(type=='SEND')
                         data.sends = results;
+                    // Determine get/give remaining and order status
+                    if(type=='ORDER'){
+                        let give_remaining = data['give_amount'],
+                            get_remaining  = data['get_amount'];
+                        // Loop through each order match and deduct amount from remaining
+                        for(let row of results){
+                            let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
+                            let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
+                            give_remaining  = this.util.bcsub(give_remaining, give_amount);
+                            get_remaining   = this.util.bcsub(get_remaining,  get_amount);
+                        }
+                        data.state.give_remaining = String(give_remaining);
+                        data.state.get_remaining  = String(get_remaining);
+                    }
                 }
             }
             // If we have a third query defined, run it and apply the data to the correct place in the data object
@@ -3600,6 +3703,14 @@ class Database {
                             if(data.type==2) edits.push({ address: row.address, status: row.status });
                         }
                         data.edits = edits.sort();
+                    }
+                    // Handle setting the current expiration and allow/block list based on any order edits
+                    if(['ORDER','SWAP'].includes(type)){
+                        for(let row of results){
+                            if(!this.util.isNull(row.expiration)) data.state.expiration = row.expiration;
+                            if(!this.util.isNull(row.allow_list)) data.state.allow_list = row.allow_list;
+                            if(!this.util.isNull(row.block_list)) data.state.block_list = row.block_list;
+                        }
                     }
                 }
             }
@@ -3665,9 +3776,7 @@ class Database {
             let txData = await this.getTransactionData(config, data.tx_hash);
             data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
             // Include any related action_indexes
-            // let related = await this.getRelatedActions(config, action_index);
-            // if(related)
-            //     data.related_actions = related;
+            // data.related = await this.getRelatedActions(config, action_index);;
         }
         return data;
     }
@@ -3751,8 +3860,18 @@ class Database {
     // Get actions related to a given action_index
     // TODO: Circle back through and get related actions working
     async getRelatedActions(config, action_index){
-        let type    = await this.getActionType(config, action_index);
-        let actions = [{ foo: 'bar' }];
+        let type  = await this.getActionType(config, action_index);
+        let query = null;
+        if(type=='ORDER'){
+            query = `
+                SELECT action_index FROM order_edits   WHERE order_action_index=? UNION
+                SELECT action_index FROM order_cancels WHERE order_
+
+            `;
+        }
+
+
+        let actions = [];
         if(type){
 
         }
@@ -3823,8 +3942,8 @@ class Database {
                     FROM
                         mappings_actions m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where;
@@ -3855,8 +3974,8 @@ class Database {
                     FROM
                         mappings_actions m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
@@ -3870,6 +3989,7 @@ class Database {
         }
         // Get summary data for actions
         let data = await this.getActionSummaryData(config, history);
+        console.log('data=',data);
         return [data, total];
     }
 
@@ -3888,7 +4008,7 @@ class Database {
             'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                        // Links
             'list_action_index',                                                                                 // Lists
             'encryption_method', 'plaintext_message',                                                            // Messages
-            'give_tick', 'get_tick', 'give_amount', 'get_amount',                                                // Orders, Swaps, Dispensers
+            'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount',                       // Orders, Swaps, Dispensers
             'order_action_index',                                                                                // Order_Cancels, Order_Edits
             'swap_action_index',                                                                                 // Swap_Cancels, Swap_Edits
             'resume_block',                                                                                      // Sleep
@@ -4123,6 +4243,77 @@ class Database {
         // Get count of total number of addresses
         return [data, null, total]
     }
+
+
+    // Handle getting total amounts remaining for a given order
+    async getOrderAmountsRemaining(config){
+        // Placeholders for amount escrowed and amount matched
+        let action_index   = config.data.search,
+            give_coin_id   = 0,
+            give_tick_id   = 0,
+            give_remaining = 0,
+            get_coin_id    = 0,
+            get_tick_id    = 0,
+            get_remaining  = 0;
+        // Get initial amounts from the orders table
+        let query  = `SELECT 
+                        o.give_coin_id,
+                        o.give_tick_id,
+                        o.give_amount,
+                        o.get_coin_id,
+                        o.get_tick_id,
+                        o.get_amount
+                    FROM 
+                        orders o
+                        INNER JOIN index_statuses s ON (s.id=o.status_id)
+                    WHERE 
+                        o.action_index=? AND
+                        s.status=?`;
+        let args  = [action_index, 'valid'];
+        try {
+            let rows = await this.doQuery(config, query, args);
+            if(rows && rows.length>0){
+                let info = rows[0];
+                give_coin_id   = info.give_coin_id;
+                give_tick_id   = info.give_tick_id;  
+                give_remaining = info.give_amount;
+                get_coin_id    = info.get_coin_id;
+                get_tick_id    = info.get_tick_id;  
+                get_remaining  = info.get_amount;
+            }
+        } catch (error) {
+            this.util.logError('Error looking up order amounts from orders table :', error);
+        }
+        // Lookup amounts matched in order_matches
+        query = `SELECT
+                    m.give_action_index,
+                    m.get_action_index,
+                    m.give_amount,
+                    m.get_amount
+                FROM
+                    order_matches m
+                    INNER JOIN index_statuses s ON (s.id=m.status_id)
+                WHERE
+                    (m.give_action_index=? OR m.get_action_index=?) AND
+                    s.status=?
+                ORDER BY action_index ASC`;
+        try {
+            args = [action_index, action_index, 'valid'];
+            let rows = await this.doQuery(config, query, args);
+            if(rows && rows.length>0){
+                // Loop through each order match and deduct amount from remaining
+                for(let row of rows){
+                    let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
+                    let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
+                    give_remaining  = this.util.bcsub(give_remaining, give_amount);
+                    get_remaining   = this.util.bcsub(get_remaining,  get_amount);
+                }
+            }
+        } catch (error) {
+            this.util.logError('Error looking up order amounts from order_matches table :', error);
+        }
+        return [give_remaining, get_remaining];
+    }    
 }
 
 module.exports = Database

@@ -742,6 +742,10 @@ function getActionDetails(action, info){
         html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
         html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
     }
+    if(['SWAP_MATCH','ORDER_MATCH'].includes(action)){
+        html += info.get_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
+        html += info.give_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
+    }
     if(action=='ORDER_CANCEL')
         html += 'Cancel order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
     if(action=='ORDER_EDIT')
@@ -1613,16 +1617,25 @@ function showOrderDetails(data){
     $('#info-order .order-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
     $('#info-order .order-get-amount').html(formatAmount(data.get_amount));
     $('#info-order .order-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
-    $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    if(data.expiration)
+        $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-order .order-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
     $('#info-order .order-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-order .order-memo').text(data.memo);
+    // Order Status Details
+    $('#info-order .order-state-get-remaining').html(formatAmount(data.state.get_remaining));
+    $('#info-order .order-state-give-remaining').html(formatAmount(data.state.give_remaining));
+    if(data.state.expiration)
+        $('#info-order .order-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-order .order-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
+    $('#info-order .order-state-block-list').html(formatLink('/' + XC.coin + '/action/' + data.state.block_list, formatAmount(data.state.block_list)));
+    $('#info-order .order-state').text(data.state.status);
 }
 
 // Display ORDER_CANCEL action information
 function showOrderCancelDetails(data){
-    $('#info-order-cancel .swap-order-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
-    $('#info-order-cancel .swap-order-memo').text(data.memo);
+    $('#info-order-cancel .order-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-cancel .order-cancel-memo').text(data.memo);
 }
 
 // Display ORDER_EDIT action information
@@ -1637,10 +1650,14 @@ function showOrderEditDetails(data){
 
 // Display ORDER_MATCH action information
 function showOrderMatchDetails(data){
-    $('#info-order-match .order-match-order1-coin').text(data.give_coin);
-    $('#info-order-match .order-match-order1-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
-    $('#info-order-match .order-match-order2-coin').text(data.get_coin);
-    $('#info-order-match .order-match-order2-action-index').html(formatLink('/' + data.get_coin + '/action/' + data.get_action_index, formatAmount(data.get_action_index)));
+    $('#info-order-match .order-match-give-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-order-match .order-match-get-action-index').html(formatLink('/'  + data.get_coin + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
+    $('#info-order-match .order-match-give-coin').text(data.give_coin);
+    $('#info-order-match .order-match-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick,  data.give_tick));
+    $('#info-order-match .order-match-give-amount').text(data.give_amount);
+    $('#info-order-match .order-match-get-coin').text(data.get_coin);
+    $('#info-order-match .order-match-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick,  data.get_tick));
+    $('#info-order-match .order-match-get-amount').text(data.get_amount);
 }
 
 // Display SEND action information
@@ -1671,6 +1688,14 @@ function showSwapDetails(data){
     $('#info-swap .swap-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
     $('#info-swap .swap-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-swap .swap-memo').text(data.memo);
+    // Swap Status Details
+    $('#info-swap .swap-state-get-remaining').html(formatAmount(data.state.get_remaining));
+    $('#info-swap .swap-state-give-remaining').html(formatAmount(data.state.give_remaining));
+    if(data.state.expiration)
+        $('#info-swap .swap-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-swap .swap-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
+    $('#info-swap .swap-state-block-list').html(formatLink('/' + XC.coin + '/action/' + data.state.block_list, formatAmount(data.state.block_list)));
+    $('#info-swap .swap-state').text(data.state.status);
 }
 
 // Display SWAP_CANCEL action information
@@ -1691,10 +1716,14 @@ function showSwapEditDetails(data){
 
 // Display SWAP_MATCH action information
 function showSwapMatchDetails(data){
-    $('#info-swap-match .swap-match-swap1-coin').text(data.give_coin);
-    $('#info-swap-match .swap-match-swap1-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
-    $('#info-swap-match .swap-match-swap2-coin').text(data.get_coin);
-    $('#info-swap-match .swap-match-swap2-action-index').html(formatLink('/' + data.get_coin + '/action/' + data.get_action_index, formatAmount(data.get_action_index)));
+    $('#info-swap-match .swap-match-give-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-swap-match .swap-match-get-action-index').html(formatLink('/'  + data.get_coin + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
+    $('#info-swap-match .swap-match-give-coin').text(data.give_coin);
+    $('#info-swap-match .swap-match-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick,  data.give_tick));
+    $('#info-swap-match .swap-match-give-amount').text(data.give_amount);
+    $('#info-swap-match .swap-match-get-coin').text(data.get_coin);
+    $('#info-swap-match .swap-match-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick,  data.get_tick));
+    $('#info-swap-match .swap-match-get-amount').text(data.get_amount);
 }
 
 // Display SWEEP action information

@@ -750,10 +750,14 @@ function getActionDetails(action, info){
         html += 'Cancel order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
     if(action=='ORDER_EDIT')
         html += 'Edit order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
+    if(action=='ORDER_EXPIRE')
+        html += 'Expired order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
     if(action=='SWAP_CANCEL')
         html += 'Cancel swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
     if(action=='SWAP_EDIT')
         html += 'Edit swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
+    if(action=='SWAP_EXPIRE')
+        html += 'Expired swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
     if(action=='SEND'){
         html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
         html +=formatLink('/' + coin + '/address/' + info.destination, info.destination);

@@ -476,8 +476,8 @@ class Database {
                         FROM
                             mappings_actions m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         WHERE 
                             m.action_index IS NOT NULL
                             ` + where + `
@@ -502,8 +502,8 @@ class Database {
                         FROM
                             ` + table + ` m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         WHERE 
                             m.action_index IS NOT NULL
                             ` + where + `
@@ -3292,6 +3292,25 @@ class Database {
                         o1.action_index=?
                     LIMIT 1`;
             }
+            // ORDER_EXPIRE action
+            if(type=='ORDER_EXPIRE'){
+                query = `SELECT
+                        a2.action,
+                        s1.action_index,
+                        s1.order_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s2.status
+                    FROM
+                        order_expires s1
+                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                    WHERE 
+                        s1.action_index=?
+                    LIMIT 1`;
+            }
             // ORDER_MATCH action
             if(type=='ORDER_MATCH'){
                 query = `SELECT
@@ -3517,6 +3536,25 @@ class Database {
                         LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                         LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE 
+                        s1.action_index=?
+                    LIMIT 1`;
+            }
+            // SWAP_EXPIRE action
+            if(type=='SWAP_EXPIRE'){
+                query = `SELECT
+                        a2.action,
+                        s1.action_index,
+                        s1.swap_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s2.status
+                    FROM
+                        swap_expires s1
+                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                     WHERE 
                         s1.action_index=?
                     LIMIT 1`;
@@ -4009,8 +4047,8 @@ class Database {
             'list_action_index',                                                                                 // Lists
             'encryption_method', 'plaintext_message',                                                            // Messages
             'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount',                       // Orders, Swaps, Dispensers
-            'order_action_index',                                                                                // Order_Cancels, Order_Edits
-            'swap_action_index',                                                                                 // Swap_Cancels, Swap_Edits
+            'order_action_index',                                                                                // Order_Cancels, Order_Edits, Order_Expires
+            'swap_action_index',                                                                                 // Swap_Cancels, Swap_Edits, Swap_Expires
             'resume_block',                                                                                      // Sleep
             'balances', 'ownerships'                                                                             // Sweeps
         ];

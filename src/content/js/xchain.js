@@ -743,8 +743,8 @@ function getActionDetails(action, info){
         html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
     }
     if(['SWAP_MATCH','ORDER_MATCH'].includes(action)){
-        html += info.get_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
-        html += info.give_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
+        html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
+        html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
     }
     if(action=='ORDER_CANCEL')
         html += 'Cancel order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));

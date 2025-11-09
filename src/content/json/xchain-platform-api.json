@@ -787,6 +787,52 @@
                 }
             }
         },
+        "/{COIN}/api/order_cancels/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Orders"],
+                "summary": "Get ORDER_CANCEL actions",
+                "description": "Retrieves ORDER_CANCEL action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/OrderCancel",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
         "/{COIN}/api/order_edits/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions", "Orders"],
@@ -833,11 +879,11 @@
                 }
             }
         },
-        "/{COIN}/api/order_cancel/{QUERY}/{TYPE}": {
+        "/{COIN}/api/order_expires/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions", "Orders"],
-                "summary": "Get ORDER_CANCEL actions",
-                "description": "Retrieves ORDER_CANCEL action information",
+                "summary": "Get ORDER_EXPIRE actions",
+                "description": "Retrieves SWAP_EXPIRE action information",
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
@@ -863,7 +909,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/OrderCancel",
+                                                "$ref": "#/components/schemas/OrderExpire",
                                             }
                                         }
                                     },{
@@ -1061,6 +1107,52 @@
                 }
             }
         },
+        "/{COIN}/api/swap_cancels/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Swaps"],
+                "summary": "Get SWAP_CANCEL actions",
+                "description": "Retrieves SWAP_CANCEL action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)",
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/SwapCancel",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
         "/{COIN}/api/swap_edits/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions", "Swaps"],
@@ -1107,11 +1199,11 @@
                 }
             }
         },
-        "/{COIN}/api/swap_cancel/{QUERY}/{TYPE}": {
+        "/{COIN}/api/swap_expires/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions", "Swaps"],
-                "summary": "Get SWAP_CANCEL actions",
-                "description": "Retrieves SWAP_CANCEL action information",
+                "summary": "Get SWAP_EXPIRE actions",
+                "description": "Retrieves SWAP_EXPIRE action information",
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
@@ -1137,7 +1229,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/SwapCancel",
+                                                "$ref": "#/components/schemas/SwapExpire",
                                             }
                                         }
                                     },{
@@ -2780,6 +2872,20 @@
                     }
                }]
             },
+            "OrderExpire": {
+                "type": "object",
+                "description": "ORDER_EXPIRE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "order_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
             "OrderCancel": {
                 "type": "object",
                 "description": "ORDER_CANCEL action data",
@@ -2953,6 +3059,20 @@
                         "memo": {
                             "type": "string"
                         },
+                        "swap_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "SwapExpire": {
+                "type": "object",
+                "description": "SWAP_EXPIRE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
                         "swap_action_index": {
                             "type": "integer"
                         }

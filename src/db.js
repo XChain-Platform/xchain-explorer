@@ -652,12 +652,14 @@ class Database {
      * /{COIN}/api/orders/{QUERY}/{TYPE}          getOrders        block, address, token
      * /{COIN}/api/order_cancels/{QUERY}/{TYPE}   getOrderCancels  block, address
      * /{COIN}/api/order_edits/{QUERY}/{TYPE}     getOrderEdits    block, address
+     * /{COIN}/api/order_expires/{QUERY}/{TYPE}   getOrderExpires  block, address
      * /{COIN}/api/order_matches/{QUERY}/{TYPE}   getOrderMatches  block 
      * /{COIN}/api/sends/{QUERY}/{TYPE}           getSends         block, address, token, source, destination
      * /{COIN}/api/sleeps/{QUERY}/{TYPE}          getSleeps        block, address, token
      * /{COIN}/api/swaps/{QUERY}/{TYPE}           getSwaps         block, address, token
      * /{COIN}/api/swap_cancels/{QUERY}/{TYPE}    getSwapCancels   block, address
      * /{COIN}/api/swap_edits/{QUERY}/{TYPE}      getSwapEdits     block, address
+     * /{COIN}/api/swap_expires/{QUERY}/{TYPE}    getSwapExpires   block, address
      * /{COIN}/api/swap_matches/{QUERY}/{TYPE}    getSwapMatches   block 
      * /{COIN}/api/sweeps/{QUERY}/{TYPE}          getSweeps        block, address
      ******************************************************************/
@@ -1723,6 +1725,47 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of ORDER_EXPIRE actions
+    async getOrderExpires(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        order_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format, 
+                        m.order_action_index,
+                        a2.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        order_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     // Get list of ORDER_MATCH actions
     async getOrderMatches(config){
         let sql   = config.data.sql;
@@ -2020,6 +2063,47 @@ class Database {
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of SWAP_EXPIRE actions
+    async getSwapExpires(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        swap_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN orders             o1 ON (o1.action_index=m.swap_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format, 
+                        m.swap_action_index,
+                        a2.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        swap_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN swaps              s2 ON (s2.action_index=m.swap_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -4027,7 +4111,6 @@ class Database {
         }
         // Get summary data for actions
         let data = await this.getActionSummaryData(config, history);
-        console.log('data=',data);
         return [data, total];
     }
 

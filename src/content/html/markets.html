@@ -1,0 +1,47 @@
+<!-- Markets -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-money-bill-trend-up"></i> Markets
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-market">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th>Market</th>
+                        <th>Last Price</th>
+                        <th>Ask</th>
+                        <th>Bid</th>
+                        <th>24h Volume</th>
+                        <th>24h Change</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="8" class="loading-data">Loading market data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'DEX Markets';
+    XC.pageInfo.description = 'Learn about the DEX markets on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays a list of DEX Markets on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/markets';
+    updatePageInfo();
+
+    // Load all `batch` actions
+    loadDatatablesData(XC.coin, 'market', null, null);
+
+});
+</script>

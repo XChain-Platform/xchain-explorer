@@ -233,6 +233,13 @@ table.dataTable tbody td.loading-data {
     padding-bottom: 20px !important;
 }
 
+/* Align values on the right side of the column */
+#datatable-market th:nth-child(n+3),
+#datatable-market td:nth-child(n+3){
+    text-align: right;
+}
+
+
 /* Wrapper around icons to standardize the size and make content line up*/
 .wrapicon-25 {
     display: inline-block;

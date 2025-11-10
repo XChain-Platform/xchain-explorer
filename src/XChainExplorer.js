@@ -110,6 +110,7 @@ class XChainExplorer {
                 '/{COIN}/issues'              : 'issues.html',
                 '/{COIN}/links'               : 'links.html',
                 '/{COIN}/lists'               : 'lists.html',
+                '/{COIN}/markets'             : 'markets.html',
                 '/{COIN}/messages'            : 'messages.html',
                 '/{COIN}/mints'               : 'mints.html',
                 '/{COIN}/orders'              : 'orders.html',
@@ -182,7 +183,16 @@ class XChainExplorer {
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'       : ['getMempool',      ['address', 'token']],
                 '/{COIN}/api/network'                      : ['getNetwork'],
                 '/{COIN}/api/token/{QUERY}'                : ['getToken',        'token'],
-                '/{COIN}/api/transaction/{QUERY}/{TYPE}'   : ['getTransaction',  ['tx_hash', 'tx_index']]
+                '/{COIN}/api/transaction/{QUERY}/{TYPE}'   : ['getTransaction',  ['tx_hash', 'tx_index']],
+                // Market Endpoints
+                '/{COIN}/api/markets'                                : ['getMarkets'],
+                '/{COIN}/api/markets/{TICK1}'                        : ['getMarkets'],
+                // '/{COIN}/api/market/{TICK1}/{TICK2}'                 : ['getMarket'],
+                // '/{COIN}/api/market/{TICK1}/{TICK2}/history'         : ['getMarketHistory'],
+                // '/{COIN}/api/market/{TICK1}/{TICK2}/history/{QUERY}' : ['getMarketHistory'],
+                // '/{COIN}/api/market/{TICK1}/{TICK2}/orders'          : ['getMarketOrders'],
+                // '/{COIN}/api/market/{TICK1}/{TICK2}/orders/{QUERY}'  : ['getMarketOrders'],
+                // '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'       : ['getMarketOrderbook']
             }, 
 
             // List of explorer endpoints and the related method
@@ -209,6 +219,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/issues/{QUERY}/{TYPE}'     : ['getIssues',     ['block', 'address', 'token']],
                 '/{COIN}/explorer/links/{QUERY}/{TYPE}'      : ['getLinks',      ['block', 'address', 'token']],
                 '/{COIN}/explorer/lists/{QUERY}/{TYPE}'      : ['getLists',      ['block', 'address']],
+                '/{COIN}/explorer/markets/{QUERY}'           : ['getMarkets',    'tokens'],
                 '/{COIN}/explorer/messages/{QUERY}/{TYPE}'   : ['getMessages',   ['block', 'address']],
                 '/{COIN}/explorer/mints/{QUERY}/{TYPE}'      : ['getMints',      ['block', 'address', 'token']],
                 '/{COIN}/explorer/orders/{QUERY}/{TYPE}'     : ['getOrders',     ['block', 'address', 'token']],
@@ -332,26 +343,38 @@ class XChainExplorer {
                     match = true;
             }
 
-            // Handle explorer and api request matches
-            if(!match && ['api','explorer'].includes(cfg.type)){
-                if( parts[1]==String(urlPath[1]).toLowerCase() && 
-                    parts[2]==String(urlPath[2]).toLowerCase()){
-                    // Handle exact explorer matches without any search type
-                    if(cfg.type=='explorer' && urlPath.length==3)
+            // Handle market matches
+            if(!match && !this.util.isNull(parts[2]) && parts[2].includes('market') && String(urlPath[2]).toLowerCase().includes('market')){
+                if(!this.util.isNull(urlPath[3]))
+                    searchType = 'token';
+                if(String(urlPath[2]).toLowerCase()=='markets'){
+                    match = true;
+                } else if(!this.util.isNull(parts[5]) && parts[5]==String(urlPath[5]).toLowerCase()){
+                    match = true;
+                }
+                // Pass forward the addional search criteria
+                if(match){
+                    cfg.data.search2 = urlPath[4];
+                    cfg.data.search3 = urlPath[6];
+                }
+            // Handle action matches
+            } else if(!match && parts[1]==String(urlPath[1]).toLowerCase() && 
+                parts[2]==String(urlPath[2]).toLowerCase()){
+                // Handle exact explorer matches without any search type
+                if(cfg.type=='explorer' && urlPath.length==3)
+                    match = true;
+                // Handle setting search type
+                if(!match){
+                    let infoType = typeof info[1];
+                    let search = String(urlPath[4]).toLowerCase();
+                    if(infoType=='string')
+                        searchType = info[1];
+                    if(infoType=='object' && info[1].includes(search))
+                        searchType = search;
+                    if(searchType || infoType=='undefined')
                         match = true;
-                    // Handle setting search type
-                    if(!match){
-                        let infoType = typeof info[1];
-                        let search = String(urlPath[4]).toLowerCase();
-                        if(infoType=='string')
-                            searchType = info[1];
-                        if(infoType=='object' && info[1].includes(search))
-                            searchType = search;
-                        if(searchType || infoType=='undefined')
-                            match = true;
-                    }
-                }                    
-            }
+                }
+            }   
 
             // Update config object with request info
             if(match){
@@ -644,11 +667,22 @@ class XChainExplorer {
                         actions = arr.join('|');
                     }
 
+                    // Handle calculating amounts, percentages of supply, and estimated value
                     if(['getBalances','getHolders'].includes(method)){
                         // Force amount to display in coin decimal precision
                         amount  = String(this.util.bcformat(info.amount, info.decimals));
                         percent = String(this.util.bcmul(this.util.bcdiv(info.amount,info.supply, 8), 100, 8));
                         value   = String(this.util.bcmul(info.amount, info.coin_price, 8));
+                    }
+
+                    // Handle markets and setting information correctly based on if market is reversed or not
+                    if(method=='getMarkets'){
+                        let reverse = (!this.util.isNull(cfg.data.search) && String(cfg.data.search).toLowerCase()==String(info.tick2).toLowerCase()) ? true : false;
+                        info.tick_price  = (reverse) ? info.tick2_price : info.tick1_price;
+                        info.tick_ask    = (reverse) ? info.tick2_ask : info.tick1_ask;
+                        info.tick_bid    = (reverse) ? info.tick2_bid : info.tick1_bid;
+                        info.tick_change = (reverse) ? info.tick2_24hr_change : info.tick1_24hr_change;
+                        info.tick_volume = (reverse) ? info.tick2_24hr_vlume  : info.tick1_24hr_volume;
                     }
 
                     // Build out the correct response array based on method type
@@ -690,6 +724,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.coin1, info.coin1_action_index, info.coin2, info.coin2_action_index, info.memo, status, info.action_index];
                     if(method=='getLists')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.edit, status, info.action_index];
+                    if(method=='getMarkets')
+                        info = [count_reverse, info.tick1, info.tick2, info.tick_price, info.tick_ask, info.tick_bid, info.tick_volume, info.tick_change, info.id];
                     if(method=='getMessages')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.plaintext_message, info.encrypted_message, status, info.action_index];
                     if(method=='getMints')

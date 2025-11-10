@@ -302,6 +302,8 @@ class Database {
             sql  = `b1.block_index IS NOT NULL`;
         if(method=='getTransaction')
             sql  = `m.tx_index IS NOT NULL`;
+        if(method=='getMarkets')
+            sql  = `m.id IS NOT NULL`;
         // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
             if(type=='address')
@@ -310,6 +312,10 @@ class Database {
                 sql += ' AND m.type_id=1 AND m.id=?';
             if(type=='block')
                 sql += ' AND b1.block_index=?';
+        // getMarkets uses tickers to pull data
+        } else if(method=='getMarkets'){
+            if(type=='token')
+                sql += ` AND (t1.tick=? OR t2.tick=?)`;
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -394,7 +400,7 @@ class Database {
         let limit  = 1;
         let order  = 'DESC';
         // Bail out in certain instances
-        if(['getBalances','getHolders','getTransaction','getSearch'].includes(method))
+        if(['getBalances','getHolders','getTransaction','getSearch','getMarkets'].includes(method))
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
@@ -2217,7 +2223,8 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
-                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -2250,6 +2257,65 @@ class Database {
                     LIMIT ` + sql.limit;
         return [query, args, count];
     } 
+
+    /******************************************************************
+     * XChain API Market Endpoints
+     * 
+     * Endpoints                                          Method Name  
+     * -----------------------------------------------------------------
+     * /{COIN}/api/markets                                getMarkets
+     * /{COIN}/api/markets/{QUERY}                        getMarkets
+     * /{COIN}/api/market/{QUERY}/{QUERY}                 getMarket
+     * /{COIN}/api/market/{QUERY}/{QUERY}/history         getMarketHistory
+     * /{COIN}/api/market/{QUERY}/{QUERY}/history/{QUERY} getMarketHistory
+     * /{COIN}/api/market/{QUERY}/{QUERY}/orders/{QUERY}  getMarketOrders
+     * /{COIN}/api/market/{QUERY}/{QUERY}/orderbook       getMarketOrderbook
+     ******************************************************************/
+
+    // Get list of markets
+    async getMarkets(config){
+        let sql   = config.data.sql;
+        let args  = [config.data.search, config.data.search];
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        markets m
+                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        t1.tick as tick1,
+                        m.tick1_id,
+                        m.tick1_price,
+                        m.tick1_bid,
+                        m.tick1_ask,
+                        m.tick1_24hr_price,
+                        m.tick1_24hr_high,
+                        m.tick1_24hr_low,
+                        m.tick1_24hr_change,
+                        m.tick1_24hr_volume,
+                        t2.tick as tick2,
+                        m.tick2_id,
+                        m.tick2_price,
+                        m.tick2_bid,
+                        m.tick2_ask,
+                        m.tick2_24hr_price,
+                        m.tick2_24hr_high,
+                        m.tick2_24hr_low,
+                        m.tick2_24hr_change,
+                        m.tick2_24hr_volume,
+                        m.last_updated
+                    FROM
+                        markets m
+                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    } 
+
 
     /******************************************************************
      * XChain API Misc Endpoints

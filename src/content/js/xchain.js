@@ -981,7 +981,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','block','fee','holder','search'].includes(action)){
+            if(!['balance','credit','debit','token','block','fee','holder','search','market'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1211,6 +1211,25 @@ function loadDatatablesData(coin, action, query, type){
                 if(edit==2) txt='Remove';
                 $('td', row).eq(5).text(txt);
                 $('td', row).eq(6).html(action_link);
+            }
+            // Markets
+            if(action=='market'){
+                let tick1  = data[1],
+                    tick2  = data[2],
+                    market = tick1 + '/' + tick2,
+                    price  = data[3],
+                    ask    = data[4],
+                    bid    = data[5],
+                    volume = data[6],
+                    change = data[7];
+                $('td', row).eq(1).html(market);
+                $('td', row).eq(2).html(formatAmount(price));
+                $('td', row).eq(3).html(formatAmount(ask));
+                $('td', row).eq(4).html(formatAmount(bid));
+                $('td', row).eq(5).html(formatAmount(volume));
+                var cls = (change.indexOf('-')==-1) ? 'text-success' : 'text-danger';
+                $('td', row).eq(6).addClass(cls).html(formatAmount(change));
+                $('td', row).eq(7).html(formatLink('/' + coin + '/market/' + market, 'view', null, true));
             }
             // Message
             if(action=='message'){

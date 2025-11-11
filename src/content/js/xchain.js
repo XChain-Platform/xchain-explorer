@@ -1342,11 +1342,11 @@ function loadDatatablesData(coin, action, query, type){
                     $('td', row).eq(3).html(formatLink('/' + coin + '/action/' + data[3], 'view', null, true));
                 }
                 if(type=='token'){
-                    let tick        = data[1];
+                    let token       = data[1];
                     let description = data[2];
-                    $('td', row).eq(1).html(highlightSearchTerm(XC.query, tick));
+                    $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, highlightSearchTerm(XC.query, token), token));
                     $('td', row).eq(2).html(highlightSearchTerm(XC.query, description));
-                    $('td', row).eq(3).html(formatLink('/' + coin + '/action/' + data[3], 'view', null, true));
+                    $('td', row).eq(3).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
                 }
                 if(type=='transaction'){
                     let transaction = data[1];

@@ -675,16 +675,6 @@ class XChainExplorer {
                         value   = String(this.util.bcmul(info.amount, info.coin_price, 8));
                     }
 
-                    // Handle markets and setting information correctly based on if market is reversed or not
-                    if(method=='getMarkets'){
-                        let reverse = (!this.util.isNull(cfg.data.search) && String(cfg.data.search).toLowerCase()==String(info.tick2).toLowerCase()) ? true : false;
-                        info.tick_price  = (reverse) ? info.tick2_price : info.tick1_price;
-                        info.tick_ask    = (reverse) ? info.tick2_ask : info.tick1_ask;
-                        info.tick_bid    = (reverse) ? info.tick2_bid : info.tick1_bid;
-                        info.tick_change = (reverse) ? info.tick2_24hr_change : info.tick1_24hr_change;
-                        info.tick_volume = (reverse) ? info.tick2_24hr_vlume  : info.tick1_24hr_volume;
-                    }
-
                     // Build out the correct response array based on method type
                     if(method=='getAddresses')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
@@ -725,7 +715,7 @@ class XChainExplorer {
                     if(method=='getLists')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.edit, status, info.action_index];
                     if(method=='getMarkets')
-                        info = [count_reverse, info.tick1, info.tick2, info.tick_price, info.tick_ask, info.tick_bid, info.tick_volume, info.tick_change, info.id];
+                        info = [count_reverse, info.tick1, info.tick2, info.tick1_price, info.tick1_ask, info.tick1_bid, info.tick2_24hr_volume, info.tick1_24hr_change, info.id];
                     if(method=='getMessages')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.plaintext_message, info.encrypted_message, status, info.action_index];
                     if(method=='getMints')

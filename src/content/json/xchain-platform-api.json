@@ -21,6 +21,9 @@
         },{
             "name": "Swaps",
             "description": "API endpoints that return XChain platform SWAP data"
+        },{
+            "name": "Markets",
+            "description": "API endpoints that return XChain platform MARKET data"
     }],
     "paths": {
         "/{COIN}/api/action/{QUERY}": {
@@ -634,6 +637,89 @@
                                         "properties": {
                                             "data": {
                                                 "$ref": "#/components/schemas/List",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/markets": {
+            "get": {
+                "tags": ["Markets"],
+                "summary": "Get all DEX Markets",
+                "description": "Retrieves all DEX markets information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Market",
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/markets/{QUERY}": {
+            "get": {
+                "tags": ["Markets"],
+                "summary": "Get DEX Markets",
+                "description": "Retrieves DEX market information for a given token",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY-TOKEN",
+                    "description": "String to search for (token)",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Market",
                                             }
                                         }
                                     },{
@@ -2582,6 +2668,72 @@
                         }
                     }
                }]
+            },
+            "Market": {
+                "type": "object",
+                "description": "DEX market data",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "last_updated": {
+                        "type": "integer"
+                    },
+                    "tick1": {
+                        "type": "string"
+                    },
+                    "tick1_price": {
+                        "type": "string"
+                    },
+                    "tick1_ask": {
+                        "type": "string"
+                    },
+                    "tick1_bid": {
+                        "type": "string"
+                    },
+                    "tick1_24hr_price": {
+                        "type": "string"
+                    },
+                    "tick1_24hr_high": {
+                        "type": "string"
+                    },
+                    "tick1_24hr_low": {
+                        "type": "string"
+                    },
+                    "tick1_24hr_change": {
+                        "type": "string"
+                    },
+                    "tick1_24hr_volume": {
+                        "type": "string"
+                    },
+                    "tick2": {
+                        "type": "string"
+                    },
+                    "tick2_price": {
+                        "type": "string"
+                    },
+                    "tick2_ask": {
+                        "type": "string"
+                    },
+                    "tick2_bid": {
+                        "type": "string"
+                    },
+                    "tick2_24hr_price": {
+                        "type": "string"
+                    },
+                    "tick2_24hr_high": {
+                        "type": "string"
+                    },
+                    "tick2_24hr_low": {
+                        "type": "string"
+                    },
+                    "tick2_24hr_change": {
+                        "type": "string"
+                    },
+                    "tick2_24hr_volume": {
+                        "type": "string"
+                    }
+                }
             },
             "Message": {
                 "type": "object",

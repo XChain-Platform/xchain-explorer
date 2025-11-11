@@ -120,24 +120,25 @@
                                     more info
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"    ><i class="fa fa-parachute-box"     ></i> Airdrops</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-callback"   ><i class="fa fa-recycle"           ></i> Callbacks</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"    ><i class="fa fa-trash"             ></i> Destroys</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"  ><i class="fa fa-arrows-h"          ></i> Dispensers</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispense"   ><i class="fa fa-hand-holding-heart"></i> Dispenses</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dividend"   ><i class="fa fa-sitemap"           ></i> Dividends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-file"       ><i class="fa fa-file"              ></i> Files</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-history"    ><i class="fa fa-clock-o"           ></i> History</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-holder"     ><i class="fa fa-users"             ></i> Holders</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-info"       ><i class="fa fa-paperclip"         ></i> Information</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-issue"      ><i class="fa fa-bank"              ></i> Issues</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-list"       ><i class="fa fa-list"              ></i> Lists</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-lock"       ><i class="fa fa-lock"              ></i> Locks</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-mint"       ><i class="fa fa-print"             ></i> Mints</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-order"      ><i class="fa fa-book"              ></i> Orders</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-send"       ><i class="fa fa-send"              ></i> Sends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"      ><i class="fa fa-snooze"            ></i> Sleeps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-swap"       ><i class="fa fa-exchange"          ></i> Swaps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"  ><i class="fa fa-parachute-box"      ></i> Airdrops</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-callback" ><i class="fa fa-recycle"            ></i> Callbacks</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"  ><i class="fa fa-trash"              ></i> Destroys</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"><i class="fa fa-arrows-h"           ></i> Dispensers</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispense" ><i class="fa fa-hand-holding-heart" ></i> Dispenses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dividend" ><i class="fa fa-sitemap"            ></i> Dividends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-file"     ><i class="fa fa-file"               ></i> Files</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-history"  ><i class="fa fa-clock-o"            ></i> History</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-holder"   ><i class="fa fa-users"              ></i> Holders</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-info"     ><i class="fa fa-paperclip"          ></i> Information</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-issue"    ><i class="fa fa-bank"               ></i> Issues</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-list"     ><i class="fa fa-list"               ></i> Lists</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-lock"     ><i class="fa fa-lock"               ></i> Locks</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-market"   ><i class="fa fa-money-bill-trend-up"></i> Markets</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa fa-print"              ></i> Mints</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"               ></i> Orders</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"               ></i> Sends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-snooze"             ></i> Sleeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa fa-exchange"           ></i> Swaps</a></li>
                                 </ul>
                             </div>                              
                         </div>
@@ -645,6 +646,28 @@
                     </div>
                 </div>
 
+                <!-- Markets -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-market" role="tabpanel" aria-labelledby="tab-market" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-market">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th>Market</th>
+                            <th>Last Price</th>
+                            <th>Ask</th>
+                            <th>Bid</th>
+                            <th>24h Volume</th>
+                            <th>24h Change</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" class="loading-data">Loading market data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
 
                 <!-- Mints -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-mint" role="tabpanel" aria-labelledby="tab-mint" tabindex="0">
@@ -807,6 +830,7 @@
             'issue',
             'list',
             'lock',
+            'market',
             'mint',
             'order',
             'send',

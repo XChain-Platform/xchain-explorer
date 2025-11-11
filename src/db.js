@@ -2274,8 +2274,11 @@ class Database {
 
     // Get list of markets
     async getMarkets(config){
+        let data  = [];
+        let total = 0;
+        let tick  = config.data.search;
         let sql   = config.data.sql;
-        let args  = [config.data.search, config.data.search];
+        let args  = [tick, tick];
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -2286,7 +2289,6 @@ class Database {
         let query = `SELECT
                         m.id,
                         t1.tick as tick1,
-                        m.tick1_id,
                         m.tick1_price,
                         m.tick1_bid,
                         m.tick1_ask,
@@ -2296,7 +2298,6 @@ class Database {
                         m.tick1_24hr_change,
                         m.tick1_24hr_volume,
                         t2.tick as tick2,
-                        m.tick2_id,
                         m.tick2_price,
                         m.tick2_bid,
                         m.tick2_ask,
@@ -2313,7 +2314,40 @@ class Database {
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, args, count];
+        let results = await this.doQuery(config, count, args);
+        if(results.length > 0)
+            total = results[0].total;
+        if(count){
+            results = await this.doQuery(config, query, args);
+            if(results.length > 0){
+                for(let row of results){
+                    let reverse = (!this.util.isNull(tick) && String(tick).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
+                    data.push({
+                        id                : row.id,
+                        tick1             : (reverse) ? row.tick1             : row.tick2,
+                        tick1_price       : (reverse) ? row.tick1_price       : row.tick2_price,
+                        tick1_bid         : (reverse) ? row.tick1_bid         : row.tick2_bid,
+                        tick1_ask         : (reverse) ? row.tick1_ask         : row.tick2_ask,
+                        tick1_24hr_price  : (reverse) ? row.tick1_24hr_price  : row.tick2_24hr_price,
+                        tick1_24hr_high   : (reverse) ? row.tick1_24hr_high   : row.tick2_24hr_high,
+                        tick1_24hr_lo     : (reverse) ? row.tick1_24hr_low    : row.tick2_24hr_low,
+                        tick1_24hr_change : (reverse) ? row.tick1_24hr_change : row.tick2_24hr_change,
+                        tick1_24hr_volume : (reverse) ? row.tick1_24hr_volume : row.tick2_24hr_volume,
+                        tick2             : (reverse) ? row.tick2             : row.tick1,
+                        tick2_price       : (reverse) ? row.tick2_price       : row.tick1_price,
+                        tick2_bid         : (reverse) ? row.tick2_bid         : row.tick1_bid,
+                        tick2_ask         : (reverse) ? row.tick2_ask         : row.tick1_ask,
+                        tick2_24hr_price  : (reverse) ? row.tick2_24hr_price  : row.tick1_24hr_price,
+                        tick2_24hr_high   : (reverse) ? row.tick2_24hr_high   : row.tick1_24hr_high,
+                        tick2_24hr_lo     : (reverse) ? row.tick2_24hr_low    : row.tick1_24hr_low,
+                        tick2_24hr_change : (reverse) ? row.tick2_24hr_change : row.tick1_24hr_change,
+                        tick2_24hr_volume : (reverse) ? row.tick2_24hr_volume : row.tick1_24hr_volume,
+                        last_updated      : row.last_updated
+                    });
+                }
+            }
+        }
+        return [data, null, total];
     } 
 
 

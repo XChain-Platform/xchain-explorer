@@ -339,6 +339,13 @@ function formatLocks(locks=null){
     return html;
 }
 
+// Return path to the token icon
+function getTokenIcon(token){
+    let icon = '/icon/' + XC.coin + '/' + XC.network + '/' + token + '.png';
+    return icon
+}
+
+
 // Return nice display string for links
 function formatLink(url=null, text=null, icon=false, btn=false){
     // console.log('text=',text);
@@ -346,7 +353,7 @@ function formatLink(url=null, text=null, icon=false, btn=false){
         cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
         html += '<a href="' + url + '" class="' + cls + '">';
     if(icon && !isNull(icon))
-        html += '<img src="/icon/' + XC.coin + '/' + XC.network + '/' + icon + '" class="icon-20 ms-1 me-1">';
+        html += '<img src="' + getTokenIcon(icon) + '" class="icon-20 ms-1 me-1">';
     if(text)
         html += text;
     html += '</a>'
@@ -934,6 +941,8 @@ function loadDatatablesData(coin, action, query, type){
                             hide = false;
                         if(table=='history')
                             hide = false;
+                        if(table=='market')
+                            hide = false;
                         if(hide){
                             let tr = el.find('tr');
                             for(let idx of ids){
@@ -1222,12 +1231,15 @@ function loadDatatablesData(coin, action, query, type){
                     bid    = data[5],
                     volume = data[6],
                     change = data[7];
-                $('td', row).eq(1).html(market);
+                    html   = '<img src="' + getTokenIcon(tick1) + '" class="icon-20">' + 
+                             '<img src="' + getTokenIcon(tick2) + '" class="icon-20 ms-1 me-1">' + 
+                             tick1 + ' / ' + tick2;
+                $('td', row).eq(1).html(formatLink('/' + coin + '/market/' + market, html));
                 $('td', row).eq(2).html(formatAmount(price));
                 $('td', row).eq(3).html(formatAmount(ask));
                 $('td', row).eq(4).html(formatAmount(bid));
                 $('td', row).eq(5).html(formatAmount(volume));
-                var cls = (change.indexOf('-')==-1) ? 'text-success' : 'text-danger';
+                var cls = (change && change.indexOf('-')==-1) ? 'text-success' : 'text-danger';
                 $('td', row).eq(6).addClass(cls).html(formatAmount(change));
                 $('td', row).eq(7).html(formatLink('/' + coin + '/market/' + market, 'view', null, true));
             }

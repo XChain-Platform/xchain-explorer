@@ -132,6 +132,7 @@ class XChainExplorer {
                 '/{COIN}/address/{QUERY}'     : 'address.html',
                 '/{COIN}/action/{QUERY}'      : 'action.html',
                 '/{COIN}/block/{QUERY}'       : 'block.html',
+                '/{COIN}/market/{QUERY}'      : 'market.html',
                 '/{COIN}/token/{QUERY}'       : 'token.html',
                 '/{COIN}/transaction/{QUERY}' : 'transaction.html'
 
@@ -187,12 +188,12 @@ class XChainExplorer {
                 // Market Endpoints
                 '/{COIN}/api/markets'                                : ['getMarkets'],
                 '/{COIN}/api/markets/{TICK1}'                        : ['getMarkets'],
-                // '/{COIN}/api/market/{TICK1}/{TICK2}'                 : ['getMarket'],
+                '/{COIN}/api/market/{TICK1}/{TICK2}'                 : ['getMarket'],
                 // '/{COIN}/api/market/{TICK1}/{TICK2}/history'         : ['getMarketHistory'],
                 // '/{COIN}/api/market/{TICK1}/{TICK2}/history/{QUERY}' : ['getMarketHistory'],
                 // '/{COIN}/api/market/{TICK1}/{TICK2}/orders'          : ['getMarketOrders'],
                 // '/{COIN}/api/market/{TICK1}/{TICK2}/orders/{QUERY}'  : ['getMarketOrders'],
-                // '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'       : ['getMarketOrderbook']
+                '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'       : ['getMarketOrderbook']
             }, 
 
             // List of explorer endpoints and the related method
@@ -349,8 +350,17 @@ class XChainExplorer {
                     searchType = 'token';
                 if(String(urlPath[2]).toLowerCase()=='markets'){
                     match = true;
-                } else if(!this.util.isNull(parts[5]) && parts[5]==String(urlPath[5]).toLowerCase()){
-                    match = true;
+                } else if(String(urlPath[2]).toLowerCase()=='market'){
+                    if(!this.util.isNull(parts[3]) && !this.util.isNull(parts[4]) && !this.util.isNull(urlPath[3]) && !this.util.isNull(urlPath[4])){
+                        if(this.util.isNull(parts[5])){
+                            if(this.util.isNull(urlPath[5]))
+                                match = true;
+                        } else {
+                            if(parts[5]==String(urlPath[5]).toLowerCase())
+                                match = true;
+
+                        }
+                    }
                 }
                 // Pass forward the addional search criteria
                 if(match){

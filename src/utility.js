@@ -231,6 +231,26 @@ class Utility {
         }, {});
         return sortedObj;
     }
+
+    // Determine price of an item (numerator / denominator)
+    // Note : Use precision up to 64 decimals points for very precise prices
+    getPrice(numerator, denominator, precision=64){
+        return this.bcdiv(numerator, denominator, precision);
+    }
+
+    // Handle sorting an object by the 'price' property in ASC or DESC order
+    priceSort(data, order='ASC'){
+        // Sort bids in DESCENDING order
+        data.sort((a, b) => {
+            if(a.price > b.price)
+                return (order=='DESC') ? -1 : 1;
+            if(a.price < b.price)
+                return (order=='DESC') ? 1 : -1;
+            return 0;
+        });
+        return data;
+    }
+
 }
 
 module.exports = Utility;

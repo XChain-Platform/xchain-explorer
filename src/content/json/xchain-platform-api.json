@@ -735,6 +735,37 @@
                 }
             }
         },
+        "/{COIN}/api/market/{QUERY}/{QUERY2}/orderbook": {
+            "get": {
+                "tags": ["Markets"],
+                "summary": "Get DEX Market Orderbook",
+                "description": "Retrieves DEX market orderbook information for a given token market",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY-TOKEN",
+                    "description": "String to search for (token)",
+                },{
+                    "$ref": "#/components/parameters/QUERY2-TOKEN",
+                    "description": "String to search for (token)",
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Orderbook"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },        
         "/{COIN}/api/messages/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions"],
@@ -2998,6 +3029,41 @@
                     }
                }]
             },
+            "Orderbook": {
+                "type": "object",
+                "description": "DEX Market Orderbook data",
+                "properties": {
+                    "bids": {
+                        "type": "array",
+                        "properties": {
+                            "price": {
+                                "type": "string"
+                            },
+                            "amount": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "asks": {
+                        "type": "array",
+                        "properties": {
+                            "price": {
+                                "type": "string"
+                            },
+                            "amount": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "market": {
+                        "type": "string"
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "Amount of time to execute and return the data"
+                    }
+                }
+            },
             "OrderEdit": {
                 "type": "object",
                 "description": "ORDER_EDIT action data",
@@ -3520,6 +3586,17 @@
                 "schema": {
                     "type": "string",
                     "example": "GAS"
+                }
+            },
+            "QUERY2-TOKEN": {
+                "name": "QUERY2",
+                "in": "path",
+                "description": "String to search for (token)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "SAT"
                 }
             },
             "QUERY-TRANSACTION": {

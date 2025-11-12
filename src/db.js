@@ -297,13 +297,13 @@ class Database {
         let method = config.data.method;
         // Force SQL and type on certain methods which do not have the action_index field
         if(['getBalances','getHolders'].includes(method))
-            sql  = `m.address_id IS NOT NULL`;
+            sql = `m.address_id IS NOT NULL`;
         if(['getBlocks','getBlock'].includes(method))
-            sql  = `b1.block_index IS NOT NULL`;
+            sql = `b1.block_index IS NOT NULL`;
         if(method=='getTransaction')
-            sql  = `m.tx_index IS NOT NULL`;
-        if(method=='getMarkets')
-            sql  = `m.id IS NOT NULL`;
+            sql = `m.tx_index IS NOT NULL`;
+        if(['getMarket','getMarkets'].includes(method))
+            sql = `m.id IS NOT NULL`;
         // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
             if(type=='address')
@@ -313,9 +313,13 @@ class Database {
             if(type=='block')
                 sql += ' AND b1.block_index=?';
         // getMarkets uses tickers to pull data
+        } else if(method=='getMarket'){
+            sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
         } else if(method=='getMarkets'){
             if(type=='token')
                 sql += ` AND (t1.tick=? OR t2.tick=?)`;
+        } else if(method=='getMarketOrderbook'){
+            sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -400,7 +404,7 @@ class Database {
         let limit  = 1;
         let order  = 'DESC';
         // Bail out in certain instances
-        if(['getBalances','getHolders','getTransaction','getSearch','getMarkets'].includes(method))
+        if(['getBalances','getHolders','getTransaction','getSearch','getMarkets','getMarket'].includes(method))
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
@@ -2339,7 +2343,7 @@ class Database {
                         tick2_ask         : (reverse) ? row.tick2_ask         : row.tick1_ask,
                         tick2_24hr_price  : (reverse) ? row.tick2_24hr_price  : row.tick1_24hr_price,
                         tick2_24hr_high   : (reverse) ? row.tick2_24hr_high   : row.tick1_24hr_high,
-                        tick2_24hr_lo     : (reverse) ? row.tick2_24hr_low    : row.tick1_24hr_low,
+                        tick2_24hr_low    : (reverse) ? row.tick2_24hr_low    : row.tick1_24hr_low,
                         tick2_24hr_change : (reverse) ? row.tick2_24hr_change : row.tick1_24hr_change,
                         tick2_24hr_volume : (reverse) ? row.tick2_24hr_volume : row.tick1_24hr_volume,
                         last_updated      : row.last_updated
@@ -2350,6 +2354,174 @@ class Database {
         return [data, null, total];
     } 
 
+    // Get market information
+    async getMarket(config){
+        let data  = [];
+        let total = 0;
+        let tick1 = config.data.search;
+        let tick2 = config.data.search2;
+        let sql   = config.data.sql;
+        let args  = [tick1, tick2, tick2, tick1];
+        let query = `SELECT
+                        m.id,
+                        t1.tick as tick1,
+                        m.tick1_price,
+                        m.tick1_bid,
+                        m.tick1_ask,
+                        m.tick1_24hr_price,
+                        m.tick1_24hr_high,
+                        m.tick1_24hr_low,
+                        m.tick1_24hr_change,
+                        m.tick1_24hr_volume,
+                        t2.tick as tick2,
+                        m.tick2_price,
+                        m.tick2_bid,
+                        m.tick2_ask,
+                        m.tick2_24hr_price,
+                        m.tick2_24hr_high,
+                        m.tick2_24hr_low,
+                        m.tick2_24hr_change,
+                        m.tick2_24hr_volume,
+                        m.last_updated
+                    FROM
+                        markets m
+                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        let results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            for(let row of results){
+                let reverse = (!this.util.isNull(tick2) && String(tick2).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
+                data.push({
+                    id                : row.id,
+                    tick1             : (reverse) ? row.tick1             : row.tick2,
+                    tick1_price       : (reverse) ? row.tick1_price       : row.tick2_price,
+                    tick1_bid         : (reverse) ? row.tick1_bid         : row.tick2_bid,
+                    tick1_ask         : (reverse) ? row.tick1_ask         : row.tick2_ask,
+                    tick1_24hr_price  : (reverse) ? row.tick1_24hr_price  : row.tick2_24hr_price,
+                    tick1_24hr_high   : (reverse) ? row.tick1_24hr_high   : row.tick2_24hr_high,
+                    tick1_24hr_low    : (reverse) ? row.tick1_24hr_low    : row.tick2_24hr_low,
+                    tick1_24hr_change : (reverse) ? row.tick1_24hr_change : row.tick2_24hr_change,
+                    tick1_24hr_volume : (reverse) ? row.tick1_24hr_volume : row.tick2_24hr_volume,
+                    tick2             : (reverse) ? row.tick2             : row.tick1,
+                    tick2_price       : (reverse) ? row.tick2_price       : row.tick1_price,
+                    tick2_bid         : (reverse) ? row.tick2_bid         : row.tick1_bid,
+                    tick2_ask         : (reverse) ? row.tick2_ask         : row.tick1_ask,
+                    tick2_24hr_price  : (reverse) ? row.tick2_24hr_price  : row.tick1_24hr_price,
+                    tick2_24hr_high   : (reverse) ? row.tick2_24hr_high   : row.tick1_24hr_high,
+                    tick2_24hr_low    : (reverse) ? row.tick2_24hr_low    : row.tick1_24hr_low,
+                    tick2_24hr_change : (reverse) ? row.tick2_24hr_change : row.tick1_24hr_change,
+                    tick2_24hr_volume : (reverse) ? row.tick2_24hr_volume : row.tick1_24hr_volume,
+                    last_updated      : row.last_updated
+                });
+            }
+        }
+        return data;
+    } 
+
+    // Get market orderbook
+    async getMarketOrderbook(config){
+        let data   = {
+            asks: [],
+            bids: []
+        };
+        let bids   = [];
+        let asks   = [];
+        let tick1  = config.data.search;
+        let tick2  = config.data.search2;
+        let sql    = config.data.sql;
+        let args   = [tick1, tick2, tick2, tick1];
+        let query  = `SELECT
+                        m.action_index,
+                        t1.tick as give_tick,
+                        t2.tick as get_tick,
+                        m.give_amount,
+                        m.get_amount
+                    FROM
+                        orders m
+                        INNER JOIN index_tickers  t1 ON (t1.id=m.give_tick_id)
+                        INNER JOIN index_tickers  t2 ON (t2.id=m.get_tick_id)
+                        INNER JOIN order_statuses s1 ON (s1.order_action_index=m.action_index)
+                        INNER JOIN index_statuses s2 ON (s2.id=s1.status_id)
+                    WHERE 
+                        ` + sql.where.data + ` AND 
+                        s1.action_index = (
+                            SELECT
+                                MAX(s3.action_index)
+                            FROM
+                                order_statuses s3
+                            WHERE
+                                s3.order_action_index=m.action_index
+                        ) AND
+                        s2.status='open'`;
+        let results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            for(let order of results){
+                let give_remaining = order.give_amount;
+                let get_remaining  = order.get_amount;
+                // Lookup amounts matched in order_matches to determine remaining amounts
+                query = `SELECT
+                            m.give_action_index,
+                            m.get_action_index,
+                            m.give_amount,
+                            m.get_amount
+                        FROM
+                            order_matches m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            (m.give_action_index=? OR m.get_action_index=?) AND
+                            s.status=?
+                        ORDER BY action_index ASC`;
+                args = [order.action_index, order.action_index, 'valid'];
+                let rows = await this.doQuery(config, query, args);
+                if(rows.length>0){
+                    for(let row of rows){
+                        let give_amount = (row.get_action_index==order.action_index) ? row.give_amount : row.get_amount;
+                        let get_amount  = (row.get_action_index==order.action_index) ? row.get_amount  : row.give_amount;
+                        give_remaining  = this.util.bcsub(give_remaining, give_amount);
+                        get_remaining   = this.util.bcsub(get_remaining,  get_amount);
+                    }
+                }
+                let type  = (order.give_tick==tick2) ? 'bid' : 'ask';
+                let found = false;
+                if(type=='bid'){
+                    let price = this.util.getPrice(order.give_amount, order.get_amount);
+                    for(let bid of bids){
+                        if(bid.price==price){
+                            bid.amount = this.util.bcadd(bid.amount, get_remaining);
+                            found = true;
+                        }
+                    }
+                    if(!found)
+                        bids.push({ price: price, amount: get_remaining });
+                }
+                if(type=='ask'){
+                    let price = this.util.getPrice(order.get_amount, order.give_amount);
+                    for(let ask of asks){
+                        if(ask.price==price){
+                            ask.amount = this.util.bcadd(ask.amount, give_remaining);
+                            found = true;
+                        }
+                    }
+                    if(!found)
+                        asks.push({ price: price, amount: give_remaining });
+                }
+            }
+            // Sort asks and bids
+            bids = this.util.priceSort(bids,'DESC');
+            asks = this.util.priceSort(asks,'ASC');
+            // Add the bids and asks to the response object
+            for(let bid of bids)
+                data.bids.push([bid.price, bid.amount]);
+            for(let ask of asks)
+                data.asks.push([ask.price, ask.amount]);
+            // Set the market name
+            data.market = tick1 + '/' + tick2;
+        }
+        return [data];
+    } 
 
     /******************************************************************
      * XChain API Misc Endpoints

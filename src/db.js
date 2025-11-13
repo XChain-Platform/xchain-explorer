@@ -318,8 +318,15 @@ class Database {
         } else if(method=='getMarkets'){
             if(type=='token')
                 sql += ` AND (t1.tick=? OR t2.tick=?)`;
-        } else if(method=='getMarketOrderbook'){
+        } else if(['getMarketOrders','getMarketOrderbook','getMarketHistory'].includes(method)){
             sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
+            if(!this.util.isNull(config.data.search3)){
+                if(method=='getMarketHistory'){
+                    sql += ' AND (a2.address=? OR a3.address=?)';
+                } else {
+                    sql += ' AND a2.address=?';
+                }
+            }
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -2421,6 +2428,109 @@ class Database {
         return data;
     } 
 
+    // Get market orders (open orders)
+    async getMarketOrders(config){
+        let data    = [];
+        let tick1   = config.data.search;
+        let tick2   = config.data.search2;
+        let address = config.data.search3;
+        let sql     = config.data.sql;
+        let args    = [tick1, tick2, tick2, tick1];
+        if(!this.util.isNull(address))
+            args.push(address)
+        let query   = `SELECT
+                        m.action_index
+                    FROM
+                        orders m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        LEFT  JOIN transactions       t3 ON (t3.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
+                        INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                        INNER JOIN order_statuses     s1 ON (s1.order_action_index=m.action_index)
+                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                    WHERE 
+                        ` + sql.where.data + ` AND 
+                        s1.action_index = (
+                            SELECT
+                                MAX(s3.action_index)
+                            FROM
+                                order_statuses s3
+                            WHERE
+                                s3.order_action_index=m.action_index
+                        ) AND
+                        s2.status='open'
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        let results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            for(let info of results){
+                let order   = await this.getOrderInfo(config, info.action_index);
+                let reverse = (order.give_tick==tick2) ? true : false;
+                data.push({
+                    type         : (reverse) ? 'buy' : 'sell',
+                    price        : (reverse) ? order.get_price : order.give_price,
+                    amount       : (reverse) ? order.get_amount : order.give_amount,
+                    action_index : order.action_index,
+                    timestamp    : order.timestamp,
+                    expiration   : order.expiration
+                });
+            }
+        }
+        return [data, null, results.length];
+    } 
+
+    // Get market history (order matches)
+    async getMarketHistory(config){
+        let data    = [];
+        let tick1   = config.data.search;
+        let tick2   = config.data.search2;
+        let address = config.data.search3;
+        let sql     = config.data.sql;
+        let args    = [tick1, tick2, tick2, tick1];
+        if(!this.util.isNull(address))
+            args.push(address, address);
+        let query   = `SELECT
+                        m.action_index,
+                        t1.tick as give_tick,
+                        t2.tick as get_tick,
+                        m.give_amount,
+                        m.get_amount,
+                        b1.block_time as timestamp
+                    FROM
+                        order_matches m
+                        INNER JOIN orders             o1 ON (o1.action_index=m.give_action_index)
+                        INNER JOIN orders             o2 ON (o2.action_index=m.get_action_index)
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
+                        INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=o1.get_address_id)
+                        INNER JOIN index_addresses    a3 ON (a3.id=o2.get_address_id)
+                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                    WHERE 
+                        ` + sql.where.data + ` AND 
+                        s1.status='valid'
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        let results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            for(let order of results){
+                let reverse    = (order.give_tick==tick2) ? true : false;
+                let give_price = this.util.getPrice(order.get_amount, order.give_amount);
+                let get_price  = this.util.getPrice(order.give_amount, order.get_amount);
+                data.push({
+                    type         : (reverse) ? 'buy' : 'sell',
+                    price        : (reverse) ? get_price : give_price,
+                    amount       : (reverse) ? order.get_amount : order.give_amount,
+                    action_index : order.action_index,
+                    timestamp    : order.timestamp
+                });
+            }
+        }
+        return [data, null, results.length];
+    } 
+
     // Get market orderbook
     async getMarketOrderbook(config){
         let data   = {
@@ -2434,11 +2544,7 @@ class Database {
         let sql    = config.data.sql;
         let args   = [tick1, tick2, tick2, tick1];
         let query  = `SELECT
-                        m.action_index,
-                        t1.tick as give_tick,
-                        t2.tick as get_tick,
-                        m.give_amount,
-                        m.get_amount
+                        m.action_index
                     FROM
                         orders m
                         INNER JOIN index_tickers  t1 ON (t1.id=m.give_tick_id)
@@ -2458,55 +2564,30 @@ class Database {
                         s2.status='open'`;
         let results = await this.doQuery(config, query, args);
         if(results.length > 0){
-            for(let order of results){
-                let give_remaining = order.give_amount;
-                let get_remaining  = order.get_amount;
-                // Lookup amounts matched in order_matches to determine remaining amounts
-                query = `SELECT
-                            m.give_action_index,
-                            m.get_action_index,
-                            m.give_amount,
-                            m.get_amount
-                        FROM
-                            order_matches m
-                            INNER JOIN index_statuses s ON (s.id=m.status_id)
-                        WHERE
-                            (m.give_action_index=? OR m.get_action_index=?) AND
-                            s.status=?
-                        ORDER BY action_index ASC`;
-                args = [order.action_index, order.action_index, 'valid'];
-                let rows = await this.doQuery(config, query, args);
-                if(rows.length>0){
-                    for(let row of rows){
-                        let give_amount = (row.get_action_index==order.action_index) ? row.give_amount : row.get_amount;
-                        let get_amount  = (row.get_action_index==order.action_index) ? row.get_amount  : row.give_amount;
-                        give_remaining  = this.util.bcsub(give_remaining, give_amount);
-                        get_remaining   = this.util.bcsub(get_remaining,  get_amount);
-                    }
-                }
+            for(let info of results){
+                let order = await this.getOrderInfo(config, info.action_index);
                 let type  = (order.give_tick==tick2) ? 'bid' : 'ask';
+                let price = (order.give_tick==tick2) ? order.get_price : order.give_price;
                 let found = false;
                 if(type=='bid'){
-                    let price = this.util.getPrice(order.give_amount, order.get_amount);
                     for(let bid of bids){
                         if(bid.price==price){
-                            bid.amount = this.util.bcadd(bid.amount, get_remaining);
+                            bid.amount = this.util.bcadd(bid.amount, order.get_remaining);
                             found = true;
                         }
                     }
                     if(!found)
-                        bids.push({ price: price, amount: get_remaining });
+                        bids.push({ price: price, amount: order.get_remaining });
                 }
                 if(type=='ask'){
-                    let price = this.util.getPrice(order.get_amount, order.give_amount);
                     for(let ask of asks){
                         if(ask.price==price){
-                            ask.amount = this.util.bcadd(ask.amount, give_remaining);
+                            ask.amount = this.util.bcadd(ask.amount, order.give_remaining);
                             found = true;
                         }
                     }
                     if(!found)
-                        asks.push({ price: price, amount: give_remaining });
+                        asks.push({ price: price, amount: order.give_remaining });
                 }
             }
             // Sort asks and bids
@@ -4637,12 +4718,118 @@ class Database {
         return [data, null, total]
     }
 
+    // Return order info for given action_index
+    async getOrderInfo(config, action_index){
+        let order = false;
+        let query = `SELECT 
+                        o1.action_index,
+                        t2.tick as give_tick,
+                        o1.give_amount,
+                        c1.coin as get_coin,
+                        t3.tick as get_tick,
+                        o1.get_amount,
+                        a2.address as source,
+                        a3.address as get_address,
+                        o1.expiration,
+                        o1.allow_list,
+                        o1.block_list,
+                        m1.memo,
+                        s2.status,
+                        s3.status as order_status,
+                        b1.block_index,
+                        b1.block_time
+                    FROM 
+                        orders o1
+                        INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
+                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
+                        INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
+                        INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
+                        INNER JOIN index_coins     c1 ON (c1.id=o1.get_coin_id)
+                        INNER JOIN index_coins     c2 ON (c2.id=o1.give_coin_id)
+                        INNER JOIN index_memos     m1 ON (m1.id=o1.memo_id)
+                        INNER JOIN order_statuses  s1 ON (s1.order_action_index=o1.action_index)
+                        INNER JOIN index_statuses  s2 ON (s2.id=o1.status_id)
+                        INNER JOIN index_statuses  s3 ON (s3.id=s1.status_id)
+                    WHERE 
+                        s1.action_index = (
+                            SELECT
+                                MAX(s4.action_index)
+                            FROM
+                                order_statuses s4
+                            WHERE
+                                s4.order_action_index=o1.action_index
+                        ) AND
+                        o1.action_index=? 
+                    LIMIT 1`;
+        let args  = [action_index];
+        let results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            order = results[0];
+            // Convert BIGINT values to Numbers
+            order.action_index = Number(order.action_index);
+            order.block_index  = Number(order.block_index);
+            order.block_time   = Number(order.block_time);
+            order.allow_list   = Number(order.allow_list);
+            order.block_list   = Number(order.block_list);
+        }
+        // Get additional information on this order 
+        if(order){
+            // Get updated order properties from the order_edits table
+            let edit = await this.getOrderEdits(config, action_index);
+            if(edit.expiration) order.expiration = edit.expiration;
+            if(edit.allow_list) order.allow_list = edit.allow_list;
+            if(edit.block_list) order.block_list = edit.block_list;
+            // Determine order get/give prices
+            order.give_price = this.util.getPrice(order.get_amount, order.give_amount);
+            order.get_price  = this.util.getPrice(order.give_amount, order.get_amount);
+            // Determine order amounts remaining
+            let [give_remaining, get_remaining] = await this.getOrderAmountsRemaining(config, action_index);
+            order.give_remaining = give_remaining;
+            order.get_remaining  = get_remaining;
+        }
+        order = this.util.ksort(order);
+        return order;
+    }
+
+    // Return order edit information for given action_index
+    async getOrderEdits(config, action_index){
+        // Define empty edit object
+        let edit  = {
+            expiration: false,
+            allow_list: false,
+            block_list: false
+        };
+        let query  = `SELECT 
+                        o.expiration,
+                        o.allow_list,
+                        o.block_list
+                    FROM 
+                        order_edits o
+                        INNER JOIN index_statuses s ON (s.id=o.status_id)
+                    WHERE 
+                        o.order_action_index=? AND
+                        s.status=?
+                    ORDER BY
+                        o.action_index ASC`;
+        let args  = [action_index, 'valid'];
+        let results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            for(let row of results){
+                if(!this.util.isNull(row.expiration) && this.util.isNumeric(row.expiration)) edit.expiration = Number(row.expiration);
+                if(!this.util.isNull(row.allow_list) && this.util.isNumeric(row.allow_list)) edit.allow_list = Number(row.allow_list);
+                if(!this.util.isNull(row.block_list) && this.util.isNumeric(row.block_list)) edit.block_list = Number(row.block_list);
+            }
+        }
+        return edit;
+    }    
 
     // Handle getting total amounts remaining for a given order
-    async getOrderAmountsRemaining(config){
+    async getOrderAmountsRemaining(config, action_index){
         // Placeholders for amount escrowed and amount matched
-        let action_index   = config.data.search,
-            give_coin_id   = 0,
+        let give_coin_id   = 0,
             give_tick_id   = 0,
             give_remaining = 0,
             get_coin_id    = 0,
@@ -4663,19 +4850,15 @@ class Database {
                         o.action_index=? AND
                         s.status=?`;
         let args  = [action_index, 'valid'];
-        try {
-            let rows = await this.doQuery(config, query, args);
-            if(rows && rows.length>0){
-                let info = rows[0];
-                give_coin_id   = info.give_coin_id;
-                give_tick_id   = info.give_tick_id;  
-                give_remaining = info.give_amount;
-                get_coin_id    = info.get_coin_id;
-                get_tick_id    = info.get_tick_id;  
-                get_remaining  = info.get_amount;
-            }
-        } catch (error) {
-            this.util.logError('Error looking up order amounts from orders table :', error);
+        let results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            let info = results[0];
+            give_coin_id   = info.give_coin_id;
+            give_tick_id   = info.give_tick_id;  
+            give_remaining = info.give_amount;
+            get_coin_id    = info.get_coin_id;
+            get_tick_id    = info.get_tick_id;  
+            get_remaining  = info.get_amount;
         }
         // Lookup amounts matched in order_matches
         query = `SELECT
@@ -4690,23 +4873,20 @@ class Database {
                     (m.give_action_index=? OR m.get_action_index=?) AND
                     s.status=?
                 ORDER BY action_index ASC`;
-        try {
-            args = [action_index, action_index, 'valid'];
-            let rows = await this.doQuery(config, query, args);
-            if(rows && rows.length>0){
-                // Loop through each order match and deduct amount from remaining
-                for(let row of rows){
-                    let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
-                    let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
-                    give_remaining  = this.util.bcsub(give_remaining, give_amount);
-                    get_remaining   = this.util.bcsub(get_remaining,  get_amount);
-                }
+        args = [action_index, action_index, 'valid'];
+        results = await this.doQuery(config, query, args);
+        if(results.length > 0){
+            // Loop through each order match and deduct amount from remaining
+            for(let row of results){
+                let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
+                let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
+                give_remaining  = this.util.bcsub(give_remaining, give_amount);
+                get_remaining   = this.util.bcsub(get_remaining,  get_amount);
             }
-        } catch (error) {
-            this.util.logError('Error looking up order amounts from order_matches table :', error);
         }
         return [give_remaining, get_remaining];
-    }    
+    }
+
 }
 
 module.exports = Database

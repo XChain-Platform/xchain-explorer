@@ -23,7 +23,7 @@
             "description": "API endpoints that return XChain platform SWAP data"
         },{
             "name": "Markets",
-            "description": "API endpoints that return XChain platform MARKET data"
+            "description": "API endpoints that return XChain platform DEX MARKET data"
     }],
     "paths": {
         "/{COIN}/api/action/{QUERY}": {
@@ -109,10 +109,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -130,7 +130,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Airdrop",
+                                                "$ref": "#/components/schemas/Airdrop"
                                             }
                                         }
                                     },{
@@ -155,10 +155,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -176,7 +176,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Batch",
+                                                "$ref": "#/components/schemas/Batch"
                                             }
                                         }
                                     },{
@@ -201,10 +201,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -222,7 +222,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Broadcast",
+                                                "$ref": "#/components/schemas/Broadcast"
                                             }
                                         }
                                     },{
@@ -247,10 +247,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -268,7 +268,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Callback",
+                                                "$ref": "#/components/schemas/Callback"
                                             }
                                         }
                                     },{
@@ -293,10 +293,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -314,7 +314,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Destroy",
+                                                "$ref": "#/components/schemas/Destroy"
                                             }
                                         }
                                     },{
@@ -339,10 +339,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, source, destination, token)",
+                    "description": "Type of search to perform (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token, source, destination, token)",
+                    "description": "String to search for (address, block, token, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -360,7 +360,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Dispenser",
+                                                "$ref": "#/components/schemas/Dispenser"
                                             }
                                         }
                                     },{
@@ -385,10 +385,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, source, destination, token)",
+                    "description": "Type of search to perform (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token, source, destination, token)",
+                    "description": "String to search for (address, block, token, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -406,7 +406,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Dispense",
+                                                "$ref": "#/components/schemas/Dispense"
                                             }
                                         }
                                     },{
@@ -431,10 +431,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -452,7 +452,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Dividend",
+                                                "$ref": "#/components/schemas/Dividend"
                                             }
                                         }
                                     },{
@@ -477,10 +477,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -498,7 +498,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/File",
+                                                "$ref": "#/components/schemas/File"
                                             }
                                         }
                                     },{
@@ -523,10 +523,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -544,7 +544,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Issue",
+                                                "$ref": "#/components/schemas/Issue"
                                             }
                                         }
                                     },{
@@ -569,10 +569,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -590,7 +590,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Link",
+                                                "$ref": "#/components/schemas/Link"
                                             }
                                         }
                                     },{
@@ -615,10 +615,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -636,7 +636,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/List",
+                                                "$ref": "#/components/schemas/List"
                                             }
                                         }
                                     },{
@@ -655,7 +655,7 @@
         "/{COIN}/api/markets": {
             "get": {
                 "tags": ["Markets"],
-                "summary": "Get all DEX Markets",
+                "summary": "Get all DEX markets",
                 "description": "Retrieves all DEX markets information",
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
@@ -676,7 +676,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Market",
+                                                "$ref": "#/components/schemas/Market"
                                             }
                                         }
                                     },{
@@ -692,16 +692,16 @@
                 }
             }
         },
-        "/{COIN}/api/markets/{QUERY}": {
+        "/{COIN}/api/markets/{TOKEN1}": {
             "get": {
                 "tags": ["Markets"],
-                "summary": "Get DEX Markets",
+                "summary": "Get DEX markets",
                 "description": "Retrieves DEX market information for a given token",
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
-                    "$ref": "#/components/parameters/QUERY-TOKEN",
-                    "description": "String to search for (token)",
+                    "$ref": "#/components/parameters/TOKEN1",
+                    "description": "String to search for (token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -719,7 +719,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Market",
+                                                "$ref": "#/components/schemas/Market"
                                             }
                                         }
                                     },{
@@ -735,7 +735,197 @@
                 }
             }
         },
-        "/{COIN}/api/market/{QUERY}/{QUERY2}/orderbook": {
+        "/{COIN}/api/market/{TOKEN1}/{TOKEN2}/history": {
+            "get": {
+                "tags": ["Markets"],
+                "summary": "Get DEX market history",
+                "description": "Retrieves DEX market history for a given token market",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TOKEN1",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/TOKEN2",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/MarketHistory"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/market/{TOKEN1}/{TOKEN2}/history/{ADDRESS}": {
+            "get": {
+                "tags": ["Markets"],
+                "summary": "Get DEX market history by an address",
+                "description": "Retrieves DEX market history for a given token market and address",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TOKEN1",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/TOKEN2",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/ADDRESS",
+                    "description": "String to search for (address)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/MarketHistory"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/market/{TOKEN1}/{TOKEN2}/orders": {
+            "get": {
+                "tags": ["Markets"],
+                "summary": "Get DEX Market Orders",
+                "description": "Retrieves DEX market open orders for a given token market",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TOKEN1",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/TOKEN2",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/MarketOrder"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/market/{TOKEN1}/{TOKEN2}/orders/{ADDRESS}": {
+            "get": {
+                "tags": ["Markets"],
+                "summary": "Get DEX Market Orders by an address",
+                "description": "Retrieves DEX market open orders for a given token market and address",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TOKEN1",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/TOKEN2",
+                    "description": "String to search for (token)"
+                },{
+                    "$ref": "#/components/parameters/ADDRESS",
+                    "description": "String to search for (address)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/MarketOrder"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/market/{TOKEN1}/{TOKEN2}/orderbook": {
             "get": {
                 "tags": ["Markets"],
                 "summary": "Get DEX Market Orderbook",
@@ -743,11 +933,11 @@
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
-                    "$ref": "#/components/parameters/QUERY-TOKEN",
-                    "description": "String to search for (token)",
+                    "$ref": "#/components/parameters/TOKEN1",
+                    "description": "String to search for (token)"
                 },{
-                    "$ref": "#/components/parameters/QUERY2-TOKEN",
-                    "description": "String to search for (token)",
+                    "$ref": "#/components/parameters/TOKEN2",
+                    "description": "String to search for (token)"
                 }],
                 "responses": {
                     "200": {
@@ -765,7 +955,7 @@
                     }
                 }
             }
-        },        
+        }, 
         "/{COIN}/api/messages/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions"],
@@ -775,10 +965,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, source, destination)",
+                    "description": "Type of search to perform (address, block, source, destination)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, source, destination)",
+                    "description": "String to search for (address, block, source, destination)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -796,7 +986,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Message",
+                                                "$ref": "#/components/schemas/Message"
                                             }
                                         }
                                     },{
@@ -821,10 +1011,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, source, destination, token)",
+                    "description": "Type of search to perform (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, source, destination, token)",
+                    "description": "String to search for (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -842,7 +1032,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Mint",
+                                                "$ref": "#/components/schemas/Mint"
                                             }
                                         }
                                     },{
@@ -867,10 +1057,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -888,7 +1078,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Order",
+                                                "$ref": "#/components/schemas/Order"
                                             }
                                         }
                                     },{
@@ -913,10 +1103,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -934,7 +1124,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/OrderCancel",
+                                                "$ref": "#/components/schemas/OrderCancel"
                                             }
                                         }
                                     },{
@@ -959,10 +1149,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -980,7 +1170,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/OrderEdit",
+                                                "$ref": "#/components/schemas/OrderEdit"
                                             }
                                         }
                                     },{
@@ -1005,10 +1195,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1026,7 +1216,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/OrderExpire",
+                                                "$ref": "#/components/schemas/OrderExpire"
                                             }
                                         }
                                     },{
@@ -1070,7 +1260,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/OrderMatch",
+                                                "$ref": "#/components/schemas/OrderMatch"
                                             }
                                         }
                                     },{
@@ -1095,10 +1285,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, source, destination, token)",
+                    "description": "Type of search to perform (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, source, destination, token)",
+                    "description": "String to search for (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1116,7 +1306,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Send",
+                                                "$ref": "#/components/schemas/Send"
                                             }
                                         }
                                     },{
@@ -1141,10 +1331,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1162,7 +1352,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Sleep",
+                                                "$ref": "#/components/schemas/Sleep"
                                             }
                                         }
                                     },{
@@ -1187,10 +1377,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1208,7 +1398,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Swap",
+                                                "$ref": "#/components/schemas/Swap"
                                             }
                                         }
                                     },{
@@ -1233,10 +1423,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1254,7 +1444,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/SwapCancel",
+                                                "$ref": "#/components/schemas/SwapCancel"
                                             }
                                         }
                                     },{
@@ -1279,10 +1469,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1300,7 +1490,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/SwapEdit",
+                                                "$ref": "#/components/schemas/SwapEdit"
                                             }
                                         }
                                     },{
@@ -1325,10 +1515,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1346,7 +1536,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/SwapExpire",
+                                                "$ref": "#/components/schemas/SwapExpire"
                                             }
                                         }
                                     },{
@@ -1390,7 +1580,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/SwapMatch",
+                                                "$ref": "#/components/schemas/SwapMatch"
                                             }
                                         }
                                     },{
@@ -1415,10 +1605,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, source, destination, token)",
+                    "description": "Type of search to perform (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, source, destination, token)",
+                    "description": "String to search for (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1436,7 +1626,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Sweep",
+                                                "$ref": "#/components/schemas/Sweep"
                                             }
                                         }
                                     },{
@@ -1461,7 +1651,7 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address)",
+                    "description": "String to search for (address)"
                 }],
                 "responses": {
                     "200": {
@@ -1489,7 +1679,7 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address)",
+                    "description": "String to search for (address)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1507,7 +1697,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Balance",
+                                                "$ref": "#/components/schemas/Balance"
                                             }
                                         }
                                     },{
@@ -1532,7 +1722,7 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/QUERY-BLOCK",
-                    "description": "String to search for (block)",
+                    "description": "String to search for (block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1546,7 +1736,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Block",
+                                    "$ref": "#/components/schemas/Block"
                                 }
                             }
                         }
@@ -1566,10 +1756,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1587,7 +1777,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Credit",
+                                                "$ref": "#/components/schemas/Credit"
                                             }
                                         }
                                     },{
@@ -1612,10 +1802,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1633,7 +1823,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Debit",
+                                                "$ref": "#/components/schemas/Debit"
                                             }
                                         }
                                     },{
@@ -1658,10 +1848,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1679,7 +1869,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Escrow",
+                                                "$ref": "#/components/schemas/Escrow"
                                             }
                                         }
                                     },{
@@ -1704,10 +1894,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, source, destination, token)",
+                    "description": "Type of search to perform (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, source, destination, token)",
+                    "description": "String to search for (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1725,7 +1915,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Fee",
+                                                "$ref": "#/components/schemas/Fee"
                                             }
                                         }
                                     },{
@@ -1750,10 +1940,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)",
+                    "description": "Type of search to perform (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)",
+                    "description": "String to search for (address, block, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1771,7 +1961,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/History",
+                                                "$ref": "#/components/schemas/History"
                                             }
                                         }
                                     },{
@@ -1796,7 +1986,7 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/QUERY-TOKEN",
-                    "description": "String to search for (token)",
+                    "description": "String to search for (token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1810,7 +2000,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Holder",
+                                    "$ref": "#/components/schemas/Holder"
                                 }
                             }
                         }
@@ -1902,10 +2092,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE-TRANSACTION",
-                    "description": "Type of search to perform (tx_hash, tx_index)",
+                    "description": "Type of search to perform (tx_hash, tx_index)"
                 },{
                     "$ref": "#/components/parameters/QUERY-TRANSACTION",
-                    "description": "String to search for (tx_hash, tx_index)",
+                    "description": "String to search for (tx_hash, tx_index)"
                 }],
                 "responses": {
                     "200": {
@@ -2766,6 +2956,48 @@
                     }
                 }
             },
+           "MarketHistory": {
+                "type": "object",
+                "description": "DEX Market history data",
+                "properties": {
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "string"
+                    },
+                    "expiration": {
+                        "type": "integer"
+                    },
+                    "price": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },   
+            "MarketOrder": {
+                "type": "object",
+                "description": "DEX Market order data",
+                "properties": {
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "string"
+                    },
+                    "expiration": {
+                        "type": "integer"
+                    },
+                    "price": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },            
             "Message": {
                 "type": "object",
                 "description": "MESSAGE action data",
@@ -3588,8 +3820,19 @@
                     "example": "GAS"
                 }
             },
-            "QUERY2-TOKEN": {
-                "name": "QUERY2",
+            "TOKEN1": {
+                "name": "TOKEN1",
+                "in": "path",
+                "description": "String to search for (token)",
+                "required": true,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "GAS"
+                }
+            },
+            "TOKEN2": {
+                "name": "TOKEN2",
                 "in": "path",
                 "description": "String to search for (token)",
                 "required": true,
@@ -3597,6 +3840,17 @@
                 "schema": {
                     "type": "string",
                     "example": "SAT"
+                }
+            },
+            "ADDRESS": {
+                "name": "ADDRESS",
+                "in": "path",
+                "description": "String to search for (address)",
+                "required": false,
+                "style": "simple",
+                "schema": {
+                    "type": "string",
+                    "example": "1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev"
                 }
             },
             "QUERY-TRANSACTION": {

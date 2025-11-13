@@ -186,14 +186,14 @@ class XChainExplorer {
                 '/{COIN}/api/token/{QUERY}'                : ['getToken',        'token'],
                 '/{COIN}/api/transaction/{QUERY}/{TYPE}'   : ['getTransaction',  ['tx_hash', 'tx_index']],
                 // Market Endpoints
-                '/{COIN}/api/markets'                                : ['getMarkets'],
-                '/{COIN}/api/markets/{TICK1}'                        : ['getMarkets'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}'                 : ['getMarket'],
-                // '/{COIN}/api/market/{TICK1}/{TICK2}/history'         : ['getMarketHistory'],
-                // '/{COIN}/api/market/{TICK1}/{TICK2}/history/{QUERY}' : ['getMarketHistory'],
-                // '/{COIN}/api/market/{TICK1}/{TICK2}/orders'          : ['getMarketOrders'],
-                // '/{COIN}/api/market/{TICK1}/{TICK2}/orders/{QUERY}'  : ['getMarketOrders'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'       : ['getMarketOrderbook']
+                '/{COIN}/api/markets'                                  : ['getMarkets'],
+                '/{COIN}/api/markets/{TICK1}'                          : ['getMarkets'],
+                '/{COIN}/api/market/{TICK1}/{TICK2}'                   : ['getMarket'],
+                '/{COIN}/api/market/{TICK1}/{TICK2}/history'           : ['getMarketHistory'],
+                '/{COIN}/api/market/{TICK1}/{TICK2}/history/{ADDRESS}' : ['getMarketHistory'],
+                '/{COIN}/api/market/{TICK1}/{TICK2}/orders'            : ['getMarketOrders'],
+                '/{COIN}/api/market/{TICK1}/{TICK2}/orders/{ADDRESS}'  : ['getMarketOrders'],
+                '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'         : ['getMarketOrderbook']
             }, 
 
             // List of explorer endpoints and the related method

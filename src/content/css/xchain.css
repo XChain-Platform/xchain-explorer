@@ -218,17 +218,17 @@ table.dataTable thead th,
 table.dataTable thead td,
 table.dataTable tbody th, 
 table.dataTable tbody td {
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
-    padding-left: 5px !important;
-    padding-right: 5px !important;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 5px;
+    padding-right: 5px;
     border-bottom: 1px;
     border-top: 0px;
 }
 
 /* Set style for the `loading data` placeholder in datatables */
-table.dataTable tbody td.loading-data {
-    text-align: center;
+td.loading-data {
+    text-align: center !important;
     padding-top: 20px !important;
     padding-bottom: 20px !important;
 }
@@ -238,6 +238,67 @@ table.dataTable tbody td.loading-data {
 #datatable-market td:nth-child(n+3){
     text-align: right;
 }
+
+/* Align values on the right side of the column */
+#datatable-buys th,
+#datatable-buys td,
+#datatable-sells th,
+#datatable-sells td {
+    text-align: right;
+}
+
+/* Align empty datatable messages in the center */
+.dataTables_empty {
+    text-align: center !important;
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+}
+
+/* Market information */
+#market-info {
+    height: 100px;
+}
+.market-header {
+    padding-top: 5px;
+    height: 65px;
+}
+.market-icons {
+    width: 135px;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+.market-header .market-name {
+    font-size: 1.5em;
+    font-weight: bold;
+    line-height: 1.0em;
+    white-space: nowrap;    
+}
+.market-pair {
+    margin-top: 5px;
+}
+.market-description {
+    margin-top: 5px;
+    margin-left: 5px;
+}
+.table-market-stats th,
+.table-market-stats2 th {
+    width: 120px;
+    white-space: nowrap;
+}
+.table-market-stats th {
+    border-left: 0px !important;
+}
+.table-market-stats2 th {
+    border-left: 0px !important;
+}
+.table-market-stats2 td {
+    border-right: 0px !important;
+}
+.table-market-stats tr:last-child,
+.table-market-stats2 tr:last-child {
+    border-bottom: 0px !important;
+}
+
 
 
 /* Wrapper around icons to standardize the size and make content line up*/
@@ -252,6 +313,17 @@ table.dataTable tbody td.loading-data {
     width: 20px;
     height: 20px;
 }
+
+.icon-48 {
+    width: 48px;
+    height: 48px;
+}
+
+.icon-64 {
+    width: 64px;
+    height: 64px;
+}
+
 
 .bg-red,
 .bg-red td  {
@@ -317,6 +389,8 @@ th.address {
 .table-address-stats tr:last-child {
     border-width: 0px !important;
 }
+
+/* Market Page */
 
 
 /* CSS Used on transaction pages */
@@ -423,4 +497,9 @@ table.no-outer-borders tr:last-child {
     border-top-right-radius: 6px !important;
     border-bottom-left-radius: 6px !important;
     border-bottom-right-radius: 6px !important;
+}
+
+.clear,
+.clear-both {
+  clear:both;
 }

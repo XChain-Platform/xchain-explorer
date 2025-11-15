@@ -77,6 +77,7 @@ class XChainExplorer {
             'static' : [
                 'css',
                 'fonts',
+                'charts',
                 'images',
                 'json',
                 'js'
@@ -199,37 +200,39 @@ class XChainExplorer {
             // List of explorer endpoints and the related method
             'explorer' : {
                 // Explorer Endpoints                           Method           Types
-                '/{COIN}/explorer/addresses/{QUERY}/{TYPE}'  : ['getAddresses',  ['block', 'address']],
-                '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'   : ['getAirdrops',   ['block', 'address', 'token']],
-                '/{COIN}/explorer/balances/{QUERY}/{TYPE}'   : ['getBalances',   'address'],
-                '/{COIN}/explorer/batches/{QUERY}/{TYPE}'    : ['getBatches',    ['block', 'address']],
-                '/{COIN}/explorer/blocks/{QUERY}'            : ['getBlocks',    'block'],
-                '/{COIN}/explorer/broadcasts/{QUERY}/{TYPE}' : ['getBroadcasts', ['block', 'address']],
-                '/{COIN}/explorer/callbacks/{QUERY}/{TYPE}'  : ['getCallbacks',  ['block', 'address', 'token']],
-                '/{COIN}/explorer/credits/{QUERY}/{TYPE}'    : ['getCredits',    ['block', 'address']],
-                '/{COIN}/explorer/debits/{QUERY}/{TYPE}'     : ['getDebits',     ['block', 'address']], 
-                '/{COIN}/explorer/destroys/{QUERY}/{TYPE}'   : ['getDestroys',   ['block', 'address', 'token']],
-                '/{COIN}/explorer/dispensers/{QUERY}/{TYPE}' : ['getDispensers', ['block', 'address', 'token']],
-                '/{COIN}/explorer/dispenses/{QUERY}/{TYPE}'  : ['getDispenses',  ['block', 'address', 'token']],
-                '/{COIN}/explorer/dividends/{QUERY}/{TYPE}'  : ['getDividends',  ['block', 'address', 'token']], 
-                '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'    : ['getEscrows',    ['block', 'address']],
-                '/{COIN}/explorer/fees/{QUERY}/{TYPE}'       : ['getFees',       ['block', 'address', 'token']],
-                '/{COIN}/explorer/files/{QUERY}/{TYPE}'      : ['getFiles',      ['block', 'address', 'token']],
-                '/{COIN}/explorer/holders/{QUERY}'           : ['getHolders',    'token'],
-                '/{COIN}/explorer/history/{QUERY}/{TYPE}'    : ['getHistory',    ['block', 'address', 'token', 'recent']],
-                '/{COIN}/explorer/issues/{QUERY}/{TYPE}'     : ['getIssues',     ['block', 'address', 'token']],
-                '/{COIN}/explorer/links/{QUERY}/{TYPE}'      : ['getLinks',      ['block', 'address', 'token']],
-                '/{COIN}/explorer/lists/{QUERY}/{TYPE}'      : ['getLists',      ['block', 'address']],
-                '/{COIN}/explorer/markets/{QUERY}'           : ['getMarkets',    'tokens'],
-                '/{COIN}/explorer/messages/{QUERY}/{TYPE}'   : ['getMessages',   ['block', 'address']],
-                '/{COIN}/explorer/mints/{QUERY}/{TYPE}'      : ['getMints',      ['block', 'address', 'token']],
-                '/{COIN}/explorer/orders/{QUERY}/{TYPE}'     : ['getOrders',     ['block', 'address', 'token']],
-                '/{COIN}/explorer/sends/{QUERY}/{TYPE}'      : ['getSends',      ['block', 'address', 'token']],
-                '/{COIN}/explorer/search/{QUERY}/{TYPE}'     : ['getSearch',     ['address', 'broadcast', 'token', 'transaction']],
-                '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'     : ['getSleeps',     ['block', 'address', 'token']],
-                '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'      : ['getSwaps',      ['block', 'address', 'token']],
-                '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'     : ['getSweeps',     ['block', 'address']],
-                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'     : ['getTokens',     ['block', 'address']]
+                '/{COIN}/explorer/addresses/{QUERY}/{TYPE}'                 : ['getAddresses',    ['block', 'address']],
+                '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'                  : ['getAirdrops',     ['block', 'address', 'token']],
+                '/{COIN}/explorer/balances/{QUERY}/{TYPE}'                  : ['getBalances',     'address'],
+                '/{COIN}/explorer/batches/{QUERY}/{TYPE}'                   : ['getBatches',      ['block', 'address']],
+                '/{COIN}/explorer/blocks/{QUERY}'                           : ['getBlocks',       'block'],
+                '/{COIN}/explorer/broadcasts/{QUERY}/{TYPE}'                : ['getBroadcasts',   ['block', 'address']],
+                '/{COIN}/explorer/callbacks/{QUERY}/{TYPE}'                 : ['getCallbacks',    ['block', 'address', 'token']],
+                '/{COIN}/explorer/credits/{QUERY}/{TYPE}'                   : ['getCredits',      ['block', 'address']],
+                '/{COIN}/explorer/debits/{QUERY}/{TYPE}'                    : ['getDebits',       ['block', 'address']], 
+                '/{COIN}/explorer/destroys/{QUERY}/{TYPE}'                  : ['getDestroys',     ['block', 'address', 'token']],
+                '/{COIN}/explorer/dispensers/{QUERY}/{TYPE}'                : ['getDispensers',   ['block', 'address', 'token']],
+                '/{COIN}/explorer/dispenses/{QUERY}/{TYPE}'                 : ['getDispenses',    ['block', 'address', 'token']],
+                '/{COIN}/explorer/dividends/{QUERY}/{TYPE}'                 : ['getDividends',    ['block', 'address', 'token']], 
+                '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'                   : ['getEscrows',      ['block', 'address']],
+                '/{COIN}/explorer/fees/{QUERY}/{TYPE}'                      : ['getFees',         ['block', 'address', 'token']],
+                '/{COIN}/explorer/files/{QUERY}/{TYPE}'                     : ['getFiles',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/holders/{QUERY}'                          : ['getHolders',      'token'],
+                '/{COIN}/explorer/history/{QUERY}/{TYPE}'                   : ['getHistory',      ['block', 'address', 'token', 'recent']],
+                '/{COIN}/explorer/issues/{QUERY}/{TYPE}'                    : ['getIssues',       ['block', 'address', 'token']],
+                '/{COIN}/explorer/links/{QUERY}/{TYPE}'                     : ['getLinks',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/lists/{QUERY}/{TYPE}'                     : ['getLists',        ['block', 'address']],
+                '/{COIN}/explorer/markets/{QUERY}'                          : ['getMarkets',      'tokens'],
+                '/{COIN}/explorer/market/{TICK1}/{TICK2}/history'           : ['getMarketHistory'],
+                '/{COIN}/explorer/market/{TICK1}/{TICK2}/history/{ADDRESS}' : ['getMarketHistory'],
+                '/{COIN}/explorer/messages/{QUERY}/{TYPE}'                  : ['getMessages',     ['block', 'address']],
+                '/{COIN}/explorer/mints/{QUERY}/{TYPE}'                     : ['getMints',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/orders/{QUERY}/{TYPE}'                    : ['getOrders',       ['block', 'address', 'token']],
+                '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'token', 'transaction']],
+                '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
+                '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'                     : ['getSwaps',        ['block', 'address', 'token']],
+                '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'                    : ['getSweeps',       ['block', 'address']],
+                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'                    : ['getTokens',       ['block', 'address']]
             }
         };
 
@@ -726,6 +729,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.edit, status, info.action_index];
                     if(method=='getMarkets')
                         info = [count_reverse, info.tick1, info.tick2, info.tick1_price, info.tick1_ask, info.tick1_bid, info.tick2_24hr_volume, info.tick1_24hr_change, info.id];
+                    if(method=='getMarketHistory')
+                        info = [count_reverse, info.block_index, info.timestamp, info.type, info.price, info.amount, null, info.action_index];
                     if(method=='getMessages')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.plaintext_message, info.encrypted_message, status, info.action_index];
                     if(method=='getMints')

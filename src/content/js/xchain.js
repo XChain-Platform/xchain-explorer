@@ -227,6 +227,9 @@ function setXChainParams(coin){
             XC.query = query;
             XC.type  = (isNumeric(query)) ? 'tx_index' : 'tx_hash';
         }
+    } else if(type=='market'){
+        XC.type  = type;
+        XC.query = path[3] + '/' + path[4];
     }
 }
 
@@ -580,6 +583,12 @@ function setupActionListeners(){
             }
         });
     }
+    // Handle setting up listeners on chart dropdowns 
+    for(let chart of XC.charts){
+        $('#chart-dropdown-' + chart).click(function(){
+            loadMarketChart(chart);
+        });
+    }
 }
 
 // Handle setting up collapsible headers and restoring the last known state
@@ -604,7 +613,7 @@ function bcnum(num){
 
 // Handle returning a number to a given decimal point precision
 function bcformat(num, decimals){
-    let d = (!sNull(decimals)) ? parseInt(decimals) : 0;
+    let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
     return math.format(bcnum(num),{notation: 'fixed', precision: d});
 }
 
@@ -819,6 +828,9 @@ function loadDatatablesData(coin, action, query, type){
         endpoint = action;
     } else if(['address','batch'].includes(action)){
         endpoint = action + 'es';
+    } else if(action=='market-history'){
+        endpoint = 'market';
+        type     = 'history';
     } else {
         endpoint = action + 's';       
     }
@@ -990,7 +1002,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','block','fee','holder','search','market'].includes(action)){
+            if(!['balance','credit','debit','token','block','fee','holder','search','market','market-history'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1339,6 +1351,18 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).html(html);
                 $('td', row).eq(5).html(action_link);
             }
+            // Market History
+            if(action=='market-history'){
+                let type   = data[3]
+                    price  = bcformat(data[4],8),
+                    amount = bcformat(data[5],8),
+                    total  = bcformat(bcmul(price, amount),8);
+                $('td', row).eq(3).html(type);
+                $('td', row).eq(4).html(formatAmount(price));
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(6).html(formatAmount(total));
+                $('td', row).eq(7).html(action_link);
+            }
             // Search
             if(action=='search'){
                 if(type=='address'){
@@ -1385,15 +1409,15 @@ function loadDatatablesData(coin, action, query, type){
  *   loadApiData('BTC', 'block', '862623', null);
  * 
  * - Load `address` actions for a given address
- *   loadDatatablesData('BTC', 'address', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev', 'address');
+ *   loadDApiData('BTC', 'address', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev', 'address');
  * 
  * - Load `address` actions for a given block
- *   loadDatatablesData('BTC', 'address', '862623', 'block');
+ *   loadDApiData('BTC', 'address', '862623', 'block');
  *********************************************************************/
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
     let endpoint = null;
-    if(['history','block','network','token','action','status','transaction'].includes(action) || (action=='address' && type==null)){
+    if(['history','block','network','token','action','status','transaction','market'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
     } else if(['address','batch'].includes(action)){
         endpoint = action + 'es';
@@ -2595,6 +2619,315 @@ function updatePageInfo(){
         $('meta[name="robots"]').attr('content',info.robots);
 }
 
+// Define the basic chart elements config common to all charts
+XC.CHART_CONFIG = {
+    chart: {
+        borderColor: '#DFD7CA',
+        borderWidth: 0,
+    },
+    exporting: {
+        enabled: true,
+        buttons: {
+            contextButton: {
+                align: 'right',
+                y: -5,
+                x: 2
+            }                
+        }
+    },
+    title: {
+        text: ''
+    },
+    // Remove padding from dropdown menus
+    navigation: {
+        menuStyle: {
+            padding: "0px 0px"
+        }
+    },
+    plotOptions: {
+        line: {
+            marker: {
+                enabled: false
+            }
+        },
+        series: {
+            marker: {
+                enabled: false
+            }
+        }
+    },
+    xAxis: {
+        events: {
+            // Detect when user changes zoom level and save preference
+            setExtremes: function(e){
+                if(typeof(e.rangeSelectorButton)!== 'undefined'){
+                    var btn = e.rangeSelectorButton,
+                        idx = null,
+                        c   = btn.count,
+                        t   = btn.type,
+                        ls  = localStorage;
+                    if(t=='hour') idx = 0;
+                    if(t=='day')  idx = 1;
+                    if(t=='week') idx = 2;
+                    if(t=='month' && c==1) idx = 3;
+                    if(t=='month' && c==3) idx = 4;
+                    if(t=='month' && c==6) idx = 5;
+                    if(t=='year'  && c==1) idx = 6;
+                    if(t=='ytd') idx = 7;
+                    if(t=='all') idx = 8;
+                    ls.setItem('marketChartZoom',idx);
+                }
+            }
+        }
+    },
+    rangeSelector: {
+        selected: 3,
+        y: -5,
+        // Bump 'Zoom' buttons over to alow room for buttons
+        buttonPosition: {
+            x: 15
+        },
+        inputPosition: {
+            x: 13
+        },
+        buttons: [{
+            type: 'hour',
+            count: 24,
+            text: '1d'
+        },{
+            type: 'day',
+            count: 2,
+            text: '2d'
+        }, {
+            type: 'week',
+            count: 1,
+            text: '1w'
+        }, {
+            type: 'month',
+            count: 1,
+            text: '1m'
+        }, {
+            type: 'month',
+            count: 3,
+            text: '3m'
+        }, {
+            type: 'month',
+            count: 6,
+            text: '6m'
+        }, {
+            type: 'year',
+            count: 1,
+            text: '1y'
+        }, {
+            type: 'ytd',
+            text: 'YTD'
+        }, {
+            type: 'all',
+            text: 'All'
+        }]
+    },
+    lang: {
+        noData: "No Trades Found"
+    },
+    noData: {
+        style: {
+            fontWeight: 'bold',
+            fontSize: '15px',
+            color: '#303030'
+        }
+    }
+};
+
+// Handle updating/displaying market information
+function loadMarket(market){
+    updateMarketBasics(market);
+    updateMarketOrders(market, 1, true);
+    updateMarketHistory(market, 1, true);
+}
+
+// Handle loading a market chart and uplading the title and icon
+function loadMarketChart(chart){
+    // Hide all tab panels and only show the active one
+    $('.tab-pane').removeClass('active show');
+    $('#tab-pane-charts').addClass('active show');
+    let el = $('#chart-dropdown-' + chart);
+    // Update datatable header to show correct icon and text for the data
+    var icon = el.find('i').attr('class'),
+        text = 'Charts - ' + el.text();
+    $('#datatable-header-icon').removeClass().addClass(icon);
+    $('#datatable-header-text').text(text);
+    // Handle loading the correct chart
+    $('#market-chart-container').load('/charts/' + chart + '.html');
+    if(['line','candlestick'].includes(chart))
+        ls.setItem('marketChart',chart);
+}
+
+// Request market data and update the header with this information
+function updateMarketBasics(market){
+    loadApiData(XC.coin, 'market', market, null, function(o){
+        if(o){
+            // Update page with token names
+            $('.tick1-name').text(o.tick1);
+            $('.tick2-name').text(o.tick2);
+            // Update Market information header
+            $('#tokenIconLink1').attr('href','/' + XC.coin + '/token/' + o.tick1);
+            $('#tokenIconLink2').attr('href','/' + XC.coin + '/token/' + o.tick2);
+            $('#tokenIcon1').attr('src', getTokenIcon(o.tick1));
+            $('#tokenIcon2').attr('src', getTokenIcon(o.tick2));
+            $('#tokenLink1').attr('href', '/' + XC.coin + '/token/' + o.tick1);
+            $('#tokenLink2').attr('href', '/' + XC.coin + '/token/' + o.tick2);
+            $('#market-swap-button').attr('href', '/' + XC.coin + '/market/' + o.tick2 + '/' + o.tick1);
+            // Update Price information header
+            $('#tick1-price').text(formatAmount(bcformat(o.tick1_price,8)));
+            $('#tick1-24h-high').text(formatAmount(bcformat(o.tick1_24hr_high,8)));
+            $('#tick1-24h-low').text(formatAmount(bcformat(o.tick1_24hr_low,8)));
+            $('#tick1-24h-price').text(formatAmount(bcformat(o.tick1_24hr_price,8)));
+            $('#tick1-24h-change').text(formatAmount(bcformat(o.tick1_24hr_change,8)));
+            $('#tick1-24h-volume').text(formatAmount(bcformat(o.tick1_24hr_volume,8)));
+        }
+    });
+}
+
+// Request market orderbook data and populating the buy/sell order tabs
+function updateMarketOrders(market, page, full, count=0 ){
+    loadApiData(XC.coin, 'market', market, 'orderbook?page=' + page, function(o){
+        if(o){
+            // Store the orderbook data in a global variable
+            XC.CHART_DATA.orderbook = o;
+            var asks_total1 = 0,
+                asks_total2 = 0,
+                bids_total1 = 0,
+                bids_total2 = 0;
+            // Calculate amount and sums for asks
+            $.each(o.asks, function(idx, data){
+                data[2] = bcmul(data[0],data[1]);
+                data[3] = bcadd(asks_total1, data[2]);
+                data[4] = bcadd(asks_total2, data[1]);
+                asks_total1  = data[3];
+                asks_total2  = data[4];
+            });
+            // Calculate amount and sums for bids
+            $.each(o.bids, function(idx, data){
+                data[2] = bcmul(data[0],data[1]);
+                data[3] = bcadd(bids_total1, data[2]);
+                data[4] = bcadd(bids_total2, data[1]);
+                bids_total1  = data[3];
+                bids_total2  = data[4];
+            });
+            // Define config for orderbook datatables
+            let config = {
+                dom:            't',
+                sortable:       false,
+                searching:      false,
+                ordering:       false,
+                scrollCollapse: false,
+                paging:         false,
+                createdRow: function( row, data, idx ){
+                    $('td', row).eq(0).text(formatAmount(bcformat(data[0],8)));
+                    $('td', row).eq(1).text(formatAmount(bcformat(data[1],8)));
+                    $('td', row).eq(2).text(formatAmount(bcformat(data[2],8)));
+                    $('td', row).eq(3).text(formatAmount(bcformat(data[3],8)));
+                    $('td', row).eq(4).text(formatAmount(bcformat(data[4],8)));
+                }
+            };
+            // Initialize the sell orders table
+            $('#datatable-sells').DataTable(Object.assign({}, config, {
+                data: o.asks,
+                language: {
+                    emptyTable: "No sell orders found"
+                }
+            }));
+            // Initialize the buy orders table
+            $('#datatable-buys').DataTable(Object.assign({}, config, {
+                data: o.bids,
+                language: {
+                    emptyTable: "No buy orders found"
+                }
+            }));
+        }
+    });
+}
+
+// Request market history data and save to XC.CHART_DATA
+function updateMarketHistory(market, page=1, full=false, count=0){
+    // Reset any stored chart data
+    if(full && page==1)
+        XC.RAW_CHART_DATA = [];
+    // Load a page worth of market history data
+    loadApiData(XC.coin, 'market', market, 'history?page=' + page, function(o){
+        if(o.data){
+            // Extract just the raw data to display in the chart
+            o.data.forEach(function(data){
+                XC.RAW_CHART_DATA.push([data.timestamp, data.price, data.amount]);
+            });
+            count = bcadd(count, o.data.length);
+        }
+        // If a full update was requested, keep updating
+        if(full && count < o.total){
+            updateMarketHistory(market, page+1, true, count);
+            return;
+        }
+        // Break raw data up into useful arrays 
+        var data    = XC.RAW_CHART_DATA,
+            trades  = [], // Time / Price
+            ohlc    = [], // Time / Open / High / Low / Close
+            volume  = [], // Timestamp / Volume (trades)
+            volume2 = [], // Timestamp / Volume (ohlc)
+            tstamp  = 0,
+            open    = 0,
+            high    = 0,
+            low     = 0,
+            close   = 0,
+            vol     = 0;
+        // Sort the data by date oldest to newest
+        data.sort(function(a,b){
+            if(a[0] < b[0]) return -1;
+            if(a[0] > b[0]) return 1;
+            return 0;            
+        });
+        // Split data into price and volume arrays
+        // Multiply timestamp by 1000 to convert to milliseconds
+        $.each(data,function(idx, item){
+            trades.push([item[0] * 1000,item[1]]);  // Time / Price
+            volume.push([item[0] * 1000,item[2]]);  // Time / Volume
+        });
+        // Split data into ohlc and volume arrays
+        $.each(data,function(idx, item){
+            if(item[0]==tstamp){
+                close  = item[1];
+                if(item[1]>high) high = item[1];
+                if(item[1]<low)  low  = item[1];
+                vol = parseFloat(vol) + parseFloat(item[2]);
+            } else {
+                // Add data to the arrays
+                if(tstamp){
+                    var ms = tstamp * 1000; // Multiply timestamp by 1000 to convert to milliseconds
+                    ohlc.push([ms, open, high, low, close]);
+                    volume2.push([ms, vol]);
+                }
+                // Update stats
+                tstamp = item[0];
+                open   = close;
+                high   = item[1];
+                low    = item[1];
+                close  = item[1];
+                vol    = item[2];
+            }
+        });
+        // Save the processed chart data for easy reference
+        XC.CHART_DATA.trades = {
+            trades: trades,
+            volume: volume
+        }
+        XC.CHART_DATA.ohlc = {
+            ohlc: ohlc,
+            volume: volume2
+        };
+        // If we have an updateChart() function defined, run it to update the chart with the new data
+        if(typeof updateChart === 'function')
+            updateChart();
+    });
+}
 
 // Handle showing the various XChain parameters
 function showXChainParams(){

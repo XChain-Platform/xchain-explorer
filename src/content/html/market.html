@@ -1,0 +1,255 @@
+<!-- Market  -->
+<div class="container mt-3">
+    <div class="row">
+
+        <!-- Market Information -->
+        <div class="col-12 col-xl-6 pb-3 pe-xl-0">
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#market-info" aria-expanded="false" aria-controls="market-info" id="market-info-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-xchain asset-icon-sm"></i> Market Information
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="row table-responsive collapse show" id="market-info">
+                    <div class="col-md-12 col-lg-12">
+                        <div class="market-header border-top">
+                            <div class="market-icons float-start">
+                                <a href="#" id="tokenIconLink1"><img src="/icon/default.png" id="tokenIcon1" class="icon-64" border="0"></a>
+                                <a href="#" id="tokenIconLink2"><img src="/icon/default.png" id="tokenIcon2" class="icon-64" border="0"></a>
+                            </div>
+                            <div class="market-name nowrap"><span class="tick1-name"></span> EXCHANGE</div>
+                            <div class="market-pair">
+                                <a href="#" id="tokenLink1" class="tick1-name"></a> / <a href="#" id="tokenLink2" class="tick2-name"></a>
+                                <a href="#" id="market-swap-button" class="fa fa-lg fa-exchange ms-2 text-decoration-none" data-toggle="tooltip" data-placement="bottom" title="Reverse"></a>
+                            </div>
+                        </div>
+                        <div class="market-description">
+                            Market Price, Depth, Order Books, Charts, and Trade History
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Price Information -->
+        <div class="col-12 col-xl-6 pb-3" >
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#market-stats" aria-expanded="false" aria-controls="market-stats" id="market-stats-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-xchain asset-icon-sm"></i> Price Information
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="row table-responsive collapse show" id="market-stats">
+                    <div class="col-12 col-md-6 pe-md-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-market-stats">
+                        <tbody>
+                        <tr>
+                            <th>Last Price</th>
+                            <td id="tick1-price">0.00000000</td>
+                        </tr>
+                        <tr>
+                            <th>24h High</th>
+                            <td id="tick1-24h-high">0.00000000</td>
+                        </tr>
+                        <tr>
+                            <th>24h Low</th>
+                            <td id="tick1-24h-low">0.00000000</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                    <div class="col-12 col-md-6 ps-md-0">
+                        <table class="table table-sm table-striped table-bordered mb-0 table-market-stats2">
+                        <tbody>
+                        <tr>
+                            <th>24h Price</th>
+                            <td id="tick1-24h-price">0.00000000</td>
+                        </tr>
+                        <tr>
+                            <th>24h Change</th>
+                            <td id="tick1-24h-change">0.00000000</td>
+                        </tr>
+                        <tr>
+                            <th>24h Volume</th>
+                            <td id="tick1-24h-volume">0.00000000</td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions -->
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12">
+
+            <!-- Tab Content -->
+            <div class="tab-content border mb-3 rounded-corners" id="data-panels">
+
+                <!-- Current data display and action selector -->
+                <div class="container">
+                    <div class="row border-bottom">
+                        <div class="col-6 text-start pt-1 pb-1 ps-1 align-top fw-bold">
+                            <i id="datatable-header-icon"></i>
+                            <span id="datatable-header-text"></span>
+                        </div>
+                        <div class="col-6 text-end pt-0 pb-1 pe-1 text-end">
+                            <!-- Chart Types Dropdown -->
+                            <div class="dropdown btn-group" id="chart-list">
+                                <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fa fa-line-chart"></i> Charts
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><h6 class="dropdown-header">Chart Types</h6></li>
+                                    <li><a class="dropdown-item" id="chart-dropdown-line"><i class="fa fa-chart-line"></i> Simple Line</a></li>
+                                    <li><a class="dropdown-item" id="chart-dropdown-candlestick"> <i class="fa fa-chart-candlestick"></i> Candlestick</a></li>
+                                    <li><a class="dropdown-item" id="chart-dropdown-market-depth"><i class="fa fa-area-chart"></i> Market Depth</a></li>
+                                </ul>
+                            </div>
+                            <!-- More Info Dropdown -->
+                            <div class="dropdown btn-group">
+                                <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fa fa-bars"></i> More Info
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" id="tab-dropdown-charts"        ><i class="fa fa-bar-chart" ></i> Charts</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-buy"           ><i class="fa fa-arrow-up"  ></i> Buy Orders</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sell"          ><i class="fa fa-arrow-down"></i> Sell Orders</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-market-history"><i class="fa fa-history"   ></i> History</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-charts" role="tabpanel" aria-labelledby="tab-dropdown-charts" tabindex="0">
+                    <div id="market-chart-container">
+                        <!-- Market Chart -->
+                    </div>
+                </div>
+
+                <!-- Buy Orders -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-buy" role="tabpanel" aria-labelledby="tab-dropdown-buy" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed mb-0" width="100%" id="datatable-buys">
+                    <thead>
+                        <tr class="info">
+                            <th>Price (<span class="tick2-name"></span>)</th>
+                            <th>Amount (<span class="tick1-name"></span>)</th>
+                            <th>Total (<span class="tick2-name"></span>)</th>
+                            <th>Sum (<span class="tick2-name"></span>)</th>
+                            <th>Sum (<span class="tick1-name"></span>)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="5" class="loading-data">Loading buy order data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Sell Orders -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-sell" role="tabpanel" aria-labelledby="tab-dropdown-sell" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed mb-0" width="100%" id="datatable-sells">
+                    <thead>
+                        <tr class="info">
+                            <th>Price (<span class="tick2-name"></span>)</th>
+                            <th>Amount (<span class="tick1-name"></span>)</th>
+                            <th>Total (<span class="tick2-name"></span>)</th>
+                            <th>Sum (<span class="tick1-name"></span>)</th>
+                            <th>Sum (<span class="tick2-name"></span>)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="5" class="loading-data">Loading sell order data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Trade History -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-market-history" role="tabpanel" aria-labelledby="tab-dropdown-market-history" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-market-history">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th>Type</th>
+                            <th>Price (<span class="tick2-name"></span>)</th>
+                            <th>Amount (<span class="tick1-name"></span>)</th>
+                            <th>Total (<span class="tick2-name"></span>)</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" class="loading-data">Loading trade history data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function(){
+
+    // Build out a list of data panels for this page
+    XC.panels = [
+        'charts',
+        'buy',
+        'sell',
+        'market-history'
+    ];
+
+    // Build out a list of charts for this page
+    XC.charts = [
+        'line',
+        'candlestick',
+        'market-depth'
+    ];
+
+    // Strip any HTML content from the pathname and split it up into its various parts
+    let path   = String(stripHtml(window.location.pathname)).split('/'),
+        market = path[3] + ' / ' + path[4];
+
+    // Store the tickers in a global object
+    XC.tick1 = path[3];
+    XC.tick2 = path[4];
+
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = market + ' Market Information';
+    XC.pageInfo.description = 'Learn about the ' + market + ' exchange pair on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays XChain platform information for the ' + market + ' market including timeline, market depth, buy orders, sell orders, trade history, and more.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/market/' + XC.query;
+    updatePageInfo();
+
+    // Initialize some placeholders
+    XC.RAW_CHART_DATA  = [];
+    XC.CHART_DATA      = [];
+
+    // Load the market data
+    loadMarket(XC.query);
+
+    // Load the correct market chart
+    var chart = ls.getItem('marketChart') || 'line';
+    loadMarketChart(chart);
+
+    // Setup listeners to load data panel when an action button is clicked
+    setupActionListeners();
+
+});
+</script>
+

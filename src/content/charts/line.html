@@ -1,0 +1,121 @@
+<!-- Line Chart -->
+<div id="market-chart-line"></div>
+
+<script type="text/javascript">
+
+// Handle updating line chart
+function updateChart(){
+
+    // Get the trade data from XC.CHART_DATA
+    var data   = XC.CHART_DATA.trades;
+
+    if(data){
+        // Create chart config by applying any customizations to the default config
+        var cfg  = $.extend( true, {}, XC.CHART_CONFIG, {
+            yAxis: [{
+                labels: {
+                    align: 'right',
+                    x: -3
+                },
+                title: {
+                    text: 'Price'
+                },
+                height: '60%',
+                lineWidth: 2,
+                min: 0
+            }, {
+                labels: {
+                    align: 'right',
+                    x: -3
+                },
+                title: {
+                    text: 'Volume'
+                },
+                top: '65%',
+                height: '35%',
+                offset: 0,
+                lineWidth: 2,
+                min: 0
+            }],
+            series: [{
+                // Price
+                type: 'line',
+                data: data.trades,
+                tooltip: {
+                    valueDecimals: 8
+                },
+            }, {
+                // Volume
+                type: 'column',
+                data: data.volume,
+                yAxis: 1,
+            }],
+            tooltip: {
+                split: false,
+                shared: true,
+                useHTML: true,
+                formatter: function(){
+                    var tstamp = this.x;
+                    // If we have no volume, return false (hovering over period with no volume)
+                    if(!this.points[1])
+                        return false;
+                    // Loop through the series data and find any trades
+                    // We do this so we can display info on multiple trade prices/volume
+                    var prices  = this.points[0].series.data,
+                        volumes = this.points[1].series.data,
+                        info    = [],
+                        txt     = '<b>' + moment(tstamp).format('MMMM Mo YYYY HH:mm') + '</b><br>';
+                    txt += '<table class="highcharts-tooltip-table">';
+                    if(prices.length){
+                        let totals = [];
+                        // Consolidate trades and group by price
+                        $.each(prices, function(idx, item){
+                            if(item && item.x && item.x==tstamp){
+                                let price = item.y;
+                                if(isNull(totals[price]))
+                                    totals[price] = [0,0];
+                                let [vol1, vol2] = totals[price];
+                                vol1 = bcadd(vol1,volumes[idx].y);
+                                vol2 = bcadd(vol2,bcmul(price, volumes[idx].y));
+                                totals[price] = [vol1, vol2];
+                            }
+                        });
+                        for(let price in totals){
+                            let [vol1, vol2] = totals[price];
+                            info.push([price,vol1,vol2]);
+                        }
+                        // Sort the trades by price in descending order
+                        info.sort(function(a,b){
+                            if(a[0] < b[0]) return 1;
+                            if(a[0] > b[0]) return -1;
+                            return 0;            
+                        });
+                        $.each(info, function(idx, data){
+                            txt += '<tr class="first"><td>Price</td><td class="separator">:</td><td class="text-right">' + formatAmount(bcformat(data[0],8))+ '</td><td>' + XC.tick2 + '</td></tr>';
+                            txt += '<tr><td>Volume</td><td class="separator">:</td><td class="text-right">' + formatAmount(bcformat(data[1],8)) + '</td><td>' + XC.tick1 + '</td></tr>';
+                            txt += '<tr><td colspan="2"></td><td class="text-right">' + formatAmount(bcformat(data[2],8)) + '</td><td>' + XC.tick2 + '</td></tr>';
+                        });
+                    } else {
+                        txt += '<tr class="first"><td>Price</td><td class="separator">:</td><td class="text-right">' + formatAmount(bcformat(this.points[0].point.y,8)) + '</td><td>' + XC.tick2 + '</td></tr>';
+                        txt += '<tr><td>Volume</td><td class="separator">:</td><td class="text-right">' + formatAmount(bcformat(this.points[1].point.y,8))+ '</td><td>' + XC.tick1 + '</td></tr>';
+                    }
+                    txt += '</table>';
+                    return txt;
+                },
+            },
+        });
+        // Restore last known zoom
+        var sel = localStorage.getItem('marketChartZoom');
+        if(sel)
+            cfg.rangeSelector.selected = sel;
+        // Initialize the chart
+        Highcharts.stockChart('market-chart-line', cfg);
+    }
+}
+
+// Handle updating the chart once the page has loaded
+$(document).ready(function(){
+    updateChart();
+});
+
+</script>

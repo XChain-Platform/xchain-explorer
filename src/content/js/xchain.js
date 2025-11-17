@@ -584,10 +584,12 @@ function setupActionListeners(){
         });
     }
     // Handle setting up listeners on chart dropdowns 
-    for(let chart of XC.charts){
-        $('#chart-dropdown-' + chart).click(function(){
-            loadMarketChart(chart);
-        });
+    if(!isNull(XC.charts)){
+        for(let chart of XC.charts){
+            $('#chart-dropdown-' + chart).click(function(){
+                loadMarketChart(chart);
+            });
+        }
     }
 }
 

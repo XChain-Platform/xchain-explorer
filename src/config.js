@@ -99,6 +99,14 @@ module.exports = {
         // Define list of COIN networks available in this explorer instance
         config['COIN_AVAILABLE'] = {};
 
+        /************************************************************** 
+         * Indexer Configs
+         * 
+         * Set any configs from the indexer that we need in the explorer
+         * TODO: See if we can clean this up by passing indexer config to explorer
+         *************************************************************/
+        config['DISPENSER_LIST_DELAY'] = 3600;
+
         // Pass forward explorer API information
         config['API'] = {
             host: API_HOST,

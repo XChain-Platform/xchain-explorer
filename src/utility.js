@@ -110,6 +110,11 @@ class Utility {
         return str;
     }
 
+    // Handle getting the current time in seconds
+    getCurrentTime(){
+        return this.bcdiv(Date.now(), 1000, 0);
+    }
+
     /******************************************************************
      * File Functions 
      ******************************************************************/

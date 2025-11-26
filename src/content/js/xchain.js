@@ -177,8 +177,8 @@ function initMainMenu(){
     if(XC.default==false){
 
         // Update Network icon to current network
-        let icon = 'fa-xchain-' + XC.name + '-' + XC.network;
-        $('#network-icon').removeClass('fa-database').addClass(icon.toLowerCase());
+        let icon = getNetworkIcon();
+        $('#network-icon').removeClass('fa-database').addClass(icon);
 
         // Update header logo to link to main network landing page
         if(XC.status && !isNull(XC.status.available[XC.coin]))
@@ -363,13 +363,33 @@ function formatLink(url=null, text=null, icon=false, btn=false){
     return html;
 }
 
+// Return a nicely formatted amount with token links
+function formatLinkAmount(url=null, text=null, icon=false, amount=false){
+    let html = '';
+    if(!isNull(icon))
+        html += formatLink(url, null, icon);
+    if(!isNull(amount))
+        html += formatAmount(amount);
+    if(!isNull(text))
+        html += ' ' + formatLink(url, text);
+    return html;
+}
+
+// Handle getting the network icon using the coin name and network
+function getNetworkIcon(name=null, network=null){
+    // Set defaults for name/network
+    if(isNull(name))    name = XC.name;
+    if(isNull(network)) network = XC.network;
+    let icon = String('fa-xchain-' + name + '-' + network).toLowerCase();
+    return icon;
+}
+
 // Return nice display string for timestamps
 function formatLivestamp(timestamp=null){
     var html = '';
     html += '<span data-livestamp='  + timestamp + ' class="nowrap"></span>';
     return html;
 }
-
 
 // Build out nice links to view transactions in other explorers
 function formatTransactionLink(tx){
@@ -730,7 +750,18 @@ function getActionDetails(action, info){
     }
     if(action=='CALLBACK'){
         html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' for ' ;
-        html += info.callback_amount  + formatLink('/' + XC.coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick);
+        html += formatLinkAmount('/' + XC.coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick, info.callback_amount);
+    }
+    if(['DISPENSER', 'DISPENSE', 'DISPENSER_CLOSE', 'DISPENSER_CANCEL', 'DISPENSER_EXPIRE', 'DISPENSER_EDIT',
+        'SWAP', 'SWAP_MATCH', 'SWAP_CANCEL', 'SWAP_EXPIRE', 'SWAP_EDIT',
+        'ORDER', 'ORDER_MATCH', 'ORDER_CANCEL', 'ORDER_EXPIRE', 'ORDER_EDIT'].includes(action)){
+        html  = formatLinkAmount('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick, info.give_amount) + ' for ';
+        if(isNull(info.get_tick)){
+            let cls = getNetworkIcon();
+            html += ' <i class="fa ' + cls + '"></i> ' + formatAmount(info.get_amount) + ' ' + coin ;
+        } else {
+            html  += formatLinkAmount('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick, info.get_amount);
+        }
     }
     if(action=='FILE')
         html = info.type + ' - ' + info.name + ' - ' + info.title;
@@ -755,30 +786,10 @@ function getActionDetails(action, info){
         }
     }
     if(action=='MINT')
-        html = info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
-    if(['ORDER','SWAP'].includes(action)){
-        html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
-        html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
-    }
-    if(['SWAP_MATCH','ORDER_MATCH'].includes(action)){
-        html += info.give_amount + formatLink('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick) + ' for ' ;
-        html += info.get_amount  + formatLink('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick);
-    }
-    if(action=='ORDER_CANCEL')
-        html += 'Cancel order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
-    if(action=='ORDER_EDIT')
-        html += 'Edit order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
-    if(action=='ORDER_EXPIRE')
-        html += 'Expired order ' + formatLink('/' + coin + '/action/' + info.order_action_index, formatAmount(info.order_action_index));
-    if(action=='SWAP_CANCEL')
-        html += 'Cancel swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
-    if(action=='SWAP_EDIT')
-        html += 'Edit swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
-    if(action=='SWAP_EXPIRE')
-        html += 'Expired swap ' + formatLink('/' + coin + '/action/' + info.swap_action_index, formatAmount(info.swap_action_index));
+        html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
     if(action=='SEND'){
-        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
-        html +=formatLink('/' + coin + '/address/' + info.destination, info.destination);
+        html += formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount) + ' to ';
+        html += formatLink('/' + coin + '/address/' + info.destination, info.destination);
     }
     if(action=='SLEEP'){
         if(info.type==1)
@@ -949,9 +960,9 @@ function loadDatatablesData(coin, action, query, type){
                     let table = String(el.attr('id')).replace('datatable-','');
                     if(table==action){
                         let hide = true;
-                        if(type=='address' && ['balance','token'].includes(table))
+                        if(type=='address' && ['balance','token', 'dispense'].includes(table))
                             hide = false;
-                        if(type=='token' && ['holder'].includes(table))
+                        if(type=='token' && ['holder','dispense','dispenser'].includes(table))
                             hide = false;
                         if(table=='history')
                             hide = false;
@@ -1143,11 +1154,38 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Dispenser
             if(action=='dispenser'){
-                // TODO
+                give_coin   = data[4];
+                give_token  = data[5];
+                give_amount = data[6];
+                get_coin   = data[7];
+                get_token  = data[8];
+                get_amount = data[9];
+                $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+                if(isNull(get_token)){
+                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + get_amount + ' ' + get_coin ;
+                } else {
+                    html = formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount)
+                }
+                $('td', row).eq(5).html(html);
+                $('td', row).eq(6).html(formatLink('/' + coin + '/dispenser/' + action_index, 'view', null, true));
             }
             // Dispense
             if(action=='dispense'){
-                // TODO
+                give_coin   = data[4];
+                give_token  = data[5];
+                give_amount = data[6];
+                get_coin   = data[7];
+                get_token  = data[8];
+                get_amount = data[9];
+                $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+                if(isNull(get_token)){
+                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + get_amount + ' ' + get_coin ;
+                } else {
+                    html = formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount)
+                }
+                $('td', row).eq(5).html(html);
+                $('td', row).eq(6).html(action_link);
+
             } 
             // Dividend
             if(action=='dividend'){
@@ -1503,32 +1541,38 @@ function showActionDetails(){
     // Display the specific actions for this tranaction
     // TODO: Cleanup this code once all actions are working (reduce to just call on show{ACTION}Details(o))
     var found = false;
-    if(o.action=='ADDRESS'){      found = true;  showAddressDetails(o);    }
-    if(o.action=='AIRDROP'){      found = true;  showAirdropDetails(o);    }
-    if(o.action=='BATCH'){        found = true;  showBatchDetails(o);      }
-    if(o.action=='BROADCAST'){    found = true;  showBroadcastDetails(o);  }
-    if(o.action=='CALLBACK'){     found = true;  showCallbackDetails(o);   }
-    if(o.action=='DESTROY'){      found = true;  showDestroyDetails(o);    }
-    // if(o.action=='DISPENSER'){    found = true;  showDispenserDetails(o);  }
-    // if(o.action=='DISPENSE'){     found = true;  showDispenseDetails(o);   }
-    // if(o.action=='DIVIDEND'){     found = true;  showDividendDetails(o);   }
-    if(o.action=='FILE'){         found = true;  showFileDetails(o);       }
-    if(o.action=='ISSUE'){        found = true;  showIssueDetails(o);      }
-    if(o.action=='LINK'){         found = true;  showLinkDetails(o);       }
-    if(o.action=='LIST'){         found = true;  showListDetails(o);       }
-    if(o.action=='MESSAGE'){      found = true;  showMessageDetails(o);    }
-    if(o.action=='MINT'){         found = true;  showMintDetails(o);       }
-    if(o.action=='ORDER'){        found = true;  showOrderDetails(o);      }
-    if(o.action=='ORDER_CANCEL'){ found = true;  showOrderCancelDetails(o); }
-    if(o.action=='ORDER_EDIT'){   found = true;  showOrderEditDetails(o);   }
-    if(o.action=='ORDER_MATCH'){  found = true;  showOrderMatchDetails(o); }
-    if(o.action=='SEND'){         found = true;  showSendDetails(o);       }
-    if(o.action=='SLEEP'){        found = true;  showSleepDetails(o);      }
-    if(o.action=='SWAP'){         found = true;  showSwapDetails(o);       }
-    if(o.action=='SWAP_CANCEL'){  found = true;  showSwapCancelDetails(o); }
-    if(o.action=='SWAP_EDIT'){    found = true;  showSwapEditDetails(o);   }
-    if(o.action=='SWAP_MATCH'){   found = true;  showSwapMatchDetails(o);  }
-    if(o.action=='SWEEP'){        found = true;  showSweepDetails(o);      }
+    if(o.action=='ADDRESS'){          found = true;  showAddressDetails(o);         }
+    if(o.action=='AIRDROP'){          found = true;  showAirdropDetails(o);         }
+    if(o.action=='BATCH'){            found = true;  showBatchDetails(o);           }
+    if(o.action=='BROADCAST'){        found = true;  showBroadcastDetails(o);       }
+    if(o.action=='CALLBACK'){         found = true;  showCallbackDetails(o);        }
+    if(o.action=='DESTROY'){          found = true;  showDestroyDetails(o);         }
+    if(o.action=='DISPENSER'){        found = true;  showDispenserDetails(o);       }
+    if(o.action=='DISPENSER_CANCEL'){ found = true;  showDispenserCancelDetails(o); }
+    if(o.action=='DISPENSER_CLOSE'){  found = true;  showDispenserCloseDetails(o);  }
+    if(o.action=='DISPENSER_EDIT'){   found = true;  showDispenserEditDetails(o);   }
+    if(o.action=='DISPENSER_EXPIRE'){ found = true;  showDispenserExpireDetails(o); }
+    if(o.action=='DISPENSE'){         found = true;  showDispenseDetails(o);        }
+    // if(o.action=='DIVIDEND'){         found = true;  showDividendDetails(o);        }
+    if(o.action=='FILE'){             found = true;  showFileDetails(o);            }
+    if(o.action=='ISSUE'){            found = true;  showIssueDetails(o);           }
+    if(o.action=='LINK'){             found = true;  showLinkDetails(o);            }
+    if(o.action=='LIST'){             found = true;  showListDetails(o);            }
+    if(o.action=='MESSAGE'){          found = true;  showMessageDetails(o);         }
+    if(o.action=='MINT'){             found = true;  showMintDetails(o);            }
+    if(o.action=='ORDER'){            found = true;  showOrderDetails(o);           }
+    if(o.action=='ORDER_CANCEL'){     found = true;  showOrderCancelDetails(o);     }
+    if(o.action=='ORDER_EDIT'){       found = true;  showOrderEditDetails(o);       }
+    if(o.action=='ORDER_EXPIRE'){     found = true;  showOrderExpireDetails(o);     }
+    if(o.action=='ORDER_MATCH'){      found = true;  showOrderMatchDetails(o);      }
+    if(o.action=='SEND'){             found = true;  showSendDetails(o);            }
+    if(o.action=='SLEEP'){            found = true;  showSleepDetails(o);           }
+    if(o.action=='SWAP'){             found = true;  showSwapDetails(o);            }
+    if(o.action=='SWAP_CANCEL'){      found = true;  showSwapCancelDetails(o);      }
+    if(o.action=='SWAP_EDIT'){        found = true;  showSwapEditDetails(o);        }
+    if(o.action=='SWAP_EXPIRE'){      found = true;  showSwapExpireDetails(o);      }
+    if(o.action=='SWAP_MATCH'){       found = true;  showSwapMatchDetails(o);       }
+    if(o.action=='SWEEP'){            found = true;  showSweepDetails(o);           }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -1587,6 +1631,70 @@ function showDestroyDetails(data){
     $('#info-destroy .destroy-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-destroy .destroy-amount').html(formatAmount(data.amount));
     $('#info-destroy .destroy-memo').text(data.memo);
+}
+
+// Display DISPENSER action information
+function showDispenserDetails(data){
+    $('#info-dispenser .dispenser-give-coin').text(data.give_coin);
+    $('#info-dispenser .dispenser-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
+    $('#info-dispenser .dispenser-give-amount').html(formatAmount(data.give_amount));
+    $('#info-dispenser .dispenser-give-escrow').html(formatAmount(data.give_escrow));
+    $('#info-dispenser .dispenser-get-coin').text(data.get_coin);
+    $('#info-dispenser .dispenser-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
+    $('#info-dispenser .dispenser-get-amount').html(formatAmount(data.get_amount));
+    $('#info-dispenser .dispenser-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    if(data.expiration)
+        $('#info-dispenser .dispenser-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-dispenser .dispenser-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-dispenser .dispenser-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-dispenser .dispenser-memo').text(data.memo);
+    // Dispenser Status Details
+    $('#info-dispenser .dispenser-state-get-remaining').html(formatAmount(data.state.get_remaining));
+    $('#info-dispenser .dispenser-state-give-remaining').html(formatAmount(data.state.give_remaining));
+    if(data.state.expiration)
+        $('#info-dispenser .dispenser-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-dispenser .dispenser-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
+    $('#info-dispenser .dispenser-state-block-list').html(formatLink('/' + XC.coin + '/action/' + data.state.block_list, formatAmount(data.state.block_list)));
+    $('#info-dispenser .dispenser-state').text(data.state.status);
+}
+
+// Display DISPENSER_CANCEL action information
+function showDispenserCancelDetails(data){
+    $('#info-dispenser-cancel .dispenser-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
+    $('#info-dispenser-cancel .dispenser-cancel-memo').text(data.memo);
+}
+
+// Display DISPENSER_CLOSE action information
+function showDispenserCloseDetails(data){
+    $('#info-dispenser-close .dispenser-close-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
+}
+
+// Display DISPENSER_EDIT action information
+function showDispenserEditDetails(data){
+    $('#info-dispenser-edit .dispenser-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
+    $('#info-dispenser-edit .dispenser-edit-give-escrow').html(formatAmount(data.give_escrow));
+    if(!isNull(data.expiration))
+        $('#info-dispenser-edit .dispenser-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-dispenser-edit .dispenser-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
+    $('#info-dispenser-edit .dispenser-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-dispenser-edit .dispenser-edit-memo').text(data.memo);
+}
+
+// Display DISPENSER_EXPIRE action information
+function showDispenserExpireDetails(data){
+    $('#info-dispenser-expire .dispenser-expire-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
+}
+
+// Display DISPENSE action information
+function showDispenseDetails(data){
+    $('#info-dispense .dispense-give-coin').text(data.give_coin);
+    $('#info-dispense .dispense-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
+    $('#info-dispense .dispense-give-amount').html(formatAmount(data.give_amount));
+    $('#info-dispense .dispense-get-coin').text(data.get_coin);
+    $('#info-dispense .dispense-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
+    $('#info-dispense .dispense-get-amount').html(formatAmount(data.get_amount));
+    $('#info-dispense .dispense-source').html(formatLink('/' + data.get_coin  + '/address/' + data.source, data.source));
+    $('#info-dispense .dispense-destination').html(formatLink('/' + data.get_coin  + '/address/' + data.destination, data.destination));
 }
 
 // Display FILE action information
@@ -1709,6 +1817,11 @@ function showOrderEditDetails(data){
     $('#info-order-edit .order-edit-memo').text(data.memo);
 }
 
+// Display ORDER_EXPIRE action information
+function showOrderExpireDetails(data){
+    $('#info-order-expire .order-expire-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+}
+
 // Display ORDER_MATCH action information
 function showOrderMatchDetails(data){
     $('#info-order-match .order-match-give-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
@@ -1774,6 +1887,12 @@ function showSwapEditDetails(data){
     $('#info-swap-edit .swap-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-swap-edit .swap-edit-memo').text(data.memo);
 }
+
+// Display SWAP_EXPIRE action information
+function showSwapExpireDetails(data){
+    $('#info-swap-expire .swap-expire-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+}
+
 
 // Display SWAP_MATCH action information
 function showSwapMatchDetails(data){
@@ -2584,7 +2703,7 @@ function populateSearchNetworks(type='supported'){
         let info    = String(data[coin]).replace(')','').split('(');
         let chain   = String(info[0]).trim();
         let network = String(info[1]).toLowerCase();
-        let iconCls = 'fa-xchain-' + chain.toLowerCase() + '-' + network.toLowerCase();
+        let iconCls = getNetworkIcon(chain, network);
         let item    = '<li><a class="dropdown-item" data-coin="' + coin + '" title="' + chain + '" ><span class="wrapicon-25"><i class="fa ' + iconCls + '" ></i></span>' + chain + '</a></li>';
         if(network=='mainnet') mainnet += item;
         if(network=='testnet') testnet += item;

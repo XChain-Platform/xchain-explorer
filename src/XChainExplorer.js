@@ -133,6 +133,7 @@ class XChainExplorer {
                 '/{COIN}/address/{QUERY}'     : 'address.html',
                 '/{COIN}/action/{QUERY}'      : 'action.html',
                 '/{COIN}/block/{QUERY}'       : 'block.html',
+                '/{COIN}/dispenser/{QUERY}'   : 'dispenser.html',
                 '/{COIN}/market/{QUERY}'      : 'market.html',
                 '/{COIN}/token/{QUERY}'       : 'token.html',
                 '/{COIN}/transaction/{QUERY}' : 'transaction.html'
@@ -141,51 +142,55 @@ class XChainExplorer {
 
             // List of API endpoints and the related method
             'api' : {
-                // API Action Endpoints                    Method                Types
-                '/{COIN}/api/addresses/{QUERY}/{TYPE}'     : ['getAddresses',    ['block', 'address']],
-                '/{COIN}/api/airdrops/{QUERY}/{TYPE}'      : ['getAirdrops',     ['block', 'address', 'token']],
-                '/{COIN}/api/batches/{QUERY}/{TYPE}'       : ['getBatches',      ['block', 'address']],
-                '/{COIN}/api/broadcasts/{QUERY}/{TYPE}'    : ['getBroadcasts',   ['block', 'address']],
-                '/{COIN}/api/callbacks/{QUERY}/{TYPE}'     : ['getCallbacks',    ['block', 'address', 'token']],
-                '/{COIN}/api/destroys/{QUERY}/{TYPE}'      : ['getDestroys',     ['block', 'address', 'token']],
-                '/{COIN}/api/dividends/{QUERY}/{TYPE}'     : ['getDividends',    ['block', 'address', 'token']],
-                '/{COIN}/api/dispensers/{QUERY}/{TYPE}'    : ['getDispensers',   ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/dispenses/{QUERY}/{TYPE}'     : ['getDispenses',    ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/fees/{QUERY}/{TYPE}'          : ['getFees',         ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/files/{QUERY}/{TYPE}'         : ['getFiles',        ['block', 'address', 'token']],
-                '/{COIN}/api/issues/{QUERY}/{TYPE}'        : ['getIssues',       ['block', 'address', 'token']],
-                '/{COIN}/api/links/{QUERY}/{TYPE}'         : ['getLinks',        ['block', 'address']],
-                '/{COIN}/api/lists/{QUERY}/{TYPE}'         : ['getLists',        ['block', 'address']],
-                '/{COIN}/api/messages/{QUERY}/{TYPE}'      : ['getMessages',     ['block', 'address', 'source', 'destination']],
-                '/{COIN}/api/mints/{QUERY}/{TYPE}'         : ['getMints',        ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/orders/{QUERY}/{TYPE}'        : ['getOrders',       ['block', 'address', 'token']],
-                '/{COIN}/api/order_expires/{QUERY}/{TYPE}' : ['getOrderExpires', ['block', 'address']],
-                '/{COIN}/api/order_edits/{QUERY}/{TYPE}'   : ['getOrderEdits',   ['block', 'address']],
-                '/{COIN}/api/order_cancels/{QUERY}/{TYPE}' : ['getOrderCancels', ['block', 'address']],
-                '/{COIN}/api/order_matches/{QUERY}/{TYPE}' : ['getOrderMatches', ['block']],
-                '/{COIN}/api/sends/{QUERY}/{TYPE}'         : ['getSends',        ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/sleeps/{QUERY}/{TYPE}'        : ['getSleeps',       ['block', 'address', 'token']],
-                '/{COIN}/api/swaps/{QUERY}/{TYPE}'         : ['getSwaps',        ['block', 'address', 'token']],
-                '/{COIN}/api/swap_edits/{QUERY}/{TYPE}'    : ['getSwapEdits',    ['block', 'address']],
-                '/{COIN}/api/swap_expires/{QUERY}/{TYPE}'  : ['getSwapExpires',  ['block', 'address']],
-                '/{COIN}/api/swap_cancels/{QUERY}/{TYPE}'  : ['getSwapCancels',  ['block', 'address']],
-                '/{COIN}/api/swap_matches/{QUERY}/{TYPE}'  : ['getSwapMatches',  ['block']],
-                '/{COIN}/api/sweeps/{QUERY}/{TYPE}'        : ['getSweeps',       ['block', 'address', 'source', 'destination']],
-                // Misc API Endpoints
-                '/{COIN}/api/status'                       : ['getStatus'],
-                '/{COIN}/api/action/{QUERY}'               : ['getAction',       'action_index'],
-                '/{COIN}/api/address/{QUERY}'              : ['getAddress',      'address'],
-                '/{COIN}/api/balances/{QUERY}'             : ['getBalances',     'address'],
-                '/{COIN}/api/block/{QUERY}'                : ['getBlock',        'block'],
-                '/{COIN}/api/credits/{QUERY}/{TYPE}'       : ['getCredits',      ['block', 'address']],
-                '/{COIN}/api/debits/{QUERY}/{TYPE}'        : ['getDebits',       ['block', 'address']], 
-                '/{COIN}/api/escrows/{QUERY}/{TYPE}'       : ['getEscrows',      ['block', 'address']],
-                '/{COIN}/api/history/{QUERY}/{TYPE}'       : ['getHistory',      ['block', 'address', 'token']],
-                '/{COIN}/api/holders/{QUERY}'              : ['getHolders',      'token'],
-                '/{COIN}/api/mempool/{QUERY}/{TYPE}'       : ['getMempool',      ['address', 'token']],
-                '/{COIN}/api/network'                      : ['getNetwork'],
-                '/{COIN}/api/token/{QUERY}'                : ['getToken',        'token'],
-                '/{COIN}/api/transaction/{QUERY}/{TYPE}'   : ['getTransaction',  ['tx_hash', 'tx_index']],
+                // API Action Endpoints                        Method                    Types
+                '/{COIN}/api/addresses/{QUERY}/{TYPE}'         : ['getAddresses',        ['block', 'address']],
+                '/{COIN}/api/airdrops/{QUERY}/{TYPE}'          : ['getAirdrops',         ['block', 'address', 'token']],
+                '/{COIN}/api/batches/{QUERY}/{TYPE}'           : ['getBatches',          ['block', 'address']],
+                '/{COIN}/api/broadcasts/{QUERY}/{TYPE}'        : ['getBroadcasts',       ['block', 'address']],
+                '/{COIN}/api/callbacks/{QUERY}/{TYPE}'         : ['getCallbacks',        ['block', 'address', 'token']],
+                '/{COIN}/api/destroys/{QUERY}/{TYPE}'          : ['getDestroys',         ['block', 'address', 'token']],
+                '/{COIN}/api/dividends/{QUERY}/{TYPE}'         : ['getDividends',        ['block', 'address', 'token']],
+                '/{COIN}/api/dispensers/{QUERY}/{TYPE}'        : ['getDispensers',       ['block', 'address', 'source', 'destination', 'token']],
+                '/{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}' : ['getDispenserCancels', ['block', 'address']],
+                '/{COIN}/api/dispenser_closes/{QUERY}/{TYPE}'  : ['getDispenserCloses',  ['block', 'address']],
+                '/{COIN}/api/dispenser_expires/{QUERY}/{TYPE}' : ['getDispenserExpires', ['block', 'address']],
+                '/{COIN}/api/dispenser_edits/{QUERY}/{TYPE}'   : ['getDispenserEdits',   ['block', 'address']],
+                '/{COIN}/api/dispenses/{QUERY}/{TYPE}'         : ['getDispenses',        ['block', 'address', 'source', 'destination', 'token']],
+                '/{COIN}/api/fees/{QUERY}/{TYPE}'              : ['getFees',             ['block', 'address', 'source', 'destination', 'token']],
+                '/{COIN}/api/files/{QUERY}/{TYPE}'             : ['getFiles',            ['block', 'address', 'token']],
+                '/{COIN}/api/issues/{QUERY}/{TYPE}'            : ['getIssues',           ['block', 'address', 'token']],
+                '/{COIN}/api/links/{QUERY}/{TYPE}'             : ['getLinks',            ['block', 'address']],
+                '/{COIN}/api/lists/{QUERY}/{TYPE}'             : ['getLists',            ['block', 'address']],
+                '/{COIN}/api/messages/{QUERY}/{TYPE}'          : ['getMessages',         ['block', 'address', 'source', 'destination']],
+                '/{COIN}/api/mints/{QUERY}/{TYPE}'             : ['getMints',            ['block', 'address', 'source', 'destination', 'token']],
+                '/{COIN}/api/orders/{QUERY}/{TYPE}'            : ['getOrders',           ['block', 'address', 'token']],
+                '/{COIN}/api/order_expires/{QUERY}/{TYPE}'     : ['getOrderExpires',     ['block', 'address']],
+                '/{COIN}/api/order_edits/{QUERY}/{TYPE}'       : ['getOrderEdits',       ['block', 'address']],
+                '/{COIN}/api/order_cancels/{QUERY}/{TYPE}'     : ['getOrderCancels',     ['block', 'address']],
+                '/{COIN}/api/order_matches/{QUERY}/{TYPE}'     : ['getOrderMatches',     ['block']],
+                '/{COIN}/api/sends/{QUERY}/{TYPE}'             : ['getSends',            ['block', 'address', 'source', 'destination', 'token']],
+                '/{COIN}/api/sleeps/{QUERY}/{TYPE}'            : ['getSleeps',           ['block', 'address', 'token']],
+                '/{COIN}/api/swaps/{QUERY}/{TYPE}'             : ['getSwaps',            ['block', 'address', 'token']],
+                '/{COIN}/api/swap_edits/{QUERY}/{TYPE}'        : ['getSwapEdits',        ['block', 'address']],
+                '/{COIN}/api/swap_expires/{QUERY}/{TYPE}'      : ['getSwapExpires',      ['block', 'address']],
+                '/{COIN}/api/swap_cancels/{QUERY}/{TYPE}'      : ['getSwapCancels',      ['block', 'address']],
+                '/{COIN}/api/swap_matches/{QUERY}/{TYPE}'      : ['getSwapMatches',      ['block']],
+                '/{COIN}/api/sweeps/{QUERY}/{TYPE}'            : ['getSweeps',           ['block', 'address', 'source', 'destination']],
+                // Misc API Endpoints                          Method                    Types
+                '/{COIN}/api/status'                           : ['getStatus'],
+                '/{COIN}/api/action/{QUERY}'                   : ['getAction',           'action_index'],
+                '/{COIN}/api/address/{QUERY}'                  : ['getAddress',          'address'],
+                '/{COIN}/api/balances/{QUERY}'                 : ['getBalances',         'address'],
+                '/{COIN}/api/block/{QUERY}'                    : ['getBlock',            'block'],
+                '/{COIN}/api/credits/{QUERY}/{TYPE}'           : ['getCredits',          ['block', 'address']],
+                '/{COIN}/api/debits/{QUERY}/{TYPE}'            : ['getDebits',           ['block', 'address']], 
+                '/{COIN}/api/escrows/{QUERY}/{TYPE}'           : ['getEscrows',          ['block', 'address']],
+                '/{COIN}/api/history/{QUERY}/{TYPE}'           : ['getHistory',          ['block', 'address', 'token']],
+                '/{COIN}/api/holders/{QUERY}'                  : ['getHolders',          'token'],
+                '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
+                '/{COIN}/api/network'                          : ['getNetwork'],   
+                '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
+                '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],
                 // Market Endpoints
                 '/{COIN}/api/markets'                                  : ['getMarkets'],
                 '/{COIN}/api/markets/{TICK1}'                          : ['getMarkets'],
@@ -687,7 +692,6 @@ class XChainExplorer {
                         percent = String(this.util.bcmul(this.util.bcdiv(info.amount,info.supply, 8), 100, 8));
                         value   = String(this.util.bcmul(info.amount, info.coin_price, 8));
                     }
-
                     // Build out the correct response array based on method type
                     if(method=='getAddresses')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
@@ -708,9 +712,9 @@ class XChainExplorer {
                     if(method=='getDestroys')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.callback_amount, info.memo, status, info.action_index];
                     if(method=='getDispensers')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispense_tick, info.dispense_amount, info.trigger_tick, info.trigger_amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index];
                     if(method=='getDispenses')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispense_tick, info.dispense_amount, info.trigger_tick, info.trigger_amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.destination, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index];
                     if(method=='getDividends')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.dividend_tick, info.amount, status, info.action_index];
                     if(method=='getFees')

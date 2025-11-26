@@ -649,36 +649,40 @@ class Database {
     /******************************************************************
      * XChain API ACTION Endpoints
      * 
-     * Endpoints                                  Method Name      Types
+     * Endpoints                                     Method Name         Types
      * -----------------------------------------------------------------
-     * /{COIN}/api/addresses/{QUERY}/{TYPE}       getAddresses     block, address
-     * /{COIN}/api/airdrops/{QUERY}/{TYPE}        getAirdrops      block, address, token
-     * /{COIN}/api/batches/{QUERY}/{TYPE}         getBatches       block, address
-     * /{COIN}/api/broadcasts/{QUERY}/{TYPE}      getBroadcasts    block, address
-     * /{COIN}/api/callbacks/{QUERY}/{TYPE}       getCallbacks     block, address, token
-     * /{COIN}/api/destroys/{QUERY}/{TYPE}        getDestroys      block, address, token
-     * /{COIN}/api/dispensers/{QUERY}/{TYPE}      getDispensers    block, address, token, source, destination
-     * /{COIN}/api/dispenses/{QUERY}/{TYPE}       getDispenses     block, address, token, source, destination
-     * /{COIN}/api/fees/{QUERY}/{TYPE}            getFees          block, address, token, source, destination
-     * /{COIN}/api/files/{QUERY}/{TYPE}           getFiles         block, address, token
-     * /{COIN}/api/issues/{QUERY}/{TYPE}          getIssues        block, address, token
-     * /{COIN}/api/links/{QUERY}/{TYPE}           getLinks         block, address
-     * /{COIN}/api/lists/{QUERY}/{TYPE}           getLists         block, address
-     * /{COIN}/api/messages/{QUERY}/{TYPE}        getMessages      block, address, token, source, destination
-     * /{COIN}/api/mints/{QUERY}/{TYPE}           getMints         block, address, token, source, destination
-     * /{COIN}/api/orders/{QUERY}/{TYPE}          getOrders        block, address, token
-     * /{COIN}/api/order_cancels/{QUERY}/{TYPE}   getOrderCancels  block, address
-     * /{COIN}/api/order_edits/{QUERY}/{TYPE}     getOrderEdits    block, address
-     * /{COIN}/api/order_expires/{QUERY}/{TYPE}   getOrderExpires  block, address
-     * /{COIN}/api/order_matches/{QUERY}/{TYPE}   getOrderMatches  block 
-     * /{COIN}/api/sends/{QUERY}/{TYPE}           getSends         block, address, token, source, destination
-     * /{COIN}/api/sleeps/{QUERY}/{TYPE}          getSleeps        block, address, token
-     * /{COIN}/api/swaps/{QUERY}/{TYPE}           getSwaps         block, address, token
-     * /{COIN}/api/swap_cancels/{QUERY}/{TYPE}    getSwapCancels   block, address
-     * /{COIN}/api/swap_edits/{QUERY}/{TYPE}      getSwapEdits     block, address
-     * /{COIN}/api/swap_expires/{QUERY}/{TYPE}    getSwapExpires   block, address
-     * /{COIN}/api/swap_matches/{QUERY}/{TYPE}    getSwapMatches   block 
-     * /{COIN}/api/sweeps/{QUERY}/{TYPE}          getSweeps        block, address
+     * /{COIN}/api/addresses/{QUERY}/{TYPE}          getAddresses        block, address
+     * /{COIN}/api/airdrops/{QUERY}/{TYPE}           getAirdrops         block, address, token
+     * /{COIN}/api/batches/{QUERY}/{TYPE}            getBatches          block, address
+     * /{COIN}/api/broadcasts/{QUERY}/{TYPE}         getBroadcasts       block, address
+     * /{COIN}/api/callbacks/{QUERY}/{TYPE}          getCallbacks        block, address, token
+     * /{COIN}/api/destroys/{QUERY}/{TYPE}           getDestroys         block, address, token
+     * /{COIN}/api/dispensers/{QUERY}/{TYPE}         getDispensers       block, address, token, source, destination
+     * /{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}  getDispenserCancels block, address
+     * /{COIN}/api/dispenser_closes/{QUERY}/{TYPE}   getDispenserCloses  block, address
+     * /{COIN}/api/dispenser_expires/{QUERY}/{TYPE}  getDispenserExpires block, address
+     * /{COIN}/api/dispenser_edits/{QUERY}/{TYPE}    getDispenserEdits   block, address
+     * /{COIN}/api/dispenses/{QUERY}/{TYPE}          getDispenses        block, address, token, source, destination
+     * /{COIN}/api/fees/{QUERY}/{TYPE}               getFees             block, address, token, source, destination
+     * /{COIN}/api/files/{QUERY}/{TYPE}              getFiles            block, address, token
+     * /{COIN}/api/issues/{QUERY}/{TYPE}             getIssues           block, address, token
+     * /{COIN}/api/links/{QUERY}/{TYPE}              getLinks            block, address
+     * /{COIN}/api/lists/{QUERY}/{TYPE}              getLists            block, address
+     * /{COIN}/api/messages/{QUERY}/{TYPE}           getMessages         block, address, token, source, destination
+     * /{COIN}/api/mints/{QUERY}/{TYPE}              getMints            block, address, token, source, destination
+     * /{COIN}/api/orders/{QUERY}/{TYPE}             getOrders           block, address, token
+     * /{COIN}/api/order_cancels/{QUERY}/{TYPE}      getOrderCancels     block, address
+     * /{COIN}/api/order_edits/{QUERY}/{TYPE}        getOrderEdits       block, address
+     * /{COIN}/api/order_expires/{QUERY}/{TYPE}      getOrderExpires     block, address
+     * /{COIN}/api/order_matches/{QUERY}/{TYPE}      getOrderMatches     block 
+     * /{COIN}/api/sends/{QUERY}/{TYPE}              getSends            block, address, token, source, destination
+     * /{COIN}/api/sleeps/{QUERY}/{TYPE}             getSleeps           block, address, token
+     * /{COIN}/api/swaps/{QUERY}/{TYPE}              getSwaps            block, address, token
+     * /{COIN}/api/swap_cancels/{QUERY}/{TYPE}       getSwapCancels      block, address
+     * /{COIN}/api/swap_edits/{QUERY}/{TYPE}         getSwapEdits        block, address
+     * /{COIN}/api/swap_expires/{QUERY}/{TYPE}       getSwapExpires      block, address
+     * /{COIN}/api/swap_matches/{QUERY}/{TYPE}       getSwapMatches      block 
+     * /{COIN}/api/sweeps/{QUERY}/{TYPE}             getSweeps           block, address
      ******************************************************************/
 
      /******************************************************************
@@ -1058,8 +1062,193 @@ class Database {
         return [query, args, count];
     }
 
+    // Get list of DISPENSER_CANCEL actions
+    async getDispenserCancels(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        dispenser_cancels m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a3.action,
+                        m.action_index,
+                        a1.action_format, 
+                        m.dispenser_action_index,
+                        a2.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m1.memo,
+                        s1.status
+                    FROM
+                        dispenser_cancels m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of DISPENSER_CLOSE actions
+    async getDispenserCloses(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        dispenser_closes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format, 
+                        m.dispenser_action_index,
+                        a2.address as dispenser_address,
+                        c1.coin as give_coin,
+                        t2.tick as give_tick,
+                        d1.give_amount,
+                        c2.coin as get_coin,
+                        t3.tick as get_tick,
+                        d1.get_amount,
+                        f1.code as fiat,
+                        d1.fiat_amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        dispenser_closes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=d1.give_tick_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=d1.get_tick_id)
+                        LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of DISPENSER_EDIT actions
+    async getDispenserEdits(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        dispenser_edits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a3.action,
+                        m.action_index,
+                        a1.action_format, 
+                        m.dispenser_action_index,
+                        a2.address as source,
+                        m.expiration,
+                        m.allow_list,
+                        m.block_list,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m1.memo,
+                        s1.status
+                    FROM
+                        dispenser_edits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of DISPENSER_EXPIRE actions
+    async getDispenserExpires(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        dispenser_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN orders             o1 ON (o1.action_index=m.dispenser_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format, 
+                        m.dispenser_action_index,
+                        a2.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        dispenser_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     // Get list of DISPENSE actions
-    // TODO: Circle back and update this SQL to pull all fields once dispenses are implemented in indexer
     async getDispenses(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -1070,11 +1259,12 @@ class Database {
                         count(*) as total
                     FROM
                         dispenses m
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
@@ -1088,7 +1278,7 @@ class Database {
                         m.action_index,
                         a1.action_format, 
                         a2.address as source,
-                        a3.address as address,
+                        a3.address as destination,
                         c1.coin as give_coin,
                         t3.tick as give_tick,
                         m.give_amount,
@@ -1102,11 +1292,12 @@ class Database {
                         s1.status
                     FROM
                         dispenses m
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
@@ -2863,8 +3054,8 @@ class Database {
                     FROM
                         escrows m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -3406,11 +3597,289 @@ class Database {
             }
             // DISPENSER action
             if(type=='DISPENSER'){
-                // TODO
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            d1.action_index,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            d1.give_amount,
+                            d1.give_escrow,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            d1.get_amount,
+                            a3.address as source,
+                            a4.address as get_address,
+                            f1.code as fiat_code,
+                            d1.fiat_amount,
+                            d1.expiration,
+                            d1.allow_list,
+                            d1.block_list,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m2.memo,
+                            s2.status,
+                            s3.status as current_status
+                        FROM
+                            dispensers d1
+                            INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=d1.memo_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=d1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=d1.get_tick_id)
+                            LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
+                            LEFT  JOIN dispenser_statuses s1 ON (s1.dispenser_action_index=d1.action_index)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=d1.status_id)
+                            LEFT  JOIN index_statuses     s3 ON (s3.id=s1.status_id)
+                        WHERE 
+                            s1.action_index = (
+                                SELECT
+                                    MAX(s4.action_index)
+                                FROM
+                                    dispenser_statuses s4
+                                WHERE
+                                    s4.dispenser_action_index=d1.action_index
+                            ) AND
+                            d1.action_index=?
+                        LIMIT 1`;
+                // Get a list of dispenser edits
+                query2 = `SELECT
+                            m.give_escrow,
+                            m.expiration,
+                            m.allow_list,
+                            m.block_list
+                        FROM
+                            dispenser_edits m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            m.dispenser_action_index=? AND
+                            s.status='valid'
+                        ORDER BY action_index ASC`;
+                // Get a list of dispenses
+                query3 = `SELECT
+                            m.give_amount
+                        FROM
+                            dispenses m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            dispenser_action_index=? AND
+                            s.status='valid'
+                        ORDER BY m.action_index ASC`;
+            }
+            // DISPENSER_CLOSE action
+            if(type=='DISPENSER_CLOSE'){
+                query = `SELECT
+                            a4.action,
+                            m.action_index,
+                            a1.action_format, 
+                            m.dispenser_action_index,
+                            a2.address as dispenser_address,
+                            c1.coin as give_coin,
+                            t2.tick as give_tick,
+                            d1.give_amount,
+                            c2.coin as get_coin,
+                            t3.tick as get_tick,
+                            d1.get_amount,
+                            f1.code as fiat,
+                            d1.fiat_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            s1.status
+                        FROM
+                            dispenser_closes m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                            INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
+                            LEFT  JOIN index_tickers      t2 ON (t2.id=d1.give_tick_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=d1.get_tick_id)
+                            LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // DISPENSER_CANCEL action
+            if(type=='DISPENSER_CANCEL'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.dispenser_action_index,
+                            a3.address as source,
+                            a4.address as dispenser_address,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            d1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            d1.get_amount,
+                            f1.code as fiat,
+                            d1.fiat_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m2.memo,
+                            s1.status
+                        FROM
+                            dispenser_cancels m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=d1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=d1.get_tick_id)
+                            LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // DISPENSER_EDIT action
+            if(type=='DISPENSER_EDIT'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.dispenser_action_index,
+                            a3.address as source,
+                            a4.address as dispenser_address,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            d1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            d1.get_amount,
+                            m.give_escrow,
+                            m.expiration,
+                            m.allow_list,
+                            m.block_list,
+                            f1.code as fiat,
+                            d1.fiat_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m2.memo,
+                            s1.status
+                        FROM
+                            dispenser_edits m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=d1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=d1.get_tick_id)
+                            LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // DISPENSER_EXPIRE action
+            if(type=='DISPENSER_EXPIRE'){
+                query = `SELECT
+                            a4.action,
+                            m.action_index,
+                            a1.action_format, 
+                            m.dispenser_action_index,
+                            a2.address as dispenser_address,
+                            c1.coin as give_coin,
+                            t2.tick as give_tick,
+                            d1.give_amount,
+                            c2.coin as get_coin,
+                            t3.tick as get_tick,
+                            d1.get_amount,
+                            f1.code as fiat,
+                            d1.fiat_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            s1.status
+                        FROM
+                            dispenser_expires m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                            INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
+                            LEFT  JOIN index_tickers      t2 ON (t2.id=d1.give_tick_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=d1.get_tick_id)
+                            LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
             }
             // DISPENSE action
             if(type=='DISPENSE'){
-                // TODO
+                query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format, 
+                        a2.address as source,
+                        a3.address as destination,
+                        c1.coin as give_coin,
+                        t3.tick as give_tick,
+                        m.give_amount,
+                        c2.coin as get_coin,
+                        t4.tick as get_tick,
+                        m.get_amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        dispenses m
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE 
+                        m.action_index=?
+                    LIMIT 1`;
             }
             // FILE action
             if(type=='FILE'){
@@ -3696,8 +4165,20 @@ class Database {
                         WHERE 
                             o1.action_index=?
                         LIMIT 1`;
-                // Get a list of order matches
+                // Get a list of order edits
                 query2 = `SELECT
+                            m.expiration,
+                            m.allow_list,
+                            m.block_list
+                        FROM
+                            order_edits m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            m.order_action_index=? AND
+                            s.status='valid'
+                        ORDER BY action_index ASC`;
+                // Get a list of order matches
+                query3 = `SELECT
                             m.give_action_index,
                             m.get_action_index,
                             m.give_amount,
@@ -3709,96 +4190,118 @@ class Database {
                             (m.give_action_index=? OR m.get_action_index=?) AND
                             s.status='valid'
                         ORDER BY action_index ASC`;
-                // Get a list of order edits
-                query3 = `SELECT
-                            m.expiration,
-                            m.allow_list,
-                            m.block_list
-                        FROM
-                            order_edits m
-                            INNER JOIN index_statuses s ON (s.id=m.status_id)
-                        WHERE
-                            m.order_action_index=? AND
-                            s.status='valid'
-                        ORDER BY action_index ASC`;
             }
             // ORDER_CANCEL action
             if(type=='ORDER_CANCEL'){
                 query = `SELECT
-                        a2.action,
-                        a1.action_format,
-                        o1.action_index,
-                        o1.order_action_index,
-                        a3.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m2.memo,
-                        s1.status
-                    FROM
-                        order_cancels o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        LEFT  JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=o1.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE 
-                        o1.action_index=?
-                    LIMIT 1`;
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.order_action_index,
+                            a3.address as source,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            o1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            o1.get_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m2.memo,
+                            s1.status
+                        FROM
+                            order_cancels m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
             }
             // ORDER_EDIT action
             if(type=='ORDER_EDIT'){
                 query = `SELECT
-                        a2.action,
-                        a1.action_format,
-                        o1.action_index,
-                        o1.order_action_index,
-                        a3.address as source,
-                        o1.expiration,
-                        o1.allow_list,
-                        o1.block_list,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m2.memo,
-                        s1.status
-                    FROM
-                        order_edits o1
-                        INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        LEFT  JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=o1.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE 
-                        o1.action_index=?
-                    LIMIT 1`;
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.order_action_index,
+                            a3.address as source,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            o1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            o1.get_amount,
+                            m.expiration,
+                            m.allow_list,
+                            m.block_list,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m2.memo,
+                            s1.status
+                        FROM
+                            order_edits m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
             }
             // ORDER_EXPIRE action
             if(type=='ORDER_EXPIRE'){
                 query = `SELECT
-                        a2.action,
-                        s1.action_index,
-                        s1.order_action_index,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s2.status
-                    FROM
-                        order_expires s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                    WHERE 
-                        s1.action_index=?
-                    LIMIT 1`;
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.order_action_index,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            o1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            o1.get_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            s1.status
+                        FROM
+                            order_expires m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
             }
             // ORDER_MATCH action
             if(type=='ORDER_MATCH'){
@@ -3958,7 +4461,7 @@ class Database {
                             s1.action_index=?
                         LIMIT 1`;
                 // Get a list of swap edits
-                query3 = `SELECT
+                query2 = `SELECT
                             m.expiration,
                             m.allow_list,
                             m.block_list
@@ -3973,80 +4476,114 @@ class Database {
             // SWAP_CANCEL action
             if(type=='SWAP_CANCEL'){
                 query = `SELECT
-                        a2.action,
-                        a1.action_format,
-                        s1.action_index,
-                        s1.swap_action_index,
-                        a3.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m2.memo,
-                        s2.status
-                    FROM
-                        swap_cancels s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE 
-                        s1.action_index=?
-                    LIMIT 1`;
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.swap_action_index,
+                            a3.address as source,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            s1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            s1.get_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m2.memo,
+                            s2.status
+                        FROM
+                            swap_cancels m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            LEFT  JOIN swaps              s1 ON (s1.action_index=m.swap_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
             }
             // SWAP_EDIT action
             if(type=='SWAP_EDIT'){
                 query = `SELECT
-                        a2.action,
-                        a1.action_format,
-                        s1.action_index,
-                        s1.swap_action_index,
-                        a3.address as source,
-                        s1.expiration,
-                        s1.allow_list,
-                        s1.block_list,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m2.memo,
-                        s2.status
-                    FROM
-                        swap_edits s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                        LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE 
-                        s1.action_index=?
-                    LIMIT 1`;
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.swap_action_index,
+                            a3.address as source,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            s1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            s1.get_amount,
+                            m.expiration,
+                            m.allow_list,
+                            m.block_list,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m2.memo,
+                            s2.status
+                        FROM
+                            swap_edits m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            LEFT  JOIN swaps              s1 ON (s1.action_index=m.swap_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
             }
             // SWAP_EXPIRE action
             if(type=='SWAP_EXPIRE'){
                 query = `SELECT
-                        a2.action,
-                        s1.action_index,
-                        s1.swap_action_index,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s2.status
-                    FROM
-                        swap_expires s1
-                        INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                    WHERE 
-                        s1.action_index=?
-                    LIMIT 1`;
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.swap_action_index,
+                            c1.coin as give_coin,
+                            t3.tick as give_tick,
+                            s1.give_amount,
+                            c2.coin as get_coin,
+                            t4.tick as get_tick,
+                            s1.get_amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            s2.status
+                        FROM
+                            swap_expires m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            INNER JOIN swaps              s1 ON (s1.action_index=m.swap_action_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=m.status_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
+                            LEFT  JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
+                        WHERE 
+                            m.action_index=?
+                        LIMIT 1`;
             }
             // SWAP_MATCH action
             if(type=='SWAP_MATCH'){
@@ -4155,7 +4692,7 @@ class Database {
                     data = Object.assign({}, data, results[0]);
             }
             // Create an state object with current state info
-            if(['ORDER','SWAP'].includes(type)){
+            if(['ORDER','SWAP','DISPENSER'].includes(type)){
                 data['state'] = {
                     get_remaining:  data['get_amount'],
                     give_remaining: data['give_amount'],
@@ -4165,6 +4702,11 @@ class Database {
                     status:         data['current_status']
                 }
                 delete data['current_status'];
+                // Set the state a bit differently for dispensers
+                if(type=='DISPENSER'){
+                   data.state.give_remaining = data['give_escrow'];
+                   delete data.state.get_remaining;
+                }
             }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
@@ -4172,8 +4714,6 @@ class Database {
                 let args2 = [action_index];
                 if(type=='BATCH')
                     args2.push(data.tx_index);
-                if(type=='ORDER')
-                    args2.push(action_index);
                 results = await this.doQuery(config, query2, args2);
                 if(results && results.length){
                     // Loop through action_indexes and add to actions array
@@ -4200,6 +4740,44 @@ class Database {
                     // Add any SENDS to the send data
                     if(type=='SEND')
                         data.sends = results;
+                    if(['ORDER','SWAP','DISPENSER'].includes(type)){
+                        let now = this.util.getCurrentTime();
+                        for(let row of results){
+                            let active = true;
+                            if(type=='DISPENSER'){
+                                // Update state with any additional tokens escrowed in dispenser edits
+                                if(!this.util.isNull(row.give_escrow))
+                                    data.state.give_remaining = this.util.bcadd(data.state.give_remaining, row.give_escrow);    
+                                // Determine of the allow/block list edits are active using DISPENSER_LIST_DELAY
+                                active = (now > this.util.bcadd(row.block_time, this.config['DISPENSER_LIST_DELAY'])) ? true : false;
+                            } 
+                            // Handle setting the current expiration and allow/block list based on any edits
+                            if(!this.util.isNull(row.expiration))  data.state.expiration  = row.expiration;
+                            if(active){
+                                if(!this.util.isNull(row.allow_list))  data.state.allow_list  = row.allow_list;
+                                if(!this.util.isNull(row.block_list))  data.state.block_list  = row.block_list;
+                            }
+                        }
+                    }
+                }
+            }
+            // If we have a third query defined, run it and apply the data to the correct place in the data object
+            if(query3){
+                // Set correct arguments for the query
+                let args3 = [action_index];
+                if(type=='ORDER')
+                    args3.push(action_index);
+                results = await this.doQuery(config, query3, args3);
+                if(results && results.length){
+                    // Handle populating the list edits based off the list TYPE field
+                    if(type=='LIST'){
+                        let edits = [];
+                        for(let row of results){
+                            if(data.type==1) edits.push({ tick: row.tick, status: row.status });
+                            if(data.type==2) edits.push({ address: row.address, status: row.status });
+                        }
+                        data.edits = edits.sort();
+                    }
                     // Determine get/give remaining and order status
                     if(type=='ORDER'){
                         let give_remaining = data['give_amount'],
@@ -4214,30 +4792,10 @@ class Database {
                         data.state.give_remaining = String(give_remaining);
                         data.state.get_remaining  = String(get_remaining);
                     }
-                }
-            }
-            // If we have a third query defined, run it and apply the data to the correct place in the data object
-            if(query3){
-                // Set correct arguments for the query
-                let args3 = [action_index];
-                results = await this.doQuery(config, query3, args3);
-                if(results && results.length){
-                    // Handle populating the list edits based off the list TYPE field
-                    if(type=='LIST'){
-                        let edits = [];
-                        for(let row of results){
-                            if(data.type==1) edits.push({ tick: row.tick, status: row.status });
-                            if(data.type==2) edits.push({ address: row.address, status: row.status });
-                        }
-                        data.edits = edits.sort();
-                    }
-                    // Handle setting the current expiration and allow/block list based on any order edits
-                    if(['ORDER','SWAP'].includes(type)){
-                        for(let row of results){
-                            if(!this.util.isNull(row.expiration)) data.state.expiration = row.expiration;
-                            if(!this.util.isNull(row.allow_list)) data.state.allow_list = row.allow_list;
-                            if(!this.util.isNull(row.block_list)) data.state.block_list = row.block_list;
-                        }
+                    // Determine give_remaining by subtracting any amounts given out in dispenses
+                    if(type=='DISPENSER'){
+                        for(let row of results)
+                            data.state.give_remaining = this.util.bcsub(data.state.give_remaining, row.give_amount);
                     }
                 }
             }
@@ -4527,16 +5085,17 @@ class Database {
             'coin', 'tick',  'amount', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
             'action_format',                                                                                     // Action details
             'fee_preference', 'require_memo',                                                                    // Addresses
-            'message', 'value', 'broadcast_action_index', 'fee',                                                 // Broadcasts
+            'message', 'value', 'broadcast_action_index',                                                        // Broadcasts
             'callback_tick', 'callback_amount',                                                                  // Callbacks
             'dividend_tick',                                                                                     // Dividends
             'name', 'title',                                                                                     // Files
             'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                        // Links
             'list_action_index',                                                                                 // Lists
             'encryption_method', 'plaintext_message',                                                            // Messages
-            'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount',                       // Orders, Swaps, Dispensers
-            'order_action_index',                                                                                // Order_Cancels, Order_Edits, Order_Expires
-            'swap_action_index',                                                                                 // Swap_Cancels, Swap_Edits, Swap_Expires
+            'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',        // Orders, Swaps, Dispensers
+            'order_action_index',                                                                                // Order (cancels, edits, expires)
+            'swap_action_index',                                                                                 // Swap  (cancels, edits, expires)
+            'dispenser_action_index',                                                                            // Dispesnser (cancels, edits, expires)
             'resume_block',                                                                                      // Sleep
             'balances', 'ownerships'                                                                             // Sweeps
         ];

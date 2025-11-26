@@ -327,6 +327,9 @@ class Database {
                     sql += ' AND a2.address=?';
                 }
             }
+        // Handle token searches
+        } else if(method=='getTokens' && ['token','subtoken'].includes(type)){
+            sql += ' AND t3.tick LIKE ?';
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -412,6 +415,9 @@ class Database {
         let order  = 'DESC';
         // Bail out in certain instances
         if(['getBalances','getHolders','getTransaction','getSearch','getMarkets','getMarket'].includes(method))
+            return [];
+        // Bail out if we are doing a token or subtoken search
+        if(method=='getTokens' && ['token','subtoken'].includes(type))
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
@@ -2415,8 +2421,19 @@ class Database {
 
     // Get list of tokens
     async getTokens(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
+        let sql    = config.data.sql;
+        let search = config.data.search; 
+        let type   = config.data.type;
+        let args   = [search];
+        let order  = 'm.id ' + sql.order;
+        // Handle token wildcard searches 
+        if(['token','subtoken'].includes(type)){
+            order = 't3.tick ' + sql.order;
+            if(type=='token')
+                args = ['%' + config.data.search + '%'];
+            if(type=='subtoken')
+                args = [config.data.search + '.%'];
+        }
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -2455,7 +2472,7 @@ class Database {
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
+                    ORDER BY ` + order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
     } 

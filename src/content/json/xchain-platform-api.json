@@ -2246,12 +2246,49 @@
             "get": {
                 "tags": ["General"],
                 "summary": "Get token information",
-                "description": "Retrieves token information",
+                "description": "Retrieves token information for a given token",
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/QUERY-TOKEN",
                     "description": "String to search for (token)",
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Token"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+         "/{COIN}/api/tokens/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["General"],
+                "summary": "Get token list",
+                "description": "Retrieves token information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block, token, subtoken)"
+                },{
+                    "$ref": "#/components/parameters/QUERY-TOKEN",
+                    "description": "String to search for",
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
                 }],
                 "responses": {
                     "200": {

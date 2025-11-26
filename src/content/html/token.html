@@ -138,6 +138,7 @@
                                     <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"               ></i> Orders</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"               ></i> Sends</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-snooze"             ></i> Sleeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-token"    ><i class="fa fa-sitemap"            ></i> Subtokens</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa fa-exchange"           ></i> Swaps</a></li>
                                 </ul>
                             </div>                              
@@ -806,6 +807,31 @@
                     </table>
                 </div>
 
+                <!-- Subtokens -->
+                <div class="tab-pane fade show table-responsive" id="tab-pane-token" role="tabpanel" aria-labelledby="tab-token" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-token">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="asset-name">Token</th>
+                            <th>Total Supply</th>
+                            <th>Max Supply</th>
+                            <th>Max Mint</th>
+                            <th>Locks</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="9" class="loading-data">Loading token data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+
             </div>
         </div>
     </div>
@@ -835,7 +861,8 @@
             'order',
             'send',
             'sleep',
-            'swap'
+            'swap',
+            'token'
         ];
 
         // Define the default token icon and try to load it (if it does not exist, will load default.png)

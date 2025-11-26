@@ -16,6 +16,9 @@
                 "url": "https://github.com/XChain-platform/xchain-documentation/blob/master/actions/README.md"
             }
         },{
+            "name": "Dispensers",
+            "description": "API endpoints that return XChain platform DISPENSER data"
+        },{
             "name": "Orders",
             "description": "API endpoints that return XChain platform ORDER data"
         },{
@@ -332,7 +335,7 @@
         },
         "/{COIN}/api/dispensers/{QUERY}/{TYPE}": {
             "get": {
-                "tags": ["Actions"],
+                "tags": ["Actions", "Dispensers"],
                 "summary": "Get DISPENSER actions",
                 "description": "Retrieves DISPENSER action information",
                 "parameters": [{
@@ -376,9 +379,193 @@
                 }
             }
         },
+        "/{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Dispensers"],
+                "summary": "Get DISPENSER_CANCEL actions",
+                "description": "Retrieves DISPENSER_CANCEL action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)"
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/DispenserCancel"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/dispenser_closes/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Dispensers"],
+                "summary": "Get DISPENSER_CLOSE actions",
+                "description": "Retrieves DISPENSER_CLOSE action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)"
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/DispenserClose"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/dispenser_edits/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Dispensers"],
+                "summary": "Get DISPENSER_EDIT actions",
+                "description": "Retrieves DISPENSER_EDIT action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)"
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/DispenserEdit"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/dispenser_expires/{QUERY}/{TYPE}": {
+            "get": {
+                "tags": ["Actions", "Dispensers"],
+                "summary": "Get DISPENSER_EXPIRE actions",
+                "description": "Retrieves DISPENSER_EXPIRE action information",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/TYPE",
+                    "description": "Type of search to perform (address, block)"
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "String to search for (address, block)"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/DispenserExpire"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
         "/{COIN}/api/dispenses/{QUERY}/{TYPE}": {
             "get": {
-                "tags": ["Actions"],
+                "tags": ["Actions", "Dispensers"],
                 "summary": "Get DISPENSE actions",
                 "description": "Retrieves DISPENSE action information",
                 "parameters": [{
@@ -388,7 +575,7 @@
                     "description": "Type of search to perform (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token, source, destination, token)"
+                    "description": "String to search for (address, block, source, destination, token)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1190,7 +1377,7 @@
             "get": {
                 "tags": ["Actions", "Orders"],
                 "summary": "Get ORDER_EXPIRE actions",
-                "description": "Retrieves SWAP_EXPIRE action information",
+                "description": "Retrieves ORDER_EXPIRE action information",
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
@@ -2580,7 +2767,11 @@
                         },
                         "give_amount": {
                             "type": "string"
+                        },
+                        "destination": {
+                            "type": "string"
                         }
+
                     }
                }]
             },
@@ -2630,6 +2821,80 @@
                         },
                          "memo": {
                             "type": "string"
+                        }
+                    }
+               }]
+            },
+            "DispenserEdit": {
+                "type": "object",
+                "description": "DISPENSER_EDIT action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "allow_list": {
+                            "type": "integer"
+                        },
+                        "block_list": {
+                            "type": "integer"
+                        },
+                        "expiration": {
+                            "type": "integer"
+                        },
+                        "memo": {
+                            "type": "string"
+                        },
+                        "dispenser_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "DispenserCancel": {
+                "type": "object",
+                "description": "DISPENSER_CANCEL action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "memo": {
+                            "type": "string"
+                        },
+                        "dispenser_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "DispenserClose": {
+                "type": "object",
+                "description": "DISPENSER_CLOSE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "memo": {
+                            "type": "string"
+                        },
+                        "dispenser_action_index": {
+                            "type": "integer"
+                        }
+                    }
+               }]
+            },
+            "DispenserExpire": {
+                "type": "object",
+                "description": "DISPENSER_EXPIRE action data",
+                "allOf": [{
+                    "$ref": "#/components/schemas/Action"
+                },{
+                    "type": "object",
+                    "properties": {
+                        "dispenser_action_index": {
+                            "type": "integer"
                         }
                     }
                }]

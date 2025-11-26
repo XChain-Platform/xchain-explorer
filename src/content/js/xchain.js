@@ -835,6 +835,9 @@ function loadDatatablesData(coin, action, query, type){
         type   = action;
         action = 'search';
     }
+    // Automatically convert token searches on token page to subtoken
+    if(type=='token' && action=='token')
+        type = 'subtoken';
     // Set the explorer API endpoint name based on the action
     let endpoint = null;
     if(['history','search'].includes(action)){
@@ -885,6 +888,8 @@ function loadDatatablesData(coin, action, query, type){
                 data.offset = offset;
                 // pass total back to server (used to quickly calculate how many records to display on 'last' page)
                 data.total =  track['total'];
+                if(type=='subtoken')
+                    data.sortorder = 'ASC';
                 // Cleanup the request so we only send what we need
                 delete data.columns;
                 delete data.order;

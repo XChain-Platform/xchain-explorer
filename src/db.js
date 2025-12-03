@@ -3806,7 +3806,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
+                            LEFT  JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)

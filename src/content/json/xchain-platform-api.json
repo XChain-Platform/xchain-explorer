@@ -3119,6 +3119,9 @@
                         "lock_callback": {
                             "type": "integer"
                         },
+                        "memo": {
+                            "type": "string"
+                        },
                         "max_mint": {
                             "type": "string"
                         },

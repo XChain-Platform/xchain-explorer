@@ -1727,6 +1727,7 @@ function showIssueDetails(data){
     $('#info-issue .issue-description').text(data.description);
     $('#info-issue .issue-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
     $('#info-issue .issue-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-issue .issue-memo').text(data.memo);
     $('#info-issue .issue-mint-address-max').text(formatAmount(data.mint_address_max));
     $('#info-issue .issue-mint-start-block').text(formatAmount(data.mint_start_block));
     $('#info-issue .issue-mint-stop-block').text(formatAmount(data.mint_stop_block));

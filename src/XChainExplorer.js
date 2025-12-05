@@ -749,7 +749,7 @@ class XChainExplorer {
                     if(method=='getSwaps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index];
                     if(method=='getSweeps')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownership, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.escrows, status, info.action_index];
                     if(method=='getTokens')
                         info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.id];
                     if(method=='getSearch'){

@@ -965,7 +965,7 @@ function loadDatatablesData(coin, action, query, type){
                     let table = String(el.attr('id')).replace('datatable-','');
                     if(table==action){
                         let hide = true;
-                        if(type=='address' && ['balance','token', 'dispense'].includes(table))
+                        if(type=='address' && ['balance','token', 'dispense', 'sweep'].includes(table))
                             hide = false;
                         if(type=='token' && ['holder','dispense','dispenser'].includes(table))
                             hide = false;
@@ -1371,7 +1371,9 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(5).text(txt);
                 txt = (data[6]==1) ? 'True' : 'False';
                 $('td', row).eq(6).text(txt);
-                $('td', row).eq(7).html(action_link);
+                txt = (data[7]==1) ? 'True' : 'False';
+                $('td', row).eq(7).text(txt);
+                $('td', row).eq(8).html(action_link);
             }
             // Tokens
             if(action=='token'){
@@ -1915,6 +1917,7 @@ function showSwapMatchDetails(data){
 function showSweepDetails(data){
     $('#info-sweep .sweep-balances').html(data.balances);
     $('#info-sweep .sweep-ownerships').html(data.ownerships);
+    $('#info-sweep .sweep-escrows').html(data.escrows);
     $('#info-sweep .sweep-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     $('#info-sweep .sweep-memo').text(data.memo);
 }

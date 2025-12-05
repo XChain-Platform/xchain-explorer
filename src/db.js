@@ -2380,7 +2380,7 @@ class Database {
                         sweeps m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -2396,6 +2396,7 @@ class Database {
                         a3.address as destination,
                         m.balances,
                         m.ownerships,
+                        m.escrows,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -2406,7 +2407,7 @@ class Database {
                         sweeps m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -4645,6 +4646,7 @@ class Database {
                             a4.address as destination,
                             s1.balances,
                             s1.ownerships,
+                            s1.escrows,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,

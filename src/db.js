@@ -2991,8 +2991,8 @@ class Database {
                     FROM
                         credits m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -3011,8 +3011,8 @@ class Database {
                     FROM
                         debits m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)

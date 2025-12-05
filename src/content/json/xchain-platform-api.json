@@ -3868,6 +3868,9 @@
                         "destination": {
                             "type": "string"
                         },
+                        "escrows": {
+                            "type": "integer"
+                        },
                         "memo": {
                             "type": "string"
                         },

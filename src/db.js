@@ -1529,6 +1529,7 @@ class Database {
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
                         LEFT  JOIN index_actions      a5 ON (a5.id=a1.action_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a5.action,
@@ -1562,6 +1563,7 @@ class Database {
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
+                        m1.memo,
                         s1.status
                     FROM
                         issues m
@@ -1576,6 +1578,7 @@ class Database {
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
                         LEFT  JOIN index_actions      a5 ON (a5.id=a1.action_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -3355,7 +3358,8 @@ class Database {
                             actions m
                             LEFT  JOIN index_actions a1 ON (a1.id=m.action_id)
                         WHERE 
-                            m.tx_index=?`;
+                            m.tx_index=?
+                        ORDER BY m.action_index DESC `;
             results = await this.doQuery(config, query, args);
             if(results && results.length){
                 for(let row of results){
@@ -3965,6 +3969,7 @@ class Database {
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
                             t1.tx_index,
+                            m1.memo,
                             s1.status
                         FROM
                             issues i1
@@ -3979,6 +3984,7 @@ class Database {
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=i1.tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=i1.callback_tick_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=i1.memo_id)
                         WHERE 
                             i1.action_index=?
                         LIMIT 1`;

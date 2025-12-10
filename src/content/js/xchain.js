@@ -750,7 +750,11 @@ function getActionDetails(action, info){
     }
     if(action=='CALLBACK'){
         html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' for ' ;
-        html += formatLinkAmount('/' + XC.coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick, info.callback_amount);
+        html += formatLinkAmount('/' + coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick, info.callback_amount);
+    }
+    if(action=='DIVIDEND'){
+        html += formatLinkAmount('/' + coin + '/token/' + info.dividend_tick, info.dividend_tick, info.dividend_tick, info.amount) + ' per ';
+        html += formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, 1)
     }
     if(['DISPENSER', 'DISPENSE', 'DISPENSER_CLOSE', 'DISPENSER_CANCEL', 'DISPENSER_EXPIRE', 'DISPENSER_EDIT',
         'SWAP', 'SWAP_MATCH', 'SWAP_CANCEL', 'SWAP_EXPIRE', 'SWAP_EDIT',
@@ -789,6 +793,10 @@ function getActionDetails(action, info){
         html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
     if(action=='SEND'){
         html += formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount) + ' to ';
+        html += formatLink('/' + coin + '/address/' + info.destination, info.destination);
+    }
+    if(action=='SWEEP'){
+        html += formatLink('/' + coin + '/address/' + info.source, info.source) + ' to ';
         html += formatLink('/' + coin + '/address/' + info.destination, info.destination);
     }
     if(action=='SLEEP'){
@@ -1560,7 +1568,7 @@ function showActionDetails(){
     if(o.action=='DISPENSER_EDIT'){   found = true;  showDispenserEditDetails(o);   }
     if(o.action=='DISPENSER_EXPIRE'){ found = true;  showDispenserExpireDetails(o); }
     if(o.action=='DISPENSE'){         found = true;  showDispenseDetails(o);        }
-    // if(o.action=='DIVIDEND'){         found = true;  showDividendDetails(o);        }
+    if(o.action=='DIVIDEND'){         found = true;  showDividendDetails(o);        }
     if(o.action=='FILE'){             found = true;  showFileDetails(o);            }
     if(o.action=='ISSUE'){            found = true;  showIssueDetails(o);           }
     if(o.action=='LINK'){             found = true;  showLinkDetails(o);            }
@@ -1631,6 +1639,14 @@ function showCallbackDetails(data){
     $('#info-callback .callback-callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.callback_tick, data.callback_tick, data.callback_tick));
     $('#info-callback .callback-amount').html(formatAmount(data.callback_amount));
     $('#info-callback .callback-memo').text(data.memo);
+}
+
+// Display DIVIDEND action information
+function showDividendDetails(data){
+    $('#info-dividend .dividend-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-dividend .dividend-dividend-tick').html(formatLink('/' + XC.coin + '/token/' + data.dividend_tick, data.dividend_tick, data.dividend_tick));
+    $('#info-dividend .dividend-amount').html(formatAmount(data.amount));
+    $('#info-dividend .dividend-memo').text(data.memo);
 }
 
 // Display DESTROY action information

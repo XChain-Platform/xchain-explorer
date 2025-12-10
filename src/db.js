@@ -3903,6 +3903,39 @@ class Database {
                         m.action_index=?
                     LIMIT 1`;
             }
+
+            // DIVIDEND action
+            if(type=='DIVIDEND'){
+                query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format, 
+                        a2.address as source,
+                        t3.tick,
+                        t4.tick as dividend_tick,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m1.memo,
+                        s1.status
+                    FROM
+                        dividends m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                    WHERE 
+                        m.action_index=?
+                    LIMIT 1`;
+            }
             // FILE action
             if(type=='FILE'){
                 query = `SELECT
@@ -4837,7 +4870,9 @@ class Database {
                         WHERE 
                             c1.action_index=?
                         ORDER BY
-                            c1.amount DESC`;
+                            t1.tick ASC,
+                            CAST(c1.amount as DECIMAL(64,18)) DESC,
+                            a1.address ASC`;
                 results = await this.doQuery(config, query, args);
                 if(results && results.length)
                     data.credits = results;
@@ -4855,7 +4890,9 @@ class Database {
                         WHERE 
                             d1.action_index=?
                         ORDER BY
-                            d1.amount DESC`;
+                            t1.tick ASC,
+                            CAST(d1.amount as DECIMAL(64,18)) DESC,
+                            a1.address ASC`;
                 results = await this.doQuery(config, query, args);
                 if(results && results.length)
                     data.debits = results;
@@ -4873,7 +4910,9 @@ class Database {
                         WHERE 
                             e1.action_index=?
                         ORDER BY
-                            e1.amount DESC`;
+                            t1.tick ASC,
+                            CAST(e1.amount as DECIMAL(64,18)) DESC,
+                            a1.address ASC`;
                 results = await this.doQuery(config, query, args);
                 if(results && results.length)
                     data.escrows = results;
@@ -5107,22 +5146,22 @@ class Database {
         // Define a list of detail fields we want to pass forward in history items
         // Note: We limit this to just enough details to show basic history info, user can request full info on action if they want more info
         let detailFields = [
-            'coin', 'tick',  'amount', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
-            'action_format',                                                                                     // Action details
-            'fee_preference', 'require_memo',                                                                    // Addresses
-            'message', 'value', 'broadcast_action_index',                                                        // Broadcasts
-            'callback_tick', 'callback_amount',                                                                  // Callbacks
-            'dividend_tick',                                                                                     // Dividends
-            'name', 'title',                                                                                     // Files
-            'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                        // Links
-            'list_action_index',                                                                                 // Lists
-            'encryption_method', 'plaintext_message',                                                            // Messages
-            'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',        // Orders, Swaps, Dispensers
-            'order_action_index',                                                                                // Order (cancels, edits, expires)
-            'swap_action_index',                                                                                 // Swap  (cancels, edits, expires)
-            'dispenser_action_index',                                                                            // Dispesnser (cancels, edits, expires)
-            'resume_block',                                                                                      // Sleep
-            'balances', 'ownerships'                                                                             // Sweeps
+            'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
+            'action_format',                                                                                               // Action details
+            'fee_preference', 'require_memo',                                                                              // Addresses
+            'message', 'value', 'broadcast_action_index',                                                                  // Broadcasts
+            'callback_tick', 'callback_amount',                                                                            // Callbacks
+            'dividend_tick',                                                                                               // Dividends
+            'name', 'title',                                                                                               // Files
+            'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                                  // Links
+            'list_action_index',                                                                                           // Lists
+            'encryption_method', 'plaintext_message',                                                                      // Messages
+            'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',                  // Orders, Swaps, Dispensers
+            'order_action_index',                                                                                          // Order (cancels, edits, expires)
+            'swap_action_index',                                                                                           // Swap  (cancels, edits, expires)
+            'dispenser_action_index',                                                                                      // Dispesnser (cancels, edits, expires)
+            'resume_block',                                                                                                // Sleep
+            'balances', 'ownerships', 'escrows'                                                                            // Sweeps
         ];
         // Lookup extended information on the action_index
         for(let data of actions){

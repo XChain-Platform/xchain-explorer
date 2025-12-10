@@ -4190,36 +4190,34 @@ class Database {
                             t2.hash as tx_hash,
                             t1.tx_index,
                             m2.memo,
-                            s1.status,
-                            s2.order_status as current_status
+                            s2.status,
+                            s3.status as current_status
                         FROM
                             orders o1
                             INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN order_statuses     s1 ON (s1.order_action_index=o1.action_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    a4 ON (a4.id=o1.get_address_id)
                             LEFT  JOIN index_memos        m2 ON (m2.id=o1.memo_id)
-                            LEFT  JOIN index_statuses     s1 ON (s1.id=o1.status_id)
+                            LEFT  JOIN index_statuses     s2 ON (s2.id=o1.status_id)
+                            LEFT  JOIN index_statuses     s3 ON (s3.id=s1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_coins        c1 ON (c1.id=o1.give_coin_id)
                             LEFT  JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
-                            LEFT  JOIN LATERAL (
+                        WHERE 
+                            s1.action_index = (
                                 SELECT
-                                    s4.status as order_status
+                                    MAX(s3.action_index)
                                 FROM
                                     order_statuses s3
-                                    INNER JOIN index_statuses s4 ON (s4.id=s3.status_id)
                                 WHERE
                                     s3.order_action_index=o1.action_index
-                                ORDER BY 
-                                    s3.action_index DESC
-                                LIMIT 1
-                            ) s2 ON TRUE                
-                        WHERE 
+                            ) AND
                             o1.action_index=?
                         LIMIT 1`;
                 // Get a list of order edits
@@ -4485,10 +4483,11 @@ class Database {
                             t2.hash as tx_hash,
                             t1.tx_index,
                             m2.memo,
-                            s2.status,
-                            s3.swap_status as current_status
+                            s3.status,
+                            s4.status as current_status
                         FROM
                             swaps s1
+                            INNER JOIN swap_statuses      s2 ON (s2.swap_action_index=s1.action_index)
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
@@ -4496,25 +4495,22 @@ class Database {
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    a4 ON (a4.id=s1.get_address_id)
                             LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
-                            LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                            LEFT  JOIN index_statuses     s3 ON (s3.id=s1.status_id)
+                            LEFT  JOIN index_statuses     s4 ON (s4.id=s2.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_coins        c1 ON (c1.id=s1.give_coin_id)
                             LEFT  JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
-                            LEFT  JOIN LATERAL (
+                        WHERE 
+                            s2.action_index = (
                                 SELECT
-                                    s5.status as swap_status
+                                    MAX(s4.action_index)
                                 FROM
                                     swap_statuses s4
-                                    INNER JOIN index_statuses s5 ON (s5.id=s4.status_id)
                                 WHERE
                                     s4.swap_action_index=s1.action_index
-                                ORDER BY 
-                                    s4.action_index DESC
-                                LIMIT 1
-                            ) s3 ON TRUE
-                        WHERE 
+                            ) AND
                             s1.action_index=?
                         LIMIT 1`;
                 // Get a list of swap edits

@@ -472,7 +472,7 @@ class Database {
             // Build out SQL to get start offset
             if(type=='block' && this.util.isNull(config.data.search)){
                 sql = `SELECT 
-                            b1.block_index as offset
+                            b1.block_index as offset_index
                         FROM
                             blocks b1
                         WHERE 
@@ -482,7 +482,7 @@ class Database {
                         LIMIT ` + limit;
             } else if(method=='getTokens'){
                 sql = `SELECT 
-                            m.id as offset
+                            m.id as offset_index
                         FROM
                             tokens m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -495,7 +495,7 @@ class Database {
                         LIMIT ` + limit;
             } else if(method=='getHistory'){
                 sql = `SELECT 
-                            m.action_index as offset
+                            m.action_index as offset_index
                         FROM
                             mappings_actions m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -508,7 +508,7 @@ class Database {
                         LIMIT ` + limit;
             } else if(method=='getFiles' && type=='token'){
                 sql = `SELECT 
-                            m.action_index as offset
+                            m.action_index as offset_index
                         FROM
                             mappings_files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -521,7 +521,7 @@ class Database {
                         LIMIT ` + limit;
              } else {
                 sql = `SELECT 
-                            m.action_index as offset
+                            m.action_index as offset_index
                         FROM
                             ` + table + ` m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -533,11 +533,12 @@ class Database {
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
             }
+            console.log('sql=',sql);
             // Run Query to try and get offset information 
             rows = await this.doQuery(config, sql);
             if(rows.length>0){
                 for(let row of rows){
-                    offset1 = Number(row.offset);
+                    offset1 = Number(row.offset_index);
                     // Increase/Decrease offset by 1, so latest results are returned
                     if(action=='first')
                         offset1++;
@@ -568,7 +569,7 @@ class Database {
                 // Build out SQL to get stop offset
                 if(method=='getHistory'){
                     sql = `SELECT 
-                            m.action_index as offset
+                            m.action_index as offset_index
                         FROM
                             mappings_actions m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -581,7 +582,7 @@ class Database {
                         LIMIT ` + limit;
             } else if(method=='getFiles' && type=='token'){
                 sql = `SELECT 
-                            m.action_index as offset
+                            m.action_index as offset_index
                         FROM
                             mappings_files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -594,7 +595,7 @@ class Database {
                         LIMIT ` + limit;
                 } else {
                     sql = `SELECT 
-                            m.action_index as offset
+                            m.action_index as offset_index
                         FROM
                             ` + table + ` m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -611,7 +612,7 @@ class Database {
                 // Only set the stop offset number if we have more data to show
                 if(rows.length>0 && rows.length == limit){
                     for(let row of rows)
-                        offset2 = Number(row.offset);
+                        offset2 = Number(row.offset_index);
                 }
             }
         }

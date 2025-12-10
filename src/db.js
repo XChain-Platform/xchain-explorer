@@ -533,7 +533,6 @@ class Database {
                         ORDER BY m.action_index ` + order + ` 
                         LIMIT ` + limit;
             }
-            console.log('sql=',sql);
             // Run Query to try and get offset information 
             rows = await this.doQuery(config, sql);
             if(rows.length>0){

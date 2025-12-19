@@ -336,7 +336,6 @@ function formatLocks(locks=null){
     if(lock[2]==1) html += '<i class="fa fa-bank pe-1"         title="Mint Supply"></i>';
     if(lock[3]==1) html += '<i class="fa fa-coins pe-1"        title="Max Mint"></i>';
     if(lock[4]==1) html += '<i class="fa fa-circle-info pe-1"  title="Description"></i>';
-    if(lock[5]==1) html += '<i class="fa fa-bomb pe-1"         title="Rug"></i>';
     if(lock[6]==1) html += '<i class="fa fa-snooze pe-1"       title="Sleep"></i>';
     if(lock[7]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
     return html;
@@ -1751,7 +1750,6 @@ function showIssueDetails(data){
     $('#info-issue .issue-lock-mint').text(data.lock_mint);
     $('#info-issue .issue-lock-mint-supply').text(data.lock_mint_supply);
     $('#info-issue .issue-lock-description').text(data.lock_description);
-    $('#info-issue .issue-lock-rug').text(data.lock_rug);
     $('#info-issue .issue-lock-sleep').text(data.lock_sleep);
     $('#info-issue .issue-lock-callback').text(data.lock_callback);    
 }
@@ -2457,7 +2455,6 @@ function showTokenInfo(){
     $('#lock-mint').html(showLockStatus(o.locks.mint));
     $('#lock-mint-supply').html(showLockStatus(o.locks.mint_supply));
     $('#lock-description').html(showLockStatus(o.locks.description));
-    $('#lock-rug').html(showLockStatus(o.locks.rug));
     $('#lock-sleep').html(showLockStatus(o.locks.sleep));
     $('#lock-callback').html(showLockStatus(o.locks.callback));    
 

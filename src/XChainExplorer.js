@@ -646,7 +646,6 @@ class XChainExplorer {
                             info.lock_max_mint,
                             info.lock_description,
                             info.lock_sleep,
-                            info.lock_rug,
                             info.lock_callback
                         ];
                         locks = arr.join('|');

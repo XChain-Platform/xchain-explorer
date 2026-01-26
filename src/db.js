@@ -28,13 +28,16 @@ class Database {
     constructor(explorer){
 
         // Setup alias to explorer configuration
-        this.config = explorer.config
+        this.configInfo = explorer.configInfo
 
         // Setup alias to utility class instance
         this.util   = explorer.util;
 
-        // Setup the connection pools
-        this.setupConnectionPools();
+        //create the database with new config data
+        this.configInfo.onConfigChanged(()=>{
+            // Setup the connection pools
+            this.setupConnectionPools();
+        })
 
         // Placeholder for transaction connection
         this.transactionConnection = null;
@@ -71,12 +74,19 @@ class Database {
 
     }
 
+    async init(){
+        // Setup the connection pools
+        await this.setupConnectionPools()
+    }
+
     /******************************************************************
      * Database Connection Pool Functions
      *****************************************************************/
 
     // Handle initializing the database connection pool
-    setupConnectionPools(){
+    async setupConnectionPools(){
+        let config = await this.configInfo.getConfig()
+    
         // Placeholder for connection pools
         this.pools = {};
         // Define list of acceptable networks
@@ -95,7 +105,7 @@ class Database {
                         if(net=='regtest') key = 'R' + coin;
                         // Database connection information
                         this.pools[key] = {
-                            config: {
+                            "config": {
                                 host:     cfg.host,
                                 port:     cfg.port,
                                 user:     cfg.user,

@@ -64,6 +64,26 @@ module.exports = {
         if (cache && configCache){
             return configCache
         } else {
+            // Define explorer and COIN config objects
+            let config     = {};
+            let coinConfig = {};
+            // Define list of COINs supported in XChain Platform (BTC, LTC, DOGE, etc)
+            config['COIN_NETWORKS'] = {
+                BTC:  'Bitcoin',
+                LTC:  'Litecoin',
+                DOGE: 'Dogecoin'
+            };
+
+            // Define list of acceptable coin Prefixes (T=Testnet, R=Regtest)
+            config['COIN_PREFIXES'] = {
+                'mainnet': '',
+                'testnet': 'T',
+                'regtest': 'R'
+            };
+
+            let coinNetworksKeys = Object.keys(config['COIN_NETWORKS'])
+            
+            
             // Create instance of the utility class
             const configUtil = new util();
             let jsonConfig = null
@@ -81,12 +101,15 @@ module.exports = {
                     
                     let newJsonConfig = []
                     for (let nextCoin in jsonConfig){
+                        let nextCoinLabel = coinNetworksKeys.find(key => config['COIN_NETWORKS'][key].toLowerCase() == nextCoin)
+                        
                         for (let nextNetwork in jsonConfig[nextCoin]){
-                            let coinNetworkJson = {"coin":nextCoin, "network":nextNetwork}
+                            let coinNetworkJson = {"coin":nextCoinLabel, "network":nextNetwork}
                         
                             for (let nextService in jsonConfig[nextCoin][nextNetwork]){
                                 coinNetworkJson[nextService] = jsonConfig[nextCoin][nextNetwork][nextService]
                             }
+                            newJsonConfig.push(coinNetworkJson)
                         }
                     }
                     
@@ -115,24 +138,6 @@ module.exports = {
             // Bail out if we dont have a valid config to use
             if(configUtil.isNull(jsonConfig))
                 configUtil.throwError('No valid configuration information detected');
-
-            // Define explorer and COIN config objects
-            let config     = {};
-            let coinConfig = {};
-
-            // Define list of COINs supported in XChain Platform (BTC, LTC, DOGE, etc)
-            config['COIN_NETWORKS'] = {
-                BTC:  'Bitcoin',
-                LTC:  'Litecoin',
-                DOGE: 'Dogecoin'
-            };
-
-            // Define list of acceptable coin Prefixes (T=Testnet, R=Regtest)
-            config['COIN_PREFIXES'] = {
-                'mainnet': '',
-                'testnet': 'T',
-                'regtest': 'R'
-            };
 
             // Define list of COIN networks supported in XChain Platform (BTC, tBTC, rBTC, etc)
             config['COIN_SUPPORTED'] = {};

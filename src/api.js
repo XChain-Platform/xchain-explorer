@@ -29,6 +29,7 @@ const helmet         = require('helmet');
 const cors           = require('cors');
 const XChainExplorer = require('./XChainExplorer.js');
 const configInfo     = require('./config.js');
+const jsonRouter     = require('express-json-rpc-router')
 
 // Parse in .env config data
 dotenv.config();
@@ -79,6 +80,16 @@ async function startApi(){
     //      res.redirect(url);
     //  }
     // });
+
+    const jsonRpcController = {
+        // Function to check if xchain-explorer is up
+        async ping() {
+            return {status:"success"};
+        }
+    }
+
+    // Allow JSON-RPC requests
+    app.use(jsonRouter({methods: jsonRpcController}))
 
     // HTTP server for redirection
     http.createServer(app).listen(EXPLORER_API_PORT_HTTP, () => {

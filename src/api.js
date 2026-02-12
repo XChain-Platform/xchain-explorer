@@ -34,7 +34,7 @@ const configInfo     = require('./config.js');
 dotenv.config();
 
 //xchain-hub url and port
-const HUB_HOST = process.env.HUB_HOST
+const HUB_HOST = process.env.HUB_API_HOST
 const HUB_PORT = process.env.HUB_PORT
 const EXPLORER_API_PORT_HTTP = process.env.EXPLORER_API_PORT_HTTP
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS

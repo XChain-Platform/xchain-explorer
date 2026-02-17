@@ -28,13 +28,16 @@ class Database {
     constructor(explorer){
 
         // Setup alias to explorer configuration
-        this.config = explorer.config
+        this.configInfo = explorer.configInfo
 
         // Setup alias to utility class instance
         this.util   = explorer.util;
 
-        // Setup the connection pools
-        this.setupConnectionPools();
+        //create the database with new config data
+        this.configInfo.onConfigChanged(()=>{
+            // Setup the connection pools
+            this.setupConnectionPools();
+        })
 
         // Placeholder for transaction connection
         this.transactionConnection = null;
@@ -71,19 +74,26 @@ class Database {
 
     }
 
+    async init(){
+        // Setup the connection pools
+        await this.setupConnectionPools()
+    }
+
     /******************************************************************
      * Database Connection Pool Functions
      *****************************************************************/
 
     // Handle initializing the database connection pool
-    setupConnectionPools(){
+    async setupConnectionPools(){
+        let coinConfigs = await this.configInfo.getConfig()
+    
         // Placeholder for connection pools
         this.pools = {};
         // Define list of acceptable networks
         let networks = ['mainnet', 'testnet', 'regtest'];
         // Loop through config and setup pools based on if user/pass/host are different
-        for(let coin in this.config){
-            let info = this.config[coin];
+        for(let coin in coinConfigs){
+            let info = coinConfigs[coin];
             if(info.mainnet || info.testnet || info.regtest){
                 for(let net in info){
                     if(networks.includes(net) && !this.util.isNull(info[net].database) && !this.util.isNull(info[net].database.indexer)){
@@ -93,36 +103,39 @@ class Database {
                         let key  = coin;
                         if(net=='testnet') key = 'T' + coin;
                         if(net=='regtest') key = 'R' + coin;
-                        // Database connection information
-                        this.pools[key] = {
-                            config: {
-                                host:     cfg.host,
-                                port:     cfg.port,
-                                user:     cfg.user,
-                                password: cfg.pass,
-                                database: cfg.name,
-                                // Connection options
-                                connectionLimit:  5,
-                                //connectTimeout: 0,
-                                insertIdAsNumber: true
+                        
+                        if (("db_host" in cfg) && ("db_port" in cfg)){
+                            // Database connection information
+                            this.pools[key] = {
+                                "config": {
+                                    host:     cfg.db_host,
+                                    port:     cfg.db_port,
+                                    user:     cfg.user,
+                                    password: cfg.pass,
+                                    database: cfg.name,
+                                    // Connection options
+                                    connectionLimit:  5,
+                                    //connectTimeout: 0,
+                                    insertIdAsNumber: true
+                                }
+                            };
+                            // Loop through all existing pools and if all connection details match except for the database name, share the pool
+                            for(let key in this.pools){
+                                let data = this.pools[key];
+                                if( cfg.host==data.config.host &&
+                                    cfg.port==data.config.port && 
+                                    cfg.user==data.config.user && 
+                                    cfg.pass==data.config.password &&
+                                    !this.util.isNull(data.pool) )
+                                    pool = data.pool;
                             }
-                        };
-                        // Loop through all existing pools and if all connection details match except for the database name, share the pool
-                        for(let key in this.pools){
-                            let data = this.pools[key];
-                            if( cfg.host==data.config.host &&
-                                cfg.port==data.config.port && 
-                                cfg.user==data.config.user && 
-                                cfg.pass==data.config.password &&
-                                !this.util.isNull(data.pool) )
-                                pool = data.pool;
-                        }
-                        // Setup new pool of connections
-                        if(!pool)
-                            pool = mariadb.createPool(this.pools[key].config);
+                            // Setup new pool of connections
+                            if(!pool)
+                                pool = mariadb.createPool(this.pools[key].config);
 
-                        // Save the pool connection under the COIN-NETWORK key for easy reference
-                        this.pools[key].pool = pool;
+                            // Save the pool connection under the COIN-NETWORK key for easy reference
+                            this.pools[key].pool = pool;
+                        }
                     }
                 }
             }
@@ -631,11 +644,12 @@ class Database {
     }
 
     // Get decoder database name from config for the given COIN network
-    getDecoderDatabaseName(coin){
+    async getDecoderDatabaseName(coin){
+        let coinConfigs = await this.configInfo.getConfig()
         let name = null;
         // Define list of acceptable networks and get correct config using COIN
         let networks = ['mainnet', 'testnet', 'regtest'];
-        let info = this.config[coin];
+        let info = coinConfigs[coin];
         for(let net in info){
             if(networks.includes(net) && !this.util.isNull(info[net].database) && !this.util.isNull(info[net].database.decoder)){
                 let cfg = info[net].database;
@@ -3182,9 +3196,10 @@ class Database {
 
     // Get explorer status
     async getStatus(config){
+        let coinConfigs = await this.configInfo.getConfig()
         let data  = {
-            supported: this.config['COIN_SUPPORTED'],
-            available: this.config['COIN_AVAILABLE']
+            supported: coinConfigs['COIN_SUPPORTED'],
+            available: coinConfigs['COIN_AVAILABLE']
         };
         return [data];
     }
@@ -3378,7 +3393,7 @@ class Database {
     // Get raw transaction data from decoder database
     async getTransactionData(config, hash){
         let data = null;
-        let name = this.getDecoderDatabaseName(config.coin);
+        let name = await this.getDecoderDatabaseName(config.coin);
         if(name){
             let query = `SELECT
                             t1.tx_index,
@@ -3406,6 +3421,7 @@ class Database {
 
     // Get information for a given action_index, this includes looking up any related data
     async getActionData(config, action_index){
+        let coinConfigs = await this.configInfo.getConfig()
         // Define the basic data object with standardized fields
         let data = {
             credits: null,
@@ -4803,7 +4819,7 @@ class Database {
                                 if(!this.util.isNull(row.give_escrow))
                                     data.state.give_remaining = this.util.bcadd(data.state.give_remaining, row.give_escrow);    
                                 // Determine of the allow/block list edits are active using DISPENSER_LIST_DELAY
-                                active = (now > this.util.bcadd(row.block_time, this.config['DISPENSER_LIST_DELAY'])) ? true : false;
+                                active = (now > this.util.bcadd(row.block_time, coinConfigs['DISPENSER_LIST_DELAY'])) ? true : false;
                             } 
                             // Handle setting the current expiration and allow/block list based on any edits
                             if(!this.util.isNull(row.expiration))  data.state.expiration  = row.expiration;

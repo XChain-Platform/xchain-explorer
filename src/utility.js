@@ -31,9 +31,9 @@ BigInt.prototype.toJSON = function(){
 class Utility {
 
     // Handle constructing a class instance
-    constructor(config){
+    constructor(configInfo){
         // Setup alias to passed config
-        this.config = config;
+        this.configInfo = configInfo;
     }
 
     /******************************************************************

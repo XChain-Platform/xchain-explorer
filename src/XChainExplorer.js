@@ -30,7 +30,7 @@ const database = require('./db.js');
 class XChainExplorer {
 
     // Handle constructing a class instance
-    constructor(app, config){
+    constructor(app, configInfo){
 
         // XChain Indexer Version
         this.version = process.env.npm_package_version;
@@ -40,10 +40,10 @@ class XChainExplorer {
         this.app = app;
 
         // Setup alias to explorer config
-        this.config  = config;
+        this.configInfo  = configInfo;
 
         // Create instance of the utility class
-        this.util = new util(this.config);
+        this.util = new util(this.configInfo);
 
         // Create instance of the datbase class
         this.db   = new database(this);
@@ -65,6 +65,10 @@ class XChainExplorer {
             time: null, // Placeholder for process request timer
             code: 200   // Placeholder for HTTP response code (Default to status OK response)
         };
+    }
+
+    async init(){
+        await this.db.init()
     }
 
     // Function to define a list of explorer urls
@@ -261,7 +265,9 @@ class XChainExplorer {
 
     // Function to handle processing a API request and returning a response
     async processRequest(req, res){
-
+        //load config
+        let config = await this.configInfo.getConfig()
+        
         // Setup empty response object
         let response = structuredClone(this.response);
 
@@ -312,7 +318,7 @@ class XChainExplorer {
 
         // Determine the COIN using the first part of the URL path (BTC, LTC, DOGE, etc)
         let coin = String(urlPath[0]).toUpperCase();
-        if(!this.util.isNull(this.config['COIN_SUPPORTED'][coin]))
+        if(!this.util.isNull(config['COIN_SUPPORTED'][coin]))
             cfg.coin = coin;
 
         // Determine what TYPE of request this is using the second part of the URL path
@@ -323,14 +329,14 @@ class XChainExplorer {
         let requestPath = req.path;
 
         // Set flag to indicate if this is a request for a COIN that is supported, but not available in this explorer
-        let validDataRequest = (!this.util.isNull(this.config['COIN_SUPPORTED'][coin]) && !this.util.isNull(this.config['COIN_AVAILABLE'][coin])) ? true : false;
+        let validDataRequest = (!this.util.isNull(config['COIN_SUPPORTED'][coin]) && !this.util.isNull(config['COIN_AVAILABLE'][coin])) ? true : false;
 
         // Force data all /{COIN}/api/status requests to valid so we return the explorer config
         if(String(urlPath[1]).toLowerCase()=='api' && String(urlPath[2]).toLowerCase()=='status')
             validDataRequest = true;
 
         // If the COIN is supported but not available, return the 'COIN Unavailable' page
-        if(!this.util.isNull(this.config['COIN_SUPPORTED'][coin]) && this.util.isNull(this.config['COIN_AVAILABLE'][coin]))
+        if(!this.util.isNull(config['COIN_SUPPORTED'][coin]) && this.util.isNull(config['COIN_AVAILABLE'][coin]))
             requestPath = '/coin-unavailable';
 
         // Set type / file / info config info using url matching

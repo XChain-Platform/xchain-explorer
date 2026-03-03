@@ -177,7 +177,7 @@ module.exports = {
             for(let info of jsonConfig.configs ){
 
                 // Define COIN specific configuration file
-                let coinFile   = '/XChainExplorer/src/configs/' + info.coin + '.js';
+                let coinFile   = path.join(__dirname, 'configs', info.coin + '.js');
 
                 // Load COIN specific configuration file, or throw error
                 if(fs.existsSync(coinFile)){

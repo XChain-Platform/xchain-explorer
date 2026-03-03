@@ -239,9 +239,15 @@ class Utility {
         return (value === null || value === undefined || value==='');
     }
 
-    // JSON.stringify with BigInt support
+    // JSON.stringify with BigInt and mathjs BigNumber support
     jsonStringify(obj){
-        return JSON.stringify(obj, (key, value) => typeof value === 'bigint' ? value.toString() : value);
+        return JSON.stringify(obj, (key, value) => {
+            if(typeof value === 'bigint') 
+                return value.toString();
+            if(value && typeof value === 'object' && value.mathjs === 'BigNumber') 
+                return value.value;
+            return value;
+        });
     }
     
     // Sort an object by key values

@@ -80,8 +80,8 @@ async function startApi(){
     // Allow JSON requests
     app.use(bodyParser.json());
 
-    // Allow CORS for development
-    app.use(cors());
+    // Allow CORS from any origin (public read-only explorer)
+    app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
 
     // Allow reverse proxy (X-Forwarded-Proto header)
     app.enable('trust proxy');

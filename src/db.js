@@ -163,7 +163,7 @@ class Database {
                     connection = await pool.getConnection();
                     // console.log("Connected to database!");
                 } catch (e){
-                    console.log('e=',e);
+                    console.log('Database connection error:', e.message);
                     connection = null;
                     // Retry getting a connection again after a brief delay
                     if(retryCount <= maxRetrys){
@@ -171,7 +171,7 @@ class Database {
                         console.log("Can't connect to database. Trying again (attempt " + retryCount + ")...");
                         await this.util.sleep(1000);
                     } else {
-                        console.log('Failed to get database connection error=',e)
+                        console.log('Failed to get database connection:', e.message);
                         break;
                     }
                 }
@@ -292,7 +292,7 @@ class Database {
                 try {
                     result = await db.query(query, args);
                 } catch (error){
-                    console.log('SQL Query Error: ', error);
+                    console.log('SQL Query Error:', error.message);
                     // this.util.logError('Error running query:', error);
                 }
             } else {

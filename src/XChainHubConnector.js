@@ -62,16 +62,18 @@ class XChainHubConnector {
             params: [],
             id: 1
         }
-        
-        // Make the request to the node
-        const response = await axios.post(this.url, data)
 
-        // Verify if there is a result and return it
-        if (response.data && response.data.result) {
-            return response.data.result
-        } else {
-            return null
+        // Make the request to the node
+        try {
+            const response = await axios.post(this.url, data, { timeout: 5000 })
+            // Verify if there is a result and return it
+            if (response.data && response.data.result) {
+                return response.data.result
+            }
+        } catch (err) {
+            console.error('Hub getAllConfig failed:', err.message)
         }
+        return null
     }
 }
 

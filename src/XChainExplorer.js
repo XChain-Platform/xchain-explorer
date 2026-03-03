@@ -548,7 +548,7 @@ class XChainExplorer {
 
         // Return the actual response
         if(!this.util.isNull(response.json)){
-            res.json(response.json);
+            res.type('json').send(this.util.jsonStringify(response.json));
         } else if(!this.util.isNull(response.html)){
             res.send(response.html);
         } else {

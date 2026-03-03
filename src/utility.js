@@ -152,12 +152,9 @@ class Utility {
      * BC math functions
      ******************************************************************/
 
-    // Handle converting a string number to an integer or float
+    // Handle converting a string number to a mathjs bignumber for full precision
     bcnum(num){
-        if(String(num).indexOf('.')!=-1)
-            return parseFloat(num);
-        else
-            return parseInt(num);
+        return mathjs.bignumber(num);
     }
 
     // Handle returning a number to a given decimal point precision
@@ -196,6 +193,26 @@ class Utility {
         let b = (!this.isNull(numB)) ? numB : 0;
         let d = (!this.isNull(decimals)) ? parseInt(decimals) : 0;
         return this.bcnum(mathjs.format(mathjs.divide(mathjs.bignumber(a),mathjs.bignumber(b)),{notation: 'fixed', precision: d}));
+    }
+
+    // Handle comparing two big numbers: returns true if numA > numB
+    bcgt(numA, numB){
+        return mathjs.larger(mathjs.bignumber(numA), mathjs.bignumber(numB));
+    }
+
+    // Handle comparing two big numbers: returns true if numA < numB
+    bclt(numA, numB){
+        return mathjs.smaller(mathjs.bignumber(numA), mathjs.bignumber(numB));
+    }
+
+    // Handle comparing two big numbers: returns true if numA >= numB
+    bcgte(numA, numB){
+        return mathjs.largerEq(mathjs.bignumber(numA), mathjs.bignumber(numB));
+    }
+
+    // Handle comparing two big numbers: returns true if numA <= numB
+    bclte(numA, numB){
+        return mathjs.smallerEq(mathjs.bignumber(numA), mathjs.bignumber(numB));
     }
 
     /* 

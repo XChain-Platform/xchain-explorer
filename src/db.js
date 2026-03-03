@@ -383,8 +383,8 @@ class Database {
         let method = config.data.method;
         let offset = (config.data.offset) ? config.data.offset : false;
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
-        let start  = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? offset.start : false;
-        let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? offset.stop : false;
+        let start  = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? parseInt(offset.start, 10) : false;
+        let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? parseInt(offset.stop, 10) : false;
         let sql    = '';
         // Unset stop offset in case of getBlocks
         if(method=='getBlocks')
@@ -459,7 +459,7 @@ class Database {
                     where = ` AND t1.source_id=` + id;
                 }
             } else if(type=='block' && !this.util.isNull(config.data.search)){
-                where = ` AND b1.block_index=` + config.data.search;
+                where = ` AND b1.block_index=` + parseInt(config.data.search, 10);
             } else if(type=='token'){
                 if(['getOrders','getSwaps'].includes(method)){
                     where = ` AND (m.get_tick_id=` + id + ` OR m.give_tick_id=` + id + `)`;

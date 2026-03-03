@@ -808,31 +808,51 @@ class XChainExplorer {
     async processRelayRequest(req, res){
         // Only proceed if we were passed a URL
         if(!this.util.isNull(req.query.url)){
-            let url   = req.query.url,
-                ext   = String(path.extname(url)).replace('.','').toLowerCase(),
-                regex = /https?:\/\//;
+            try {
+                // Parse and validate the URL
+                const parsed = new URL(req.query.url);
 
-            // Make sure url starts with http:// or https:// (default to http)
-            if(!regex.test(url))
-                url = 'http://' + url;
+                // Only allow http and https protocols
+                if(!['http:', 'https:'].includes(parsed.protocol))
+                    return res.status(400).send('Invalid protocol');
 
-            // Handle JSON files
-            if(ext=='json'){
-                let response = await axios.get(url);
-                if(!this.util.isNull(response.data)){
-                    res.json(response.data);
+                // Block private/loopback/metadata IP ranges to prevent SSRF
+                const blocked = [
+                    /^localhost$/i,
+                    /^127\./,
+                    /^0\./,
+                    /^10\./,
+                    /^172\.(1[6-9]|2[0-9]|3[01])\./,
+                    /^192\.168\./,
+                    /^169\.254\./,
+                    /^::1$/,
+                    /^fc00:/,
+                ];
+                if(blocked.some(r => r.test(parsed.hostname)))
+                    return res.status(403).send('Destination not permitted');
+
+                const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
+                const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 3 };
+
+                // Handle JSON files
+                if(ext=='json'){
+                    let response = await axios.get(parsed.href, opts);
+                    if(!this.util.isNull(response.data)){
+                        res.type('json').send(this.util.jsonStringify(response.data));
+                        return;
+                    }
+                }
+
+                // Handle PNG images
+                if(ext=='png'){
+                    let response    = await axios.get(parsed.href, { ...opts, responseType: 'arraybuffer' });
+                    let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                    res.send(base64Image);
                     return;
                 }
+            } catch(e) {
+                return res.status(400).send('Invalid or unreachable URL');
             }
-
-            // Handle PNG images
-            if(ext=='png'){
-                let response    = await axios.get(url, { responseType: 'arraybuffer' });
-                let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
-                res.send(base64Image);
-                return;
-            }
-
         }
         // Return `503 - Service Unavailable` error message as last resort
         res.status(503).send('service not available');

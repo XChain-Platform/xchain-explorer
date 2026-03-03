@@ -787,14 +787,14 @@ class XChainExplorer {
      * ICON request handler
      *********************************************************/
     async processIconRequest(req, res){
-        let dirPath  = path.join(__dirname, 'content/icons'),
-            filePath = req.path,
-            fullPath = dirPath + filePath;
-        // Return the file or redirect to the default icon
-        if(fs.existsSync(fullPath)){
-            res.sendFile(fullPath);
+        const dirPath  = path.resolve(path.join(__dirname, 'content/icons'));
+        const filePath = path.resolve(path.join(dirPath, req.path.replace(/^\/icon/, '')));
+        if(!filePath.startsWith(dirPath + path.sep))
+            return res.status(403).send('Access denied');
+        if(fs.existsSync(filePath)){
+            res.sendFile(filePath);
         } else {
-            res.redirect(302, '/icon/default.png');            
+            res.redirect(302, '/icon/default.png');
         }
     }    
 

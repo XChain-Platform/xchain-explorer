@@ -83,12 +83,13 @@ async function startApi(){
     // Allow CORS from any origin (public read-only explorer)
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
 
-    // Rate limiting — 120 requests per minute per IP
+    // Rate limiting — 120 requests per minute per IP (image requests are excluded)
     app.use(rateLimit({
         windowMs:        60 * 1000,
         max:             120,
         standardHeaders: true,
         legacyHeaders:   false,
+        skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) || req.path.startsWith('/icon') || req.path.startsWith('/images'),
     }));
 
     // Allow reverse proxy (X-Forwarded-Proto header)

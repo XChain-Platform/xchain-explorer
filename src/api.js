@@ -50,13 +50,31 @@ async function startApi(){
 
     // Use Helmet to increase security
     app.use(helmet({
-        // TODO: circle back and add a content-security-policy that makes sense
-        contentSecurityPolicy: false,
-        // contentSecurityPolicy: {
-        //  directives: {
-        //      "script-src": ["'self'", "example.com"],
-        //  },
-        // },
+        contentSecurityPolicy: {
+            directives: {
+                // Default: only allow resources from self
+                defaultSrc:  ["'self'"],
+                // Inline scripts are required for per-page $(document).ready() blocks in HTML templates
+                scriptSrc:     ["'self'", "'unsafe-inline'"],
+                // Helmet sets script-src-attr: 'none' by default; override to allow inline event handlers required by jQuery
+                scriptSrcAttr: ["'unsafe-inline'"],
+                // Inline styles are required for Bootstrap components and HTML attribute styles
+                styleSrc:    ["'self'", "'unsafe-inline'"],
+                // data: URIs are required for QR code generation
+                imgSrc:      ["'self'", "data:"],
+                // FontAwesome kit fetches CSS from ka-p.fontawesome.com and kit.fontawesome.com,
+                // and icon data from ka-f.fontawesome.com via XHR/fetch
+                connectSrc:  ["'self'", "https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
+                // FontAwesome dynamically injects CSS from ka-p and kit subdomains
+                styleSrc:    ["'self'", "'unsafe-inline'", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
+                // FontAwesome kit loads web fonts from ka-f.fontawesome.com
+                fontSrc:     ["'self'", "https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com"],
+                // Token descriptions can embed YouTube and SoundCloud players
+                frameSrc:    ["'self'", "https://www.youtube.com", "https://w.soundcloud.com"],
+                // Block all plugins (Flash, etc.)
+                objectSrc:   ["'none'"],
+            }
+        },
     }));
 
     // Allow JSON requests

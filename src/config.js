@@ -37,11 +37,12 @@ const API_PORT_HTTPS = 8081;
 //interval to update the config
 const UPDATE_CONFIG_INTERVAL = 60000 //one minute seems ok because adding new coin/network nodes won't occur so often
 
-// Define SSL Configuration
+// Define SSL Configuration (SSL_DIR env var overrides the default src/ssl/ path)
+const SSL_DIR  = process.env.SSL_DIR || path.join(__dirname, "ssl");
 const API_SSL  = {
-    key:  fs.readFileSync(path.join(__dirname, "ssl", "private.pem")),
-    cert: fs.readFileSync(path.join(__dirname, "ssl", "cert.pem")),
-    ca:   fs.readFileSync(path.join(__dirname, "ssl", "ca.pem"))
+    key:  fs.readFileSync(path.join(SSL_DIR, "private.pem")),
+    cert: fs.readFileSync(path.join(SSL_DIR, "cert.pem")),
+    ca:   fs.readFileSync(path.join(SSL_DIR, "ca.pem"))
 };
 
 //This will hold the connection with the xchain-hub if a url and port are provided

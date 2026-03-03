@@ -99,11 +99,13 @@ class Database {
                     if(networks.includes(net) && !this.util.isNull(info[net].database) && !this.util.isNull(info[net].database.indexer)){
                         let pool = false;
                         let cfg  = info[net].database.indexer;
+                        // Remap host/port to db_host/db_port if needed (e.g. local config.json)
+                        if(!("db_host" in cfg) && ("host" in cfg)) cfg.db_host = cfg.host;
+                        if(!("db_port" in cfg) && ("port" in cfg)) cfg.db_port = cfg.port;
                         // Make the key equal the the config.COINS value (BTC, TBTC, RBTC, etc) for easy matching
                         let key  = coin;
                         if(net=='testnet') key = 'T' + coin;
                         if(net=='regtest') key = 'R' + coin;
-                        
                         if (("db_host" in cfg) && ("db_port" in cfg)){
                             // Database connection information
                             this.pools[key] = {

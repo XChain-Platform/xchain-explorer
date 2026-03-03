@@ -134,4 +134,7 @@ async function startApi(){
 }
 
 // Start up the explorer services
-startApi();
+startApi().catch(err => {
+    console.error('Fatal startup error:', err);
+    process.exit(1);
+});

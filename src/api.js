@@ -24,7 +24,6 @@ const dotenv         = require('dotenv');
 const http           = require('http');
 const https          = require('https');
 const express        = require('express');
-const bodyParser     = require('body-parser');
 const helmet         = require('helmet');
 const cors           = require('cors');
 const rateLimit      = require('express-rate-limit');
@@ -79,7 +78,7 @@ async function startApi(){
     }));
 
     // Allow JSON requests
-    app.use(bodyParser.json());
+    app.use(express.json());
 
     // Allow CORS from any origin (public read-only explorer)
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));

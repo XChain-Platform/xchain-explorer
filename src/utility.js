@@ -23,11 +23,6 @@
 const mathjs = require('mathjs');
 const fs     = require('fs/promises');
 
-// Support BigInt in JSON stringify()
-BigInt.prototype.toJSON = function(){
-    return JSON.rawJSON(this.toString());
-};
-
 class Utility {
 
     // Handle constructing a class instance
@@ -244,6 +239,11 @@ class Utility {
         return (value === null || value === undefined || value==='');
     }
 
+    // JSON.stringify with BigInt support
+    jsonStringify(obj){
+        return JSON.stringify(obj, (key, value) => typeof value === 'bigint' ? value.toString() : value);
+    }
+    
     // Sort an object by key values
     ksort(obj){
         const sortedKeys = Object.keys(obj).sort();

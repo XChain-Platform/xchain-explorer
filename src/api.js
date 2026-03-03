@@ -27,6 +27,7 @@ const express        = require('express');
 const bodyParser     = require('body-parser');
 const helmet         = require('helmet');
 const cors           = require('cors');
+const rateLimit      = require('express-rate-limit');
 const XChainExplorer = require('./XChainExplorer.js');
 const configInfo     = require('./config.js');
 const jsonRouter     = require('express-json-rpc-router')
@@ -82,6 +83,14 @@ async function startApi(){
 
     // Allow CORS from any origin (public read-only explorer)
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
+
+    // Rate limiting — 120 requests per minute per IP
+    app.use(rateLimit({
+        windowMs:        60 * 1000,
+        max:             120,
+        standardHeaders: true,
+        legacyHeaders:   false,
+    }));
 
     // Allow reverse proxy (X-Forwarded-Proto header)
     app.enable('trust proxy');

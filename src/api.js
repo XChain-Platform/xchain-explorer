@@ -88,9 +88,6 @@ async function startApi(){
         }
     }
 
-    // Allow JSON-RPC requests
-    app.use(jsonRouter({methods: jsonRpcController}))
-
     // HTTP server for redirection
     http.createServer(app).listen(EXPLORER_API_PORT_HTTP, () => {
         console.log('HTTP  server listening on port', EXPLORER_API_PORT_HTTP);
@@ -98,12 +95,15 @@ async function startApi(){
 
     // HTTPS server for serving out requests in a secure manner
     https.createServer(config.API.ssl, app).listen(EXPLORER_API_PORT_HTTPS, () => {
-        console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTP);
+        console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTPS);
     });
 
     // Start up the explorer instance
     const explorer = new XChainExplorer(app, configInfo);
     await explorer.init()
+
+    // Allow JSON-RPC requests (registered last so explorer routes take priority)
+    app.use(jsonRouter({methods: jsonRpcController}))
 }
 
 // Start up the explorer services

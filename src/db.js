@@ -3680,15 +3680,15 @@ class Database {
                             LEFT  JOIN dispenser_statuses s1 ON (s1.dispenser_action_index=d1.action_index)
                             LEFT  JOIN index_statuses     s2 ON (s2.id=d1.status_id)
                             LEFT  JOIN index_statuses     s3 ON (s3.id=s1.status_id)
-                        WHERE 
-                            s1.action_index = (
+                        WHERE
+                            (s1.action_index IS NULL OR s1.action_index = (
                                 SELECT
                                     MAX(s4.action_index)
                                 FROM
                                     dispenser_statuses s4
                                 WHERE
                                     s4.dispenser_action_index=d1.action_index
-                            ) AND
+                            )) AND
                             d1.action_index=?
                         LIMIT 1`;
                 // Get a list of dispenser edits
@@ -4215,7 +4215,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=o1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            INNER JOIN order_statuses     s1 ON (s1.order_action_index=o1.action_index)
+                            LEFT  JOIN order_statuses     s1 ON (s1.order_action_index=o1.action_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    a4 ON (a4.id=o1.get_address_id)
@@ -4227,15 +4227,15 @@ class Database {
                             LEFT  JOIN index_coins        c2 ON (c2.id=o1.get_coin_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=o1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=o1.get_tick_id)
-                        WHERE 
-                            s1.action_index = (
+                        WHERE
+                            (s1.action_index IS NULL OR s1.action_index = (
                                 SELECT
                                     MAX(s3.action_index)
                                 FROM
                                     order_statuses s3
                                 WHERE
                                     s3.order_action_index=o1.action_index
-                            ) AND
+                            )) AND
                             o1.action_index=?
                         LIMIT 1`;
                 // Get a list of order edits
@@ -4505,7 +4505,7 @@ class Database {
                             s4.status as current_status
                         FROM
                             swaps s1
-                            INNER JOIN swap_statuses      s2 ON (s2.swap_action_index=s1.action_index)
+                            LEFT  JOIN swap_statuses      s2 ON (s2.swap_action_index=s1.action_index)
                             INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
@@ -4520,15 +4520,15 @@ class Database {
                             LEFT  JOIN index_coins        c2 ON (c2.id=s1.get_coin_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=s1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=s1.get_tick_id)
-                        WHERE 
-                            s2.action_index = (
+                        WHERE
+                            (s2.action_index IS NULL OR s2.action_index = (
                                 SELECT
                                     MAX(s4.action_index)
                                 FROM
                                     swap_statuses s4
                                 WHERE
                                     s4.swap_action_index=s1.action_index
-                            ) AND
+                            )) AND
                             s1.action_index=?
                         LIMIT 1`;
                 // Get a list of swap edits

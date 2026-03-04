@@ -60,8 +60,8 @@ async function startApi(){
                 scriptSrcAttr: ["'unsafe-inline'"],
                 // Inline styles are required for Bootstrap components and HTML attribute styles
                 styleSrc:    ["'self'", "'unsafe-inline'"],
-                // data: URIs are required for QR code generation
-                imgSrc:      ["'self'", "data:"],
+                // data: URIs are required for QR code generation; https: allows external images in token descriptions
+                imgSrc:      ["'self'", "data:", "https:"],
                 // FontAwesome kit fetches CSS from ka-p.fontawesome.com and kit.fontawesome.com,
                 // and icon data from ka-f.fontawesome.com via XHR/fetch
                 connectSrc:  ["'self'", "https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
@@ -86,7 +86,7 @@ async function startApi(){
     // Rate limiting — 120 requests per minute per IP (image requests are excluded)
     app.use(rateLimit({
         windowMs:        60 * 1000,
-        max:             120,
+        max:             500,
         standardHeaders: true,
         legacyHeaders:   false,
         skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) || req.path.startsWith('/icon') || req.path.startsWith('/images'),

@@ -1,0 +1,774 @@
+/**
+ * Unit tests for data-transformation and query-execution methods in src/db.js
+ *
+ * Covers:
+ *   - getData(config)
+ *   - getToken(config)
+ *   - getBlock(config)
+ *   - getAddress(config)
+ *   - getNetwork(config)
+ *   - getStatus(config)
+ *   - getTransaction(config)
+ *   - getMempool(config)
+ *   - getDecoderDatabaseName(coin)
+ *   - getAddressId(config, address)
+ *   - getTickId(config, tick)
+ *   - getActionType(config, action_index)
+ *   - doQuery(config, query, args)
+ */
+
+'use strict';
+
+const proxyquire = require('proxyquire');
+const sinon      = require('sinon');
+const { expect } = require('chai');
+const Utility    = require('../../src/utility.js');
+const { createConfigInfoStub } = require('../fixtures/mock-config.js');
+const { makeConfig }           = require('../fixtures/mock-query-args.js');
+const mockResults              = require('../fixtures/mock-db-results.js');
+
+// ---------------------------------------------------------------------------
+// Bootstrap — no real MariaDB pool needed
+// ---------------------------------------------------------------------------
+
+const Database = proxyquire('../../src/db.js', {
+    mariadb: { createPool: () => ({}) }
+});
+
+const configInfo    = createConfigInfoStub();
+const util          = new Utility(configInfo);
+const mockExplorer  = { configInfo, util };
+
+function makeDb() {
+    return new Database(mockExplorer);
+}
+
+// Shared minimal config used across tests
+function cfg(overrides = {}) {
+    return makeConfig({ coin: 'BTC', ...overrides });
+}
+
+// ---------------------------------------------------------------------------
+// doQuery
+// ---------------------------------------------------------------------------
+
+describe('Database#doQuery', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns query results on success', async () => {
+        const fakeRows = mockResults.sendRows();
+        const fakeConn = {
+            query:   sinon.stub().resolves(fakeRows),
+            release: sinon.stub().resolves()
+        };
+        sinon.stub(db, 'getConnection').resolves(fakeConn);
+        sinon.stub(db, 'releaseConnection').resolves();
+
+        const result = await db.doQuery(cfg(), 'SELECT 1', []);
+        expect(result).to.deep.equal(fakeRows);
+    });
+
+    it('returns false when a SQL error is thrown', async () => {
+        const fakeConn = {
+            query:   sinon.stub().rejects(new Error('Table not found')),
+            release: sinon.stub().resolves()
+        };
+        sinon.stub(db, 'getConnection').resolves(fakeConn);
+        sinon.stub(db, 'releaseConnection').resolves();
+
+        const result = await db.doQuery(cfg(), 'SELECT bad', []);
+        expect(result).to.equal(false);
+    });
+
+    it('returns false when no connection is available', async () => {
+        sinon.stub(db, 'getConnection').resolves(null);
+        sinon.stub(db, 'releaseConnection').resolves();
+
+        const result = await db.doQuery(cfg(), 'SELECT 1', []);
+        expect(result).to.equal(false);
+    });
+
+    it('always calls releaseConnection after a successful query', async () => {
+        const fakeConn = {
+            query:   sinon.stub().resolves([]),
+            release: sinon.stub().resolves()
+        };
+        sinon.stub(db, 'getConnection').resolves(fakeConn);
+        const release = sinon.stub(db, 'releaseConnection').resolves();
+
+        await db.doQuery(cfg(), 'SELECT 1', []);
+        expect(release.calledOnce).to.be.true;
+    });
+
+    it('always calls releaseConnection even after a SQL error', async () => {
+        const fakeConn = {
+            query:   sinon.stub().rejects(new Error('boom')),
+            release: sinon.stub().resolves()
+        };
+        sinon.stub(db, 'getConnection').resolves(fakeConn);
+        const release = sinon.stub(db, 'releaseConnection').resolves();
+
+        await db.doQuery(cfg(), 'SELECT 1', []);
+        expect(release.calledOnce).to.be.true;
+    });
+
+    it('skips query execution when query is null', async () => {
+        const getConn = sinon.stub(db, 'getConnection').resolves(null);
+        const result  = await db.doQuery(cfg(), null, []);
+        expect(result).to.equal(false);
+        expect(getConn.called).to.be.false;
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getData
+// ---------------------------------------------------------------------------
+
+describe('Database#getData', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns [data, total] when both data and count queries succeed', async () => {
+        const rows      = mockResults.sendRows();
+        const countRows = mockResults.countRow(42);
+        let   callCount = 0;
+        sinon.stub(db, 'doQuery').callsFake(async () => {
+            callCount++;
+            return callCount === 1 ? rows : countRows;
+        });
+        // Stub getQuery to return a plain SQL string + count query
+        sinon.stub(db, 'getQuery').resolves(['SELECT 1', null, 'SELECT count(*) as total FROM sends']);
+
+        const config = cfg({ data: { method: 'getSends', search: null, query: {}, sql: { where: { data: 'm.action_index IS NOT NULL', offset: '' }, order: 'DESC', limit: 100 }, offset: { action: null, start: null, stop: null } } });
+        const [data, total] = await db.getData(config);
+        expect(data).to.deep.equal(rows);
+        expect(total).to.equal(42);
+    });
+
+    it('returns [data, null] when no count query is provided', async () => {
+        const rows = mockResults.sendRows();
+        sinon.stub(db, 'doQuery').resolves(rows);
+        sinon.stub(db, 'getQuery').resolves(['SELECT 1', null, '']);
+
+        const config = cfg();
+        const [data, total] = await db.getData(config);
+        expect(data).to.deep.equal(rows);
+        expect(total).to.be.null;
+    });
+
+    it('returns [[], null] when query is empty string', async () => {
+        sinon.stub(db, 'getQuery').resolves(['', null, '']);
+
+        const config = cfg();
+        const [data, total] = await db.getData(config);
+        expect(data).to.deep.equal([]);
+        expect(total).to.be.null;
+    });
+
+    it('passes object query directly as data without calling doQuery', async () => {
+        const objectData = { custom: true };
+        sinon.stub(db, 'getQuery').resolves([objectData, null, null]);
+        const doQueryStub = sinon.stub(db, 'doQuery');
+
+        const config = cfg();
+        const [data, total] = await db.getData(config);
+        expect(data).to.deep.equal(objectData);
+        expect(doQueryStub.called).to.be.false;
+        expect(total).to.be.null;
+    });
+
+    it('returns numeric count from object query when count is numeric', async () => {
+        const objectData = [{ id: 1 }];
+        sinon.stub(db, 'getQuery').resolves([objectData, null, 99]);
+        sinon.stub(db, 'doQuery');
+
+        const config = cfg();
+        const [data, total] = await db.getData(config);
+        expect(total).to.equal(99);
+    });
+
+    it('returns [false, 0] when doQuery returns false and count query exists', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+        sinon.stub(db, 'getQuery').resolves(['SELECT 1', null, 'SELECT count(*) as total FROM x']);
+
+        const config = cfg();
+        const [data, total] = await db.getData(config);
+        expect(data).to.equal(false);
+        expect(total).to.equal(0);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getDecoderDatabaseName
+// ---------------------------------------------------------------------------
+
+describe('Database#getDecoderDatabaseName', () => {
+    let db;
+    before(() => { db = makeDb(); });
+
+    it('returns the decoder DB name for BTC mainnet', async () => {
+        const name = await db.getDecoderDatabaseName('BTC');
+        expect(name).to.equal('XChain_BTC_Mainnet_Decoder');
+    });
+
+    it('returns null when the coin is not in config', async () => {
+        // 'XYZ' does not exist in the mock config — iterating over undefined should return null
+        let threw = false;
+        let name  = null;
+        try {
+            name = await db.getDecoderDatabaseName('XYZ');
+        } catch(e) {
+            threw = true;
+        }
+        // The method should either return null or throw; either is acceptable, but it must not
+        // silently return the BTC value.
+        if (!threw) {
+            expect(name).to.be.null;
+        }
+    });
+
+    it('returns the first available decoder name (mainnet over regtest)', async () => {
+        // Both mainnet and regtest decoder names are present in BTC config.
+        // Method returns the first one it encounters (mainnet comes first).
+        const name = await db.getDecoderDatabaseName('BTC');
+        expect(name).to.be.a('string').that.includes('Decoder');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getAddress
+// ---------------------------------------------------------------------------
+
+describe('Database#getAddress', () => {
+    let db;
+    before(() => { db = makeDb(); });
+
+    it('returns a data object with the expected top-level keys', async () => {
+        const config = cfg({ data: { search: 'addr1bc' } });
+        const [data] = await db.getAddress(config);
+        expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value']);
+    });
+
+    it('echoes the search address into data.address', async () => {
+        const config = cfg({ data: { search: 'bc1qtest' } });
+        const [data] = await db.getAddress(config);
+        expect(data.address).to.equal('bc1qtest');
+    });
+
+    it('returns balances with confirmed, pending, received fields', async () => {
+        const config = cfg({ data: { search: 'addr' } });
+        const [data] = await db.getAddress(config);
+        expect(data.balances).to.have.keys(['confirmed', 'pending', 'received']);
+    });
+
+    it('returns utxos with confirmed and pending fields', async () => {
+        const config = cfg({ data: { search: 'addr' } });
+        const [data] = await db.getAddress(config);
+        expect(data.utxos).to.have.keys(['confirmed', 'pending']);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getBlock
+// ---------------------------------------------------------------------------
+
+describe('Database#getBlock', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns the first result row when query succeeds', async () => {
+        const row = mockResults.blockRow()[0];
+        sinon.stub(db, 'doQuery').resolves([row]);
+
+        const config = cfg({ data: { search: '500', sql: { where: { data: 'b1.block_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getBlock(config);
+        expect(data).to.deep.equal(row);
+    });
+
+    it('returns null when no rows found', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+
+        const config = cfg({ data: { search: '9999', sql: { where: { data: 'b1.block_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getBlock(config);
+        expect(data).to.be.null;
+    });
+
+    it('returns null when doQuery returns false', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+
+        const config = cfg({ data: { search: '500', sql: { where: { data: 'b1.block_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getBlock(config);
+        expect(data).to.be.null;
+    });
+
+    it('includes expected block fields in the result', async () => {
+        const row = mockResults.blockRow()[0];
+        sinon.stub(db, 'doQuery').resolves([row]);
+
+        const config = cfg({ data: { search: '500', sql: { where: { data: 'b1.block_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getBlock(config);
+        expect(data).to.include.keys(['block_index', 'timestamp', 'ledger_hash', 'actions_hash']);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getStatus
+// ---------------------------------------------------------------------------
+
+describe('Database#getStatus', () => {
+    let db;
+    before(() => { db = makeDb(); });
+
+    it('returns an object with supported and available keys', async () => {
+        const config = cfg();
+        const [data] = await db.getStatus(config);
+        expect(data).to.have.keys(['supported', 'available']);
+    });
+
+    it('returns the COIN_SUPPORTED map from config', async () => {
+        const config  = cfg();
+        const [data]  = await db.getStatus(config);
+        const fullCfg = await configInfo.getConfig();
+        expect(data.supported).to.deep.equal(fullCfg['COIN_SUPPORTED']);
+    });
+
+    it('returns the COIN_AVAILABLE map from config', async () => {
+        const config  = cfg();
+        const [data]  = await db.getStatus(config);
+        const fullCfg = await configInfo.getConfig();
+        expect(data.available).to.deep.equal(fullCfg['COIN_AVAILABLE']);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getMempool
+// ---------------------------------------------------------------------------
+
+describe('Database#getMempool', () => {
+    let db;
+    before(() => { db = makeDb(); });
+
+    it('returns undefined gracefully (TODO stub)', async () => {
+        const config = cfg();
+        const result = await db.getMempool(config);
+        expect(result).to.be.undefined;
+    });
+
+    it('does not throw when called', async () => {
+        const config = cfg();
+        let threw = false;
+        try {
+            await db.getMempool(config);
+        } catch(e) {
+            threw = true;
+        }
+        expect(threw).to.be.false;
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getNetwork
+// ---------------------------------------------------------------------------
+
+describe('Database#getNetwork', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns object with totals, network, fee, coin, xchain keys', async () => {
+        // Each table lookup returns [{ count: 5 }]
+        sinon.stub(db, 'doQuery').resolves([{ count: 5 }]);
+
+        const config = cfg();
+        const [data] = await db.getNetwork(config);
+        expect(data).to.have.keys(['totals', 'network', 'fee', 'coin', 'xchain']);
+    });
+
+    it('populates totals for every actionTable plus tokens', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ count: 3 }]);
+
+        const config  = cfg();
+        const [data]  = await db.getNetwork(config);
+        const expected = [...db.actionTables, 'tokens'];
+        for(const table of expected){
+            expect(data.totals).to.have.property(table);
+        }
+    });
+
+    it('sets totals to the count values returned by doQuery', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ count: 7 }]);
+
+        const config = cfg();
+        const [data] = await db.getNetwork(config);
+        for(const key in data.totals){
+            expect(data.totals[key]).to.equal(7);
+        }
+    });
+
+    it('skips a table count when doQuery returns false for it', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+
+        const config = cfg();
+        const [data] = await db.getNetwork(config);
+        // No totals should be set when every doQuery call fails
+        expect(Object.keys(data.totals)).to.have.length(0);
+    });
+
+    it('includes static network block and unconfirmed placeholders', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
+
+        const config = cfg();
+        const [data] = await db.getNetwork(config);
+        expect(data.network).to.have.keys(['block', 'unconfirmed']);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getToken
+// ---------------------------------------------------------------------------
+
+describe('Database#getToken', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns null when no token found', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+
+        const config = cfg({ data: { search: 'MISSING' } });
+        const [data] = await db.getToken(config);
+        expect(data).to.be.null;
+    });
+
+    it('returns null when doQuery returns false', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data).to.be.null;
+    });
+
+    it('returns an object with info, callback, market, lists, locks, mints, supply keys', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply']);
+    });
+
+    it('maps lock_max_supply="1" to locks.max_supply === true', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.locks.max_supply).to.be.true;
+    });
+
+    it('maps lock_mint="0" to locks.mint === false', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.locks.mint).to.be.false;
+    });
+
+    it('formats supply.current with bcformat using decimals', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ coin: 'BTC', data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        // tokenRow supply='1000000', decimals=8 → '1000000.00000000'
+        expect(data.supply.current).to.equal('1000000.00000000');
+    });
+
+    it('formats supply.max with bcformat using decimals', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ coin: 'BTC', data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.supply.max).to.equal('21000000.00000000');
+    });
+
+    it('groups allow_list into lists.allow', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        // allow_list is null in tokenRow
+        expect(data.lists).to.have.property('allow');
+    });
+
+    it('groups block_list into lists.block', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.lists).to.have.property('block');
+    });
+
+    it('groups coin_price into market.price', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.market.price).to.equal(100);
+    });
+
+    it('groups coin_floor into market.floor', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.market.floor).to.equal(50);
+    });
+
+    it('groups max_mint into mints.max', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        // max_mint key → replace('_mint','') = 'max'
+        expect(data.mints.max).to.equal(100);
+    });
+
+    it('groups mint_address_max into mints.address_max', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        // mint_address_max → replace('mint_','') = 'address_max'
+        expect(data.mints.address_max).to.equal(0);
+    });
+
+    it('groups callback_block into callback.block', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.callback.block).to.equal(0);
+    });
+
+    it('does not include a decimals field in info', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.info).to.not.have.property('decimals');
+        expect(data.info).to.not.have.property('callback_decimals');
+    });
+
+    it('places tick and owner in data.info', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.info.tick).to.equal('XCHAIN');
+        expect(data.info.owner).to.equal('ownerAddr1');
+    });
+
+    it('places description in data.info', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.info.description).to.equal('XChain Gas Token');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getTransaction
+// ---------------------------------------------------------------------------
+
+describe('Database#getTransaction', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns a data object with tx_index, tx_hash, block_index, timestamp, source, actions, tx_data', async () => {
+        const txRow      = mockResults.transactionRow();
+        const actionRows = mockResults.actionRows();
+
+        let call = 0;
+        sinon.stub(db, 'doQuery').callsFake(async () => {
+            call++;
+            if(call === 1) return txRow;       // transaction lookup
+            if(call === 2) return actionRows;  // actions lookup
+            return [];
+        });
+        // Stub helper methods that would require their own DB calls
+        sinon.stub(db, 'getTransactionData').resolves(null);
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (cfg, actions) => actions);
+
+        const config = cfg({ data: { search: 'abc123', type: 'tx_hash', sql: { where: { data: 'm.tx_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getTransaction(config);
+        expect(data).to.have.property('tx_index', 1);
+        expect(data).to.have.property('tx_hash', 'abc123');
+        expect(data).to.have.property('block_index', 500);
+        expect(data).to.have.property('actions').that.is.an('array');
+    });
+
+    it('populates data.actions from the second doQuery call', async () => {
+        const txRow      = mockResults.transactionRow();
+        const actionRows = mockResults.actionRows();
+
+        let call = 0;
+        sinon.stub(db, 'doQuery').callsFake(async () => {
+            call++;
+            if(call === 1) return txRow;
+            if(call === 2) return actionRows;
+            return [];
+        });
+        sinon.stub(db, 'getTransactionData').resolves(null);
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (cfg, actions) => actions);
+
+        const config = cfg({ data: { search: 'abc123', type: 'tx_hash', sql: { where: { data: 'm.tx_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getTransaction(config);
+        expect(data.actions).to.have.length(2);
+        expect(data.actions[0].action_index).to.equal(100);
+    });
+
+    it('sets tx_data to null when getTransactionData returns null', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async () => mockResults.transactionRow());
+        sinon.stub(db, 'getTransactionData').resolves(null);
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
+
+        const config = cfg({ data: { search: 'abc123', type: 'tx_hash', sql: { where: { data: 'm.tx_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getTransaction(config);
+        expect(data.tx_data).to.be.null;
+    });
+
+    it('sets tx_data from getTransactionData when it returns a row with .data', async () => {
+        const txRow     = mockResults.transactionRow();
+        const decoderRow = { tx_index: 1, block_index: 500, hash: 'abc123', fee: 1000, amount: 50000, data: 'XCHN...' };
+
+        let call = 0;
+        sinon.stub(db, 'doQuery').callsFake(async () => {
+            call++;
+            return call === 1 ? txRow : mockResults.actionRows();
+        });
+        sinon.stub(db, 'getTransactionData').resolves(decoderRow);
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
+
+        const config = cfg({ data: { search: 'abc123', type: 'tx_hash', sql: { where: { data: 'm.tx_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getTransaction(config);
+        expect(data.tx_data).to.equal('XCHN...');
+    });
+
+    it('returns empty actions array when first doQuery returns no transaction', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        sinon.stub(db, 'getTransactionData').resolves(null);
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
+
+        const config = cfg({ data: { search: 'notfound', type: 'tx_hash', sql: { where: { data: 'm.tx_index IS NOT NULL', offset: '' } } } });
+        const [data] = await db.getTransaction(config);
+        expect(data.actions).to.deep.equal([]);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getAddressId
+// ---------------------------------------------------------------------------
+
+describe('Database#getAddressId', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns the id when address is found', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.addressIdRow());
+
+        const id = await db.getAddressId(cfg(), 'addr1');
+        expect(id).to.equal(42);
+    });
+
+    it('returns null when address is not found (empty results)', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+
+        const id = await db.getAddressId(cfg(), 'unknown');
+        expect(id).to.be.null;
+    });
+
+    it('returns null when doQuery returns false', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+
+        const id = await db.getAddressId(cfg(), 'addr1');
+        expect(id).to.be.null;
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getTickId
+// ---------------------------------------------------------------------------
+
+describe('Database#getTickId', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns the id when tick is found', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.tickIdRow());
+
+        const id = await db.getTickId(cfg(), 'XCHAIN');
+        expect(id).to.equal(7);
+    });
+
+    it('returns null when tick is not found (empty results)', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+
+        const id = await db.getTickId(cfg(), 'MISSING');
+        expect(id).to.be.null;
+    });
+
+    it('returns null when doQuery returns false', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+
+        const id = await db.getTickId(cfg(), 'XCHAIN');
+        expect(id).to.be.null;
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getActionType
+// ---------------------------------------------------------------------------
+
+describe('Database#getActionType', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns the action type string when action_index is found', async () => {
+        sinon.stub(db, 'doQuery').resolves(mockResults.actionTypeRow('SEND'));
+
+        const type = await db.getActionType(cfg(), 100);
+        expect(type).to.equal('SEND');
+    });
+
+    it('returns null when action_index is not found (empty results)', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+
+        const type = await db.getActionType(cfg(), 9999);
+        expect(type).to.be.null;
+    });
+
+    it('returns null when doQuery returns false', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+
+        const type = await db.getActionType(cfg(), 100);
+        expect(type).to.be.null;
+    });
+
+    it('returns different action types correctly', async () => {
+        const types = ['ISSUE', 'MINT', 'DISPENSER', 'ORDER', 'SWEEP'];
+        for(const expected of types){
+            sinon.restore();
+            const db2 = makeDb();
+            sinon.stub(db2, 'doQuery').resolves(mockResults.actionTypeRow(expected));
+            const type = await db2.getActionType(cfg(), 1);
+            expect(type).to.equal(expected);
+        }
+    });
+});

@@ -494,7 +494,7 @@ class XChainExplorer {
         }
 
         // If we have no data and no total, return a '400 - Bad Request' response
-        if(['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
+        else if(['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
             response.code = 400;
             response.json = {
                 error: 'Explorer was unable to successfully process your request.'
@@ -597,7 +597,7 @@ class XChainExplorer {
         if(cfg.type=='explorer'){
             // Limit results to 100 max (except in special cases where we can not use an offset)
             if(length > 100 && !['getHolders','getBalances','getCredits','getDebits'].includes(cfg.data.method))
-                limit = 100;
+                length = 100;
             limit = this.util.bcadd(start, length);
         }
 
@@ -817,6 +817,8 @@ class XChainExplorer {
                     return res.status(400).send('Invalid protocol');
 
                 // Block private/loopback/metadata IP ranges to prevent SSRF
+                // Note: Node's URL parser wraps IPv6 in brackets (e.g. [::1]), so strip them for matching
+                const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
                 const blocked = [
                     /^localhost$/i,
                     /^127\./,
@@ -828,7 +830,7 @@ class XChainExplorer {
                     /^::1$/,
                     /^fc00:/,
                 ];
-                if(blocked.some(r => r.test(parsed.hostname)))
+                if(blocked.some(r => r.test(hostname)))
                     return res.status(403).send('Destination not permitted');
 
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();

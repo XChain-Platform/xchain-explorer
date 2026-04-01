@@ -5467,7 +5467,7 @@ class Database {
         // Get additional information on this order 
         if(order){
             // Get updated order properties from the order_edits table
-            let edit = await this.getOrderEdits(config, action_index);
+            let edit = await this.getOrderEditInfo(config, action_index);
             if(edit.expiration) order.expiration = edit.expiration;
             if(edit.allow_list) order.allow_list = edit.allow_list;
             if(edit.block_list) order.block_list = edit.block_list;
@@ -5484,7 +5484,7 @@ class Database {
     }
 
     // Return order edit information for given action_index
-    async getOrderEdits(config, action_index){
+    async getOrderEditInfo(config, action_index){
         // Define empty edit object
         let edit  = {
             expiration: false,

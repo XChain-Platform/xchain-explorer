@@ -316,112 +316,128 @@ describe('Database#getQueryOffsetSql', () => {
 
     // --- No offset / no action / no start ----------------------------------
 
-    it('returns empty string when offset is absent', async () => {
+    it('returns empty string and empty args when offset is absent', async () => {
         const config = makeConfig({ data: { method: 'getActions', type: null } });
-        // config.data.offset defaults to { action: null, start: null, stop: null }
-        const sql = await db.getQueryOffsetSql(config);
+        const [sql, args] = await db.getQueryOffsetSql(config);
         expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
     });
 
     it('returns empty string when action is null', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', null, 100, 200));
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', null, 100, 200));
         expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
     });
 
     it('returns empty string when start is null', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', null, null));
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', null, null));
         expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
     });
 
     it('returns empty string when start is non-numeric', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 'abc', null));
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 'abc', null));
         expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
     });
 
-    // --- Default field (m.action_index) ------------------------------------
+    // --- Default field (m.action_index) — parameterized --------------------
 
-    it('action=next with start only: AND m.action_index < start', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, null));
-        expect(sql).to.equal(' AND m.action_index < 500');
+    it('action=next with start only: parameterized placeholder', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, null));
+        expect(sql).to.equal(' AND m.action_index < ?');
+        expect(args).to.deep.equal([500]);
     });
 
-    it('action=next with start+stop: AND m.action_index < start AND m.action_index > stop', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, 100));
-        expect(sql).to.equal(' AND m.action_index < 500 AND m.action_index > 100');
+    it('action=next with start+stop: two parameterized placeholders', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, 100));
+        expect(sql).to.equal(' AND m.action_index < ? AND m.action_index > ?');
+        expect(args).to.deep.equal([500, 100]);
     });
 
-    it('action=prev with start only: AND m.action_index > start', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'prev', 100, null));
-        expect(sql).to.equal(' AND m.action_index > 100');
+    it('action=prev with start only: parameterized placeholder', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'prev', 100, null));
+        expect(sql).to.equal(' AND m.action_index > ?');
+        expect(args).to.deep.equal([100]);
     });
 
-    it('action=prev with start+stop: AND m.action_index > start AND m.action_index < stop', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'prev', 100, 500));
-        expect(sql).to.equal(' AND m.action_index > 100 AND m.action_index < 500');
+    it('action=prev with start+stop: two parameterized placeholders', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'prev', 100, 500));
+        expect(sql).to.equal(' AND m.action_index > ? AND m.action_index < ?');
+        expect(args).to.deep.equal([100, 500]);
     });
 
-    it('action=last with start: AND m.action_index <= start', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'last', 300, null));
-        expect(sql).to.equal(' AND m.action_index <= 300');
+    it('action=last with start: parameterized placeholder', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'last', 300, null));
+        expect(sql).to.equal(' AND m.action_index <= ?');
+        expect(args).to.deep.equal([300]);
     });
 
-    it('action=last with start+stop: AND m.action_index <= start (stop ignored)', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'last', 300, 100));
-        expect(sql).to.equal(' AND m.action_index <= 300');
+    it('action=last with start+stop: parameterized (stop ignored)', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'last', 300, 100));
+        expect(sql).to.equal(' AND m.action_index <= ?');
+        expect(args).to.deep.equal([300]);
     });
 
     // --- Unknown action treated like next (else branch) --------------------
 
     it('unknown action with start+stop: falls through to next-style clause', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'first', 500, 100));
-        expect(sql).to.equal(' AND m.action_index < 500 AND m.action_index > 100');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'first', 500, 100));
+        expect(sql).to.equal(' AND m.action_index < ? AND m.action_index > ?');
+        expect(args).to.deep.equal([500, 100]);
     });
 
     // --- getBlocks uses b1.block_index -------------------------------------
 
     it('getBlocks action=next with start: uses b1.block_index', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'next', 800, 600));
-        // stop is forced to false for getBlocks
-        expect(sql).to.equal(' AND b1.block_index < 800');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'next', 800, 600));
+        expect(sql).to.equal(' AND b1.block_index < ?');
+        expect(args).to.deep.equal([800]);
     });
 
     it('getBlocks action=prev with start: uses b1.block_index', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'prev', 200, null));
-        expect(sql).to.equal(' AND b1.block_index > 200');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'prev', 200, null));
+        expect(sql).to.equal(' AND b1.block_index > ?');
+        expect(args).to.deep.equal([200]);
     });
 
     it('getBlocks action=last with start: uses b1.block_index', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'last', 500, null));
-        expect(sql).to.equal(' AND b1.block_index <= 500');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'last', 500, null));
+        expect(sql).to.equal(' AND b1.block_index <= ?');
+        expect(args).to.deep.equal([500]);
     });
 
     it('getBlocks: stop is always suppressed even when provided', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'prev', 200, 100));
-        // stop forced false — no upper bound appended
-        expect(sql).to.equal(' AND b1.block_index > 200');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'prev', 200, 100));
+        expect(sql).to.equal(' AND b1.block_index > ?');
+        expect(args).to.deep.equal([200]);
     });
 
     // --- getTokens uses m.id -----------------------------------------------
 
     it('getTokens action=next with start+stop: uses m.id', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getTokens', 'next', 50, 10));
-        expect(sql).to.equal(' AND m.id < 50 AND m.id > 10');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getTokens', 'next', 50, 10));
+        expect(sql).to.equal(' AND m.id < ? AND m.id > ?');
+        expect(args).to.deep.equal([50, 10]);
     });
 
     it('getTokens action=prev with start: uses m.id', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getTokens', 'prev', 10, null));
-        expect(sql).to.equal(' AND m.id > 10');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getTokens', 'prev', 10, null));
+        expect(sql).to.equal(' AND m.id > ?');
+        expect(args).to.deep.equal([10]);
     });
 
     it('getTokens action=last with start: uses m.id', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getTokens', 'last', 75, null));
-        expect(sql).to.equal(' AND m.id <= 75');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getTokens', 'last', 75, null));
+        expect(sql).to.equal(' AND m.id <= ?');
+        expect(args).to.deep.equal([75]);
     });
 
     // --- Numeric coercion --------------------------------------------------
 
     it('start/stop are parsed as integers (string numbers accepted)', async () => {
-        const sql = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', '500', '100'));
-        expect(sql).to.equal(' AND m.action_index < 500 AND m.action_index > 100');
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', '500', '100'));
+        expect(sql).to.equal(' AND m.action_index < ? AND m.action_index > ?');
+        expect(args).to.deep.equal([500, 100]);
     });
 });

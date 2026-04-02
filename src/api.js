@@ -77,8 +77,8 @@ async function startApi(){
         },
     }));
 
-    // Allow JSON requests
-    app.use(express.json());
+    // Allow JSON requests (with explicit body size limit)
+    app.use(express.json({ limit: '10kb' }));
 
     // Allow CORS from any origin (public read-only explorer)
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
@@ -92,8 +92,8 @@ async function startApi(){
         skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) || req.path.startsWith('/icon') || req.path.startsWith('/images'),
     }));
 
-    // Allow reverse proxy (X-Forwarded-Proto header)
-    app.enable('trust proxy');
+    // Trust only the first proxy hop (prevents X-Forwarded-For spoofing)
+    app.set('trust proxy', 1);
 
     // Redirect HTTP to HTTPS
     // app.use((req, res, next) => {

@@ -163,7 +163,7 @@ class Database {
                     connection = await pool.getConnection();
                     // console.log("Connected to database!");
                 } catch (e){
-                    console.log('Database connection error:', e.message);
+                    if(process.env.DEBUG) console.log('Database connection error:', e.message);
                     connection = null;
                     // Retry getting a connection again after a brief delay
                     if(retryCount <= maxRetrys){
@@ -171,13 +171,13 @@ class Database {
                         console.log("Can't connect to database. Trying again (attempt " + retryCount + ")...");
                         await this.util.sleep(1000);
                     } else {
-                        console.log('Failed to get database connection:', e.message);
+                        console.log('Failed to get database connection after ' + maxRetrys + ' attempts');
                         break;
                     }
                 }
             }
         } else {
-            console.log("Unable to get database connection pool for :", config.coin);
+            console.log("Unable to get database connection pool");
         }
         this.transactionConnection = connection;
         return connection;
@@ -210,14 +210,18 @@ class Database {
                 total = count;
         } else {
             // Default args to the search string if specific search args object was not given (null)
-            if(!args || typeof args !== 'object')
-                args = [config.data.search];
+            let baseArgs = (args && typeof args === 'object') ? args : [config.data.search];
+            // Build query args by appending parameterized offset args (if any)
+            let queryArgs = [...baseArgs];
+            let offsetArgs = config.data.sql.where.offsetArgs;
+            if(offsetArgs && offsetArgs.length)
+                queryArgs.push(...offsetArgs);
             // Run the database query to get the data
             if(query!='')
-                data = await this.doQuery(config, query, args);
-            // If we have a count query, run it to get total count of records
+                data = await this.doQuery(config, query, queryArgs);
+            // Count query uses only base args (no offset/limit placeholders)
             if(count){
-                let rows = await this.doQuery(config, count, args);
+                let rows = await this.doQuery(config, count, baseArgs);
                 total = (rows) ? Number(rows[0].total) : 0;
             }
         }
@@ -273,7 +277,9 @@ class Database {
             let [offset1, offset2] = await this.getQueryOffsets(config, offset, limit);
             config.data.offset.start = offset1;
             config.data.offset.stop  = offset2;
-            config.data.sql.where.offset = await this.getQueryOffsetSql(config);
+            let [offsetSql, offsetArgs] = await this.getQueryOffsetSql(config);
+            config.data.sql.where.offset     = offsetSql;
+            config.data.sql.where.offsetArgs = offsetArgs;
         }
         // Save the SQL query data in the config object
         config.data.sql.where.data = await this.getQueryWhereSql(config);
@@ -296,11 +302,11 @@ class Database {
                 try {
                     result = await db.query(query, args);
                 } catch (error){
-                    console.log('SQL Query Error:', error.message);
-                    // this.util.logError('Error running query:', error);
+                    if(process.env.DEBUG) console.log('SQL Query Error:', error.message);
+                    else console.log('SQL query failed');
                 }
             } else {
-                console.log('Unable to get database connection to run SQL query');
+                console.log('Unable to get database connection');
             }
             await this.releaseConnection();
         }
@@ -387,35 +393,42 @@ class Database {
         let method = config.data.method;
         let offset = (config.data.offset) ? config.data.offset : false;
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
-        let start  = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? parseInt(offset.start, 10) : false;
-        let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? parseInt(offset.stop, 10) : false;
-        if(start !== false && !Number.isFinite(start)) start = false;
-        if(stop !== false && !Number.isFinite(stop)) stop = false;
+        let start  = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? this.util.sanitizeInt(offset.start, false) : false;
+        let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? this.util.sanitizeInt(offset.stop, false) : false;
+        if(start === false || stop === false) { /* sanitizeInt handles NaN/Infinity */ }
         let sql    = '';
+        let args   = [];
         // Unset stop offset in case of getBlocks
         if(method=='getBlocks')
             stop = false;
         if(action && start !== false){
-            // Set field name to use for offset
+            // Set field name to use for offset (hardcoded whitelist — never from user input)
             let field = 'm.action_index';
             if(method=='getBlocks')
                 field = 'b1.block_index';
             if(method=='getTokens')
                 field = 'm.id';
-            // Build out the Offset SQL using the correct field name and start/stop values
+            // Build out the Offset SQL using parameterized values
             if(action=='prev'){
-                sql = ` AND ` + field + ` > ` + start;
-                if(stop)
-                    sql += ` AND ` + field + ` < ` + stop;
+                sql = ` AND ` + field + ` > ?`;
+                args.push(start);
+                if(stop){
+                    sql += ` AND ` + field + ` < ?`;
+                    args.push(stop);
+                }
             } else if(action=='last'){
-                sql = ` AND ` + field + ` <= ` + start;
+                sql = ` AND ` + field + ` <= ?`;
+                args.push(start);
             } else {
-                sql = ` AND ` + field + ` < ` + start;
-                if(stop)
-                    sql += ` AND ` + field + ` > ` + stop;
+                sql = ` AND ` + field + ` < ?`;
+                args.push(start);
+                if(stop){
+                    sql += ` AND ` + field + ` > ?`;
+                    args.push(stop);
+                }
             }
         }
-        return sql;
+        return [sql, args];
     }
 
     // Handle getting query offset values using the action table
@@ -431,7 +444,8 @@ class Database {
         let args   = false;
         let rows   = false;
         let id     = false;
-        let where  = '';
+        let where     = '';
+        let whereArgs = [];
         let limit  = 1;
         let order  = 'DESC';
         // Bail out in certain instances
@@ -442,44 +456,56 @@ class Database {
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
-            if(type=='address') 
+            if(type=='address')
                 sql = `SELECT id FROM index_addresses WHERE address=? LIMIT 1`;
-            if(type=='token') 
+            if(type=='token')
                 sql = `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`;
             if(sql){
                 rows = await this.doQuery(config, sql, [config.data.search]);
                 if(rows.length>0)
                     id = Number(rows[0].id);
             }
-            // Build out where SQL 
+            // Build out where SQL using parameterized values
             if(type=='address'){
                 if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
-                    where = ` AND (t1.source_id=` + id + ` OR m.destination_id=` + id + `)`;
+                    where = ` AND (t1.source_id=? OR m.destination_id=?)`;
+                    whereArgs.push(id, id);
                 } else if(['getTokens'].includes(method)){
-                    where = ` AND m.owner_id=` + id;
+                    where = ` AND m.owner_id=?`;
+                    whereArgs.push(id);
                 } else if(['getCredits','getDebits','getEscrows'].includes(method)){
-                    where = ` AND m.address_id=` + id;
+                    where = ` AND m.address_id=?`;
+                    whereArgs.push(id);
                 } else if(['getHistory'].includes(method)){
-                    where = ` AND m.type_id=2 AND m.id=` + id;
+                    where = ` AND m.type_id=2 AND m.id=?`;
+                    whereArgs.push(id);
                 } else {
-                    where = ` AND t1.source_id=` + id;
+                    where = ` AND t1.source_id=?`;
+                    whereArgs.push(id);
                 }
             } else if(type=='block' && !this.util.isNull(config.data.search)){
-                where = ` AND b1.block_index=` + parseInt(config.data.search, 10);
+                where = ` AND b1.block_index=?`;
+                whereArgs.push(this.util.sanitizeInt(config.data.search));
             } else if(type=='token'){
                 if(['getOrders','getSwaps'].includes(method)){
-                    where = ` AND (m.get_tick_id=` + id + ` OR m.give_tick_id=` + id + `)`;
+                    where = ` AND (m.get_tick_id=? OR m.give_tick_id=?)`;
+                    whereArgs.push(id, id);
                 } else if(['getDispensers','getDispenses'].includes(method)){
-                    where = ` AND m.get_tick_id=` + id;
+                    where = ` AND m.get_tick_id=?`;
+                    whereArgs.push(id);
                 } else if(['getHistory','getFiles'].includes(method)){
-                    where = ` AND m.type_id=1 AND m.id=` + id;
+                    where = ` AND m.type_id=1 AND m.id=?`;
+                    whereArgs.push(id);
                 } else {
-                    where = ` AND m.tick_id=` + id;
+                    where = ` AND m.tick_id=?`;
+                    whereArgs.push(id);
                 }
-            } 
+            }
         }
-        // Translate method into table for use in SQL queries
+        // Translate method into table for use in SQL queries (validated against actionTables whitelist)
         table = String(method).toLowerCase().replace('get','');
+        if(!this.actionTables.includes(table) && !['blocks','tokens','history','files','markets','market'].includes(table))
+            return [];
         // Lookup start offset for first and last page requests
         if(['first','last'].includes(action)){
             // Get offset for first page requests
@@ -492,70 +518,70 @@ class Database {
             }
             // Build out SQL to get start offset
             if(type=='block' && this.util.isNull(config.data.search)){
-                sql = `SELECT 
+                sql = `SELECT
                             b1.block_index as offset_index
                         FROM
                             blocks b1
-                        WHERE 
+                        WHERE
                             b1.block_index IS NOT NULL
                             ` + where + `
-                        ORDER BY b1.block_index ` + order + ` 
+                        ORDER BY b1.block_index ` + order + `
                         LIMIT ` + limit;
             } else if(method=='getTokens'){
-                sql = `SELECT 
+                sql = `SELECT
                             m.id as offset_index
                         FROM
                             tokens m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        WHERE 
+                        WHERE
                             m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY m.id ` + order + ` 
+                        ORDER BY m.id ` + order + `
                         LIMIT ` + limit;
             } else if(method=='getHistory'){
-                sql = `SELECT 
+                sql = `SELECT
                             m.action_index as offset_index
                         FROM
                             mappings_actions m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                             LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        WHERE 
+                        WHERE
                             m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + ` 
+                        ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
             } else if(method=='getFiles' && type=='token'){
-                sql = `SELECT 
+                sql = `SELECT
                             m.action_index as offset_index
                         FROM
                             mappings_files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        WHERE 
+                        WHERE
                             m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + ` 
+                        ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
              } else {
-                sql = `SELECT 
+                sql = `SELECT
                             m.action_index as offset_index
                         FROM
                             ` + table + ` m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                             LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        WHERE 
+                        WHERE
                             m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + ` 
+                        ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
             }
-            // Run Query to try and get offset information 
-            rows = await this.doQuery(config, sql);
+            // Run Query to try and get offset information
+            rows = await this.doQuery(config, sql, whereArgs.length ? whereArgs : undefined);
             if(rows.length>0){
                 for(let row of rows){
                     offset1 = Number(row.offset_index);
@@ -578,57 +604,60 @@ class Database {
             } else {
                 limit = this.util.bcadd(length,1);
                 order = 'DESC';
-                // If we have offset value and action, use it to speed up SQL query by pulling less data
+                // If we have offset value and action, use parameterized SQL to speed up query
+                let stopWhereArgs = [...whereArgs];
                 if(action && offset1){
                     if(action=='prev'){
-                        where += ' AND m.action_index > ' + offset1;
+                        where += ' AND m.action_index > ?';
+                        stopWhereArgs.push(offset1);
                     } else {
-                        where += ' AND m.action_index < ' + offset1;
+                        where += ' AND m.action_index < ?';
+                        stopWhereArgs.push(offset1);
                     }
                 }
                 // Build out SQL to get stop offset
                 if(method=='getHistory'){
-                    sql = `SELECT 
+                    sql = `SELECT
                             m.action_index as offset_index
                         FROM
                             mappings_actions m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        WHERE 
+                        WHERE
                             m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + ` 
+                        ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
             } else if(method=='getFiles' && type=='token'){
-                sql = `SELECT 
+                sql = `SELECT
                             m.action_index as offset_index
                         FROM
                             mappings_files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        WHERE 
+                        WHERE
                             m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + ` 
+                        ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
                 } else {
-                    sql = `SELECT 
+                    sql = `SELECT
                             m.action_index as offset_index
                         FROM
                             ` + table + ` m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        WHERE 
+                        WHERE
                             m.action_index IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + ` 
+                        ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
                 }
-                // Run Query to try and get offset information 
-                rows = await this.doQuery(config, sql);
+                // Run Query to try and get offset information
+                rows = await this.doQuery(config, sql, stopWhereArgs.length ? stopWhereArgs : undefined);
                 // Only set the stop offset number if we have more data to show
                 if(rows.length>0 && rows.length == limit){
                     for(let row of rows)
@@ -5120,14 +5149,14 @@ class Database {
             if(results && results.length)
                 total = this.util.bcadd(total, results[0].count, 0);
         }
-        // If we have offset value and action, use it to speed up SQL query by pulling less data
+        // If we have offset value and action, use parameterized SQL to speed up query
         if(action && start){
             if(action=='prev'){
-                where += ' AND m.action_index > ' + start;
-                // where += ' AND m.action_index < ' + this.util.bcadd(start,this.util.bcadd(limit,1));
+                where += ' AND m.action_index > ?';
+                args.push(start);
             } else {
-                where += ' AND m.action_index < ' + start;
-                // where += ' AND m.action_index > ' + this.util.bcsub(start,this.util.bcadd(limit,1));
+                where += ' AND m.action_index < ?';
+                args.push(start);
             }
         }
         // If we have any records, then run the SQL query to pull the data
@@ -5253,6 +5282,7 @@ class Database {
                 };
                 let block_index = row.block_index;
                 let query2 = '';
+                let blockArgs = [];
                 // Loop through action tables and get a count for each block
                 for(let table of this.actionTables){
                     if(query2!='')
@@ -5265,10 +5295,11 @@ class Database {
                                 INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                                 INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                                 INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            WHERE 
-                                b1.block_index=` + block_index;
-                }                
-                let results2 = await this.doQuery(config, query2);
+                            WHERE
+                                b1.block_index=?`;
+                    blockArgs.push(block_index);
+                }
+                let results2 = await this.doQuery(config, query2, blockArgs);
                 if(results2 && results2.length){
                     for(let data of results2){
                         info.actions[data.action] = data.count;

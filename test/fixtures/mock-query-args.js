@@ -21,7 +21,8 @@ function makeConfig(overrides = {}) {
                 limit: 100,
                 where: {
                     data: 'm.action_index IS NOT NULL',
-                    offset: ''
+                    offset: '',
+                    offsetArgs: []
                 }
             },
             offset: {

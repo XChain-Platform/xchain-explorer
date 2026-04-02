@@ -255,6 +255,12 @@ class Utility {
         return String(value).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
     }
 
+    // Safely parse an integer value, returning defaultVal if parsing fails or result is not finite
+    sanitizeInt(value, defaultVal=0){
+        let parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : defaultVal;
+    }
+
     // Sort an object by key values
     ksort(obj){
         const sortedKeys = Object.keys(obj).sort();

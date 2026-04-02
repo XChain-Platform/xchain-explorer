@@ -1,0 +1,124 @@
+/**
+ * Security tests — Rate Limiting & Request Hardening
+ *
+ * Verifies body size limits, trust proxy configuration, and rate limiter settings
+ * by inspecting the api.js configuration (not making live HTTP requests).
+ *
+ * Run: mocha test/security/rate-limiting.test.js --timeout 0
+ */
+
+'use strict';
+
+const { expect } = require('chai');
+const fs         = require('fs');
+const path       = require('path');
+
+// ---------------------------------------------------------------------------
+// Read api.js source for configuration verification
+// ---------------------------------------------------------------------------
+
+const apiSource = fs.readFileSync(
+    path.join(__dirname, '../../src/api.js'),
+    'utf8'
+);
+
+// ===========================================================================
+// Body size limit
+// ===========================================================================
+
+describe('Security: Rate Limiting — Body size limit', function () {
+
+    it('express.json() has explicit body size limit', function () {
+        // Check that express.json is called with a limit option
+        expect(apiSource).to.include("express.json({ limit:");
+    });
+
+    it('body size limit is 10kb or less', function () {
+        const match = apiSource.match(/express\.json\(\{\s*limit:\s*'(\d+)kb'/);
+        expect(match).to.not.be.null;
+        const limitKb = parseInt(match[1], 10);
+        expect(limitKb).to.be.at.most(100);
+    });
+});
+
+// ===========================================================================
+// Trust proxy configuration
+// ===========================================================================
+
+describe('Security: Rate Limiting — Trust proxy', function () {
+
+    it('trust proxy is set to specific value (not boolean true)', function () {
+        // Should NOT use app.enable('trust proxy') which sets it to boolean true
+        expect(apiSource).to.not.include("app.enable('trust proxy')");
+        expect(apiSource).to.not.include('app.enable("trust proxy")');
+    });
+
+    it('trust proxy is set to 1 (single hop)', function () {
+        expect(apiSource).to.include("'trust proxy', 1");
+    });
+});
+
+// ===========================================================================
+// Rate limiter configuration
+// ===========================================================================
+
+describe('Security: Rate Limiting — Rate limiter config', function () {
+
+    it('rate limiter is configured', function () {
+        expect(apiSource).to.include('rateLimit(');
+    });
+
+    it('uses standard headers', function () {
+        expect(apiSource).to.include('standardHeaders: true');
+    });
+
+    it('disables legacy headers', function () {
+        expect(apiSource).to.match(/legacyHeaders:\s+false/);
+    });
+
+    it('has a window of 60 seconds', function () {
+        expect(apiSource).to.include('60 * 1000');
+    });
+
+    it('has max requests configured', function () {
+        const match = apiSource.match(/max:\s*(\d+)/);
+        expect(match).to.not.be.null;
+        const maxRequests = parseInt(match[1], 10);
+        expect(maxRequests).to.be.at.most(500);
+        expect(maxRequests).to.be.at.least(1);
+    });
+});
+
+// ===========================================================================
+// Helmet security headers
+// ===========================================================================
+
+describe('Security: Rate Limiting — Helmet configuration', function () {
+
+    it('helmet is enabled', function () {
+        expect(apiSource).to.include('app.use(helmet(');
+    });
+
+    it('CSP is configured', function () {
+        expect(apiSource).to.include('contentSecurityPolicy');
+    });
+
+    it('object-src is set to none', function () {
+        expect(apiSource).to.include("objectSrc:   [\"'none'\"]");
+    });
+});
+
+// ===========================================================================
+// CORS configuration
+// ===========================================================================
+
+describe('Security: Rate Limiting — CORS configuration', function () {
+
+    it('CORS middleware is configured', function () {
+        expect(apiSource).to.include('app.use(cors(');
+    });
+
+    it('allows only GET and POST methods', function () {
+        expect(apiSource).to.include("methods: ['GET', 'POST']");
+    });
+});

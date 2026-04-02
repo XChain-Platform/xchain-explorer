@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-04-01
+
+### Added
+- Security test suite with 115 tests across 6 files covering all audit domains
+  - `sql-injection.test.js` — 33 tests for offset parameterization, ORDER BY whitelist, LIMIT clamping, WHERE placeholders, LIKE escaping, sanitizeInt
+  - `ssrf-protection.test.js` — 28 tests for redirect bypass, protocol validation, IP blocklist (14 hosts), file extension filtering, URL edge cases, error safety
+  - `input-validation.test.js` — 19 tests for type confusion, special characters, null bytes, extreme values, method name safety
+  - `info-leakage.test.js` — 10 tests for header removal, runtime header gating, debug logging gating, error response safety
+  - `path-traversal.test.js` — 10 tests for directory traversal, boundary check logic, icon request behavior
+  - `rate-limiting.test.js` — 15 tests for body size limit, trust proxy config, rate limiter settings, Helmet CSP
+- `sanitizeInt()` utility function for defense-in-depth integer validation
+- npm script: `test:security`
+
+### Fixed
+- **SQL injection hardening**: Parameterized all offset SQL values in `getQueryOffsetSql()`, `getQueryOffsets()`, `getHistoryData()`, and `getBlocks()` — offset values now use `?` placeholders instead of string concatenation
+- **SSRF relay hardening**: Set `maxRedirects: 0` to prevent redirect-based bypass of IP blocklist
+- **Info leakage prevention**: Removed `XChain-Explorer-Version` and redundant `Access-Control-Allow-Origin` custom headers; gated `XChain-Runtime-Ms` header and request config debug logging behind `DEBUG` env var
+- **Error message sanitization**: Database and SQL error messages gated behind `DEBUG` env var; production logs show generic messages only
+- **Request body size limit**: Added explicit `10kb` limit to `express.json()` middleware
+- **Trust proxy hardening**: Changed from `true` (trust all proxies) to `1` (trust first hop only) to prevent `X-Forwarded-For` spoofing
+- **Table name validation**: Added whitelist check for dynamically constructed table names in `getQueryOffsets()`
+
 ## [1.5.0] - 2026-04-01
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "name": "xchain-explorer",
   "description": "xchain-explorer is a free open source token platform explorer and set of APIs to pull data from the XChain platform supported blockchains",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
@@ -35,7 +35,8 @@
     "test:smoke:connected": "mocha test/smoke/connected/**/*.test.js --timeout 15000 --exit --recursive",
     "test:boundary": "mocha test/boundary/**/*.test.js --timeout 30000 --exit --recursive",
     "test:boundary:unit": "mocha test/boundary/unit/**/*.test.js --timeout 5000 --exit --recursive",
-    "test:boundary:integration": "mocha test/boundary/integration/**/*.test.js --timeout 30000 --exit --recursive"
+    "test:boundary:integration": "mocha test/boundary/integration/**/*.test.js --timeout 30000 --exit --recursive",
+    "test:security": "mocha test/security/**/*.test.js --timeout 5000 --exit --recursive"
   },
   "devDependencies": {
     "chai": "^4.5.0",

@@ -52,10 +52,7 @@ class XChainExplorer {
         this.urls = this.setupUrls();
 
         // Define any custom headers to pass with each request
-        this.headers = {
-            'XChain-Explorer-Version': '1.0.0', 
-            'Access-Control-Allow-Origin': '*'
-        }
+        this.headers = {};
 
         // Setup empty request response
         this.response = {
@@ -294,8 +291,9 @@ class XChainExplorer {
                     order:  null, // Sort order (ASC, DESC)
                     limit:  null, // Record Limit (LIMIT X)
                     where: {
-                        data:   '', // Where data SQL 
-                        offset: ''  // Where offset SQL
+                        data:       '', // Where data SQL
+                        offset:     '', // Where offset SQL
+                        offsetArgs: []  // Parameterized offset args
                     }
                 },
                 // Offset Information (used by explorer for paging)
@@ -536,7 +534,7 @@ class XChainExplorer {
         // Set any custom headers
         response.head = structuredClone(this.headers);
 
-        if(!this.util.isNull(response.time))
+        if(process.env.DEBUG && !this.util.isNull(response.time))
             response.head['XChain-Runtime-Ms'] = response.time;
 
         // Return any custom headers in response
@@ -561,13 +559,14 @@ class XChainExplorer {
 
         }
 
-        // DEBUG INFO
-        console.log('--- REQUEST CONFIG ---');
-        console.dir(cfg, {
-            colors: true,
-            depth: 3
-        });
-        // console.log('data=',data);
+        // DEBUG INFO (only log when DEBUG env var is set)
+        if(process.env.DEBUG){
+            console.log('--- REQUEST CONFIG ---');
+            console.dir(cfg, {
+                colors: true,
+                depth: 3
+            });
+        }
     }
 
     // Handle looping through database results and only returning the records the user cares about using paging and limit
@@ -843,7 +842,7 @@ class XChainExplorer {
                     return res.status(403).send('Destination not permitted');
 
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
-                const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 3 };
+                const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0 };
 
                 // Handle JSON files
                 if(ext=='json'){

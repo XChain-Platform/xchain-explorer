@@ -316,31 +316,35 @@ describe('XChainExplorer.processRequest – error responses', function () {
 
 describe('XChainExplorer.processRequest – response headers', function () {
 
-    it('sets XChain-Explorer-Version header on every response', async function () {
+    it('does NOT set XChain-Explorer-Version header (info leakage prevention)', async function () {
         const rows     = mockResults.sendRows();
         getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
         const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
 
-        expect(res._headers).to.have.property('XChain-Explorer-Version').that.is.a('string');
+        expect(res._headers).to.not.have.property('XChain-Explorer-Version');
     });
 
-    it('sets Access-Control-Allow-Origin: * on every response', async function () {
+    it('does NOT set Access-Control-Allow-Origin in custom headers (handled by cors middleware)', async function () {
         const rows     = mockResults.sendRows();
         getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
         const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
 
-        expect(res._headers).to.have.property('Access-Control-Allow-Origin', '*');
+        // Custom headers object should not contain this — cors middleware handles it
+        expect(res._headers).to.not.have.property('Access-Control-Allow-Origin');
     });
 
-    it('sets XChain-Runtime-Ms header when response.time is set', async function () {
+    it('does NOT set XChain-Runtime-Ms header when DEBUG is not set', async function () {
+        const origDebug = process.env.DEBUG;
+        delete process.env.DEBUG;
         const rows     = mockResults.sendRows();
         getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
         const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
 
-        expect(res._headers).to.have.property('XChain-Runtime-Ms').that.is.a('number');
+        expect(res._headers).to.not.have.property('XChain-Runtime-Ms');
+        if(origDebug) process.env.DEBUG = origDebug;
     });
 
 });

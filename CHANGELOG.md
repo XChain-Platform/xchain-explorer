@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-04-02
+
+### Added
+- Comprehensive regression test suite with 144 tests across 3 priority tiers
+  - `p0-core-unit.test.js` — 58 curated unit tests: sanitizeInt, escapeLike, isNull, isNumeric, millisecondsToTimeString, error logging, query builder sortorder/limit validation (P0)
+  - `p0-security-baseline.test.js` — SQL injection prevention: offset parameterization, WHERE clause parameterization, order/limit validation, LIKE wildcard escaping (P0)
+  - `p0-core-api.test.js` — 29 integration tests: sends (block/address/token/source/destination queries, pagination, sorting), balances, holders, token detail, block, transaction (by hash and index), credits, debits, status, network, address summary (P0)
+  - `p1-markets-dispensers.test.js` — 19 tests: market pairs, market filtering, orderbook, orders, dispensers, dispenses, issues, mints, destroys, broadcasts, pagination correctness, BigNumber precision, error responses (P1)
+  - `p1-api-contract.test.js` — 16 tests: Content-Type headers, CORS, alphabetical key ordering, runtime field, null handling, DataTables format, empty results, SSRF protection, path traversal, HTML serving (P1)
+  - `p2-cross-endpoint.test.js` — 14 tests: transaction-send cross-reference, block-scoped action counts, API vs Explorer data agreement, explorer token/block endpoints, less-used action types, icon endpoint (P2)
+- Regression test infrastructure
+  - `test/regression/helpers/db-setup.js` — reuses integration DB setup for stable seed data
+  - `test/regression/helpers/app-setup.js` — reuses integration app setup for consistent test environment
+- npm scripts: `test:regression`, `test:regression:p0`, `test:regression:p0:unit`, `test:regression:p1`, `test:regression:full`
+
 ## [1.9.0] - 2026-04-02
 
 ### Added

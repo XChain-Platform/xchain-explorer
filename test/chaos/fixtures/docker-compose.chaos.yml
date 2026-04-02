@@ -1,0 +1,45 @@
+version: '3.8'
+
+# Chaos Engineering test environment
+# Usage:
+#   docker compose -f test/chaos/fixtures/docker-compose.chaos.yml up -d --wait
+#   npm run test:chaos
+#   docker compose -f test/chaos/fixtures/docker-compose.chaos.yml down -v
+
+services:
+  # MariaDB — the explorer's primary dependency
+  mariadb-chaos:
+    image: mariadb:10.11
+    command: --max-connections=500
+    environment:
+      MARIADB_ROOT_PASSWORD: testpass
+      MARIADB_DATABASE: XChain_BTC_Regtest_Indexer
+    # No direct port exposure — traffic flows through toxiproxy
+    networks:
+      - chaos-net
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  # Toxiproxy — TCP fault injection proxy
+  # Sits between the explorer and MariaDB to inject latency, drops, timeouts
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    ports:
+      # Toxiproxy API (for managing proxies and toxics)
+      - "8474:8474"
+      # MariaDB proxy endpoint (explorer connects here instead of direct DB)
+      - "3307:3307"
+    networks:
+      - chaos-net
+    depends_on:
+      mariadb-chaos:
+        condition: service_healthy
+
+networks:
+  chaos-net:
+    driver: bridge

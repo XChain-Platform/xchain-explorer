@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-04-02
+
+### Added
+- Chaos engineering test suite with 54 experiments across 5 failure categories
+  - `db-resilience.test.js` — CE-DB-01 through CE-DB-04: database unavailability, slow queries, pool exhaustion, intermittent connection drops (14 tests)
+  - `api-overload.test.js` — CE-API-01 through CE-API-04: single-IP burst, sustained concurrency, slowloris, large payload rejection (6 tests)
+  - `network-partition.test.js` — CE-NET-01 through CE-NET-04: full partition, high latency, packet slicing, bandwidth throttling (13 tests)
+  - `resource-saturation.test.js` — CE-RES-01 through CE-RES-03: memory pressure, cache behavior, event loop saturation (7 tests)
+  - `external-deps.test.js` — CE-EXT-01 through CE-EXT-02: relay endpoint resilience, config sync resilience (14 tests)
+- Chaos test infrastructure
+  - `docker-compose.chaos.yml` with MariaDB and Shopify Toxiproxy for TCP fault injection
+  - `toxiproxy-client.js` — programmatic proxy management and pre-built fault scenarios (latency, bandwidth, reset_peer, timeout, limit_data, slicer)
+  - `chaos-setup.js` — server lifecycle, DB seeding, HTTP helpers, health polling, recovery measurement
+  - `seed-chaos.sql` — minimal test data for chaos experiments
+- npm scripts: `test:chaos`, `test:chaos:db`, `test:chaos:api`, `test:chaos:network`, `test:chaos:resource`, `test:chaos:external`, `test:chaos:up`, `test:chaos:down`
+
+## [1.8.0] - 2026-04-02
+
+### Added
+- Mutation testing infrastructure using StrykerJS v8.7.1 with Mocha runner
+  - `stryker.config.mjs` targeting `utility.js`, `db.js`, `XChainExplorer.js`, `config.js`
+  - HTML and JSON mutation reports generated to `reports/mutation/`
+  - npm scripts: `test:mutation`, `test:mutation:utility`, `test:mutation:db`, `test:mutation:explorer`, `test:mutation:config`
+- Mutation-killing unit tests for `utility.js` (147 tests, up from 120)
+  - `escapeLike()` — 7 tests for backslash, percent, underscore escaping
+  - `sanitizeInt()` — 7 tests for parsing, defaults, edge cases
+  - `millisecondsToTimeString()` — exact string assertions replacing loose `.include()` checks
+  - `priceSort()` — stability tests for equal-price elements in ASC and DESC
+  - `throwError()`/`logError()` — prefix string verification
+  - `bcadd()`/`bcsub()`/`bcmul()` — decimal precision truncation tests
+  - `getTimer()` — arithmetic operator verification (subtraction not addition)
+  - `isInteger()` — null and boolean type rejection
+  - `jsonStringify()` — nested BigNumber conversion
+- Mutation-killing unit tests for `db.js`
+  - LRU cache `_cacheGet`/`_cacheSet` — 6 tests for round-trip, eviction, promotion, overwrite
+  - `getQueryOffsetSql()` — 5 tests for empty string, undefined, and edge case inputs
+
+### Changed
+- `utility.js` mutation score: 79.28% → 95.50% (211 killed / 222 total)
+- Total unit test count: 567 → 578
+
 ## [1.7.0] - 2026-04-01
 
 ### Added

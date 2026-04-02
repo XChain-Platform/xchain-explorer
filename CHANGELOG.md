@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-04-01
+
+### Added
+- Integration test suite with 82 tests across 9 test files verifying database-to-API correctness
+  - `api-actions.test.js` — 12 tests for sends by block/address/token/source/destination, pagination, sorting
+  - `api-single-item.test.js` — 12 tests for block, balances, holders, token detail, transaction, credits, debits
+  - `api-status-network.test.js` — 5 tests for status and network endpoints
+  - `api-markets.test.js` — 7 tests for market list, pair detail, open orders, orderbook
+  - `explorer-paging.test.js` — 12 tests for DataTables-format endpoints with pagination
+  - `error-handling.test.js` — 7 tests for error codes on invalid/unavailable coins, bad params
+  - `response-format.test.js` — 8 tests for headers, alphabetical key sort, null handling, numeric precision
+  - `pagination-boundary.test.js` — 6 tests for limit/page boundaries, sort defaults, no-overlap
+  - `special-endpoints.test.js` — 13 tests for icon serving, relay SSRF protection, JSON-RPC ping, HTML pages
+- Test infrastructure: Docker Compose for test MariaDB, schema from indexer DDL (60 tables), baseline seed data
+- Test helpers: idempotent `db-setup.js` and cached `app-setup.js` for shared app/DB lifecycle
+- `supertest` dev dependency for HTTP assertions
+- npm scripts: `test:integration`, `test:integration:up`, `test:integration:down`
+
 ## [1.1.0] - 2026-04-01
 
 ### Fixed

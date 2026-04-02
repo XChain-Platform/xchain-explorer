@@ -1,0 +1,953 @@
+-- XChain Explorer Integration Test Schema
+-- Auto-generated from xchain-indexer/src/sql/*.sql
+
+-- ============================================================
+-- 1. Reference / index tables
+-- ============================================================
+
+DROP TABLE IF EXISTS index_actions;
+CREATE TABLE index_actions (
+    id     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(250) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX action on index_actions (action);
+
+DROP TABLE IF EXISTS index_addresses;
+CREATE TABLE index_addresses (
+    id      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    address VARCHAR(120) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX address on index_addresses (address(62));
+
+DROP TABLE IF EXISTS index_coins;
+CREATE TABLE index_coins (
+    id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    coin VARCHAR(250) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX coin on index_coins (coin);
+
+DROP TABLE IF EXISTS index_fiats;
+CREATE TABLE index_fiats (
+    id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(250) NOT NULL,
+    name VARCHAR(250)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX code on index_fiats (code);
+
+INSERT INTO index_fiats values (1,  'USD', 'US Dollar');
+INSERT INTO index_fiats values (2,  'CAD', 'Canadian Dollar');
+INSERT INTO index_fiats values (3,  'AUD', 'Austrailian Dollar');
+INSERT INTO index_fiats values (4,  'MXN', 'Mexican Peso');
+INSERT INTO index_fiats values (5,  'GBP', 'Great Britian Pound');
+INSERT INTO index_fiats values (6,  'JPY', 'Japanese Yen');
+INSERT INTO index_fiats values (7,  'CNY', 'Chinese Yuan');
+INSERT INTO index_fiats values (8,  'CHF', 'Swiss Franc');
+INSERT INTO index_fiats values (9,  'BRL', 'Brazillian Real');
+INSERT INTO index_fiats values (10, 'INR', 'Indian Rupee');
+
+DROP TABLE IF EXISTS index_memos;
+CREATE TABLE index_memos (
+    id     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    memo   VARCHAR(250) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX memo on index_memos (memo);
+
+DROP TABLE IF EXISTS index_mime_types;
+CREATE TABLE index_mime_types (
+    id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX type on index_mime_types (type);
+
+DROP TABLE IF EXISTS index_statuses;
+CREATE TABLE index_statuses (
+    id     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    status VARCHAR(250) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX status on index_statuses (status);
+
+DROP TABLE IF EXISTS index_tickers;
+CREATE TABLE index_tickers (
+    id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tick TEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE UNIQUE INDEX tick on index_tickers (tick(200));
+
+DROP TABLE IF EXISTS index_transactions;
+CREATE TABLE index_transactions (
+    id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    hash VARCHAR(250) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX hash on index_transactions (hash(64));
+
+-- ============================================================
+-- 2. Core tables
+-- ============================================================
+
+DROP TABLE IF EXISTS blocks;
+CREATE TABLE blocks (
+    id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    block_index      BIGINT UNSIGNED,
+    block_time       BIGINT UNSIGNED,
+    ledger_hash_id   BIGINT UNSIGNED,  -- id of record in index_transactions table (sha256 hash of credits/debits/escrow/balances data)
+    actions_hash_id  BIGINT UNSIGNED   -- id of record in index_transactions table (sha256 hash of actions data)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX block_index     ON blocks (block_index);
+CREATE INDEX ledger_hash_id  ON blocks (ledger_hash_id);
+CREATE INDEX actions_hash_id ON blocks (actions_hash_id);
+
+-- Table used to track individual transactions
+
+DROP TABLE IF EXISTS transactions;
+CREATE TABLE transactions (
+  tx_index    BIGINT UNSIGNED NOT NULL,
+  block_index BIGINT UNSIGNED NOT NULL,
+  tx_hash_id  BIGINT UNSIGNED NOT NULL, -- id of record in index_transactions table
+  source_id   BIGINT UNSIGNED           -- id of record in the index_addresses
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX tx_index    on transactions (tx_index);
+CREATE        INDEX block_index on transactions (block_index);
+CREATE        INDEX tx_hash_id  on transactions (tx_hash_id);
+CREATE        INDEX source_id   on transactions (source_id);
+
+-- Table used to track individual actions within a transaction
+
+DROP TABLE IF EXISTS actions;
+CREATE TABLE actions (
+  action_index  BIGINT UNSIGNED NOT NULL, -- Unique index for every action
+  block_index   BIGINT UNSIGNED NOT NULL, -- block_index from the blocks table
+  tx_index      BIGINT UNSIGNED,          -- tx_index from the transactions table
+  tx_vout       BIGINT UNSIGNED,          -- transaction output index
+  action_id     BIGINT UNSIGNED NOT NULL, -- id of record in index_actions table
+  action_format TINYINT UNSIGNED          -- FORMAT of action data (0-255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index    on actions (action_index);
+CREATE        INDEX block_index     on actions (block_index);
+CREATE        INDEX tx_index        on actions (tx_index);
+CREATE        INDEX action_id       on actions (action_id);
+CREATE        INDEX action_format   on actions (action_format);
+
+-- ============================================================
+-- 3. Data tables
+-- ============================================================
+
+DROP TABLE IF EXISTS tokens;
+CREATE TABLE tokens (
+    id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tick_id            BIGINT UNSIGNED,                      -- id of record in index_ticks table
+    action_index       BIGINT UNSIGNED,                      -- action_index of first ISSUE transaction (used in rollbacks)
+    last_action_index  BIGINT UNSIGNED,                      -- action index of last  ISSUE transaction
+    supply             VARCHAR(250),                         -- Current supply
+    max_supply         VARCHAR(250),                         -- Maximum Supply
+    max_mint           VARCHAR(250),                         -- Supply minted
+    decimals           TINYINT(2),                           -- 0=non-divisible, 1-18=divisible
+    description        VARCHAR(250),                         -- URL to icon
+    lock_max_supply    TINYINT(1) NOT NULL DEFAULT 0,        -- Locks MAX_SUPPLY
+    lock_mint          TINYINT(1) NOT NULL DEFAULT 0,        -- Locks MINT
+    lock_mint_supply   TINYINT(1) NOT NULL DEFAULT 0,        -- Locks MINT_SUPPLY
+    lock_max_mint      TINYINT(1) NOT NULL DEFAULT 0,        -- Locks MAX_MINT
+    lock_description   TINYINT(1) NOT NULL DEFAULT 0,        -- Locks DESCRIPTION
+    lock_sleep         TINYINT(1) NOT NULL DEFAULT 0,        -- Locks SLEEP
+    lock_callback      TINYINT(1) NOT NULL DEFAULT 0,        -- Locks CALLBACK_BLOCK/TICK/AMOUNT
+    callback_block     BIGINT UNSIGNED,                     -- block_index after which CALLBACK cand be used
+    callback_tick_id   BIGINT UNSIGNED,                     -- id of record in index_tickers table
+    callback_amount    VARCHAR(250),                         -- AMOUNT users get if CALLBACK
+    allow_list         BIGINT UNSIGNED,                     -- action_index of list in lists table
+    block_list         BIGINT UNSIGNED,                     -- action_index of list in lists table
+    mint_address_max   VARCHAR(250),                         -- Maximum amount of supply an address can MINT
+    mint_start_block   BIGINT UNSIGNED,                     -- block_index when MINT transactions are allowed (begin mint)
+    mint_stop_block    BIGINT UNSIGNED,                     -- BLOCK_INDEX when MINT transactions are NOT allowed (end mint)
+    owner_id           BIGINT UNSIGNED,                     -- id of record in index_addresses table
+    coin_price         VARCHAR(250) NOT NULL default 0,     -- last  price of 1 token in native coin (BTC, LTC, DOGE, etc)
+    coin_floor         VARCHAR(250) NOT NULL default 0      -- floor price of 1 token in native coin (BTC, LTC, DOGE, etc)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX tick_id          ON tokens (tick_id);
+CREATE        INDEX owner_id         ON tokens (owner_id);
+CREATE        INDEX lock_max_supply  ON tokens (lock_max_supply);
+CREATE        INDEX lock_mint        ON tokens (lock_mint);
+CREATE        INDEX lock_max_mint    ON tokens (lock_max_mint);
+CREATE        INDEX lock_mint_supply ON tokens (lock_mint_supply);
+CREATE        INDEX lock_description ON tokens (lock_description);
+CREATE        INDEX lock_sleep       ON tokens (lock_sleep);
+CREATE        INDEX lock_callback    ON tokens (lock_callback);
+CREATE        INDEX callback_tick_id ON tokens (callback_tick_id);
+CREATE        INDEX allow_list       ON tokens (allow_list);
+CREATE        INDEX block_list       ON tokens (block_list);
+
+DROP TABLE IF EXISTS balances;
+CREATE TABLE balances (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    address_id BIGINT UNSIGNED, -- id of record in index_addresses
+    tick_id    BIGINT UNSIGNED, -- id of record in index_tickers
+    amount     VARCHAR(250)      -- AMOUNT of balance
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX address_id ON balances (address_id);
+CREATE INDEX tick_id    ON balances (tick_id);
+
+DROP TABLE IF EXISTS credits;
+CREATE TABLE credits (
+    action_index BIGINT UNSIGNED NOT NULL, -- Unique action index
+    address_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
+    tick_id      BIGINT UNSIGNED,          -- id of record in index_tickers table
+    amount       VARCHAR(250)               -- AMOUNT of credit
+) ENGINE=InnoDB DEFAULT  CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX action_index ON credits (action_index);
+CREATE INDEX address_id   ON credits (address_id);
+CREATE INDEX tick_id      ON credits (tick_id);
+
+DROP TABLE IF EXISTS debits;
+CREATE TABLE debits (
+    action_index BIGINT UNSIGNED NOT NULL, -- Unique action index
+    address_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
+    tick_id      BIGINT UNSIGNED,          -- id of record in index_tickers table
+    amount       VARCHAR(250)               -- AMOUNT of debit
+) ENGINE=InnoDB DEFAULT  CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX action_index ON debits (action_index);
+CREATE INDEX address_id   ON debits (address_id);
+CREATE INDEX tick_id      ON debits (tick_id);
+
+DROP TABLE IF EXISTS escrows;
+CREATE TABLE escrows (
+    action_index BIGINT UNSIGNED NOT NULL, -- Unique action index
+    address_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
+    tick_id      BIGINT UNSIGNED,          -- id of record in index_tickers table
+    amount       VARCHAR(250)               -- AMOUNT of credit
+) ENGINE=InnoDB DEFAULT  CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX action_index ON escrows (action_index);
+CREATE INDEX address_id   ON escrows (address_id);
+CREATE INDEX tick_id      ON escrows (tick_id);
+
+-- ============================================================
+-- 4. Action tables
+-- ============================================================
+
+DROP TABLE IF EXISTS addresses;
+CREATE TABLE IF NOT EXISTS addresses (
+    action_index   BIGINT UNSIGNED NOT NULL, -- Unique action index
+    fee_preference BIGINT UNSIGNED,
+    require_memo   BIGINT UNSIGNED,
+    memo_id        BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id      BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON addresses (action_index);
+CREATE        INDEX memo_id        ON addresses (memo_id);
+CREATE        INDEX status_id      ON addresses (status_id);
+
+DROP TABLE IF EXISTS airdrops;
+CREATE TABLE airdrops (
+    action_index      BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id           BIGINT UNSIGNED,          -- id of record in index_ticks
+    list_action_index BIGINT UNSIGNED,          -- list action_index
+    amount            VARCHAR(250),              -- Amount of token in airdrop
+    memo_id           BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id         BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index      ON airdrops (action_index);
+CREATE        INDEX tick_id           ON airdrops (tick_id);
+CREATE        INDEX list_action_index ON airdrops (list_action_index);
+CREATE        INDEX memo_id           ON airdrops (memo_id);
+CREATE        INDEX status_id         ON airdrops (status_id);
+
+DROP TABLE IF EXISTS batches;
+CREATE TABLE batches (
+    action_index BIGINT UNSIGNED NOT NULL, -- Unique action index
+    status_id    BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON batches (action_index);
+CREATE        INDEX status_id      ON batches (status_id);
+
+DROP TABLE IF EXISTS broadcasts;
+CREATE TABLE broadcasts (
+    action_index           BIGINT UNSIGNED NOT NULL, -- Unique action index
+    message                VARCHAR(250),             -- Message, oracle info, or feed info
+    `value`                VARCHAR(25),              -- Numerical value of the broadcast
+    fee                    VARCHAR(11),              -- Oracle / Feed usage  fee
+    memo_id                BIGINT UNSIGNED,          -- id of record in index_memos table
+    broadcast_action_index BIGINT UNSIGNED,          -- broadcast action_index
+    status_id              BIGINT UNSIGNED           -- id of record in index_statuses table
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index           ON broadcasts (action_index);
+CREATE        INDEX broadcast_action_index ON broadcasts (broadcast_action_index);
+CREATE        INDEX memo_id                ON broadcasts (memo_id);
+CREATE        INDEX status_id              ON broadcasts (status_id);
+
+DROP TABLE IF EXISTS callbacks;
+CREATE TABLE callbacks (
+    action_index     BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id          BIGINT UNSIGNED,          -- id of record in index_tickers
+    callback_tick_id BIGINT UNSIGNED,          -- id of record in index_tickers
+    callback_amount  VARCHAR(250),              -- Amount of token per unit
+    memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index     ON callbacks (action_index);
+CREATE        INDEX tick_id          ON callbacks (tick_id);
+CREATE        INDEX callback_tick_id ON callbacks (callback_tick_id);
+CREATE        INDEX memo_id          ON callbacks (memo_id);
+CREATE        INDEX status_id        ON callbacks (status_id);
+
+DROP TABLE IF EXISTS destroys;
+CREATE TABLE destroys (
+    action_index BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id      BIGINT UNSIGNED,          -- id of record in index_ticks table
+    amount       VARCHAR(250),              -- Amount of token to destroy
+    memo_id      BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id    BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON destroys (action_index);
+CREATE        INDEX tick_id        ON destroys (tick_id);
+CREATE        INDEX memo_id        ON destroys (memo_id);
+CREATE        INDEX status_id      ON destroys (status_id);
+
+DROP TABLE IF EXISTS dispensers;
+CREATE TABLE dispensers (
+    action_index       BIGINT UNSIGNED NOT NULL, -- Unique action index
+    give_coin_id       BIGINT UNSIGNED,          -- id of record in index_coins table
+    give_tick_id       BIGINT UNSIGNED,          -- id of record in index_tickers table
+    give_amount        VARCHAR(250),             -- Amount of GIVE_TICK to dispense when triggered
+    give_escrow        VARCHAR(250),             -- Amount of GIVE_TICK to escrow in dispenser
+    get_coin_id        BIGINT UNSIGNED,          -- id of record in index_coins table
+    get_tick_id        BIGINT UNSIGNED,          -- id of record in index_tickers table
+    get_amount         VARCHAR(250),             -- Amount required to trigger dispenser
+    get_address_id     BIGINT UNSIGNED,          -- id of record in index_addresses table (dispenser address)
+    fiat_id            BIGINT UNSIGNED,          -- id of record in index_fiats table
+    fiat_amount        BIGINT UNSIGNED,          -- amount of FIAT required to trigger a dispense
+    expiration         BIGINT UNSIGNED,          -- unix timestamp of dispenser expiration date/time
+    allow_list         BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    block_list         BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    memo_id            BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id          BIGINT UNSIGNED           -- id of record in index_statuses table (status of open dispenser tx)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+
+CREATE UNIQUE INDEX action_index   ON dispensers (action_index);
+CREATE        INDEX give_coin_id   ON dispensers (give_coin_id);
+CREATE        INDEX give_tick_id   ON dispensers (give_tick_id);
+CREATE        INDEX get_coin_id    ON dispensers (get_coin_id);
+CREATE        INDEX get_tick_id    ON dispensers (get_tick_id);
+CREATE        INDEX get_address_id ON dispensers (get_address_id);
+CREATE        INDEX fiat_id        ON dispensers (fiat_id);
+CREATE        INDEX allow_list     ON dispensers (allow_list);
+CREATE        INDEX block_list     ON dispensers (block_list);
+CREATE        INDEX memo_id        ON dispensers (memo_id);
+CREATE        INDEX status_id      ON dispensers (status_id);
+
+DROP TABLE IF EXISTS dispenses;
+CREATE TABLE dispenses (
+    action_index             BIGINT UNSIGNED NOT NULL, -- Unique action index
+    dispenser_action_index   BIGINT UNSIGNED,          -- action_index of dispenser
+    give_coin_id             BIGINT UNSIGNED,          -- id of record in index_coins table
+    give_tick_id             BIGINT UNSIGNED,          -- id of record in index_tickers table
+    give_amount              VARCHAR(250),             -- Amount dispensed (GIVE_TICK)
+    get_coin_id              BIGINT UNSIGNED,          -- id of record in index_coins table
+    get_tick_id              BIGINT UNSIGNED,          -- id of record in index_tickers table
+    get_amount               VARCHAR(250),             -- Amount paid (GET_COIN or GET_TICK)
+    destination_id           BIGINT UNSIGNED,          -- id of record in index_addresses table
+    status_id                BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index           ON dispenses (action_index);
+CREATE        INDEX dispenser_action_index ON dispenses (dispenser_action_index);
+CREATE        INDEX destination_id         ON dispenses (destination_id);
+CREATE        INDEX get_coin_id            ON dispenses (get_coin_id);
+CREATE        INDEX get_tick_id            ON dispenses (get_tick_id);
+CREATE        INDEX give_coin_id           ON dispenses (give_coin_id);
+CREATE        INDEX give_tick_id           ON dispenses (give_tick_id);
+CREATE        INDEX status_id              ON dispenses (status_id);
+
+DROP TABLE IF EXISTS dispenser_cancels;
+CREATE TABLE dispenser_cancels (
+    action_index           BIGINT UNSIGNED NOT NULL, -- Unique action index
+    dispenser_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from dispensers table
+    memo_id                BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id              BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index           ON dispenser_cancels (action_index);
+CREATE        INDEX dispenser_action_index ON dispenser_cancels (dispenser_action_index);
+CREATE        INDEX memo_id                ON dispenser_cancels (memo_id);
+CREATE        INDEX status_id              ON dispenser_cancels (status_id);
+
+DROP TABLE IF EXISTS dispenser_closes;
+CREATE TABLE dispenser_closes (
+    action_index           BIGINT UNSIGNED NOT NULL, -- Unique action index
+    dispenser_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from dispensers table
+    status_id              BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index           ON dispenser_closes (action_index);
+CREATE        INDEX dispenser_action_index ON dispenser_closes (dispenser_action_index);
+CREATE        INDEX status_id              ON dispenser_closes (status_id);
+
+DROP TABLE IF EXISTS dispenser_edits;
+CREATE TABLE dispenser_edits (
+    action_index       BIGINT UNSIGNED NOT NULL,     -- Unique action index
+    dispenser_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from dispensers table
+    give_escrow        VARCHAR(250),                 -- Amount of GIVE_TICK to add to escrow
+    expiration         BIGINT UNSIGNED,              -- unix timestamp of dispenser expiration date/time
+    allow_list         BIGINT UNSIGNED,              -- action_index of a list from the lists table
+    block_list         BIGINT UNSIGNED,              -- action_index of a list from the lists table
+    memo_id            BIGINT UNSIGNED,              -- id of record in index_memos table
+    status_id          BIGINT UNSIGNED               -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index           ON dispenser_edits (action_index);
+CREATE        INDEX dispenser_action_index ON dispenser_edits (dispenser_action_index);
+CREATE        INDEX allow_list             ON dispenser_edits (allow_list);
+CREATE        INDEX block_list             ON dispenser_edits (block_list);
+CREATE        INDEX memo_id                ON dispenser_edits (memo_id);
+CREATE        INDEX status_id              ON dispenser_edits (status_id);
+
+DROP TABLE IF EXISTS dispenser_expires;
+CREATE TABLE dispenser_expires (
+    action_index           BIGINT UNSIGNED NOT NULL, -- Unique action index
+    dispenser_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from dispensers table
+    status_id              BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index           ON dispenser_expires (action_index);
+CREATE        INDEX dispenser_action_index ON dispenser_expires (dispenser_action_index);
+CREATE        INDEX status_id              ON dispenser_expires (status_id);
+
+DROP TABLE IF EXISTS dispenser_statuses;
+CREATE TABLE dispenser_statuses (
+    action_index           BIGINT UNSIGNED NOT NULL, -- Unique action index
+    dispenser_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from dispensers table
+    status_id              BIGINT UNSIGNED           -- id of record in index_statuses table (status of order tx open/invalid/complete/cancelled/expired)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index           ON dispenser_statuses (action_index);
+CREATE        INDEX dispenser_action_index ON dispenser_statuses (dispenser_action_index);
+CREATE        INDEX status_id              ON dispenser_statuses (status_id);
+
+DROP TABLE IF EXISTS dividends;
+CREATE TABLE dividends (
+    action_index     BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id          BIGINT UNSIGNED,          -- id of record in index_ticks
+    dividend_tick_id BIGINT UNSIGNED,          -- id of record in index_ticks
+    amount           VARCHAR(250),              -- Amount of token per unit
+    memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index     ON dividends (action_index);
+CREATE        INDEX tick_id          ON dividends (tick_id);
+CREATE        INDEX dividend_tick_id ON dividends (dividend_tick_id);
+CREATE        INDEX memo_id          ON dividends (memo_id);
+CREATE        INDEX status_id        ON dividends (status_id);
+
+DROP TABLE IF EXISTS fees;
+CREATE TABLE fees (
+    action_index   BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id        BIGINT UNSIGNED,          -- id of record in index_tickers (default = GAS)
+    amount         VARCHAR(250),              -- Amount of TICK
+    method         BIGINT UNSIGNED NOT NULL, -- FEE Payment Method (1=Destroy, 2=Donate)
+    destination_id BIGINT UNSIGNED           -- id of record in index_addresses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON fees (action_index);
+CREATE        INDEX tick_id        ON fees (tick_id);
+CREATE        INDEX destination_id ON fees (destination_id);
+
+DROP TABLE IF EXISTS files;
+CREATE TABLE files (
+    action_index        BIGINT UNSIGNED NOT NULL, -- Unique action index
+    name                VARCHAR(250),             -- File Name (filename.ext)
+    title               VARCHAR(250),             -- File Title (My Spreadsheet)
+    type_id             BIGINT UNSIGNED,          -- id of record in index_mime_types table
+    memo_id             BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id           BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index ON files (action_index);
+CREATE        INDEX type_id      ON files (type_id);
+CREATE        INDEX memo_id      ON files (memo_id);
+CREATE        INDEX status_id    ON files (status_id);
+
+DROP TABLE IF EXISTS issues;
+CREATE TABLE issues (
+    action_index        BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id             BIGINT UNSIGNED,          -- id of record in index_tickers table
+    max_supply          VARCHAR(250),             -- Maximum token supply (1000000000000000000000.000000000000000000 = 40 Characters)
+    max_mint            VARCHAR(250),             -- Maximum amount of supply a MINT transaction can issue
+    decimals            VARCHAR(2),               -- Number of decimal places token should have (max: 18, default: 0)
+    description         VARCHAR(250),             -- URL to a an icon to use for this token (48x48 standard size)
+    mint_supply         VARCHAR(250),             -- Maximum amount of supply a MINT transaction can issue
+    transfer_id         BIGINT UNSIGNED,          -- id of record in index_addresses table
+    transfer_supply_id  BIGINT UNSIGNED,          -- id of record in index_addresses table
+    lock_max_supply     VARCHAR(1),               -- Locks MAX_SUPPLY
+    lock_mint           VARCHAR(1),               -- Locks MINT
+    lock_mint_supply    VARCHAR(1),               -- Locks MINT_SUPPLY
+    lock_max_mint       VARCHAR(1),               -- Locks MAX_MINT
+    lock_description    VARCHAR(1),               -- Locks DESCRIPTION
+    lock_sleep          VARCHAR(1),               -- Locks SLEEP
+    lock_callback       VARCHAR(1),               -- Locks CALLBACK_BLOCK/TICK/AMOUNT
+    callback_block      VARCHAR(15),              -- block_index after which CALLBACK cand be used
+    callback_tick_id    BIGINT UNSIGNED,          -- id of record in index_tickers table
+    callback_amount     VARCHAR(250),             -- AMOUNT users get if CALLBACK
+    allow_list          BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    block_list          BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    mint_address_max    VARCHAR(250),             -- Maximum amount of supply an address can MINT
+    mint_start_block    VARCHAR(15),              -- block_index when MINT transactions are allowed (begin mint)
+    mint_stop_block     VARCHAR(15),              -- BLOCK_INDEX when MINT transactions are NOT allowed (end mint)
+    memo_id             BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id           BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON issues (action_index);
+CREATE        INDEX tick_id            ON issues (tick_id);
+CREATE        INDEX transfer_id        ON issues (transfer_id);
+CREATE        INDEX transfer_supply_id ON issues (transfer_supply_id);
+CREATE        INDEX status_id          ON issues (status_id);
+CREATE        INDEX callback_tick_id   ON issues (callback_tick_id);
+CREATE        INDEX allow_list         ON issues (allow_list);
+CREATE        INDEX block_list         ON issues (block_list);
+CREATE        INDEX memo_id            ON issues (memo_id);
+
+DROP TABLE IF EXISTS links;
+CREATE TABLE links (
+    action_index        BIGINT UNSIGNED NOT NULL, -- Unique action index
+    coin1_id            BIGINT UNSIGNED,          -- id of record in index_coins table
+    coin1_action_index  BIGINT UNSIGNED,          -- action_index on coin1 network
+    coin2_id            BIGINT UNSIGNED,          -- id of record in index_coins table
+    coin2_action_index  BIGINT UNSIGNED,          -- action_index on coin2 network
+    memo_id             BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id           BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON links (action_index);
+CREATE        INDEX coin1_id           ON links (coin1_id);
+CREATE        INDEX coin1_action_index ON links (coin1_action_index);
+CREATE        INDEX coin2_id           ON links (coin2_id);
+CREATE        INDEX coin2_action_index ON links (coin2_action_index);
+CREATE        INDEX memo_id            ON links (memo_id);
+CREATE        INDEX status_id          ON links (status_id);
+
+-- TODO : Convert type and edit fields to INTEGER UNSIGNED and force value to 0-9 (0=null)
+DROP TABLE IF EXISTS lists;
+CREATE TABLE lists (
+    action_index        BIGINT UNSIGNED NOT NULL, -- Unique action index
+    type                VARCHAR(1),                -- List type (1=TICK, 2=ASSET, 3=ADDRESS)
+    edit                VARCHAR(1),                -- Edit action (1=ADD, 2=REMOVE)
+    list_action_index   BIGINT UNSIGNED,          -- list action_index
+    status_id           BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON lists (action_index);
+CREATE        INDEX type              ON lists (type);
+CREATE        INDEX edit              ON lists (edit);
+CREATE        INDEX list_action_index ON lists (list_action_index);
+CREATE        INDEX status_id         ON lists (status_id);
+
+DROP TABLE IF EXISTS list_items;
+CREATE TABLE list_items (
+    action_index BIGINT UNSIGNED NOT NULL, -- Unique action index
+    item_id      BIGINT UNSIGNED           -- id of record (tick_id, address_id) tables
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index ON list_items (action_index);
+CREATE        INDEX item_id      ON list_items (item_id);
+
+DROP TABLE IF EXISTS list_edits;
+CREATE TABLE list_edits (
+    action_index BIGINT UNSIGNED NOT NULL,  -- Unique action index
+    item_id      BIGINT UNSIGNED,           -- id of record (tick_id, asset_id, address_id) tables
+    status_id    BIGINT UNSIGNED            -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index ON list_edits (action_index);
+CREATE        INDEX item_id      ON list_edits (item_id);
+CREATE        INDEX status_id    ON list_edits (status_id);
+
+DROP TABLE IF EXISTS list_items_invalid;
+CREATE TABLE list_items_invalid (
+    action_index BIGINT UNSIGNED NOT NULL, -- Unique action index
+    item_id      BIGINT UNSIGNED,           -- id of record (tick_id, address_id) tables
+    status_id    BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index ON list_items_invalid (action_index);
+CREATE        INDEX item_id      ON list_items_invalid (item_id);
+CREATE        INDEX status_id    ON list_items_invalid (status_id);
+
+-- TODO : Convert encryption_method field to INTEGER UNSIGNED and force value to 0-9 (0=null)
+DROP TABLE IF EXISTS messages;
+CREATE TABLE messages (
+    action_index        BIGINT UNSIGNED NOT NULL, -- Unique action index
+    destination_id      BIGINT UNSIGNED,          -- id of record in index_addresses table
+    encryption_method   VARCHAR(1),               -- Encryption Method (1=ECDH, 2=AES)
+    encryption_key      MEDIUMTEXT,               -- Public key to be used to exchange messages
+    encrypted_message   MEDIUMTEXT,               -- Encrypted Message
+    plaintext_message   MEDIUMTEXT,               -- Plaintext Message
+    status_id           BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON messages (action_index);
+CREATE        INDEX encryption_method ON messages (encryption_method);
+CREATE        INDEX destination_id    ON messages (destination_id);
+CREATE        INDEX status_id         ON messages (status_id);
+
+DROP TABLE IF EXISTS mints;
+CREATE TABLE mints (
+    action_index   BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id        BIGINT UNSIGNED,          -- id of record in index_ticks table
+    amount         VARCHAR(250),              -- Amount of token to mint
+    destination_id BIGINT UNSIGNED,          -- id of record in index_addresses table (optional, mint and transfer)
+    memo_id        BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id      BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON mints (action_index);
+CREATE        INDEX tick_id        ON mints (tick_id);
+CREATE        INDEX destination_id ON mints (destination_id);
+CREATE        INDEX memo_id        ON mints (memo_id);
+CREATE        INDEX status_id      ON mints (status_id);
+
+DROP TABLE IF EXISTS orders;
+CREATE TABLE orders (
+    action_index     BIGINT UNSIGNED NOT NULL, -- Unique action index
+    give_coin_id     BIGINT UNSIGNED,          -- id of record in index_coins table
+    give_tick_id     BIGINT UNSIGNED,          -- id of record in index_tickers table
+    give_amount      VARCHAR(250),             -- Amount of GIVE_TICK in order
+    get_coin_id      BIGINT UNSIGNED,          -- id of record in index_coins table
+    get_tick_id      BIGINT UNSIGNED,          -- id of record in index_tickers table
+    get_amount       VARCHAR(250),             -- Amount of GET_TICK in order
+    get_address_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
+    expiration       BIGINT UNSIGNED,          -- unix timestamp of order expiration date/time
+    allow_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    block_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table (status of open order tx)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON orders (action_index);
+CREATE        INDEX give_coin_id   ON orders (give_coin_id);
+CREATE        INDEX give_tick_id   ON orders (give_tick_id);
+CREATE        INDEX get_coin_id    ON orders (get_coin_id);
+CREATE        INDEX get_tick_id    ON orders (get_tick_id);
+CREATE        INDEX allow_list     ON orders (allow_list);
+CREATE        INDEX block_list     ON orders (block_list);
+CREATE        INDEX get_address_id ON orders (get_address_id);
+CREATE        INDEX memo_id        ON orders (memo_id);
+CREATE        INDEX status_id      ON orders (status_id);
+
+DROP TABLE IF EXISTS order_cancels;
+CREATE TABLE order_cancels (
+    action_index      BIGINT UNSIGNED NOT NULL,  -- Unique action index
+    order_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from orders table
+    memo_id           BIGINT UNSIGNED,           -- id of record in index_memos table
+    status_id         BIGINT UNSIGNED            -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON order_cancels (action_index);
+CREATE        INDEX order_action_index ON order_cancels (order_action_index);
+CREATE        INDEX memo_id            ON order_cancels (memo_id);
+CREATE        INDEX status_id          ON order_cancels (status_id);
+
+DROP TABLE IF EXISTS order_edits;
+CREATE TABLE order_edits (
+    action_index       BIGINT UNSIGNED NOT NULL, -- Unique action index
+    order_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from orders table
+    expiration         BIGINT UNSIGNED,          -- unix timestamp of swap expiration date/time
+    allow_list         BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    block_list         BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    memo_id            BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id          BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON order_edits (action_index);
+CREATE        INDEX order_action_index ON order_edits (order_action_index);
+CREATE        INDEX allow_list         ON order_edits (allow_list);
+CREATE        INDEX block_list         ON order_edits (block_list);
+CREATE        INDEX memo_id            ON order_edits (memo_id);
+CREATE        INDEX status_id          ON order_edits (status_id);
+
+DROP TABLE IF EXISTS order_expires;
+CREATE TABLE order_expires (
+    action_index       BIGINT UNSIGNED NOT NULL, -- Unique action index
+    order_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from order table
+    status_id          BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON order_expires (action_index);
+CREATE        INDEX order_action_index ON order_expires (order_action_index);
+CREATE        INDEX status_id          ON order_expires (status_id);
+
+DROP TABLE IF EXISTS order_matches;
+CREATE TABLE order_matches (
+    action_index      BIGINT UNSIGNED NOT NULL, -- Unique action index
+    give_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index on GIVE_COIN network of the order request
+    give_coin_id      BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
+    give_tick_id      BIGINT UNSIGNED NOT NULL, -- id of record in index_tickers table
+    give_amount       VARCHAR(250),             -- Amount of GIVE_TICK
+    get_action_index  BIGINT UNSIGNED NOT NULL, -- Unique action index on GET_COIN network of the order request
+    get_coin_id       BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
+    get_tick_id       BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
+    get_amount        VARCHAR(250),             -- Amount of GET_TICK
+    status_id         BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON order_matches (action_index);
+CREATE        INDEX give_coin_id      ON order_matches (give_coin_id);
+CREATE        INDEX give_tick_id      ON order_matches (give_tick_id);
+CREATE        INDEX give_action_index ON order_matches (give_action_index);
+CREATE        INDEX get_coin_id       ON order_matches (get_coin_id);
+CREATE        INDEX get_tick_id       ON order_matches (get_tick_id);
+CREATE        INDEX get_action_index  ON order_matches (get_action_index);
+CREATE        INDEX status_id         ON order_matches (status_id);
+
+DROP TABLE IF EXISTS order_statuses;
+CREATE TABLE order_statuses (
+    action_index       BIGINT UNSIGNED NOT NULL, -- Unique action index
+    order_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from orders table
+    status_id          BIGINT UNSIGNED           -- id of record in index_statuses table (status of order tx open/invalid/complete/cancelled/expired)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index       ON order_statuses (action_index);
+CREATE        INDEX order_action_index ON order_statuses (order_action_index);
+CREATE        INDEX status_id          ON order_statuses (status_id);
+
+DROP TABLE IF EXISTS sends;
+CREATE TABLE sends (
+    action_index   BIGINT UNSIGNED NOT NULL, -- Unique action index
+    tick_id        BIGINT UNSIGNED,          -- id of record in index_ticks table
+    destination_id BIGINT UNSIGNED,          -- id of record in index_addresses table
+    amount         VARCHAR(250),              -- Amount of token in send
+    memo_id        BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id      BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index   ON sends (action_index);
+CREATE        INDEX tick_id        ON sends (tick_id);
+CREATE        INDEX destination_id ON sends (destination_id);
+CREATE        INDEX status_id      ON sends (status_id);
+
+DROP TABLE IF EXISTS `sleeps`;
+CREATE TABLE sleeps (
+    action_index     BIGINT UNSIGNED NOT NULL, -- Unique action index
+    type             BIGINT UNSIGNED,          -- 1=Address, 2=Ticker
+    tick_id          BIGINT UNSIGNED,          -- id of record in index_tickers table
+    resume_block     VARCHAR(25),              -- Block index of the resume block
+    memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON sleeps (action_index);
+CREATE        INDEX type           ON sleeps (type);
+CREATE        INDEX tick_id        ON sleeps (tick_id);
+CREATE        INDEX memo_id        ON sleeps (memo_id);
+CREATE        INDEX status_id      ON sleeps (status_id);
+
+DROP TABLE IF EXISTS swaps;
+CREATE TABLE swaps (
+    action_index     BIGINT UNSIGNED NOT NULL, -- Unique action index
+    give_coin_id     BIGINT UNSIGNED,          -- id of record in index_coins table
+    give_tick_id     BIGINT UNSIGNED,          -- id of record in index_tickers table
+    give_amount      VARCHAR(250),             -- Amount of GIVE_TICK in swap
+    get_coin_id      BIGINT UNSIGNED,          -- id of record in index_coins table
+    get_tick_id      BIGINT UNSIGNED,          -- id of record in index_tickers table
+    get_amount       VARCHAR(250),             -- Amount of GET_TICK in swap
+    get_address_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
+    expiration       BIGINT UNSIGNED,          -- unix timestamp of swap expiration date/time
+    allow_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    block_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table (status of open swap tx)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON swaps (action_index);
+CREATE        INDEX give_coin_id   ON swaps (give_coin_id);
+CREATE        INDEX give_tick_id   ON swaps (give_tick_id);
+CREATE        INDEX get_coin_id    ON swaps (get_coin_id);
+CREATE        INDEX get_tick_id    ON swaps (get_tick_id);
+CREATE        INDEX allow_list     ON swaps (allow_list);
+CREATE        INDEX block_list     ON swaps (block_list);
+CREATE        INDEX get_address_id ON swaps (get_address_id);
+CREATE        INDEX memo_id        ON swaps (memo_id);
+CREATE        INDEX status_id      ON swaps (status_id);
+
+DROP TABLE IF EXISTS swap_cancels;
+CREATE TABLE swap_cancels (
+    action_index      BIGINT UNSIGNED NOT NULL, -- Unique action index
+    swap_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from swaps table
+    memo_id           BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id         BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON swap_cancels (action_index);
+CREATE        INDEX swap_action_index ON swap_cancels (swap_action_index);
+CREATE        INDEX memo_id           ON swap_cancels (memo_id);
+CREATE        INDEX status_id         ON swap_cancels (status_id);
+
+DROP TABLE IF EXISTS swap_edits;
+CREATE TABLE swap_edits (
+    action_index      BIGINT UNSIGNED NOT NULL, -- Unique action index
+    swap_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from swaps table
+    expiration        BIGINT UNSIGNED,          -- unix timestamp of swap expiration date/time
+    allow_list        BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    block_list        BIGINT UNSIGNED,          -- action_index of a list from the lists table
+    memo_id           BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id         BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON swap_edits (action_index);
+CREATE        INDEX swap_action_index ON swap_edits (swap_action_index);
+CREATE        INDEX allow_list        ON swap_edits (allow_list);
+CREATE        INDEX block_list        ON swap_edits (block_list);
+CREATE        INDEX memo_id           ON swap_edits (memo_id);
+CREATE        INDEX status_id         ON swap_edits (status_id);
+
+DROP TABLE IF EXISTS swap_expires;
+CREATE TABLE swap_expires (
+    action_index      BIGINT UNSIGNED NOT NULL, -- Unique action index
+    swap_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from swaps table
+    status_id         BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON swap_expires (action_index);
+CREATE        INDEX swap_action_index ON swap_expires (swap_action_index);
+CREATE        INDEX status_id         ON swap_expires (status_id);
+
+DROP TABLE IF EXISTS swap_matches;
+CREATE TABLE swap_matches (
+    action_index      BIGINT UNSIGNED NOT NULL, -- Unique action index
+    give_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index on GIVE_COIN network of the swap request
+    give_coin_id      BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
+    give_tick_id      BIGINT UNSIGNED NOT NULL, -- id of record in index_tickers table
+    give_amount       VARCHAR(250),             -- Amount of GIVE_TICK
+    get_action_index  BIGINT UNSIGNED NOT NULL, -- Unique action index on GET_COIN network of the swap request
+    get_coin_id       BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
+    get_tick_id       BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
+    get_amount        VARCHAR(250),             -- Amount of GET_TICK
+    status_id         BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON swap_matches (action_index);
+CREATE        INDEX give_coin_id      ON swap_matches (give_coin_id);
+CREATE        INDEX give_tick_id      ON swap_matches (give_tick_id);
+CREATE        INDEX give_action_index ON swap_matches (give_action_index);
+CREATE        INDEX get_coin_id       ON swap_matches (get_coin_id);
+CREATE        INDEX get_tick_id       ON swap_matches (get_tick_id);
+CREATE        INDEX get_action_index  ON swap_matches (get_action_index);
+CREATE        INDEX status_id         ON swap_matches (status_id);
+
+DROP TABLE IF EXISTS swap_statuses;
+CREATE TABLE swap_statuses (
+    action_index      BIGINT UNSIGNED NOT NULL, -- Unique action index
+    swap_action_index BIGINT UNSIGNED NOT NULL, -- Unique action index from swaps table
+    status_id         BIGINT UNSIGNED           -- id of record in index_statuses table (status of swap tx open/invalid/complete/cancelled/expired)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index      ON swap_statuses (action_index);
+CREATE        INDEX swap_action_index ON swap_statuses (swap_action_index);
+CREATE        INDEX status_id         ON swap_statuses (status_id);
+
+DROP TABLE IF EXISTS sweeps;
+CREATE TABLE sweeps (
+    action_index     BIGINT UNSIGNED NOT NULL, -- Unique action index
+    balances         BIGINT UNSIGNED,          -- Indicates if token balances should be swept
+    ownerships       BIGINT UNSIGNED,          -- Indicates if token ownerships should be swept
+    escrows          BIGINT UNSIGNED,          -- Indicates if escrowed tokens should be swept
+    destination_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
+    memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
+    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON sweeps (action_index);
+CREATE        INDEX destination_id ON sweeps (destination_id);
+CREATE        INDEX memo_id        ON sweeps (memo_id);
+CREATE        INDEX status_id      ON sweeps (status_id);
+
+-- ============================================================
+-- 5. Other tables
+-- ============================================================
+
+DROP TABLE IF EXISTS markets;
+CREATE TABLE markets (
+    id                 INTEGER UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tick1_id           BIGINT UNSIGNED,                 -- tick1 - id of record in index_tickers table
+    tick1_price        VARCHAR(250) NOT NULL default 0, -- tick1 - last trade price
+    tick1_bid          VARCHAR(250) NOT NULL default 0, -- tick1 - highest price buyers are paying
+    tick1_ask          VARCHAR(250) NOT NULL default 0, -- tick1 - highest price sellers are accepting
+    tick1_24hr_price   VARCHAR(250) NOT NULL default 0, -- tick1 - Price exactly 24 hours ago
+    tick1_24hr_high    VARCHAR(250) NOT NULL default 0, -- tick1 - 24-hour high price
+    tick1_24hr_low     VARCHAR(250) NOT NULL default 0, -- tick1 - 24-hour low price
+    tick1_24hr_change  VARCHAR(250) NOT NULL default 0, -- tick1 - 24-hour percentage change
+    tick1_24hr_volume  VARCHAR(250) NOT NULL default 0, -- tick1 - 24-hour volume
+    tick2_id           BIGINT UNSIGNED,                 -- tick2 - id of record in index_tickers table
+    tick2_price        VARCHAR(250) NOT NULL default 0, -- tick2 - last trade price
+    tick2_bid          VARCHAR(250) NOT NULL default 0, -- tick2 - highest price buyers are paying
+    tick2_ask          VARCHAR(250) NOT NULL default 0, -- tick2 - highest price sellers are accepting
+    tick2_24hr_price   VARCHAR(250) NOT NULL default 0, -- tick2 - Price exactly 24 hours ago
+    tick2_24hr_high    VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour high price
+    tick2_24hr_low     VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour low price
+    tick2_24hr_change  VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour percentage change
+    tick2_24hr_volume  VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour volume
+    last_updated  BIGINT UNSIGNED                       -- Last updated
+) ENGINE=InnoDB CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX tick1_id on markets (tick1_id);
+CREATE INDEX tick2_id on markets (tick2_id);
+
+-- Table used to map action_indexes
+-- Note : Used to pull a list of action_indexes related to an address or tick
+
+DROP TABLE IF EXISTS mappings_actions;
+CREATE TABLE mappings_actions (
+    action_index  BIGINT  UNSIGNED NOT NULL, -- Action index
+    type_id       TINYINT UNSIGNED,          -- Integer value for mapping type
+                                             -- 1 = tick    (id=tick_id)
+                                             -- 2 = address (id=address_id)
+    id            BIGINT UNSIGNED NOT NULL   -- id of record
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index      ON mappings_actions (action_index);
+CREATE        INDEX type_id           ON mappings_actions (type_id);
+CREATE        INDEX id                ON mappings_actions (id);
+
+-- Table used to map files to tickers
+-- Note : Used to pull a list of action_indexes where a file is linked to a tick
+
+DROP TABLE IF EXISTS mappings_files;
+CREATE TABLE mappings_files (
+    action_index  BIGINT  UNSIGNED NOT NULL, -- Action index
+    type_id       TINYINT UNSIGNED,          -- Integer value for mapping type
+                                             -- 1 = tick (id=tick_id)
+    id            BIGINT UNSIGNED NOT NULL   -- id of record
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE        INDEX action_index      ON mappings_files (action_index);
+CREATE        INDEX type_id           ON mappings_files (type_id);
+CREATE        INDEX id                ON mappings_files (id);
+
+DROP TABLE IF EXISTS events;
+CREATE TABLE events (
+    id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    time DATETIME,
+    code VARCHAR(50),
+    data VARCHAR(250)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

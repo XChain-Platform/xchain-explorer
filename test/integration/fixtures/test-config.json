@@ -1,0 +1,22 @@
+{
+    "configs": [
+        {
+            "coin": "BTC",
+            "network": "regtest",
+            "indexer": {
+                "db_host": "127.0.0.1",
+                "db_port": 3307,
+                "user": "root",
+                "pass": "testpass",
+                "name": "XChain_BTC_Regtest_Indexer"
+            },
+            "decoder": {
+                "db_host": "127.0.0.1",
+                "db_port": 3307,
+                "user": "root",
+                "pass": "testpass",
+                "name": "XChain_BTC_Regtest_Decoder"
+            }
+        }
+    ]
+}

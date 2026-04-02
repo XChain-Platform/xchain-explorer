@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  mariadb-test:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: testpass
+      MARIADB_DATABASE: XChain_BTC_Regtest_Indexer
+    ports:
+      - "3307:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 10

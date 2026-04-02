@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-01
+
+### Added
+- Smoke test suite with 38 tests across 6 test files providing fast operational health checks
+  - **Mode A — Unit smoke (no dependencies, < 1s):**
+    - `config.test.js` — 10 tests for config loading, rejection on missing config/invalid coin, SSL cert accessibility (SM-01 through SM-04)
+    - `server-binding.test.js` — 3 tests for Express server binding and JSON-RPC ping endpoint (SM-05)
+  - **Mode B — Connected smoke (requires MariaDB, ~9s):**
+    - `db-connectivity.test.js` — 7 tests for pool initialization, connection success, and bounded failure handling (SM-06 through SM-08)
+    - `api-status.test.js` — 6 tests for status, network, and invalid coin error handling (SM-09, SM-10, SM-13)
+    - `api-data.test.js` — 5 tests for sends and markets data endpoints returning correct response envelopes (SM-11, SM-16)
+    - `static-and-html.test.js` — 7 tests for static file serving, HTML page delivery, and 404 handling (SM-12, SM-14, SM-15)
+- npm scripts: `test:smoke`, `test:smoke:unit`, `test:smoke:connected`
+
 ## [1.2.0] - 2026-04-01
 
 ### Added

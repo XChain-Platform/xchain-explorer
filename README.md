@@ -26,6 +26,18 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 - **BigNumber precision** — arbitrary-precision arithmetic for all amounts and prices
 - **1,285 tests** — unit, integration, e2e, boundary, security, chaos, mutation, smoke, performance, regression
 
+## Documentation
+
+Full explorer documentation is available in the [xchain-documentation](https://github.com/XChain-platform/xchain-documentation/tree/master/explorer) repository:
+
+| Document | Description |
+|---|---|
+| [README](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/README.md) | Overview, installation, quick start, scripts, dependencies |
+| [Architecture](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/ARCHITECTURE.md) | Data pipeline, internal components, request processing pipeline, source files |
+| [Configuration](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/CONFIGURATION.md) | Environment variables, config.json, hub discovery, SSL/TLS, CORS, rate limiting |
+| [API Reference](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/API.md) | Complete REST API — all 60+ endpoints with paths, parameters, response formats, examples |
+| [Operations](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/OPERATIONS.md) | Running, Docker, SSL setup, security features, relay endpoint, troubleshooting |
+
 ## Quick Start
 
 ```bash
@@ -67,18 +79,6 @@ curl http://localhost:8080/BTC/api/market/TOKENA/TOKENB/orderbook
 # Get platform status
 curl http://localhost:8080/BTC/api/status
 ```
-
-## Documentation
-
-Full explorer documentation is available in the [xchain-documentation](https://github.com/XChain-platform/xchain-documentation/tree/master/explorer) repository:
-
-| Document | Description |
-|---|---|
-| [README](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/README.md) | Overview, installation, quick start, scripts, dependencies |
-| [Architecture](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/ARCHITECTURE.md) | Data pipeline, internal components, request processing pipeline, source files |
-| [Configuration](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/CONFIGURATION.md) | Environment variables, config.json, hub discovery, SSL/TLS, CORS, rate limiting |
-| [API Reference](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/API.md) | Complete REST API — all 60+ endpoints with paths, parameters, response formats, examples |
-| [Operations](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/OPERATIONS.md) | Running, Docker, SSL setup, security features, relay endpoint, troubleshooting |
 
 ## Scripts
 

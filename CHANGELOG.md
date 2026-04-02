@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-01
+
+### Added
+- End-to-end test suite with 49 tests across 4 test files validating the full MariaDB-to-API data pipeline
+  - `pipeline-integrity.test.js` — 9 tests verifying exact seeded values round-trip through token, balance, supply, multi-action block, and address endpoints (E2E-01 to E2E-04, E2E-07)
+  - `data-formatting.test.js` — 17 tests for BigInt serialization (values > MAX_SAFE_INTEGER), timestamp format consistency, boolean type preservation, null handling, and decimal precision across 4-dec and 8-dec tokens (E2E-14 to E2E-18)
+  - `cross-endpoint.test.js` — 12 tests for mathematical consistency: balance == credits - debits, token supply == sum(holder balances), transaction/send data alignment, block-scoped action counts (E2E-37 to E2E-40)
+  - `markets-and-errors.test.js` — 11 tests for exact seeded market prices, market history ordering, filtered market listing, SQL injection prevention, and empty database graceful handling (E2E-09, E2E-11, E2E-13, E2E-31, E2E-34)
+- E2E seed fixture (`seed-e2e.sql`) extending baseline with BigInt tokens, sum-verification tokens, consistency-check addresses, multi-action blocks, and market history data
+- E2E db-setup helper reusing integration test infrastructure
+- npm script: `test:e2e`
+
 ## [1.3.0] - 2026-04-01
 
 ### Added

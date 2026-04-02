@@ -440,4 +440,38 @@ describe('Database#getQueryOffsetSql', () => {
         expect(sql).to.equal(' AND m.action_index < ? AND m.action_index > ?');
         expect(args).to.deep.equal([500, 100]);
     });
+
+    // --- Defensive null/undefined guards (mutation testing) -----------------
+
+    it('returns empty when offset exists but start is empty string', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', '', null));
+        expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
+    });
+
+    it('returns empty when offset exists but start is undefined', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', undefined, null));
+        expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
+    });
+
+    it('returns empty when action is empty string', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', '', 100, null));
+        expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
+    });
+
+    it('action=next with start and stop=0: stop is false after sanitizeInt', async () => {
+        // stop=0 should become 0 from sanitizeInt, which is falsy
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, 0));
+        // stop=0 => sanitizeInt(0, false) = 0 => truthy check `if(stop)` => 0 is falsy
+        expect(sql).to.equal(' AND m.action_index < ?');
+        expect(args).to.deep.equal([500]);
+    });
+
+    it('sanitizeInt default false: non-numeric start falls back to false', async () => {
+        const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 'abc', null));
+        expect(sql).to.equal('');
+        expect(args).to.deep.equal([]);
+    });
 });

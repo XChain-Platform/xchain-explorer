@@ -111,6 +111,74 @@ describe('Database – connection management', function () {
     });
 
     // -----------------------------------------------------------------------
+    // LRU Cache Helpers (_cacheGet / _cacheSet)
+    // -----------------------------------------------------------------------
+
+    describe('_cacheGet / _cacheSet', function () {
+
+        it('_cacheGet returns undefined for missing key', function () {
+            const db = freshDatabase();
+            const cache = new Map();
+            expect(db._cacheGet(cache, 'missing')).to.be.undefined;
+        });
+
+        it('_cacheSet and _cacheGet round-trip a value', function () {
+            const db = freshDatabase();
+            const cache = new Map();
+            db._cacheSet(cache, 'key1', 'value1');
+            expect(db._cacheGet(cache, 'key1')).to.equal('value1');
+        });
+
+        it('_cacheGet promotes key to most-recent (LRU behavior)', function () {
+            const db = freshDatabase();
+            const cache = new Map();
+            db._cacheSet(cache, 'a', 1, 3);
+            db._cacheSet(cache, 'b', 2, 3);
+            db._cacheSet(cache, 'c', 3, 3);
+            // Access 'a' to promote it
+            db._cacheGet(cache, 'a');
+            // Add a 4th entry, which should evict the LRU key ('b')
+            db._cacheSet(cache, 'd', 4, 3);
+            expect(db._cacheGet(cache, 'b')).to.be.undefined;
+            expect(db._cacheGet(cache, 'a')).to.equal(1);
+        });
+
+        it('_cacheSet evicts oldest entry when maxSize exceeded', function () {
+            const db = freshDatabase();
+            const cache = new Map();
+            db._cacheSet(cache, 'a', 1, 2);
+            db._cacheSet(cache, 'b', 2, 2);
+            // Adding 'c' should evict 'a'
+            db._cacheSet(cache, 'c', 3, 2);
+            expect(cache.size).to.equal(2);
+            expect(db._cacheGet(cache, 'a')).to.be.undefined;
+            expect(db._cacheGet(cache, 'b')).to.equal(2);
+            expect(db._cacheGet(cache, 'c')).to.equal(3);
+        });
+
+        it('_cacheSet overwrites existing key without increasing size', function () {
+            const db = freshDatabase();
+            const cache = new Map();
+            db._cacheSet(cache, 'a', 1, 2);
+            db._cacheSet(cache, 'a', 99, 2);
+            expect(cache.size).to.equal(1);
+            expect(db._cacheGet(cache, 'a')).to.equal(99);
+        });
+
+        it('_cacheGet returns correct value (not just truthy)', function () {
+            const db = freshDatabase();
+            const cache = new Map();
+            db._cacheSet(cache, 'zero', 0);
+            db._cacheSet(cache, 'false', false);
+            db._cacheSet(cache, 'empty', '');
+            expect(db._cacheGet(cache, 'zero')).to.equal(0);
+            expect(db._cacheGet(cache, 'false')).to.equal(false);
+            expect(db._cacheGet(cache, 'empty')).to.equal('');
+        });
+
+    });
+
+    // -----------------------------------------------------------------------
     // setupConnectionPools
     // -----------------------------------------------------------------------
 

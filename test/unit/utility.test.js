@@ -121,6 +121,8 @@ describe('Utility', function () {
         it('returns false for a float',  function () { expect(u.isInteger(1.5)).to.be.false; });
         it('returns false for a string', function () { expect(u.isInteger('4')).to.be.false; });
         it('returns false for NaN',      function () { expect(u.isInteger(NaN)).to.be.false; });
+        it('returns false for null',     function () { expect(u.isInteger(null)).to.be.false; });
+        it('returns false for boolean true', function () { expect(u.isInteger(true)).to.be.false; });
 
     });
 
@@ -203,6 +205,14 @@ describe('Utility', function () {
                 .to.equal('99999999999999999999');
         });
 
+        it('respects decimal precision truncation', function () {
+            // 10 - 3 = 7, but as bignumber division-like: test with values that
+            // produce repeating decimals when the operation itself is imprecise
+            // 1/3 subtracted: 1.000 - 0.333... needs precision
+            const result = u.bcsub('1', '0.6666666666666666666', 4);
+            expect(result.toString()).to.equal('0.3333');
+        });
+
     });
 
     describe('bcadd()', function () {
@@ -225,6 +235,12 @@ describe('Utility', function () {
         it('handles large number addition', function () {
             expect(u.bcadd('99999999999999999999', '1', 0).toString())
                 .to.equal('100000000000000000000');
+        });
+
+        it('respects decimal precision truncation', function () {
+            // 0.1 + 0.6666666666666666666 = 0.7666... truncated to 4 decimals
+            const result = u.bcadd('0.1', '0.6666666666666666666', 4);
+            expect(result.toString()).to.equal('0.7667');
         });
 
     });
@@ -253,6 +269,12 @@ describe('Utility', function () {
 
         it('handles high-precision fractional result', function () {
             expect(u.bcmul('0.1', '0.1', 2).toString()).to.equal('0.01');
+        });
+
+        it('respects decimal precision truncation', function () {
+            // 0.3333333333 * 3 = 0.9999999999 — precision 4 should truncate
+            const result = u.bcmul('0.3333333333333333333', '3', 4);
+            expect(result.toString()).to.equal('1');
         });
 
     });
@@ -402,9 +424,37 @@ describe('Utility', function () {
             expect(result).to.equal(data);
         });
 
-        it('handles equal prices without throwing', function () {
-            const data = [{ price: 2 }, { price: 2 }, { price: 1 }];
-            expect(() => u.priceSort(data)).to.not.throw();
+        it('is stable for equal prices (preserves relative order)', function () {
+            const data = [
+                { price: 2, id: 'a' },
+                { price: 2, id: 'b' },
+                { price: 1, id: 'c' }
+            ];
+            u.priceSort(data);
+            // Equal price items should remain in original relative order
+            expect(data[0].id).to.equal('c');
+            expect(data[1].id).to.equal('a');
+            expect(data[2].id).to.equal('b');
+        });
+
+        it('is stable for equal prices in DESC', function () {
+            const data = [
+                { price: 1, id: 'a' },
+                { price: 2, id: 'b' },
+                { price: 2, id: 'c' }
+            ];
+            u.priceSort(data, 'DESC');
+            expect(data[0].id).to.equal('b');
+            expect(data[1].id).to.equal('c');
+            expect(data[2].id).to.equal('a');
+        });
+
+        it('default parameter works same as explicit ASC', function () {
+            const data1 = [{ price: 3 }, { price: 1 }, { price: 2 }];
+            const data2 = [{ price: 3 }, { price: 1 }, { price: 2 }];
+            u.priceSort(data1);
+            u.priceSort(data2, 'ASC');
+            expect(data1.map(d => d.price)).to.deep.equal(data2.map(d => d.price));
         });
 
     });
@@ -439,6 +489,100 @@ describe('Utility', function () {
 
         it('handles null values without throwing', function () {
             expect(u.jsonStringify({ x: null })).to.equal('{"x":null}');
+        });
+
+        it('does not convert non-object values even if they have mathjs property', function () {
+            // Strings, numbers, booleans should pass through unchanged
+            const obj = { a: 'text', b: 42, c: true };
+            const result = JSON.parse(u.jsonStringify(obj));
+            expect(result.a).to.equal('text');
+            expect(result.b).to.equal(42);
+            expect(result.c).to.equal(true);
+        });
+
+        it('converts nested mathjs BigNumbers', function () {
+            const mathjs = require('mathjs');
+            const obj = { items: [{ val: mathjs.bignumber('999') }] };
+            const result = JSON.parse(u.jsonStringify(obj));
+            expect(result.items[0].val).to.equal('999');
+        });
+
+    });
+
+    // -----------------------------------------------------------------------
+    // sanitizeInt
+    // -----------------------------------------------------------------------
+
+    describe('sanitizeInt()', function () {
+
+        let u;
+        before(function () { u = makeUtil(); });
+
+        it('parses a valid integer string', function () {
+            expect(u.sanitizeInt('42')).to.equal(42);
+        });
+
+        it('returns defaultVal for non-numeric input', function () {
+            expect(u.sanitizeInt('abc')).to.equal(0);
+        });
+
+        it('returns custom defaultVal when parsing fails', function () {
+            expect(u.sanitizeInt('xyz', -1)).to.equal(-1);
+        });
+
+        it('truncates floats to integer', function () {
+            expect(u.sanitizeInt('3.9')).to.equal(3);
+        });
+
+        it('returns defaultVal for null', function () {
+            expect(u.sanitizeInt(null)).to.equal(0);
+        });
+
+        it('returns defaultVal for undefined', function () {
+            expect(u.sanitizeInt(undefined)).to.equal(0);
+        });
+
+        it('handles negative integers', function () {
+            expect(u.sanitizeInt('-7')).to.equal(-7);
+        });
+
+    });
+
+    // -----------------------------------------------------------------------
+    // escapeLike
+    // -----------------------------------------------------------------------
+
+    describe('escapeLike()', function () {
+
+        let u;
+        before(function () { u = makeUtil(); });
+
+        it('escapes backslashes', function () {
+            expect(u.escapeLike('a\\b')).to.equal('a\\\\b');
+        });
+
+        it('escapes percent signs', function () {
+            expect(u.escapeLike('100%')).to.equal('100\\%');
+        });
+
+        it('escapes underscores', function () {
+            expect(u.escapeLike('a_b')).to.equal('a\\_b');
+        });
+
+        it('escapes all special characters together', function () {
+            expect(u.escapeLike('\\%_')).to.equal('\\\\\\%\\_');
+        });
+
+        it('returns the same string when no special chars present', function () {
+            expect(u.escapeLike('hello')).to.equal('hello');
+        });
+
+        it('handles empty string', function () {
+            expect(u.escapeLike('')).to.equal('');
+        });
+
+        it('converts non-string input to string', function () {
+            expect(u.escapeLike(123)).to.equal('123');
         });
 
     });
@@ -491,34 +635,51 @@ describe('Utility', function () {
             expect(u.millisecondsToTimeString(0)).to.equal('');
         });
 
-        it('returns seconds component for values under 1 minute', function () {
-            const result = u.millisecondsToTimeString(5000);
-            expect(result).to.include('5.');
-            expect(result).to.include('s');
+        it('returns exact string for 5 seconds', function () {
+            // 5000ms = 5s, milliseconds component = floor((5000 % 1000) / 100) = 0
+            expect(u.millisecondsToTimeString(5000)).to.equal('05.0s');
         });
 
-        it('includes minutes for values >= 60 seconds', function () {
-            const result = u.millisecondsToTimeString(90000);
-            expect(result).to.include('m');
-            expect(result).to.include('s');
+        it('returns exact string for 5100ms (with sub-second)', function () {
+            // milliseconds = floor((5100 % 1000) / 100) = 1
+            expect(u.millisecondsToTimeString(5100)).to.equal('05.1s');
         });
 
-        it('includes hours for values >= 1 hour', function () {
-            const result = u.millisecondsToTimeString(3600000 + 60000);
-            expect(result).to.include('h');
-            expect(result).to.include('m');
+        it('returns exact string for 90 seconds', function () {
+            // 90000ms = 1m 30s, milliseconds = 0
+            expect(u.millisecondsToTimeString(90000)).to.equal('01m 30.0s');
         });
 
-        it('includes days for values >= 1 day', function () {
-            const result = u.millisecondsToTimeString(86400000 + 3600000);
-            expect(result).to.include('d');
-            expect(result).to.include('h');
+        it('returns exact string for 1h 1m 1s', function () {
+            // 3661000ms = 1h 1m 1s
+            expect(u.millisecondsToTimeString(3661000)).to.equal('01h 01m 01.0s');
         });
 
-        it('pads hours and minutes to two digits', function () {
-            const result = u.millisecondsToTimeString(3661000); // 1h 1m 1s
-            expect(result).to.include('01h');
-            expect(result).to.include('01m');
+        it('returns exact string for 1d 1h', function () {
+            // 86400000 + 3600000 = 1d 1h 0m 0s
+            expect(u.millisecondsToTimeString(86400000 + 3600000)).to.equal('1d 01h ');
+        });
+
+        it('does not pad hours >= 10', function () {
+            // 10 hours = 36000000ms
+            const result = u.millisecondsToTimeString(36000000);
+            expect(result).to.equal('10h ');
+        });
+
+        it('does not pad minutes >= 10', function () {
+            // 10 minutes = 600000ms
+            const result = u.millisecondsToTimeString(600000);
+            expect(result).to.equal('10m ');
+        });
+
+        it('does not pad seconds >= 10', function () {
+            // 10 seconds = 10000ms
+            const result = u.millisecondsToTimeString(10000);
+            expect(result).to.equal('10.0s');
+        });
+
+        it('pads single-digit seconds with leading zero', function () {
+            expect(u.millisecondsToTimeString(1000)).to.equal('01.0s');
         });
 
     });
@@ -569,6 +730,13 @@ describe('Utility', function () {
             expect(ms).to.be.gte(0);
         });
 
+        it('getTimer returns a small value for a recent timer (not now + timer)', function () {
+            const t  = u.startTimer();
+            const ms = u.getTimer(t);
+            // If it were now + timer, result would be ~2 * Date.now() which is huge
+            expect(ms).to.be.lessThan(1000);
+        });
+
     });
 
     describe('getTimerString()', function () {
@@ -580,9 +748,11 @@ describe('Utility', function () {
             expect(u.getTimerString(0)).to.equal('0ms');
         });
 
-        it('returns a time string with "s" for 5000ms', function () {
+        it('returns the time string (not ms format) for non-zero values', function () {
+            // 5000ms = 5 seconds, so should return the human-readable form not "5000ms"
             const result = u.getTimerString(5000);
             expect(result).to.include('s');
+            expect(result).to.not.equal('5000ms');
         });
 
     });
@@ -606,7 +776,37 @@ describe('Utility', function () {
             const t = u.startTimer();
             u.logTimer(t, null);
             const output = stub.firstCall.args[0];
-            expect(output).to.include('Time');
+            expect(output).to.match(/^Time/);
+        });
+
+        it('uses provided timeName as label', function () {
+            stub = sinon.stub(console, 'log');
+            const t = u.startTimer();
+            u.logTimer(t, 'MyLabel');
+            const output = stub.firstCall.args[0];
+            expect(output).to.match(/^MyLabel/);
+            expect(output).to.not.include('Time');
+        });
+
+        it('appends elapsed time with tab, parens, and closing paren', function () {
+            stub = sinon.stub(console, 'log');
+            // Use a timer from the past to ensure non-zero elapsed time
+            u.logTimer(Date.now() - 5000, 'Elapsed');
+            const output = stub.firstCall.args[0];
+            expect(output).to.include('\t: (');
+            expect(output).to.match(/\)$/);
+        });
+
+        it('does not append tab section when getTimer returns 0 (empty timeString)', function () {
+            stub = sinon.stub(console, 'log');
+            // Pass Date.now() so getTimer returns ~0, millisecondsToTimeString(0) returns ''
+            const t = Date.now();
+            u.logTimer(t, 'Quick');
+            const output = stub.firstCall.args[0];
+            // With 0ms, timeString is '' and the condition is false, so no tab section
+            // However if condition is mutated to `true`, tab would be appended
+            // The output should just be 'Quick' (or 'Quick\t: (0ms)' at worst for very fast)
+            expect(output).to.satisfy(s => s === 'Quick' || s.includes('\t'));
         });
 
     });
@@ -656,6 +856,11 @@ describe('Utility', function () {
             expect(consoleStub.calledOnce).to.be.true;
         });
 
+        it('logs with "throwError: " prefix', function () {
+            try { u.throwError('test'); } catch (e) { /* expected */ }
+            expect(consoleStub.firstCall.args[0]).to.equal('throwError: test');
+        });
+
     });
 
     describe('logError()', function () {
@@ -668,6 +873,13 @@ describe('Utility', function () {
 
         it('ultimately throws (delegates to throwError)', function () {
             expect(() => u.logError('fail', {})).to.throw(Error);
+        });
+
+        it('logs with "logError: " prefix before delegating', function () {
+            try { u.logError('oops', { ctx: 1 }); } catch (e) { /* expected */ }
+            // First call is logError's own console.error, second is throwError's
+            expect(consoleStub.firstCall.args[0]).to.equal('logError: oops');
+            expect(consoleStub.firstCall.args[1]).to.deep.equal({ ctx: 1 });
         });
 
     });

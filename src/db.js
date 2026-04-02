@@ -54,6 +54,9 @@ class Database {
             'batches',
             'broadcasts',
             'callbacks',
+            'coinpays',
+            'coinpay_expires',
+            'coinpay_obligations',
             'destroys',
             'dispensers',
             'dispenses',
@@ -406,6 +409,8 @@ class Database {
             if(type=='address'){
                 if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
                     sql += ' AND (a2.address=? OR a3.address=?)';
+                } else if(method=='getCoinpayObligations'){
+                    sql += ' AND (a1.address=? OR a2.address=?)';
                 } else {
                     sql += ' AND a2.address=?';
                 }
@@ -519,6 +524,9 @@ class Database {
                 } else if(['getTokens'].includes(method)){
                     where = ` AND m.owner_id=?`;
                     whereArgs.push(id);
+                } else if(method=='getCoinpayObligations'){
+                    where = ` AND (m.payer_address_id=? OR m.payee_address_id=?)`;
+                    whereArgs.push(id, id);
                 } else if(['getCredits','getDebits','getEscrows'].includes(method)){
                     where = ` AND m.address_id=?`;
                     whereArgs.push(id);
@@ -2121,6 +2129,127 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // Get list of COINPAY actions
+    async getCoinpays(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        coinpays m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a2.action,
+                        m.action_index,
+                        m.obligation_action_index,
+                        m.coin_amount,
+                        m.txid,
+                        m.vout,
+                        a3.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        s1.status
+                    FROM
+                        coinpays m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of COINPAY_EXPIRE actions
+    async getCoinpayExpires(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        coinpay_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a2.action,
+                        m.action_index,
+                        m.obligation_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        coinpay_expires m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of COINPay obligations
+    async getCoinpayObligations(config){
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        if(config.data.type=='address')
+            args.push(config.data.search);
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        coinpay_obligations m
+                        INNER JOIN index_addresses    a1 ON (a1.id=m.payer_address_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.payee_address_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                        INNER JOIN coinpay_statuses   s1 ON (s1.coinpay_action_index=m.action_index)
+                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                    WHERE
+                        s1.action_index = (
+                            SELECT MAX(s3.action_index) FROM coinpay_statuses s3 WHERE s3.coinpay_action_index=m.action_index
+                        ) AND ` + sql.where.data;
+        let query = `SELECT
+                        m.action_index,
+                        a1.address as payer_address,
+                        a2.address as payee_address,
+                        c1.coin,
+                        m.coin_amount,
+                        m.expiration,
+                        m.block_index,
+                        s2.status as coinpay_status
+                    FROM
+                        coinpay_obligations m
+                        INNER JOIN index_addresses    a1 ON (a1.id=m.payer_address_id)
+                        INNER JOIN index_addresses    a2 ON (a2.id=m.payee_address_id)
+                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                        INNER JOIN coinpay_statuses   s1 ON (s1.coinpay_action_index=m.action_index)
+                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
+                    WHERE
+                        s1.action_index = (
+                            SELECT MAX(s3.action_index) FROM coinpay_statuses s3 WHERE s3.coinpay_action_index=m.action_index
+                        ) AND ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
     }
 
     // Get list of SEND actions

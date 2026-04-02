@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-04-02
+
+### Added
+- API and explorer endpoints for COINPay data: coinpays, coinpay_expires, coinpay_obligations
+- Database query methods: getCoinpays, getCoinpayExpires, getCoinpayObligations with address/block search support
+- Custom WHERE and offset handling for coinpay_obligations address searches (payer/payee)
+
 ## [1.10.0] - 2026-04-02
 
 ### Added

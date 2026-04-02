@@ -233,6 +233,7 @@ class Database {
         let q     = (data.query) ? data.query : false;
         let max   = this.getMaxMethodResults(data.method);
         let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
+        limit = Math.max(1, Math.min(Number(limit), max));
         // Handle determining record sort order based on request method
         let default_order = (['getBalances'].includes(data.method)) ? 'ASC' : 'DESC';
         let order         = (q && q.sortorder && ['ASC','DESC'].includes(String(q.sortorder).toUpperCase())) ? String(q.sortorder).toUpperCase() : default_order;
@@ -240,6 +241,7 @@ class Database {
         if(config.type=='api'){
             // Set SQL query limit to page * limit
             let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
+            page = Math.max(1, Number(page));
             limit = limit * page;
         }
         // Handle Explorer queries
@@ -248,6 +250,8 @@ class Database {
             let start  = (q.start) ? q.start : 0;
             let length = (q.length) ? q.length : 10;
             let action = (q.action) ? q.action : false;
+            start  = Math.max(0, Number(start));
+            length = Math.max(1, Math.min(Number(length), max));
             // Tweak the action in special cases to display data in correct order
             if(['getHolders','getBalances'].includes(data.method) && ['prev','last'].includes(action))
                 config.data.query.action = config.data.offset.action = action = 'next';
@@ -385,11 +389,13 @@ class Database {
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
         let start  = (offset && !this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? parseInt(offset.start, 10) : false;
         let stop   = (offset && !this.util.isNull(offset.stop) && this.util.isNumeric(offset.stop)) ? parseInt(offset.stop, 10) : false;
+        if(start !== false && !Number.isFinite(start)) start = false;
+        if(stop !== false && !Number.isFinite(stop)) stop = false;
         let sql    = '';
         // Unset stop offset in case of getBlocks
         if(method=='getBlocks')
             stop = false;
-        if(action && start){
+        if(action && start !== false){
             // Set field name to use for offset
             let field = 'm.action_index';
             if(method=='getBlocks')
@@ -2450,9 +2456,9 @@ class Database {
         if(['token','subtoken'].includes(type)){
             order = 't3.tick ' + sql.order;
             if(type=='token')
-                args = ['%' + config.data.search + '%'];
+                args = ['%' + this.util.escapeLike(config.data.search) + '%'];
             if(type=='subtoken')
-                args = [config.data.search + '.%'];
+                args = [this.util.escapeLike(config.data.search) + '.%'];
         }
         let count = `SELECT
                         count(*) as total
@@ -5279,7 +5285,7 @@ class Database {
         // Define list of search types
         let searchTypes = ['address', 'broadcast', 'token', 'transaction'];
         let dataType    = config.data.type;
-        let search      = '%' + config.data.search + '%';
+        let search      = '%' + this.util.escapeLike(config.data.search) + '%';
         let total       = 0;
         let sql  = config.data.sql;
         let data = {

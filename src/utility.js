@@ -250,6 +250,11 @@ class Utility {
         });
     }
     
+    // Escape special LIKE wildcard characters in user input
+    escapeLike(value){
+        return String(value).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+    }
+
     // Sort an object by key values
     ksort(obj){
         const sortedKeys = Object.keys(obj).sort();

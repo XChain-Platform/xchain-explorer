@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-01
+
+### Added
+- Boundary test suite with 210 tests across 7 test files validating API behavior at input extremes
+  - `validation-boundaries.test.js` — 55 tests for isInteger, isNumeric, isNull at edge values (NaN, Infinity, 32-bit overflow, BigInt, empty strings)
+  - `bignum-boundaries.test.js` — 42 tests for bcformat, bcadd/sub/mul/div with zero, negative, overflow values, and jsonStringify BigInt serialization
+  - `paging-boundaries.test.js` — 23 tests for getPagingDataResults with negative/zero/overflow limit, page, length, start values
+  - `relay-icon-boundaries.test.js` — 35 tests for SSRF bypass vectors (decimal IP, octal IP, IPv6-mapped IPv4, protocol edge cases) and icon path traversal
+  - `api-pagination-boundaries.test.js` — 32 integration tests for limit/page/sortorder/URL path boundaries against real MariaDB
+  - `search-data-boundaries.test.js` — 24 integration tests for LIKE wildcard injection, zero/max/tiny data values, market endpoints
+- Boundary seed fixture (`seed-boundary.sql`) with edge-case tokens (zero supply, max-value supply, 1-satoshi supply)
+- npm scripts: `test:boundary`, `test:boundary:unit`, `test:boundary:integration`
+
+### Fixed
+- Clamp API pagination parameters to safe ranges: `limit` to [1, max], `page` to [1, ...], `start` to [0, ...], `length` to [1, max] — prevents negative SQL LIMIT errors and unbounded queries
+- Escape LIKE wildcard characters (`%`, `_`, `\`) in search input via new `escapeLike()` utility — prevents wildcard injection in token search and global search
+- Extend SSRF blocklist with IPv6-mapped IPv4 (`::ffff:`), IPv6 link-local (`fe80:`), and decimal IP (`^\d+$`) patterns — closes relay endpoint bypass vectors
+- Fix falsy-zero bug in offset SQL generation: `action_index=0` now correctly generates offset WHERE clauses
+- Add `Number.isFinite()` guard on parsed offset values for defense-in-depth
+
 ## [1.4.0] - 2026-04-01
 
 ### Added

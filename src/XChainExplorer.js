@@ -580,8 +580,13 @@ class XChainExplorer {
         let limit  = (q && q.limit  && this.util.isInteger(Number(q.limit)))  ? q.limit  : max;
         let length = (q && q.length && this.util.isInteger(Number(q.length))) ? q.length : 10;
         let offset = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.start))  ? cfg.data.offset.start  : false;
-        let action = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.action)) ? cfg.data.offset.action : false;        
+        let action = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.action)) ? cfg.data.offset.action : false;
         let method = cfg.data.method;
+
+        // Clamp pagination values to safe ranges
+        start  = Math.max(0, Number(start));
+        limit  = Math.max(1, Math.min(Number(limit), max));
+        length = Math.max(1, Number(length));
 
         // Update the data object to be the search results data
         if(method=='getSearch')
@@ -590,6 +595,7 @@ class XChainExplorer {
         // Set limit based on given limit and page params
         if(cfg.type=='api'){
             let page  = (q && q.page  && this.util.isInteger(Number(q.page))) ? q.page  : 1;
+            page = Math.max(1, Number(page));
             start = this.util.bcsub(this.util.bcmul(limit, page), limit);
             limit = this.util.bcmul(limit, page);
         }
@@ -829,6 +835,9 @@ class XChainExplorer {
                     /^169\.254\./,
                     /^::1$/,
                     /^fc00:/,
+                    /^::ffff:/i,
+                    /^fe80:/i,
+                    /^\d+$/,
                 ];
                 if(blocked.some(r => r.test(hostname)))
                     return res.status(403).send('Destination not permitted');

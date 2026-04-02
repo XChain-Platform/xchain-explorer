@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-04-01
+
+### Added
+- Performance test suite with 5 test files using autocannon for load generation
+  - `baseline.test.js` — Single-request latency baselines for 11 endpoint categories
+  - `throughput.test.js` — Sustained RPS measurement under 10 concurrent connections
+  - `concurrent-load.test.js` — Ramping connection tests (10/25/50/100 connections) with p99 thresholds
+  - `pool-exhaustion.test.js` — Connection pool saturation and recovery behavior tests
+  - `memory-stability.test.js` — Heap growth detection during sustained load
+- Performance test seed data (`seed-performance.sql`) with 100 blocks, 200 transactions, 200 actions, 100 sends, 20 orders, 50 broadcasts, 100 balances
+- npm script: `test:performance`
+- `getOrderInfoBatch()` method for batch order info lookups (eliminates N+1 in orderbook)
+- LRU cache helpers (`_cacheGet`, `_cacheSet`) for immutable data caching
+
+### Fixed
+- **Connection pool concurrency bug**: Refactored `doQuery()` to manage its own connection lifecycle locally instead of sharing `this.transactionConnection` across concurrent requests — eliminates race condition where two simultaneous requests could clobber each other's database connections
+- **Connection pool limit**: Increased `connectionLimit` from 5 to 25 to support concurrent traffic
+- **N+1 query in `getBlocks()`**: Replaced per-block UNION ALL loop (N blocks x 26 tables = N queries) with single batched UNION ALL query using `IN (?)` and `GROUP BY block_index`
+- **N+1 query in `getMarketOrderbook()`**: Replaced per-order `getOrderInfo()` loop with batched `getOrderInfoBatch()` — fetches all order data, edits, and remaining amounts in 4 queries instead of 3N
+- **Sequential search COUNT queries**: Parallelized 4 independent COUNT queries in `getSearch()` using `Promise.all`
+- **Wasteful API pagination**: Replaced `limit * page` pattern (fetching all preceding pages) with proper SQL `OFFSET` — page 10 now fetches only 1 page worth of rows instead of 10x
+- **Missing lookup caches**: Added LRU caches for `getAddressId()`, `getTickId()`, and `getActionData()` — these immutable lookups are now served from memory on repeat access
+
 ## [1.6.0] - 2026-04-01
 
 ### Added

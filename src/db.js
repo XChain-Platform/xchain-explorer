@@ -42,6 +42,11 @@ class Database {
         // Placeholder for transaction connection
         this.transactionConnection = null;
 
+        // LRU caches for frequently-queried immutable lookups
+        this._addressIdCache  = new Map();
+        this._tickIdCache     = new Map();
+        this._actionDataCache = new Map();
+
         // Define list of action tables to pull action_indexes from
         this.actionTables = [
             'addresses',
@@ -77,6 +82,24 @@ class Database {
     async init(){
         // Setup the connection pools
         await this.setupConnectionPools()
+    }
+
+    /******************************************************************
+     * LRU Cache Helpers
+     *****************************************************************/
+
+    _cacheGet(cache, key){
+        if(!cache.has(key)) return undefined;
+        const val = cache.get(key);
+        cache.delete(key);
+        cache.set(key, val);
+        return val;
+    }
+
+    _cacheSet(cache, key, value, maxSize = 1000){
+        if(cache.has(key)) cache.delete(key);
+        else if(cache.size >= maxSize) cache.delete(cache.keys().next().value);
+        cache.set(key, value);
     }
 
     /******************************************************************
@@ -116,7 +139,7 @@ class Database {
                                     password: cfg.pass,
                                     database: cfg.name,
                                     // Connection options
-                                    connectionLimit:  5,
+                                    connectionLimit:  25,
                                     //connectTimeout: 0,
                                     insertIdAsNumber: true
                                 }
@@ -216,6 +239,11 @@ class Database {
             let offsetArgs = config.data.sql.where.offsetArgs;
             if(offsetArgs && offsetArgs.length)
                 queryArgs.push(...offsetArgs);
+            // Append SQL OFFSET for API pagination (page > 1)
+            if(config.type == 'api' && config.data.sql.apiOffset > 0){
+                query += ' OFFSET ?';
+                queryArgs.push(config.data.sql.apiOffset);
+            }
             // Run the database query to get the data
             if(query!='')
                 data = await this.doQuery(config, query, queryArgs);
@@ -243,10 +271,10 @@ class Database {
         let order         = (q && q.sortorder && ['ASC','DESC'].includes(String(q.sortorder).toUpperCase())) ? String(q.sortorder).toUpperCase() : default_order;
         // Handle API queries
         if(config.type=='api'){
-            // Set SQL query limit to page * limit
+            // Use SQL OFFSET for pagination instead of fetching all preceding pages
             let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
             page = Math.max(1, Number(page));
-            limit = limit * page;
+            config.data.sql.apiOffset = (page - 1) * limit;
         }
         // Handle Explorer queries
         if(config.type=='explorer'){
@@ -294,21 +322,39 @@ class Database {
     // Handle getting a database connection and running a query and returning the results
     async doQuery(config, query, args){
         let result = false;
-        if(!this.util.isNull(query)){
-            // Get a database connection from the connection pool
-            let db    = await this.getConnection(config);
-            if(db){
-                // Run the database query
-                try {
-                    result = await db.query(query, args);
-                } catch (error){
-                    if(process.env.DEBUG) console.log('SQL Query Error:', error.message);
-                    else console.log('SQL query failed');
+        if(this.util.isNull(query)) return result;
+        // Get connection from pool directly (local scope — no shared state)
+        let pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
+        if(!pool){
+            console.log('Unable to get database connection pool');
+            return result;
+        }
+        let db = null,
+            retryCount = 0,
+            maxRetrys  = 3;
+        while(db === null){
+            try {
+                db = await pool.getConnection();
+            } catch (e){
+                if(process.env.DEBUG) console.log('Database connection error:', e.message);
+                db = null;
+                if(retryCount <= maxRetrys){
+                    retryCount++;
+                    console.log("Can't connect to database. Trying again (attempt " + retryCount + ")...");
+                    await this.util.sleep(1000);
+                } else {
+                    console.log('Failed to get database connection after ' + maxRetrys + ' attempts');
+                    return result;
                 }
-            } else {
-                console.log('Unable to get database connection');
             }
-            await this.releaseConnection();
+        }
+        try {
+            result = await db.query(query, args);
+        } catch (error){
+            if(process.env.DEBUG) console.log('SQL Query Error:', error.message);
+            else console.log('SQL query failed');
+        } finally {
+            db.release();
         }
         return result;
     }
@@ -2879,8 +2925,12 @@ class Database {
                         s2.status='open'`;
         let results = await this.doQuery(config, query, args);
         if(results.length > 0){
+            // Batch fetch all order info in parallel instead of N+1 queries
+            let action_indexes = results.map(r => Number(r.action_index));
+            let orderMap = await this.getOrderInfoBatch(config, action_indexes);
             for(let info of results){
-                let order = await this.getOrderInfo(config, info.action_index);
+                let order = orderMap[Number(info.action_index)];
+                if(!order) continue;
                 let type  = (order.give_tick==tick2) ? 'bid' : 'ask';
                 let price = (order.give_tick==tick2) ? order.get_price : order.give_price;
                 let found = false;
@@ -3458,6 +3508,9 @@ class Database {
 
     // Get information for a given action_index, this includes looking up any related data
     async getActionData(config, action_index){
+        // Check LRU cache first (action data is immutable once confirmed on-chain)
+        let cached = this._cacheGet(this._actionDataCache, action_index);
+        if(cached !== undefined) return structuredClone(cached);
         let coinConfigs = await this.configInfo.getConfig()
         // Define the basic data object with standardized fields
         let data = {
@@ -4976,6 +5029,8 @@ class Database {
             // Include any related action_indexes
             // data.related = await this.getRelatedActions(config, action_index);;
         }
+        // Store in LRU cache for future lookups
+        this._cacheSet(this._actionDataCache, action_index, structuredClone(data));
         return data;
     }
 
@@ -5004,8 +5059,10 @@ class Database {
         return fee;
     }
 
-    // Get address id for a given address
+    // Get address id for a given address (cached)
     async getAddressId(config, address){
+        let cached = this._cacheGet(this._addressIdCache, address);
+        if(cached !== undefined) return cached;
         let id    = null;
         let args  = [address];
         let query = `SELECT
@@ -5018,11 +5075,14 @@ class Database {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
+        if(id !== null) this._cacheSet(this._addressIdCache, address, id);
         return id;
     }
 
-    // Get tick id for a given token
+    // Get tick id for a given token (cached)
     async getTickId(config, tick){
+        let cached = this._cacheGet(this._tickIdCache, tick);
+        if(cached !== undefined) return cached;
         let id    = null;
         let args  = [tick];
         let query = `SELECT
@@ -5035,6 +5095,7 @@ class Database {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
+        if(id !== null) this._cacheSet(this._tickIdCache, tick, id);
         return id;
     }
     // Get action type for a given action_index
@@ -5274,39 +5335,47 @@ class Database {
                 LIMIT ` + sql.limit;
         results = await this.doQuery(config, query);
         if(results && results.length){
+            // Collect all block_indexes and build a lookup map
+            let blockIndexes = results.map(r => r.block_index);
+            let blockMap = {};
             for(let row of results){
-                let info = {
+                blockMap[row.block_index] = {
                     block_index: row.block_index,
                     timestamp: row.block_time,
                     actions: {}
                 };
-                let block_index = row.block_index;
-                let query2 = '';
-                let blockArgs = [];
-                // Loop through action tables and get a count for each block
-                for(let table of this.actionTables){
-                    if(query2!='')
-                        query2 += ' UNION ALL ';
-                    query2 += `SELECT
-                                '` + table + `' as action,
-                                count(*) as count
-                            FROM
-                                ` + table + ` m
-                                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                                INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                                INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            WHERE
-                                b1.block_index=?`;
-                    blockArgs.push(block_index);
-                }
-                let results2 = await this.doQuery(config, query2, blockArgs);
-                if(results2 && results2.length){
-                    for(let data of results2){
-                        info.actions[data.action] = data.count;
-                    }
-                }
-                data.push(info);
             }
+            // Build ONE batched UNION ALL query for all blocks at once
+            let query2 = '';
+            let blockArgs = [];
+            let placeholders = blockIndexes.map(() => '?').join(',');
+            for(let table of this.actionTables){
+                if(query2 != '')
+                    query2 += ' UNION ALL ';
+                query2 += `SELECT
+                            '` + table + `' as action,
+                            b1.block_index,
+                            count(*) as count
+                        FROM
+                            ` + table + ` m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        WHERE
+                            b1.block_index IN (` + placeholders + `)
+                        GROUP BY b1.block_index`;
+                blockArgs.push(...blockIndexes);
+            }
+            let results2 = await this.doQuery(config, query2, blockArgs);
+            if(results2 && results2.length){
+                for(let row of results2){
+                    let bIdx = Number(row.block_index);
+                    if(blockMap[bIdx])
+                        blockMap[bIdx].actions[row.action] = row.count;
+                }
+            }
+            // Preserve original result order
+            data = results.map(r => blockMap[r.block_index]);
         }
         return [data, null, total];
     }
@@ -5328,57 +5397,24 @@ class Database {
                 transactions: 0
             },
         };
-        // Get counts of each search type 
-        for(let type of searchTypes){
-            let query  = false;
-            let args  = [search];
-            if(['broadcast','token'].includes(type))
-                args.push(search);
-            if(type=='address')
-                query = `SELECT COUNT(*) AS count FROM index_addresses WHERE LOWER(address) LIKE LOWER( ? )`;
-            if(type=='transaction')
-                query = `SELECT 
-                            COUNT(*) AS count 
-                        FROM
-                            transactions t1 
-                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        WHERE 
-                            LOWER(t2.hash) LIKE LOWER( ? )`;
-            if(type=='broadcast'){
-                query = `SELECT 
-                            COUNT(*) AS count 
-                        FROM 
-                            broadcasts b
-                            LEFT JOIN index_memos m ON (m.id=b.memo_id)
-                        WHERE 
-                            LOWER(b.message) LIKE LOWER( ? ) OR
-                            LOWER(m.memo)    LIKE LOWER( ? )`;
-            }
-            if(type=='token'){
-                query = `SELECT 
-                            COUNT(*) AS count 
-                        FROM 
-                            tokens t1
-                            LEFT  JOIN index_tickers t2 ON (t2.id=t1.tick_id)
-                        WHERE 
-                            LOWER(t2.tick)        LIKE LOWER( ? ) OR
-                            LOWER(t1.description) LIKE LOWER( ? )`;
-            }
-            if(query){
-                let results = await this.doQuery(config, query, args);
-                if(results && results.length){
-                    let count = Number(results[0].count);
-                    if(type=='address')
-                        data.totals.addresses = count;
-                    if(type=='broadcast')
-                        data.totals.broadcasts = count;
-                    if(type=='token')
-                        data.totals.tokens = count;
-                    if(type=='transaction')
-                        data.totals.transactions = count;
-                    if(type==dataType)
-                        total = count;
-                }
+        // Build all COUNT queries and run them in parallel
+        let countQueries = [
+            { type: 'address',     query: `SELECT COUNT(*) AS count FROM index_addresses WHERE LOWER(address) LIKE LOWER( ? )`, args: [search] },
+            { type: 'transaction', query: `SELECT COUNT(*) AS count FROM transactions t1 LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id) WHERE LOWER(t2.hash) LIKE LOWER( ? )`, args: [search] },
+            { type: 'broadcast',   query: `SELECT COUNT(*) AS count FROM broadcasts b LEFT JOIN index_memos m ON (m.id=b.memo_id) WHERE LOWER(b.message) LIKE LOWER( ? ) OR LOWER(m.memo) LIKE LOWER( ? )`, args: [search, search] },
+            { type: 'token',       query: `SELECT COUNT(*) AS count FROM tokens t1 LEFT JOIN index_tickers t2 ON (t2.id=t1.tick_id) WHERE LOWER(t2.tick) LIKE LOWER( ? ) OR LOWER(t1.description) LIKE LOWER( ? )`, args: [search, search] }
+        ];
+        let countResults = await Promise.all(countQueries.map(q => this.doQuery(config, q.query, q.args)));
+        for(let i = 0; i < countQueries.length; i++){
+            let results = countResults[i];
+            let type    = countQueries[i].type;
+            if(results && results.length){
+                let cnt = Number(results[0].count);
+                if(type=='address')     data.totals.addresses    = cnt;
+                if(type=='broadcast')   data.totals.broadcasts   = cnt;
+                if(type=='token')       data.totals.tokens       = cnt;
+                if(type=='transaction') data.totals.transactions = cnt;
+                if(type==dataType)      total = cnt;
             }
         }
         // If we detected some search results dump the actual data
@@ -5611,6 +5647,161 @@ class Database {
             }
         }
         return [give_remaining, get_remaining];
+    }
+
+    /******************************************************************
+     * Batch query methods (eliminate N+1 patterns)
+     *****************************************************************/
+
+    // Batch fetch order info for multiple action_indexes at once
+    async getOrderInfoBatch(config, action_indexes){
+        if(!action_indexes || action_indexes.length === 0) return {};
+        let orderMap = {};
+        let placeholders = action_indexes.map(() => '?').join(',');
+
+        // 1. Main order query (batch)
+        let query = `SELECT
+                        o1.action_index,
+                        t2.tick as give_tick,
+                        o1.give_amount,
+                        c1.coin as get_coin,
+                        t3.tick as get_tick,
+                        o1.get_amount,
+                        a2.address as source,
+                        a3.address as get_address,
+                        o1.expiration,
+                        o1.allow_list,
+                        o1.block_list,
+                        m1.memo,
+                        s2.status,
+                        s3.status as order_status,
+                        b1.block_index,
+                        b1.block_time
+                    FROM
+                        orders o1
+                        INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
+                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
+                        INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
+                        INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
+                        INNER JOIN index_coins     c1 ON (c1.id=o1.get_coin_id)
+                        INNER JOIN index_coins     c2 ON (c2.id=o1.give_coin_id)
+                        INNER JOIN index_memos     m1 ON (m1.id=o1.memo_id)
+                        INNER JOIN order_statuses  s1 ON (s1.order_action_index=o1.action_index)
+                        INNER JOIN index_statuses  s2 ON (s2.id=o1.status_id)
+                        INNER JOIN index_statuses  s3 ON (s3.id=s1.status_id)
+                    WHERE
+                        s1.action_index = (
+                            SELECT MAX(s4.action_index)
+                            FROM order_statuses s4
+                            WHERE s4.order_action_index=o1.action_index
+                        ) AND
+                        o1.action_index IN (` + placeholders + `)`;
+        let results = await this.doQuery(config, query, [...action_indexes]);
+        if(results && results.length > 0){
+            for(let row of results){
+                row.action_index = Number(row.action_index);
+                row.block_index  = Number(row.block_index);
+                row.block_time   = Number(row.block_time);
+                row.allow_list   = Number(row.allow_list);
+                row.block_list   = Number(row.block_list);
+                orderMap[row.action_index] = row;
+            }
+        }
+
+        // 2. Batch order edits
+        let editQuery = `SELECT
+                            o.order_action_index,
+                            o.expiration,
+                            o.allow_list,
+                            o.block_list
+                        FROM
+                            order_edits o
+                            INNER JOIN index_statuses s ON (s.id=o.status_id)
+                        WHERE
+                            o.order_action_index IN (` + placeholders + `) AND
+                            s.status=?
+                        ORDER BY o.action_index ASC`;
+        let editResults = await this.doQuery(config, editQuery, [...action_indexes, 'valid']);
+        if(editResults && editResults.length > 0){
+            for(let row of editResults){
+                let idx = Number(row.order_action_index);
+                if(orderMap[idx]){
+                    if(!this.util.isNull(row.expiration) && this.util.isNumeric(row.expiration)) orderMap[idx].expiration = Number(row.expiration);
+                    if(!this.util.isNull(row.allow_list) && this.util.isNumeric(row.allow_list)) orderMap[idx].allow_list = Number(row.allow_list);
+                    if(!this.util.isNull(row.block_list) && this.util.isNumeric(row.block_list)) orderMap[idx].block_list = Number(row.block_list);
+                }
+            }
+        }
+
+        // 3. Batch order amounts (initial amounts)
+        let amtQuery = `SELECT
+                            o.action_index,
+                            o.give_amount,
+                            o.get_amount
+                        FROM
+                            orders o
+                            INNER JOIN index_statuses s ON (s.id=o.status_id)
+                        WHERE
+                            o.action_index IN (` + placeholders + `) AND
+                            s.status=?`;
+        let amtResults = await this.doQuery(config, amtQuery, [...action_indexes, 'valid']);
+        let remainingMap = {};
+        if(amtResults && amtResults.length > 0){
+            for(let row of amtResults){
+                let idx = Number(row.action_index);
+                remainingMap[idx] = { give_remaining: row.give_amount, get_remaining: row.get_amount };
+            }
+        }
+
+        // 4. Batch order matches (deductions)
+        // Build WHERE for all action_indexes: any match where give or get side is one of our orders
+        let matchPlaceholders = action_indexes.map(() => '?').join(',');
+        let matchQuery = `SELECT
+                            m.give_action_index,
+                            m.get_action_index,
+                            m.give_amount,
+                            m.get_amount
+                        FROM
+                            order_matches m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            (m.give_action_index IN (` + matchPlaceholders + `) OR m.get_action_index IN (` + matchPlaceholders + `)) AND
+                            s.status=?
+                        ORDER BY m.action_index ASC`;
+        let matchResults = await this.doQuery(config, matchQuery, [...action_indexes, ...action_indexes, 'valid']);
+        if(matchResults && matchResults.length > 0){
+            for(let row of matchResults){
+                // Apply deductions to each relevant order
+                for(let idx of action_indexes){
+                    if(row.give_action_index == idx || row.get_action_index == idx){
+                        if(remainingMap[idx]){
+                            let give_amount = (row.get_action_index == idx) ? row.give_amount : row.get_amount;
+                            let get_amount  = (row.get_action_index == idx) ? row.get_amount  : row.give_amount;
+                            remainingMap[idx].give_remaining = this.util.bcsub(remainingMap[idx].give_remaining, give_amount);
+                            remainingMap[idx].get_remaining  = this.util.bcsub(remainingMap[idx].get_remaining,  get_amount);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Combine: prices + remaining amounts
+        for(let idx of action_indexes){
+            let order = orderMap[idx];
+            if(order){
+                order.give_price = this.util.getPrice(order.get_amount, order.give_amount);
+                order.get_price  = this.util.getPrice(order.give_amount, order.get_amount);
+                if(remainingMap[idx]){
+                    order.give_remaining = remainingMap[idx].give_remaining;
+                    order.get_remaining  = remainingMap[idx].get_remaining;
+                }
+                orderMap[idx] = this.util.ksort(order);
+            }
+        }
+        return orderMap;
     }
 
 }

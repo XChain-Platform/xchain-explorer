@@ -161,10 +161,10 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     describe('API pagination', function () {
 
-        it('page 1 with default limit (100) returns first 100 items from a 150-row set', function () {
-            const rows = Array.from({ length: 150 }, (_, i) => makeSend({ action_index: 150 - i }));
+        it('page 1 with default limit (100) returns all rows passed (SQL handles pagination)', function () {
+            // SQL OFFSET now limits rows — getPagingDataResults receives only the current page
+            const rows = Array.from({ length: 100 }, (_, i) => makeSend({ action_index: 100 - i }));
             const cfg  = makeApiConfig('getSends', null, null);
-            // page defaults to 1, limit defaults to max (100)
             const result = explorer.getPagingDataResults(cfg, rows, 150);
             expect(result).to.have.length(100);
         });
@@ -176,25 +176,25 @@ describe('XChainExplorer.getPagingDataResults', function () {
             expect(result).to.have.length(2);
         });
 
-        it('page 3 with limit 10 returns rows 21–30', function () {
-            // 35 rows total; page 3, limit 10 → start=20, end=30
-            const rows = Array.from({ length: 35 }, (_, i) => makeSend({ action_index: 35 - i }));
+        it('page 3 with limit 10 returns all rows passed (SQL already applied OFFSET)', function () {
+            // SQL OFFSET returns rows 21-30, so only 10 rows arrive here
+            const rows = Array.from({ length: 10 }, (_, i) => makeSend({ action_index: 30 - i }));
             const cfg  = makeApiConfig('getSends', null, null, { query: { page: 3, limit: 10 } });
             const result = explorer.getPagingDataResults(cfg, rows, 35);
-            // rows 21–30 (1-indexed) → indices 20–29 in the array
             expect(result).to.have.length(10);
         });
 
-        it('page 2 with limit 5 returns rows 6–10', function () {
-            const rows = Array.from({ length: 15 }, (_, i) => makeSend({ action_index: 15 - i }));
+        it('page 2 with limit 5 returns all rows passed (SQL already applied OFFSET)', function () {
+            // SQL OFFSET returns rows 6-10, so only 5 rows arrive here
+            const rows = Array.from({ length: 5 }, (_, i) => makeSend({ action_index: 10 - i }));
             const cfg  = makeApiConfig('getSends', null, null, { query: { page: 2, limit: 5 } });
             const result = explorer.getPagingDataResults(cfg, rows, 15);
             expect(result).to.have.length(5);
         });
 
-        it('last page returns only remaining rows', function () {
-            // 12 rows, limit 10, page 2 → start=10, limit=20 → only rows 11–12
-            const rows = Array.from({ length: 12 }, (_, i) => makeSend({ action_index: 12 - i }));
+        it('last page returns only remaining rows (SQL already applied OFFSET)', function () {
+            // SQL OFFSET returns rows 11-12, so only 2 rows arrive here
+            const rows = Array.from({ length: 2 }, (_, i) => makeSend({ action_index: 2 - i }));
             const cfg  = makeApiConfig('getSends', null, null, { query: { page: 2, limit: 10 } });
             const result = explorer.getPagingDataResults(cfg, rows, 12);
             expect(result).to.have.length(2);

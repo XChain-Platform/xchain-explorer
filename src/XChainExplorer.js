@@ -591,12 +591,9 @@ class XChainExplorer {
         if(method=='getSearch')
             data = data.data;
 
-        // Set limit based on given limit and page params
+        // For API requests, SQL OFFSET already handled pagination — return all rows
         if(cfg.type=='api'){
-            let page  = (q && q.page  && this.util.isInteger(Number(q.page))) ? q.page  : 1;
-            page = Math.max(1, Number(page));
-            start = this.util.bcsub(this.util.bcmul(limit, page), limit);
-            limit = this.util.bcmul(limit, page);
+            start = 0;
         }
         // Set limit based on given length and start params
         if(cfg.type=='explorer'){

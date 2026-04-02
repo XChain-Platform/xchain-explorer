@@ -57,14 +57,22 @@ describe('Database#doQuery', () => {
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
+    // Helper: set up db.pools with a mock pool for the given coin key
+    function setupMockPool(coin, fakeConn) {
+        db.pools = {};
+        db.pools[coin] = {
+            pool: { getConnection: sinon.stub().resolves(fakeConn) },
+            config: {}
+        };
+    }
+
     it('returns query results on success', async () => {
         const fakeRows = mockResults.sendRows();
         const fakeConn = {
             query:   sinon.stub().resolves(fakeRows),
             release: sinon.stub().resolves()
         };
-        sinon.stub(db, 'getConnection').resolves(fakeConn);
-        sinon.stub(db, 'releaseConnection').resolves();
+        setupMockPool('BTC', fakeConn);
 
         const result = await db.doQuery(cfg(), 'SELECT 1', []);
         expect(result).to.deep.equal(fakeRows);
@@ -75,50 +83,44 @@ describe('Database#doQuery', () => {
             query:   sinon.stub().rejects(new Error('Table not found')),
             release: sinon.stub().resolves()
         };
-        sinon.stub(db, 'getConnection').resolves(fakeConn);
-        sinon.stub(db, 'releaseConnection').resolves();
+        setupMockPool('BTC', fakeConn);
 
         const result = await db.doQuery(cfg(), 'SELECT bad', []);
         expect(result).to.equal(false);
     });
 
-    it('returns false when no connection is available', async () => {
-        sinon.stub(db, 'getConnection').resolves(null);
-        sinon.stub(db, 'releaseConnection').resolves();
-
+    it('returns false when no pool exists for the coin', async () => {
+        db.pools = {};
         const result = await db.doQuery(cfg(), 'SELECT 1', []);
         expect(result).to.equal(false);
     });
 
-    it('always calls releaseConnection after a successful query', async () => {
+    it('always calls release() after a successful query', async () => {
         const fakeConn = {
             query:   sinon.stub().resolves([]),
             release: sinon.stub().resolves()
         };
-        sinon.stub(db, 'getConnection').resolves(fakeConn);
-        const release = sinon.stub(db, 'releaseConnection').resolves();
+        setupMockPool('BTC', fakeConn);
 
         await db.doQuery(cfg(), 'SELECT 1', []);
-        expect(release.calledOnce).to.be.true;
+        expect(fakeConn.release.calledOnce).to.be.true;
     });
 
-    it('always calls releaseConnection even after a SQL error', async () => {
+    it('always calls release() even after a SQL error', async () => {
         const fakeConn = {
             query:   sinon.stub().rejects(new Error('boom')),
             release: sinon.stub().resolves()
         };
-        sinon.stub(db, 'getConnection').resolves(fakeConn);
-        const release = sinon.stub(db, 'releaseConnection').resolves();
+        setupMockPool('BTC', fakeConn);
 
         await db.doQuery(cfg(), 'SELECT 1', []);
-        expect(release.calledOnce).to.be.true;
+        expect(fakeConn.release.calledOnce).to.be.true;
     });
 
     it('skips query execution when query is null', async () => {
-        const getConn = sinon.stub(db, 'getConnection').resolves(null);
-        const result  = await db.doQuery(cfg(), null, []);
+        db.pools = {};
+        const result = await db.doQuery(cfg(), null, []);
         expect(result).to.equal(false);
-        expect(getConn.called).to.be.false;
     });
 });
 

@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-04-03
+
+### Added
+- WebSocket API for real-time event streaming on `/{COIN}/api/websocket`
+- WebSocket server modules: WebSocketServer, ChannelManager, ChangeDetector, Broadcaster (`src/ws/`)
+- Channel-based subscriptions with per-client filters (types, statuses, ticks, fields, once, snapshot)
+- Batch entity subscriptions (addresses, pairs, action_indexes)
+- Order lifecycle events: ORDER_MATCH, COINPAY_REQUIRED, COINPAY_FULFILLED, COINPAY_EXPIRED, ORDER_EXPIRED
+- Swap lifecycle events: SWAP_MATCH, SWAP_EXPIRED
+- Dispenser lifecycle events: DISPENSE, DISPENSER_CLOSED, DISPENSER_EXPIRED
+- Entity update events: ADDRESS_UPDATE, TOKEN_UPDATE, MARKET_UPDATE, DISPENSER_UPDATE, NETWORK_STATS
+- WELCOME message with server info, latest indexes, limits, supported channels/types/features
+- SUBSCRIBED confirmation with echoed request ID and resolved filters
+- Reconnect catch-up via `since_action_index` with CATCH_UP_COMPLETE event
+- Snapshot-on-subscribe for address balances, token info, market data, dispenser state
+- Client rate limiting (10 msg/sec), per-IP connection limits, backpressure detection
+- Two-tier idle timeout: 5 min for zero-subscription clients, no timeout for subscribed clients
+- Structured WebSocket logging (`[WS]` prefix with timestamps)
+- Frontend WebSocket client (`src/content/js/xchain-ws.js`) with auto-reconnection, catch-up, and connection status indicator
+- Database queries: getMaxBlockIndex, getMaxActionIndex, getBlocksSince, getActionsSince, getAddressBalances, getTokenInfo, getMarketInfo, getDispenserInfo, getCoinpayObligation, getOrderMatchSettlement
+- 64 unit tests for WebSocket modules (ChannelManager, ChangeDetector, Broadcaster)
+- `npm run test:ws` script for running WebSocket tests
+- `WS_*` environment variables for WebSocket configuration
+- Helmet CSP updated to allow `wss:` and `ws:` in connectSrc
+
 ## [1.11.0] - 2026-04-02
 
 ### Added

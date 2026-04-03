@@ -30,6 +30,9 @@ const rateLimit      = require('express-rate-limit');
 const XChainExplorer = require('./XChainExplorer.js');
 const configInfo     = require('./config.js');
 const jsonRouter     = require('express-json-rpc-router')
+const WebSocketServer = require('./ws/WebSocketServer.js');
+const ChangeDetector  = require('./ws/ChangeDetector.js');
+const Broadcaster     = require('./ws/Broadcaster.js');
 
 // Parse in .env config data
 dotenv.config();
@@ -64,7 +67,7 @@ async function startApi(){
                 imgSrc:      ["'self'", "data:", "https:"],
                 // FontAwesome kit fetches CSS from ka-p.fontawesome.com and kit.fontawesome.com,
                 // and icon data from ka-f.fontawesome.com via XHR/fetch
-                connectSrc:  ["'self'", "https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
+                connectSrc:  ["'self'", "wss:", "ws:", "https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
                 // FontAwesome dynamically injects CSS from ka-p and kit subdomains
                 styleSrc:    ["'self'", "'unsafe-inline'", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
                 // FontAwesome kit loads web fonts from ka-f.fontawesome.com
@@ -116,12 +119,14 @@ async function startApi(){
     }
 
     // HTTP server for redirection
-    http.createServer(app).listen(EXPLORER_API_PORT_HTTP, () => {
+    const httpServer = http.createServer(app);
+    httpServer.listen(EXPLORER_API_PORT_HTTP, () => {
         console.log('HTTP  server listening on port', EXPLORER_API_PORT_HTTP);
     });
 
     // HTTPS server for serving out requests in a secure manner
-    https.createServer(config.API.ssl, app).listen(EXPLORER_API_PORT_HTTPS, () => {
+    const httpsServer = https.createServer(config.API.ssl, app);
+    httpsServer.listen(EXPLORER_API_PORT_HTTPS, () => {
         console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTPS);
     });
 
@@ -131,6 +136,51 @@ async function startApi(){
 
     // Allow JSON-RPC requests (registered last so explorer routes take priority)
     app.use(jsonRouter({methods: jsonRpcController}))
+
+    // WebSocket support (feature-flagged via WS_ENABLED env var)
+    const WS_ENABLED = process.env.WS_ENABLED !== 'false';
+    if (WS_ENABLED) {
+        const WS_POLL_INTERVAL = parseInt(process.env.WS_POLL_INTERVAL) || 5000;
+        const WS_PING_INTERVAL = parseInt(process.env.WS_PING_INTERVAL) || 30000;
+        const WS_IDLE_TIMEOUT  = parseInt(process.env.WS_IDLE_TIMEOUT)  || 300000;
+        const WS_MAX_PER_IP    = parseInt(process.env.WS_MAX_CONNECTIONS_PER_IP) || 5;
+        const WS_MAX_BACKPRESSURE = parseInt(process.env.WS_MAX_BACKPRESSURE) || 65536;
+
+        // Create the WebSocket server first (ChannelManager lives inside it)
+        const WS_MAX_SUBS = parseInt(process.env.WS_MAX_SUBSCRIPTIONS) || 25;
+        const wsServer = new WebSocketServer({
+            explorer:         explorer,
+            broadcaster:      null, // set below
+            pingInterval:     WS_PING_INTERVAL,
+            idleTimeout:      WS_IDLE_TIMEOUT,
+            maxPerIp:         WS_MAX_PER_IP,
+            maxSubscriptions: WS_MAX_SUBS
+        });
+
+        // Create the change detector with reference to the channel manager
+        const changeDetector = new ChangeDetector({
+            db:             explorer.db,
+            channelManager: wsServer.channelManager,
+            pollInterval:   WS_POLL_INTERVAL
+        });
+
+        // Create the broadcaster and link to WS server + change detector
+        const broadcaster = new Broadcaster({
+            wsServer:        wsServer,
+            changeDetector:  changeDetector,
+            maxBackpressure: WS_MAX_BACKPRESSURE
+        });
+        wsServer.broadcaster = broadcaster;
+
+        // Attach WebSocket upgrade handler to both HTTP and HTTPS servers
+        wsServer.attach([httpServer, httpsServer]);
+
+        // Determine which coins have configured database pools and start polling
+        const availableCoins = Object.keys(explorer.db.pools || {});
+        if (availableCoins.length > 0) {
+            changeDetector.start(availableCoins);
+        }
+    }
 }
 
 // Start up the explorer services

@@ -5933,6 +5933,206 @@ class Database {
         return orderMap;
     }
 
+    /******************************************************************
+     * WebSocket Change Detection Queries
+     *
+     * Lightweight queries used by the ChangeDetector to poll for new
+     * blocks and actions. These are designed to be fast (index-only
+     * where possible) and are called every poll cycle.
+     *****************************************************************/
+
+    // Get the highest block_index in the blocks table
+    async getMaxBlockIndex(config) {
+        let query   = `SELECT MAX(block_index) as max_index FROM blocks`;
+        let results = await this.doQuery(config, query, []);
+        if (results && results.length && results[0].max_index !== null)
+            return Number(results[0].max_index);
+        return 0;
+    }
+
+    // Get the highest action_index in the actions table
+    async getMaxActionIndex(config) {
+        let query   = `SELECT MAX(action_index) as max_index FROM actions`;
+        let results = await this.doQuery(config, query, []);
+        if (results && results.length && results[0].max_index !== null)
+            return Number(results[0].max_index);
+        return 0;
+    }
+
+    // Get new blocks since a given block_index
+    async getBlocksSince(config, sinceBlockIndex, limit) {
+        let query = `SELECT
+                        b1.block_index,
+                        b1.block_time,
+                        t1.hash as block_hash,
+                        (SELECT COUNT(*) FROM transactions t WHERE t.block_index=b1.block_index) as tx_count,
+                        (SELECT COUNT(*) FROM actions a
+                            INNER JOIN transactions t ON t.tx_index=a.tx_index
+                            WHERE t.block_index=b1.block_index) as action_count
+                    FROM
+                        blocks b1
+                        LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+                    WHERE
+                        b1.block_index > ?
+                    ORDER BY b1.block_index ASC
+                    LIMIT ?`;
+        let results = await this.doQuery(config, query, [sinceBlockIndex, limit]);
+        return results || [];
+    }
+
+    // Get new actions since a given action_index
+    async getActionsSince(config, sinceActionIndex, limit) {
+        let query = `SELECT
+                        a1.action_index,
+                        a3.action,
+                        t3.hash as tx_hash,
+                        t1.block_index,
+                        a4.address as source,
+                        s1.status
+                    FROM
+                        actions a1
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        LEFT  JOIN index_addresses    a4 ON (a4.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
+                    WHERE
+                        a1.action_index > ?
+                    ORDER BY a1.action_index ASC
+                    LIMIT ?`;
+        let results = await this.doQuery(config, query, [sinceActionIndex, limit]);
+        return results || [];
+    }
+
+    /******************************************************************
+     * WebSocket Snapshot & Entity Detail Queries
+     *
+     * Used for snapshot-on-subscribe and lifecycle event enrichment.
+     *****************************************************************/
+
+    // Get address balances for WebSocket snapshot
+    async getAddressBalances(config, address) {
+        let query = `SELECT
+                        t1.tick,
+                        m.amount
+                    FROM
+                        balances m
+                        INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
+                        INNER JOIN index_addresses a1 ON (a1.id=m.address_id)
+                    WHERE
+                        a1.address=?
+                    ORDER BY t1.tick ASC`;
+        let results = await this.doQuery(config, query, [address]);
+        return results || [];
+    }
+
+    // Get token info for WebSocket snapshot
+    async getTokenInfo(config, tick) {
+        let query = `SELECT
+                        t2.tick,
+                        t1.supply,
+                        t1.decimals,
+                        t1.description,
+                        (SELECT COUNT(*) FROM balances b
+                            INNER JOIN index_tickers t3 ON (t3.id=b.tick_id)
+                            WHERE t3.tick=? AND b.amount > 0) as holders
+                    FROM
+                        tokens t1
+                        INNER JOIN index_tickers t2 ON (t2.id=t1.tick_id)
+                    WHERE
+                        t2.tick=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [tick, tick]);
+        if (results && results.length) return results[0];
+        return null;
+    }
+
+    // Get market info for WebSocket snapshot
+    async getMarketInfo(config, tick1, tick2) {
+        let query = `SELECT
+                        t1.tick as tick1,
+                        t2.tick as tick2,
+                        m.last_price,
+                        m.volume_24h,
+                        m.bid,
+                        m.ask
+                    FROM
+                        markets m
+                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                    WHERE
+                        t1.tick=? AND t2.tick=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [tick1, tick2]);
+        if (results && results.length) return results[0];
+        return null;
+    }
+
+    // Get dispenser info for WebSocket snapshot
+    async getDispenserInfo(config, actionIndex) {
+        let query = `SELECT
+                        d.action_index,
+                        a2.address as source,
+                        t1.tick as give_tick,
+                        d.give_amount,
+                        d.give_remaining,
+                        t2.tick as get_tick,
+                        d.get_amount,
+                        d.expiration,
+                        s1.status
+                    FROM
+                        dispensers d
+                        INNER JOIN actions            a1 ON (a1.action_index=d.action_index)
+                        INNER JOIN transactions        t3 ON (t3.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
+                        LEFT  JOIN index_tickers      t1 ON (t1.id=d.give_tick_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=d.get_tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=d.status_id)
+                    WHERE
+                        d.action_index=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length) return results[0];
+        return null;
+    }
+
+    // Get COINPay obligation details for a given order_match action_index
+    async getCoinpayObligation(config, orderMatchActionIndex) {
+        let query = `SELECT
+                        co.action_index as obligation_action_index,
+                        co.action_index as order_match_action_index,
+                        a1.address as payer_address,
+                        a2.address as payee_address,
+                        co.coin_amount,
+                        co.expiration
+                    FROM
+                        coinpay_obligations co
+                        LEFT JOIN index_addresses a1 ON (a1.id=co.payer_address_id)
+                        LEFT JOIN index_addresses a2 ON (a2.id=co.payee_address_id)
+                    WHERE
+                        co.action_index=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [orderMatchActionIndex]);
+        if (results && results.length) return results[0];
+        return null;
+    }
+
+    // Get the settlement_type for an order_match
+    async getOrderMatchSettlement(config, actionIndex) {
+        let query = `SELECT
+                        om.action_index,
+                        s1.status as settlement_type
+                    FROM
+                        order_matches om
+                        LEFT JOIN index_statuses s1 ON (s1.id=om.settlement_type_id)
+                    WHERE
+                        om.action_index=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length) return results[0];
+        return null;
+    }
+
 }
 
 module.exports = Database

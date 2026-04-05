@@ -1,24 +1,24 @@
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   mutate: [
-    'src/utility.js',
-    'src/db.js',
-    'src/XChainExplorer.js',
-    'src/config.js',
-    '!src/content/**',
-    '!src/ssl/**',
-    '!src/configs/**'
+    '../../src/utility.js',
+    '../../src/db.js',
+    '../../src/XChainExplorer.js',
+    '../../src/config.js',
+    '!../../src/content/**',
+    '!../../src/ssl/**',
+    '!../../src/configs/**'
   ],
   testRunner: 'mocha',
   mochaOptions: {
-    spec: ['test/unit/**/*.test.js']
+    spec: ['../../test/unit/**/*.test.js']
   },
   reporters: ['html', 'json', 'clear-text', 'progress'],
   htmlReporter: {
-    fileName: 'reports/mutation/index.html'
+    fileName: '../../reports/mutation/index.html'
   },
   jsonReporter: {
-    fileName: 'reports/mutation/results.json'
+    fileName: '../../reports/mutation/results.json'
   },
   thresholds: {
     high: 90,

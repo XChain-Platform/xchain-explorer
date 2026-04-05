@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-04-05
+
+### Changed
+- Moved `stryker.config.mjs` from project root into `test/mutation/`
+- Updated `test:mutation*` npm scripts to reference new config path
+
 ## [1.12.0] - 2026-04-03
 
 ### Added

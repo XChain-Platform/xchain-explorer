@@ -6133,6 +6133,499 @@ class Database {
         return null;
     }
 
+    // Get list of CONTRACT actions
+    async getContracts(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contracts m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        m.code_hash,
+                        m.api_version,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        contracts m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get single CONTRACT by action_index
+    async getContract(config){
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contracts m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        m.code,
+                        m.code_hash,
+                        m.api_version,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        contracts m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    }
+
+    // Get latest contract state keys for a contract
+    async getContractState(config){
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_state cs
+                        INNER JOIN (
+                            SELECT state_key, MAX(id) as max_id
+                            FROM contract_state
+                            WHERE contract_index=?
+                            GROUP BY state_key
+                        ) latest ON (latest.max_id=cs.id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        cs.id,
+                        cs.contract_index,
+                        cs.state_key,
+                        cs.state_value,
+                        cs.block_index
+                    FROM
+                        contract_state cs
+                        INNER JOIN (
+                            SELECT state_key, MAX(id) as max_id
+                            FROM contract_state
+                            WHERE contract_index=?
+                            GROUP BY state_key
+                        ) latest ON (latest.max_id=cs.id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY cs.state_key ASC
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    }
+
+    // Get contract balances for a contract
+    async getContractBalance(config){
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_balances m
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.contract_index,
+                        t3.tick,
+                        m.amount
+                    FROM
+                        contract_balances m
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY t3.tick ASC
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    }
+
+    // Get list of CONTRACT EXECUTION actions
+    async getExecutions(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_executions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.caller_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.contract_index,
+                        a2.address as caller,
+                        m.method_name,
+                        m.gas_used,
+                        m.gas_limit,
+                        m.emitted_count,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        contract_executions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.caller_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get single CONTRACT EXECUTION by action_index
+    async getExecution(config){
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_executions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.caller_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.contract_index,
+                        a2.address as caller,
+                        m.method_name,
+                        m.input_params,
+                        m.gas_used,
+                        m.gas_limit,
+                        m.emitted_count,
+                        m.error_message,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        contract_executions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.caller_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    }
+
+    // Get list of DEPOSIT actions
+    async getDeposits(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        deposits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.contract_index,
+                        a2.address as source,
+                        t3.tick,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        deposits m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of WITHDRAWAL actions
+    async getWithdrawals(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        withdrawals m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.contract_index,
+                        a2.address as source,
+                        t3.tick,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        withdrawals m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of STAKE actions
+    async getStakes(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        stakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.address as signing_pubkey,
+                        m.tier,
+                        m.chains,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        stakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of active validators (stakes with status='valid')
+    async getValidators(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        stakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE s1.status='valid' AND ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.address as signing_pubkey,
+                        m.tier,
+                        m.chains,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        stakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE s1.status='valid' AND ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of DELEGATION actions
+    async getDelegations(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        delegations m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.address as signing_pubkey,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        delegations m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of VALIDATOR REWARD records
+    async getValidatorRewards(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        validator_rewards m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        a2.address as source,
+                        a3.address as signing_pubkey,
+                        m.reward_type,
+                        m.round_reference,
+                        m.amount,
+                        m.block_index,
+                        b1.block_time as timestamp
+                    FROM
+                        validator_rewards m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
 }
 
 module.exports = Database

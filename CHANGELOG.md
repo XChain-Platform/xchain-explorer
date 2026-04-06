@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-04-06
+
+### Added
+- **VM contract endpoints** — `getContracts`, `getContract`, `getContractState`, `getContractBalance`, `getExecutions`, `getExecution` REST API + explorer routes
+- **Deposit/withdrawal endpoints** — `getDeposits`, `getWithdrawals` REST API + explorer routes
+- **Staking/validator endpoints** — `getStakes`, `getValidators`, `getDelegations`, `getValidatorRewards` REST API + explorer routes
+- HTML pages: contracts, contract detail, executions, execution detail, deposits, withdrawals, validators
+- 12 new DB query methods for all new table types
+- All endpoints follow existing pattern (SDK-compatible paths, DataTables explorer routes)
+
 ## [1.12.1] - 2026-04-05
 
 ### Changed

@@ -37,16 +37,16 @@ const Broadcaster     = require('./ws/Broadcaster.js');
 // Parse in .env config data
 dotenv.config();
 
-//xchain-hub url and port
-const HUB_HOST = process.env.HUB_API_HOST
-const HUB_PORT = process.env.HUB_PORT
+//xchain-hub endpoints (multi-instance with fallback)
+const xchainHubConnector = require('./XChainHubConnector');
+const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP = process.env.EXPLORER_API_PORT_HTTP
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS
 
 // Setup the basic API functionality
 async function startApi(){
     // Parse in the explorer config information
-    let config = await configInfo.getConfig(HUB_HOST, HUB_PORT);
+    let config = await configInfo.getConfig(HUB_ENDPOINTS);
 
     // Create the app
     const app = express();

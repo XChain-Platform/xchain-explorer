@@ -56,12 +56,13 @@ const configChangedEmisor = new EventTarget();
 
 module.exports = {
 
-    startSync: function(url, port){
-        setInterval(getConfig, UPDATE_CONFIG_INTERVAL, url, port, false) //cache=false to replace the current cache
+    startSync: function(endpoints){
+        setInterval(getConfig, UPDATE_CONFIG_INTERVAL, endpoints, false) //cache=false to replace the current cache
     },
 
     // Handle returning the current indexer configuration
-    getConfig: async function(url=null, port=null, cache=true){
+    // endpoints: array of URL strings or legacy (url, port) pair
+    getConfig: async function(endpoints=null, cache=true){
         if (cache && configCache){
             return configCache
         } else {
@@ -89,10 +90,10 @@ module.exports = {
             const configUtil = new util();
             let jsonConfig = null
 
-            //If the url and port parameters are given, then connect to the xchain-hub
-            if (url && port){
+            //If endpoints are provided, connect to the xchain-hub
+            if (endpoints){
                 if (!hubConnector){
-                    hubConnector = new xchainHubConnector(url, port)
+                    hubConnector = new xchainHubConnector(endpoints)
                 }
                 
                 jsonConfig = await hubConnector.getAllConfig()

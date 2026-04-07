@@ -3606,6 +3606,26 @@ class Database {
         return [data]
     }
 
+    // Get public key for an address from decoder database
+    async getPubkey(config){
+        let data = null;
+        let name = await this.getDecoderDatabaseName(config.coin);
+        if(name){
+            let query = `SELECT
+                            p.pubkey
+                        FROM
+                            ` + name + `.pubkeys p
+                            INNER JOIN ` + name + `.index_addresses a ON (a.id=p.address_id)
+                        WHERE
+                            a.address=?
+                        LIMIT 1`;
+            let results = await this.doQuery(config, query, [config.data.search]);
+            if(results && results.length)
+                data = results[0];
+        }
+        return [data];
+    }
+
     // Get raw transaction data from decoder database
     async getTransactionData(config, hash){
         let data = null;

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-04-07
+
+### Added
+- `GET /{COIN}/api/pubkey/{ADDRESS}` — new API endpoint to look up the public key for an address from the decoder database
+- `getPubkey()` method in `Database` for querying the decoder `pubkeys` table
+
 ## [1.13.1] - 2026-04-06
 
 ### Changed

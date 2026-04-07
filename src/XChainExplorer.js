@@ -221,6 +221,7 @@ class XChainExplorer {
                 '/{COIN}/api/holders/{QUERY}'                  : ['getHolders',          'token'],
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
                 '/{COIN}/api/network'                          : ['getNetwork'],   
+                '/{COIN}/api/pubkey/{QUERY}'                   : ['getPubkey',           'address'],
                 '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
                 '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken']],
                 '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],

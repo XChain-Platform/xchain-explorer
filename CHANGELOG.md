@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-04-06
+
+### Changed
+- Move coverage badge to its own line in README.md for cleaner formatting
+
 ## [1.13.0] - 2026-04-06
 
 ### Added

@@ -4,11 +4,14 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.10.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.13.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/tests-1%2C285%20passing-brightgreen" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20boundary%20%7C%20security%20%7C%20chaos%20%7C%20mutation%20%7C%20smoke%20%7C%20perf%20%7C%20regression-brightgreen" alt="Coverage">
   <img src="https://img.shields.io/badge/node-%3E%3D18-green" alt="Node">
   <img src="https://img.shields.io/badge/license-Dankest%20Community-orange" alt="License">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20boundary%20%7C%20security%20%7C%20chaos%20%7C%20mutation%20%7C%20smoke%20%7C%20perf%20%7C%20regression-brightgreen" alt="Coverage">
 </p>
 
 Query and presentation layer for the XChain Platform. Reads from the Indexer database and exposes 60+ REST API endpoints, a JSON-RPC 2.0 interface, and a Bootstrap-based web block explorer — all from a single Node.js/Express process. The explorer never writes to any database.

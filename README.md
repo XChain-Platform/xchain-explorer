@@ -21,7 +21,7 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 - **60+ REST endpoints** — tokens, balances, transactions, market data, DEX state, addresses, blocks, files, messages
 - **Three interfaces** — REST API, JSON-RPC 2.0, and a web block explorer served from the same process
 - **Multi-chain support** — Bitcoin, Litecoin, and Dogecoin on mainnet, testnet, and regtest (9 networks)
-- **Read-only** — never writes to the Indexer database
+- **Read-only by default** — only writes to the Indexer database when the optional icon downloader is enabled
 - **Config discovery** — fetches configuration from xchain-hub and refreshes every 60 seconds
 - **SSL/TLS support** — serves both HTTP and HTTPS with configurable certificates
 - **Rate limiting** — configurable request rate limiting (default 500 req/min)
@@ -85,6 +85,29 @@ curl http://localhost:8080/BTC/api/market/TOKENA/TOKENB/orderbook
 # Get platform status
 curl http://localhost:8080/BTC/api/status
 ```
+
+## Icon Downloader (optional)
+
+The explorer can optionally download, resize, and cache token icons sourced from each token's `description` field (JSON URLs, IPFS, Arweave, Ordinals, imgur, stamps, bare image URLs). Disabled by default.
+
+The `icons` table backing this feature is created automatically by xchain-indexer at startup — no migration needed. To enable on the explorer side:
+
+1. Grant the explorer's MySQL user `SELECT, INSERT, UPDATE, DELETE` on the `icons` table in each indexer database the explorer is configured against.
+2. Make sure ImageMagick `convert` is on the host PATH.
+3. Set `iconDownload.enabled` to `true` in `config.json` and restart the explorer.
+
+```json
+"iconDownload": {
+    "enabled":         true,
+    "intervalMinutes": 15,
+    "batchSize":       50,
+    "fetchTimeoutMs":  5000,
+    "maxBytes":        5242880,
+    "iconSize":        64
+}
+```
+
+Generated icons are written to `src/content/icons/{COIN}/{NETWORK}/{TICK}.png` and served by the existing `/icon/...` endpoint. Failed fetches back off (1h → 1d → 7d → permanent) so unreachable URLs aren't repeatedly retried.
 
 ## Scripts
 

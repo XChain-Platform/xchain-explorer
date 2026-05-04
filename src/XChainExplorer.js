@@ -20,12 +20,13 @@
  ********************************************************************/
 
 // Load required libraries
-const express  = require('express');
-const fs       = require('fs');
-const path     = require('path');
-const axios    = require('axios');
-const util     = require('./utility.js');
-const database = require('./db.js');
+const express        = require('express');
+const fs             = require('fs');
+const path           = require('path');
+const axios          = require('axios');
+const util           = require('./utility.js');
+const database       = require('./db.js');
+const IconDownloader = require('./IconDownloader.js');
 
 class XChainExplorer {
 
@@ -66,6 +67,14 @@ class XChainExplorer {
 
     async init(){
         await this.db.init()
+        // Optional: in-process icon downloader. Opt-in via configInfo.iconDownload.enabled.
+        // Requires sql/icons.sql installed in each indexer DB and ImageMagick `convert` on PATH.
+        this.iconDownloader = new IconDownloader(this);
+        try {
+            await this.iconDownloader.start();
+        } catch (e){
+            console.error('icon-downloader failed to start:', e && e.stack ? e.stack : e);
+        }
     }
 
     // Function to define a list of explorer urls

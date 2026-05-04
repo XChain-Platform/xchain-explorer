@@ -1,0 +1,213 @@
+/*********************************************************************
+ *
+ * Copyright © 2025 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * Licensed under the Dankest Community License (Apache License 2.0 + Additional Terms).
+ * You may not use this file except in compliance with that License.
+ *
+ **********************************************************************
+ *
+ * IconResolver
+ *
+ * Pure description-parsing logic for the icon downloader. Mirrors the
+ * priority chain used in content/js/xchain.js so the server-side
+ * pipeline picks the same source the asset/token page would.
+ *
+ * Functions in this file do NOT make network calls — they just classify
+ * the description and tell the caller what to fetch (or what inline
+ * bytes are already encoded).
+ *
+ ********************************************************************/
+
+/**
+ * Classify a token description into an icon source.
+ *
+ * Returns an object describing what to fetch (or null if there is
+ * nothing fetchable):
+ *
+ *   { scheme: 'stamp',       data: '<base64 image bytes>' }
+ *   { scheme: 'ord',         url:  'https://inscription-decoder.../api/image?...' }
+ *   { scheme: 'ipfs',        url:  'https://ipfsc.crystalsuite.com/<hash>' }
+ *   { scheme: 'arweave',     url:  'https://arweave.net/<hash>' }    // ar:HASH form
+ *   { scheme: 'arweave_url', url:  'https://arweave.net/<hash>' }    // bare https://arweave.net/...
+ *   { scheme: 'imgur',       url:  'https://i.imgur.com/<image>' }
+ *   { scheme: 'json_url',    url:  'https://.../something.json' }
+ *   { scheme: 'image_url',   url:  'https://.../something.png' }
+ */
+function resolveDescriptionToSource(description){
+    if(typeof description !== 'string') return null;
+    const desc = description.trim();
+    if(desc === '') return null;
+
+    // 1. stamp:base64data — embedded image bytes
+    if(/^stamp:/i.test(desc)){
+        const b64 = desc.replace(/^stamp:/i, '').trim();
+        if(b64 === '') return null;
+        return { scheme: 'stamp', data: b64 };
+    }
+
+    // 2. ord:HASH — Ordinals inscription, resolved via the inscription decoder
+    if(/^ord:/i.test(desc)){
+        let hash = desc.replace(/^ord:/i, '').trim();
+        if(hash === '') return null;
+        if(hash.length !== 64){
+            // Convert from base64 to hex
+            const buf = tryBase64Decode(hash);
+            if(buf === null || buf.length === 0) return null;
+            hash = buf.toString('hex');
+        }
+        return { scheme: 'ord', url: 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash };
+    }
+
+    // 3. ipfs:HASH or ipfs://HASH — IPFS gateway
+    if(/^ipfs:/i.test(desc)){
+        const hash = desc.replace(/^ipfs:(\/\/)?/i, '').trim();
+        if(hash === '') return null;
+        return { scheme: 'ipfs', url: 'https://ipfsc.crystalsuite.com/' + hash };
+    }
+
+    // 4. ar:HASH — Arweave gateway
+    if(/^ar:/i.test(desc)){
+        const hash = desc.replace(/^ar:/i, '').trim();
+        if(hash === '') return null;
+        return { scheme: 'arweave', url: 'https://arweave.net/' + hash };
+    }
+
+    // 5. imgur formats: 'imgur/<image>[;<title>]' or 'imgur.com/<image>'
+    if(/^imgur(\.com)?\//i.test(desc)){
+        const rest = desc.replace(/^imgur(\.com)?\//i, '');
+        const name = rest.split(';')[0].trim();
+        if(name === '') return null;
+        return { scheme: 'imgur', url: 'https://i.imgur.com/' + name };
+    }
+
+    // 6. Pointers to non-image media — can't generate an icon from these
+    if(/^(youtube|soundcloud)\//i.test(desc)) return null;
+
+    // 7. Bare arweave URL — strip the legacy /x.json suffix that no longer works
+    if(/^https?:\/\/arweave\.net\//i.test(desc)){
+        let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
+        url = url.split(';')[0];   // strip ;hash suffix if any
+        return { scheme: 'arweave_url', url };
+    }
+
+    // 8. URL ending in .json (with optional ";<sha256>" attestation suffix)
+    if(/\.json($|;|\?|#)/i.test(desc)){
+        let url = desc.split(';')[0];
+        if(!/^https?:\/\//i.test(url)) url = 'http://' + url;
+        return { scheme: 'json_url', url };
+    }
+
+    // 9. Bare image URL — recognized by extension on the path component
+    if(/^https?:\/\//i.test(desc)){
+        const url  = desc.split(';')[0];
+        const path = (() => {
+            try { return new URL(url).pathname; } catch (e) { return ''; }
+        })();
+        const dot = path.lastIndexOf('.');
+        const ext = dot >= 0 ? path.slice(dot + 1).toLowerCase() : '';
+        if(['png','jpg','jpeg','gif','webp','svg'].includes(ext)){
+            return { scheme: 'image_url', url };
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Given a parsed CIP25 / TIS JSON object, return the best image URL
+ * for an icon, or null. Priority chain mirrors the asset/token page UI:
+ *
+ *   1. images[].data where type=='icon' && size=='48x48'
+ *   2. images[].data where type=='icon' (any size)
+ *   3. images[].data where type in ('large','standard','hires') — caller resizes
+ *   4. first images[].data with a usable data field
+ *   5. top-level "image" field
+ *
+ * Any returned URL is run through rewriteSchemeUrl() to translate
+ * ipfs:// or ar: prefixes to gateway URLs.
+ */
+function selectIconUrlFromCip25Json(json){
+    if(json === null || json === undefined) return null;
+    const j = (typeof json === 'object') ? json : null;
+    if(j === null) return null;
+
+    if(Array.isArray(j.images)){
+        // 48x48 icon
+        for(const img of j.images){
+            if(!img || typeof img !== 'object') continue;
+            if(img.type === 'icon' && img.size === '48x48' && img.data)
+                return rewriteSchemeUrl(img.data);
+        }
+        // Any icon
+        for(const img of j.images){
+            if(!img || typeof img !== 'object') continue;
+            if(img.type === 'icon' && img.data)
+                return rewriteSchemeUrl(img.data);
+        }
+        // Larger sizes we'll resize down
+        for(const t of ['large','standard','hires']){
+            for(const img of j.images){
+                if(!img || typeof img !== 'object') continue;
+                if(img.type === t && img.data)
+                    return rewriteSchemeUrl(img.data);
+            }
+        }
+        // First usable image
+        for(const img of j.images){
+            if(!img || typeof img !== 'object') continue;
+            if(img.data) return rewriteSchemeUrl(img.data);
+        }
+    }
+
+    if(j.image) return rewriteSchemeUrl(j.image);
+
+    return null;
+}
+
+/**
+ * Translate ipfs:// and ar: prefixes (which can appear inside CIP25/TIS
+ * image-array data fields) to gateway URLs. Pass-through for plain URLs.
+ */
+function rewriteSchemeUrl(url){
+    if(typeof url !== 'string') return null;
+    const u = url.trim();
+    if(u === '') return null;
+
+    if(/^ipfs:\/\//i.test(u))
+        return 'https://ipfsc.crystalsuite.com/' + u.replace(/^ipfs:\/\//i, '');
+
+    if(/^ipfs:/i.test(u))
+        return 'https://ipfsc.crystalsuite.com/' + u.replace(/^ipfs:/i, '');
+
+    if(/^ar:/i.test(u))
+        return 'https://arweave.net/' + u.replace(/^ar:/i, '');
+
+    return u;
+}
+
+/**
+ * Best-effort base64 decode. Returns Buffer on success or null on
+ * obvious garbage (length not a multiple of 4 after padding, illegal
+ * characters, etc.). Used for ord: descriptions where the hash may be
+ * either 64-char hex or base64-encoded raw bytes.
+ */
+function tryBase64Decode(s){
+    if(typeof s !== 'string') return null;
+    // Buffer.from with 'base64' silently ignores invalid chars, so do a strict check first
+    if(!/^[A-Za-z0-9+/=_-]+$/.test(s)) return null;
+    try {
+        const buf = Buffer.from(s, 'base64');
+        if(buf.length === 0) return null;
+        return buf;
+    } catch (e){
+        return null;
+    }
+}
+
+module.exports = {
+    resolveDescriptionToSource,
+    selectIconUrlFromCip25Json,
+    rewriteSchemeUrl,
+};

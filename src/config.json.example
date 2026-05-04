@@ -154,5 +154,13 @@
                 "pass": "xchain-node-password"
             }
         }
-    ]
+    ],
+    "iconDownload": {
+        "enabled":         false,
+        "intervalMinutes": 15,
+        "batchSize":       50,
+        "fetchTimeoutMs":  5000,
+        "maxBytes":        5242880,
+        "iconSize":        64
+    }
 }

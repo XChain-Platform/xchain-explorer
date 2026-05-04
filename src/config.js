@@ -175,6 +175,10 @@ module.exports = {
                 }
             }
 
+            // Pass forward optional icon-downloader settings (see IconDownloader.js)
+            if(jsonConfig.iconDownload)
+                config['iconDownload'] = jsonConfig.iconDownload;
+
             // Loop through all coins and networks in the json config and load up the coin/network specific data
             for(let info of jsonConfig.configs ){
 

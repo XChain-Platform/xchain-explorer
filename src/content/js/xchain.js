@@ -2459,11 +2459,17 @@ function showTokenInfo(){
     $('#lock-callback').html(showLockStatus(o.locks.callback));    
 
     // RegExp for pattern matching in description
-    let json  = /^(.*).json/i,
-        http  = /^http:\/\//,
-        https = /^https:\/\//,
-        ord   = /^ord:/i,
-        ipfs  = /^ipfs:/i;
+    let json    = /^(.*).json/i,
+        http    = /^http:\/\//,
+        https   = /^https:\/\//,
+        ord     = /^ord:/i,
+        ipfs    = /^ipfs:/i,
+        ar      = /^ar:/i,
+        arweave = /^https?:\/\/arweave\.net\//i;
+
+    // Rescue arweave URLs that used the legacy "/x.json" trick (gateway no longer accepts random suffixes)
+    if(typeof desc === 'string')
+        desc = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
 
     // If the file starts with http and end with JSON, then assume it is valid url and link it
     if(json.test(desc)||http.test(desc)||https.test(desc)){
@@ -2476,7 +2482,7 @@ function showTokenInfo(){
 
     // Set the full url to get JSON content
     let jsonUrl = false;
-    if(json.test(desc) || ipfs.test(desc) || ord.test(desc)){
+    if(json.test(desc) || ipfs.test(desc) || ord.test(desc) || ar.test(desc) || arweave.test(desc)){
         if(ipfs.test(desc)){
             jsonUrl = 'https://ipfs.io/ipfs/' + String(desc).replace(ipfs,'');
         } else if(ord.test(desc)){
@@ -2484,6 +2490,10 @@ function showTokenInfo(){
             if(hash.length!=64)
                 hash = base64ToHex(hash);
             jsonUrl = 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash;
+        } else if(ar.test(desc)){
+            jsonUrl = 'https://arweave.net/' + String(desc).replace(ar,'');
+        } else if(arweave.test(desc)){
+            jsonUrl = desc;
         } else {
             jsonUrl = 'https://' + arr[0].replace('https://','').replace('http://','');
         }

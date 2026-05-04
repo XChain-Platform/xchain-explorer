@@ -882,8 +882,9 @@ class XChainExplorer {
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
                 const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0 };
 
-                // Handle JSON files
-                if(ext=='json'){
+                // Handle JSON files (also accept arweave.net gateway URLs without a .json extension)
+                const isArweave = /^arweave\.net$/i.test(parsed.hostname);
+                if(ext=='json' || isArweave){
                     let response = await axios.get(parsed.href, opts);
                     if(!this.util.isNull(response.data)){
                         res.type('json').send(this.util.jsonStringify(response.data));

@@ -304,24 +304,26 @@ class IconDownloader {
             case 'arweave':
             case 'arweave_url':
             case 'ipfs': {
+                // Could be JSON (CIP25/TIS) or a direct image. Don't trust
+                // the Content-Type header — IPFS gateways routinely serve
+                // content as text/plain regardless of the actual bytes.
                 const resp = await this._httpFetch(src.url);
-                const mime = (resp.mime || '').toLowerCase();
-                const isJsonMime = mime.startsWith('application/json') || mime.startsWith('text/json');
 
-                if(isJsonMime || src.scheme === 'json_url'){
-                    let json = null;
-                    try { json = JSON.parse(resp.body.toString('utf8')); } catch (e) {}
-                    if(json && typeof json === 'object'){
-                        const picked = selectIconUrlFromCip25Json(json);
-                        if(!picked) throw new Error(`${src.scheme}: JSON has no usable image`);
-                        let next = resolveDescriptionToSource(picked);
-                        if(!next) next = { scheme: 'image_url', url: picked };
-                        return await this._fetchSourceBytes(next, depth - 1);
-                    }
+                // Try JSON parse first
+                let json = null;
+                try { json = JSON.parse(resp.body.toString('utf8')); } catch (e) {}
+                if(json && typeof json === 'object'){
+                    const picked = selectIconUrlFromCip25Json(json);
+                    if(!picked) throw new Error(`${src.scheme}: JSON has no usable image`);
+                    let next = resolveDescriptionToSource(picked);
+                    if(!next) next = { scheme: 'image_url', url: picked };
+                    return await this._fetchSourceBytes(next, depth - 1);
                 }
 
-                if(mime.startsWith('image/')) return resp.body;
-                throw new Error(`${src.scheme}: unsupported content-type '${mime}'`);
+                // Not JSON — return raw bytes; _writeIcon sniffs MIME from
+                // the bytes themselves and rejects anything that isn't an
+                // allowed image type.
+                return resp.body;
             }
 
             case 'imgur':

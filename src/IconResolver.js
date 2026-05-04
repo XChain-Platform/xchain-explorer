@@ -44,6 +44,15 @@ function resolveDescriptionToSource(description){
     if(/^stamp:/i.test(desc)){
         const b64 = desc.replace(/^stamp:/i, '').trim();
         if(b64 === '') return null;
+        // Validate that the base64 actually decodes — corrupt stamps are
+        // unrecoverable, so don't waste retry slots on them.
+        if(!/^[A-Za-z0-9+/=_-]+$/.test(b64)) return null;
+        try {
+            const buf = Buffer.from(b64, 'base64');
+            if(buf.length === 0) return null;
+        } catch (e){
+            return null;
+        }
         return { scheme: 'stamp', data: b64 };
     }
 

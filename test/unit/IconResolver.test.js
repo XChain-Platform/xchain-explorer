@@ -17,6 +17,8 @@ describe('IconResolver.resolveDescriptionToSource', function(){
     // [description, expected_scheme, substring_or_null_for_url_or_data]
     const cases = [
         ['stamp:iVBORw0KGgo=',                                                                  'stamp',        'iVBORw0KGgo='],
+        ['stamp:!!!not-base-64!!!',                                                             null,           null],   // invalid base64 -> null (no retries)
+        ['stamp:',                                                                              null,           null],   // empty stub -> null
         ['ord:1d36aa544a20be86dca452e3abe464d33dd8567392dee8e333f72519e97af679',                'ord',          'tx=1d36aa544a20be'],
         ['ord:HTaqVEogvobcpFLjq+Rk0z3YVnOS3ujjM/clGel69nk=',                                    'ord',          'tx=1d36aa544a20be'],
         ['ipfs:QmdnznjxzrjmLGpwjiDrgfdAu5r7VB4tWWWVtNRtqYqACq',                                 'ipfs',         'ipfsc.crystalsuite.com/Qmdn'],

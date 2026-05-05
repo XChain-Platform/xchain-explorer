@@ -141,17 +141,20 @@ function resolveDescriptionToSource(description){
  * Given a parsed CIP25/TIS-style JSON object, return the best image URL
  * for an icon, or null.
  *
+ * Pre-step: any top-level "icon" field (a common typo for "image" in
+ * community JSONs) is mapped onto "image" so the normal picker chain
+ * handles it.
+ *
  * Priority chain (smallest icon-shaped sources first; caller resizes down):
  *   1. images[].data where type=='icon' && size=='48x48'
  *   2. images[].data where type=='icon' (any size)
- *   3. top-level "icon"            (legacy field used by some community JSONs)
- *   4. top-level "image"           (legacy / CIP25 fallback)
- *   5. images[].data where type=='standard'
- *   6. images[].data where type=='large'
- *   7. top-level "image_large"     (legacy)
- *   8. images[].data where type=='hires'
- *   9. top-level "image_large_hd"  (legacy)
- *  10. first images[].data with anything usable
+ *   3. top-level "image"           (CIP25 / post-normalization "icon")
+ *   4. images[].data where type=='standard'
+ *   5. images[].data where type=='large'
+ *   6. top-level "image_large"     (legacy)
+ *   7. images[].data where type=='hires'
+ *   8. top-level "image_large_hd"  (legacy)
+ *   9. first images[].data with anything usable
  *
  * Any returned URL is run through rewriteSchemeUrl() to translate
  * ipfs:// or ar: prefixes to gateway URLs.
@@ -159,7 +162,12 @@ function resolveDescriptionToSource(description){
 function selectIconUrlFromCip25Json(json){
     if(json === null || json === undefined) return null;
     if(typeof json !== 'object') return null;
-    const j = json;
+
+    // Normalize: map a top-level "icon" onto "image" (overwrites image —
+    // an explicit "icon" field is more specific than "image" when both
+    // exist).
+    const j = (json.icon) ? Object.assign({}, json, { image: json.icon }) : json;
+
     const images = Array.isArray(j.images) ? j.images : [];
 
     // 1. 48x48 icon
@@ -174,27 +182,25 @@ function selectIconUrlFromCip25Json(json){
         if(img.type === 'icon' && img.data)
             return rewriteSchemeUrl(img.data);
     }
-    // 3. Top-level "icon"
-    if(j.icon)  return rewriteSchemeUrl(j.icon);
-    // 4. Top-level "image"
+    // 3. Top-level "image"
     if(j.image) return rewriteSchemeUrl(j.image);
-    // 5/6. standard / large in images[]
+    // 4/5. standard / large in images[]
     for(const t of ['standard','large']){
         for(const img of images){
             if(!img || typeof img !== 'object') continue;
             if(img.type === t && img.data) return rewriteSchemeUrl(img.data);
         }
     }
-    // 7. Top-level "image_large"
+    // 6. Top-level "image_large"
     if(j.image_large)    return rewriteSchemeUrl(j.image_large);
-    // 8. hires in images[]
+    // 7. hires in images[]
     for(const img of images){
         if(!img || typeof img !== 'object') continue;
         if(img.type === 'hires' && img.data) return rewriteSchemeUrl(img.data);
     }
-    // 9. Top-level "image_large_hd"
+    // 8. Top-level "image_large_hd"
     if(j.image_large_hd) return rewriteSchemeUrl(j.image_large_hd);
-    // 10. First usable images[] entry
+    // 9. First usable images[] entry
     for(const img of images){
         if(!img || typeof img !== 'object') continue;
         if(img.data) return rewriteSchemeUrl(img.data);

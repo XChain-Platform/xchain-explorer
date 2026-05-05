@@ -2525,6 +2525,10 @@ function showTokenInfo(){
 function legacyJsonToXChainTIS(o){
     var json = {},
         o    = (o) ? o : {};
+    // Map a top-level "icon" field (a common typo for "image" in community
+    // JSONs) onto image so the rest of the pipeline picks it up.
+    if(o.icon)
+        o.image = o.icon;
     // Pass basic token info fields forward
     ['token','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
     // Owner fields

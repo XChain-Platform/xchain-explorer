@@ -83,10 +83,23 @@ function resolveDescriptionToSource(description){
         return { scheme: 'arweave', url: 'https://arweave.net/' + hash };
     }
 
-    // 5. imgur formats: 'imgur/<image>[;<title>]' or 'imgur.com/<image>'
-    if(/^imgur(\.com)?\//i.test(desc)){
-        const rest = desc.replace(/^imgur(\.com)?\//i, '');
-        const name = rest.split(';')[0].trim();
+    // 5. imgur formats — accepts:
+    //   imgur/<image>[;<title>]
+    //   imgur.com/<image>
+    //   imgur.com/a/<image>           (album short)
+    //   imgur.com/gallery/<image>     (gallery short)
+    //   https?://imgur.com/<image>
+    //   https?://imgur.com/a/<image>
+    //   https?://imgur.com/gallery/<image>
+    // Direct image URLs at i.imgur.com (https://i.imgur.com/...) are NOT
+    // matched here — they fall through to the bare-image-URL branch.
+    if(/^(?:https?:\/\/)?imgur(\.com)?\//i.test(desc)){
+        const rest = desc.replace(/^(?:https?:\/\/)?imgur(\.com)?\//i, '');
+        let name = rest.split(';')[0].trim();
+        // Strip imgur path prefixes that point at album/gallery pages so we
+        // end up with the bare image code (the album/gallery code usually IS
+        // a valid direct image code on i.imgur.com).
+        name = name.replace(/^(?:a|gallery)\//i, '');
         if(name === '') return null;
         return { scheme: 'imgur', url: 'https://i.imgur.com/' + name };
     }

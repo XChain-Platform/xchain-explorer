@@ -258,11 +258,23 @@ class IconDownloader {
             await fsp.mkdir(iconDir, { recursive: true });
             iconHash = await this._writeIcon(bytes, iconPath);
         } catch (e){
+            // Stamp descriptions are immutable: if the decoded bytes aren't a
+            // usable image, retrying won't help — mark terminal as no-icon-source.
+            if(src.scheme === 'stamp'){
+                await this._markOk(conn, row.icon_id, null, null, null, descHash);
+                this._log(`    - ${tick}: stamp bytes are not a usable image`);
+                return;
+            }
             await this._markFailure(conn, row.icon_id, row.attempts + 1, truncate(e.message, 255));
             this._log(`    ✗ ${tick} (${src.scheme}): convert failed (${e.message})`);
             return;
         }
         if(!iconHash){
+            if(src.scheme === 'stamp'){
+                await this._markOk(conn, row.icon_id, null, null, null, descHash);
+                this._log(`    - ${tick}: stamp bytes are not a usable image`);
+                return;
+            }
             await this._markFailure(conn, row.icon_id, row.attempts + 1, 'image conversion failed');
             return;
         }

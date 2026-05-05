@@ -902,10 +902,23 @@
             } 
         });
 
-        // Detect any icon loading failures and load the default token icon
+        // Detect icon loading failures and walk a two-step fallback:
+        //   <whatever-failed> -> /icon/<chain>/<network>/<query>.png (the
+        //                        worker-generated per-token icon) -> /icon/default.png
+        // The handler removes itself once it reaches the final default so a
+        // missing per-token icon + missing default can't loop.
+        var FALLBACK_FINAL = '/icon/default.png';
         $('#tokenIcon').on('error', function(){
-            $(this).attr('src', defaultIcon);
-        })
+            var el       = $(this),
+                current  = el.attr('src') || '';
+            if(current !== defaultIcon && current !== FALLBACK_FINAL){
+                el.attr('src', defaultIcon);
+            } else if(current !== FALLBACK_FINAL){
+                el.attr('src', FALLBACK_FINAL);
+            } else {
+                el.off('error');
+            }
+        });
 
         // Setup listeners to load data panel when an action button is clicked
         setupActionListeners();

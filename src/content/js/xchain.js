@@ -2040,20 +2040,14 @@ function getArrayItemByType(arr, type){
     return rec;
 }
 
-// Handle loading remote image icon
+// Handle loading remote image icon. Sets the IMG src directly so any
+// image URL works (ipfs gateway, arweave, imgur, etc.) — the previous
+// /relay-based path only worked for .json/.png/arweave.net URLs and
+// silently no-op'd on everything else. The IMG's error handler in
+// token.html falls back to default.png if the URL fails to load.
 function displayTokenIcon(image){
-    var icon = $('#tokenIcon');
-    // Set image src to local image
-    if(String(image).substr(0,1)=='/'){
-        icon.attr('src', image);
-    } else {
-        // Make request for URL via relay and load base64 content
-        var url = '/relay?url=' + image;
-        $.get( url, function(data){
-            if(String(data).trim().length)
-                icon.attr('src', 'data:image/png;base64,' + data);
-        });
-    }
+    if(image)
+        $('#tokenIcon').attr('src', image);
 }
 
 // Simple function to resize iframe height to fit content
@@ -2274,7 +2268,7 @@ function showTokenContent(json){
     }
     // Use legacy "image" param if we couldn't find icon in the CIP25 images array
     if(!icon && o.image)
-        icon = i.image;
+        icon = o.image;
     // Handle displaying token icon image
     if(icon)
         displayTokenIcon(icon);
@@ -2524,11 +2518,19 @@ function showTokenInfo(){
 // https://github.com/XChain-platform/xchain-documentation/blob/master/Token_Information_Standard.md
 function legacyJsonToXChainTIS(o){
     var json = {},
+        ipfs = /^ipfs:\/\//i,
+        ar   = /^ar:/i,
         o    = (o) ? o : {};
     // Map a top-level "icon" field (a common typo for "image" in community
     // JSONs) onto image so the rest of the pipeline picks it up.
     if(o.icon)
         o.image = o.icon;
+    // Replace any ipfs:// urls with the URL provided by Shaban of Spells of Genesis
+    if(ipfs.test(o.image))
+        o.image = 'https://ipfsc.crystalsuite.com/' + String(o.image).replace(ipfs,'');
+    // Replace any ar: urls with the arweave.net gateway
+    if(ar.test(o.image))
+        o.image = 'https://arweave.net/' + String(o.image).replace(ar,'');
     // Pass basic token info fields forward
     ['token','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
     // Owner fields
@@ -2587,6 +2589,13 @@ function legacyJsonToXChainTIS(o){
         json.images.push({ type: 'large', name: o.image_title, data: o.image_large });
     if(o.image_large_hd)
         json.images.push({ type: 'hires', name: o.image_title, data: o.image_large_hd });
+    // Loop through images and rewrite any ipfs:// or ar: URLs to gateway URLs
+    json.images.forEach(function(item){
+        if(ipfs.test(item.data))
+            item.data = 'https://ipfsc.crystalsuite.com/' + String(item.data).replace(ipfs,'');
+        if(ar.test(item.data))
+            item.data = 'https://arweave.net/' + String(item.data).replace(ar,'');
+    });
     // Audio
     json.audio = (typeof o.audio === 'object') ? o.audio : [];
     if(o.audio!='' && typeof o.audio === 'string')

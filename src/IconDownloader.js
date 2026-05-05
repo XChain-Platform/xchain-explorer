@@ -163,6 +163,10 @@ class IconDownloader {
             // Discovery: insert new tokens, mark stale ones
             await this._discover(conn);
             // Process: drain a batch
+            // Order: never-checked first (newest tokens at the front so
+            // freshly-minted ones get icons within minutes instead of waiting
+            // behind the initial-backfill queue), then re-evaluate
+            // already-checked rows from oldest to newest.
             const rows = await conn.query(
                 `SELECT i.id           AS icon_id,
                         i.token_id     AS token_id,
@@ -174,7 +178,9 @@ class IconDownloader {
                  JOIN index_tickers   idx ON idx.id      = t.tick_id
                  WHERE i.status IN ('pending','stale')
                    AND (i.next_retry_at IS NULL OR i.next_retry_at <= NOW())
-                 ORDER BY i.last_checked_at IS NULL DESC, i.last_checked_at ASC
+                 ORDER BY i.last_checked_at IS NULL DESC,
+                          CASE WHEN i.last_checked_at IS NULL THEN i.token_id END DESC,
+                          i.last_checked_at ASC
                  LIMIT ?`,
                 [this.cfg.batchSize]
             );

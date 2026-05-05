@@ -138,52 +138,67 @@ function resolveDescriptionToSource(description){
 }
 
 /**
- * Given a parsed CIP25 / TIS JSON object, return the best image URL
- * for an icon, or null. Priority chain mirrors the asset/token page UI:
+ * Given a parsed CIP25/TIS-style JSON object, return the best image URL
+ * for an icon, or null.
  *
+ * Priority chain (smallest icon-shaped sources first; caller resizes down):
  *   1. images[].data where type=='icon' && size=='48x48'
  *   2. images[].data where type=='icon' (any size)
- *   3. images[].data where type in ('large','standard','hires') — caller resizes
- *   4. first images[].data with a usable data field
- *   5. top-level "image" field
+ *   3. top-level "icon"            (legacy field used by some community JSONs)
+ *   4. top-level "image"           (legacy / CIP25 fallback)
+ *   5. images[].data where type=='standard'
+ *   6. images[].data where type=='large'
+ *   7. top-level "image_large"     (legacy)
+ *   8. images[].data where type=='hires'
+ *   9. top-level "image_large_hd"  (legacy)
+ *  10. first images[].data with anything usable
  *
  * Any returned URL is run through rewriteSchemeUrl() to translate
  * ipfs:// or ar: prefixes to gateway URLs.
  */
 function selectIconUrlFromCip25Json(json){
     if(json === null || json === undefined) return null;
-    const j = (typeof json === 'object') ? json : null;
-    if(j === null) return null;
+    if(typeof json !== 'object') return null;
+    const j = json;
+    const images = Array.isArray(j.images) ? j.images : [];
 
-    if(Array.isArray(j.images)){
-        // 48x48 icon
-        for(const img of j.images){
+    // 1. 48x48 icon
+    for(const img of images){
+        if(!img || typeof img !== 'object') continue;
+        if(img.type === 'icon' && img.size === '48x48' && img.data)
+            return rewriteSchemeUrl(img.data);
+    }
+    // 2. Any icon
+    for(const img of images){
+        if(!img || typeof img !== 'object') continue;
+        if(img.type === 'icon' && img.data)
+            return rewriteSchemeUrl(img.data);
+    }
+    // 3. Top-level "icon"
+    if(j.icon)  return rewriteSchemeUrl(j.icon);
+    // 4. Top-level "image"
+    if(j.image) return rewriteSchemeUrl(j.image);
+    // 5/6. standard / large in images[]
+    for(const t of ['standard','large']){
+        for(const img of images){
             if(!img || typeof img !== 'object') continue;
-            if(img.type === 'icon' && img.size === '48x48' && img.data)
-                return rewriteSchemeUrl(img.data);
-        }
-        // Any icon
-        for(const img of j.images){
-            if(!img || typeof img !== 'object') continue;
-            if(img.type === 'icon' && img.data)
-                return rewriteSchemeUrl(img.data);
-        }
-        // Larger sizes we'll resize down
-        for(const t of ['large','standard','hires']){
-            for(const img of j.images){
-                if(!img || typeof img !== 'object') continue;
-                if(img.type === t && img.data)
-                    return rewriteSchemeUrl(img.data);
-            }
-        }
-        // First usable image
-        for(const img of j.images){
-            if(!img || typeof img !== 'object') continue;
-            if(img.data) return rewriteSchemeUrl(img.data);
+            if(img.type === t && img.data) return rewriteSchemeUrl(img.data);
         }
     }
-
-    if(j.image) return rewriteSchemeUrl(j.image);
+    // 7. Top-level "image_large"
+    if(j.image_large)    return rewriteSchemeUrl(j.image_large);
+    // 8. hires in images[]
+    for(const img of images){
+        if(!img || typeof img !== 'object') continue;
+        if(img.type === 'hires' && img.data) return rewriteSchemeUrl(img.data);
+    }
+    // 9. Top-level "image_large_hd"
+    if(j.image_large_hd) return rewriteSchemeUrl(j.image_large_hd);
+    // 10. First usable images[] entry
+    for(const img of images){
+        if(!img || typeof img !== 'object') continue;
+        if(img.data) return rewriteSchemeUrl(img.data);
+    }
 
     return null;
 }

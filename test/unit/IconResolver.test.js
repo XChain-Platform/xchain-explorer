@@ -79,6 +79,36 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
             .to.equal('https://x.com/icon.png');
     });
 
+    it('uses top-level icon field (legacy)', function(){
+        expect(selectIconUrlFromCip25Json({ icon: 'https://x.com/thumb.png' }))
+            .to.equal('https://x.com/thumb.png');
+    });
+
+    it('prefers icon over image when both are present', function(){
+        const json = { icon: 'https://x.com/sm.png', image: 'https://x.com/lg.png' };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/sm.png');
+    });
+
+    it('falls back to image_large when icon and image are missing', function(){
+        expect(selectIconUrlFromCip25Json({ image_large: 'https://x.com/big.jpg' }))
+            .to.equal('https://x.com/big.jpg');
+    });
+
+    it('falls back to image_large_hd as last resort', function(){
+        expect(selectIconUrlFromCip25Json({ image_large_hd: 'https://x.com/hd.jpg' }))
+            .to.equal('https://x.com/hd.jpg');
+    });
+
+    it('handles a TOPFLOORPEPE-shaped JSON', function(){
+        const json = {
+            asset: 'TOPFLOORPEPE',
+            icon: 'https://raw.githubusercontent.com/sub/images/main/THUMB.png',
+            image_large: 'https://raw.githubusercontent.com/sub/images/main/PEPE.jpg',
+            image_large_hd: 'https://cdn.jsdelivr.net/gh/sub/images@main/HIRES.jpg',
+        };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://raw.githubusercontent.com/sub/images/main/THUMB.png');
+    });
+
     it('picks 48x48 icon from images[]', function(){
         const json = { images: [{ type: 'icon', size: '48x48', data: 'https://x.com/sm.png' }] };
         expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/sm.png');

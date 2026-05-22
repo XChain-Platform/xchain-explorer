@@ -1542,7 +1542,7 @@ class Database {
             query = `SELECT
                             a3.action,
                             f1.action_index,
-                            a1.action_format, 
+                            a1.action_format,
                             f1.name,
                             f1.title,
                             t3.type as type,
@@ -1552,7 +1552,10 @@ class Database {
                             t2.hash as tx_hash,
                             t1.tx_index,
                             m1.memo,
-                            s1.status
+                            s1.status,
+                            gf.gate_ticker,
+                            gf.encryption_method,
+                            gf.key_hash
                         FROM
                             mappings_files m
                             INNER JOIN files              f1 ON (f1.action_index=m.action_index)
@@ -1566,6 +1569,7 @@ class Database {
                             LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
                             LEFT  JOIN index_tickers      t4 on (t4.id=m.id)
                             LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                            LEFT  JOIN gated_files        gf ON (gf.action_index=f1.action_index)
                         WHERE ` + sql.where.data + sql.where.offset +`
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
@@ -1587,7 +1591,7 @@ class Database {
             query = `SELECT
                             a3.action,
                             m.action_index,
-                            a1.action_format, 
+                            a1.action_format,
                             m.name,
                             m.title,
                             t3.type as type,
@@ -1597,7 +1601,10 @@ class Database {
                             t2.hash as tx_hash,
                             t1.tx_index,
                             m1.memo,
-                            s1.status
+                            s1.status,
+                            gf.gate_ticker,
+                            gf.encryption_method,
+                            gf.key_hash
                         FROM
                             files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -1609,6 +1616,7 @@ class Database {
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_mime_types   t3 ON (t3.id=m.type_id)
                             LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                            LEFT  JOIN gated_files        gf ON (gf.action_index=m.action_index)
                         WHERE ` + sql.where.data + sql.where.offset +`
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;

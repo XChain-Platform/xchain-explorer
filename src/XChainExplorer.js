@@ -303,6 +303,13 @@ class XChainExplorer {
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
 
+        // Token-gated content: raw ciphertext bytes for a gated FILE action.
+        // Returns the encrypted file bytes directly with application/octet-stream.
+        // Holders decrypt client-side after receiving the symmetric key via an
+        // ECIES MESSAGE. See xchain-documentation/protocol/TOKEN_GATED_CONTENT.md.
+        // Registered before the wildcard so the express route matcher hits this first.
+        this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processGatedFileRawRequest(req, res); });
+
         // Setup wildcard listener to process all other requests (includes static failures)
         this.app.get('*', (req, res) => { this.processRequest(req, res); });
 
@@ -848,7 +855,43 @@ class XChainExplorer {
         } else {
             res.redirect(302, '/icon/default.png');
         }
-    }    
+    }
+
+    /**********************************************************
+     * Token-gated content — raw ciphertext bytes
+     *
+     * GET /{COIN}/api/file/{ACTION_INDEX}/raw
+     *
+     * Returns the AES-256-GCM ciphertext bytes (12-byte nonce ||
+     * ciphertext || 16-byte GCM tag) for a gated FILE action.
+     * Holders decrypt client-side after receiving the symmetric key
+     * via an ECIES MESSAGE. Non-gated files and unknown action
+     * indexes return 404.
+     *********************************************************/
+    async processGatedFileRawRequest(req, res){
+        let coin = String(req.params.coin || '').toUpperCase();
+        let actionIndex = req.params.actionIndex;
+        if(!/^[0-9]+$/.test(String(actionIndex)))
+            return res.status(400).send('Invalid action_index');
+        if(!this.db.pools || !this.db.pools[coin])
+            return res.status(404).send('Unknown coin');
+        let config = { coin, data: {} };
+        let raw = null;
+        try {
+            let rows = await this.db.doQuery(config,
+                'SELECT raw_data FROM gated_files WHERE action_index=? LIMIT 1',
+                [Number(actionIndex)]);
+            if(rows && rows.length > 0) raw = rows[0].raw_data;
+        } catch (e) {
+            console.error('processGatedFileRawRequest error:', e.message);
+            return res.status(500).send('Server error');
+        }
+        if(!raw)
+            return res.status(404).send('Not found');
+        res.set('Content-Type', 'application/octet-stream');
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        return res.send(raw);
+    }
 
     /**********************************************************
      * RELAY request handler

@@ -374,6 +374,14 @@ function formatLinkAmount(url=null, text=null, icon=false, amount=false){
     return html;
 }
 
+// Badge rendered in place of an amount cell when a row represents a
+// token-ownership sale (ORDER/SWAP/DISPENSER with GIVE_OWNERSHIP=1 or
+// GET_OWNERSHIP=1). The ownership record itself is the asset; there is
+// no balance amount to display.
+function ownershipBadge(){
+    return '<span class="badge bg-warning text-dark" title="Token-ownership transfer">&#128081; Ownership</span>';
+}
+
 // Handle getting the network icon using the coin name and network
 function getNetworkIcon(name=null, network=null){
     // Set defaults for name/network
@@ -1172,7 +1180,12 @@ function loadDatatablesData(coin, action, query, type){
                 get_coin   = data[7];
                 get_token  = data[8];
                 get_amount = data[9];
-                $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+                give_ownership = data[12];
+                if(give_ownership == 1){
+                    $('td', row).eq(4).html(formatLink('/' + give_coin + '/token/' + give_token, give_token, give_token) + ' ' + ownershipBadge());
+                } else {
+                    $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+                }
                 if(isNull(get_token)){
                     html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + get_amount + ' ' + get_coin ;
                 } else {
@@ -1327,10 +1340,12 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 token2  = data[6];
                 amount2 = data[7];
+                give_ownership = data[10];
+                get_ownership  = data[11];
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
-                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
-                $('td', row).eq(7).html(formatAmount(amount2));
+                $('td', row).eq(7).html((get_ownership == 1) ? ownershipBadge() : formatAmount(amount2));
                 $('td', row).eq(8).html(action_link);
             }
             // Send
@@ -1364,10 +1379,12 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 token2  = data[6];
                 amount2 = data[7];
+                give_ownership = data[10];
+                get_ownership  = data[11];
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
-                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
-                $('td', row).eq(7).html(formatAmount(amount2));
+                $('td', row).eq(7).html((get_ownership == 1) ? ownershipBadge() : formatAmount(amount2));
                 $('td', row).eq(8).html(action_link);
             }
             // Sweep
@@ -1657,10 +1674,14 @@ function showDestroyDetails(data){
 
 // Display DISPENSER action information
 function showDispenserDetails(data){
+    let isOwnershipDispenser = (Number(data.give_ownership || 0) == 1);
     $('#info-dispenser .dispenser-give-coin').text(data.give_coin);
-    $('#info-dispenser .dispenser-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
-    $('#info-dispenser .dispenser-give-amount').html(formatAmount(data.give_amount));
-    $('#info-dispenser .dispenser-give-escrow').html(formatAmount(data.give_escrow));
+    $('#info-dispenser .dispenser-give-tick').html(
+        formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick)
+        + (isOwnershipDispenser ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-dispenser .dispenser-give-amount').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_amount));
+    $('#info-dispenser .dispenser-give-escrow').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_escrow));
     $('#info-dispenser .dispenser-get-coin').text(data.get_coin);
     $('#info-dispenser .dispenser-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
     $('#info-dispenser .dispenser-get-amount').html(formatAmount(data.get_amount));
@@ -1801,12 +1822,20 @@ function showMintDetails(data){
 
 // Display ORDER action information
 function showOrderDetails(data){
+    let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
+    let isOwnershipGet  = (Number(data.get_ownership  || 0) == 1);
     $('#info-order .order-give-coin').text(data.give_coin);
-    $('#info-order .order-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
-    $('#info-order .order-give-amount').html(formatAmount(data.give_amount));
+    $('#info-order .order-give-tick').html(
+        formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick)
+        + (isOwnershipGive ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-order .order-give-amount').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-order .order-get-coin').text(data.get_coin);
-    $('#info-order .order-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
-    $('#info-order .order-get-amount').html(formatAmount(data.get_amount));
+    $('#info-order .order-get-tick').html(
+        formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick)
+        + (isOwnershipGet ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-order .order-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
     $('#info-order .order-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
     if(data.expiration)
         $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
@@ -1814,8 +1843,8 @@ function showOrderDetails(data){
     $('#info-order .order-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-order .order-memo').text(data.memo);
     // Order Status Details
-    $('#info-order .order-state-get-remaining').html(formatAmount(data.state.get_remaining));
-    $('#info-order .order-state-give-remaining').html(formatAmount(data.state.give_remaining));
+    $('#info-order .order-state-get-remaining').html(isOwnershipGet  ? ownershipBadge() : formatAmount(data.state.get_remaining));
+    $('#info-order .order-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
     if(data.state.expiration)
         $('#info-order .order-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-order .order-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
@@ -1872,12 +1901,20 @@ function showSleepDetails(data){
 
 // Display SWAP action information
 function showSwapDetails(data){
+    let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
+    let isOwnershipGet  = (Number(data.get_ownership  || 0) == 1);
     $('#info-swap .swap-give-coin').text(data.give_coin);
-    $('#info-swap .swap-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
-    $('#info-swap .swap-give-amount').html(formatAmount(data.give_amount));
+    $('#info-swap .swap-give-tick').html(
+        formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick)
+        + (isOwnershipGive ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-swap .swap-give-amount').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-swap .swap-get-coin').text(data.get_coin);
-    $('#info-swap .swap-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
-    $('#info-swap .swap-get-amount').html(formatAmount(data.get_amount));
+    $('#info-swap .swap-get-tick').html(
+        formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick)
+        + (isOwnershipGet ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-swap .swap-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
     $('#info-swap .swap-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
     if(!isNull(data.expiration))
         $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
@@ -1885,8 +1922,8 @@ function showSwapDetails(data){
     $('#info-swap .swap-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-swap .swap-memo').text(data.memo);
     // Swap Status Details
-    $('#info-swap .swap-state-get-remaining').html(formatAmount(data.state.get_remaining));
-    $('#info-swap .swap-state-give-remaining').html(formatAmount(data.state.give_remaining));
+    $('#info-swap .swap-state-get-remaining').html(isOwnershipGet  ? ownershipBadge() : formatAmount(data.state.get_remaining));
+    $('#info-swap .swap-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
     if(data.state.expiration)
         $('#info-swap .swap-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap .swap-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));

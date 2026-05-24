@@ -777,7 +777,7 @@ class XChainExplorer {
                     if(method=='getDestroys')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.callback_amount, info.memo, status, info.action_index];
                     if(method=='getDispensers')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership];
                     if(method=='getDispenses')
                         info = [count_reverse, info.block_index, info.timestamp, info.destination, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index];
                     if(method=='getDividends')
@@ -805,13 +805,13 @@ class XChainExplorer {
                     if(method=='getMints')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, status, info.action_index];
                     if(method=='getOrders')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership, info.get_ownership];
                     if(method=='getSends')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.destination, status, info.action_index];
                     if(method=='getSleeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.tick, info.resume_block, status, info.action_index];
                     if(method=='getSwaps')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership, info.get_ownership];
                     if(method=='getSweeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.escrows, status, info.action_index];
                     if(method=='getTokens')

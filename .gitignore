@@ -1,5 +1,6 @@
 .DS_Store
 .env
+*.pem
 node_modules/
 package-lock.json
 src/config.json

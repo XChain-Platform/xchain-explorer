@@ -128,11 +128,15 @@ async function startApi(){
         console.log('HTTP  server listening on port', EXPLORER_API_PORT_HTTP);
     });
 
-    // HTTPS server for serving out requests in a secure manner
-    const httpsServer = https.createServer(config.API.ssl, app);
-    httpsServer.listen(EXPLORER_API_PORT_HTTPS, () => {
-        console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTPS);
-    });
+    // HTTPS server for serving out requests in a secure manner.
+    // Skipped when SSL files are absent (HTTP-only dev/regtest mode).
+    let httpsServer = null;
+    if (config.API.ssl) {
+        httpsServer = https.createServer(config.API.ssl, app);
+        httpsServer.listen(EXPLORER_API_PORT_HTTPS, () => {
+            console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTPS);
+        });
+    }
 
     // Start up the explorer instance
     const explorer = new XChainExplorer(app, configInfo);
@@ -176,8 +180,8 @@ async function startApi(){
         });
         wsServer.broadcaster = broadcaster;
 
-        // Attach WebSocket upgrade handler to both HTTP and HTTPS servers
-        wsServer.attach([httpServer, httpsServer]);
+        // Attach WebSocket upgrade handler to HTTP (and HTTPS when running)
+        wsServer.attach(httpsServer ? [httpServer, httpsServer] : [httpServer]);
 
         // Determine which coins have configured database pools and start polling
         const availableCoins = Object.keys(explorer.db.pools || {});

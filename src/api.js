@@ -48,6 +48,10 @@ async function startApi(){
     // Parse in the explorer config information
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
 
+    // Schedule periodic refresh so new coin/network entries published by
+    // the hub after startup get picked up without a container restart.
+    configInfo.startSync(HUB_ENDPOINTS);
+
     // Create the app
     const app = express();
 

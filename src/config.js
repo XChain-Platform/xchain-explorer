@@ -57,7 +57,10 @@ const configChangedEmisor = new EventTarget();
 module.exports = {
 
     startSync: function(endpoints){
-        setInterval(getConfig, UPDATE_CONFIG_INTERVAL, endpoints, false) //cache=false to replace the current cache
+        // Bare `getConfig` is not in lexical scope here — it lives on
+        // module.exports. Arrow + `this` keeps the binding so the
+        // scheduled tick actually refreshes the cache.
+        setInterval(() => this.getConfig(endpoints, false), UPDATE_CONFIG_INTERVAL); //cache=false to replace the current cache
     },
 
     // Handle returning the current indexer configuration
@@ -97,9 +100,15 @@ module.exports = {
                 }
                 
                 jsonConfig = await hubConnector.getAllConfig()
-                
-                if (jsonConfig != lastObtainedConfigValue){
-                    lastObtainedConfigValue = jsonConfig
+
+                // Compare by JSON content, not reference. getAllConfig returns
+                // a fresh object every call, so the prior `!=` check fired on
+                // every refresh — triggering downstream pool rebuilds 60×/hour
+                // even when the hub returned identical config. Stringify lets
+                // unchanged content short-circuit out via the else branch.
+                const fetchedStr = JSON.stringify(jsonConfig)
+                if (fetchedStr !== lastObtainedConfigValue){
+                    lastObtainedConfigValue = fetchedStr
                     
                     let newJsonConfig = []
                     for (let nextCoin in jsonConfig){
@@ -201,12 +210,15 @@ module.exports = {
                     };
                 }
 
-                // Define NETWORK information object
+                // Define NETWORK information object.
+                // Hub config flattens services keyed as 'xchain-indexer' /
+                // 'xchain-decoder'; legacy config.json uses 'indexer' /
+                // 'decoder' directly. Accept either so both paths work.
                 if(!config[info.coin][info.network]){
                     config[info.coin][info.network] = {
                         database: {
-                            indexer: info.indexer,
-                            decoder: info.decoder
+                            indexer: info['xchain-indexer'] || info.indexer,
+                            decoder: info['xchain-decoder'] || info.decoder
                         },
                         address: coinConfig.address
                     };

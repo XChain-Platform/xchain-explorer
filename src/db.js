@@ -112,7 +112,22 @@ class Database {
     // Handle initializing the database connection pool
     async setupConnectionPools(){
         let coinConfigs = await this.configInfo.getConfig()
-    
+
+        // End previous pools before discarding the map. Without this, any
+        // re-entry to setup (config refresh, manual reload) reassigns
+        // this.pools and orphans the prior mariadb.createPool() handles;
+        // their kept-alive connections linger until the explorer process
+        // exits, and MariaDB hits its max_connections ceiling in minutes
+        // once refresh is active.
+        if(this.pools){
+            for(let key in this.pools){
+                let oldPool = this.pools[key] && this.pools[key].pool;
+                if(oldPool && typeof oldPool.end === 'function'){
+                    try { await oldPool.end(); } catch(e){ /* best-effort */ }
+                }
+            }
+        }
+
         // Placeholder for connection pools
         this.pools = {};
         // Define list of acceptable networks
@@ -141,8 +156,11 @@ class Database {
                                     user:     cfg.user,
                                     password: cfg.pass,
                                     database: cfg.name,
-                                    // Connection options
-                                    connectionLimit:  25,
+                                    // Connection options. 10 matches xchain-indexer,
+                                    // xchain-decoder, and xchain-hub; the previous 25
+                                    // pushed total demand past MariaDB's default
+                                    // max_connections=151 once 3+ coins were active.
+                                    connectionLimit:  10,
                                     //connectTimeout: 0,
                                     insertIdAsNumber: true
                                 }

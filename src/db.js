@@ -2633,12 +2633,14 @@ class Database {
         let query = `SELECT
                         a4.action,
                         m.action_index,
-                        a1.action_format, 
+                        a1.action_format,
                         a2.address as source,
                         a3.address as destination,
                         m.balances,
                         m.ownerships,
-                        m.escrows,
+                        m.orders,
+                        m.swaps,
+                        m.dispensers,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -5438,7 +5440,7 @@ class Database {
             'swap_action_index',                                                                                           // Swap  (cancels, edits, expires)
             'dispenser_action_index',                                                                                      // Dispesnser (cancels, edits, expires)
             'resume_block',                                                                                                // Sleep
-            'balances', 'ownerships', 'escrows'                                                                            // Sweeps
+            'balances', 'ownerships', 'orders', 'swaps', 'dispensers'                                                      // Sweeps
         ];
         // Lookup extended information on the action_index
         for(let data of actions){

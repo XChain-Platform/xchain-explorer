@@ -1397,7 +1397,11 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).text(txt);
                 txt = (data[7]==1) ? 'True' : 'False';
                 $('td', row).eq(7).text(txt);
-                $('td', row).eq(8).html(action_link);
+                txt = (data[8]==1) ? 'True' : 'False';
+                $('td', row).eq(8).text(txt);
+                txt = (data[9]==1) ? 'True' : 'False';
+                $('td', row).eq(9).text(txt);
+                $('td', row).eq(10).html(action_link);
             }
             // Tokens
             if(action=='token'){
@@ -1969,7 +1973,9 @@ function showSwapMatchDetails(data){
 function showSweepDetails(data){
     $('#info-sweep .sweep-balances').html(data.balances);
     $('#info-sweep .sweep-ownerships').html(data.ownerships);
-    $('#info-sweep .sweep-escrows').html(data.escrows);
+    $('#info-sweep .sweep-orders').html(data.orders);
+    $('#info-sweep .sweep-swaps').html(data.swaps);
+    $('#info-sweep .sweep-dispensers').html(data.dispensers);
     $('#info-sweep .sweep-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     $('#info-sweep .sweep-memo').text(data.memo);
 }

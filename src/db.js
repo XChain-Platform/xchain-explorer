@@ -6529,7 +6529,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6539,9 +6539,8 @@ class Database {
                         m.action_index,
                         a1.action_format,
                         a2.address as source,
-                        a3.address as signing_pubkey,
-                        m.tier,
-                        m.chains,
+                        a3.pubkey as signing_pubkey,
+                        m.version,
                         m.amount,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -6554,7 +6553,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6575,7 +6574,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6585,9 +6584,8 @@ class Database {
                         m.action_index,
                         a1.action_format,
                         a2.address as source,
-                        a3.address as signing_pubkey,
-                        m.tier,
-                        m.chains,
+                        a3.pubkey as signing_pubkey,
+                        m.version,
                         m.amount,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -6600,7 +6598,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6621,7 +6619,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6643,7 +6641,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6662,7 +6660,7 @@ class Database {
                         validator_rewards m
                         INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -6677,7 +6675,7 @@ class Database {
                         validator_rewards m
                         INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;

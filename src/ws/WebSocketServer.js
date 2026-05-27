@@ -215,7 +215,7 @@ class WebSocketServer {
                     'ISSUE', 'MINT', 'DESTROY',
                     'BROADCAST', 'CALLBACK', 'FILE', 'MESSAGE', 'LIST', 'LINK', 'SLEEP',
                     'DEPLOY', 'EXECUTE', 'DEPOSIT', 'WITHDRAW',
-                    'STAKE', 'UNSTAKE', 'DELEGATE', 'REVOKE_DELEGATION', 'CLAIM_REWARDS'
+                    'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST'
                 ],
                 features: ['snapshot', 'once', 'fields', 'statuses', 'ticks', 'batch', 'catch_up']
             }

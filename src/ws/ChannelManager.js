@@ -41,7 +41,7 @@ const VALID_TYPES = new Set([
     'ISSUE', 'MINT', 'DESTROY',
     'BROADCAST', 'CALLBACK', 'FILE', 'MESSAGE', 'LIST', 'LINK', 'SLEEP',
     'DEPLOY', 'EXECUTE', 'DEPOSIT', 'WITHDRAW',
-    'STAKE', 'UNSTAKE', 'DELEGATE', 'REVOKE_DELEGATION', 'CLAIM_REWARDS',
+    'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly)
     'COINPAY_REQUIRED', 'COINPAY_FULFILLED', 'COINPAY_EXPIRED',
     'ORDER_COMPLETED', 'ORDER_EXPIRED',

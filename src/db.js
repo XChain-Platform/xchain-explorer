@@ -396,6 +396,9 @@ class Database {
             sql = `m.tx_index IS NOT NULL`;
         if(['getMarket','getMarkets'].includes(method))
             sql = `m.id IS NOT NULL`;
+        // slash_events has no action_index — its PK is m.id
+        if(method=='getSlashEvents')
+            sql = `m.id IS NOT NULL`;
         // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
             if(type=='address')
@@ -422,6 +425,15 @@ class Database {
         // Handle token searches
         } else if(method=='getTokens' && ['token','subtoken'].includes(type)){
             sql += ' AND t3.tick LIKE ?';
+        } else if(method=='getSlashEvents'){
+            // slash_events has no actions/transactions chain — join directly via m.block_index
+            // and resolve type=address through the staker's pubkey (signing_pubkey_id).
+            if(type=='block')    sql += ' AND m.block_index=?';
+            if(type=='contract') sql += ' AND m.target_contract_index=?';
+            if(type=='address')  sql += ` AND m.signing_pubkey_id IN (
+                SELECT DISTINCT signing_pubkey_id FROM contract_stakes
+                WHERE source_id = (SELECT id FROM index_addresses WHERE address=?)
+            )`;
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -439,6 +451,12 @@ class Database {
                 sql += ' AND a3.address=?';
             if(type=='source')
                 sql += ' AND a2.address=?';
+            if(type=='contract'){
+                if(['getContractStakes','getContractUnstakes','getSlashEvents'].includes(method))
+                    sql += ' AND m.target_contract_index=?';
+                else
+                    sql += ' AND m.contract_index=?';
+            }
             if(type=='token'){
                 if(method=='getFiles'){
                     sql += ' AND m.type_id=1 AND t4.tick=?';
@@ -476,6 +494,8 @@ class Database {
             if(method=='getBlocks')
                 field = 'b1.block_index';
             if(method=='getTokens')
+                field = 'm.id';
+            if(method=='getSlashEvents')
                 field = 'm.id';
             // Build out the Offset SQL using parameterized values
             if(action=='prev'){
@@ -6676,6 +6696,142 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of CONTRACT STAKE actions (STAKE v3 — type ∈ {address, block, contract})
+    async getContractStakes(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_stakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.pubkey as signing_pubkey,
+                        m.target_contract_index,
+                        t3.tick,
+                        m.amount,
+                        m.version,
+                        m.activation_block,
+                        m.deactivation_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        contract_stakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of CONTRACT UNSTAKE actions (UNSTAKE v1 — type ∈ {address, block, contract})
+    async getContractUnstakes(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_unstakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.pubkey as signing_pubkey,
+                        m.target_contract_index,
+                        t3.tick,
+                        m.amount,
+                        m.cooldown_end_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        contract_unstakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of SLASH events (xchain.contract.slash emissions — type ∈ {address, block, contract})
+    // slash_events has no action_index of its own (side-effect of an EXECUTE), so this joins
+    // blocks directly via m.block_index and orders by m.id rather than action_index.
+    async getSlashEvents(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        slash_events m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.destination_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.execution_index,
+                        m.target_contract_index,
+                        a3.pubkey as slashed_pubkey,
+                        a4.address as destination,
+                        t3.tick,
+                        m.amount,
+                        m.block_index,
+                        b1.block_time as timestamp
+                    FROM
+                        slash_events m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.destination_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;

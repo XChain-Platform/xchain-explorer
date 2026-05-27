@@ -208,6 +208,13 @@ class XChainExplorer {
                 '/{COIN}/api/validators'                       : ['getValidators'],
                 '/{COIN}/api/delegations/{QUERY}/{TYPE}'       : ['getDelegations',       ['block', 'address', 'source']],
                 '/{COIN}/api/rewards/{QUERY}/{TYPE}'           : ['getValidatorRewards',  ['address', 'source']],
+                // Contract-targeted Staking (STAKE v3 / UNSTAKE v1 + slash side-effects)
+                '/{COIN}/api/contract_stakes/{QUERY}/{TYPE}'   : ['getContractStakes',    ['block', 'address', 'contract']],
+                '/{COIN}/api/contract_stakes'                  : ['getContractStakes'],
+                '/{COIN}/api/contract_unstakes/{QUERY}/{TYPE}' : ['getContractUnstakes',  ['block', 'address', 'contract']],
+                '/{COIN}/api/contract_unstakes'                : ['getContractUnstakes'],
+                '/{COIN}/api/slash_events/{QUERY}/{TYPE}'      : ['getSlashEvents',       ['block', 'address', 'contract']],
+                '/{COIN}/api/slash_events'                     : ['getSlashEvents'],
                 // Core Action Endpoints (continued)
                 '/{COIN}/api/sends/{QUERY}/{TYPE}'             : ['getSends',            ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/sleeps/{QUERY}/{TYPE}'            : ['getSleeps',           ['block', 'address', 'token']],

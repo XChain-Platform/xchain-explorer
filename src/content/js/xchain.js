@@ -3141,7 +3141,6 @@ function updateMarketHistory(market, page=1, full=false, count=0){
 // Handle showing the various XChain parameters
 function showXChainParams(){
     console.log('XC.chain=',XC.chain);
-    console.log('XC.coin=',XC.coin);
     console.log('XC.name=',XC.name);
     console.log('XC.network=',XC.network);
     console.log('XC.type=',XC.type);

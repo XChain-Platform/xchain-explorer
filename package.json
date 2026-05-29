@@ -1,7 +1,7 @@
 {
   "name": "xchain-explorer",
   "description": "xchain-explorer is a free open source token platform explorer and set of APIs to pull data from the XChain platform supported blockchains",
-  "version": "1.15.0",
+  "version": "1.15.1",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",

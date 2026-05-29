@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Integration-test schema fixture (`test/integration/fixtures/schema.sql`) `dispensers` table updated to match the current indexer schema: added `give_ownership TINYINT(1) NOT NULL DEFAULT 0` and `oracle_address_id` (with their indexes), and corrected `fiat_amount` from `BIGINT UNSIGNED` to `VARCHAR(250)`. The stale fixture would otherwise diverge from the indexer's `dispensers` definition and miss columns the explorer's dispenser queries select.
 - SWEEP transaction-detail query in `src/db.js` selected the removed `sweeps.escrows` column, which fails on databases migrated to the three-flag SWEEP schema. It now selects the three per-primitive flags (`orders` / `swaps` / `dispensers`), matching `getSweeps()` and the `showSweepDetails()` UI renderer (which already expects those fields). The integration-test schema fixture's `sweeps` table is updated to the three-flag layout to match.
 
 ## [1.15.1] - 2026-05-28

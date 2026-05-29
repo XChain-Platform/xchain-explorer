@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- SWEEP transaction-detail query in `src/db.js` selected the removed `sweeps.escrows` column, which fails on databases migrated to the three-flag SWEEP schema. It now selects the three per-primitive flags (`orders` / `swaps` / `dispensers`), matching `getSweeps()` and the `showSweepDetails()` UI renderer (which already expects those fields). The integration-test schema fixture's `sweeps` table is updated to the three-flag layout to match.
+
 ## [1.15.1] - 2026-05-28
 
 ### Removed

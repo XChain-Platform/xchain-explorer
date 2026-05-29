@@ -4,6 +4,10 @@ const sinon      = require('sinon');
 const { expect } = require('chai');
 const proxyquire = require('proxyquire').noCallThru();
 
+// Collapse retry backoff to zero so the retry-path tests run instantly.
+// The connector reads this env var in its constructor.
+process.env.HUB_RETRY_DELAY_MS = '0';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -167,6 +171,55 @@ describe('XChainHubConnector', function () {
             const connector = new XChainHubConnector('localhost', 3000);
             const result = await connector.getAllConfig();
             expect(result).to.be.null;
+        });
+
+    });
+
+    // -----------------------------------------------------------------------
+    // Retry behavior — bridges the startup race where the hub is still booting
+    // -----------------------------------------------------------------------
+
+    describe('getAllConfig() retry behavior', function () {
+
+        it('retries the endpoint pass HUB_RETRY_ATTEMPTS times before returning null', async function () {
+            const savedAttempts = process.env.HUB_RETRY_ATTEMPTS;
+            process.env.HUB_RETRY_ATTEMPTS = '4';
+            try {
+                const axiosStub = makeAxiosStub();
+                axiosStub.post.rejects(new Error('ECONNREFUSED'));
+                const XChainHubConnector = loadConnector(axiosStub);
+                const connector = new XChainHubConnector('localhost', 3000);
+                const result = await connector.getAllConfig();
+                expect(result).to.be.null;
+                // One endpoint × 4 attempts
+                expect(axiosStub.post.callCount).to.equal(4);
+            } finally {
+                if (savedAttempts !== undefined) process.env.HUB_RETRY_ATTEMPTS = savedAttempts;
+                else delete process.env.HUB_RETRY_ATTEMPTS;
+            }
+        });
+
+        it('returns the result once an endpoint recovers on a later attempt', async function () {
+            const mockResult = { bitcoin: { mainnet: { indexer: {}, decoder: {} } } };
+            const axiosStub  = makeAxiosStub();
+            // First pass fails, second pass succeeds — the hub finished booting.
+            axiosStub.post.onFirstCall().rejects(new Error('ECONNREFUSED'));
+            axiosStub.post.onSecondCall().resolves({ data: { result: mockResult } });
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            const result = await connector.getAllConfig();
+            expect(result).to.deep.equal(mockResult);
+            expect(axiosStub.post.callCount).to.equal(2);
+        });
+
+        it('ping() does not retry — a single attempt only', async function () {
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.rejects(new Error('ECONNREFUSED'));
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            const result = await connector.ping();
+            expect(result).to.be.false;
+            expect(axiosStub.post.callCount).to.equal(1);
         });
 
     });

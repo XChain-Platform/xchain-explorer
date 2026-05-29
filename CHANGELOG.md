@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-05-28
+
+### Added
+- **Hub config fetch retries** — `XChainHubConnector` now retries the hub endpoint pass with exponential backoff (configurable via `HUB_RETRY_ATTEMPTS` / `HUB_RETRY_DELAY_MS`, default 4 attempts / 2s base) so the explorer survives the startup race when the hub is still booting after a power cycle. `ping()` stays single-attempt.
+- **Last-known-good config cache** — successful hub configs are persisted to `tmp/config-cache.json` (override path with `CONFIG_CACHE_FILE`). When the hub is unreachable at startup, the explorer loads this cache and starts in a degraded mode instead of coming up with zero coins.
+- `restart: unless-stopped` policy for the explorer service in `docker-compose.yml`.
+- Unit tests covering hub-unreachable startup, disk-cache fallback, sync-tick error handling, and connector retry behavior.
+
+### Fixed
+- A hub outage during the 60s config sync tick no longer raises an unhandled promise rejection (fatal in Node 15+). The `setInterval` callback now catches errors, logs a warning, and keeps serving the in-memory config cache.
+- A transient hub blip during a sync tick no longer tears down a working in-memory config.
+
 ## [1.14.0] - 2026-04-07
 
 ### Added

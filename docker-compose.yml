@@ -3,6 +3,7 @@ version: '3'
 services:
   xchain_explorer:
     build: .
+    restart: unless-stopped
     networks:
       - network1
     ports:

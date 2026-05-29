@@ -86,6 +86,30 @@ curl http://localhost:8080/BTC/api/market/TOKENA/TOKENB/orderbook
 curl http://localhost:8080/BTC/api/status
 ```
 
+## Database schema note: ownership-trading columns
+
+The order-book, swaps, market, and detail endpoints read the `give_ownership`
+and `get_ownership` columns on the `orders` and `swaps` tables (added for
+token-ownership trading). Against a normally-operated backing database these
+columns are already present:
+
+- A database written by **xchain-indexer** gains them automatically — the
+  indexer adds any missing column with a safe default on startup.
+- A read replica kept current by **xchain-sync** gains them on its next
+  startup — the replication service now self-heals these columns before
+  accepting synced rows.
+
+Only if you point the explorer at a **standalone database that is managed by
+neither service** must you add the columns manually, **once, before deploying
+this build**, or the affected endpoints will error with `Unknown column`:
+
+```sql
+ALTER TABLE orders ADD COLUMN give_ownership TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN get_ownership  TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE swaps  ADD COLUMN give_ownership TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE swaps  ADD COLUMN get_ownership  TINYINT(1) NOT NULL DEFAULT 0;
+```
+
 ## Icon Downloader (optional)
 
 The explorer can optionally download, resize, and cache token icons sourced from each token's `description` field (JSON URLs, IPFS, Arweave, Ordinals, imgur, stamps, bare image URLs). Disabled by default.

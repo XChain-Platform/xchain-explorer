@@ -772,23 +772,6 @@ class Database {
         return max;
     }
 
-    // Get decoder database name from config for the given COIN network
-    async getDecoderDatabaseName(coin){
-        let coinConfigs = await this.configInfo.getConfig()
-        let name = null;
-        // Define list of acceptable networks and get correct config using COIN
-        let networks = ['mainnet', 'testnet', 'regtest'];
-        let info = coinConfigs[coin];
-        for(let net in info){
-            if(networks.includes(net) && !this.util.isNull(info[net].database) && !this.util.isNull(info[net].database.decoder)){
-                let cfg = info[net].database;
-                if(!this.util.isNull(cfg.decoder) && this.util.isNull(name))
-                    name = cfg.decoder.name;
-            }
-        }
-        return name;
-    }
-
     /******************************************************************
      *
      * API Endpoints
@@ -3659,50 +3642,43 @@ class Database {
         return [data]
     }
 
-    // Get public key for an address from decoder database
+    // Get public key for an address from indexer database
     async getPubkey(config){
         let data = null;
-        let name = await this.getDecoderDatabaseName(config.coin);
-        if(name){
-            let query = `SELECT
-                            p.pubkey
-                        FROM
-                            ` + name + `.pubkeys p
-                            INNER JOIN ` + name + `.index_addresses a ON (a.id=p.address_id)
-                        WHERE
-                            a.address=?
-                        LIMIT 1`;
-            let results = await this.doQuery(config, query, [config.data.search]);
-            if(results && results.length)
-                data = results[0];
-        }
+        let query = `SELECT
+                        p.pubkey
+                    FROM
+                        pubkeys p
+                        INNER JOIN index_addresses a ON (a.id=p.address_id)
+                    WHERE
+                        a.address=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [config.data.search]);
+        if(results && results.length)
+            data = results[0];
         return [data];
     }
 
-    // Get raw transaction data from decoder database
+    // Get raw transaction data from indexer database
     async getTransactionData(config, hash){
         let data = null;
-        let name = await this.getDecoderDatabaseName(config.coin);
-        if(name){
-            let query = `SELECT
-                            t1.tx_index,
-                            t1.block_index,
-                            t2.hash,
-                            t1.fee,
-                            t1.amount,
-                            t1.data
-                        FROM
-                            ` + name + `.transactions t1
-                            INNER JOIN ` + name + `.index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        WHERE 
-                            t2.hash=?
-                        LIMIT 1`;
-            let results = await this.doQuery(config, query, [hash]);
-            if(results && results.length)
-                data = results[0];
-        }
+        let query = `SELECT
+                        t1.tx_index,
+                        t1.block_index,
+                        t2.hash,
+                        t1.fee,
+                        t1.data
+                    FROM
+                        transactions t1
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE
+                        t2.hash=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [hash]);
+        if(results && results.length)
+            data = results[0];
         return data;
-    }  
+    }
 
     /******************************************************************
      * Commonly used functions 

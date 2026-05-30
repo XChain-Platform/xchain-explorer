@@ -10,7 +10,6 @@
  *   - getStatus(config)
  *   - getTransaction(config)
  *   - getMempool(config)
- *   - getDecoderDatabaseName(coin)
  *   - getAddressId(config, address)
  *   - getTickId(config, tick)
  *   - getActionType(config, action_index)
@@ -200,43 +199,6 @@ describe('Database#getData', () => {
         const [data, total] = await db.getData(config);
         expect(data).to.equal(false);
         expect(total).to.equal(0);
-    });
-});
-
-// ---------------------------------------------------------------------------
-// getDecoderDatabaseName
-// ---------------------------------------------------------------------------
-
-describe('Database#getDecoderDatabaseName', () => {
-    let db;
-    before(() => { db = makeDb(); });
-
-    it('returns the decoder DB name for BTC mainnet', async () => {
-        const name = await db.getDecoderDatabaseName('BTC');
-        expect(name).to.equal('XChain_BTC_Mainnet_Decoder');
-    });
-
-    it('returns null when the coin is not in config', async () => {
-        // 'XYZ' does not exist in the mock config — iterating over undefined should return null
-        let threw = false;
-        let name  = null;
-        try {
-            name = await db.getDecoderDatabaseName('XYZ');
-        } catch(e) {
-            threw = true;
-        }
-        // The method should either return null or throw; either is acceptable, but it must not
-        // silently return the BTC value.
-        if (!threw) {
-            expect(name).to.be.null;
-        }
-    });
-
-    it('returns the first available decoder name (mainnet over regtest)', async () => {
-        // Both mainnet and regtest decoder names are present in BTC config.
-        // Method returns the first one it encounters (mainnet comes first).
-        const name = await db.getDecoderDatabaseName('BTC');
-        expect(name).to.be.a('string').that.includes('Decoder');
     });
 });
 

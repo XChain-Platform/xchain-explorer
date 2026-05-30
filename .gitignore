@@ -2,7 +2,6 @@
 .env
 *.pem
 node_modules/
-package-lock.json
 src/config.json
 tmp/config-cache.json
 .stryker-tmp/

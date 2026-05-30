@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Dependency installs are now reproducible: `package-lock.json` is committed to the repo (previously git-ignored) and the Docker image is built with `npm ci` instead of `npm install`. `npm ci` installs the exact dependency tree recorded in the lockfile and fails the build if the lockfile is missing or out of sync with `package.json`, so a container image can no longer silently pick up newer transitive dependency versions than were tested.
+
 ### Added
 - README operator note documenting that the order-book / swaps / market / detail endpoints read the `give_ownership` and `get_ownership` columns on `orders` and `swaps`. A backing database written by xchain-indexer or kept current by xchain-sync gains these columns automatically; a standalone database managed by neither must have the four `ALTER TABLE ... ADD COLUMN` statements applied once before deploying this build, or the affected endpoints error with `Unknown column`.
 

@@ -3,6 +3,10 @@
 *.pem
 node_modules/
 src/config.json
-tmp/config-cache.json
+tmp/
+/XChain_Decoder.sql
+/XChain_Decoder.sql.gz
+/XChain_Indexer.sql
+/XChain_Indexer.sql.gz
 .stryker-tmp/
 reports/mutation/

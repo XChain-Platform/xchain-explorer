@@ -28,7 +28,7 @@ const util                  = require('./utility.js');
 const xchainHubConnector    = require('./XChainHubConnector')
 
 // Define the API config 
-const API_HOST       = '127.0.0.1';
+const API_HOST       = process.env.API_HOST || '127.0.0.1';
 const API_USER       = false;
 const API_PASS       = false;
 const API_PORT_HTTP  = 8080;
@@ -158,9 +158,15 @@ module.exports = {
 
                 if (hubReturnedNothing){
                     // A transient blip during a periodic sync tick must not wipe
-                    // a good config — keep serving what we already have.
-                    if (configCache)
+                    // a good config — keep serving what we already have. Surface
+                    // it at error level (the connector only logs per-endpoint
+                    // warns) so operators get one unambiguous signal that the
+                    // hub is down and the served config is now stale, instead of
+                    // discovering it only when downstream DB queries start failing.
+                    if (configCache){
+                        console.error('Hub unreachable — all endpoints failed after retries. Serving last-known-good cached config (may be stale until the hub recovers).');
                         return configCache;
+                    }
 
                     // Cold start with the hub unreachable: fall back to the
                     // last-known-good config persisted on disk so the explorer

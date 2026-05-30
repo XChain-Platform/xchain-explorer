@@ -814,8 +814,9 @@ $(document).ready(function(){
             $('#network-unconfirmed').text(numeral(o.network.unconfirmed).format('0,0'));
             // Determine USD price per satoshi and update fee information
             var fee_sat  = (o.coin.price.usd / 100000000);
-            var fee_low  = numeral(o.fee.low).format('0,0')  + ' sats/byte' + '<span class="fw-bold text-warning float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.low) * fee_sat).format('0,0.00') + '</span>';
-            var fee_high = numeral(o.fee.high).format('0,0') + ' sats/byte' + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.high) * fee_sat).format('0,0.00') + '</span>';
+            var feeUnit  = { 'BTC': 'sats/vB', 'LTC': 'lits/byte', 'DOGE': 'koinu/byte' }[XC.chain] || 'sats/byte';
+            var fee_low  = numeral(o.fee.low).format('0,0')  + ' ' + feeUnit + '<span class="fw-bold text-warning float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.low) * fee_sat).format('0,0.00') + '</span>';
+            var fee_high = numeral(o.fee.high).format('0,0') + ' ' + feeUnit + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral((o.fee.high) * fee_sat).format('0,0.00') + '</span>';
             $('#network-fee-low').html(fee_low);
             $('#network-fee-high').html(fee_high);
             // Update XCHain price

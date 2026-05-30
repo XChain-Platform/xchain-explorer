@@ -928,7 +928,7 @@ class XChainExplorer {
                 [Number(actionIndex)]);
             if(rows && rows.length > 0) raw = rows[0].raw_data;
         } catch (e) {
-            console.error('processGatedFileRawRequest error:', e.message);
+            console.error('processGatedFileRawRequest error:', e);
             return res.status(500).send('Server error');
         }
         if(!raw)

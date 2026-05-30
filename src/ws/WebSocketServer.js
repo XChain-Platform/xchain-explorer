@@ -450,7 +450,7 @@ class WebSocketServer {
             this._send(client, complete);
 
         } catch (e) {
-            console.log('Catch-up error for client', client.id, ':', e.message);
+            console.log('Catch-up error for client', client.id, ':', e);
         } finally {
             client.catchUpInProgress = false;
         }
@@ -516,7 +516,7 @@ class WebSocketServer {
                 }
             } catch (e) {
                 // Non-fatal — skip this snapshot
-                console.log('Snapshot error for', sub.channel, ':', e.message);
+                console.log('Snapshot error for', sub.channel, ':', e);
             }
         }
     }

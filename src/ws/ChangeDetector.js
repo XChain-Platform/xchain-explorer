@@ -89,7 +89,7 @@ class ChangeDetector extends EventEmitter {
             try {
                 await this._checkCoin(coin);
             } catch (e) {
-                console.log('ChangeDetector poll error for', coin, ':', e.message);
+                console.log('ChangeDetector poll error for', coin, ':', e);
             }
         }
     }

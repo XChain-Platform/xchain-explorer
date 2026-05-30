@@ -54,7 +54,7 @@ class XChainHubConnector {
                     if(response.data && response.data.result !== undefined)
                         return response.data.result;
                 } catch(err){
-                    console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ' + (err.message || err));
+                    console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
                 }
             }
             // All endpoints failed this pass — back off before the next, unless

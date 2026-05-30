@@ -58,7 +58,7 @@ var XChainWS = {
         try {
             this.ws = new WebSocket(this.url);
         } catch (e) {
-            console.log('[XChainWS] Connection error:', e.message);
+            console.log('[XChainWS] Connection error:', e);
             this._setStatus('disconnected');
             this._reconnect();
             return;
@@ -192,7 +192,7 @@ var XChainWS = {
                 try {
                     this.handlers[msg.type][i](msg);
                 } catch (e) {
-                    console.log('[XChainWS] Handler error for', msg.type, ':', e.message);
+                    console.log('[XChainWS] Handler error for', msg.type, ':', e);
                 }
             }
         }

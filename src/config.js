@@ -76,7 +76,7 @@ function persistConfigCache(flattenedConfig){
         fs.mkdirSync(path.dirname(CONFIG_CACHE_FILE), { recursive: true });
         fs.writeFileSync(CONFIG_CACHE_FILE, JSON.stringify(flattenedConfig));
     } catch (err){
-        console.warn('Could not persist config cache to ' + CONFIG_CACHE_FILE + ': ' + (err && err.message || err));
+        console.warn('Could not persist config cache to ' + CONFIG_CACHE_FILE + ': ', err);
     }
 }
 
@@ -90,7 +90,7 @@ function loadConfigCacheFromDisk(){
         if(parsed && Array.isArray(parsed.configs) && parsed.configs.length > 0)
             return parsed;
     } catch (err){
-        console.warn('Could not load config cache from ' + CONFIG_CACHE_FILE + ': ' + (err && err.message || err));
+        console.warn('Could not load config cache from ' + CONFIG_CACHE_FILE + ': ', err);
     }
     return null;
 }

@@ -1110,7 +1110,7 @@ function loadDatatablesData(coin, action, query, type){
                         if(name=='callbacks')     icon='fa-recycle';  
                         if(name=='destroys')      icon='fa-trash';  
                         if(name=='dispensers')    icon='fa-arrows-h';  
-                        if(name=='dispenses')     icon='fa-btc';  
+                        if(name=='dispenses')     icon='fa-hand-holding-heart';
                         if(name=='dividends')     icon='fa-sitemap';  
                         if(name=='files')         icon='fa-file';  
                         if(name=='issues')        icon='fa-bank';  

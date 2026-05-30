@@ -22,7 +22,7 @@
  ********************************************************************/
 
 // Valid global channels (no entity params needed)
-const GLOBAL_CHANNELS = new Set(['blocks', 'actions', 'mempool', 'network']);
+const GLOBAL_CHANNELS = new Set(['blocks', 'actions', 'mempool', 'network', 'attestation']);
 
 // Valid entity channels (require params)
 const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser']);

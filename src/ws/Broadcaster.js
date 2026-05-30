@@ -129,6 +129,12 @@ class Broadcaster {
         // Broadcast to 'actions' channel
         this._broadcastToChannel(coin, 'actions', event, lifecycleEvent);
 
+        // If the lifecycle event names a dedicated channel (e.g. 'attestation'),
+        // also broadcast there so clients can subscribe to just that stream.
+        if (lifecycleEvent.channel) {
+            this._broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent);
+        }
+
         // Broadcast to relevant address channels
         const addresses = this._extractAddresses(lifecycleEvent.data);
         for (const addr of addresses) {

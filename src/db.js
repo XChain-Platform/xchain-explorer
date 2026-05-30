@@ -7223,6 +7223,20 @@ class Database {
         return results || [];
     }
 
+    // Look up a single ATTEST row by action_index — used by the WebSocket
+    // ChangeDetector to enrich a new ATTEST action with its version + status
+    // before broadcasting on the attestation channel.
+    async getAttestationByActionIndex(config, action_index){
+        let query = `SELECT
+                        action_index, version, request_id, provider_id, contract_index,
+                        request_status, response_status, block_index
+                    FROM attests
+                    WHERE action_index=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [action_index]);
+        return (results && results.length) ? results[0] : null;
+    }
+
 }
 
 module.exports = Database

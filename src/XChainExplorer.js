@@ -28,6 +28,8 @@ const util           = require('./utility.js');
 const database       = require('./db.js');
 const IconDownloader = require('./IconDownloader.js');
 
+let slowRequests = 0;
+
 class XChainExplorer {
 
     // Handle constructing a class instance
@@ -631,8 +633,8 @@ class XChainExplorer {
 
         // Log any requests which took longer than 400 milliseconds to return a response
         if(response.time > 400){
-            // TODO : Dump request information to a log file
-
+            slowRequests++;
+            console.warn('SLOW_REQUEST', req.path, response.time + 'ms');
         }
 
         // DEBUG INFO (only log when DEBUG env var is set)
@@ -1001,6 +1003,8 @@ class XChainExplorer {
         // Return `503 - Service Unavailable` error message as last resort
         res.status(503).send('service not available');
     }
+
+    static getSlowRequests() { return slowRequests; }
 }
 
 module.exports = XChainExplorer;

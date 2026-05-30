@@ -134,6 +134,9 @@ class ChangeDetector extends EventEmitter {
 
                     // Emit entity updates for subscribed entities
                     await this._emitEntityUpdates(coin, config, action);
+
+                    // Emit attestation events (dedicated `attestation` channel)
+                    await this._emitAttestationEvents(coin, config, action);
                 }
             }
             prev.actionIndex = currentActionIndex;
@@ -288,6 +291,38 @@ class ChangeDetector extends EventEmitter {
                     // Non-fatal
                 }
             }
+        }
+    }
+
+    // Emit an ATTESTATION_REQUEST / ATTESTATION_RESPONSE event on the dedicated
+    // `attestation` channel when a new ATTEST action lands. The raw action row
+    // from getActionsSince doesn't carry the version, so we enrich it from the
+    // consolidated `attests` table to tell a v0 request from a v1 response.
+    async _emitAttestationEvents(coin, config, action) {
+        if (!action || action.action !== 'ATTEST') return;
+        try {
+            const row = await this.db.getAttestationByActionIndex(config, action.action_index);
+            if (!row) return;
+            const isResponse = Number(row.version) === 1;
+            this.emit('lifecycle_event', coin, {
+                type:    isResponse ? 'ATTESTATION_RESPONSE' : 'ATTESTATION_REQUEST',
+                action:  'ATTEST',
+                channel: 'attestation',
+                data: {
+                    action_index:    row.action_index,
+                    version:         row.version,
+                    request_id:      row.request_id,
+                    provider_id:     row.provider_id,
+                    contract_index:  row.contract_index   || null,
+                    request_status:  row.request_status   || null,
+                    response_status: row.response_status  || null,
+                    block_index:     row.block_index      || null,
+                    source:          action.source        || null,
+                    status:          action.status        || null
+                }
+            });
+        } catch (e) {
+            // Non-fatal — attestation enrichment failure must not break the poll loop
         }
     }
 

@@ -1,0 +1,50 @@
+<!-- Execution -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-play"></i> Execution Information
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0">
+                <tbody>
+                    <tr><th width="175">Action</th><td class="execution-index">-</td></tr>
+                    <tr><th>Contract</th><td class="execution-contract">-</td></tr>
+                    <tr><th>Caller</th><td class="execution-caller">-</td></tr>
+                    <tr><th>Method</th><td class="execution-method">-</td></tr>
+                    <tr><th>Parameters</th><td class="execution-params text-break">-</td></tr>
+                    <tr><th>Gas</th><td class="execution-gas">-</td></tr>
+                    <tr><th>Emissions</th><td class="execution-emitted">-</td></tr>
+                    <tr><th>Status</th><td class="execution-status">-</td></tr>
+                    <tr><th>Error</th><td class="execution-error">-</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Fetch the single execution record directly (route doesn't fit loadApiData)
+    $.getJSON('/' + XC.coin + '/api/execution/' + XC.query, function(o){
+        if(o && !o.error){
+            $('.execution-index').html(formatLink('/' + XC.coin + '/action/' + o.action_index, o.action_index));
+            $('.execution-contract').html(formatLink('/' + XC.coin + '/contract/' + o.contract_index, o.contract_index));
+            $('.execution-caller').html(isNull(o.caller) ? '-' : formatLink('/' + XC.coin + '/address/' + o.caller, o.caller));
+            $('.execution-method').text(o.method_name);
+            $('.execution-params').text(isNull(o.input_params) ? '-' : o.input_params);
+            $('.execution-gas').text(numeral(o.gas_used).format('0,0') + ' / ' + numeral(o.gas_limit).format('0,0'));
+            $('.execution-emitted').text(o.emitted_count);
+            $('.execution-status').text(o.status);
+            $('.execution-error').text(isNull(o.error_message) ? '-' : o.error_message);
+            XC.pageInfo.title       = 'Execution ' + XC.query;
+            XC.pageInfo.description = 'Smart contract execution ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+            XC.pageInfo.canonical   = '/' + XC.coin + '/execution/' + XC.query;
+            updatePageInfo();
+        }
+    });
+
+});
+</script>

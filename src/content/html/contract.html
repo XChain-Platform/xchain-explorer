@@ -1,0 +1,87 @@
+<!-- Contract -->
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-file-code"></i> Contract Information
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0">
+                <tbody>
+                    <tr><th width="175">Contract</th><td class="contract-index">-</td></tr>
+                    <tr><th>Deployer</th><td class="contract-source">-</td></tr>
+                    <tr><th>Code Hash</th><td class="contract-code-hash text-truncate">-</td></tr>
+                    <tr><th>API Version</th><td class="contract-api-version">-</td></tr>
+                    <tr><th>Status</th><td class="contract-status">-</td></tr>
+                    <tr><th>Staking</th><td class="contract-stakeable">-</td></tr>
+                    <tr class="contract-staking-row d-none"><th>Cooldown</th><td class="contract-cooldown">-</td></tr>
+                    <tr class="contract-staking-row d-none"><th>Slash Destination</th><td class="contract-slash">-</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stakes targeting this contract -->
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-lock"></i> Stakes
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-contract_stake">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Source</th>
+                        <th class="">Signing Pubkey</th>
+                        <th class="">Contract</th>
+                        <th class="token">Token</th>
+                        <th class="quantity">Amount</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="9" class="loading-data">Loading contract stake data...</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Fetch the single contract record (the /api/contract/{idx} route doesn't fit
+    // loadApiData's pluralizing helper, so request it directly).
+    $.getJSON('/' + XC.coin + '/api/contract/' + XC.query, function(o){
+        if(o && !o.error){
+            $('.contract-index').html(formatLink('/' + XC.coin + '/action/' + o.action_index, o.action_index));
+            $('.contract-source').html(isNull(o.source) ? '-' : formatLink('/' + XC.coin + '/address/' + o.source, o.source));
+            $('.contract-code-hash').html(formatHash(o.code_hash, 48));
+            $('.contract-api-version').text(o.api_version);
+            $('.contract-status').text(o.status);
+            let stakeable = !isNull(o.cooldown_blocks);
+            $('.contract-stakeable').html(stakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
+            if(stakeable){
+                $('.contract-cooldown').text(numeral(o.cooldown_blocks).format('0,0') + ' blocks');
+                $('.contract-slash').html(isNull(o.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + o.slash_destination, o.slash_destination));
+                $('.contract-staking-row').removeClass('d-none');
+            }
+            XC.pageInfo.title       = 'Contract ' + XC.query;
+            XC.pageInfo.description = 'Smart contract ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+            XC.pageInfo.canonical   = '/' + XC.coin + '/contract/' + XC.query;
+            updatePageInfo();
+        }
+    });
+
+    // Load stakes targeting this contract
+    loadDatatablesData(XC.coin, 'contract_stake', XC.query, 'contract');
+
+});
+</script>

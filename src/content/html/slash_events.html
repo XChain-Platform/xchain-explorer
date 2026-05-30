@@ -1,0 +1,46 @@
+<!-- Slash Events -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-gavel"></i> Slash Events
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-slash_event">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Slashed Pubkey</th>
+                        <th class="">Contract</th>
+                        <th class="token">Token</th>
+                        <th class="quantity">Amount</th>
+                        <th class="address">Destination</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="9" class="loading-data">Loading slash event data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Slash Events';
+    XC.pageInfo.description = 'Stake slashing events emitted by smart contracts on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/slash_events';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'slash_event', null, null);
+
+});
+</script>

@@ -1,0 +1,45 @@
+<!-- Validators -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-user-shield"></i> Validators
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-validator">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Source</th>
+                        <th class="">Signing Pubkey</th>
+                        <th class="">Version</th>
+                        <th class="quantity">Stake Amount</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="8" class="loading-data">Loading validator data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Validators';
+    XC.pageInfo.description = 'Active capability-staking validators on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. Aggregate stake per pubkey auto-qualifies it for the price, cross_chain, oracle_publish and attestation capabilities.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/validators';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'validator', null, null);
+
+});
+</script>

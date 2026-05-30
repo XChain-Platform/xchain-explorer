@@ -4255,6 +4255,9 @@ class Database {
                             f1.title,
                             t3.type as type,
                             a3.address as source,
+                            gf.gate_ticker,
+                            gf.encryption_method,
+                            gf.key_hash,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
@@ -4272,7 +4275,8 @@ class Database {
                             LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
-                        WHERE 
+                            LEFT  JOIN gated_files        gf ON (gf.action_index=f1.action_index)
+                        WHERE
                             f1.action_index=?
                         LIMIT 1`;
                 // TODO: Add code to lookup actual file data from transactions and return an `data` item
@@ -5031,6 +5035,274 @@ class Database {
                         ORDER BY
                             t1.tick ASC`;
             }
+            // ATTEST action (v0 request / v1 response — both rows live in `attests`,
+            // distinguished by `version`; verified federation sigs ride in the
+            // validator_signatures JSON column on v1 rows)
+            if(type=='ATTEST'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.version,
+                            m.request_id,
+                            m.provider_id,
+                            m.contract_index,
+                            fp.address as fee_payer,
+                            m.callback_method,
+                            m.redundancy,
+                            m.deadline_block,
+                            m.gas_escrow,
+                            m.request_status,
+                            m.response_hash,
+                            m.response_status,
+                            m.meta,
+                            m.validator_signatures,
+                            m.callback_execute_action_index,
+                            a3.address as source,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            attests m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // STAKE action (v1/v2 capability stake → stakes; v3 contract-targeted → contract_stakes)
+            if(type=='STAKE'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            a1.action_index,
+                            a3.address as source,
+                            COALESCE(pk1.pubkey, pk2.pubkey) as signing_pubkey,
+                            COALESCE(s.version, cs.version) as version,
+                            COALESCE(s.amount, cs.amount) as amount,
+                            cs.target_contract_index,
+                            tk.tick,
+                            COALESCE(s.activation_block, cs.activation_block) as activation_block,
+                            COALESCE(s.deactivation_block, cs.deactivation_block) as deactivation_block,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            COALESCE(ss.status, css.status) as status
+                        FROM
+                            actions a1
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN stakes             s  ON (s.action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk1 ON (pk1.id=s.signing_pubkey_id)
+                            LEFT  JOIN index_statuses     ss ON (ss.id=s.status_id)
+                            LEFT  JOIN contract_stakes    cs ON (cs.action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk2 ON (pk2.id=cs.signing_pubkey_id)
+                            LEFT  JOIN index_tickers      tk ON (tk.id=cs.tick_id)
+                            LEFT  JOIN index_statuses     css ON (css.id=cs.status_id)
+                        WHERE
+                            a1.action_index=?
+                        LIMIT 1`;
+            }
+            // UNSTAKE action (v0 capability → unstakes; v1 contract-targeted → contract_unstakes)
+            if(type=='UNSTAKE'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            a1.action_index,
+                            a3.address as source,
+                            COALESCE(pk1.pubkey, pk2.pubkey) as signing_pubkey,
+                            COALESCE(u.amount, cu.amount) as amount,
+                            COALESCE(u.cooldown_end_block, cu.cooldown_end_block) as cooldown_end_block,
+                            cu.target_contract_index,
+                            tk.tick,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            COALESCE(us.status, cus.status) as status
+                        FROM
+                            actions a1
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN unstakes           u  ON (u.action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk1 ON (pk1.id=u.signing_pubkey_id)
+                            LEFT  JOIN index_statuses     us ON (us.id=u.status_id)
+                            LEFT  JOIN contract_unstakes  cu ON (cu.action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk2 ON (pk2.id=cu.signing_pubkey_id)
+                            LEFT  JOIN index_tickers      tk ON (tk.id=cu.tick_id)
+                            LEFT  JOIN index_statuses     cus ON (cus.id=cu.status_id)
+                        WHERE
+                            a1.action_index=?
+                        LIMIT 1`;
+            }
+            // DELEGATE action (v0/v2 capability → delegations; v1/v3 contract-targeted → contract_delegations)
+            if(type=='DELEGATE'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            a1.action_index,
+                            a3.address as source,
+                            COALESCE(pk1.pubkey, pk2.pubkey) as signing_pubkey,
+                            cd.target_contract_index,
+                            tk.tick,
+                            COALESCE(d.activation_block, cd.activation_block) as activation_block,
+                            COALESCE(d.deactivation_block, cd.deactivation_block) as deactivation_block,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            COALESCE(ds.status, cds.status) as status
+                        FROM
+                            actions a1
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN delegations        d  ON (d.action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk1 ON (pk1.id=d.signing_pubkey_id)
+                            LEFT  JOIN index_statuses     ds ON (ds.id=d.status_id)
+                            LEFT  JOIN contract_delegations cd ON (cd.action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk2 ON (pk2.id=cd.signing_pubkey_id)
+                            LEFT  JOIN index_tickers      tk ON (tk.id=cd.tick_id)
+                            LEFT  JOIN index_statuses     cds ON (cds.id=cd.status_id)
+                        WHERE
+                            a1.action_index=?
+                        LIMIT 1`;
+            }
+            // COLLECT action (validator reward claim → reward_claims)
+            if(type=='COLLECT'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            a3.address as source,
+                            m.amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            reward_claims m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // DEPLOY action (contract deployment; v1 surfaces cooldown_blocks + slash_destination)
+            if(type=='DEPLOY'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            a3.address as source,
+                            m.code_hash,
+                            m.api_version,
+                            m.cooldown_blocks,
+                            sd.address as slash_destination,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            contracts m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // EXECUTE action (contract method call → contract_executions)
+            if(type=='EXECUTE'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.contract_index,
+                            a3.address as caller,
+                            m.method_name,
+                            m.input_params,
+                            m.gas_used,
+                            m.gas_limit,
+                            m.emitted_count,
+                            m.error_message,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            contract_executions m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=m.caller_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // DEPOSIT / WITHDRAW action (contract custody transfers)
+            if(type=='DEPOSIT' || type=='WITHDRAW'){
+                let custodyTable = (type=='DEPOSIT') ? 'deposits' : 'withdrawals';
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.contract_index,
+                            a3.address as source,
+                            tk.tick,
+                            m.amount,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            ` + custodyTable + ` m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
+                            LEFT  JOIN index_tickers      tk ON (tk.id=m.tick_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
             // UNKNOWN
             if(type=='UNKNOWN'){
                 query = `SELECT
@@ -5076,6 +5348,17 @@ class Database {
                    data.state.give_remaining = data['give_escrow'];
                    delete data.state.get_remaining;
                 }
+            }
+            // Expand the inlined validator-signature JSON on ATTEST responses into
+            // a structured array the action-detail page can render.
+            if(type=='ATTEST'){
+                if(data['validator_signatures']){
+                    try { data['signatures'] = JSON.parse(data['validator_signatures']); }
+                    catch(_) { data['signatures'] = []; }
+                } else {
+                    data['signatures'] = [];
+                }
+                delete data['validator_signatures'];
             }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
@@ -6253,6 +6536,8 @@ class Database {
                         a2.address as source,
                         m.code_hash,
                         m.api_version,
+                        m.cooldown_blocks,
+                        sd.address as slash_destination,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -6264,6 +6549,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6297,6 +6583,8 @@ class Database {
                         m.code,
                         m.code_hash,
                         m.api_version,
+                        m.cooldown_blocks,
+                        sd.address as slash_destination,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -6308,6 +6596,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -6856,6 +7145,82 @@ class Database {
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // Get list of ATTEST actions from the consolidated `attests` table. Lists both
+    // v0 (request) and v1 (response) rows; `version` + request/response status let
+    // the UI tell them apart. type ∈ {address, block, contract}.
+    async getAttestations(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        attests m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.version,
+                        m.request_id,
+                        m.provider_id,
+                        m.contract_index,
+                        a2.address as source,
+                        m.request_status,
+                        m.response_status,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        attests m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get new ATTEST rows since a given block_index — feeds the WebSocket
+    // attestation channel (ChangeDetector). Returns request + response rows.
+    async getAttestationsSince(config, sinceBlockIndex, limit){
+        let query = `SELECT
+                        m.action_index,
+                        m.version,
+                        m.request_id,
+                        m.provider_id,
+                        m.contract_index,
+                        m.request_status,
+                        m.response_status,
+                        a2.address as source,
+                        m.block_index,
+                        s1.status
+                    FROM
+                        attests m
+                        LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
+                        LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                        LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
+                    WHERE
+                        m.block_index > ?
+                    ORDER BY m.action_index ASC
+                    LIMIT ?`;
+        let results = await this.doQuery(config, query, [sinceBlockIndex, limit]);
+        return results || [];
     }
 
 }

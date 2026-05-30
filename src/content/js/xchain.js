@@ -362,6 +362,15 @@ function formatLink(url=null, text=null, icon=false, btn=false){
     return html;
 }
 
+// Return a truncated hex string (hash / pubkey / request_id) with a hover title
+// showing the full value. Keeps long 64/128-hex identifiers readable in tables.
+function formatHash(hash, len=16){
+    if(isNull(hash)) return '';
+    let str = String(hash);
+    if(str.length <= len) return str;
+    return '<span title="' + str + '">' + str.substring(0, len) + '…</span>';
+}
+
 // Return a nicely formatted amount with token links
 function formatLinkAmount(url=null, text=null, icon=false, amount=false){
     let html = '';
@@ -1035,7 +1044,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','block','fee','holder','search','market','market-history'].includes(action)){
+            if(!['balance','credit','debit','token','block','fee','holder','search','market','market-history','slash_event'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1244,6 +1253,12 @@ function loadDatatablesData(coin, action, query, type){
             }
             // File
             if(action=='file'){
+                // Token-gated FILE: flag it with a lock badge on the Name cell (the
+                // file renderer is shared across pages with different column counts,
+                // so we annotate an existing cell rather than add a column).
+                let gate = data[7];
+                if(!isNull(gate))
+                    $('td', row).eq(4).append(' <span class="badge text-bg-warning" title="Gated by ' + gate + '"><i class="fa fa-lock"></i></span>');
                 $('td', row).eq(7).html(action_link);
             }
             // Holder
@@ -1465,6 +1480,103 @@ function loadDatatablesData(coin, action, query, type){
                     $('td', row).eq(2).html(formatLink('/' + coin + '/transaction/' + transaction, 'view', null, true));
                 }
             }
+            // Contract (DEPLOY list)
+            if(action=='contract'){
+                let code_hash = data[4];
+                let api       = data[5];
+                let cooldown  = data[6];
+                $('td', row).eq(4).html(formatHash(code_hash));
+                $('td', row).eq(5).text(api);
+                $('td', row).eq(6).html(isNull(cooldown) ? 'No' : ('<span class="badge text-bg-info text-white">Stakeable</span> ' + numeral(cooldown).format(fmtInteger) + ' blk'));
+                $('td', row).eq(7).html(formatLink('/' + coin + '/contract/' + action_index, 'view', null, true));
+            }
+            // Execution (EXECUTE list)
+            if(action=='execution'){
+                let contract_index = data[3];
+                let caller         = data[4];
+                let method         = data[5];
+                let gas            = data[6];
+                $('td', row).eq(3).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/address/' + caller, caller));
+                $('td', row).eq(5).text(method);
+                $('td', row).eq(6).html(numeral(gas).format(fmtInteger));
+                $('td', row).eq(7).html(formatLink('/' + coin + '/execution/' + action_index, 'view', null, true));
+            }
+            // Deposit / Withdrawal (contract custody)
+            if(action=='deposit' || action=='withdrawal'){
+                let contract_index = data[4];
+                token  = data[5];
+                amount = data[6];
+                $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(6).html(formatAmount(amount));
+                $('td', row).eq(7).html(action_link);
+            }
+            // Validator / capability stake
+            if(action=='validator'){
+                let pubkey  = data[4];
+                let version = data[5];
+                amount      = data[6];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).text('v' + version);
+                $('td', row).eq(6).html(formatAmount(amount));
+                $('td', row).eq(7).html(action_link);
+            }
+            // Contract-targeted stake (STAKE v3)
+            if(action=='contract_stake'){
+                let pubkey         = data[4];
+                let contract_index = data[5];
+                token  = data[6];
+                amount = data[7];
+                let version = data[8];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(7).html(formatAmount(amount));
+                $('td', row).eq(8).html(action_link);
+            }
+            // Contract-targeted unstake (UNSTAKE v1)
+            if(action=='contract_unstake'){
+                let pubkey         = data[4];
+                let contract_index = data[5];
+                token  = data[6];
+                amount = data[7];
+                let cooldown_end = data[8];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(7).html(formatAmount(amount));
+                $('td', row).eq(8).html(formatLink('/' + coin + '/block/' + cooldown_end, numeral(cooldown_end).format(fmtInteger)));
+                $('td', row).eq(9).html(action_link);
+            }
+            // Slash event (xchain.contract.slash emission — no own action_index; links to the EXECUTE)
+            if(action=='slash_event'){
+                let pubkey         = data[3];
+                let contract_index = data[4];
+                token       = data[5];
+                amount      = data[6];
+                destination = data[7];
+                let execution_index = data[8];
+                $('td', row).eq(3).html(formatHash(pubkey));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(6).html(formatAmount(amount));
+                $('td', row).eq(7).html(formatLink('/' + coin + '/address/' + destination, destination));
+                $('td', row).eq(8).html(formatLink('/' + coin + '/action/' + execution_index, 'view', null, true));
+            }
+            // Attestation (ATTEST v0 request / v1 response from the `attests` table)
+            if(action=='attestation'){
+                let version         = data[4];
+                let provider        = data[5];
+                let request_id      = data[6];
+                let request_status  = data[7];
+                let response_status = data[8];
+                $('td', row).eq(4).html((version == 0) ? '<span class="badge text-bg-secondary">Request</span>' : '<span class="badge text-bg-primary">Response</span>');
+                $('td', row).eq(5).text(provider);
+                $('td', row).eq(6).html(formatLink('/' + coin + '/action/' + action_index, formatHash(request_id)));
+                $('td', row).eq(7).text((version == 0) ? request_status : response_status);
+                $('td', row).eq(8).html(action_link);
+            }
         }
     });
 }
@@ -1608,6 +1720,15 @@ function showActionDetails(){
     if(o.action=='SWAP_EXPIRE'){      found = true;  showSwapExpireDetails(o);      }
     if(o.action=='SWAP_MATCH'){       found = true;  showSwapMatchDetails(o);       }
     if(o.action=='SWEEP'){            found = true;  showSweepDetails(o);           }
+    if(o.action=='ATTEST'){           found = true;  showAttestDetails(o);          }
+    if(o.action=='STAKE'){            found = true;  showStakeDetails(o);           }
+    if(o.action=='UNSTAKE'){          found = true;  showUnstakeDetails(o);         }
+    if(o.action=='DELEGATE'){         found = true;  showDelegateDetails(o);        }
+    if(o.action=='COLLECT'){          found = true;  showCollectDetails(o);         }
+    if(o.action=='DEPLOY'){           found = true;  showDeployDetails(o);          }
+    if(o.action=='EXECUTE'){          found = true;  showExecuteDetails(o);         }
+    if(o.action=='DEPOSIT'){          found = true;  showDepositDetails(o);         }
+    if(o.action=='WITHDRAW'){         found = true;  showWithdrawDetails(o);        }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -1750,6 +1871,132 @@ function showFileDetails(data){
     $('#info-file .file-title').text(data.title);
     $('#info-file .file-type').text(data.type);
     $('#info-file .file-memo').text(data.memo);
+    // Token-gated FILE: show the gate token, encryption method and key hash, plus
+    // a link to the raw (still-encrypted) ciphertext endpoint. Holders decrypt
+    // client-side after receiving the key via an ECIES MESSAGE.
+    if(!isNull(data.gate_ticker)){
+        let method = (data.encryption_method == 1) ? 'AES-256-GCM' : data.encryption_method;
+        $('#info-file .file-gate-ticker').html(formatLink('/' + XC.coin + '/token/' + data.gate_ticker, data.gate_ticker, data.gate_ticker));
+        $('#info-file .file-encryption').text(method);
+        $('#info-file .file-key-hash').html(formatHash(data.key_hash, 24));
+        $('#info-file .file-raw').html(formatLink('/' + XC.coin + '/api/file/' + data.action_index + '/raw', 'download ciphertext'));
+        $('#info-file .file-gated-row').removeClass('d-none');
+    } else {
+        $('#info-file .file-gated-row').addClass('d-none');
+    }
+}
+
+// Display ATTEST action information (v0 request / v1 response — `attests` table)
+function showAttestDetails(data){
+    let isResponse = (Number(data.version) === 1);
+    $('#info-attest .attest-type').html(isResponse ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' : '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+    $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
+    $('#info-attest .attest-provider').text(data.provider_id);
+    if(!isNull(data.contract_index))
+        $('#info-attest .attest-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    // Request-side fields
+    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse);
+    if(!isResponse){
+        $('#info-attest .attest-fee-payer').html(isNull(data.fee_payer) ? '-' : formatLink('/' + XC.coin + '/address/' + data.fee_payer, data.fee_payer));
+        $('#info-attest .attest-callback').text(data.callback_method);
+        $('#info-attest .attest-redundancy').text(data.redundancy);
+        $('#info-attest .attest-deadline').html(isNull(data.deadline_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deadline_block, numeral(data.deadline_block).format('0,0')));
+        $('#info-attest .attest-request-status').text(data.request_status);
+    }
+    // Response-side fields
+    $('#info-attest .attest-response-fields').toggleClass('d-none', !isResponse);
+    if(isResponse){
+        $('#info-attest .attest-response-status').text(data.response_status);
+        $('#info-attest .attest-response-hash').html(formatHash(data.response_hash, 32));
+        $('#info-attest .attest-meta').text(isNull(data.meta) ? '-' : data.meta);
+        let sigs = Array.isArray(data.signatures) ? data.signatures : [];
+        $('#info-attest .attest-sig-count').text(sigs.length);
+        let html = sigs.length ? sigs.map(s => formatHash(s.pubkey, 24)).join('<br>') : '-';
+        $('#info-attest .attest-signatures').html(html);
+        if(!isNull(data.callback_execute_action_index))
+            $('#info-attest .attest-callback-execute').html(formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
+    }
+}
+
+// Display STAKE action information (capability v1/v2 or contract-targeted v3)
+function showStakeDetails(data){
+    let isContract = !isNull(data.target_contract_index);
+    $('#info-stake .stake-version').text('v' + data.version);
+    $('#info-stake .stake-pubkey').html(formatHash(data.signing_pubkey, 24));
+    $('#info-stake .stake-amount').html(formatAmount(data.amount));
+    $('#info-stake .stake-contract-row').toggleClass('d-none', !isContract);
+    if(isContract){
+        $('#info-stake .stake-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
+        $('#info-stake .stake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    }
+    if(!isNull(data.activation_block))
+        $('#info-stake .stake-activation').html(formatLink('/' + XC.coin + '/block/' + data.activation_block, numeral(data.activation_block).format('0,0')));
+    $('#info-stake .stake-deactivation').html(isNull(data.deactivation_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deactivation_block, numeral(data.deactivation_block).format('0,0')));
+}
+
+// Display UNSTAKE action information (capability v0 or contract-targeted v1)
+function showUnstakeDetails(data){
+    let isContract = !isNull(data.target_contract_index);
+    $('#info-unstake .unstake-pubkey').html(formatHash(data.signing_pubkey, 24));
+    $('#info-unstake .unstake-amount').html(formatAmount(data.amount));
+    $('#info-unstake .unstake-cooldown').html(isNull(data.cooldown_end_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.cooldown_end_block, numeral(data.cooldown_end_block).format('0,0')));
+    $('#info-unstake .unstake-contract-row').toggleClass('d-none', !isContract);
+    if(isContract){
+        $('#info-unstake .unstake-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
+        $('#info-unstake .unstake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    }
+}
+
+// Display DELEGATE action information (capability v0/v2 or contract-targeted v1/v3)
+function showDelegateDetails(data){
+    let isContract = !isNull(data.target_contract_index);
+    $('#info-delegate .delegate-pubkey').html(formatHash(data.signing_pubkey, 24));
+    $('#info-delegate .delegate-contract-row').toggleClass('d-none', !isContract);
+    if(isContract){
+        $('#info-delegate .delegate-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
+        $('#info-delegate .delegate-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    }
+    if(!isNull(data.activation_block))
+        $('#info-delegate .delegate-activation').html(formatLink('/' + XC.coin + '/block/' + data.activation_block, numeral(data.activation_block).format('0,0')));
+    $('#info-delegate .delegate-deactivation').html(isNull(data.deactivation_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deactivation_block, numeral(data.deactivation_block).format('0,0')));
+}
+
+// Display COLLECT action information (validator reward claim)
+function showCollectDetails(data){
+    $('#info-collect .collect-amount').html(formatAmount(data.amount));
+}
+
+// Display DEPLOY action information (contract; v1 surfaces staking metadata)
+function showDeployDetails(data){
+    $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + data.action_index, data.action_index));
+    $('#info-deploy .deploy-code-hash').html(formatHash(data.code_hash, 32));
+    $('#info-deploy .deploy-api-version').text(data.api_version);
+    let stakeable = !isNull(data.cooldown_blocks);
+    $('#info-deploy .deploy-stakeable').html(stakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
+    $('#info-deploy .deploy-staking-row').toggleClass('d-none', !stakeable);
+    if(stakeable){
+        $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');
+        $('#info-deploy .deploy-slash').html(isNull(data.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + data.slash_destination, data.slash_destination));
+    }
+}
+
+// Display EXECUTE action information (contract method call)
+function showExecuteDetails(data){
+    $('#info-execute .execute-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    $('#info-execute .execute-caller').html(formatLink('/' + XC.coin + '/address/' + data.caller, data.caller));
+    $('#info-execute .execute-method').text(data.method_name);
+    $('#info-execute .execute-gas').text(numeral(data.gas_used).format('0,0') + ' / ' + numeral(data.gas_limit).format('0,0'));
+    $('#info-execute .execute-emitted').text(data.emitted_count);
+    $('#info-execute .execute-error').text(isNull(data.error_message) ? '-' : data.error_message);
+}
+
+// Display DEPOSIT / WITHDRAW action information (contract custody)
+function showDepositDetails(data){  showCustodyDetails('deposit', data);  }
+function showWithdrawDetails(data){ showCustodyDetails('withdraw', data); }
+function showCustodyDetails(kind, data){
+    $('#info-' + kind + ' .' + kind + '-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    $('#info-' + kind + ' .' + kind + '-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-' + kind + ' .' + kind + '-amount').html(formatAmount(data.amount));
 }
 
 // Display ISSUE action information

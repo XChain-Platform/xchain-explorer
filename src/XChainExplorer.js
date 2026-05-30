@@ -133,6 +133,10 @@ class XChainExplorer {
                 '/{COIN}/deposits'            : 'deposits.html',
                 '/{COIN}/withdrawals'         : 'withdrawals.html',
                 '/{COIN}/validators'          : 'validators.html',
+                '/{COIN}/contract_stakes'     : 'contract_stakes.html',
+                '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
+                '/{COIN}/slash_events'        : 'slash_events.html',
+                '/{COIN}/attestations'        : 'attestations.html',
                 '/{COIN}/sends'               : 'sends.html',
                 '/{COIN}/sleeps'              : 'sleeps.html',
                 '/{COIN}/swaps'               : 'swaps.html',
@@ -215,6 +219,9 @@ class XChainExplorer {
                 '/{COIN}/api/contract_unstakes'                : ['getContractUnstakes'],
                 '/{COIN}/api/slash_events/{QUERY}/{TYPE}'      : ['getSlashEvents',       ['block', 'address', 'contract']],
                 '/{COIN}/api/slash_events'                     : ['getSlashEvents'],
+                // Attestation Endpoints (ATTEST v0 requests + v1 responses from the `attests` table)
+                '/{COIN}/api/attestations/{QUERY}/{TYPE}'      : ['getAttestations',      ['block', 'address', 'contract']],
+                '/{COIN}/api/attestations'                     : ['getAttestations'],
                 // Core Action Endpoints (continued)
                 '/{COIN}/api/sends/{QUERY}/{TYPE}'             : ['getSends',            ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/sleeps/{QUERY}/{TYPE}'            : ['getSleeps',           ['block', 'address', 'token']],
@@ -291,6 +298,11 @@ class XChainExplorer {
                 '/{COIN}/explorer/stakes/{QUERY}/{TYPE}'                     : ['getStakes',       ['block', 'address']],
                 '/{COIN}/explorer/delegations/{QUERY}/{TYPE}'                : ['getDelegations',  ['block', 'address']],
                 '/{COIN}/explorer/rewards/{QUERY}/{TYPE}'                    : ['getValidatorRewards', ['address']],
+                '/{COIN}/explorer/validators/{QUERY}/{TYPE}'                 : ['getValidators',   ['block', 'address']],
+                '/{COIN}/explorer/contract_stakes/{QUERY}/{TYPE}'           : ['getContractStakes',   ['block', 'address', 'contract']],
+                '/{COIN}/explorer/contract_unstakes/{QUERY}/{TYPE}'         : ['getContractUnstakes', ['block', 'address', 'contract']],
+                '/{COIN}/explorer/slash_events/{QUERY}/{TYPE}'              : ['getSlashEvents',  ['block', 'address', 'contract']],
+                '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'token', 'transaction']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
@@ -792,7 +804,7 @@ class XChainExplorer {
                     if(method=='getFees')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.method, info.action, info.action_index];
                     if(method=='getFiles')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, info.gate_ticker, status, info.action_index];
                     if(method=='getHistory')
                         info = [count_reverse, info.block_index, info.timestamp, info.action, info.details, status, info.action_index];
                     if(method=='getHolders')
@@ -823,6 +835,30 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.orders, info.swaps, info.dispensers, status, info.action_index];
                     if(method=='getTokens')
                         info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.id];
+                    // VM / Contract list pages
+                    if(method=='getContracts')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.code_hash, info.api_version, info.cooldown_blocks, info.slash_destination, status, info.action_index];
+                    if(method=='getExecutions')
+                        info = [count_reverse, info.block_index, info.timestamp, info.contract_index, info.caller, info.method_name, info.gas_used, status, info.action_index];
+                    if(['getDeposits','getWithdrawals'].includes(method))
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.contract_index, info.tick, info.amount, status, info.action_index];
+                    // Capability staking list pages
+                    if(['getStakes','getValidators'].includes(method))
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index];
+                    if(method=='getDelegations')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, status, info.action_index];
+                    if(method=='getValidatorRewards')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.reward_type, info.amount, info.id];
+                    // Contract-targeted staking list pages
+                    if(method=='getContractStakes')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.target_contract_index, info.tick, info.amount, info.version, status, info.action_index];
+                    if(method=='getContractUnstakes')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.target_contract_index, info.tick, info.amount, info.cooldown_end_block, status, info.action_index];
+                    if(method=='getSlashEvents')
+                        info = [count_reverse, info.block_index, info.timestamp, info.slashed_pubkey, info.target_contract_index, info.tick, info.amount, info.destination, info.execution_index];
+                    // Attestation list page
+                    if(method=='getAttestations')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index];
                     if(method=='getSearch'){
                         if(cfg.data.type=='address')
                             info = [count, info.address, null];

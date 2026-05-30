@@ -496,12 +496,28 @@
                                 <th>Memo</th>
                                 <td class="file-memo"></td>
                             </tr>
+                            <tr class="file-gated-row d-none">
+                                <th>Gate Token</th>
+                                <td class="file-gate-ticker"></td>
+                            </tr>
+                            <tr class="file-gated-row d-none">
+                                <th>Encryption</th>
+                                <td class="file-encryption"></td>
+                            </tr>
+                            <tr class="file-gated-row d-none">
+                                <th>Key Hash</th>
+                                <td class="file-key-hash"></td>
+                            </tr>
+                            <tr class="file-gated-row d-none">
+                                <th>Ciphertext</th>
+                                <td class="file-raw"></td>
+                            </tr>
                             </tbody>
                             </table>
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-file"></i> File Viewer</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-file"></i> File Viewer</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -510,6 +526,133 @@
                             <div class="panel-body p-5">
                                 <center>File Viewer Coming Soon</center>
                             </div>
+                        </div>
+
+                        <!-- ATTEST action -->
+                        <div class="d-none" id="info-attest">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Type</th><td class="attest-type"></td></tr>
+                            <tr><th>Request ID</th><td class="attest-request-id"></td></tr>
+                            <tr><th>Provider</th><td class="attest-provider"></td></tr>
+                            <tr><th>Contract</th><td class="attest-contract"></td></tr>
+                            </tbody>
+                            <tbody class="attest-request-fields">
+                            <tr><th>Fee Payer</th><td class="attest-fee-payer"></td></tr>
+                            <tr><th>Callback Method</th><td class="attest-callback"></td></tr>
+                            <tr><th>Redundancy</th><td class="attest-redundancy"></td></tr>
+                            <tr><th>Deadline Block</th><td class="attest-deadline"></td></tr>
+                            <tr><th>Request Status</th><td class="attest-request-status"></td></tr>
+                            </tbody>
+                            <tbody class="attest-response-fields">
+                            <tr><th>Response Status</th><td class="attest-response-status"></td></tr>
+                            <tr><th>Response Hash</th><td class="attest-response-hash"></td></tr>
+                            <tr><th>Meta</th><td class="attest-meta"></td></tr>
+                            <tr><th>Validator Sigs</th><td class="attest-sig-count"></td></tr>
+                            <tr><th>Signing Pubkeys</th><td class="attest-signatures"></td></tr>
+                            <tr><th>Callback Execute</th><td class="attest-callback-execute"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- STAKE action -->
+                        <div class="d-none" id="info-stake">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Version</th><td class="stake-version"></td></tr>
+                            <tr><th>Signing Pubkey</th><td class="stake-pubkey"></td></tr>
+                            <tr><th>Amount</th><td class="stake-amount"></td></tr>
+                            <tr class="stake-contract-row"><th>Contract</th><td class="stake-contract"></td></tr>
+                            <tr class="stake-contract-row"><th>Token</th><td class="stake-tick"></td></tr>
+                            <tr><th>Activation Block</th><td class="stake-activation"></td></tr>
+                            <tr><th>Deactivation Block</th><td class="stake-deactivation"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- UNSTAKE action -->
+                        <div class="d-none" id="info-unstake">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Signing Pubkey</th><td class="unstake-pubkey"></td></tr>
+                            <tr><th>Amount</th><td class="unstake-amount"></td></tr>
+                            <tr><th>Cooldown End Block</th><td class="unstake-cooldown"></td></tr>
+                            <tr class="unstake-contract-row"><th>Contract</th><td class="unstake-contract"></td></tr>
+                            <tr class="unstake-contract-row"><th>Token</th><td class="unstake-tick"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- DELEGATE action -->
+                        <div class="d-none" id="info-delegate">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Signing Pubkey</th><td class="delegate-pubkey"></td></tr>
+                            <tr class="delegate-contract-row"><th>Contract</th><td class="delegate-contract"></td></tr>
+                            <tr class="delegate-contract-row"><th>Token</th><td class="delegate-tick"></td></tr>
+                            <tr><th>Activation Block</th><td class="delegate-activation"></td></tr>
+                            <tr><th>Deactivation Block</th><td class="delegate-deactivation"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- COLLECT action -->
+                        <div class="d-none" id="info-collect">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Reward Amount</th><td class="collect-amount"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- DEPLOY action -->
+                        <div class="d-none" id="info-deploy">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Contract</th><td class="deploy-contract"></td></tr>
+                            <tr><th>Code Hash</th><td class="deploy-code-hash"></td></tr>
+                            <tr><th>API Version</th><td class="deploy-api-version"></td></tr>
+                            <tr><th>Staking</th><td class="deploy-stakeable"></td></tr>
+                            <tr class="deploy-staking-row"><th>Cooldown</th><td class="deploy-cooldown"></td></tr>
+                            <tr class="deploy-staking-row"><th>Slash Destination</th><td class="deploy-slash"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- EXECUTE action -->
+                        <div class="d-none" id="info-execute">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Contract</th><td class="execute-contract"></td></tr>
+                            <tr><th>Caller</th><td class="execute-caller"></td></tr>
+                            <tr><th>Method</th><td class="execute-method"></td></tr>
+                            <tr><th>Gas</th><td class="execute-gas"></td></tr>
+                            <tr><th>Emissions</th><td class="execute-emitted"></td></tr>
+                            <tr><th>Error</th><td class="execute-error"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- DEPOSIT action -->
+                        <div class="d-none" id="info-deposit">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Contract</th><td class="deposit-contract"></td></tr>
+                            <tr><th>Token</th><td class="deposit-tick"></td></tr>
+                            <tr><th>Amount</th><td class="deposit-amount"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- WITHDRAW action -->
+                        <div class="d-none" id="info-withdraw">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Contract</th><td class="withdraw-contract"></td></tr>
+                            <tr><th>Token</th><td class="withdraw-tick"></td></tr>
+                            <tr><th>Amount</th><td class="withdraw-amount"></td></tr>
+                            </tbody>
+                            </table>
                         </div>
 
 

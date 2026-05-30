@@ -425,6 +425,7 @@ function formatTransactionLink(tx){
         // html += '<a href="https://live.blockcypher.com/btc-testnet/tx/' + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
         // Testnet 4
         html += '<a href="https://mempool.space/testnet4/tx/'           + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
+        html += '<a href="https://blockstream.info/testnet/tx/'         + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
         html += '<a href="https://chain.so/tx/BTCTEST/'                 + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     } else if(coin=='LTC'){
         html += '<a href="https://live.blockcypher.com/ltc/tx/'         + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
@@ -439,7 +440,6 @@ function formatTransactionLink(tx){
         html += '<a href="https://blockchair.com/dogecoin/transaction/' + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
         html += '<a href="https://chain.so/tx/DOGE/'                    + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     } else if(coin=='TDOGE'){
-        html += '<a href="https://litecoinspace.org/testnet/tx/'        + tx + '" target="_blank" title="LitecoinSpace"><i class="ms-1 fa fa-lg fa-litecoinspace"></i></a>';
         html += '<a href="https://chain.so/tx/DOGETEST/'                + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     }
     $('#tx-hash').html(html);

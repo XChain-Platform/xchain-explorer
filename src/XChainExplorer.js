@@ -235,6 +235,7 @@ class XChainExplorer {
                 '/{COIN}/api/sweeps/{QUERY}/{TYPE}'            : ['getSweeps',           ['block', 'address', 'source', 'destination']],
                 // Misc API Endpoints                          Method                    Types
                 '/{COIN}/api/status'                           : ['getStatus'],
+                '/{COIN}/api/actions'                          : ['getActions'],
                 '/{COIN}/api/action/{QUERY}'                   : ['getAction',           'action_index'],
                 '/{COIN}/api/address/{QUERY}'                  : ['getAddress',          'address'],
                 '/{COIN}/api/balances/{QUERY}'                 : ['getBalances',         'address'],

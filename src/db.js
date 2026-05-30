@@ -207,7 +207,7 @@ class Database {
                     connection = await pool.getConnection();
                     // console.log("Connected to database!");
                 } catch (e){
-                    if(process.env.DEBUG) console.log('Database connection error:', e.message);
+                    if(process.env.DEBUG) console.log('Database connection error:', e);
                     connection = null;
                     // Retry getting a connection again after a brief delay
                     if(retryCount <= maxRetrys){
@@ -357,7 +357,7 @@ class Database {
             try {
                 db = await pool.getConnection();
             } catch (e){
-                if(process.env.DEBUG) console.log('Database connection error:', e.message);
+                if(process.env.DEBUG) console.log('Database connection error:', e);
                 db = null;
                 if(retryCount <= maxRetrys){
                     retryCount++;
@@ -372,7 +372,7 @@ class Database {
         try {
             result = await db.query(query, args);
         } catch (error){
-            if(process.env.DEBUG) console.log('SQL Query Error:', error.message);
+            if(process.env.DEBUG) console.log('SQL Query Error:', error);
             else console.log('SQL query failed');
         } finally {
             db.release();
@@ -3161,6 +3161,57 @@ class Database {
         return [data];
     }
 
+    // Get list of actions with optional query-param filters: tick, txid, blockIndex
+    async getActions(config){
+        let sql   = config.data.sql;
+        let q     = (config.data.query) ? config.data.query : {};
+        let args  = [];
+        let extra = '';
+        if (!this.util.isNull(q.blockIndex)) {
+            extra += ' AND b1.block_index=?';
+            args.push(this.util.sanitizeInt(q.blockIndex));
+        }
+        if (!this.util.isNull(q.txid)) {
+            extra += ' AND t2.hash=?';
+            args.push(q.txid);
+        }
+        if (!this.util.isNull(q.tick)) {
+            extra += ` AND m.action_index IN (
+                            SELECT ma.action_index FROM mappings_actions ma
+                            INNER JOIN index_tickers it ON it.id=ma.id
+                            WHERE ma.type_id=1 AND it.tick=?)`;
+            args.push(q.tick);
+        }
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        actions m
+                        INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE ` + sql.where.data + extra;
+        let query = `SELECT
+                        m.action_index,
+                        a1.action,
+                        m.action_format,
+                        a2.address as source,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index
+                    FROM
+                        actions m
+                        INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_actions      a1 ON (a1.id=m.action_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE ` + sql.where.data + extra + sql.where.offset + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    }
+
     // Get address information for a given address (tokens held/owned, estimated value, XCHAIN balance, etc)
     // TODO: Update this API call to pull data from the utxo-tracker API
     async getAddress(config){
@@ -3448,11 +3499,17 @@ class Database {
 
     // Get explorer status
     async getStatus(config){
-        let coinConfigs = await this.configInfo.getConfig()
-        let data  = {
-            supported: coinConfigs['COIN_SUPPORTED'],
-            available: coinConfigs['COIN_AVAILABLE']
+        let coinConfigs = await this.configInfo.getConfig();
+        let data = {
+            supported:  coinConfigs['COIN_SUPPORTED'],
+            available:  coinConfigs['COIN_AVAILABLE'],
+            last_block: {}
         };
+        let available = coinConfigs['COIN_AVAILABLE'] || {};
+        for (let coin of Object.keys(available)) {
+            if (this.pools && this.pools[coin] && this.pools[coin].pool)
+                data.last_block[coin] = await this.getMaxBlockIndex({ coin, data: {} });
+        }
         return [data];
     }
 

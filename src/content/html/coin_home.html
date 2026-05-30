@@ -820,7 +820,7 @@ $(document).ready(function(){
             $('#network-fee-low').html(fee_low);
             $('#network-fee-high').html(fee_high);
             // Update XCHain price
-            var xchain_price = numeral(o.xchain.price.btc).format('0,0.00000000') + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral(o.xchain.price.usd).format('0,0.00') + '</span>';
+            var xchain_price = numeral(o.xchain.price.btc).format('0,0.00000000') + ' BTC' + '<span class="fw-bold text-success float-end"><i class="fa fa-usd"></i>' + numeral(o.xchain.price.usd).format('0,0.00') + '</span>';
             $('#xchain-price').html(xchain_price);
         }
     });

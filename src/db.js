@@ -5110,15 +5110,21 @@ class Database {
                     if(type=='SEND')
                         data.sends = results;
                     if(['ORDER','SWAP','DISPENSER'].includes(type)){
-                        let now = this.util.getCurrentTime();
+                        // Mirror consensus when deriving DISPENSER list-edit activation: the indexer
+                        // gates activation on the deterministic block timestamp (block_time), never on
+                        // wall-clock. Comparing against the latest indexed block_time keeps activation
+                        // status identical across explorer hosts regardless of each host's local clock.
+                        let now = await this.getMaxBlockTime(config);
                         for(let row of results){
                             let active = true;
                             if(type=='DISPENSER'){
                                 // Update state with any additional tokens escrowed in dispenser edits
                                 if(!this.util.isNull(row.give_escrow))
                                     data.state.give_remaining = this.util.bcadd(data.state.give_remaining, row.give_escrow);    
-                                // Determine of the allow/block list edits are active using DISPENSER_LIST_DELAY
-                                active = (now > this.util.bcadd(row.block_time, coinConfigs['DISPENSER_LIST_DELAY'])) ? true : false;
+                                // Determine if the allow/block list edits are active using DISPENSER_LIST_DELAY.
+                                // Use a bignumber comparison (matching the indexer's bcgt-based consensus check)
+                                // rather than a JS '>' on mixed Number/bignumber operands.
+                                active = this.util.bcgt(now, this.util.bcadd(row.block_time, coinConfigs['DISPENSER_LIST_DELAY']));
                             } 
                             // Handle setting the current expiration and allow/block list based on any edits
                             if(!this.util.isNull(row.expiration))  data.state.expiration  = row.expiration;
@@ -6027,6 +6033,18 @@ class Database {
         let results = await this.doQuery(config, query, []);
         if (results && results.length && results[0].max_index !== null)
             return Number(results[0].max_index);
+        return 0;
+    }
+
+    // Get the block_time of the highest (tip) block in the blocks table.
+    // Used as the deterministic "now" for display-side activation checks so the
+    // result matches the indexer's consensus logic (which uses block_time) and is
+    // identical across explorer hosts irrespective of local wall-clock.
+    async getMaxBlockTime(config) {
+        let query   = `SELECT block_time FROM blocks ORDER BY block_index DESC LIMIT 1`;
+        let results = await this.doQuery(config, query, []);
+        if (results && results.length && results[0].block_time !== null)
+            return Number(results[0].block_time);
         return 0;
     }
 

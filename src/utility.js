@@ -105,8 +105,12 @@ class Utility {
         return str;
     }
 
-    // Handle getting the current time in seconds
-    getCurrentTime(){
+    // Handle getting the local wall-clock time in seconds.
+    // NOTE: this is non-deterministic across hosts. It is for display-only use
+    // (e.g. relative "x ago" timers) and must NEVER be used to derive any value
+    // that should match consensus state — block processing and any activation /
+    // expiration check that mirrors the indexer must use a block timestamp.
+    getWallClockTime(){
         return this.bcdiv(Date.now(), 1000, 0);
     }
 

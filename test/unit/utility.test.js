@@ -685,24 +685,24 @@ describe('Utility', function () {
     });
 
     // -----------------------------------------------------------------------
-    // getCurrentTime
+    // getWallClockTime
     // -----------------------------------------------------------------------
 
-    describe('getCurrentTime()', function () {
+    describe('getWallClockTime()', function () {
 
         let u;
         before(function () { u = makeUtil(); });
 
         it('returns a value close to Math.floor(Date.now()/1000)', function () {
             const expected = Math.floor(Date.now() / 1000);
-            const result   = parseInt(u.getCurrentTime().toString());
+            const result   = parseInt(u.getWallClockTime().toString());
             // Allow a 2-second window for slow test environments
             expect(result).to.be.within(expected - 2, expected + 2);
         });
 
         it('returns a mathjs BigNumber', function () {
             const mathjs = require('mathjs');
-            const result = u.getCurrentTime();
+            const result = u.getWallClockTime();
             expect(mathjs.isBigNumber(result)).to.be.true;
         });
 

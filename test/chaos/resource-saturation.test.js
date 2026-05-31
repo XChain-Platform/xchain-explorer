@@ -78,7 +78,7 @@ describe('CE-RES-01: Memory Pressure Under Sustained Load', function () {
         const heapAfter = process.memoryUsage().heapUsed;
         const growthMB  = (heapAfter - heapBefore) / (1024 * 1024);
 
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-01: heap before=${(heapBefore / 1024 / 1024).toFixed(1)}MB, after=${(heapAfter / 1024 / 1024).toFixed(1)}MB, growth=${growthMB.toFixed(1)}MB`);
 
         expect(growthMB, 'heap growth should be less than 50MB (no unbounded memory leak)')
@@ -120,7 +120,7 @@ describe('CE-RES-02: Cache Behavior Under Load', function () {
             + sendsResult.errors.length
             + balancesResult.errors.length;
 
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-02: completed=${totalCompleted}/200, errors=${totalErrors}`);
 
         // All 200 requests must complete (fulfilled or rejected — no process crash)
@@ -158,7 +158,7 @@ describe('CE-RES-03: Event Loop Saturation', function () {
     it('event loop should recover to near-baseline latency after a 10-second burst', async function () {
         // Baseline: measure event loop lag before any load
         const baselineLag = await measureEventLoopLag();
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-03: baseline event loop lag=${baselineLag}ms`);
 
         // Run the autocannon burst and sample lag mid-flight
@@ -174,7 +174,7 @@ describe('CE-RES-03: Event Loop Saturation', function () {
         // Sample event loop lag roughly mid-burst (5 s into a 10 s burst)
         await new Promise(resolve => setTimeout(resolve, 5000));
         duringLag = await measureEventLoopLag();
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-03: event loop lag during burst=${duringLag}ms`);
 
         // Wait for autocannon to finish
@@ -183,7 +183,7 @@ describe('CE-RES-03: Event Loop Saturation', function () {
         // Post-burst: allow a short settle period then measure again
         await new Promise(resolve => setTimeout(resolve, 500));
         const afterLag = await measureEventLoopLag();
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-03: event loop lag after burst=${afterLag}ms`);
 
         // Event loop lag is expected to be elevated during the burst — this is

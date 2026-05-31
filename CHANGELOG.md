@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `src/XChainHubConnector.js` — the hub JSON-RPC client now remembers the last endpoint that answered and starts each endpoint pass there (wrapping through the remaining endpoints), instead of always trying the configured endpoints in fixed order. Previously, when the first endpoint was degraded enough to hit the request timeout, every call paid the full timeout penalty before falling back — and then retried that same endpoint first on the next call. The sticky-last-good index composes with the existing retry/backoff loop: each retry pass now also begins at the last responder rather than restarting from the first endpoint.
+
 ### Security
 - Pinned `qs` to `^6.15.2` in the `package.json` `overrides` block to exclude versions affected by the qs denial-of-service advisories covering `6.11.1`–`6.15.1` (GHSA-q8mj-m7cp-5q26 — `qs.stringify` crash on null/undefined entries in comma-format arrays; GHSA-6rw7-vpxm-498p — `arrayLimit` bypass via bracket notation causing memory exhaustion). The runtime `qs` (via `express`/`body-parser`) already resolved to the patched `6.15.2`; the only vulnerable copy was `6.15.1` nested under the dev-only `typed-rest-client` (pulled in by `@stryker-mutator/core` for mutation testing). The override forces every `qs` in the tree to the patched release. No source changes; `npm audit` now reports 0 vulnerabilities.
 - Pinned `ip-address` to `>=10.1.1` in the `package.json` `overrides` block to permanently exclude versions affected by GHSA-v2v4-37r5-5v8g (XSS in `Address6` HTML-emitting methods such as `group()`/`link()`, affecting `<= 10.1.0`). The dependency currently resolves to a patched version transitively via `express-rate-limit`; the override guards against any future resolution regressing to a vulnerable release. No source changes; `npm audit` reports no `ip-address` advisory.

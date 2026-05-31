@@ -41,18 +41,28 @@ class XChainHubConnector {
         this.maxAttempts  = Number(process.env.HUB_RETRY_ATTEMPTS) || 4;
         this.retryDelayMs = process.env.HUB_RETRY_DELAY_MS !== undefined
             ? Number(process.env.HUB_RETRY_DELAY_MS) : 2000;
+        // Sticky-last-good endpoint: start each endpoint pass at the last
+        // endpoint that answered, so a degraded first endpoint isn't retried
+        // first every call (which would cost the full timeout per call before
+        // falling back).
+        this._lastGoodIdx = 0;
     }
 
-    // Internal: call a JSON-RPC method, trying each endpoint in order. Repeats
-    // the full endpoint pass up to `attempts` times with exponential backoff
-    // before giving up and returning null.
+    // Internal: call a JSON-RPC method, trying each endpoint starting from the
+    // last one that succeeded and wrapping around through the rest. Repeats the
+    // full endpoint pass up to `attempts` times with exponential backoff before
+    // giving up and returning null.
     async _call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs } = {}){
         for(let attempt = 1; attempt <= attempts; attempt++){
-            for(let url of this.urls){
+            for(let i = 0; i < this.urls.length; i++){
+                let idx = (this._lastGoodIdx + i) % this.urls.length;
+                let url = this.urls[idx];
                 try {
                     let response = await axios.post(url, data, { timeout });
-                    if(response.data && response.data.result !== undefined)
+                    if(response.data && response.data.result !== undefined){
+                        this._lastGoodIdx = idx;
                         return response.data.result;
+                    }
                 } catch(err){
                     console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
                 }
@@ -75,7 +85,23 @@ class XChainHubConnector {
     }
 
     async getAllConfig(){
-        return await this._call({ jsonrpc: '2.0', method: 'getallconfigs', params: [], id: 1 });
+        let result = await this._call({ jsonrpc: '2.0', method: 'getallconfigs', params: [], id: 1 });
+        return this._unwrapConfig(result);
+    }
+
+    // Normalize the getallconfigs response across hub versions. Newer hubs wrap
+    // the config map as { configs, seq } so consumers can detect a config change
+    // committed between polls; older hubs return the bare nested map. We record
+    // the committed sequence on `this.lastSeq` and always return the bare map, so
+    // callers (config.js) see the same shape regardless of hub version. seq is 0
+    // against an old hub, which the caller treats as "no committed change seen".
+    _unwrapConfig(result){
+        if(result && typeof result === 'object' && result.configs && typeof result.configs === 'object' && ('seq' in result)){
+            this.lastSeq = Number(result.seq) || 0;
+            return result.configs;
+        }
+        this.lastSeq = 0;
+        return result;
     }
 }
 

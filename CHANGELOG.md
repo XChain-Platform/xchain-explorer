@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+- Pinned `ip-address` to `>=10.1.1` in the `package.json` `overrides` block to permanently exclude versions affected by GHSA-v2v4-37r5-5v8g (XSS in `Address6` HTML-emitting methods such as `group()`/`link()`, affecting `<= 10.1.0`). The dependency currently resolves to a patched version transitively via `express-rate-limit`; the override guards against any future resolution regressing to a vulnerable release. No source changes; `npm audit` reports no `ip-address` advisory.
+
 ### Added
 - `.env.example` — added a configuration template enumerating every environment variable the explorer reads (HTTP/HTTPS ports, bind host, TLS directory, hub connection, WebSocket tuning), with safe defaults and inline comments. Notes that per-coin database credentials come from the fetched node config rather than the environment.
 - `src/db.js` — each per-coin MariaDB connection pool now sets `queryTimeout: parseInt(process.env.DB_QUERY_TIMEOUT) || 30000`. Without a query timeout a slow or lock-blocked statement had no upper bound and could hang a pooled connection indefinitely, leaving an API request stuck with no timeout-based recovery. A query now aborts after the configured timeout (30s default, overridable via `DB_QUERY_TIMEOUT`) instead of hanging. Matches the pattern already used by `xchain-hub`.

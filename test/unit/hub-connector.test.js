@@ -177,6 +177,29 @@ describe('XChainHubConnector', function () {
             expect(result).to.be.null;
         });
 
+        it('unwraps a { configs, seq } response to the bare map and records lastSeq', async function () {
+            const configs   = { bitcoin: { mainnet: { indexer: {} } } };
+            const axiosStub  = makeAxiosStub();
+            axiosStub.post.resolves({ data: { result: { configs, seq: 7 } } });
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            const result = await connector.getAllConfig();
+            // Caller still sees the bare nested map, not the wrapper.
+            expect(result).to.deep.equal(configs);
+            expect(connector.lastSeq).to.equal(7);
+        });
+
+        it('treats a bare-map response (older hub) as seq 0', async function () {
+            const configs   = { bitcoin: { mainnet: { indexer: {} } } };
+            const axiosStub  = makeAxiosStub();
+            axiosStub.post.resolves({ data: { result: configs } });
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            const result = await connector.getAllConfig();
+            expect(result).to.deep.equal(configs);
+            expect(connector.lastSeq).to.equal(0);
+        });
+
     });
 
     // -----------------------------------------------------------------------

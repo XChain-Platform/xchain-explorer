@@ -134,7 +134,7 @@ describe('CE-RES-02: Cache Behavior Under Load', function () {
 
     it('heap should remain below 200MB after concurrent cache load', function () {
         const heapMB = process.memoryUsage().heapUsed / (1024 * 1024);
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- chaos test reports the measured heap figure to stdout
         console.log(`CE-RES-02: heap after cache load=${heapMB.toFixed(1)}MB`);
         expect(heapMB, 'server heap should stay below 200MB').to.be.below(200);
     });

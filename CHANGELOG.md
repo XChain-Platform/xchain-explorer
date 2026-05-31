@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `.env.example` — added a configuration template enumerating every environment variable the explorer reads (HTTP/HTTPS ports, bind host, TLS directory, hub connection, WebSocket tuning), with safe defaults and inline comments. Notes that per-coin database credentials come from the fetched node config rather than the environment.
 - `src/db.js` — each per-coin MariaDB connection pool now sets `queryTimeout: parseInt(process.env.DB_QUERY_TIMEOUT) || 30000`. Without a query timeout a slow or lock-blocked statement had no upper bound and could hang a pooled connection indefinitely, leaving an API request stuck with no timeout-based recovery. A query now aborts after the configured timeout (30s default, overridable via `DB_QUERY_TIMEOUT`) instead of hanging. Matches the pattern already used by `xchain-hub`.
 
 ### Changed

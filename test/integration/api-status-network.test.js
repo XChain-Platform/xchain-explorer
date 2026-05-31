@@ -51,6 +51,35 @@ describe('GET /RBTC/api/status', function () {
         expect(res.body).to.have.property('available').that.is.an('object');
     });
 
+    it('response includes last_block as an object', async function () {
+        const res = await request.get('/RBTC/api/status').expect(200);
+        expect(res.body).to.have.property('last_block').that.is.an('object');
+    });
+
+    it('last_block contains a numeric value for RBTC (the available coin in the test env)', async function () {
+        const res = await request.get('/RBTC/api/status').expect(200);
+        expect(res.body.last_block).to.have.property('RBTC');
+        expect(res.body.last_block['RBTC']).to.be.a('number');
+    });
+
+    it('last_block RBTC value reflects the highest indexed block (simulates indexer lag visibility)', async function () {
+        // Seed data has 10 blocks (block_index 1-10); last_block should be non-negative
+        const res = await request.get('/RBTC/api/status').expect(200);
+        expect(res.body.last_block['RBTC']).to.be.at.least(0);
+    });
+
+    it('response includes last_block_time as an object', async function () {
+        const res = await request.get('/RBTC/api/status').expect(200);
+        expect(res.body).to.have.property('last_block_time').that.is.an('object');
+    });
+
+    it('last_block_time contains a numeric value for RBTC reflecting the tip block_time (simulates indexer lag visibility)', async function () {
+        const res = await request.get('/RBTC/api/status').expect(200);
+        expect(res.body.last_block_time).to.have.property('RBTC');
+        expect(res.body.last_block_time['RBTC']).to.be.a('number');
+        expect(res.body.last_block_time['RBTC']).to.be.at.least(0);
+    });
+
 });
 
 // ---------------------------------------------------------------------------

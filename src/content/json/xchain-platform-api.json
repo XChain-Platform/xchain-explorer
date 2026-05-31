@@ -2949,12 +2949,26 @@
                         "type": "object",
                         "description": "List of coin networks which are supported in this xchain-explorer instance"
                     },
+                    "last_block": {
+                        "type": "object",
+                        "description": "Most recent block index processed by the indexer, keyed by coin ticker (e.g. RBTC: 850)",
+                        "additionalProperties": {
+                            "type": "integer"
+                        }
+                    },
+                    "last_block_time": {
+                        "type": "object",
+                        "description": "Unix block_time of the most recent block processed by the indexer, keyed by coin ticker. Compare against the chain tip to detect indexer lag.",
+                        "additionalProperties": {
+                            "type": "integer"
+                        }
+                    },
                     "supported": {
                         "type": "object",
                         "description": "List of coin networks which are supported on the XChain platform"
                     }
                 }
-            },    
+            },
             "Fee": {
                 "type": "object",
                 "description": "Action fee data",

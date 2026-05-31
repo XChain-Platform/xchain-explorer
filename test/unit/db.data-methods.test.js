@@ -285,12 +285,13 @@ describe('Database#getBlock', () => {
 
 describe('Database#getStatus', () => {
     let db;
-    before(() => { db = makeDb(); });
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
 
-    it('returns an object with supported and available keys', async () => {
+    it('returns an object that includes supported and available keys', async () => {
         const config = cfg();
         const [data] = await db.getStatus(config);
-        expect(data).to.have.keys(['supported', 'available']);
+        expect(data).to.include.keys(['supported', 'available']);
     });
 
     it('returns the COIN_SUPPORTED map from config', async () => {
@@ -305,6 +306,63 @@ describe('Database#getStatus', () => {
         const [data]  = await db.getStatus(config);
         const fullCfg = await configInfo.getConfig();
         expect(data.available).to.deep.equal(fullCfg['COIN_AVAILABLE']);
+    });
+
+    it('returns last_block as an object', async () => {
+        const config = cfg();
+        const [data] = await db.getStatus(config);
+        expect(data).to.have.property('last_block').that.is.an('object');
+    });
+
+    it('returns last_block_time as an object', async () => {
+        const config = cfg();
+        const [data] = await db.getStatus(config);
+        expect(data).to.have.property('last_block_time').that.is.an('object');
+    });
+
+    it('populates last_block and last_block_time with numeric values for each available coin that has an active pool', async () => {
+        db.pools = {};
+        db.pools['RBTC'] = {
+            pool: {
+                getConnection: sinon.stub().resolves({
+                    query:   sinon.stub().resolves([{ max_index: 850, block_time: 1700000000 }]),
+                    release: sinon.stub().resolves()
+                })
+            },
+            config: {}
+        };
+        const config = cfg({ coin: 'RBTC' });
+        const [data] = await db.getStatus(config);
+        expect(data.last_block).to.have.property('RBTC');
+        expect(data.last_block['RBTC']).to.be.a('number');
+        expect(data.last_block_time).to.have.property('RBTC');
+        expect(data.last_block_time['RBTC']).to.be.a('number');
+    });
+
+    it('sets last_block[coin]/last_block_time[coin] to 0 when the blocks table is empty (simulates indexer behind tip)', async () => {
+        db.pools = {};
+        db.pools['RBTC'] = {
+            pool: {
+                getConnection: sinon.stub().resolves({
+                    query:   sinon.stub().resolves([{ max_index: null, block_time: null }]),
+                    release: sinon.stub().resolves()
+                })
+            },
+            config: {}
+        };
+        const config = cfg({ coin: 'RBTC' });
+        const [data] = await db.getStatus(config);
+        expect(data.last_block).to.have.property('RBTC', 0);
+        expect(data.last_block_time).to.have.property('RBTC', 0);
+    });
+
+    it('excludes coins from last_block/last_block_time when they have no active pool', async () => {
+        // No pools set up — even COIN_AVAILABLE coins are absent from both maps
+        db.pools = {};
+        const config = cfg();
+        const [data] = await db.getStatus(config);
+        expect(Object.keys(data.last_block)).to.have.lengthOf(0);
+        expect(Object.keys(data.last_block_time)).to.have.lengthOf(0);
     });
 });
 

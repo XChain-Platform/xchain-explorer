@@ -3502,14 +3502,21 @@ class Database {
     async getStatus(config){
         let coinConfigs = await this.configInfo.getConfig();
         let data = {
-            supported:  coinConfigs['COIN_SUPPORTED'],
-            available:  coinConfigs['COIN_AVAILABLE'],
-            last_block: {}
+            supported:       coinConfigs['COIN_SUPPORTED'],
+            available:       coinConfigs['COIN_AVAILABLE'],
+            last_block:      {},
+            last_block_time: {}
         };
         let available = coinConfigs['COIN_AVAILABLE'] || {};
         for (let coin of Object.keys(available)) {
-            if (this.pools && this.pools[coin] && this.pools[coin].pool)
-                data.last_block[coin] = await this.getMaxBlockIndex({ coin, data: {} });
+            if (this.pools && this.pools[coin] && this.pools[coin].pool) {
+                // Indexer position per coin: highest block index processed and its
+                // block_time. Operators/monitors compare these against the chain tip
+                // to detect indexer lag — without them /api/status reports a coin as
+                // "available" even while it is hundreds of blocks behind.
+                data.last_block[coin]      = await this.getMaxBlockIndex({ coin, data: {} });
+                data.last_block_time[coin] = await this.getMaxBlockTime({ coin, data: {} });
+            }
         }
         return [data];
     }

@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- `src/api.js`, `.env.example` — the API rate limit is now tunable via the `EXPLORER_RATE_LIMIT_RPM` environment variable (default `500` requests/minute per IP — unchanged from the previously hardcoded value). The explorer's rate limit previously could only be changed by editing the source; it now follows the platform-wide per-service `<SERVICE>_RATE_LIMIT_RPM` naming convention.
 - `package.json` — aligned the `mariadb` driver to the `^3.5.2` range used across the platform. The driver was previously pinned to `~3.4.5` (a patch-only range, one minor line behind the `xchain-dashboard` host); the caret range now tracks 3.x minor releases consistently with every other service, removing the version drift and the mix of `~`/`^` range operators across the platform. No source changes.
 
 ### Fixed

@@ -162,7 +162,8 @@ class Database {
                                     // max_connections=151 once 3+ coins were active.
                                     connectionLimit:  10,
                                     //connectTimeout: 0,
-                                    insertIdAsNumber: true
+                                    insertIdAsNumber: true,
+                                    queryTimeout:     parseInt(process.env.DB_QUERY_TIMEOUT) || 30000
                                 }
                             };
                             // Loop through all existing pools and if all connection details match except for the database name, share the pool

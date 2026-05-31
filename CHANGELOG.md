@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `src/db.js` — each per-coin MariaDB connection pool now sets `queryTimeout: parseInt(process.env.DB_QUERY_TIMEOUT) || 30000`. Without a query timeout a slow or lock-blocked statement had no upper bound and could hang a pooled connection indefinitely, leaving an API request stuck with no timeout-based recovery. A query now aborts after the configured timeout (30s default, overridable via `DB_QUERY_TIMEOUT`) instead of hanging. Matches the pattern already used by `xchain-hub`.
+
 ### Changed
 - When every configured hub endpoint is unreachable on a periodic config-refresh tick, `src/config.js` now logs a single `console.error` before continuing to serve the last-known-good cached config. Previously this path returned the cached config silently (only the per-endpoint connector warnings appeared), so operators had no clear signal that the served config had gone stale until downstream database queries began failing. The cache-preservation behavior is unchanged — a hub outage still never tears down a working config.
 - Dependency installs are now reproducible: `package-lock.json` is committed to the repo (previously git-ignored) and the Docker image is built with `npm ci` instead of `npm install`. `npm ci` installs the exact dependency tree recorded in the lockfile and fails the build if the lockfile is missing or out of sync with `package.json`, so a container image can no longer silently pick up newer transitive dependency versions than were tested.

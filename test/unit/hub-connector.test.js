@@ -38,14 +38,16 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             const XChainHubConnector = loadConnector(axiosStub);
             const connector = new XChainHubConnector('localhost', 3000);
-            expect(connector.url).to.equal('http://localhost:3000');
+            // Source was refactored to multi-endpoint: single host+port is stored as urls[0]
+            expect(connector.urls[0]).to.equal('http://localhost:3000');
         });
 
         it('stores the port on the instance', function () {
             const axiosStub = makeAxiosStub();
             const XChainHubConnector = loadConnector(axiosStub);
             const connector = new XChainHubConnector('127.0.0.1', 8765);
-            expect(connector.port).to.equal(8765);
+            // Port is captured inside urls[0] after the multi-endpoint refactor
+            expect(connector.urls[0]).to.include('8765');
         });
 
     });
@@ -154,12 +156,14 @@ describe('XChainHubConnector', function () {
 
         it('logs the error message when the request fails', async function () {
             const axiosStub    = makeAxiosStub();
-            const consoleStub  = sinon.stub(console, 'error');
+            // Source uses console.warn (not console.error) for per-endpoint failures
+            const consoleStub  = sinon.stub(console, 'warn');
             axiosStub.post.rejects(new Error('network down'));
             const XChainHubConnector = loadConnector(axiosStub);
             const connector = new XChainHubConnector('localhost', 3000);
             await connector.getAllConfig();
-            expect(consoleStub.calledOnce).to.be.true;
+            // With multi-attempt retry, warn is called multiple times — just check it fired
+            expect(consoleStub.called).to.be.true;
             expect(consoleStub.firstCall.args.join(' ')).to.include('network down');
             consoleStub.restore();
         });

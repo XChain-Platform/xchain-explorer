@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Security
+- Pinned `qs` to `^6.15.2` in the `package.json` `overrides` block to exclude versions affected by the qs denial-of-service advisories covering `6.11.1`–`6.15.1` (GHSA-q8mj-m7cp-5q26 — `qs.stringify` crash on null/undefined entries in comma-format arrays; GHSA-6rw7-vpxm-498p — `arrayLimit` bypass via bracket notation causing memory exhaustion). The runtime `qs` (via `express`/`body-parser`) already resolved to the patched `6.15.2`; the only vulnerable copy was `6.15.1` nested under the dev-only `typed-rest-client` (pulled in by `@stryker-mutator/core` for mutation testing). The override forces every `qs` in the tree to the patched release. No source changes; `npm audit` now reports 0 vulnerabilities.
 - Pinned `ip-address` to `>=10.1.1` in the `package.json` `overrides` block to permanently exclude versions affected by GHSA-v2v4-37r5-5v8g (XSS in `Address6` HTML-emitting methods such as `group()`/`link()`, affecting `<= 10.1.0`). The dependency currently resolves to a patched version transitively via `express-rate-limit`; the override guards against any future resolution regressing to a vulnerable release. No source changes; `npm audit` reports no `ip-address` advisory.
 
 ### Added

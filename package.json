@@ -22,6 +22,7 @@
   "scripts": {
     "api": "node ./src/api.js",
     "test": "mocha test/unit/**/*.test.js --timeout 0 --exit --recursive",
+    "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit",
     "test:ws": "mocha test/unit/ws/*.test.js --timeout 0 --exit",
     "test:utility": "mocha test/unit/utility.test.js --timeout 0",
     "test:db": "mocha test/unit/db.*.test.js --timeout 0 --exit",

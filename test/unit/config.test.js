@@ -181,8 +181,8 @@ describe('config', function () {
 
         it('returns the cached value on a second call when cache=true', async function () {
             const config = loadConfig();
-            const first  = await config.getConfig(null, null, false); // populate cache
-            const second = await config.getConfig(null, null, true);  // should hit cache
+            const first  = await config.getConfig(null, false); // populate cache (signature: endpoints, cache)
+            const second = await config.getConfig(null, true);  // should hit cache
             expect(second).to.equal(first); // same object reference
         });
 
@@ -256,12 +256,14 @@ describe('config', function () {
             expect(fired).to.be.true;
         });
 
-        it('returns null when hub getAllConfig returns null (no cached value yet)', async function () {
+        it('degrades gracefully when hub getAllConfig returns null (no cached value yet)', async function () {
             class NullHubConnector {
                 async getAllConfig() { return null; }
             }
-            // On a fresh module, lastObtainedConfigValue is null.
-            // Hub returns null → null !== null is false → falls through to return configCache (null).
+            // On a fresh module with no in-memory cache and a disk-cache read that fails
+            // (fsStub.readFileSync returns a non-JSON string), the source degrades to an
+            // empty {configs:[]} payload and returns a valid config object with no
+            // COIN_AVAILABLE entries instead of returning null.
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
@@ -269,8 +271,9 @@ describe('config', function () {
                 './XChainHubConnector': NullHubConnector,
                 './config.json':        mockFileConfig
             });
-            const result = await config.getConfig('hub-host', 3000, false);
-            expect(result).to.be.null;
+            const result = await config.getConfig('hub-host', false);
+            expect(result).to.be.an('object');
+            expect(result.COIN_AVAILABLE).to.deep.equal({});
         });
 
     });

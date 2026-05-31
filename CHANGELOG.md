@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- `package.json` — aligned the `mariadb` driver to the `^3.5.2` range used across the platform. The driver was previously pinned to `~3.4.5` (a patch-only range, one minor line behind the `xchain-dashboard` host); the caret range now tracks 3.x minor releases consistently with every other service, removing the version drift and the mix of `~`/`^` range operators across the platform. No source changes.
+
 ### Fixed
 - `src/XChainHubConnector.js` — the hub JSON-RPC client now remembers the last endpoint that answered and starts each endpoint pass there (wrapping through the remaining endpoints), instead of always trying the configured endpoints in fixed order. Previously, when the first endpoint was degraded enough to hit the request timeout, every call paid the full timeout penalty before falling back — and then retried that same endpoint first on the next call. The sticky-last-good index composes with the existing retry/backoff loop: each retry pass now also begins at the last responder rather than restarting from the first endpoint.
 

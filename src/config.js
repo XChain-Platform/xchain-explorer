@@ -34,8 +34,17 @@ const API_PASS       = false;
 const API_PORT_HTTP  = 8080;
 const API_PORT_HTTPS = 8081;
 
-//interval to update the config
-const UPDATE_CONFIG_INTERVAL = 60000 //one minute seems ok because adding new coin/network nodes won't occur so often
+// Parse a non-negative integer from an env var, falling back to defaultVal when
+// the value is absent, empty, or non-numeric. Preserves 0 as a valid value.
+const parseIntMin0 = (val, defaultVal) => {
+    if(val === undefined || val === null || val === '') return defaultVal;
+    let parsed = parseInt(val, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : defaultVal;
+};
+
+//interval to update the config (default one minute; override via UPDATE_CONFIG_INTERVAL)
+//one minute seems ok because adding new coin/network nodes won't occur so often
+const UPDATE_CONFIG_INTERVAL = parseIntMin0(process.env.UPDATE_CONFIG_INTERVAL, 60000)
 
 // Define SSL Configuration (SSL_DIR env var overrides the default src/ssl/ path).
 // SSL files are untracked (see .gitignore *.pem); when absent we run HTTP-only

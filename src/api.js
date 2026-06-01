@@ -48,10 +48,6 @@ async function startApi(){
     // Parse in the explorer config information
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
 
-    // Schedule periodic refresh so new coin/network entries published by
-    // the hub after startup get picked up without a container restart.
-    configInfo.startSync(HUB_ENDPOINTS);
-
     // Create the app
     const app = express();
 
@@ -142,6 +138,14 @@ async function startApi(){
     // Start up the explorer instance
     const explorer = new XChainExplorer(app, configInfo);
     await explorer.init()
+
+    // Schedule periodic refresh so new coin/network entries published by
+    // the hub after startup get picked up without a container restart.
+    // Started only after the explorer instance exists so the database's
+    // config-changed listener is registered before the first sync tick can
+    // fire — otherwise an early tick could rebuild config with no subscriber
+    // listening and the connection pools would silently miss the update.
+    configInfo.startSync(HUB_ENDPOINTS);
 
     // Allow JSON-RPC requests (registered last so explorer routes take priority)
     app.use(jsonRouter({methods: jsonRpcController}))

@@ -38,7 +38,7 @@ async function bootRateLimitedServer() {
 
     app.use(rateLimit({
         windowMs:        60 * 1000,
-        max:             500,
+        limit:           500,
         standardHeaders: true,
         legacyHeaders:   false,
         skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path)

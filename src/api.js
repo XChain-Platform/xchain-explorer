@@ -90,7 +90,7 @@ async function startApi(){
     // override the default with EXPLORER_RATE_LIMIT_RPM)
     app.use(rateLimit({
         windowMs:        60 * 1000,
-        max:             parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 500,
+        limit:           parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 500,
         standardHeaders: true,
         legacyHeaders:   false,
         skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) || req.path.startsWith('/icon') || req.path.startsWith('/images'),

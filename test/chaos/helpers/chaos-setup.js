@@ -47,7 +47,7 @@ async function bootServer(opts = {}) {
     if (opts.rateLimit === true) {
         app.use(rateLimit({
             windowMs:        60 * 1000,
-            max:             opts.rateMax || 500,
+            limit:           opts.rateMax || 500,
             standardHeaders: true,
             legacyHeaders:   false,
             skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path)

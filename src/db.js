@@ -71,6 +71,7 @@ class Database {
             'order_cancels',
             'order_edits',
             'order_matches',
+            'prices',
             'sends',
             'sleeps',
             'swaps',
@@ -400,6 +401,9 @@ class Database {
         // slash_events has no action_index — its PK is m.id
         if(method=='getSlashEvents')
             sql = `m.id IS NOT NULL`;
+        // price_snapshots is a materialized consensus-round table — no action_index, its PK is m.id
+        if(method=='getPriceSnapshots')
+            sql = `m.id IS NOT NULL`;
         // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
             if(type=='address')
@@ -435,6 +439,11 @@ class Database {
                 SELECT DISTINCT signing_pubkey_id FROM contract_stakes
                 WHERE source_id = (SELECT id FROM index_addresses WHERE address=?)
             )`;
+        } else if(method=='getPriceSnapshots'){
+            // price_snapshots is a standalone table — filter on its own columns directly
+            if(type=='pair')   sql += ' AND m.coin_pair=?';
+            if(type=='round')  sql += ' AND m.round_number=?';
+            if(type=='status') sql += ' AND m.status=?';
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -3993,7 +4002,8 @@ class Database {
                             t1.tx_index,
                             m2.memo,
                             s2.status,
-                            s3.status as current_status
+                            s3.status as current_status,
+                            ia.address as cancelled_by
                         FROM
                             dispensers d1
                             INNER JOIN actions            a1 ON (a1.action_index=d1.action_index)
@@ -4012,6 +4022,7 @@ class Database {
                             LEFT  JOIN dispenser_statuses s1 ON (s1.dispenser_action_index=d1.action_index)
                             LEFT  JOIN index_statuses     s2 ON (s2.id=d1.status_id)
                             LEFT  JOIN index_statuses     s3 ON (s3.id=s1.status_id)
+                            LEFT  JOIN index_addresses    ia ON (ia.id=s1.cancelled_by_id)
                         WHERE
                             (s1.action_index IS NULL OR s1.action_index = (
                                 SELECT
@@ -5367,6 +5378,49 @@ class Database {
                             a1.action_index=?
                         LIMIT 1`;
             }
+            // PRICE action (v0 validator COIN/FIAT snapshot + v1 user TOKEN/FIAT oracle)
+            if(type=='PRICE'){
+                query = `SELECT
+                            a4.action,
+                            m.action_index,
+                            a1.action_format,
+                            m.version,
+                            a2.address as source,
+                            m.round_number,
+                            m.round_timestamp,
+                            m.pair_count,
+                            m.pairs_json,
+                            m.sig_count,
+                            m.sigs_json,
+                            c1.coin,
+                            t3.tick,
+                            f1.code as fiat,
+                            m.value,
+                            m.fee,
+                            m.validation_status,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            m1.memo,
+                            s1.status
+                        FROM
+                            prices m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                            LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                            LEFT  JOIN index_fiats        f1 ON (f1.id=m.fiat_id)
+                            LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
             // Run the SQL query to get the information on the action_index
             if(query){
                 results = await this.doQuery(config, query, args);
@@ -5400,6 +5454,20 @@ class Database {
                     data['signatures'] = [];
                 }
                 delete data['validator_signatures'];
+            }
+            // Expand the inlined JSON columns on PRICE actions into structured arrays so
+            // third parties can read the COIN/FIAT pairs and the PBFT signature set (v0).
+            if(type=='PRICE'){
+                if(data['pairs_json']){
+                    try { data['pairs'] = JSON.parse(data['pairs_json']); }
+                    catch(_) { data['pairs'] = []; }
+                }
+                if(data['sigs_json']){
+                    try { data['signatures'] = JSON.parse(data['sigs_json']); }
+                    catch(_) { data['signatures'] = []; }
+                }
+                delete data['pairs_json'];
+                delete data['sigs_json'];
             }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
@@ -6974,6 +7042,97 @@ class Database {
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE s1.status='valid' AND ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of PRICE actions (v0 validator COIN/FIAT snapshots + v1 user TOKEN/FIAT oracle)
+    async getPrices(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        prices m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_fiats        f1 ON (f1.id=m.fiat_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.version,
+                        a2.address as source,
+                        m.round_number,
+                        m.round_timestamp,
+                        m.pair_count,
+                        m.pairs_json,
+                        m.sig_count,
+                        m.sigs_json,
+                        c1.coin,
+                        t3.tick,
+                        f1.code as fiat,
+                        m.value,
+                        m.fee,
+                        m.validation_status,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m1.memo,
+                        s1.status
+                    FROM
+                        prices m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_fiats        f1 ON (f1.id=m.fiat_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of PRICE round snapshots (materialized COIN/FIAT consensus rounds — keyed by id, no action_index)
+    async getPriceSnapshots(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        price_snapshots m
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.round_number,
+                        m.coin_pair,
+                        m.price,
+                        m.reference_block,
+                        m.reference_chain,
+                        m.block_timestamp,
+                        m.validator_count,
+                        m.consensus_round,
+                        m.consensus_proof,
+                        m.status,
+                        m.created_at
+                    FROM
+                        price_snapshots m
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }

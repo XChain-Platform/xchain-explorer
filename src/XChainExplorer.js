@@ -27,6 +27,7 @@ const axios          = require('axios');
 const util           = require('./utility.js');
 const database       = require('./db.js');
 const IconDownloader = require('./IconDownloader.js');
+const IndexerConnector = require('./XChainIndexerConnector.js');
 
 let slowRequests = 0;
 
@@ -336,6 +337,13 @@ class XChainExplorer {
         // ECIES MESSAGE. See xchain-documentation/protocol/TOKEN_GATED_CONTENT.md.
         // Registered before the wildcard so the express route matcher hits this first.
         this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processGatedFileRawRequest(req, res); });
+
+        // Native-coin fee pre-flight + schedule. Thin proxies to the colocated indexer's
+        // read-only feequote/feeschedule JSON-RPC, so the authoritative fee + oracle-price logic
+        // stays single-sourced there. Registered before the wildcard so the matcher hits these
+        // first. See xchain-documentation/concepts/GAS.md (client pre-validation).
+        this.app.get('/:coin/api/feequote',    (req, res) => { this.processFeeQuoteRequest(req, res); });
+        this.app.get('/:coin/api/feeschedule', (req, res) => { this.processFeeScheduleRequest(req, res); });
 
         // Setup wildcard listener to process all other requests (includes static failures)
         this.app.get('*', (req, res) => { this.processRequest(req, res); });
@@ -942,6 +950,70 @@ class XChainExplorer {
         res.set('Content-Type', 'application/octet-stream');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         return res.send(raw);
+    }
+
+    // Resolve an explorer coin code (e.g. 'BTC', 'TBTC', 'RDOGE') to its base coin + network
+    // using the configured prefix map. Returns { coin, network } or null when unrecognised.
+    parseCoinCode(code, config){
+        code = String(code || '').toUpperCase();
+        let prefixes = config['COIN_PREFIXES'] || { mainnet: '', testnet: 'T', regtest: 'R' };
+        let coins    = config['COIN_NETWORKS'] || {};
+        // Non-empty prefixes (T/R) first so 'TBTC' isn't mis-read as a mainnet coin named 'TBTC'.
+        for(let network in prefixes){
+            let p = prefixes[network];
+            if(p && code.startsWith(p)){
+                let base = code.slice(p.length);
+                if(coins[base]) return { coin: base, network };
+            }
+        }
+        if(coins[code]) return { coin: code, network: 'mainnet' };
+        return null;
+    }
+
+    // Native-coin fee pre-flight (proxy to the colocated indexer's `feequote`).
+    // GET /{COIN}/api/feequote?action=ISSUE&params=0|NEWTICK&source=...&feeOutputSats=...
+    async processFeeQuoteRequest(req, res){
+        try {
+            let config = await this.configInfo.getConfig();
+            let parsed = this.parseCoinCode(req.params.coin, config);
+            if(!parsed)
+                return res.status(404).json({ error: 'unknown coin' });
+            let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
+            if(!url)
+                return res.status(503).json({ supported: false, valid: false, error: 'native fee pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')' });
+            if(this.util.isNull(req.query.action))
+                return res.status(400).json({ error: 'action is required' });
+            let connector = new IndexerConnector(url);
+            let result = await connector.feequote({
+                action:        req.query.action,
+                params:        req.query.params,   // pipe-delimited string; the indexer splits it
+                source:        req.query.source,
+                feeOutputSats: req.query.feeOutputSats
+            });
+            return res.json(result);
+        } catch(e){
+            console.error('processFeeQuoteRequest error:', e.message || e);
+            return res.status(502).json({ error: 'fee quote upstream error' });
+        }
+    }
+
+    // Native-coin fee schedule + current oracle prices (proxy to the indexer's `feeschedule`).
+    // GET /{COIN}/api/feeschedule
+    async processFeeScheduleRequest(req, res){
+        try {
+            let config = await this.configInfo.getConfig();
+            let parsed = this.parseCoinCode(req.params.coin, config);
+            if(!parsed)
+                return res.status(404).json({ error: 'unknown coin' });
+            let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
+            if(!url)
+                return res.status(503).json({ nativeFeeEnabled: false, error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')' });
+            let connector = new IndexerConnector(url);
+            return res.json(await connector.feeschedule());
+        } catch(e){
+            console.error('processFeeScheduleRequest error:', e.message || e);
+            return res.status(502).json({ error: 'fee schedule upstream error' });
+        }
     }
 
     /**********************************************************

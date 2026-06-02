@@ -472,8 +472,11 @@ class XChainExplorer {
                     cfg.data.search2 = urlPath[4];
                     cfg.data.search3 = urlPath[6];
                 }
-            // Handle action matches
-            } else if(!match && parts[1]==String(urlPath[1]).toLowerCase() && 
+            // Handle action matches. Require the route's segment count to match the
+            // request path so a shorter route can't swallow a deeper one — e.g.
+            // /contract/{QUERY} must NOT match /contract/{QUERY}/state (which would
+            // otherwise make the /state and /state/{TYPE} routes unreachable).
+            } else if(!match && parts.length==urlPath.length && parts[1]==String(urlPath[1]).toLowerCase() &&
                 parts[2]==String(urlPath[2]).toLowerCase()){
                 // Handle exact explorer matches without any search type
                 if(cfg.type=='explorer' && urlPath.length==3)

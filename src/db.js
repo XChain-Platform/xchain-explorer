@@ -203,6 +203,14 @@ class Database {
             maxRetrys  = 3;
         // Try to get connection from the database connection pool using config.coin
         let pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
+        // Lazy recovery: a missing pool usually means the explorer started before
+        // the hub was reachable and never built pools for this coin. Rebuild from
+        // current config once (throttled) and retry, rather than failing every
+        // read until a manual restart.
+        if(!pool){
+            await this._rebuildPoolsIfStale();
+            pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
+        }
         if(pool){
             while(connection == null){        
                 try {
@@ -227,6 +235,24 @@ class Database {
         }
         this.transactionConnection = connection;
         return connection;
+    }
+
+    // Rebuild connection pools from the current config, at most once per 10s and
+    // never concurrently. Used as a lazy recovery path when a query finds no pool
+    // (e.g. the explorer came up before the hub and the config arrived later).
+    async _rebuildPoolsIfStale(){
+        let now = Date.now();
+        if(this._lastPoolRebuild && (now - this._lastPoolRebuild) < 10000)
+            return;
+        if(this._poolRebuildPromise)
+            return this._poolRebuildPromise;
+        this._lastPoolRebuild = now;
+        this._poolRebuildPromise = (async () => {
+            try { await this.setupConnectionPools(); }
+            catch(e){ console.log('Pool rebuild failed: ' + (e && e.message)); }
+            finally { this._poolRebuildPromise = null; }
+        })();
+        return this._poolRebuildPromise;
     }
 
     // Handle releasing a connection and freeing it up for additional queries
@@ -396,6 +422,10 @@ class Database {
             sql = `b1.block_index IS NOT NULL`;
         if(method=='getTransaction')
             sql = `m.tx_index IS NOT NULL`;
+        // contract_state is queried via the `cs` alias (+ a latest-per-key subquery
+        // that already filters by contract_index); it has no `m` table.
+        if(method=='getContractState')
+            sql = `cs.id IS NOT NULL`;
         if(['getMarket','getMarkets'].includes(method))
             sql = `m.id IS NOT NULL`;
         // slash_events has no action_index — its PK is m.id
@@ -464,6 +494,12 @@ class Database {
             if(type=='contract'){
                 if(['getContractStakes','getContractUnstakes','getSlashEvents'].includes(method))
                     sql += ' AND m.target_contract_index=?';
+                else if(method=='getContract')
+                    // The contracts table has no contract_index column — it is keyed by action_index.
+                    sql += ' AND m.action_index=?';
+                else if(method=='getContractState')
+                    // contract_index filter is applied inside the latest-per-key subquery; no outer clause/arg.
+                    ;
                 else
                     sql += ' AND m.contract_index=?';
             }

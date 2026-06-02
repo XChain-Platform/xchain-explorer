@@ -22,6 +22,18 @@ function loadConnector(axiosStub) {
     });
 }
 
+// Axios-style error for a non-2xx response that still carries a valid JSON-RPC
+// body — e.g. the hub's HTTP 503 "degraded" health response when its DB pool is
+// down. Axios attaches the full response to the thrown error as err.response.
+function degraded503Error(body) {
+    const err = new Error('Request failed with status code 503');
+    err.response = {
+        status: 503,
+        data: { jsonrpc: '2.0', id: 1, result: body || { status: 'degraded', db: false } }
+    };
+    return err;
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -105,6 +117,16 @@ describe('XChainHubConnector', function () {
             expect(result).to.be.false;
         });
 
+        it('returns true (reachable) for a 503 "degraded" hub rather than masking it as down', async function () {
+            // A live hub with a dead DB pool must NOT read the same as a crashed one.
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.rejects(degraded503Error());
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            const result = await connector.ping();
+            expect(result).to.be.true;
+        });
+
     });
 
     // -----------------------------------------------------------------------
@@ -171,6 +193,17 @@ describe('XChainHubConnector', function () {
         it('returns null when the response has no result field', async function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: {} });
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            const result = await connector.getAllConfig();
+            expect(result).to.be.null;
+        });
+
+        it('returns null (not the degraded body) when the hub reports 503 degraded', async function () {
+            // A {status:"degraded"} body is not a config tree; config.js must fall
+            // back to its cache rather than iterate the degraded object as config.
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.rejects(degraded503Error());
             const XChainHubConnector = loadConnector(axiosStub);
             const connector = new XChainHubConnector('localhost', 3000);
             const result = await connector.getAllConfig();

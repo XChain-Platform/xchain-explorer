@@ -81,6 +81,14 @@ class XChainHubConnector {
     // full endpoint pass up to `attempts` times with exponential backoff before
     // giving up and returning null.
     async _call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs } = {}){
+        // A reachable-but-unhealthy hub responds with a non-2xx status (e.g. the
+        // 503 "degraded" health body returned when its DB pool is down) that
+        // still carries a valid JSON-RPC body. Axios throws on any non-2xx, so
+        // without inspecting err.response that state is indistinguishable from an
+        // unreachable endpoint. Remember such a body as a fallback but keep
+        // retrying — a degraded DB may recover within the backoff window — and
+        // only surface it if no endpoint comes back healthy.
+        let degraded = null;
         for(let attempt = 1; attempt <= attempts; attempt++){
             for(let i = 0; i < this.urls.length; i++){
                 let idx = (this._lastGoodIdx + i) % this.urls.length;
@@ -92,7 +100,11 @@ class XChainHubConnector {
                         return response.data.result;
                     }
                 } catch(err){
-                    console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
+                    if(err.response && err.response.data && err.response.data.result !== undefined){
+                        degraded = err.response.data.result;
+                    } else {
+                        console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
+                    }
                 }
             }
             // All endpoints failed this pass — back off before the next, unless
@@ -103,12 +115,21 @@ class XChainHubConnector {
                 await new Promise(resolve => setTimeout(resolve, backoff));
             }
         }
-        return null;
+        // No endpoint returned a healthy result after all retries. Surface a
+        // reachable-but-degraded response (if any) so the caller can distinguish
+        // "up but DB down" from "unreachable"; otherwise null.
+        return degraded;
     }
 
     async ping(){
         // Liveness check — a single attempt, no retry/backoff.
         let result = await this._call({ jsonrpc: '2.0', method: 'ping', id: 1 }, { attempts: 1 });
+        // A reachable-but-degraded hub returns a non-null {status:"degraded"}
+        // body. The hub is up, so report it as reachable — but log the degraded
+        // state so it stays visible to operators.
+        if(result && typeof result === 'object' && result.status === 'degraded'){
+            console.warn('Hub reachable but reporting degraded state: ', result);
+        }
         return result !== null;
     }
 
@@ -124,6 +145,15 @@ class XChainHubConnector {
         // _call returns null when every endpoint failed after retries; preserve
         // that signal so config.js can fall back to its last-known-good cache.
         if(result === null) return null;
+        // A reachable-but-degraded hub can't serve config (its DB is down) and
+        // returns a {status:"degraded"} body. Treat it like an unreachable hub
+        // for config purposes — return null so config.js falls back to its
+        // last-known-good cache — but log the accurate cause so the operator
+        // sees "degraded" rather than a misleading "unreachable".
+        if(result && typeof result === 'object' && result.status === 'degraded'){
+            console.warn('Hub reachable but DB degraded; cannot fetch config — falling back to cached config.');
+            return null;
+        }
         this.configs = this._applyConfigResult(result);
         return this.configs;
     }

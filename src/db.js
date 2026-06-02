@@ -1568,7 +1568,16 @@ class Database {
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
-                        t1.tx_index
+                        t1.tx_index,
+                        m.gas_cost,
+                        m.gas_price,
+                        m.xchain_amount,
+                        m.payment_mode,
+                        m.native_coin_amount,
+                        m.native_coin,
+                        m.oracle_round,
+                        m.fee_preference,
+                        m.fee_version
                     FROM
                         fees m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -5690,7 +5699,16 @@ class Database {
                         a3.address as destination,
                         t2.tick,
                         f1.amount,
-                        f1.method
+                        f1.method,
+                        f1.gas_cost,
+                        f1.gas_price,
+                        f1.xchain_amount,
+                        f1.payment_mode,
+                        f1.native_coin_amount,
+                        f1.native_coin,
+                        f1.oracle_round,
+                        f1.fee_preference,
+                        f1.fee_version
                     FROM
                         fees f1
                         INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)

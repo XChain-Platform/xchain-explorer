@@ -3539,6 +3539,16 @@ class Database {
                     btc: '0.00010000',
                     usd: '11.54'
                 }
+            },
+            // Same-chain finality guidance (display/UX only). The indexer processes
+            // actions at the chain tip, so this is a recommended "treat a receipt as
+            // final after N confirmations" value per chain — not a gate. Mirrors the
+            // hub's per-chain cross-chain confirmation thresholds and honors the same
+            // XCHAIN_CONFIRMATIONS_<COIN> overrides so display stays consistent.
+            finality: {
+                BTC:  parseInt(process.env.XCHAIN_CONFIRMATIONS_BTC,  10) || 6,
+                LTC:  parseInt(process.env.XCHAIN_CONFIRMATIONS_LTC,  10) || 12,
+                DOGE: parseInt(process.env.XCHAIN_CONFIRMATIONS_DOGE, 10) || 60
             }
         };
         // Build out a list of tables to get stats on

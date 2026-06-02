@@ -5171,6 +5171,8 @@ class Database {
                             m.meta,
                             m.validator_signatures,
                             m.callback_execute_action_index,
+                            m.payload,
+                            m.callback_params_json,
                             a3.address as source,
                             b1.block_index,
                             b1.block_time as timestamp,
@@ -7447,6 +7449,8 @@ class Database {
                         a2.address as source,
                         m.request_status,
                         m.response_status,
+                        m.payload,
+                        m.callback_params_json,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -7478,6 +7482,8 @@ class Database {
                         m.contract_index,
                         m.request_status,
                         m.response_status,
+                        m.payload,
+                        m.callback_params_json,
                         a2.address as source,
                         m.block_index,
                         s1.status
@@ -7501,7 +7507,7 @@ class Database {
     async getAttestationByActionIndex(config, action_index){
         let query = `SELECT
                         action_index, version, request_id, provider_id, contract_index,
-                        request_status, response_status, block_index
+                        request_status, response_status, payload, callback_params_json, block_index
                     FROM attests
                     WHERE action_index=?
                     LIMIT 1`;

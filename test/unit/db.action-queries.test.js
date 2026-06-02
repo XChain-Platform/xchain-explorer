@@ -1368,3 +1368,63 @@ describe('ACTION query methods: sql.where.offset appended to query', () => {
         expect(count).to.not.include(offset);
     });
 });
+
+// ---------------------------------------------------------------------------
+// ATTEST queries — payload + callback_params_json projection
+//
+// The `attests` table stores the full attestation request body in `payload`
+// (oracle URL for http_get providers, JSON prompt envelope for llm providers)
+// and the developer-supplied callback params in `callback_params_json`. These
+// must be present in every attests-reading query so API/WebSocket consumers can
+// inspect what an attestation asked for; a regression that drops them from any
+// SELECT silently hides the request body from consumers.
+// ---------------------------------------------------------------------------
+
+describe('Database#getAttestations exposes payload and callback_params_json', () => {
+    it('list query and count select both columns from the attests table', async () => {
+        const config = makeActionConfig('getAttestations', 'address');
+        const [query, args, count] = await db.getAttestations(config);
+        expect(query).to.be.a('string');
+        expect(query).to.include('attests m');
+        expect(query).to.include('m.payload');
+        expect(query).to.include('m.callback_params_json');
+        // List + count return the standard [query, null, count] triple.
+        expect(args).to.be.null;
+        expect(count).to.include('attests m');
+    });
+});
+
+describe('Database#getAttestationsSince / getAttestationByActionIndex expose payload and callback_params_json', () => {
+    let captured;
+    let originalDoQuery;
+
+    before(() => {
+        originalDoQuery = db.doQuery;
+        // Capture the generated SQL without needing a live DB connection.
+        db.doQuery = async (config, query) => { captured.push(query); return []; };
+    });
+
+    after(() => {
+        db.doQuery = originalDoQuery;
+    });
+
+    beforeEach(() => { captured = []; });
+
+    it('getAttestationsSince (WebSocket feed) selects both columns', async () => {
+        const config = makeActionConfig('getAttestationsSince');
+        await db.getAttestationsSince(config, 0, 100);
+        expect(captured).to.have.lengthOf(1);
+        expect(captured[0]).to.include('attests m');
+        expect(captured[0]).to.include('m.payload');
+        expect(captured[0]).to.include('m.callback_params_json');
+    });
+
+    it('getAttestationByActionIndex (single lookup) selects both columns', async () => {
+        const config = makeActionConfig('getAttestationByActionIndex');
+        await db.getAttestationByActionIndex(config, 1);
+        expect(captured).to.have.lengthOf(1);
+        expect(captured[0]).to.include('FROM attests');
+        expect(captured[0]).to.include('payload');
+        expect(captured[0]).to.include('callback_params_json');
+    });
+});

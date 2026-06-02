@@ -275,7 +275,7 @@ describe('Database#getBlock', () => {
 
         const config = cfg({ data: { search: '500', sql: { where: { data: 'b1.block_index IS NOT NULL', offset: '' } } } });
         const [data] = await db.getBlock(config);
-        expect(data).to.include.keys(['block_index', 'timestamp', 'ledger_hash', 'actions_hash']);
+        expect(data).to.include.keys(['block_index', 'timestamp', 'ledger_hash', 'actions_hash', 'contract_hash']);
     });
 });
 

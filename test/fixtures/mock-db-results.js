@@ -56,7 +56,7 @@ function tokenRow() {
 }
 
 function blockRow() {
-    return [{ block_index: 500, timestamp: 1700000000, ledger_hash: 'ledger123', actions_hash: 'actions123' }];
+    return [{ block_index: 500, timestamp: 1700000000, ledger_hash: 'ledger123', actions_hash: 'actions123', contract_hash: 'contract123' }];
 }
 
 function transactionRow() {

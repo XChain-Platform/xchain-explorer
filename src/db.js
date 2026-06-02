@@ -3330,11 +3330,13 @@ class Database {
                         b1.block_index,
                         b1.block_time as timestamp,
                         t1.hash as ledger_hash,
-                        t2.hash as actions_hash
+                        t2.hash as actions_hash,
+                        t3.hash as contract_hash
                     FROM
                         blocks b1
                         LEFT  JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=b1.actions_hash_id)
+                        LEFT  JOIN index_transactions t3 ON (t3.id=b1.contract_hash_id)
                     WHERE ` + sql.where.data + `
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
@@ -6513,6 +6515,7 @@ class Database {
                         b1.block_index,
                         b1.block_time,
                         t1.hash as block_hash,
+                        t3.hash as contract_hash,
                         (SELECT COUNT(*) FROM transactions t WHERE t.block_index=b1.block_index) as tx_count,
                         (SELECT COUNT(*) FROM actions a
                             INNER JOIN transactions t ON t.tx_index=a.tx_index
@@ -6520,6 +6523,7 @@ class Database {
                     FROM
                         blocks b1
                         LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+                        LEFT JOIN index_transactions t3 ON (t3.id=b1.contract_hash_id)
                     WHERE
                         b1.block_index > ?
                     ORDER BY b1.block_index ASC

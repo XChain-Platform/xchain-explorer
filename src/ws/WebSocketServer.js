@@ -205,7 +205,7 @@ class WebSocketServer {
                     max_message_size:       this.maxMessageSize,
                     max_connections_per_ip: this.maxPerIp
                 },
-                channels: ['blocks', 'actions', 'mempool', 'network', 'address', 'token', 'market', 'dispenser'],
+                channels: ['blocks', 'actions', 'mempool', 'network', 'attestation', 'address', 'token', 'market', 'dispenser'],
                 types: [
                     'ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE',
                     'COINPAY', 'COINPAY_EXPIRE',

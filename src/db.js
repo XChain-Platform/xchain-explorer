@@ -2479,7 +2479,8 @@ class Database {
                         t2.hash as tx_hash,
                         t1.tx_index,
                         m1.memo,
-                        s1.status
+                        s1.status,
+                        ss_ist.status as swap_status
                     FROM
                         swaps m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -2495,6 +2496,9 @@ class Database {
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN swap_statuses      ss ON (ss.swap_action_index=m.action_index
+                            AND ss.action_index=(SELECT MAX(ss2.action_index) FROM swap_statuses ss2 WHERE ss2.swap_action_index=m.action_index))
+                        LEFT  JOIN index_statuses     ss_ist ON (ss_ist.id=ss.status_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;

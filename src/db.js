@@ -1214,6 +1214,7 @@ class Database {
                         c2.coin as get_coin,
                         t4.tick as get_tick,
                         m.get_amount,
+                        a5.address as oracle_address,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -1227,6 +1228,7 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
+                        LEFT  JOIN index_addresses    a5 ON (a5.id=m.oracle_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1315,6 +1317,7 @@ class Database {
                         d1.get_amount,
                         f1.code as fiat,
                         d1.fiat_amount,
+                        a5.address as oracle_address,
                         b1.block_index,
                         b1.block_time as timestamp,
                         s1.status
@@ -1333,6 +1336,7 @@ class Database {
                         LEFT  JOIN index_tickers      t2 ON (t2.id=d1.give_tick_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=d1.get_tick_id)
                         LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
+                        LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -4054,6 +4058,7 @@ class Database {
                             a4.address as get_address,
                             f1.code as fiat_code,
                             d1.fiat_amount,
+                            a5.address as oracle_address,
                             d1.expiration,
                             d1.allow_list,
                             d1.block_list,
@@ -4073,6 +4078,7 @@ class Database {
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)
+                            LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
                             LEFT  JOIN index_memos        m2 ON (m2.id=d1.memo_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                             LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
@@ -4135,6 +4141,7 @@ class Database {
                             d1.get_amount,
                             f1.code as fiat,
                             d1.fiat_amount,
+                            a5.address as oracle_address,
                             b1.block_index,
                             b1.block_time as timestamp,
                             s1.status
@@ -4153,7 +4160,8 @@ class Database {
                             LEFT  JOIN index_tickers      t2 ON (t2.id=d1.give_tick_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=d1.get_tick_id)
                             LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
-                        WHERE 
+                            LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
+                        WHERE
                             m.action_index=?
                         LIMIT 1`;
             }
@@ -4174,6 +4182,7 @@ class Database {
                             d1.get_amount,
                             f1.code as fiat,
                             d1.fiat_amount,
+                            a5.address as oracle_address,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
@@ -4197,7 +4206,8 @@ class Database {
                             LEFT  JOIN index_tickers      t3 ON (t3.id=d1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=d1.get_tick_id)
                             LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
-                        WHERE 
+                            LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
+                        WHERE
                             m.action_index=?
                         LIMIT 1`;
             }
@@ -4222,6 +4232,7 @@ class Database {
                             m.block_list,
                             f1.code as fiat,
                             d1.fiat_amount,
+                            a5.address as oracle_address,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
@@ -4245,7 +4256,8 @@ class Database {
                             LEFT  JOIN index_tickers      t3 ON (t3.id=d1.give_tick_id)
                             LEFT  JOIN index_tickers      t4 ON (t4.id=d1.get_tick_id)
                             LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
-                        WHERE 
+                            LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
+                        WHERE
                             m.action_index=?
                         LIMIT 1`;
             }
@@ -4265,6 +4277,7 @@ class Database {
                             d1.get_amount,
                             f1.code as fiat,
                             d1.fiat_amount,
+                            a5.address as oracle_address,
                             b1.block_index,
                             b1.block_time as timestamp,
                             s1.status
@@ -4283,7 +4296,8 @@ class Database {
                             LEFT  JOIN index_tickers      t2 ON (t2.id=d1.give_tick_id)
                             LEFT  JOIN index_tickers      t3 ON (t3.id=d1.get_tick_id)
                             LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
-                        WHERE 
+                            LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
+                        WHERE
                             m.action_index=?
                         LIMIT 1`;
             }

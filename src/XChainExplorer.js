@@ -983,7 +983,7 @@ class XChainExplorer {
                 return res.status(404).json({ error: 'unknown coin' });
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
-                return res.status(503).json({ supported: false, valid: false, error: 'native fee pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')' });
+                return res.status(503).json({ error: 'native fee pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')' });
             if(this.util.isNull(req.query.action))
                 return res.status(400).json({ error: 'action is required' });
             let connector = new IndexerConnector(url);
@@ -1010,7 +1010,7 @@ class XChainExplorer {
                 return res.status(404).json({ error: 'unknown coin' });
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
-                return res.status(503).json({ nativeFeeEnabled: false, error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')' });
+                return res.status(503).json({ error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')' });
             let connector = new IndexerConnector(url);
             return res.json(await connector.feeschedule());
         } catch(e){

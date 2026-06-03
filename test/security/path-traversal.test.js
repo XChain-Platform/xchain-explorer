@@ -53,7 +53,7 @@ describe('Security: Path Traversal — Basic attacks', function () {
         const res = mockRes();
         await explorer.processIconRequest(makeIconReq('/../../../etc/passwd'), res);
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Access denied');
+        expect(res._body).to.deep.equal({ error: 'Access denied' });
     });
 });
 
@@ -120,7 +120,7 @@ describe('Security: Path Traversal — Icon request behavior', function () {
 
         await explorer.processIconRequest(makeIconReq('/../../package.json'), res);
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Access denied');
+        expect(res._body).to.deep.equal({ error: 'Access denied' });
     });
 });
 

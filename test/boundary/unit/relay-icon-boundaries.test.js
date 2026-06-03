@@ -67,7 +67,7 @@ describe('Boundary: Relay SSRF Protection', function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('http://localhost/secret.json'), res);
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Destination not permitted');
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
     });
 
     it('blocks 127.0.0.1', async function () {
@@ -189,14 +189,14 @@ describe('Boundary: Relay SSRF Protection', function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('ftp://example.com/file.json'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.equal('Invalid protocol');
+        expect(res._body).to.deep.equal({ error: 'Invalid protocol' });
     });
 
     it('blocks file: protocol', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('file:///etc/passwd'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.equal('Invalid protocol');
+        expect(res._body).to.deep.equal({ error: 'Invalid protocol' });
     });
 
     it('blocks javascript: protocol', async function () {
@@ -272,7 +272,7 @@ describe('Boundary: Icon Path Traversal', function () {
         const res = mockRes();
         await explorer.processIconRequest(req, res);
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Access denied');
+        expect(res._body).to.deep.equal({ error: 'Access denied' });
     });
 
     it('blocks encoded traversal %2e%2e%2f', async function () {

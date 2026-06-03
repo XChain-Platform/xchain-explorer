@@ -62,7 +62,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(503);
-        expect(res._body).to.equal('service not available');
+        expect(res._body).to.deep.equal({ error: 'service not available' });
     });
 
     // -----------------------------------------------------------------------
@@ -122,7 +122,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(400);
-        expect(res._body).to.equal('Invalid protocol');
+        expect(res._body).to.deep.equal({ error: 'Invalid protocol' });
     });
 
     // -----------------------------------------------------------------------
@@ -137,7 +137,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Destination not permitted');
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
     });
 
     it('returns 403 for 10.x.x.x (private class A)', async function () {
@@ -148,7 +148,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Destination not permitted');
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
     });
 
     it('returns 403 for 192.168.x.x (private class C)', async function () {
@@ -159,7 +159,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Destination not permitted');
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
     });
 
     it('returns 403 for localhost', async function () {
@@ -170,7 +170,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Destination not permitted');
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
     });
 
     it('returns 403 for IPv6 loopback ::1', async function () {
@@ -181,7 +181,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Destination not permitted');
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
     });
 
     it('returns 403 for fc00: IPv6 ULA', async function () {
@@ -192,7 +192,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.equal('Destination not permitted');
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
     });
 
     // -----------------------------------------------------------------------
@@ -210,7 +210,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(res._status).to.equal(400);
-        expect(res._body).to.equal('Invalid or unreachable URL');
+        expect(res._body).to.deep.equal({ error: 'Invalid or unreachable URL' });
     });
 
     // -----------------------------------------------------------------------
@@ -228,7 +228,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         // axios.get should never be called for unsupported extensions
         expect(axiosStub.get.called).to.be.false;
         expect(res._status).to.equal(503);
-        expect(res._body).to.equal('service not available');
+        expect(res._body).to.deep.equal({ error: 'service not available' });
     });
 
 });

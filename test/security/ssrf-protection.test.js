@@ -86,14 +86,14 @@ describe('Security: SSRF — Protocol validation', function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('ftp://evil.com/data.json'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.equal('Invalid protocol');
+        expect(res._body).to.deep.equal({ error: 'Invalid protocol' });
     });
 
     it('blocks file:// protocol', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('file:///etc/passwd'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.equal('Invalid protocol');
+        expect(res._body).to.deep.equal({ error: 'Invalid protocol' });
     });
 
     it('blocks javascript: protocol', async function () {
@@ -141,7 +141,7 @@ describe('Security: SSRF — Private IP blocklist', function () {
             const res = mockRes();
             await explorer.processRelayRequest(makeRelayReq(`http://${host}/test.json`), res);
             expect(res._status).to.equal(403);
-            expect(res._body).to.equal('Destination not permitted');
+            expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
         });
     }
 
@@ -253,8 +253,8 @@ describe('Security: SSRF — Error response safety', function () {
 
         await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.equal('Invalid or unreachable URL');
-        expect(res._body).to.not.include('ECONNREFUSED');
+        expect(res._body).to.deep.equal({ error: 'Invalid or unreachable URL' });
+        expect(res._body.error).to.not.include('ECONNREFUSED');
     });
 
     it('does not leak internal error details', async function () {
@@ -263,7 +263,7 @@ describe('Security: SSRF — Error response safety', function () {
         const res       = mockRes();
 
         await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
-        expect(res._body).to.not.include('192.168');
-        expect(res._body).to.not.include('ECONNREFUSED');
+        expect(res._body.error).to.not.include('192.168');
+        expect(res._body.error).to.not.include('ECONNREFUSED');
     });
 });

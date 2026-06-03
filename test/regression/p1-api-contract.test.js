@@ -192,7 +192,8 @@ describe('@p1 @contract Special endpoints regression', function () {
     it('relay blocks private IPs (SSRF)', async function () {
         const res = await request.get('/relay?url=http://127.0.0.1/test');
         expect(res.status).to.equal(403);
-        expect(res.text).to.equal('Destination not permitted');
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.equal('Destination not permitted');
     });
 
     it('relay blocks localhost', async function () {
@@ -229,5 +230,46 @@ describe('@p1 @contract Special endpoints regression', function () {
     it('HTML 404 for nonexistent pages', async function () {
         const res = await request.get('/nonexistent-page');
         expect(res.status).to.equal(404);
+    });
+});
+
+// ===========================================================================
+// @p1 @contract Error responses are JSON envelopes
+//
+// Every error path must return `{ error: <string> }` with a JSON content-type
+// so a consumer with a single `response.body.error` handler works uniformly.
+// The /file/raw, /relay and /icon handlers previously returned plain text.
+// ===========================================================================
+
+describe('@p1 @contract Error responses are JSON envelopes', function () {
+
+    // /file/raw — documented, externally-consumed gated-content endpoint.
+    it('/file/raw returns JSON { error } on a non-numeric action_index (400)', async function () {
+        const res = await request.get('/RBTC/api/file/not-a-number/raw');
+        expect(res.status).to.equal(400);
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.be.a('string').with.length.above(0);
+    });
+
+    it('/file/raw returns JSON { error } on an unknown coin (404)', async function () {
+        const res = await request.get('/ZZZ/api/file/1/raw');
+        expect(res.status).to.equal(404);
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.be.a('string').with.length.above(0);
+    });
+
+    // /relay — SSRF rejection path.
+    it('/relay returns JSON { error } on a blocked destination (403)', async function () {
+        const res = await request.get('/relay?url=http://127.0.0.1/test');
+        expect(res.status).to.equal(403);
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.be.a('string').with.length.above(0);
+    });
+
+    it('/relay returns JSON { error } when no url is supplied (503)', async function () {
+        const res = await request.get('/relay');
+        expect(res.status).to.equal(503);
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.be.a('string').with.length.above(0);
     });
 });

@@ -911,7 +911,7 @@ class XChainExplorer {
         const dirPath  = path.resolve(path.join(__dirname, 'content/icons'));
         const filePath = path.resolve(path.join(dirPath, req.path.replace(/^\/icon/, '')));
         if(!filePath.startsWith(dirPath + path.sep))
-            return res.status(403).send('Access denied');
+            return res.status(403).json({ error: 'Access denied' });
         if(fs.existsSync(filePath)){
             res.sendFile(filePath);
         } else {
@@ -934,9 +934,9 @@ class XChainExplorer {
         let coin = String(req.params.coin || '').toUpperCase();
         let actionIndex = req.params.actionIndex;
         if(!/^[0-9]+$/.test(String(actionIndex)))
-            return res.status(400).send('Invalid action_index');
+            return res.status(400).json({ error: 'Invalid action_index' });
         if(!this.db.pools || !this.db.pools[coin])
-            return res.status(404).send('Unknown coin');
+            return res.status(404).json({ error: 'Unknown coin' });
         let config = { coin, data: {} };
         let raw = null;
         try {
@@ -946,10 +946,10 @@ class XChainExplorer {
             if(rows && rows.length > 0) raw = rows[0].raw_data;
         } catch (e) {
             console.error('processGatedFileRawRequest error:', e);
-            return res.status(500).send('Server error');
+            return res.status(500).json({ error: 'Server error' });
         }
         if(!raw)
-            return res.status(404).send('Not found');
+            return res.status(404).json({ error: 'Not found' });
         res.set('Content-Type', 'application/octet-stream');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         return res.send(raw);
@@ -1035,7 +1035,7 @@ class XChainExplorer {
 
                 // Only allow http and https protocols
                 if(!['http:', 'https:'].includes(parsed.protocol))
-                    return res.status(400).send('Invalid protocol');
+                    return res.status(400).json({ error: 'Invalid protocol' });
 
                 // Block private/loopback/metadata IP ranges to prevent SSRF
                 // Note: Node's URL parser wraps IPv6 in brackets (e.g. [::1]), so strip them for matching
@@ -1055,7 +1055,7 @@ class XChainExplorer {
                     /^\d+$/,
                 ];
                 if(blocked.some(r => r.test(hostname)))
-                    return res.status(403).send('Destination not permitted');
+                    return res.status(403).json({ error: 'Destination not permitted' });
 
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
                 const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0 };
@@ -1078,11 +1078,11 @@ class XChainExplorer {
                     return;
                 }
             } catch(e) {
-                return res.status(400).send('Invalid or unreachable URL');
+                return res.status(400).json({ error: 'Invalid or unreachable URL' });
             }
         }
         // Return `503 - Service Unavailable` error message as last resort
-        res.status(503).send('service not available');
+        res.status(503).json({ error: 'service not available' });
     }
 
     static getSlowRequests() { return slowRequests; }

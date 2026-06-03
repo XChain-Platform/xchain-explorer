@@ -90,7 +90,8 @@ describe('Special Endpoints', function () {
         const res = await request.get('/relay?url=http://127.0.0.1/test');
 
         expect(res.status).to.equal(403);
-        expect(res.text).to.equal('Destination not permitted');
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.equal('Destination not permitted');
     });
 
     // -----------------------------------------------------------------------
@@ -101,7 +102,8 @@ describe('Special Endpoints', function () {
         const res = await request.get('/relay?url=file:///etc/passwd');
 
         expect(res.status).to.equal(400);
-        expect(res.text).to.equal('Invalid protocol');
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.equal('Invalid protocol');
     });
 
     // -----------------------------------------------------------------------
@@ -124,7 +126,8 @@ describe('Special Endpoints', function () {
         const res = await request.get('/relay?url=http://localhost/test');
 
         expect(res.status).to.equal(403);
-        expect(res.text).to.equal('Destination not permitted');
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.equal('Destination not permitted');
     });
 
     // -----------------------------------------------------------------------
@@ -135,7 +138,8 @@ describe('Special Endpoints', function () {
         const res = await request.get('/relay?url=http://10.0.0.1/test');
 
         expect(res.status).to.equal(403);
-        expect(res.text).to.equal('Destination not permitted');
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.equal('Destination not permitted');
     });
 
     // -----------------------------------------------------------------------
@@ -146,7 +150,8 @@ describe('Special Endpoints', function () {
         const res = await request.get('/relay?url=http://192.168.1.1/test');
 
         expect(res.status).to.equal(403);
-        expect(res.text).to.equal('Destination not permitted');
+        expect(res.headers['content-type']).to.include('json');
+        expect(res.body.error).to.equal('Destination not permitted');
     });
 
     // -----------------------------------------------------------------------

@@ -863,7 +863,7 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.contract_index, info.tick, info.amount, status, info.action_index];
                     // Capability staking list pages
                     if(['getStakes','getValidators'].includes(method))
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index, info.activation_block, info.deactivation_block];
                     if(method=='getDelegations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, status, info.action_index];
                     if(method=='getValidatorRewards')

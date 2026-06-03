@@ -2370,11 +2370,22 @@ function displayTokenIcon(image){
         $('#tokenIcon').attr('src', image);
 }
 
-// Simple function to resize iframe height to fit content
-function resizeIframe(id){
-    var el   = $(id),
-        body = el.contents().find('body');
-    el.height(body.height() + 16);
+// Wrap attacker-controlled custom token HTML in a minimal document for the
+// sandboxed (no allow-same-origin) #customContentViewer iframe, loaded via
+// srcdoc. The iframe runs in an opaque origin so this content cannot reach the
+// explorer's cookies/storage/DOM; a tiny shim posts its rendered height back to
+// the parent (one-way) for auto-resize. (Replaces the old same-origin
+// resizeIframe(), which only worked because the iframe was NOT sandboxed.)
+function buildSandboxedContentDoc(html){
+    var shim = '<scr' + 'ipt>(function(){'
+        + 'function post(){try{parent.postMessage({type:"xchain-iframe-height",'
+        + 'height:document.documentElement.scrollHeight},"*");}catch(e){}}'
+        + 'window.addEventListener("load",post);'
+        + 'window.addEventListener("resize",post);'
+        + '[100,250,500,1000,2000].forEach(function(t){setTimeout(post,t);});'
+        + '})();</scr' + 'ipt>';
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
+        + String(html) + shim + '</body></html>';
 }
 
 // Handle updating a table row with data removing the row
@@ -2712,23 +2723,29 @@ function showTokenContent(json){
         XC.someTokenInfoFound = true;
         $('#custom-content-header').show();
         $('#custom-content-wrapper').show();
-        // Handle loading custom content when the use clicks the "Load Content" button
+        // Handle loading custom content when the user clicks the "Load Content" button.
+        // Inject via srcdoc into the sandboxed iframe (it has no allow-same-origin, so
+        // el.contents() is cross-origin and unreachable). The content renders in an
+        // opaque origin and cannot touch the explorer's cookies/storage/DOM.
         $('#loadCustomContentButton').click(function(){
             $('#customContentWarning').hide();
-            var el   = $('#customContentViewer');
-                body = el.contents().find('body');
-            body.html(cachedJson.html);
+            var el = $('#customContentViewer');
+            el.attr('srcdoc', buildSandboxedContentDoc(cachedJson.html));
             el.show();
-            // Cheezy hack to resize the content as it loads
-            setTimeout(function(){ resizeIframe(); }, 100);
-            setTimeout(function(){ resizeIframe(); }, 250);
-            setTimeout(function(){ resizeIframe(); }, 500);
-            setTimeout(function(){ resizeIframe(); }, 1000);
-            setTimeout(function(){ resizeIframe(); }, 2000);
         });
-        // Setup a listener for iframe resizes so we can recalculate the dimensions
-        var iframeWin = document.getElementById('customContentViewer').contentWindow;
-        $(iframeWin).on('resize', function(){ resizeIframe('#customContentViewer'); });
+        // Auto-resize from the sandboxed iframe's own height reports (postMessage).
+        // Bound once; strictly validates the source frame, message type, and a finite
+        // numeric height, and does nothing else with the message (no injection/eval).
+        if(!XC.customContentResizeBound){
+            XC.customContentResizeBound = true;
+            window.addEventListener('message', function(e){
+                var iframe = document.getElementById('customContentViewer');
+                if(!iframe || e.source !== iframe.contentWindow) return;
+                var d = e.data;
+                if(d && d.type === 'xchain-iframe-height' && typeof d.height === 'number' && isFinite(d.height))
+                    $(iframe).height(d.height + 16);
+            });
+        }
     }
 
     // Hide the "No additional information is available" section

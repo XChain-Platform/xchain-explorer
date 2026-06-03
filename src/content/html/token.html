@@ -168,8 +168,12 @@
                                 </div>
                                 <a class="btn btn-lg btn-success margin-top-5" id="loadCustomContentButton"><i class="fa fa-lg fa-play"></i> Load Content</a>
                             </div>
-                            <!-- iFrame to load custom content -->
-                            <iframe id="customContentViewer" style="display:none;" frameborder=0 allowfullscreen scrolling="no"></iframe>
+                            <!-- iFrame to load custom content. The token HTML is attacker-controlled
+                                 on-chain content, so it is injected via srcdoc (xchain.js) and sandboxed
+                                 WITHOUT allow-same-origin: it runs in an opaque origin and cannot reach
+                                 the explorer's cookies, storage, or DOM. Height is reported back over
+                                 postMessage for auto-resize. -->
+                            <iframe id="customContentViewer" style="display:none;" frameborder=0 allowfullscreen scrolling="no" sandbox="allow-scripts allow-popups allow-forms allow-modals allow-presentation"></iframe>
                         </div>
 
 

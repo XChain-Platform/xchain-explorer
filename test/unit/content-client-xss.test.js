@@ -58,7 +58,8 @@ function loadClientFns() {
         extractFn('escapeHtml'),
         extractFn('stripHtml'),
         extractFn('highlightSearchTerm'),
-        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm })',
+        extractFn('buildSandboxedContentDoc'),
+        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm, buildSandboxedContentDoc: buildSandboxedContentDoc })',
     ].join('\n');
     const fns = vm.runInContext(program, context);
     return { fns, dom };
@@ -89,10 +90,10 @@ const PAYLOADS = {
 };
 
 describe('client XSS — src/content/js/xchain.js (jsdom regression harness)', function () {
-    let escapeHtml, stripHtml, highlightSearchTerm;
+    let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc;
 
     before(function () {
-        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm } } = loadClientFns());
+        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc } } = loadClientFns());
     });
 
     describe('escapeHtml()', function () {
@@ -171,6 +172,39 @@ describe('client XSS — src/content/js/xchain.js (jsdom regression harness)', f
             const { fns, dom } = loadClientFns();
             fns.stripHtml('<img src=x onerror=alert(1)><script>x</script>');
             expect(dom.window.document.querySelectorAll('img,script').length).to.equal(0);
+        });
+    });
+
+    // The custom-HTML token feature is protected by an iframe sandbox (no
+    // allow-same-origin), NOT by escaping — so buildSandboxedContentDoc passes the
+    // attacker HTML through verbatim. These tests lock the wrapper's structure and
+    // the producer/consumer height-message contract, not escaping.
+    describe('buildSandboxedContentDoc() + resize contract', function () {
+        it('wraps the payload in a full document and embeds the height-report shim', function () {
+            const doc = buildSandboxedContentDoc('<h1>art</h1>');
+            expect(doc).to.match(/^<!DOCTYPE html>/i);
+            expect(doc).to.contain('<h1>art</h1>');       // payload passed through (sandbox is the guard)
+            expect(doc).to.contain('postMessage');
+            expect(doc).to.contain('xchain-iframe-height');
+        });
+
+        it('producer message type matches the parent-side listener (cross-lock)', function () {
+            // The shim posts {type:"xchain-iframe-height"}; the message handler in the
+            // source must check that exact literal, or auto-resize silently breaks.
+            const producer = buildSandboxedContentDoc('');
+            expect(producer).to.contain('"xchain-iframe-height"');
+            // Listener side: the source guards on the same type string and a finite height.
+            expect(SRC).to.match(/d\.type === ['"]xchain-iframe-height['"]/);
+            expect(SRC).to.contain("isFinite(d.height)");
+        });
+
+        it('the sandboxed iframe carries a sandbox without allow-same-origin', function () {
+            // The whole protection is the sandbox; assert it exists and is NOT neutered.
+            const tpl = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/token.html'), 'utf8');
+            const m = tpl.match(/id="customContentViewer"[^>]*sandbox="([^"]*)"/);
+            expect(m, 'customContentViewer must declare a sandbox').to.not.equal(null);
+            expect(m[1]).to.contain('allow-scripts');
+            expect(m[1]).to.not.contain('allow-same-origin'); // would re-grant explorer-origin access
         });
     });
 });

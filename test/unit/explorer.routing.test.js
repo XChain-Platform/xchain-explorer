@@ -210,10 +210,10 @@ describe('XChainExplorer.processRequest – routing', function () {
             expect(cfg.data.search2).to.equal('BTC');
         });
 
-        it('/BTC/api/market/XCHAIN/BTC/orderbook → method=getMarketOrderbook', async function () {
+        it('/BTC/api/market/XCHAIN/BTC/orderbook → method=getOrderbook', async function () {
             const { cfg } = await request(explorer, '/BTC/api/market/XCHAIN/BTC/orderbook');
             expect(cfg).to.not.be.null;
-            expect(cfg.data.method).to.equal('getMarketOrderbook');
+            expect(cfg.data.method).to.equal('getOrderbook');
         });
 
     });

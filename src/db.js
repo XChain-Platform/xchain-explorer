@@ -468,7 +468,7 @@ class Database {
         } else if(method=='getMarkets'){
             if(type=='token')
                 sql += ` AND (t1.tick=? OR t2.tick=?)`;
-        } else if(['getMarketOrders','getMarketOrderbook','getMarketHistory'].includes(method)){
+        } else if(['getMarketOrders','getOrderbook','getMarketHistory'].includes(method)){
             sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
             if(!this.util.isNull(config.data.search3)){
                 if(method=='getMarketHistory'){
@@ -2838,7 +2838,7 @@ class Database {
      * /{COIN}/api/market/{QUERY}/{QUERY}/history         getMarketHistory
      * /{COIN}/api/market/{QUERY}/{QUERY}/history/{QUERY} getMarketHistory
      * /{COIN}/api/market/{QUERY}/{QUERY}/orders/{QUERY}  getMarketOrders
-     * /{COIN}/api/market/{QUERY}/{QUERY}/orderbook       getMarketOrderbook
+     * /{COIN}/api/market/{QUERY}/{QUERY}/orderbook       getOrderbook
      ******************************************************************/
 
     // Get list of markets
@@ -3142,7 +3142,7 @@ class Database {
     } 
 
     // Get market orderbook
-    async getMarketOrderbook(config){
+    async getOrderbook(config){
         let data   = {
             asks: [],
             bids: []
@@ -3816,7 +3816,7 @@ class Database {
     }
 
     // Get public key for an address from indexer database
-    async getPubkey(config){
+    async getPublicKey(config){
         let data = null;
         let query = `SELECT
                         p.pubkey

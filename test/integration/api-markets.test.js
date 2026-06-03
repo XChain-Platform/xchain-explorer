@@ -114,7 +114,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
     it('returns bids and asks arrays', async function () {
         const res = await request.get('/RBTC/api/market/XCHAIN/TOKENONE/orderbook').expect(200);
 
-        // getMarketOrderbook returns { bids: [], asks: [] } — merged directly into json
+        // getOrderbook returns { bids: [], asks: [] } — merged directly into json
         expect(res.body).to.have.property('bids').that.is.an('array');
         expect(res.body).to.have.property('asks').that.is.an('array');
     });

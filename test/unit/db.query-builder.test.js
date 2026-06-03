@@ -256,15 +256,15 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.id IS NOT NULL AND (t1.tick=? OR t2.tick=?)');
     });
 
-    // --- getMarketOrders / getMarketOrderbook / getMarketHistory -----------
+    // --- getMarketOrders / getOrderbook / getMarketHistory -----------
 
     it('getMarketOrders: appends tick clause, no search3', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarketOrders', null));
         expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))');
     });
 
-    it('getMarketOrderbook: appends tick clause, no search3', async () => {
-        const sql = await db.getQueryWhereSql(cfg('getMarketOrderbook', null));
+    it('getOrderbook: appends tick clause, no search3', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getOrderbook', null));
         expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))');
     });
 

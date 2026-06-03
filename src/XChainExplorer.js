@@ -253,7 +253,7 @@ class XChainExplorer {
                 '/{COIN}/api/holders/{QUERY}'                  : ['getHolders',          'token'],
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
                 '/{COIN}/api/network'                          : ['getNetwork'],   
-                '/{COIN}/api/pubkey/{QUERY}'                   : ['getPubkey',           'address'],
+                '/{COIN}/api/pubkey/{QUERY}'                   : ['getPublicKey',        'address'],
                 '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
                 '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken']],
                 '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],
@@ -265,7 +265,7 @@ class XChainExplorer {
                 '/{COIN}/api/market/{TICK1}/{TICK2}/history/{ADDRESS}' : ['getMarketHistory'],
                 '/{COIN}/api/market/{TICK1}/{TICK2}/orders'            : ['getMarketOrders'],
                 '/{COIN}/api/market/{TICK1}/{TICK2}/orders/{ADDRESS}'  : ['getMarketOrders'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'         : ['getMarketOrderbook']
+                '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'         : ['getOrderbook']
             }, 
 
             // List of explorer endpoints and the related method

@@ -60,8 +60,8 @@
     "test:regression:full": "mocha test/regression/**/*.test.js --timeout 30000 --exit --recursive"
   },
   "devDependencies": {
-    "@stryker-mutator/core": "^9.6.1",
-    "@stryker-mutator/mocha-runner": "^9.6.1",
+    "@stryker-mutator/core": "^8.7.1",
+    "@stryker-mutator/mocha-runner": "^8.7.1",
     "autocannon": "^7.15.0",
     "chai": "^4.5.0",
     "mocha": "^11.7.5",

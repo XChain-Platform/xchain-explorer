@@ -1928,7 +1928,8 @@ class Database {
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        s1.status
+                        s1.status,
+                        m.coin
                     FROM
                         messages m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -4596,7 +4597,8 @@ class Database {
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
                             t1.tx_index,
-                            s1.status
+                            s1.status,
+                            m1.coin
                         FROM
                             messages m1
                             INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)

@@ -3343,6 +3343,11 @@
                         },
                         "plaintext_message": {
                             "type": "string"
+                        },
+                        "coin": {
+                            "type": "string",
+                            "enum": ["BTC", "LTC", "DOGE"],
+                            "description": "Destination coin network for cross-chain messages"
                         }
                     }
                }]

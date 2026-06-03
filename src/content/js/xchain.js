@@ -2431,7 +2431,10 @@ function showTokenContent(json){
         sub   = getArrayItemByType(o.categories, 'sub'),
         other = getArrayItemByType(o.categories, 'other');
     updateTokenTableRow('#tokenName', o.name);
-    updateTokenTableRow('#tokenWebsite', o.website, '<a href="' + getValidUrl(o.website) + '" target="_blank">' + o.website + '</a>');
+    // o.website is on-chain token metadata (attacker-controlled). Escape both the
+    // href and the visible text so a value like `x" onmouseover="…` or
+    // `"><img src=x onerror=…>` cannot break out of the attribute / tag.
+    updateTokenTableRow('#tokenWebsite', o.website, '<a href="' + escapeHtml(getValidUrl(o.website)) + '" target="_blank">' + escapeHtml(o.website) + '</a>');
     updateTokenTableRow('#pgpSignature', o.pgpsig);
     updateTokenTableRow('#tokenCategory', main.data);
     updateTokenTableRow('#tokenSubCategory', sub.data);
@@ -2665,13 +2668,15 @@ function showTokenContent(json){
                 ext = arr[arr.length-1].toLowerCase();
             if(/youtube/.test(video)){
                 el   = $('#video-wrapper-youtube'),
-                html = '<iframe src="' + video + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
+                html = '<iframe src="' + escapeHtml(video) + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
             } else {
                 var type = '';
                 if(ext=='mp4') type = 'video/mp4';
                 if(ext=='wmv') type = 'video/x-ms-asf';
                 if(ext=='mov') type = 'video/quicktime'
-                html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + video + '"></video>';
+                // `video` is an on-chain media URL (attacker-controlled) — escape it so it
+                // cannot break out of the src attribute. `type` is a fixed constant above.
+                html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + escapeHtml(video) + '"></video>';
             }
             el.html(html).show()
         }
@@ -2680,9 +2685,10 @@ function showTokenContent(json){
             var el = $('#audio-wrapper');
             if(/soundcloud/.test(audio)){
                 el = $('#audio-wrapper-soundcloud');
-                html = '<iframe src="https://w.soundcloud.com/player/?url=' + audio + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
+                html = '<iframe src="https://w.soundcloud.com/player/?url=' + escapeHtml(audio) + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
             } else {
-                html = '<audio src="' + audio + '" autoplay="true" controls loop preload></audio>';
+                // `audio` is an on-chain media URL (attacker-controlled) — escape it.
+                html = '<audio src="' + escapeHtml(audio) + '" autoplay="true" controls loop preload></audio>';
             }
             el.html(html).show();
         }

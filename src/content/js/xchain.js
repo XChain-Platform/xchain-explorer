@@ -2323,10 +2323,29 @@ function showLockStatus(locked){
 }
 
 // Function to remove HTML content from string
+// Escape user-controlled text for safe insertion via jQuery .html() / innerHTML.
+// The canonical five-entity replacement. Apply to ANY on-chain free-text field
+// (description, memo, message, token names) before it reaches an HTML sink —
+// those values are attacker-controlled and the indexer stores them verbatim.
+function escapeHtml(s){
+    if(s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, function(c){
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+}
+
 function stripHtml(html){
-    var tmp = document.createElement("DIV");
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || "";
+    // Parse INERTLY. DOMParser('text/html') builds a document whose scripts do
+    // not run and whose resource handlers (img/onerror, svg/onload) do not fire,
+    // so hostile markup can't execute while we pull out plain text. The previous
+    // version assigned user input to a live element's .innerHTML, which fires
+    // onerror/onload during the assignment — itself an XSS execution sink.
+    try {
+        var doc = new DOMParser().parseFromString(String(html), 'text/html');
+        return doc.body.textContent || '';
+    } catch(e) {
+        return String(html).replace(/<[^>]*>/g, '');
+    }
 }
 
 // Handle getting record type from array
@@ -2766,10 +2785,13 @@ function showTokenInfo(){
 
     // If the file starts with http and end with JSON, then assume it is valid url and link it
     if(json.test(desc)||http.test(desc)||https.test(desc)){
+        // arr[0]/arr[1] are user-controlled description text. Escape both the
+        // href (against attribute breakout) and the visible text (against tag
+        // injection); getValidUrl already constrains the scheme.
         var arr  = desc.split(';'),
-            html = '<a href="' + getValidUrl(arr[0]) + '" target="_blank">' + arr[0] + '</a>';
+            html = '<a href="' + escapeHtml(getValidUrl(arr[0])) + '" target="_blank">' + escapeHtml(arr[0]) + '</a>';
         if(arr[1])
-            html += ';' + arr[1];
+            html += ';' + escapeHtml(arr[1]);
         $('#token-description').html(html);
     }
 
@@ -2954,21 +2976,15 @@ function legacyJsonToXChainTIS(o){
     // Pass forward the HTML tag if it exists
     if(o.html)
         json.html = o.html;
-    // Parse JSON description and detect attempts to inject HTML and javascript into description
+    // Token descriptions are untrusted on-chain free text and must NEVER be
+    // rendered as HTML. The old code did the opposite: it un-escaped the value
+    // and, on a denylist hit (<script/<iframe/onload), promoted the raw markup
+    // into json.html — which is injected via .html() at the token-detail body —
+    // a denylist is trivially bypassed (<img onerror>, <svg onload>, …). Reduce
+    // to plain text via the inert stripHtml; the render path then treats it as
+    // text. (Rich/HTML descriptions, if ever wanted, need a real sanitizer.)
     if(json.description){
-        var filters = ['<script', '<iframe', 'onload'],
-            desc    = String(json.description).replace('&lt;','<').replace('&gt;','>'),
-            html    = false;
-        filters.forEach(function(filter){
-            var re = new RegExp(filter, 'ig');
-            if(re.test(desc))
-                html = true;
-        });
-        if(html)
-            json.html = json.description;
-        // Remove any attempts to inject HTML or javascript via description field
-        var desc = String(json.description).replace('&lt;','<').replace('&gt;','>').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,'').trim();
-        json.description = stripHtml(desc);
+        json.description = stripHtml(String(json.description)).trim();
     }
     if(XC.debug){
         console.log('--- Begin JSON ---');
@@ -3003,15 +3019,20 @@ function isNetworkAvailable(coin, callback){
 
 // Handle wrapping search terms in a span to highlight the term
 function highlightSearchTerm(term, text){
-    term = String(term),
-    text = String(text);
-    let regex = new RegExp(term, "gi");
-    let matches = text.match(regex);
-    if(matches){
-        for(let match of matches)
-            text = text.replaceAll(match,'<span class="highlight-search-term">' + match + '</span>');
-    }
-    return text;
+    // This result is inserted via .html() on the list pages, and `text` is
+    // untrusted on-chain content (memo / message / description). Escape it
+    // first so the only markup we introduce is the highlight <span>. Without
+    // this, a token memo/description of "<img src=x onerror=…>" is stored XSS.
+    text = escapeHtml(String(text));
+    term = escapeHtml(String(term));
+    if(!term) return text;
+    // Escape regex metacharacters so a crafted search term can't form an invalid
+    // or catastrophic-backtracking (ReDoS) pattern; match within the escaped text.
+    let safe  = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let regex = new RegExp(safe, 'gi');
+    return text.replace(regex, function(match){
+        return '<span class="highlight-search-term">' + match + '</span>';
+    });
 }
 
 // Handle update the search network on the search page

@@ -7187,6 +7187,8 @@ class Database {
                         a3.pubkey as signing_pubkey,
                         m.version,
                         m.amount,
+                        m.activation_block,
+                        m.deactivation_block,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -7535,6 +7537,7 @@ class Database {
                         m.provider_id,
                         m.contract_index,
                         a2.address as source,
+                        fp.address as fee_payer,
                         m.request_status,
                         m.response_status,
                         m.payload,
@@ -7550,6 +7553,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -7573,6 +7577,7 @@ class Database {
                         m.payload,
                         m.callback_params_json,
                         a2.address as source,
+                        fp.address as fee_payer,
                         m.block_index,
                         s1.status
                     FROM
@@ -7580,6 +7585,7 @@ class Database {
                         LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
                         LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
                         LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                        LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
                         LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
                     WHERE
                         m.block_index > ?
@@ -7594,10 +7600,12 @@ class Database {
     // before broadcasting on the attestation channel.
     async getAttestationByActionIndex(config, action_index){
         let query = `SELECT
-                        action_index, version, request_id, provider_id, contract_index,
-                        request_status, response_status, payload, callback_params_json, block_index
-                    FROM attests
-                    WHERE action_index=?
+                        m.action_index, m.version, m.request_id, m.provider_id, m.contract_index,
+                        m.request_status, m.response_status, m.payload, m.callback_params_json, m.block_index,
+                        fp.address as fee_payer
+                    FROM attests m
+                        LEFT JOIN index_addresses fp ON (fp.id=m.fee_payer_id)
+                    WHERE m.action_index=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, [action_index]);
         return (results && results.length) ? results[0] : null;

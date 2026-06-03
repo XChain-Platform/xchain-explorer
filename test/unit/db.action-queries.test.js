@@ -1388,6 +1388,10 @@ describe('Database#getAttestations exposes payload and callback_params_json', ()
         expect(query).to.include('attests m');
         expect(query).to.include('m.payload');
         expect(query).to.include('m.callback_params_json');
+        // fee_payer (the gas-billing address) is resolved from fee_payer_id,
+        // NOT from source_id (which holds the request-emitting contract address).
+        expect(query).to.include('fp.address as fee_payer');
+        expect(query).to.include('fp.id=m.fee_payer_id');
         // List + count return the standard [query, null, count] triple.
         expect(args).to.be.null;
         expect(count).to.include('attests m');
@@ -1417,6 +1421,8 @@ describe('Database#getAttestationsSince / getAttestationByActionIndex expose pay
         expect(captured[0]).to.include('attests m');
         expect(captured[0]).to.include('m.payload');
         expect(captured[0]).to.include('m.callback_params_json');
+        expect(captured[0]).to.include('fp.address as fee_payer');
+        expect(captured[0]).to.include('fp.id=m.fee_payer_id');
     });
 
     it('getAttestationByActionIndex (single lookup) selects both columns', async () => {
@@ -1426,5 +1432,7 @@ describe('Database#getAttestationsSince / getAttestationByActionIndex expose pay
         expect(captured[0]).to.include('FROM attests');
         expect(captured[0]).to.include('payload');
         expect(captured[0]).to.include('callback_params_json');
+        expect(captured[0]).to.include('fp.address as fee_payer');
+        expect(captured[0]).to.include('fp.id=m.fee_payer_id');
     });
 });

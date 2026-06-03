@@ -195,23 +195,29 @@ class Utility {
     }
 
     // Handle comparing two big numbers: returns true if numA > numB
+    //
+    // Uses decimal.js's native .gt/.lt/.gte/.lte (exact) rather than
+    // mathjs.larger/smaller/largerEq/smallerEq, which apply mathjs's comparison
+    // epsilon (~1e-12 relative) and treat any two amounts differing by less than
+    // that as EQUAL — corrupting every comparison of sub-1e-12 amounts for
+    // 18-decimal tokens (e.g. bcgt('0.000000000000001','0') returned false).
     bcgt(numA, numB){
-        return mathjs.larger(mathjs.bignumber(numA), mathjs.bignumber(numB));
+        return mathjs.bignumber(numA).gt(mathjs.bignumber(numB));
     }
 
     // Handle comparing two big numbers: returns true if numA < numB
     bclt(numA, numB){
-        return mathjs.smaller(mathjs.bignumber(numA), mathjs.bignumber(numB));
+        return mathjs.bignumber(numA).lt(mathjs.bignumber(numB));
     }
 
     // Handle comparing two big numbers: returns true if numA >= numB
     bcgte(numA, numB){
-        return mathjs.largerEq(mathjs.bignumber(numA), mathjs.bignumber(numB));
+        return mathjs.bignumber(numA).gte(mathjs.bignumber(numB));
     }
 
     // Handle comparing two big numbers: returns true if numA <= numB
     bclte(numA, numB){
-        return mathjs.smallerEq(mathjs.bignumber(numA), mathjs.bignumber(numB));
+        return mathjs.bignumber(numA).lte(mathjs.bignumber(numB));
     }
 
     /* 

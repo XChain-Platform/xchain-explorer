@@ -401,13 +401,13 @@ describe('Database#getNetwork', () => {
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
-    it('returns object with totals, network, fee, coin, xchain keys', async () => {
+    it('returns object with totals, network, fee, coin, xchain, finality keys', async () => {
         // Each table lookup returns [{ count: 5 }]
         sinon.stub(db, 'doQuery').resolves([{ count: 5 }]);
 
         const config = cfg();
         const [data] = await db.getNetwork(config);
-        expect(data).to.have.keys(['totals', 'network', 'fee', 'coin', 'xchain']);
+        expect(data).to.have.keys(['totals', 'network', 'fee', 'coin', 'xchain', 'finality']);
     });
 
     it('populates totals for every actionTable plus tokens', async () => {

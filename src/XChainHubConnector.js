@@ -67,6 +67,11 @@ class XChainHubConnector {
         // first every call (which would cost the full timeout per call before
         // falling back).
         this._lastGoodIdx = 0;
+        // Per-endpoint failure detail from the most recent _call() (final retry
+        // pass). Populated with "url → code|message" strings for each unreachable
+        // endpoint so callers can report exactly what was tried and why, instead
+        // of a bare null.
+        this.lastFailures = [];
         // Cached full config tree + its high-water mark (epoch seconds). The mark
         // is sent back as `since_updated_at` so the hub returns only rows changed
         // since the previous poll; the delta is merged into this cache and the
@@ -90,6 +95,9 @@ class XChainHubConnector {
         // only surface it if no endpoint comes back healthy.
         let degraded = null;
         for(let attempt = 1; attempt <= attempts; attempt++){
+            // Reset each pass so lastFailures reflects the final attempt's
+            // outcome rather than accumulating duplicates across retries.
+            this.lastFailures = [];
             for(let i = 0; i < this.urls.length; i++){
                 let idx = (this._lastGoodIdx + i) % this.urls.length;
                 let url = this.urls[idx];
@@ -103,6 +111,7 @@ class XChainHubConnector {
                     if(err.response && err.response.data && err.response.data.result !== undefined){
                         degraded = err.response.data.result;
                     } else {
+                        this.lastFailures.push(url + ' → ' + (err.code || err.message));
                         console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
                     }
                 }

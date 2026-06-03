@@ -67,6 +67,12 @@ XC = {
         3: 'Fee is donated to XChain community development'
     },
 
+    // List of supported dispenser prefences (who may open a dispenser for this address)
+    dispenser_preferences: {
+        1: 'Owner only',
+        2: 'Anyone'
+    },
+
     // List of supported sleep types
     sleep_types: {
         1: 'Address',
@@ -746,7 +752,8 @@ function getActionDetails(action, info){
     if(action=='ADDRESS'){
         let pref = (info.fee_preference==1) ? 'Destroy' : 'Donate';
         let memo = (info.require_memo==1) ? 'True' : 'False';
-        html += 'Fee Preference: ' + pref + '; Require Memo: ' + memo ;
+        let disp = (info.dispenser_preference) ? XC.dispenser_preferences[info.dispenser_preference] : 'Not set';
+        html += 'Fee Preference: ' + pref + '; Require Memo: ' + memo + '; Dispenser Preference: ' + disp;
     }
     if(action=='AIRDROP'){
         html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
@@ -1747,8 +1754,10 @@ function showActionDetails(){
 function showAddressDetails(data){
     let preference   = (data.fee_preference) ? (' - ' + XC.fee_preferences[data.fee_preference]) : '';
     let require_memo = (data.require_memo==1) ? 'true' : 'false';
+    let dispenser    = (data.dispenser_preference) ? XC.dispenser_preferences[data.dispenser_preference] : 'Not set';
     $('#info-address .address-fee-preference').text(data.fee_preference + preference);
     $('#info-address .address-require-memo').text(require_memo);
+    $('#info-address .address-dispenser-preference').text(dispenser);
     $('#info-address .address-memo').text(data.memo);
 }
 

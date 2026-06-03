@@ -797,7 +797,7 @@ class XChainExplorer {
                     }
                     // Build out the correct response array based on method type
                     if(method=='getAddresses')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.fee_preference, info.require_memo, info.dispenser_preference, status, info.action_index];
                     if(method=='getAirdrops')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.memo, status, info.action_index];
                     if(method=='getBalances')

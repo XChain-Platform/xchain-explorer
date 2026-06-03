@@ -96,6 +96,7 @@ function makeAddress(overrides = {}) {
         source:         'addr1',
         fee_preference: 'standard',
         require_memo:   0,
+        dispenser_preference: 2,
         status:         'valid'
     }, overrides);
 }
@@ -434,15 +435,15 @@ describe('XChainExplorer.getPagingDataResults', function () {
             const rows = [makeAddress({ status: 'valid' })];
             const cfg  = makeExplorerConfig('getAddresses', null, null, { start: 0, length: 10 });
             const result = explorer.getPagingDataResults(cfg, rows, 1);
-            // getAddresses: [count_reverse, block_index, timestamp, source, fee_preference, require_memo, status, action_index]
-            expect(result[0][6]).to.equal(1);
+            // getAddresses: [count_reverse, block_index, timestamp, source, fee_preference, require_memo, dispenser_preference, status, action_index]
+            expect(result[0][7]).to.equal(1);
         });
 
         it('status=invalid maps to 0 in getAddresses', function () {
             const rows = [makeAddress({ status: 'invalid' })];
             const cfg  = makeExplorerConfig('getAddresses', null, null, { start: 0, length: 10 });
             const result = explorer.getPagingDataResults(cfg, rows, 1);
-            expect(result[0][6]).to.equal(0);
+            expect(result[0][7]).to.equal(0);
         });
 
     });
@@ -604,7 +605,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     describe('method: getAddresses', function () {
 
-        it('formats result as 8-element array', function () {
+        it('formats result as 9-element array', function () {
             const row = makeAddress({
                 action_index:   99,
                 block_index:    800,
@@ -612,20 +613,22 @@ describe('XChainExplorer.getPagingDataResults', function () {
                 source:         'srcAddr',
                 fee_preference: 'high',
                 require_memo:   1,
+                dispenser_preference: 1,
                 status:         'valid'
             });
             const cfg    = makeExplorerConfig('getAddresses', null, null, { start: 0, length: 10 });
             const result = explorer.getPagingDataResults(cfg, [row], 200);
             const r = result[0];
-            expect(r).to.be.an('array').with.length(8);
+            expect(r).to.be.an('array').with.length(9);
             expect(toNum(r[0])).to.equal(200); // count_reverse
             expect(r[1]).to.equal(800);
             expect(r[2]).to.equal(1730000000);
             expect(r[3]).to.equal('srcAddr');
             expect(r[4]).to.equal('high');
             expect(r[5]).to.equal(1);
-            expect(r[6]).to.equal(1);  // valid → 1
-            expect(r[7]).to.equal(99);
+            expect(r[6]).to.equal(1);  // dispenser_preference (owner only)
+            expect(r[7]).to.equal(1);  // valid → 1
+            expect(r[8]).to.equal(99);
         });
 
     });

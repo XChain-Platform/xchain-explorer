@@ -941,6 +941,7 @@ class Database {
                         a2.address as source,
                         m.fee_preference,
                         m.require_memo,
+                        m.dispenser_preference,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -3893,6 +3894,7 @@ class Database {
                             a4.address as source,
                             a1.fee_preference,
                             a1.require_memo,
+                            a1.dispenser_preference,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
@@ -5984,7 +5986,7 @@ class Database {
         let detailFields = [
             'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
             'action_format',                                                                                               // Action details
-            'fee_preference', 'require_memo',                                                                              // Addresses
+            'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
             'message', 'value', 'broadcast_action_index',                                                                  // Broadcasts
             'callback_tick', 'callback_amount',                                                                            // Callbacks
             'dividend_tick',                                                                                               // Dividends
@@ -7130,6 +7132,8 @@ class Database {
                         a3.pubkey as signing_pubkey,
                         m.version,
                         m.amount,
+                        m.activation_block,
+                        m.deactivation_block,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,

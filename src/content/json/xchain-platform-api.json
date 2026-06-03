@@ -2498,6 +2498,10 @@
                         },
                         "require_memo": {
                             "type": "integer"
+                        },
+                        "dispenser_preference": {
+                            "type": "integer",
+                            "description": "Who may open a dispenser for this address (1=owner only, 2=anyone)"
                         }
                     }
                }]

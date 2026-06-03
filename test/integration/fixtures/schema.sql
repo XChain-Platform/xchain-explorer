@@ -245,6 +245,7 @@ CREATE TABLE IF NOT EXISTS addresses (
     action_index   BIGINT UNSIGNED NOT NULL, -- Unique action index
     fee_preference BIGINT UNSIGNED,
     require_memo   BIGINT UNSIGNED,
+    dispenser_preference BIGINT UNSIGNED,     -- 1=owner only, 2=anyone may open a dispenser
     memo_id        BIGINT UNSIGNED,          -- id of record in index_memos table
     status_id      BIGINT UNSIGNED           -- id of record in index_statuses table
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

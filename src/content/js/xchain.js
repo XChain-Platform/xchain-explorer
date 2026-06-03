@@ -761,14 +761,16 @@ function getActionDetails(action, info){
     }
     if(action=='BROADCAST'){
         let percent = bcmul(info.fee, 100, 2);
+        // info.message / info.value are BROADCAST free text (on-chain,
+        // attacker-controlled) and this html is injected via .html() — escape them.
         if(info.action_format==0){
-            html += info.message;
+            html += escapeHtml(info.message);
         } else if(info.action_format==1){
-            html += '<b>Oracle:</b> ' + info.message + ' = ' + formatAmount(info.value) + ' <b>Fee:</b> ' + percent + '%';;
+            html += '<b>Oracle:</b> ' + escapeHtml(info.message) + ' = ' + formatAmount(info.value) + ' <b>Fee:</b> ' + percent + '%';;
         } else if(info.action_format==2){
-            html += '<b>Feed:</b> ' + info.message + ' <b>Fee:</b> ' + percent + '%';
+            html += '<b>Feed:</b> ' + escapeHtml(info.message) + ' <b>Fee:</b> ' + percent + '%';
         } else if(info.action_format==3){
-            html += '<b>Feed Results:</b> ' + formatLink('/' + coin + '/action/' + info.broadcast_action_index, info.broadcast_action_index) + ' <b>Result:</b> ' + info.value;
+            html += '<b>Feed Results:</b> ' + formatLink('/' + coin + '/action/' + info.broadcast_action_index, info.broadcast_action_index) + ' <b>Result:</b> ' + escapeHtml(String(info.value));
         }
     }
     if(action=='CALLBACK'){
@@ -1265,7 +1267,7 @@ function loadDatatablesData(coin, action, query, type){
                 // so we annotate an existing cell rather than add a column).
                 let gate = data[7];
                 if(!isNull(gate))
-                    $('td', row).eq(4).append(' <span class="badge text-bg-warning" title="Gated by ' + gate + '"><i class="fa fa-lock"></i></span>');
+                    $('td', row).eq(4).append(' <span class="badge text-bg-warning" title="Gated by ' + escapeHtml(gate) + '"><i class="fa fa-lock"></i></span>');
                 $('td', row).eq(7).html(action_link);
             }
             // Holder
@@ -2453,14 +2455,18 @@ function showTokenContent(json){
         var table = $('#contactInfo table tbody');
         table.empty();
         o.contacts.slice(0,10).forEach(function(item){
+            // item.type/item.data are on-chain token metadata (attacker-controlled);
+            // escape both before they reach the .append() HTML sink.
             var type = item.type.toLowerCase(),
-                html = '<tr><th>' + item.type + '</th><td>' + item.data + '</td></tr>';
+                t    = escapeHtml(item.type),
+                d    = escapeHtml(item.data),
+                html = '<tr><th>' + t + '</th><td>' + d + '</td></tr>';
             if(type=='email')
-                html = '<tr><th>' + item.type + '</th><td><a href="mailto:'+ item.data + '">' + item.data + '</a></td></tr>'
+                html = '<tr><th>' + t + '</th><td><a href="mailto:'+ d + '">' + d + '</a></td></tr>'
             if(type=='phone'||type=='fax')
-                html = '<tr><th>' + item.type + '</th><td><a href="tel:'+ item.data + '">' + item.data + '</a></td></tr>'
+                html = '<tr><th>' + t + '</th><td><a href="tel:'+ d + '">' + d + '</a></td></tr>'
             if(type=='url')
-                html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>'
+                html = '<tr><th>' + t + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + d + '</a></td></tr>'
             table.append(html);
             XC.tokenInfoFound = true;
         });
@@ -2472,7 +2478,8 @@ function showTokenContent(json){
         var table = $('#socialInfo table tbody');
         table.empty();
         o.social.slice(0,10).forEach(function(item){
-            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            // On-chain fields — escape type, href and link text.
+            let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
@@ -2486,10 +2493,11 @@ function showTokenContent(json){
         o.images.slice(0,10).forEach(function(item){
             if(item.data.substring(0,4)=='data')
                 return;
-            let html = '<tr><th>' + item.type;
+            // On-chain fields — escape type, size, href and link text.
+            let html = '<tr><th>' + escapeHtml(item.type);
             if(item.size)
-                html += ' (' + item.size + ')';
-            html += '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+                html += ' (' + escapeHtml(String(item.size)) + ')';
+            html += '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
@@ -2507,7 +2515,7 @@ function showTokenContent(json){
         var table = $('#audioInfo table tbody');
         table.empty();
         o.audio.slice(0,10).forEach(function(item){
-            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
@@ -2528,7 +2536,7 @@ function showTokenContent(json){
         var table = $('#videoInfo table tbody');
         table.empty();
         o.video.slice(0,10).forEach(function(item){
-            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
@@ -2548,7 +2556,7 @@ function showTokenContent(json){
         var table = $('#fileInfo table tbody');
         table.empty();
         o.files.slice(0,10).forEach(function(item){
-            let html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
@@ -2561,7 +2569,8 @@ function showTokenContent(json){
         table.empty();
         table.append('<tr><th>Type</th><th>Host</th><th>Value</th></tr>')
         o.dns.slice(0,10).forEach(function(item){
-            var html = '<tr><td>' + item.type + '</td><td>' + item.host + '</td><td>' + item.value + '</td></tr>';
+            // On-chain DNS record fields — escape all three.
+            var html = '<tr><td>' + escapeHtml(item.type) + '</td><td>' + escapeHtml(item.host) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });

@@ -6624,19 +6624,27 @@ class Database {
 
     // Get new actions since a given action_index
     async getActionsSince(config, sinceActionIndex, limit) {
+        // NOTE: the generic `actions` table carries no status_id (status lives on
+        // the per-ACTION-type tables, e.g. issues/sends/mints, joined as m.status_id
+        // elsewhere) and no status column — so this feed reports status as NULL.
+        // The earlier `s1.id=a1.status_id` join referenced a non-existent column and
+        // made the whole query throw (ER_BAD_FIELD_ERROR), which silently killed the
+        // WebSocket NEW_ACTION stream: the ChangeDetector advanced its action pointer
+        // but getActionsSince returned [] every poll, so no NEW_ACTION ever fired.
+        // Source is taken from actions.source_id (a1) — the action's true source,
+        // which for VM-emitted actions differs from the EXECUTE caller on transactions.
         let query = `SELECT
                         a1.action_index,
                         a3.action,
                         t3.hash as tx_hash,
-                        t1.block_index,
+                        a1.block_index,
                         a4.address as source,
-                        s1.status
+                        NULL as status
                     FROM
                         actions a1
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a4 ON (a4.id=t1.source_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                        LEFT  JOIN index_addresses    a4 ON (a4.id=a1.source_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE
                         a1.action_index > ?

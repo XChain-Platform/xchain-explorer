@@ -940,9 +940,7 @@ class XChainExplorer {
         let config = { coin, data: {} };
         let raw = null;
         try {
-            let rows = await this.db.doQuery(config,
-                'SELECT raw_data FROM gated_files WHERE action_index=? LIMIT 1',
-                [Number(actionIndex)]);
+            let rows = await this.db.getGatedFileRaw(config, actionIndex);
             if(rows && rows.length > 0) raw = rows[0].raw_data;
         } catch (e) {
             console.error('processGatedFileRawRequest error:', e);

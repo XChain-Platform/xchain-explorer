@@ -6608,6 +6608,15 @@ class Database {
         return 0;
     }
 
+    // Get the raw AES-256-GCM ciphertext bytes for a gated FILE by action_index.
+    // Returns the result rows (0 or 1) so the caller can distinguish "no such gated
+    // file" (empty) from a stored ciphertext. Keeps the gated_files table/column
+    // names in the model layer alongside the gated_files joins used elsewhere here.
+    async getGatedFileRaw(config, actionIndex) {
+        let query = `SELECT raw_data FROM gated_files WHERE action_index=? LIMIT 1`;
+        return await this.doQuery(config, query, [Number(actionIndex)]);
+    }
+
     // Get new blocks since a given block_index
     async getBlocksSince(config, sinceBlockIndex, limit) {
         let query = `SELECT

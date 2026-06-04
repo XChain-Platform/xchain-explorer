@@ -131,8 +131,8 @@ class Database {
 
         // Placeholder for connection pools
         this.pools = {};
-        // Per-coin decoder database name, used to read the chain-tip reference
-        // (the decoder's highest seen block) for /api/status lag reporting. Only
+        // Per-coin decoder database name, used to read the decoder-tip reference
+        // (the decoder's highest processed block) for /api/status lag reporting. Only
         // populated when the decoder DB sits on the same server/credentials as
         // the indexer DB, since the tip is read by reusing the indexer pool with
         // a database-qualified query rather than a separate connection.
@@ -191,11 +191,11 @@ class Database {
                             this.pools[key].pool = pool;
 
                             // Record the decoder DB name for this coin so /api/status can
-                            // read the chain tip (decoder's highest block) and report indexer
-                            // lag. The tip is read by reusing this indexer pool with a
+                            // read the decoder tip (decoder's highest processed block) and report
+                            // indexer lag. The tip is read by reusing this indexer pool with a
                             // database-qualified query, so only do this when the decoder DB is
                             // on the same server with the same credentials; otherwise leave it
-                            // unset and node_tip/lag_blocks are simply omitted for this coin.
+                            // unset and decoder_tip/decoder_lag_blocks are simply omitted for this coin.
                             let dcfg = info[net].database.decoder;
                             if(dcfg && !this.util.isNull(dcfg.name)){
                                 let dHost = ("db_host" in dcfg) ? dcfg.db_host : dcfg.host;
@@ -3602,14 +3602,19 @@ class Database {
             available:       coinConfigs['COIN_AVAILABLE'],
             last_block:      {},
             last_block_time: {},
-            // Chain-tip reference and indexer lag per coin. node_tip is the
-            // decoder's highest seen block (its view of the chain tip); lag_blocks
-            // is node_tip - last_block. Without these a caller sees the indexer's
-            // position but can't tell a stalled indexer from a healthy one without
-            // a separate out-of-band query. Both are null for a coin when the tip
-            // is unavailable; last_block/last_block_time are unaffected.
-            node_tip:        {},
-            lag_blocks:      {}
+            // Decoder-tip reference and indexer lag per coin. decoder_tip is the
+            // decoder's highest *processed* block; decoder_lag_blocks is
+            // decoder_tip - last_block, i.e. how far the indexer trails the decoder.
+            // This is the indexer->decoder slice of the pipeline ONLY — it is NOT a
+            // whole-pipeline health signal. The coin node's actual chain tip is not
+            // visible here: the explorer reads only the indexer/decoder DBs and never
+            // talks to a coin node, so a decoder that has fallen behind the chain node
+            // (the chain->decoder gap) is NOT reflected in these fields. That gap is
+            // exposed by the decoder's own health() JSON-RPC (chainTipBlock /
+            // blockLag). Both fields are null for a coin when the decoder tip is
+            // unavailable; last_block/last_block_time are unaffected.
+            decoder_tip:        {},
+            decoder_lag_blocks: {}
         };
         let available = coinConfigs['COIN_AVAILABLE'] || {};
         for (let coin of Object.keys(available)) {
@@ -3618,13 +3623,14 @@ class Database {
                 // block_time.
                 data.last_block[coin]      = await this.getMaxBlockIndex({ coin, data: {} });
                 data.last_block_time[coin] = await this.getMaxBlockTime({ coin, data: {} });
-                // Chain tip (decoder's highest block) and the gap to the indexer.
-                // node_tip can be null when the decoder DB is unreachable/unknown;
-                // lag_blocks is then null too. Clamp to >= 0 — the indexer reads
-                // from the decoder so it can never lead the decoder's tip.
-                let nodeTip = await this.getNodeTip({ coin, data: {} });
-                data.node_tip[coin]   = nodeTip;
-                data.lag_blocks[coin] = (nodeTip === null) ? null : Math.max(0, nodeTip - data.last_block[coin]);
+                // Decoder tip (decoder's highest processed block) and the gap to the
+                // indexer. decoder_tip can be null when the decoder DB is
+                // unreachable/unknown; decoder_lag_blocks is then null too. Clamp to
+                // >= 0 — the indexer reads from the decoder so it can never lead the
+                // decoder's tip.
+                let decoderTip = await this.getDecoderTip({ coin, data: {} });
+                data.decoder_tip[coin]        = decoderTip;
+                data.decoder_lag_blocks[coin] = (decoderTip === null) ? null : Math.max(0, decoderTip - data.last_block[coin]);
             }
         }
         return [data];
@@ -6563,17 +6569,18 @@ class Database {
         return 0;
     }
 
-    // Get the chain-tip reference for a coin: the highest block the decoder has
-    // written for it. The explorer reads the indexer DB, whose MAX(block_index)
-    // is the indexer's *own* position; the decoder tracks every block up to the
-    // node's chain tip, so its MAX(block_index) is the best in-process proxy for
-    // where the chain actually is. Comparing the two yields indexer lag, which is
-    // what /api/status needs to make a stalled indexer distinguishable from a
-    // healthy one. Reuses the indexer connection pool via a database-qualified
-    // query (the decoder DB is on the same server) and returns null when the
-    // decoder DB name is unknown or the query fails, so status degrades to "no
-    // tip" rather than erroring.
-    async getNodeTip(config) {
+    // Get the decoder-tip reference for a coin: the highest block the decoder has
+    // *processed* for it. The explorer reads the indexer DB, whose MAX(block_index)
+    // is the indexer's own position; the decoder DB's MAX(block_index) is the
+    // decoder's position. Comparing the two yields the indexer->decoder lag, which
+    // is what lets /api/status distinguish a stalled indexer from a healthy one.
+    // NOTE: this is NOT the coin node's chain tip — the explorer never talks to a
+    // coin node, so a decoder lagging the chain node is invisible here; that gap is
+    // surfaced by the decoder's own health() JSON-RPC. Reuses the indexer connection
+    // pool via a database-qualified query (the decoder DB is on the same server) and
+    // returns null when the decoder DB name is unknown or the query fails, so status
+    // degrades to "no tip" rather than erroring.
+    async getDecoderTip(config) {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return null;
         // dbName originates from hub/explorer config, not client input, but it is
@@ -6587,7 +6594,7 @@ class Database {
                 return Number(results[0].max_index);
         } catch(e){
             // Decoder DB unreachable, missing, or no cross-DB grant — omit the tip.
-            console.warn('getNodeTip: decoder tip unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
+            console.warn('getDecoderTip: decoder tip unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
         }
         return null;
     }

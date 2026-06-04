@@ -3597,9 +3597,19 @@ class Database {
     // Get explorer status
     async getStatus(config){
         let coinConfigs = await this.configInfo.getConfig();
+        // Age of the explorer's last successful hub-config fetch. The explorer caches hub
+        // config (in memory + on disk) and serves it even when the hub is unreachable, so a
+        // climbing age here is the only signal that the served hub-derived config is stale.
+        // null until the first successful fetch. getHubConfigFetchedAt may be absent against
+        // an older config module — guard so /status never throws on the lookup.
+        let hubFetchedAtMs = (typeof this.configInfo.getHubConfigFetchedAt === 'function')
+                                ? this.configInfo.getHubConfigFetchedAt()
+                                : null;
         let data = {
             supported:       coinConfigs['COIN_SUPPORTED'],
             available:       coinConfigs['COIN_AVAILABLE'],
+            hub_config_fetched_at:  (hubFetchedAtMs != null) ? new Date(hubFetchedAtMs).toISOString() : null,
+            hub_config_age_seconds: (hubFetchedAtMs != null) ? Math.floor((Date.now() - hubFetchedAtMs) / 1000) : null,
             last_block:      {},
             last_block_time: {},
             // Decoder-tip reference and indexer lag per coin. decoder_tip is the

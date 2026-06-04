@@ -67,6 +67,12 @@ let hubConnector = null;
 let lastObtainedConfigValue = null;
 //This will hold the last config created from the last obtained value
 let configCache = null;
+// Epoch ms of the last time the hub returned a usable config to us, regardless of
+// whether that config differed from what we already had. Stays null until the first
+// success, and is intentionally NOT advanced when we fall back to the disk/in-memory
+// cache after an unreachable hub — so the age derived from it reflects genuine
+// staleness of the served config when the hub is down.
+let hubConfigFetchedAt = null;
 //Emisor for config changed event
 const configChangedEmisor = new EventTarget();
 
@@ -105,6 +111,14 @@ function loadConfigCacheFromDisk(){
 }
 
 module.exports = {
+
+    // Epoch ms of the last successful hub-config fetch (null until the first success).
+    // Exposed so the status endpoint can report how stale the served hub config is when
+    // the hub is unreachable. Kept as a getter rather than a direct export because the
+    // backing value lives in module scope and is reassigned on each fetch.
+    getHubConfigFetchedAt: function(){
+        return hubConfigFetchedAt;
+    },
 
     startSync: function(endpoints){
         // Bare `getConfig` is not in lexical scope here — it lives on
@@ -195,6 +209,11 @@ module.exports = {
                         jsonConfig = {"configs":[]};
                     }
                 } else {
+                    // The hub returned a usable config — record the fetch time even when the
+                    // content is unchanged below, so the age exposed in /status reflects the
+                    // last genuine contact with the hub, not the last config change.
+                    hubConfigFetchedAt = Date.now();
+
                     // Compare by JSON content, not reference. getAllConfig returns
                     // a fresh object every call, so the prior `!=` check fired on
                     // every refresh — triggering downstream pool rebuilds 60×/hour

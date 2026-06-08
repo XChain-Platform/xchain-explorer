@@ -144,7 +144,10 @@ async function startApi(){
     // config-changed listener is registered before the first sync tick can
     // fire — otherwise an early tick could rebuild config with no subscriber
     // listening and the connection pools would silently miss the update.
-    configInfo.startSync(HUB_ENDPOINTS);
+    // In standalone mode (NO_HUB=1) HUB_ENDPOINTS is null and config comes from
+    // src/config.json, which doesn't change at runtime — so skip the periodic
+    // hub refresh entirely rather than tick a disabled hub.
+    if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 
     // Allow JSON-RPC requests (registered last so explorer routes take priority)
     app.use(jsonRouter({methods: jsonRpcController}))

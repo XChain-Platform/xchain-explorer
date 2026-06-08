@@ -209,8 +209,16 @@ class XChainHubConnector {
 }
 
 // Parse hub endpoints from environment variables
-// Returns an array of URL strings (e.g., ["http://host1:10000", "http://host2:10000"])
+// Returns an array of URL strings (e.g., ["http://host1:10000", "http://host2:10000"]),
+// or null when the hub is intentionally disabled (standalone mode).
 XChainHubConnector.parseEndpoints = function(){
+    // Standalone mode: when the hub is disabled (NO_HUB=1) the explorer reads its
+    // coin/network + DB config from src/config.json instead of the hub. Returning
+    // null makes getConfig()/startSync() take the file/NODE_CONFIG path (see
+    // config.js) — this is how a single-server instance points at a local/synced
+    // MariaDB the hub doesn't advertise (the hub publishes docker-internal db_host).
+    if(['1','true','yes'].includes(String(process.env.NO_HUB || '').toLowerCase()))
+        return null;
     if(process.env.HUB_VALIDATORS){
         return process.env.HUB_VALIDATORS.split(',')
             .map(e => e.trim())

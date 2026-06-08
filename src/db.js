@@ -3542,38 +3542,63 @@ class Database {
     }
 
     // Get network information
-    // TODO: Update to pull this data from xchain-hub which is updated periodically instead of 
     async getNetwork(config){
+        // Resolve the coin this request is for. config.coin is the route code
+        // (BTC / TBTC / RDOGE …); the per-coin chain identity (name + ticker)
+        // lives in the loaded explorer config under the BASE coin key (BTC/LTC/DOGE).
+        let code = config.coin;
+        let coinName = String(code), coinTick = String(code);
+        try {
+            let full  = await this.configInfo.getConfig();
+            let bases = Object.keys(full['COIN_NETWORKS'] || {});            // ['BTC','LTC','DOGE']
+            let base  = bases.find(c => String(code).endsWith(c)) || code;   // 'TBTC' -> 'BTC'
+            let chain = (full[base] && full[base].chain) ? full[base].chain : {};
+            if(chain.name) coinName = chain.name;
+            if(chain.tick) coinTick = chain.tick;
+        } catch(e){ /* keep code-based fallbacks if config is momentarily unavailable */ }
+
+        // Real indexer tip + last-block time for this coin (same source as /status).
+        let block     = await this.getMaxBlockIndex(config);
+        let blockTime = await this.getMaxBlockTime(config);
+
         let data = {
-            // Placeholder for action counts totals[action] = count;
+            // Per-action-type record counts (real; populated below).
             totals : {},
-            // Placeholder for network information
+            // Network information — block/time are the real indexer tip for this coin.
             network: {
-                block : 123456,
-                unconfirmed: 5,
+                block : block,
+                time  : blockTime,
+                // Unconfirmed (mempool) count. The explorer does not yet index the
+                // mempool (getMempool is a TODO), so this stays 0 until mempool
+                // indexing lands rather than reporting a fabricated value.
+                unconfirmed: 0,
             },
-            // Network fee information
+            // Suggested fee tiers (sat/vB). PLACEHOLDER: real values require the coin
+            // node's fee estimator (estimatesmartfee); the explorer reads only the
+            // indexer DB and has no node RPC, so this needs an upstream (hub/node) feed.
             fee: {
                 low: 1,
                 medium: 2,
                 high: 3
             },
-            // Coin information (price, etc)
+            // Coin identity is REAL (from the per-coin chain config). price is a
+            // PLACEHOLDER pending the xchain-hub price oracle — the explorer has no
+            // market feed of its own.
             coin: {
-                name: 'Bitcoin',
-                symbol: 'BTC',
+                name: coinName,
+                symbol: coinTick,
                 price: {
                     btc: '1.00000000',
-                    usd: '115400.00'
+                    usd: '0.00'
                 }
             },
-            // XChain information (price, etc)
+            // XChain token info — price is a PLACEHOLDER pending the hub price oracle.
             xchain: {
                 name: 'XChain',
                 symbol: 'XCHAIN',
                 price: {
-                    btc: '0.00010000',
-                    usd: '11.54'
+                    btc: '0.00000000',
+                    usd: '0.00'
                 }
             },
             // Same-chain finality guidance (display/UX only). The indexer processes

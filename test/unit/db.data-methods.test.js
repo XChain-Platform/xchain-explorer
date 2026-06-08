@@ -452,12 +452,37 @@ describe('Database#getNetwork', () => {
         expect(Object.keys(data.totals)).to.have.length(0);
     });
 
-    it('includes static network block and unconfirmed placeholders', async () => {
+    it('reports the real indexer tip + last-block time as network.block/time', async () => {
         sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(800000);
+        sinon.stub(db, 'getMaxBlockTime').resolves(1700000000);
 
-        const config = cfg();
-        const [data] = await db.getNetwork(config);
-        expect(data.network).to.have.keys(['block', 'unconfirmed']);
+        const [data] = await db.getNetwork(cfg());
+        expect(data.network).to.have.keys(['block', 'time', 'unconfirmed']);
+        expect(data.network.block).to.equal(800000);
+        expect(data.network.time).to.equal(1700000000);
+        // Mempool isn't indexed yet, so unconfirmed is 0 rather than a fake value.
+        expect(data.network.unconfirmed).to.equal(0);
+    });
+
+    it('resolves coin name + symbol from the per-coin chain config', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(0);
+        sinon.stub(db, 'getMaxBlockTime').resolves(0);
+
+        const [data] = await db.getNetwork(cfg());            // coin: 'BTC'
+        expect(data.coin.name).to.equal('Bitcoin');
+        expect(data.coin.symbol).to.equal('BTC');
+    });
+
+    it('does not hardcode Bitcoin — a coin absent from config falls back to its own code', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(0);
+        sinon.stub(db, 'getMaxBlockTime').resolves(0);
+
+        const [data] = await db.getNetwork(cfg({ coin: 'LTC' }));
+        expect(data.coin.name).to.not.equal('Bitcoin');
+        expect(data.coin.symbol).to.equal('LTC');
     });
 });
 

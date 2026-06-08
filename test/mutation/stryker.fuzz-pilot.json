@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "mocha",
+  "plugins": ["@stryker-mutator/mocha-runner"],
+  "//": "Focused: mutate src/utility.js (the new fuzz suite's target) and run the fuzz suite + the unit utility suite together — the realistic test set for that file. Paths are repo-root-relative; run from repo root. Set FUZZ_ITERATIONS low (e.g. 200) for the run so each mutant is cheap.",
+  "mutate": ["src/utility.js"],
+  "mochaOptions": {
+    "spec": ["test/fuzz/**/*.fuzz.js", "test/unit/utility.test.js"]
+  },
+  "reporters": ["clear-text", "progress"],
+  "concurrency": 4,
+  "timeoutMS": 30000,
+  "coverageAnalysis": "off",
+  "thresholds": { "high": 90, "low": 70, "break": null }
+}

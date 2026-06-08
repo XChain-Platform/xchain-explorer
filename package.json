@@ -37,6 +37,8 @@
     "test:smoke:connected": "mocha test/smoke/connected/**/*.test.js --timeout 15000 --exit --recursive",
     "test:boundary": "mocha test/boundary/**/*.test.js --timeout 30000 --exit --recursive",
     "test:boundary:unit": "mocha test/boundary/unit/**/*.test.js --timeout 5000 --exit --recursive",
+    "test:fuzz": "mocha test/fuzz/**/*.fuzz.js --timeout 60000 --exit --recursive",
+    "test:fuzz:deep": "FUZZ_ITERATIONS=10000 mocha test/fuzz/**/*.fuzz.js --timeout 120000 --exit --recursive",
     "test:boundary:integration": "mocha test/boundary/integration/**/*.test.js --timeout 30000 --exit --recursive",
     "test:security": "mocha test/security/**/*.test.js --timeout 5000 --exit --recursive",
     "test:performance": "node --expose-gc ./node_modules/.bin/mocha test/performance/**/*.test.js --timeout 0 --exit --recursive",

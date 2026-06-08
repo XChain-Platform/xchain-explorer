@@ -245,21 +245,44 @@ describe('Database – connection management', function () {
             expect(db.pools['BTC'].config.port).to.equal(3307);
         });
 
-        it('reuses the same pool object when host/port/user/pass match an existing pool', async function () {
-            // The pool-sharing comparison in setupConnectionPools uses cfg.host / cfg.port /
-            // cfg.user / cfg.pass (plain keys). Build a config that uses those plain keys so
-            // the sharing branch actually fires.
+        it('does NOT share a pool across different databases even when host/port/user/pass match', async function () {
+            // Regression: a MariaDB pool is pinned to one default database, and the explorer
+            // runs unqualified queries (FROM blocks) against it. Sharing one pool across coins
+            // that differ only by database name made every coin query the first pool's DB —
+            // e.g. all coins served BTC data on the single-server NO_HUB deployment where every
+            // coin uses one MariaDB user. Same creds + different DB must yield SEPARATE pools.
             const config = getFullConfig();
-            // Replace db_host/db_port style with plain host/port for both networks
             config.BTC.mainnet.database.indexer = {
                 host: '127.0.0.1', port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Mainnet_Indexer'
             };
             config.BTC.regtest.database.indexer = {
                 host: '127.0.0.1', port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Indexer'
             };
+            const poolA = createMockPool();
+            const poolB = createMockPool();
+            mockMariadb = { createPool: sinon.stub().onFirstCall().returns(poolA).onSecondCall().returns(poolB) };
+            Database    = proxyquire('../../src/db.js', { mariadb: mockMariadb });
+
             const db = freshDatabase(null, config);
             await db.setupConnectionPools();
-            // Only one createPool call should have been made (second key reuses the first pool)
+            expect(mockMariadb.createPool.callCount).to.equal(2);
+            expect(db.pools['BTC'].pool).to.not.equal(db.pools['RBTC'].pool);
+            expect(db.pools['BTC'].config.database).to.equal('XChain_BTC_Mainnet_Indexer');
+            expect(db.pools['RBTC'].config.database).to.equal('XChain_BTC_Regtest_Indexer');
+        });
+
+        it('reuses the same pool only when host/port/user/pass AND database all match', async function () {
+            // The sharing optimization is preserved for the (safe) case where two config
+            // entries point at the exact same database — same default DB, so one pool is fine.
+            const config = getFullConfig();
+            config.BTC.mainnet.database.indexer = {
+                host: '127.0.0.1', port: 3306, user: 'root', pass: 'pass', name: 'XChain_Shared_Indexer'
+            };
+            config.BTC.regtest.database.indexer = {
+                host: '127.0.0.1', port: 3306, user: 'root', pass: 'pass', name: 'XChain_Shared_Indexer'
+            };
+            const db = freshDatabase(null, config);
+            await db.setupConnectionPools();
             expect(mockMariadb.createPool.callCount).to.equal(1);
             expect(db.pools['BTC'].pool).to.equal(db.pools['RBTC'].pool);
         });

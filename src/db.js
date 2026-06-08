@@ -172,13 +172,24 @@ class Database {
                                     queryTimeout:     parseInt(process.env.DB_QUERY_TIMEOUT) || 30000
                                 }
                             };
-                            // Loop through all existing pools and if all connection details match except for the database name, share the pool
-                            for(let key in this.pools){
-                                let data = this.pools[key];
-                                if( cfg.host==data.config.host &&
-                                    cfg.port==data.config.port && 
-                                    cfg.user==data.config.user && 
+                            // Reuse an existing pool ONLY when it targets the SAME database too.
+                            // A MariaDB pool is bound to one default database (`database:` above)
+                            // and the explorer issues unqualified queries (e.g. `FROM blocks`)
+                            // that run against it. The old code shared a pool across entries with
+                            // the same host/port/user/pass but DIFFERENT databases — so when every
+                            // coin used one MariaDB user (e.g. the single-server NO_HUB deployment
+                            // reading synced DBs) all 9 collapsed onto the first pool and every
+                            // coin served the first database's data (BTC). Including the database
+                            // name keeps per-DB pools correct; 9 coin/networks is <=90 connections,
+                            // under MariaDB's default max_connections=151. (Uses the normalized
+                            // db_host/db_port so config.json and hub-config both match.)
+                            for(let existingKey in this.pools){
+                                let data = this.pools[existingKey];
+                                if( cfg.db_host==data.config.host &&
+                                    cfg.db_port==data.config.port &&
+                                    cfg.user==data.config.user &&
                                     cfg.pass==data.config.password &&
+                                    cfg.name==data.config.database &&
                                     !this.util.isNull(data.pool) )
                                     pool = data.pool;
                             }

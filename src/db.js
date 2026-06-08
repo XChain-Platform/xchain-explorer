@@ -3558,8 +3558,12 @@ class Database {
         } catch(e){ /* keep code-based fallbacks if config is momentarily unavailable */ }
 
         // Real indexer tip + last-block time for this coin (same source as /status).
-        let block     = await this.getMaxBlockIndex(config);
-        let blockTime = await this.getMaxBlockTime(config);
+        let block       = await this.getMaxBlockIndex(config);
+        let blockTime   = await this.getMaxBlockTime(config);
+        // Real unconfirmed (mempool) count from the decoder DB's mempool_transactions.
+        let unconfirmed = await this.getDecoderMempoolCount(config);
+        // Live fee tiers from this coin's encoder (estimatesmartfee), cached.
+        let fee = await this.getFees(config);
 
         let data = {
             // Per-action-type record counts (real; populated below).
@@ -3568,19 +3572,14 @@ class Database {
             network: {
                 block : block,
                 time  : blockTime,
-                // Unconfirmed (mempool) count. The explorer does not yet index the
-                // mempool (getMempool is a TODO), so this stays 0 until mempool
-                // indexing lands rather than reporting a fabricated value.
-                unconfirmed: 0,
+                // Real mempool size: count of the decoder DB's mempool_transactions
+                // for this coin (0 if the decoder DB isn't reachable from here).
+                unconfirmed: unconfirmed,
             },
-            // Suggested fee tiers (sat/vB). PLACEHOLDER: real values require the coin
-            // node's fee estimator (estimatesmartfee); the explorer reads only the
-            // indexer DB and has no node RPC, so this needs an upstream (hub/node) feed.
-            fee: {
-                low: 1,
-                medium: 2,
-                high: 3
-            },
+            // Suggested fee tiers (sat/vByte) from this coin's encoder, which reads
+            // the node's estimatesmartfee. Falls back to {1,2,3} when no encoder is
+            // configured (ENCODER_URL) or it's unreachable. See getFees().
+            fee: fee,
             // Coin identity is REAL (from the per-coin chain config). price is a
             // PLACEHOLDER pending the xchain-hub price oracle — the explorer has no
             // market feed of its own.
@@ -6642,6 +6641,71 @@ class Database {
             console.warn('getDecoderTip: decoder tip unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
         }
         return null;
+    }
+
+    // Count of unconfirmed (mempool) transactions for this coin, read from the
+    // decoder DB's mempool_transactions table. Same access pattern + safety as
+    // getDecoderTip (DB-qualified query on the indexer pool; only works when the
+    // decoder DB shares the indexer's server/credentials). Returns 0 when the
+    // decoder DB isn't reachable so callers always get a usable number.
+    async getDecoderMempoolCount(config) {
+        let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
+        if(this.util.isNull(dbName)) return 0;
+        // dbName is config-derived, not client input, but database identifiers
+        // can't be bound — restrict to a safe identifier charset before use.
+        if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return 0;
+        try {
+            let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions';
+            let results = await this.doQuery(config, query, []);
+            if (results && results.length && results[0].count !== null)
+                return Number(results[0].count);
+        } catch(e){
+            // Decoder DB unreachable, missing table, or no cross-DB grant — report 0.
+            console.warn('getDecoderMempoolCount: mempool count unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
+        }
+        return 0;
+    }
+
+    // Suggested fee tiers (sat/vByte) for this coin, fetched from its encoder's
+    // `estimatefee` JSON-RPC method (which reads the node's estimatesmartfee).
+    // The explorer is DB-only and can't reach a node, so it asks the encoder.
+    // Endpoint comes from ENCODER_URL (e.g. https://encoder.xchain.io); the coin
+    // path is appended (.../{COIN}/). Result is cached per coin for FEE_CACHE_MS
+    // (default 60s) so the coin homepage doesn't trigger a node RPC on every hit.
+    // Returns a conservative {low:1,medium:2,high:3} fallback when no encoder is
+    // configured or it's unreachable.
+    async getFees(config) {
+        const fallback = { low: 1, medium: 2, high: 3 };
+        const base = process.env.ENCODER_URL;
+        if(!base) return fallback;
+        const code = config.coin;
+        const ttl  = parseInt(process.env.FEE_CACHE_MS, 10) || 60000;
+        const now  = Date.now();
+        this._feeCache = this._feeCache || {};
+        const hit = this._feeCache[code];
+        if(hit && (now - hit.t) < ttl) return hit.v;
+        try {
+            const url = base.replace(/\/+$/, '') + '/' + encodeURIComponent(code) + '/';
+            const res = await fetch(url, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ jsonrpc: '2.0', method: 'estimate_fee', id: 1 }),
+                signal:  AbortSignal.timeout(6000)
+            });
+            if(!res.ok) throw new Error('HTTP ' + res.status);
+            const j = await res.json();
+            const f = j && j.result;
+            if(f && f.low != null && f.medium != null && f.high != null){
+                const v = { low: Number(f.low), medium: Number(f.medium), high: Number(f.high) };
+                this._feeCache[code] = { t: now, v };
+                return v;
+            }
+            throw new Error('malformed estimatefee response');
+        } catch(e){
+            console.warn('getFees: fee estimate unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            // Reuse a prior good value if we have one; otherwise the safe fallback.
+            return (hit && hit.v) || fallback;
+        }
     }
 
     // Get the highest action_index in the actions table

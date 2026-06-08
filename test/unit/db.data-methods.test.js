@@ -487,6 +487,89 @@ describe('Database#getNetwork', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getDecoderMempoolCount
+// ---------------------------------------------------------------------------
+
+describe('Database#getDecoderMempoolCount', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns 0 when no decoder DB is mapped for the coin', async () => {
+        db.decoderDb = {};
+        const q = sinon.stub(db, 'doQuery');
+        expect(await db.getDecoderMempoolCount(cfg())).to.equal(0);
+        expect(q.called).to.be.false;
+    });
+
+    it('returns 0 (and never queries) for an unsafe decoder DB identifier', async () => {
+        db.decoderDb = { BTC: 'bad name; DROP TABLE' };
+        const q = sinon.stub(db, 'doQuery');
+        expect(await db.getDecoderMempoolCount(cfg())).to.equal(0);
+        expect(q.called).to.be.false;
+    });
+
+    it('counts mempool_transactions in the decoder DB', async () => {
+        db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
+        const q = sinon.stub(db, 'doQuery').resolves([{ count: 42 }]);
+        expect(await db.getDecoderMempoolCount(cfg())).to.equal(42);
+        expect(q.firstCall.args[1]).to.contain('mempool_transactions');
+    });
+
+    it('returns 0 when the query throws (e.g. no cross-DB grant)', async () => {
+        db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
+        sinon.stub(db, 'doQuery').rejects(new Error('no grant'));
+        expect(await db.getDecoderMempoolCount(cfg())).to.equal(0);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getFees
+// ---------------------------------------------------------------------------
+
+describe('Database#getFees', () => {
+    let db, origFetch;
+    const FALLBACK = { low: 1, medium: 2, high: 3 };
+    beforeEach(() => { db = makeDb(); origFetch = global.fetch; delete process.env.ENCODER_URL; });
+    afterEach(() => { sinon.restore(); global.fetch = origFetch; delete process.env.ENCODER_URL; });
+
+    it('returns the conservative fallback when ENCODER_URL is unset', async () => {
+        const v = await db.getFees(cfg());
+        expect(v).to.deep.equal(FALLBACK);
+    });
+
+    it('fetches estimate_fee from the coin encoder and returns its tiers', async () => {
+        process.env.ENCODER_URL = 'https://encoder.example';
+        global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { low: 5, medium: 10, high: 20 } }) });
+        const v = await db.getFees(cfg());                       // coin: 'BTC'
+        expect(v).to.deep.equal({ low: 5, medium: 10, high: 20 });
+        expect(global.fetch.firstCall.args[0]).to.contain('/BTC/');
+    });
+
+    it('caches within the TTL — two calls trigger one fetch', async () => {
+        process.env.ENCODER_URL = 'https://encoder.example';
+        global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { low: 1, medium: 1, high: 1 } }) });
+        await db.getFees(cfg());
+        await db.getFees(cfg());
+        expect(global.fetch.callCount).to.equal(1);
+    });
+
+    it('falls back when the encoder is unreachable', async () => {
+        process.env.ENCODER_URL = 'https://encoder.example';
+        global.fetch = sinon.stub().rejects(new Error('ECONNREFUSED'));
+        const v = await db.getFees(cfg());
+        expect(v).to.deep.equal(FALLBACK);
+    });
+
+    it('falls back on a malformed estimate_fee response', async () => {
+        process.env.ENCODER_URL = 'https://encoder.example';
+        global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { low: 5 } }) });
+        const v = await db.getFees(cfg());
+        expect(v).to.deep.equal(FALLBACK);
+    });
+});
+
+// ---------------------------------------------------------------------------
 // getToken
 // ---------------------------------------------------------------------------
 

@@ -524,24 +524,24 @@ describe('Database#getDecoderMempoolCount', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getFees
+// getFeeEstimate
 // ---------------------------------------------------------------------------
 
-describe('Database#getFees', () => {
+describe('Database#getFeeEstimate', () => {
     let db, origFetch;
     const FALLBACK = { low: 1, medium: 2, high: 3 };
     beforeEach(() => { db = makeDb(); origFetch = global.fetch; delete process.env.ENCODER_URL; });
     afterEach(() => { sinon.restore(); global.fetch = origFetch; delete process.env.ENCODER_URL; });
 
     it('returns the conservative fallback when ENCODER_URL is unset', async () => {
-        const v = await db.getFees(cfg());
+        const v = await db.getFeeEstimate(cfg());
         expect(v).to.deep.equal(FALLBACK);
     });
 
     it('fetches estimate_fee from the coin encoder and returns its tiers', async () => {
         process.env.ENCODER_URL = 'https://encoder.example';
         global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { low: 5, medium: 10, high: 20 } }) });
-        const v = await db.getFees(cfg());                       // coin: 'BTC'
+        const v = await db.getFeeEstimate(cfg());                       // coin: 'BTC'
         expect(v).to.deep.equal({ low: 5, medium: 10, high: 20 });
         expect(global.fetch.firstCall.args[0]).to.contain('/BTC/');
     });
@@ -549,22 +549,22 @@ describe('Database#getFees', () => {
     it('caches within the TTL — two calls trigger one fetch', async () => {
         process.env.ENCODER_URL = 'https://encoder.example';
         global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { low: 1, medium: 1, high: 1 } }) });
-        await db.getFees(cfg());
-        await db.getFees(cfg());
+        await db.getFeeEstimate(cfg());
+        await db.getFeeEstimate(cfg());
         expect(global.fetch.callCount).to.equal(1);
     });
 
     it('falls back when the encoder is unreachable', async () => {
         process.env.ENCODER_URL = 'https://encoder.example';
         global.fetch = sinon.stub().rejects(new Error('ECONNREFUSED'));
-        const v = await db.getFees(cfg());
+        const v = await db.getFeeEstimate(cfg());
         expect(v).to.deep.equal(FALLBACK);
     });
 
     it('falls back on a malformed estimate_fee response', async () => {
         process.env.ENCODER_URL = 'https://encoder.example';
         global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { low: 5 } }) });
-        const v = await db.getFees(cfg());
+        const v = await db.getFeeEstimate(cfg());
         expect(v).to.deep.equal(FALLBACK);
     });
 });

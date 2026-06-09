@@ -22,6 +22,7 @@
   "scripts": {
     "api": "node ./src/api.js",
     "test": "mocha test/unit/**/*.test.js --timeout 0 --exit --recursive",
+    "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha 'test/unit/**/*.test.js' --timeout 0 --recursive --exit",
     "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit",
     "test:ws": "mocha test/unit/ws/*.test.js --timeout 0 --exit",
     "test:utility": "mocha test/unit/utility.test.js --timeout 0",
@@ -65,6 +66,7 @@
     "@stryker-mutator/core": "^8.7.1",
     "@stryker-mutator/mocha-runner": "^8.7.1",
     "autocannon": "^7.15.0",
+    "c8": "^11.0.0",
     "chai": "^4.5.0",
     "jsdom": "^29.1.1",
     "mocha": "^11.7.5",

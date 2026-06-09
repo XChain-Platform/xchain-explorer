@@ -3563,7 +3563,7 @@ class Database {
         // Real unconfirmed (mempool) count from the decoder DB's mempool_transactions.
         let unconfirmed = await this.getDecoderMempoolCount(config);
         // Live fee tiers from this coin's encoder (estimatesmartfee), cached.
-        let fee = await this.getFees(config);
+        let fee = await this.getFeeEstimate(config);
 
         let data = {
             // Per-action-type record counts (real; populated below).
@@ -3578,7 +3578,7 @@ class Database {
             },
             // Suggested fee tiers (sat/vByte) from this coin's encoder, which reads
             // the node's estimatesmartfee. Falls back to {1,2,3} when no encoder is
-            // configured (ENCODER_URL) or it's unreachable. See getFees().
+            // configured (ENCODER_URL) or it's unreachable. See getFeeEstimate().
             fee: fee,
             // Coin identity is REAL (from the per-coin chain config). price is a
             // PLACEHOLDER pending the xchain-hub price oracle — the explorer has no
@@ -6674,7 +6674,7 @@ class Database {
     // (default 60s) so the coin homepage doesn't trigger a node RPC on every hit.
     // Returns a conservative {low:1,medium:2,high:3} fallback when no encoder is
     // configured or it's unreachable.
-    async getFees(config) {
+    async getFeeEstimate(config) {
         const fallback = { low: 1, medium: 2, high: 3 };
         const base = process.env.ENCODER_URL;
         if(!base) return fallback;
@@ -6702,7 +6702,7 @@ class Database {
             }
             throw new Error('malformed estimatefee response');
         } catch(e){
-            console.warn('getFees: fee estimate unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            console.warn('getFeeEstimate: fee estimate unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
             // Reuse a prior good value if we have one; otherwise the safe fallback.
             return (hit && hit.v) || fallback;
         }

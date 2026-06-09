@@ -3564,6 +3564,9 @@ class Database {
         let unconfirmed = await this.getDecoderMempoolCount(config);
         // Live fee tiers from this coin's encoder (estimatesmartfee), cached.
         let fee = await this.getFeeEstimate(config);
+        // Live USD price from the xchain-hub oracle (mainnet coins only; null for
+        // testnet/regtest or when no oracle price is available — see getCoinPriceUsd()).
+        let coinPriceUsd = await this.getCoinPriceUsd(config);
 
         let data = {
             // Per-action-type record counts (real; populated below).
@@ -3580,18 +3583,20 @@ class Database {
             // the node's estimatesmartfee. Falls back to {1,2,3} when no encoder is
             // configured (ENCODER_URL) or it's unreachable. See getFeeEstimate().
             fee: fee,
-            // Coin identity is REAL (from the per-coin chain config). price is a
-            // PLACEHOLDER pending the xchain-hub price oracle — the explorer has no
-            // market feed of its own.
+            // Coin identity is REAL (from the per-coin chain config). usd price is
+            // REAL for mainnet coins (from the xchain-hub oracle); testnet/regtest
+            // keep the $0.00 placeholder (no market). price.btc stays the identity
+            // 1.0 (coin priced in itself) — a coin/BTC cross is future work.
             coin: {
                 name: coinName,
                 symbol: coinTick,
                 price: {
                     btc: '1.00000000',
-                    usd: '0.00'
+                    usd: coinPriceUsd != null ? coinPriceUsd : '0.00'
                 }
             },
-            // XChain token info — price is a PLACEHOLDER pending the hub price oracle.
+            // XChain token info — price is a PLACEHOLDER pending XCHAIN issuance + a
+            // market (it must be DEX-derived, not an external feed).
             xchain: {
                 name: 'XChain',
                 symbol: 'XCHAIN',
@@ -6705,6 +6710,63 @@ class Database {
             console.warn('getFeeEstimate: fee estimate unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
             // Reuse a prior good value if we have one; otherwise the safe fallback.
             return (hit && hit.v) || fallback;
+        }
+    }
+
+    // Live USD price for this coin, fetched from the xchain-hub price oracle
+    // (its finalized price_snapshots, via the public `getprice` JSON-RPC). The
+    // explorer has no market feed of its own. Endpoint comes from HUB_URL
+    // (e.g. http://127.0.0.1:10000). Cached per base coin for PRICE_CACHE_MS
+    // (default 60s) so the coin homepage doesn't hit the hub on every request.
+    // Mirrors getFeeEstimate(). Only mainnet BTC/LTC/DOGE have an oracle market;
+    // testnet/regtest route codes (TBTC, RDOGE, …) have no market, so this returns
+    // null and getNetwork keeps the $0.00 placeholder. Returns a price string
+    // (8-decimal, as published) or null.
+    async getCoinPriceUsd(config) {
+        const hubUrl = process.env.HUB_URL;
+        if(!hubUrl) return null;
+        // Resolve the base mainnet symbol. The oracle only prices the real asset,
+        // so a request is eligible only when its route code IS the base symbol
+        // (mainnet) — 'BTC' === 'BTC'. Testnet/regtest codes ('TBTC','RDOGE') differ.
+        let code = String(config.coin);
+        let sym = null;
+        try {
+            const full  = await this.configInfo.getConfig();
+            const bases = Object.keys(full['COIN_NETWORKS'] || {});   // ['BTC','LTC','DOGE']
+            const b     = bases.find(c => code.endsWith(c));
+            if(b && code === b) sym = b;
+        } catch(e){ return null; }
+        if(!sym) return null;
+
+        const ttl = parseInt(process.env.PRICE_CACHE_MS, 10) || 60000;
+        const now = Date.now();
+        this._priceCache = this._priceCache || {};
+        const hit = this._priceCache[sym];
+        if(hit && (now - hit.t) < ttl) return hit.v;
+        try {
+            const url = hubUrl.replace(/\/+$/, '') + '/';
+            const res = await fetch(url, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ jsonrpc: '2.0', method: 'getprice', params: { coin_pair: sym + '/USD' }, id: 1 }),
+                signal:  AbortSignal.timeout(6000)
+            });
+            if(!res.ok) throw new Error('HTTP ' + res.status);
+            const j = await res.json();
+            const r = j && j.result;
+            if(r && !r.error && r.price != null){
+                const p = Number(r.price);
+                if(Number.isFinite(p) && p > 0){
+                    const v = String(r.price);
+                    this._priceCache[sym] = { t: now, v };
+                    return v;
+                }
+            }
+            throw new Error('malformed getprice response');
+        } catch(e){
+            console.warn('getCoinPriceUsd: price unavailable for ' + sym + ': ' + (e && e.message ? e.message : e));
+            // Reuse a prior good value if we have one; otherwise null (placeholder).
+            return (hit && hit.v) || null;
         }
     }
 

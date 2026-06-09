@@ -570,6 +570,58 @@ describe('Database#getFeeEstimate', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getCoinPriceUsd
+// ---------------------------------------------------------------------------
+
+describe('Database#getCoinPriceUsd', () => {
+    let db, origFetch;
+    beforeEach(() => { db = makeDb(); origFetch = global.fetch; delete process.env.HUB_URL; });
+    afterEach(() => { sinon.restore(); global.fetch = origFetch; delete process.env.HUB_URL; });
+
+    it('returns null when HUB_URL is unset', async () => {
+        expect(await db.getCoinPriceUsd(cfg())).to.equal(null);
+    });
+
+    it('fetches getprice for the mainnet coin and returns the price string', async () => {
+        process.env.HUB_URL = 'http://hub.example';
+        global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { coin_pair: 'BTC/USD', price: '62807.00000000' } }) });
+        const v = await db.getCoinPriceUsd(cfg());                       // coin: 'BTC'
+        expect(v).to.equal('62807.00000000');
+        const body = JSON.parse(global.fetch.firstCall.args[1].body);
+        expect(body.method).to.equal('getprice');
+        expect(body.params.coin_pair).to.equal('BTC/USD');
+    });
+
+    it('returns null for a testnet/regtest code without calling the hub', async () => {
+        process.env.HUB_URL = 'http://hub.example';
+        global.fetch = sinon.stub();
+        const v = await db.getCoinPriceUsd(cfg({ coin: 'TBTC' }));
+        expect(v).to.equal(null);
+        expect(global.fetch.called).to.equal(false);
+    });
+
+    it('caches within the TTL — two calls trigger one fetch', async () => {
+        process.env.HUB_URL = 'http://hub.example';
+        global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { price: '100.00000000' } }) });
+        await db.getCoinPriceUsd(cfg());
+        await db.getCoinPriceUsd(cfg());
+        expect(global.fetch.callCount).to.equal(1);
+    });
+
+    it('returns null when the hub is unreachable', async () => {
+        process.env.HUB_URL = 'http://hub.example';
+        global.fetch = sinon.stub().rejects(new Error('ECONNREFUSED'));
+        expect(await db.getCoinPriceUsd(cfg())).to.equal(null);
+    });
+
+    it('returns null on a no-data getprice response', async () => {
+        process.env.HUB_URL = 'http://hub.example';
+        global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { error: 'no price data for BTC/USD' } }) });
+        expect(await db.getCoinPriceUsd(cfg())).to.equal(null);
+    });
+});
+
+// ---------------------------------------------------------------------------
 // getToken
 // ---------------------------------------------------------------------------
 

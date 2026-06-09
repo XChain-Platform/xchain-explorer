@@ -357,4 +357,60 @@ describe('XChainHubConnector', function () {
 
     });
 
+    // -----------------------------------------------------------------------
+    // _applyConfigResult() + delta merge + array constructor
+    // -----------------------------------------------------------------------
+
+    describe('_applyConfigResult() and config-delta merge', function () {
+
+        it('accepts an array of endpoint URLs directly', function () {
+            const Connector = loadConnector(makeAxiosStub());
+            let c = new Connector(['http://a:1', 'http://b:2']);
+            expect(c.urls).to.deep.equal(['http://a:1', 'http://b:2']);
+        });
+
+        it('replaces with the full tree for a bare-map result (legacy hub)', function () {
+            const Connector = loadConnector(makeAxiosStub());
+            let c = new Connector('localhost', 3000);
+            let tree = { BTC: { mainnet: { mod: { p: '1' } } } };
+            let out = c._applyConfigResult(tree);
+            expect(out).to.deep.equal(tree);
+            expect(c.lastSeq).to.equal(0);
+            expect(c.lastWatermark).to.equal(0);
+        });
+
+        it('resets the cursor when the hub reports no watermark', function () {
+            const Connector = loadConnector(makeAxiosStub());
+            let c = new Connector('localhost', 3000);
+            c.lastWatermark = 50;
+            let out = c._applyConfigResult({ configs: { BTC: {} }, seq: 7 });
+            expect(c.lastSeq).to.equal(7);
+            expect(c.lastWatermark).to.equal(0);
+            expect(out).to.deep.equal({ BTC: {} });
+        });
+
+        it('returns the full payload on the first watermarked fetch', function () {
+            const Connector = loadConnector(makeAxiosStub());
+            let c = new Connector('localhost', 3000);
+            let out = c._applyConfigResult({ configs: { BTC: { mainnet: {} } }, seq: 1, watermark: 1000 });
+            expect(c.lastWatermark).to.equal(1000);
+            expect(out).to.deep.equal({ BTC: { mainnet: {} } });
+        });
+
+        it('merges a delta into the cached tree on a subsequent watermarked fetch', function () {
+            const Connector = loadConnector(makeAxiosStub());
+            let c = new Connector('localhost', 3000);
+            c.configs = { BTC: { mainnet: { fees: { a: '1' } } } };
+            c.lastWatermark = 1000; // we sent a cursor last time
+            let out = c._applyConfigResult({
+                configs: { BTC: { mainnet: { fees: { b: '2' }, oracle: { x: '9' } }, regtest: { m: { p: '3' } } } },
+                seq: 2, watermark: 2000
+            });
+            expect(c.lastWatermark).to.equal(2000);
+            expect(out.BTC.mainnet.fees).to.deep.equal({ a: '1', b: '2' }); // existing kept, new merged
+            expect(out.BTC.mainnet.oracle).to.deep.equal({ x: '9' });        // new module folded in
+            expect(out.BTC.regtest.m).to.deep.equal({ p: '3' });             // new network folded in
+        });
+    });
+
 });

@@ -154,6 +154,28 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
     it('returns null on null input', function(){
         expect(selectIconUrlFromCip25Json(null)).to.equal(null);
     });
+
+    it('falls back to a standard/large entry in images[] when higher tiers are absent', function(){
+        let json = { images: [{ type: 'standard', data: 'https://x.com/std.png' }] };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/std.png');
+        let json2 = { images: [{ type: 'large', data: 'https://x.com/lg.png' }] };
+        expect(selectIconUrlFromCip25Json(json2)).to.equal('https://x.com/lg.png');
+    });
+
+    it('falls back to a hires entry in images[] after standard/large', function(){
+        let json = { images: [{ type: 'hires', data: 'https://x.com/hi.png' }] };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/hi.png');
+    });
+
+    it('falls back to the first usable images[] entry of any type', function(){
+        let json = { images: [{ type: 'whatever', data: 'https://x.com/any.png' }] };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/any.png');
+    });
+
+    it('skips malformed images[] entries when scanning fallback tiers', function(){
+        let json = { images: [null, 'not-an-object', { type: 'hires', data: 'https://x.com/hi.png' }] };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/hi.png');
+    });
 });
 
 // ---------------------------------------------------------------------------

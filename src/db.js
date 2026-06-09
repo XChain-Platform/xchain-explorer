@@ -5681,7 +5681,7 @@ class Database {
                             if(type=='DISPENSER'){
                                 // Update state with any additional tokens escrowed in dispenser edits
                                 if(!this.util.isNull(row.give_escrow))
-                                    data.state.give_remaining = this.util.bcadd(data.state.give_remaining, row.give_escrow);    
+                                    data.state.give_remaining = String(this.util.bcadd(data.state.give_remaining, row.give_escrow));
                                 // Determine if the allow/block list edits are active using DISPENSER_LIST_DELAY.
                                 // Use a bignumber comparison (matching the indexer's bcgt-based consensus check)
                                 // rather than a JS '>' on mixed Number/bignumber operands.
@@ -5731,7 +5731,7 @@ class Database {
                     // Determine give_remaining by subtracting any amounts given out in dispenses
                     if(type=='DISPENSER'){
                         for(let row of results)
-                            data.state.give_remaining = this.util.bcsub(data.state.give_remaining, row.give_amount);
+                            data.state.give_remaining = String(this.util.bcsub(data.state.give_remaining, row.give_amount));
                     }
                 }
             }

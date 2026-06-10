@@ -6837,6 +6837,37 @@ class Database {
         return await this.doQuery(config, query, [Number(actionIndex)]);
     }
 
+    // Quorum-signed state checkpoints (hub-mirrored state_checkpoints table).
+    // blockIndex null → latest N (one per height: MAX(checkpoint_seq) wins);
+    // blockIndex set → that height's latest-seq row only.
+    async getCheckpointRows(config, blockIndex, limit) {
+        if (blockIndex !== null && blockIndex !== undefined) {
+            let query = `SELECT chain, network, block_index, block_hash, ledger_hash, actions_hash,
+                                contract_hash, checkpoint_seq, snapshot_block, validator_signatures, created_at
+                         FROM state_checkpoints
+                         WHERE block_index = ?
+                         ORDER BY checkpoint_seq DESC LIMIT 1`;
+            return await this.doQuery(config, query, [Number(blockIndex)]);
+        }
+        let query = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
+                            sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.validator_signatures, sc.created_at
+                     FROM state_checkpoints sc
+                     JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq
+                           FROM state_checkpoints GROUP BY block_index) t
+                       ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
+                     ORDER BY sc.block_index DESC
+                     LIMIT ?`;
+        return await this.doQuery(config, query, [Number(limit) || 10]);
+    }
+
+    // Hub-mirrored qualifying validator set for a capability at a snapshot block —
+    // what checkpoint signatures verify against (presence = qualified).
+    async getCapabilitySnapshotRows(config, capability, snapshotBlock) {
+        let query = `SELECT signing_pubkey, amount FROM capability_snapshots
+                     WHERE capability = ? AND snapshot_block = ?`;
+        return await this.doQuery(config, query, [String(capability), Number(snapshotBlock)]);
+    }
+
     // Get new blocks since a given block_index
     async getBlocksSince(config, sinceBlockIndex, limit) {
         let query = `SELECT

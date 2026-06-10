@@ -21,6 +21,7 @@
 // Load required libraries
 const mathjs = require('mathjs');
 const fs     = require('fs/promises');
+const crypto = require('crypto');
 
 class Utility {
 
@@ -297,6 +298,23 @@ class Utility {
             return 0;
         });
         return data;
+    }
+
+    // Verify an Ed25519 signature over a UTF-8 payload: returns true/false (never
+    // throws). Mirrors xchain-indexer/src/ed25519.js / the hub's ValidatorIdentity
+    // (raw 32-byte pubkey wrapped in the RFC 8410 SPKI DER prefix), so checkpoint
+    // signatures produced by validators verify identically here.
+    ed25519Verify(payload, sigHex, pubkeyHex){
+        if(!payload || !sigHex || !pubkeyHex) return false;
+        if(!/^[0-9a-fA-F]{64}$/.test(pubkeyHex)) return false;
+        if(!/^[0-9a-fA-F]{128}$/.test(sigHex)) return false;
+        try {
+            let spkiDer = Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), Buffer.from(pubkeyHex, 'hex')]);
+            let pubkeyObj = crypto.createPublicKey({ key: spkiDer, format: 'der', type: 'spki' });
+            return crypto.verify(null, Buffer.from(payload, 'utf8'), pubkeyObj, Buffer.from(sigHex, 'hex'));
+        } catch (e) {
+            return false;
+        }
     }
 
 }

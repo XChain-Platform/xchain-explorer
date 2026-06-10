@@ -344,6 +344,15 @@ class XChainExplorer {
         this.app.get('/:coin/api/feequote',    (req, res) => { this.processFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/feeschedule', (req, res) => { this.processFeeScheduleRequest(req, res); });
 
+        // Quorum-signed state checkpoints — the light-client verification surface.
+        // /checkpoints lists the latest signed checkpoints for the coin's chain;
+        // /checkpoint/:blockIndex/verify re-verifies the 2f+1 oracle_publish
+        // signatures server-side AND returns everything a client needs to verify
+        // independently (canonical string, sigs, qualifying validator set).
+        // Spec: xchain-documentation/protocol/actions/ANCHOR.md
+        this.app.get('/:coin/api/checkpoints', (req, res) => { this.processCheckpointsRequest(req, res); });
+        this.app.get('/:coin/api/checkpoint/:blockIndex/verify', (req, res) => { this.processCheckpointVerifyRequest(req, res); });
+
         // Setup wildcard listener to process all other requests (includes static failures)
         this.app.get('*', (req, res) => { this.processRequest(req, res); });
 
@@ -950,6 +959,77 @@ class XChainExplorer {
         res.set('Content-Type', 'application/octet-stream');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         return res.send(raw);
+    }
+
+    // GET /{COIN}/api/checkpoints[?limit=N] — latest quorum-signed state checkpoints
+    // for this coin's chain, from the hub-mirrored state_checkpoints table.
+    async processCheckpointsRequest(req, res){
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin' });
+            let limit = Math.min(parseInt(req.query.limit) || 10, 100);
+            let rows = await this.db.getCheckpointRows({ coin, data: {} }, null, limit);
+            return res.json({ checkpoints: rows || [], count: (rows || []).length });
+        } catch (e) {
+            console.error('processCheckpointsRequest error:', e);
+            return res.status(500).json({ error: 'Server error' });
+        }
+    }
+
+    // GET /{COIN}/api/checkpoint/{blockIndex}/verify — re-verify the checkpoint at a
+    // height against the mirrored oracle_publish capability snapshot. Returns the
+    // canonical signing string + qualifying validator set so a client can ALSO
+    // verify independently rather than trusting this server's `verified` flag.
+    async processCheckpointVerifyRequest(req, res){
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin' });
+            let blockIndex = req.params.blockIndex;
+            if(!/^[0-9]+$/.test(String(blockIndex)))
+                return res.status(400).json({ error: 'Invalid block_index' });
+            let config = { coin, data: {} };
+            let rows = await this.db.getCheckpointRows(config, Number(blockIndex), 1);
+            if(!rows || rows.length === 0)
+                return res.status(404).json({ error: 'No checkpoint at this height' });
+            let cp = rows[0];
+
+            // Canonical signing string — byte-identical to the hub engine + ANCHOR verifier.
+            let canonical = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
+                             cp.ledger_hash, cp.actions_hash, cp.contract_hash,
+                             String(cp.checkpoint_seq), String(cp.snapshot_block)].join('|');
+
+            let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
+            let qualified  = new Set(validators.map(v => String(v.signing_pubkey).toLowerCase()));
+            let quorum     = (qualified.size <= 1) ? 1 : (2 * Math.floor((qualified.size - 1) / 3) + 1);
+
+            let sigs = [];
+            try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ sigs = []; }
+            let validSigs = 0, seen = new Set();
+            for(let s of sigs){
+                let pk  = String(s && s.pubkey || '').toLowerCase();
+                let sig = String(s && s.sig || '');
+                if(!pk || seen.has(pk) || !qualified.has(pk)) continue;
+                seen.add(pk);
+                if(this.util.ed25519Verify(canonical, sig, pk)) validSigs++;
+            }
+
+            return res.json({
+                checkpoint:    cp,
+                canonical:     canonical,
+                validators:    validators.map(v => String(v.signing_pubkey).toLowerCase()),
+                quorum:        quorum,
+                valid_sigs:    validSigs,
+                verified:      (qualified.size > 0 && validSigs >= quorum),
+                // qualified.size === 0 → the oracle_publish snapshot isn't mirrored
+                // here; the sigs may still be valid (clients can verify elsewhere).
+                snapshot_available: qualified.size > 0
+            });
+        } catch (e) {
+            console.error('processCheckpointVerifyRequest error:', e);
+            return res.status(500).json({ error: 'Server error' });
+        }
     }
 
     // Resolve an explorer coin code (e.g. 'BTC', 'TBTC', 'RDOGE') to its base coin + network

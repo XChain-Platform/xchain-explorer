@@ -483,16 +483,152 @@ function isNumeric(value){
     return typeof value === 'bigint' || (!isNaN(parseFloat(value)) && isFinite(value));
 }
 
-// Handle doing VERY lose validation on an address
-// TODO: Clean this up to actually verify crypto addresses using crypto library
-function isCryptoAddress(address){
-    let len = String(address).length;
-    // Check P2PKH (26-35 chars)
-    if(len>=26 && len<=35)
-        return true;
-    // Check Segwit (42 chars)
-    if(len==42)
-        return true;
+// Per-chain base58 version bytes and bech32 HRPs (mirrors the indexer's
+// validation params). DOGE has no segwit, so no HRP entries for it.
+var ADDRESS_PARAMS = {
+    BTC: {
+        mainnet: { p2pkh: 0x00, p2sh: 0x05, hrp: 'bc'   },
+        testnet: { p2pkh: 0x6f, p2sh: 0xc4, hrp: 'tb'   },
+        regtest: { p2pkh: 0x6f, p2sh: 0xc4, hrp: 'bcrt' }
+    },
+    LTC: {
+        mainnet: { p2pkh: 0x30, p2sh: 0x32, hrp: 'ltc'  },
+        testnet: { p2pkh: 0x6f, p2sh: 0xc4, hrp: 'tltc' },
+        regtest: { p2pkh: 0x6f, p2sh: 0xc4, hrp: 'rltc' }
+    },
+    DOGE: {
+        mainnet: { p2pkh: 0x1e, p2sh: 0x16, hrp: null },
+        testnet: { p2pkh: 0x71, p2sh: 0xc4, hrp: null },
+        regtest: { p2pkh: 0x6f, p2sh: 0xc4, hrp: null }
+    }
+};
+
+// Decode a base58 string to bytes, or false on a bad charset / implausible length
+function base58DecodeAddress(address){
+    let alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
+        str      = String(address);
+    if(str.length<26 || str.length>48)
+        return false;
+    let num = 0n;
+    for(let char of str){
+        let value = alphabet.indexOf(char);
+        if(value==-1)
+            return false;
+        num = num * 58n + BigInt(value);
+    }
+    let hex = num.toString(16);
+    if(hex.length % 2)
+        hex = '0' + hex;
+    let bytes = [];
+    for(let i=0; i<hex.length; i+=2)
+        bytes.push(parseInt(hex.substring(i,i+2),16));
+    if(num==0n)
+        bytes = [];
+    // Restore leading zero bytes (leading '1' characters)
+    let leading = 0;
+    while(leading<str.length && str[leading]=='1')
+        leading++;
+    return new Array(leading).fill(0).concat(bytes);
+}
+
+// Decode a bech32/bech32m segwit address (BIP-173/BIP-350) and return
+// { hrp, version } when the checksum and witness rules hold, or false
+function bech32DecodeAddress(address){
+    let charset = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l',
+        str     = String(address);
+    // Reject mixed case, then work in lowercase
+    if(str!=str.toLowerCase() && str!=str.toUpperCase())
+        return false;
+    str = str.toLowerCase();
+    if(str.length<8 || str.length>90)
+        return false;
+    let pos = str.lastIndexOf('1');
+    if(pos<1 || pos+7>str.length)
+        return false;
+    let hrp  = str.substring(0,pos),
+        data = [];
+    for(let char of str.substring(pos+1)){
+        let value = charset.indexOf(char);
+        if(value==-1)
+            return false;
+        data.push(value);
+    }
+    // BIP-173 polymod checksum over expanded hrp + data
+    let gen    = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3],
+        chk    = 1,
+        values = [];
+    for(let i=0; i<hrp.length; i++)
+        values.push(hrp.charCodeAt(i)>>5);
+    values.push(0);
+    for(let i=0; i<hrp.length; i++)
+        values.push(hrp.charCodeAt(i)&31);
+    values = values.concat(data);
+    for(let value of values){
+        let top = chk>>25;
+        chk = ((chk&0x1ffffff)<<5)^value;
+        for(let i=0; i<5; i++)
+            if((top>>i)&1)
+                chk ^= gen[i];
+    }
+    let version = data[0];
+    if(version>16)
+        return false;
+    // Segwit v0 uses the bech32 constant (1), v1+ uses bech32m (BIP-350)
+    if(chk!=(version==0 ? 1 : 0x2bc830a3))
+        return false;
+    // Witness program length rules (5-bit groups minus 6 checksum chars)
+    let programBits = (data.length-7)*5,
+        programLen  = Math.floor(programBits/8);
+    if(programBits%8>=5)
+        return false;
+    if(programLen<2 || programLen>40)
+        return false;
+    if(version==0 && programLen!=20 && programLen!=32)
+        return false;
+    return { hrp: hrp, version: version };
+}
+
+// Handle validating that an address is a real crypto address for the current
+// chain + network (or any supported network when none is selected yet).
+// Verifies base58 structure + version byte and the full bech32/bech32m
+// checksum. The base58check double-SHA256 checksum is verified server-side
+// (no synchronous SHA-256 in the browser) — a checksum typo here just yields
+// an empty lookup rather than a bad route.
+function isCryptoAddress(address, chain, network){
+    if(isNull(address))
+        return false;
+    // Default to the chain/network currently selected in the explorer UI
+    if(isNull(chain) && typeof XC!='undefined' && !isNull(XC.chain))
+        chain = XC.chain;
+    if(isNull(network) && typeof XC!='undefined' && !isNull(XC.network))
+        network = XC.network;
+    // Collect the candidate network params (all networks if none selected)
+    let candidates = [];
+    for(let c in ADDRESS_PARAMS){
+        if(!isNull(chain) && c!=chain)
+            continue;
+        for(let n in ADDRESS_PARAMS[c]){
+            if(!isNull(network) && n!=network)
+                continue;
+            candidates.push(ADDRESS_PARAMS[c][n]);
+        }
+    }
+    let str = String(address);
+    // Segwit address — full bech32/bech32m validation against a known HRP
+    let decoded = bech32DecodeAddress(str);
+    if(decoded){
+        for(let params of candidates)
+            if(params.hrp && decoded.hrp==params.hrp)
+                return true;
+        return false;
+    }
+    // Base58 address — structural validation + network version byte
+    let bytes = base58DecodeAddress(str);
+    if(!bytes || bytes.length!=25)
+        return false;
+    for(let params of candidates)
+        if(bytes[0]==params.p2pkh || bytes[0]==params.p2sh)
+            return true;
     return false;
 }
 

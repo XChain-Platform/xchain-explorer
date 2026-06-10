@@ -2892,6 +2892,27 @@ describe('Database#getActionData', () => {
         expect(result.message).to.equal('hello');
     });
 
+    it('COINPAY action — returns coinpay settlement data from the coinpays table', async () => {
+        stubForType(db, 'COINPAY', baseRow({ action: 'COINPAY', obligation_action_index: 42, coin_amount: '0.5', txid: 'deadbeef', vout: 1 }));
+        const result = await db.getActionData(cfg(), 100);
+        expect(result.action).to.equal('COINPAY');
+        expect(result.obligation_action_index).to.equal(42);
+        expect(result.coin_amount).to.equal('0.5');
+        expect(result.txid).to.equal('deadbeef');
+        // The type branch must actually query the coinpays table
+        const queried = db.doQuery.getCalls().some(c => /FROM\s+coinpays\b/i.test(c.args[1]));
+        expect(queried).to.be.true;
+    });
+
+    it('COINPAY_EXPIRE action — returns expiry data from the coinpay_expires table', async () => {
+        stubForType(db, 'COINPAY_EXPIRE', baseRow({ action: 'COINPAY_EXPIRE', obligation_action_index: 42 }));
+        const result = await db.getActionData(cfg(), 100);
+        expect(result.action).to.equal('COINPAY_EXPIRE');
+        expect(result.obligation_action_index).to.equal(42);
+        const queried = db.doQuery.getCalls().some(c => /FROM\s+coinpay_expires\b/i.test(c.args[1]));
+        expect(queried).to.be.true;
+    });
+
     it('DESTROY action — returns destroy data (lines 4105-4133)', async () => {
         stubForType(db, 'DESTROY', baseRow({ action: 'DESTROY', tick: 'XCHAIN', amount: '50' }));
         const result = await db.getActionData(cfg(), 100);

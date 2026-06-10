@@ -4101,6 +4101,55 @@ class Database {
                         LIMIT 1`;
 
             }
+            // COINPAY action
+            if(type=='COINPAY'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            a3.address as source,
+                            m.obligation_action_index,
+                            m.coin_amount,
+                            m.txid,
+                            m.vout,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            coinpays m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // COINPAY_EXPIRE action
+            if(type=='COINPAY_EXPIRE'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.obligation_action_index,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            s1.status
+                        FROM
+                            coinpay_expires m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
             // DESTROY action
             if(type=='DESTROY'){
                 query = `SELECT

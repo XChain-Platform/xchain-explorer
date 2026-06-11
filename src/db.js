@@ -20,6 +20,7 @@
 
 // Load required libraries
 const mariadb = require('mariadb');
+const DecoderConnector = require('./XChainDecoderConnector.js');
 
 class Database {
 
@@ -3670,8 +3671,9 @@ class Database {
             // visible here: the explorer reads only the indexer/decoder DBs and never
             // talks to a coin node, so a decoder that has fallen behind the chain node
             // (the chain->decoder gap) is NOT reflected in these fields. That gap is
-            // exposed by the decoder's own health() JSON-RPC (chainTipBlock /
-            // blockLag). Both fields are null for a coin when the decoder tip is
+            // surfaced separately below via chain_tip / chain_lag_blocks /
+            // decoder_health, aggregated from each decoder's own health() JSON-RPC.
+            // Both fields are null for a coin when the decoder tip is
             // unavailable; last_block/last_block_time are unaffected.
             decoder_tip:        {},
             decoder_lag_blocks: {}
@@ -3693,6 +3695,52 @@ class Database {
                 data.decoder_lag_blocks[coin] = (decoderTip === null) ? null : Math.max(0, decoderTip - data.last_block[coin]);
             }
         }
+        // Chain→decoder visibility — the slice the DB-derived fields above can't
+        // see (the explorer never talks to a coin node, so a decoder stalled far
+        // behind the chain still shows decoder_lag_blocks=0 once the indexer
+        // catches up to its tip). Best-effort per coin via the decoder's own
+        // health() JSON-RPC: chain_tip is the coin node's tip as the decoder
+        // sees it, chain_lag_blocks the decoder's self-reported gap to it, and
+        // decoder_health the decoder's own status ('healthy'/'unhealthy'),
+        // 'unconfigured' when no DECODER_API_URL[_<COIN>_<NETWORK>] is set, or
+        // 'unreachable' when the call fails. Calls run in parallel and are
+        // bounded by the connector timeout so /status stays responsive.
+        data.chain_tip        = {};
+        data.chain_lag_blocks = {};
+        data.decoder_health   = {};
+        let prefixes = coinConfigs['COIN_PREFIXES'] || { mainnet: '', testnet: 'T', regtest: 'R' };
+        let networks = coinConfigs['COIN_NETWORKS'] || {};
+        let parseCode = (code) => {
+            code = String(code || '').toUpperCase();
+            // Non-empty prefixes (T/R) first so 'TBTC' isn't read as a mainnet coin named 'TBTC'.
+            for(let network in prefixes){
+                let p = prefixes[network];
+                if(p && code.startsWith(p)){
+                    let base = code.slice(p.length);
+                    if(networks[base]) return { coin: base, network };
+                }
+            }
+            if(networks[code]) return { coin: code, network: 'mainnet' };
+            return null;
+        };
+        await Promise.all(Object.keys(available).map(async (code) => {
+            data.chain_tip[code]        = null;
+            data.chain_lag_blocks[code] = null;
+            let parsed = parseCode(code);
+            let url    = parsed ? DecoderConnector.resolveDecoderUrl(parsed.coin, parsed.network) : null;
+            if(!url){
+                data.decoder_health[code] = 'unconfigured';
+                return;
+            }
+            try {
+                let h = await new DecoderConnector(url).health();
+                data.chain_tip[code]        = (h && h.chainTipBlock != null) ? h.chainTipBlock : null;
+                data.chain_lag_blocks[code] = (h && h.blockLag != null) ? Math.max(0, h.blockLag) : null;
+                data.decoder_health[code]   = (h && h.status) ? h.status : 'unreachable';
+            } catch(e){
+                data.decoder_health[code] = 'unreachable';
+            }
+        }));
         return [data];
     }
 

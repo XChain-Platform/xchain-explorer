@@ -1001,3 +1001,63 @@ describe('Database#getToken escrow_action_index', () => {
         expect(data.info.escrow_action_index).to.be.null;
     });
 });
+
+// ---------------------------------------------------------------------------
+// getStatus — chain→decoder health aggregation
+// ---------------------------------------------------------------------------
+
+describe('Database#getStatus decoder health aggregation', () => {
+    const axios = require('axios');
+    const ENV_KEYS = ['DECODER_API_URL', 'DECODER_API_URL_BTC_MAINNET'];
+    let db, saved;
+
+    beforeEach(() => {
+        db = makeDb();
+        saved = {};
+        for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+    });
+
+    afterEach(() => {
+        for (const k of ENV_KEYS) {
+            if (saved[k] === undefined) delete process.env[k];
+            else process.env[k] = saved[k];
+        }
+        sinon.restore();
+    });
+
+    it('reports decoder_health=unconfigured with null chain fields when no URL is set', async () => {
+        const [data] = await db.getStatus(cfg());
+        expect(data).to.include.keys(['chain_tip', 'chain_lag_blocks', 'decoder_health']);
+        for (const code of Object.keys(data.decoder_health)) {
+            expect(data.decoder_health[code]).to.equal('unconfigured');
+            expect(data.chain_tip[code]).to.be.null;
+            expect(data.chain_lag_blocks[code]).to.be.null;
+        }
+    });
+
+    it('surfaces chain_tip / chain_lag_blocks / status from the decoder health call', async () => {
+        process.env.DECODER_API_URL = 'http://decoder:3001';
+        sinon.stub(axios, 'post').resolves({
+            data: { result: { status: 'healthy', chainTipBlock: 900500, blockLag: 7 } }
+        });
+        const [data] = await db.getStatus(cfg());
+        const codes = Object.keys(data.decoder_health);
+        expect(codes.length).to.be.greaterThan(0);
+        for (const code of codes) {
+            expect(data.decoder_health[code]).to.equal('healthy');
+            expect(data.chain_tip[code]).to.equal(900500);
+            expect(data.chain_lag_blocks[code]).to.equal(7);
+        }
+    });
+
+    it('reports decoder_health=unreachable (null fields) when the health call fails', async () => {
+        process.env.DECODER_API_URL = 'http://decoder:3001';
+        sinon.stub(axios, 'post').rejects(new Error('ECONNREFUSED'));
+        const [data] = await db.getStatus(cfg());
+        for (const code of Object.keys(data.decoder_health)) {
+            expect(data.decoder_health[code]).to.equal('unreachable');
+            expect(data.chain_tip[code]).to.be.null;
+            expect(data.chain_lag_blocks[code]).to.be.null;
+        }
+    });
+});

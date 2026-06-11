@@ -589,24 +589,31 @@ describe('XChainExplorer.getPagingDataResults', function () {
             const cfg    = makeExplorerConfig('getIssues', null, null, { start: 0, length: 10 });
             const result = explorer.getPagingDataResults(cfg, [row], 1);
             const r = result[0];
-            // getIssues: [count_reverse, block_index, timestamp, source, tick, max_supply, max_mint, locks, status, action_index]
-            expect(r).to.be.an('array').with.length(10);
+            // getIssues: [count_reverse, block_index, timestamp, source, tick, max_supply, max_mint, locks, transfer, status, action_index]
+            // (transfer sits BEFORE status/action_index so the client's
+            // length-relative status + paging-offset extraction keeps working)
+            expect(r).to.be.an('array').with.length(11);
             // locks = lock_max_supply|lock_mint|lock_mint_supply|lock_max_mint|lock_description|lock_sleep|lock_callback
             expect(r[7]).to.equal('0|0|0|0|0|0|0');
-            expect(r[8]).to.equal(1); // valid
+            expect(r[r.length - 2]).to.equal(1); // valid (status stays second-to-last)
         });
 
-        it('getTokens also includes pipe-joined locks', function () {
+        it('getTokens also includes pipe-joined locks and trailing decimals + id', function () {
             const row = Object.assign(makeIssue(), {
-                supply: '500000',
-                id:     'someId'
+                supply:   '500000',
+                decimals: 0,
+                id:       'someId'
             });
             const cfg    = makeExplorerConfig('getTokens', null, null, { start: 0, length: 10 });
             const result = explorer.getPagingDataResults(cfg, [row], 1);
             const r = result[0];
-            // getTokens: [count_reverse, block_index, timestamp, tick, supply, max_supply, max_mint, locks, id]
-            expect(r).to.be.an('array').with.length(9);
+            // getTokens: [count_reverse, block_index, timestamp, tick, supply, max_supply, max_mint, locks, decimals, id]
+            // decimals + locks let clients badge NFT-pattern tokens; id must stay
+            // LAST (the datatables client uses the last element for offset paging)
+            expect(r).to.be.an('array').with.length(10);
             expect(r[7]).to.equal('0|0|0|0|0|0|0');
+            expect(r[8]).to.equal(0);        // decimals
+            expect(r[9]).to.equal('someId'); // id stays the trailing element
         });
 
     });

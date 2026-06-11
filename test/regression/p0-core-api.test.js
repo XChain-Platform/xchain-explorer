@@ -208,7 +208,8 @@ describe('@p0 @core Token API regression', function () {
     it('GET /RBTC/api/token/{tick} — returns full token detail', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
         expect(res.status).to.equal(200);
-        expect(res.body).to.have.all.keys(['callback', 'info', 'lists', 'locks', 'market', 'mints', 'runtime', 'supply']);
+        // projects/registry are the Project_Registry.md display surfaces (2026-06)
+        expect(res.body).to.have.all.keys(['callback', 'info', 'lists', 'locks', 'market', 'mints', 'projects', 'registry', 'runtime', 'supply']);
         expect(res.body.info.tick).to.equal('TOKENONE');
         expect(res.body.info.description).to.equal('Test Token One');
     });

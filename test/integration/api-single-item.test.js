@@ -119,8 +119,9 @@ describe('Single-Item API Endpoints', function () {
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
 
-        // Top-level sections
-        expect(res.body).to.have.all.keys(['callback', 'info', 'lists', 'locks', 'market', 'mints', 'runtime', 'supply']);
+        // Top-level sections (projects/registry are the Project_Registry.md
+        // display surfaces added 2026-06)
+        expect(res.body).to.have.all.keys(['callback', 'info', 'lists', 'locks', 'market', 'mints', 'projects', 'registry', 'runtime', 'supply']);
 
         // info section
         expect(res.body.info).to.be.an('object');

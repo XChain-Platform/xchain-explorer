@@ -148,6 +148,7 @@ class XChainExplorer {
                 '/{COIN}'                     : 'coin_home.html',
                 '/{COIN}/blocks'              : 'blocks.html',
                 '/{COIN}/markets'             : 'markets.html',
+                '/{COIN}/nfts'                : 'nfts.html',
                 '/{COIN}/search'              : 'search.html',
                 '/{COIN}/tokens'              : 'tokens.html',
                 '/{COIN}/terms'               : 'terms.html',
@@ -260,8 +261,10 @@ class XChainExplorer {
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
                 '/{COIN}/api/network'                          : ['getNetwork'],   
                 '/{COIN}/api/pubkey/{QUERY}'                   : ['getPublicKey',        'address'],
+                // Project registry — current roster of a project tick (protocol/Project_Registry.md)
+                '/{COIN}/api/project/{QUERY}'                  : ['getProject',          'token'],
                 '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
-                '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken']],
+                '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken', 'nft']],
                 '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],
                 // Market Endpoints
                 '/{COIN}/api/markets'                                  : ['getMarkets'],
@@ -304,6 +307,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/messages/{QUERY}/{TYPE}'                  : ['getMessages',     ['block', 'address']],
                 '/{COIN}/explorer/mints/{QUERY}/{TYPE}'                     : ['getMints',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/orders/{QUERY}/{TYPE}'                    : ['getOrders',       ['block', 'address', 'token']],
+                '/{COIN}/explorer/projects/{QUERY}/{TYPE}'                  : ['getProjectTokens', ['roster']],
                 '/{COIN}/explorer/coinpays/{QUERY}/{TYPE}'                  : ['getCoinpays',     ['block', 'address']],
                 '/{COIN}/explorer/coinpay_obligations/{QUERY}/{TYPE}'       : ['getCoinpayObligations', ['block', 'address']],
                 '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address']],
@@ -323,7 +327,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'                     : ['getSwaps',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'                    : ['getSweeps',       ['block', 'address']],
-                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'                    : ['getTokens',       ['block', 'address', 'token', 'subtoken']]
+                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'                    : ['getTokens',       ['block', 'address', 'token', 'subtoken', 'nft']]
             }
         };
 
@@ -337,12 +341,14 @@ class XChainExplorer {
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
 
-        // Token-gated content: raw ciphertext bytes for a gated FILE action.
-        // Returns the encrypted file bytes directly with application/octet-stream.
-        // Holders decrypt client-side after receiving the symmetric key via an
-        // ECIES MESSAGE. See xchain-documentation/protocol/TOKEN_GATED_CONTENT.md.
+        // Raw bytes for a FILE action. Gated files return their ciphertext as
+        // application/octet-stream (holders decrypt client-side — see
+        // xchain-documentation/protocol/TOKEN_GATED_CONTENT.md); non-gated files
+        // return the stored bytes from the colocated decoder DB, served inline
+        // only for safe media MIME types (this is how TIS `data_ref` entries
+        // resolve for NFT display — see protocol/NFT_Standard.md).
         // Registered before the wildcard so the express route matcher hits this first.
-        this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processGatedFileRawRequest(req, res); });
+        this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processFileRawRequest(req, res); });
 
         // Native-coin fee pre-flight + schedule. Thin proxies to the colocated indexer's
         // read-only feequote/feeschedule JSON-RPC, so the authoritative fee + oracle-price logic
@@ -756,7 +762,7 @@ class XChainExplorer {
 
                     // Handle building out locks info into nice string
                     let locks = false;
-                    if(['getIssues','getTokens'].includes(method)){
+                    if(['getIssues','getTokens','getProjectTokens'].includes(method)){
                         let arr = [
                             info.lock_max_supply,
                             info.lock_mint,
@@ -843,8 +849,11 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.action, info.details, status, info.action_index];
                     if(method=='getHolders')
                         info = [count, info.address, amount, percent, value, null];
+                    // transfer (ownership-transfer destination, null for plain issues)
+                    // sits BEFORE status/action_index so the client's length-relative
+                    // status + paging-offset extraction keeps working
                     if(method=='getIssues')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.max_supply, info.max_mint, locks, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.max_supply, info.max_mint, locks, info.transfer, status, info.action_index];
                     if(method=='getLinks')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.coin1, info.coin1_action_index, info.coin2, info.coin2_action_index, info.memo, status, info.action_index];
                     if(method=='getLists')
@@ -867,8 +876,12 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership, info.get_ownership];
                     if(method=='getSweeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.orders, info.swaps, info.dispensers, status, info.action_index];
-                    if(method=='getTokens')
-                        info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.id];
+                    // NOTE: decimals sits BEFORE the trailing id — the datatables client
+                    // uses the LAST element of each row for offset paging (offset_first/
+                    // offset_last), so new fields must never displace it. decimals +
+                    // locks (lock_max_supply) let the client badge NFT-pattern tokens.
+                    if(['getTokens','getProjectTokens'].includes(method))
+                        info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.decimals, info.id];
                     // VM / Contract list pages
                     if(method=='getContracts')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.code_hash, info.api_version, info.cooldown_blocks, info.slash_destination, status, info.action_index];
@@ -935,17 +948,28 @@ class XChainExplorer {
     }
 
     /**********************************************************
-     * Token-gated content — raw ciphertext bytes
+     * FILE content — raw bytes
      *
      * GET /{COIN}/api/file/{ACTION_INDEX}/raw
      *
-     * Returns the AES-256-GCM ciphertext bytes (12-byte nonce ||
-     * ciphertext || 16-byte GCM tag) for a gated FILE action.
+     * Gated FILE: returns the AES-256-GCM ciphertext bytes (12-byte
+     * nonce || ciphertext || 16-byte GCM tag) as octet-stream.
      * Holders decrypt client-side after receiving the symmetric key
-     * via an ECIES MESSAGE. Non-gated files and unknown action
-     * indexes return 404.
+     * via an ECIES MESSAGE.
+     *
+     * Non-gated FILE: returns the stored bytes from the colocated
+     * decoder DB. This is the resolution target for TIS `data_ref`
+     * entries (`action:<index>`), so NFT-pattern tokens with fully
+     * on-chain artwork can render in the browser. The declared MIME
+     * type is honored INLINE only for safe media types — on-chain
+     * bytes are attacker-controlled, and serving them as text/html
+     * (or letting the browser sniff them into it) from the explorer
+     * origin would be stored XSS. Everything else downloads as an
+     * octet-stream attachment.
+     *
+     * Unknown action indexes (or an unreachable decoder DB) return 404.
      *********************************************************/
-    async processGatedFileRawRequest(req, res){
+    async processFileRawRequest(req, res){
         let coin = String(req.params.coin || '').toUpperCase();
         let actionIndex = req.params.actionIndex;
         if(!/^[0-9]+$/.test(String(actionIndex)))
@@ -953,19 +977,45 @@ class XChainExplorer {
         if(!this.db.pools || !this.db.pools[coin])
             return res.status(404).json({ error: 'Unknown coin' });
         let config = { coin, data: {} };
-        let raw = null;
+        let raw  = null;
+        let file = null;
         try {
+            // Gated file first — ciphertext is served exactly as before
             let rows = await this.db.getGatedFileRaw(config, actionIndex);
             if(rows && rows.length > 0) raw = rows[0].raw_data;
+            // Fall through to the non-gated FILE bytes (decoder DB)
+            if(!raw)
+                file = await this.db.getFileRaw(config, actionIndex);
         } catch (e) {
-            console.error('processGatedFileRawRequest error:', e);
+            console.error('processFileRawRequest error:', e);
             return res.status(500).json({ error: 'Server error' });
         }
-        if(!raw)
+        if(!raw && !file)
             return res.status(404).json({ error: 'Not found' });
-        res.set('Content-Type', 'application/octet-stream');
+        // Never let the browser sniff a different content type out of the bytes
+        res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
-        return res.send(raw);
+        if(raw){
+            // Gated ciphertext — opaque bytes
+            res.set('Content-Type', 'application/octet-stream');
+            return res.send(raw);
+        }
+        // Non-gated: honor the declared MIME type inline only when it is a
+        // well-formed, render-safe media type; anything else (html, svg, xml,
+        // scripts, unknown) is forced to download as an opaque attachment.
+        let type   = String(file.type || '').toLowerCase();
+        let valid  = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type);
+        let inline = valid && (
+            ((/^(image|audio|video)\//).test(type) && type!='image/svg+xml') ||
+            type=='application/pdf'
+        );
+        if(inline){
+            res.set('Content-Type', type);
+        } else {
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('Content-Disposition', 'attachment');
+        }
+        return res.send(file.raw_data);
     }
 
     // GET /{COIN}/api/checkpoints[?limit=N] — latest quorum-signed state checkpoints

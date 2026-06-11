@@ -646,12 +646,16 @@ describe('Database#getToken', () => {
         expect(data).to.be.null;
     });
 
-    it('returns an object with info, callback, market, lists, locks, mints, supply keys', async () => {
+    it('returns an object with info, callback, market, lists, locks, mints, supply, projects, registry keys', async () => {
         sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply']);
+        // projects/registry are the Project_Registry.md display surfaces; with
+        // no baseCoin map (un-inited db) they resolve to []/null
+        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry']);
+        expect(data.projects).to.deep.equal([]);
+        expect(data.registry).to.equal(null);
     });
 
     it('maps lock_max_supply="1" to locks.max_supply === true', async () => {
@@ -746,12 +750,15 @@ describe('Database#getToken', () => {
         expect(data.callback.block).to.equal(0);
     });
 
-    it('does not include a decimals field in info', async () => {
+    it('exposes the token decimals (but never callback_decimals) in info + supply', async () => {
         sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        expect(data.info).to.not.have.property('decimals');
+        // decimals power client-side NFT-pattern classification (DECIMALS=0 +
+        // LOCK_MAX_SUPPLY=1 — NFT_Standard.md); callback_decimals stays internal
+        expect(data.info.decimals).to.equal(8);
+        expect(data.supply.decimals).to.equal(8);
         expect(data.info).to.not.have.property('callback_decimals');
     });
 

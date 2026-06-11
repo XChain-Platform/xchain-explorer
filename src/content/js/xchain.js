@@ -277,7 +277,13 @@ function getXChainParam(coin, type){
 // Function to handle making a URL a url valid by ensuring it starts with http or https
 function getValidUrl( url ){
     var re1 = /^http:\/\//,
-        re2 = /^https:\/\//;
+        re2 = /^https:\/\//,
+        // Same-origin absolute path (e.g. a resolved TIS data_ref raw-FILE URL).
+        // The second char must not be / or \ so protocol-relative //host URLs
+        // can't slip through as "relative".
+        rel = /^\/[^\/\\]/;
+    if(rel.test(url))
+        return url;
     if(!(re1.test(url)||re2.test(url)))
         url = 'http://' + url;
     return url;
@@ -357,6 +363,23 @@ function formatLocks(locks=null){
     if(lock[6]==1) html += '<i class="fa fa-snooze pe-1"       title="Sleep"></i>';
     if(lock[7]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
     return html;
+}
+
+// Canonical NFT-pattern classification (NFT_Standard.md#classification-rule-for-clients):
+// a token follows the NFT pattern when DECIMALS=0 AND LOCK_MAX_SUPPLY=1.
+// Mirrors sdk.nft.isNft — keep the two in sync.
+function isNftToken(decimals, lockMaxSupply){
+    return Number(decimals)===0 && Number(lockMaxSupply)===1;
+}
+
+// Badge marking an NFT-pattern token. MAX_SUPPLY 1 = a unique 1-of-1,
+// N = an edition of N identical prints (NFT_Standard.md#definition).
+function nftBadge(maxSupply){
+    let unique = (Number(String(maxSupply).replace(/,/g,''))==1),
+        label  = (unique) ? 'NFT' : 'NFT Edition',
+        title  = (unique) ? 'Non-Fungible Token: unique 1-of-1 (indivisible, supply locked)'
+                          : 'Non-Fungible Token: edition of ' + formatAmount(maxSupply) + ' identical prints (indivisible, supply locked)';
+    return '<span class="badge bg-info text-dark ms-1" title="' + title + '"><i class="fa fa-gem pe-1"></i>' + label + '</span>';
 }
 
 // Return path to the token icon
@@ -1019,6 +1042,9 @@ function loadDatatablesData(coin, action, query, type){
     // Automatically convert token searches on token page to subtoken
     if(type=='token' && action=='token')
         type = 'subtoken';
+    // The Official Tokens tab loads the project's roster (Project_Registry.md)
+    if(type=='token' && action=='project')
+        type = 'roster';
     // Set the explorer API endpoint name based on the action
     let endpoint = null;
     if(['history','search'].includes(action)){
@@ -1069,7 +1095,7 @@ function loadDatatablesData(coin, action, query, type){
                 data.offset = offset;
                 // pass total back to server (used to quickly calculate how many records to display on 'last' page)
                 data.total =  track['total'];
-                if(type=='subtoken')
+                if(['subtoken','roster'].includes(type))
                     data.sortorder = 'ASC';
                 // Cleanup the request so we only send what we need
                 delete data.columns;
@@ -1201,7 +1227,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','block','fee','holder','search','market','market-history','slash_event'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1437,6 +1463,12 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 amount2 = data[6];
                 locks   = data[7];
+                // data[8] = ownership-transfer destination — when set, this issue
+                // moved the token's ownership record (the provenance trail for
+                // NFT collections — NFT_Standard.md#collections)
+                let transfer = data[8];
+                if(!isNull(transfer))
+                    $('td', row).eq(3).html(source_link + ' <i class="fa fa-arrow-right ps-1 pe-1" title="Token ownership transferred"></i> ' + formatLink('/' + coin + '/address/' + transfer, transfer));
                 $('td', row).eq(5).text(formatAmount(amount));
                 $('td', row).eq(6).text(formatAmount(amount2));
                 $('td', row).eq(7).html(formatLocks(locks));
@@ -1582,7 +1614,33 @@ function loadDatatablesData(coin, action, query, type){
                 amount2 = data[5];
                 amount3 = data[6];
                 locks   = data[7];
-                $('td', row).eq(3).html(formatLink('/' + coin + '/token/' + token, token, token));
+                // data[8] = decimals; with lock_max_supply (first element of the
+                // locks string) it classifies NFT-pattern tokens (NFT_Standard.md)
+                let decimals = data[8],
+                    lockMax  = String(locks).split('|')[0],
+                    tickHtml = formatLink('/' + coin + '/token/' + token, token, token);
+                if(isNftToken(decimals, lockMax))
+                    tickHtml += nftBadge(amount2);
+                $('td', row).eq(3).html(tickHtml);
+                $('td', row).eq(4).text(formatAmount(amount));
+                $('td', row).eq(5).text(formatAmount(amount2));
+                $('td', row).eq(6).text(formatAmount(amount3));
+                $('td', row).eq(7).html(formatLocks(locks));
+                $('td', row).eq(8).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+            }
+            // Official Tokens (project roster — same row shape as Tokens)
+            if(action=='project'){
+                token   = data[3];
+                amount  = data[4];
+                amount2 = data[5];
+                amount3 = data[6];
+                locks   = data[7];
+                let pDecimals = data[8],
+                    pLockMax  = String(locks).split('|')[0],
+                    pTickHtml = formatLink('/' + coin + '/token/' + token, token, token);
+                if(isNftToken(pDecimals, pLockMax))
+                    pTickHtml += nftBadge(amount2);
+                $('td', row).eq(3).html(pTickHtml);
                 $('td', row).eq(4).text(formatAmount(amount));
                 $('td', row).eq(5).text(formatAmount(amount2));
                 $('td', row).eq(6).text(formatAmount(amount3));
@@ -2043,6 +2101,27 @@ function showFileDetails(data){
     } else {
         $('#info-file .file-gated-row').addClass('d-none');
     }
+    // File viewer — non-gated media renders inline from the raw FILE endpoint
+    // (the server only serves whitelisted media MIME types inline; everything
+    // else is offered as a download). Gated files show a locked notice. The
+    // rawUrl is built from XC.coin + the numeric action_index, not user input;
+    // the declared MIME type is escaped where interpolated.
+    let viewer = $('#info-file .file-viewer'),
+        rawUrl = '/' + XC.coin + '/api/file/' + data.action_index + '/raw',
+        type   = String(data.type || '').toLowerCase(),
+        html   = '';
+    if(!isNull(data.gate_ticker)){
+        html = '<i class="fa fa-lock pe-1"></i> Token-gated content &mdash; holders decrypt client-side with their unlock key';
+    } else if(type.substring(0,6)=='image/' && type!='image/svg+xml'){
+        html = '<img src="' + rawUrl + '" class="img-fluid" style="max-width:400px" alt="">';
+    } else if(type.substring(0,6)=='video/'){
+        html = '<video controls playsinline class="img-fluid" style="max-width:400px"><source src="' + rawUrl + '" type="' + escapeHtml(type) + '"></video>';
+    } else if(type.substring(0,6)=='audio/'){
+        html = '<audio src="' + rawUrl + '" controls preload="none"></audio>';
+    } else {
+        html = formatLink(rawUrl, 'download file');
+    }
+    viewer.html(html);
 }
 
 // Display ATTEST action information (v0 request / v1 response — `attests` table)
@@ -2570,10 +2649,60 @@ function updateTokenSection(id){
     }
 }
 
+// Resolve TIS `data_ref` entries across the media arrays. A data_ref of
+// "action:<index>" points at an on-chain FILE action; clients prefer it over
+// `data` when both are present (Token_Information_Standard.md — File Entry
+// Fields). Resolves to the explorer's own raw FILE endpoint. Also guarantees
+// every entry carries a string `data` so downstream substring/split calls are
+// safe on data_ref-only entries.
+function resolveTisDataRefs(o){
+    ['images','audio','video','files'].forEach(function(key){
+        if(!o[key] || !o[key].length)
+            return;
+        o[key].forEach(function(item){
+            if(!item)
+                return;
+            if(typeof item.data_ref === 'string'){
+                var m = item.data_ref.match(/^action:([0-9]+)$/i);
+                if(m)
+                    item.data = '/' + XC.coin + '/api/file/' + m[1] + '/raw';
+            }
+            if(isNull(item.data))
+                item.data = '';
+        });
+    });
+    return o;
+}
+
+// Lock marker for token-gated TIS entries (`locked: true`) — lets media lists
+// render a locked state without fetching the FILE action first.
+function lockedContentIcon(item){
+    return (item && item.locked) ? '<i class="fa fa-lock pe-1" title="Token-gated content — holders decrypt with their unlock key"></i>' : '';
+}
+
+// Pick the entry whose media should display from a TIS media array: prefer the
+// named display types (legacy CoinDaddy/TIS type tags), then fall back to the
+// first non-locked entry (gated entries are ciphertext and cannot render).
+function pickDisplayMedia(arr, types){
+    for(var i=0; i<types.length; i++){
+        var item = getArrayItemByType(arr, types[i]);
+        if(item && !item.locked)
+            return item;
+    }
+    for(var j=0; j<arr.length; j++){
+        if(arr[j] && !arr[j].locked)
+            return arr[j];
+    }
+    return false;
+}
+
 // Handle displaying token content (images, audio, video, etc)
 function showTokenContent(json){
     // Convert any legacy formated JSON to the new XChain Token Information Standard (TIS)
     json = legacyJsonToXChainTIS(json);
+
+    // Resolve any on-chain data_ref entries to raw FILE URLs
+    json = resolveTisDataRefs(json);
 
     // Cache JSON so we can easily reference it again when needed
     cachedJson = json;
@@ -2653,7 +2782,7 @@ function showTokenContent(json){
             if(item.data.substring(0,4)=='data')
                 return;
             // On-chain fields — escape type, size, href and link text.
-            let html = '<tr><th>' + escapeHtml(item.type);
+            let html = '<tr><th>' + lockedContentIcon(item) + escapeHtml(item.type);
             if(item.size)
                 html += ' (' + escapeHtml(String(item.size)) + ')';
             html += '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
@@ -2661,12 +2790,15 @@ function showTokenContent(json){
             XC.tokenInfoFound = true;
         });
         updateTokenSection('#imagesInfo');
-        // Extract image from images array
-        var large    = getArrayItemByType(o.images, 'large'),
-            standard = getArrayItemByType(o.images, 'standard'),
-            first    = o.images[0].data;
-        image = (large) ? large.data : (standard) ? standard.data : first.data;
-        title = (large) ? large.name : (standard) ? standard.name : first.name;
+        // Extract the display image from the images array — named display types
+        // first, then the first non-locked entry (fixes the old `first.data`
+        // dereference of a string, which hid the artwork for plain TIS docs
+        // whose entries carry MIME types instead of display-type tags)
+        var imageItem = pickDisplayMedia(o.images, ['large','standard']);
+        if(imageItem){
+            image = imageItem.data;
+            title = imageItem.name;
+        }
     }
 
     // Audio
@@ -2674,20 +2806,18 @@ function showTokenContent(json){
         var table = $('#audioInfo table tbody');
         table.empty();
         o.audio.slice(0,10).forEach(function(item){
-            let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
+            let html = '<tr><th>' + lockedContentIcon(item) + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
         updateTokenSection('#audioInfo');
-        // Extract audio from audio array
-        var m4a   = getArrayItemByType(o.audio, 'm4a'),
-            mp3   = getArrayItemByType(o.audio, 'mp3'),
-            wav   = getArrayItemByType(o.audio, 'wav'),
-            first = o.audio[0].data;
-        audio = (m4a) ? m4a.data : (mp3) ? mp3.data : (wav) ? wav.data : first.data;
-        if(!title)
-            title = (m4a) ? m4a.name : (mp3) ? mp3.name : (wav) ? wav.name : first.name;
-
+        // Extract the display audio from the audio array
+        var audioItem = pickDisplayMedia(o.audio, ['m4a','mp3','wav']);
+        if(audioItem){
+            audio = audioItem.data;
+            if(!title)
+                title = audioItem.name;
+        }
     }
 
     // Video
@@ -2695,19 +2825,18 @@ function showTokenContent(json){
         var table = $('#videoInfo table tbody');
         table.empty();
         o.video.slice(0,10).forEach(function(item){
-            let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
+            let html = '<tr><th>' + lockedContentIcon(item) + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
         updateTokenSection('#videoInfo');
-        // Extract video from videos array
-        var mp4   = getArrayItemByType(o.video, 'mp4'),
-            mov   = getArrayItemByType(o.video, 'mov'),
-            wmv   = getArrayItemByType(o.video, 'wmv'),
-            first = o.video[0].data;
-        video = (mp4) ? mp4.data : (mov) ? mov.data : (wmv) ? wmv.data : first.data;
-        if(!title)
-            title = (mp4) ? mp4.name : (mov) ? mov.name : (wmv) ? wmv.name : first.name;
+        // Extract the display video from the videos array
+        var videoItem = pickDisplayMedia(o.video, ['mp4','mov','wmv']);
+        if(videoItem){
+            video = videoItem.data;
+            if(!title)
+                title = videoItem.name;
+        }
     }
 
     // Files
@@ -2715,7 +2844,7 @@ function showTokenContent(json){
         var table = $('#fileInfo table tbody');
         table.empty();
         o.files.slice(0,10).forEach(function(item){
-            let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
+            let html = '<tr><th>' + lockedContentIcon(item) + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
         });
@@ -2915,6 +3044,59 @@ function showTokenInfo(){
 
     // Basic Token Information
     $('.xchain-tick').text(o.info.tick);
+    // NFT-pattern badge + info panel (DECIMALS=0 + LOCK_MAX_SUPPLY=1 —
+    // NFT_Standard.md). locks.max_supply is a boolean here, Number(true)===1
+    // satisfies isNftToken. All values rendered come from the indexer DB
+    // (numeric/boolean), except the tick used in the parent link, which
+    // passed ISSUE validation ([A-Z0-9.] charset) — safe in an href.
+    if(isNftToken(o.info.decimals, o.locks.max_supply)){
+        $('.xchain-tick').append(nftBadge(o.supply.max));
+        let maxSupply = Number(String(o.supply.max).replace(/,/g,''));
+        $('#nft-type').text((maxSupply==1) ? 'Unique (1 of 1)' : 'Edition of ' + formatAmount(o.supply.max) + ' identical prints');
+        // The collector-verification guarantees, answerable from chain state
+        let guarantees = '<i class="fa fa-check pe-1 text-success"></i>Indivisible &mdash; 0 decimals, fractional amounts are invalid'
+                       + '<br><i class="fa fa-check pe-1 text-success"></i>Supply permanently capped at ' + formatAmount(o.supply.max);
+        if(o.locks.description)
+            guarantees += '<br><i class="fa fa-check pe-1 text-success"></i>Description locked &mdash; the metadata pointer can never change';
+        $('#nft-guarantees').html(guarantees);
+        // Collection membership via parent/child tick naming (PARENT.ITEM)
+        if(String(o.info.tick).includes('.')){
+            let parent = String(o.info.tick).split('.')[0];
+            $('#nft-collection').html(formatLink('/' + XC.coin + '/token/' + parent, parent, parent));
+            $('#nft-collection-row').removeClass('d-none');
+        }
+        $('#nft-info').removeClass('d-none');
+    }
+
+    // Project registry surfaces (protocol/Project_Registry.md).
+    // projects = registries whose current owner-attested roster includes this
+    // token → green banner that ALWAYS names the attesting project (the
+    // banner's weight comes from the project's identity, never a bare
+    // checkmark). Tick names are consensus-restricted but escaped anyway.
+    if(o.projects && o.projects.length){
+        let html = '';
+        o.projects.forEach(function(p){
+            let name = escapeHtml(p.project);
+            html += '<div class="alert alert-success mb-2" role="alert">'
+                 +  '<i class="fa fa-certificate pe-1"></i><b>Official:</b> this token is officially part of '
+                 +  formatLink('/' + XC.coin + '/token/' + name, '<b>' + name + '</b>', p.project)
+                 +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
+                 +  '</div>';
+        });
+        $('#project-banners').html(html).removeClass('d-none');
+    }
+    // registry = this token IS a project with an attested official-token
+    // roster → show the count and reveal the Official Tokens tab
+    if(o.registry){
+        $('#registry-info').html('<a href="#" id="registry-link">' + numeral(o.registry.total).format('0,0') + ' official token' + (o.registry.total==1?'':'s') + '</a>');
+        $('#registry-row').removeClass('d-none');
+        $('#tab-dropdown-project').removeClass('d-none');
+        $('#registry-link').click(function(e){
+            e.preventDefault();
+            $('#tab-dropdown-project').click();
+        });
+    }
+
     $('#supply').text(formatAmount(o.supply.current));
     $('#max-supply').text(formatAmount(o.supply.max));
     $('#max-mint').text(formatAmount(o.mints.max));

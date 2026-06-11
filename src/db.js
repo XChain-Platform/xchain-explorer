@@ -146,6 +146,10 @@ class Database {
         // database-qualified query filtered by chain/network (the hub table
         // carries every chain; the per-coin endpoints must not leak siblings).
         this.checkpointDb = {};
+        // Per-key base chain name (RBTC → 'BTC'), used by the project-registry
+        // queries to honor only same-chain LINKs (LINK skips owner validation
+        // when COIN2 is remote — see protocol/Project_Registry.md).
+        this.baseCoin = {};
         // Define list of acceptable networks
         let networks = ['mainnet', 'testnet', 'regtest'];
         // Loop through config and setup pools based on if user/pass/host are different
@@ -163,6 +167,9 @@ class Database {
                         let key  = coin;
                         if(net=='testnet') key = 'T' + coin;
                         if(net=='regtest') key = 'R' + coin;
+                        // Record the base chain name for this key (RBTC → BTC) —
+                        // LINK/LIST rows store the bare chain name in index_coins
+                        this.baseCoin[key] = coin;
                         if (("db_host" in cfg) && ("db_port" in cfg)){
                             // Database connection information
                             this.pools[key] = {
@@ -396,7 +403,10 @@ class Database {
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
             // Tweak limit in certain cases where we can't select just the data we want using offsets
-            if(['getBalances', 'getHolders','getSearch'].includes(data.method))
+            // (token/subtoken/nft/roster searches skip action_index offsets and paginate by
+            // fetch-and-slice, so the SQL limit must cover start+length rows)
+            if(['getBalances', 'getHolders','getSearch','getProjectTokens'].includes(data.method) ||
+                (data.method=='getTokens' && ['token','subtoken','nft'].includes(data.type)))
                 limit = this.util.bcadd(start,length);
             // Set the order to ascending for previous and last requests
             if(['prev','last'].includes(action))
@@ -514,6 +524,10 @@ class Database {
         // Handle token searches
         } else if(method=='getTokens' && ['token','subtoken'].includes(type)){
             sql += ' AND t3.tick LIKE ?';
+        // NFT-pattern tokens (NFT_Standard.md#classification-rule-for-clients):
+        // indivisible + permanently capped. Fixed predicate — no bind arg.
+        } else if(method=='getTokens' && type=='nft'){
+            sql += ' AND m.decimals=0 AND m.lock_max_supply=1';
         } else if(method=='getSlashEvents'){
             // slash_events has no actions/transactions chain — join directly via m.block_index
             // and resolve type=address through the staker's pubkey (signing_pubkey_id).
@@ -647,8 +661,9 @@ class Database {
         // Bail out in certain instances
         if(['getBalances','getHolders','getTransaction','getSearch','getMarkets','getMarket'].includes(method))
             return [];
-        // Bail out if we are doing a token or subtoken search
-        if(method=='getTokens' && ['token','subtoken'].includes(type))
+        // Bail out if we are doing a token, subtoken or nft search — these paginate
+        // by fetch-and-slice (no action_index offsets)
+        if(method=='getTokens' && ['token','subtoken','nft'].includes(type))
             return [];
         // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
@@ -2819,7 +2834,7 @@ class Database {
         let type   = config.data.type;
         let args   = [search];
         let order  = 'm.id ' + sql.order;
-        // Handle token wildcard searches 
+        // Handle token wildcard searches
         if(['token','subtoken'].includes(type)){
             order = 't3.tick ' + sql.order;
             if(type=='token')
@@ -2827,6 +2842,10 @@ class Database {
             if(type=='subtoken')
                 args = [this.util.escapeLike(config.data.search) + '.%'];
         }
+        // NFT-pattern filter is a fixed predicate (decimals=0 + lock_max_supply=1)
+        // with no search placeholder — keep the default m.id ordering (newest first)
+        if(type=='nft')
+            args = [];
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -3890,6 +3909,18 @@ class Database {
                     data.info[name] = value;
                 }
             }
+            // Expose the token's own decimals (the grouping loop above skips every
+            // *decimals* column so callback_decimals doesn't leak into info).
+            // Clients need it for NFT-pattern classification — NFT_Standard.md:
+            // DECIMALS=0 AND LOCK_MAX_SUPPLY=1 (the lock is already in locks.max_supply).
+            data.info.decimals   = Number(row.decimals);
+            data.supply.decimals = Number(row.decimals);
+            // Project registry surfaces (protocol/Project_Registry.md):
+            // projects = registries whose CURRENT roster includes this token
+            // (drives the "Official: part of X" banner); registry = this token's
+            // own roster metadata when it IS a project (null otherwise).
+            data.projects = await this.getTokenProjects(config, data.info.tick);
+            data.registry = await this.getProjectRosterInfo(config, data.info.tick);
         }
         return [data];
     }
@@ -6917,6 +6948,227 @@ class Database {
     async getGatedFileRaw(config, actionIndex) {
         let query = `SELECT raw_data FROM gated_files WHERE action_index=? LIMIT 1`;
         return await this.doQuery(config, query, [Number(actionIndex)]);
+    }
+
+    // Raw bytes + declared MIME type for a non-gated FILE action. The indexer DB
+    // stores only FILE metadata (files table) — the bytes live in the colocated
+    // decoder DB's transactions.raw_data, read with the same DB-qualified pattern
+    // and identifier guard as getDecoderTip. The decoder row is matched by tx HASH
+    // (each DB numbers tx_index/tx_hash_id independently, so ids can't be joined
+    // across them). Returns null when the FILE is unknown, has no stored bytes,
+    // or the decoder DB isn't reachable from this server.
+    async getFileRaw(config, actionIndex) {
+        // Resolve the FILE's tx hash + declared MIME type from the indexer DB
+        let meta = `SELECT
+                        t2.hash,
+                        t3.type
+                    FROM
+                        files f1
+                        INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                    WHERE
+                        f1.action_index=?
+                    LIMIT 1`;
+        let rows = await this.doQuery(config, meta, [Number(actionIndex)]);
+        if(!rows || !rows.length || this.util.isNull(rows[0].hash))
+            return null;
+        let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
+        if(this.util.isNull(dbName)) return null;
+        // dbName is config-derived, not client input, but database identifiers
+        // can't be bound — restrict to a safe identifier charset before use
+        // (same rule as getDecoderTip).
+        if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return null;
+        try {
+            let query = 'SELECT t1.raw_data FROM `' + dbName + '`.transactions t1 ' +
+                        'INNER JOIN `' + dbName + '`.index_transactions t2 ON (t2.id=t1.tx_hash_id) ' +
+                        'WHERE t2.hash=? LIMIT 1';
+            let results = await this.doQuery(config, query, [rows[0].hash]);
+            if(results && results.length && !this.util.isNull(results[0].raw_data))
+                return { raw_data: results[0].raw_data, type: rows[0].type };
+        } catch(e){
+            // Decoder DB unreachable, missing, or no cross-DB grant — omit the bytes.
+            console.warn('getFileRaw: decoder raw_data unavailable for ' + config.coin + ' action ' + actionIndex + ': ' + (e && e.message ? e.message : e));
+        }
+        return null;
+    }
+
+    /******************************************************************
+     * Project Registry queries (protocol/Project_Registry.md)
+     *
+     * A project's current roster is the TICK-type LIST referenced by
+     * the most recent valid LINK targeting one of the project tick's
+     * valid ISSUE actions, with BOTH sides on the local chain (LINK
+     * skips owner validation when COIN2 is remote, so cross-chain
+     * roster links carry no authority). Authority comes from LINK's
+     * owner validation at processing time — display only needs
+     * status='valid' rows.
+     ******************************************************************/
+
+    // Resolve a project tick's current roster. Returns
+    // { roster_action_index, link_action_index, total } or null when the
+    // tick has never had an owner-valid roster link.
+    async getProjectRosterInfo(config, tick){
+        let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
+        if(this.util.isNull(chain) || this.util.isNull(tick)) return null;
+        let query = `SELECT
+                        l.action_index       AS link_action_index,
+                        l.coin1_action_index AS roster_action_index
+                    FROM
+                        links l
+                        INNER JOIN index_statuses s1 ON (s1.id=l.status_id AND s1.status='valid')
+                        INNER JOIN index_coins    c1 ON (c1.id=l.coin1_id AND c1.coin=?)
+                        INNER JOIN index_coins    c2 ON (c2.id=l.coin2_id AND c2.coin=?)
+                        INNER JOIN issues         i1 ON (i1.action_index=l.coin2_action_index)
+                        INNER JOIN index_statuses s2 ON (s2.id=i1.status_id AND s2.status='valid')
+                        INNER JOIN index_tickers  t1 ON (t1.id=i1.tick_id AND t1.tick=?)
+                        INNER JOIN lists          ls ON (ls.action_index=l.coin1_action_index AND ls.type='1')
+                        INNER JOIN index_statuses s3 ON (s3.id=ls.status_id AND s3.status='valid')
+                    ORDER BY l.action_index DESC
+                    LIMIT 1`;
+        let rows = await this.doQuery(config, query, [chain, chain, tick]);
+        if(!rows || !rows.length) return null;
+        let info = {
+            roster_action_index: Number(rows[0].roster_action_index),
+            link_action_index:   Number(rows[0].link_action_index),
+            total: 0
+        };
+        let count = await this.doQuery(config, `SELECT count(*) AS total FROM list_items WHERE action_index=?`, [info.roster_action_index]);
+        if(count && count.length)
+            info.total = Number(count[0].total);
+        return info;
+    }
+
+    // Projects whose CURRENT roster includes the given tick (the reverse
+    // lookup behind the token-page "Official: part of X" banner). A project
+    // whose latest roster dropped the tick does not match.
+    async getTokenProjects(config, tick){
+        let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
+        if(this.util.isNull(chain) || this.util.isNull(tick)) return [];
+        let query = `SELECT
+                        t1.tick                AS project,
+                        latest.link_action_index,
+                        lk.coin1_action_index  AS roster_action_index
+                    FROM (
+                        SELECT
+                            i1.tick_id,
+                            MAX(l.action_index) AS link_action_index
+                        FROM
+                            links l
+                            INNER JOIN index_statuses s1 ON (s1.id=l.status_id AND s1.status='valid')
+                            INNER JOIN index_coins    c1 ON (c1.id=l.coin1_id AND c1.coin=?)
+                            INNER JOIN index_coins    c2 ON (c2.id=l.coin2_id AND c2.coin=?)
+                            INNER JOIN issues         i1 ON (i1.action_index=l.coin2_action_index)
+                            INNER JOIN index_statuses s2 ON (s2.id=i1.status_id AND s2.status='valid')
+                            INNER JOIN lists          ls ON (ls.action_index=l.coin1_action_index AND ls.type='1')
+                            INNER JOIN index_statuses s3 ON (s3.id=ls.status_id AND s3.status='valid')
+                        GROUP BY i1.tick_id
+                    ) latest
+                        INNER JOIN links          lk ON (lk.action_index=latest.link_action_index)
+                        INNER JOIN list_items     li ON (li.action_index=lk.coin1_action_index)
+                        INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND t2.tick=?)
+                        INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
+                    ORDER BY latest.link_action_index DESC`;
+        let rows = await this.doQuery(config, query, [chain, chain, tick]);
+        if(!rows || !rows.length) return [];
+        return rows.map(r => ({
+            project:             r.project,
+            link_action_index:   Number(r.link_action_index),
+            roster_action_index: Number(r.roster_action_index)
+        }));
+    }
+
+    // Project detail (API endpoint) — project tick + roster metadata + member
+    // tokens. Members are capped at 1000 per response; `total` always carries
+    // the full roster size.
+    async getProject(config){
+        let tick = config.data.search;
+        let info = await this.getProjectRosterInfo(config, tick);
+        if(!info) return [null];
+        let query = `SELECT
+                        t3.tick,
+                        m.supply,
+                        m.max_supply,
+                        m.decimals,
+                        m.lock_max_supply
+                    FROM
+                        list_items li
+                        INNER JOIN tokens        m  ON (m.tick_id=li.item_id)
+                        INNER JOIN index_tickers t3 ON (t3.id=m.tick_id)
+                    WHERE
+                        li.action_index=?
+                    ORDER BY t3.tick ASC
+                    LIMIT 1000`;
+        let rows = await this.doQuery(config, query, [info.roster_action_index]);
+        let data = {
+            tick:                String(tick).toUpperCase(),
+            roster_action_index: info.roster_action_index,
+            link_action_index:   info.link_action_index,
+            total:               info.total,
+            members:             []
+        };
+        if(rows && rows.length){
+            data.members = rows.map(r => ({
+                tick:            r.tick,
+                supply:          r.supply,
+                max_supply:      r.max_supply,
+                decimals:        Number(r.decimals),
+                lock_max_supply: Number(r.lock_max_supply)
+            }));
+        }
+        return [data];
+    }
+
+    // SQL-builder for the explorer roster datatable (token-page "Official
+    // Tokens" tab) — member tokens of the project's current roster, shaped
+    // exactly like getTokens rows.
+    async getProjectTokens(config){
+        let sql  = config.data.sql;
+        let info = await this.getProjectRosterInfo(config, config.data.search);
+        // No roster → empty datatable (object query short-circuits getData)
+        if(!info) return [[], [], 0];
+        let args  = [info.roster_action_index];
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        tokens m
+                        INNER JOIN list_items         li ON (li.item_id=m.tick_id AND li.action_index=?)
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        t3.tick,
+                        m.supply,
+                        m.max_supply,
+                        m.max_mint,
+                        m.decimals,
+                        m.lock_max_supply,
+                        m.lock_mint,
+                        m.lock_mint_supply,
+                        m.lock_max_mint,
+                        m.lock_description,
+                        m.lock_sleep,
+                        m.lock_callback,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index
+                    FROM
+                        tokens m
+                        INNER JOIN list_items         li ON (li.item_id=m.tick_id AND li.action_index=?)
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY t3.tick ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
     }
 
     // Resolve the checkpoint-table source for a coin: a configured same-server

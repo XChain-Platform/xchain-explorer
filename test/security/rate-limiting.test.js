@@ -93,7 +93,10 @@ describe('Security: Rate Limiting — Rate limiter config', function () {
     });
 
     it('has max requests configured', function () {
-        const match = apiSource.match(/max:\s*(\d+)/);
+        // express-rate-limit v7 renamed `max` to `limit`; api.js uses
+        // `limit: parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || <default>`
+        // — assert the fallback default is sane.
+        const match = apiSource.match(/limit:\s*.*?\|\|\s*(\d+)/) || apiSource.match(/max:\s*(\d+)/);
         expect(match).to.not.be.null;
         const maxRequests = parseInt(match[1], 10);
         expect(maxRequests).to.be.at.most(500);

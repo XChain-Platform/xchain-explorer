@@ -1,3 +1,9 @@
+<!-- Official project membership banners (protocol/Project_Registry.md) — shown
+     when this token appears on a project's current owner-attested roster.
+     The banner always names the attesting project; its weight comes from that
+     project's identity. -->
+<div class="container mt-3 d-none" id="project-banners"></div>
+
 <!-- Basic Token Information -->
 <div class="container mt-3">
     <div class="row">
@@ -42,10 +48,41 @@
                         <th>Owner</th>
                         <td id="owner"></td>
                     </tr>
+                    <tr id="collection-items-row" class="d-none">
+                        <th>Collection&nbsp;Items</th>
+                        <td id="collection-items"></td>
+                    </tr>
+                    <tr id="registry-row" class="d-none">
+                        <th>Official&nbsp;Tokens</th>
+                        <td id="registry-info"></td>
+                    </tr>
                     </tbody>
                     </table>
+                    <!-- NFT Information (shown only for NFT-pattern tokens:
+                         DECIMALS=0 + LOCK_MAX_SUPPLY=1 — protocol/NFT_Standard.md) -->
+                    <div id="nft-info" class="d-none">
+                        <div class="card-title mb-0 p-1 fw-bold border-top">
+                            <i class="fa fa-gem"></i> NFT Information
+                        </div>
+                        <table class="table table-sm table-striped table-bordered mb-0 token-info no-outer-borders">
+                        <tbody>
+                        <tr>
+                            <th>NFT&nbsp;Type</th>
+                            <td id="nft-type"></td>
+                        </tr>
+                        <tr id="nft-collection-row" class="d-none">
+                            <th>Collection</th>
+                            <td id="nft-collection"></td>
+                        </tr>
+                        <tr class="border-bottom-0">
+                            <th>Guarantees</th>
+                            <td id="nft-guarantees"></td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>        
+            </div>
         </div>
 
         <div class="col-xs-12 col-lg-6 pt-3 pt-lg-0">
@@ -135,6 +172,7 @@
                                     <li><a class="dropdown-item" id="tab-dropdown-lock"     ><i class="fa fa-lock"               ></i> Locks</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-market"   ><i class="fa fa-money-bill-trend-up"></i> Markets</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa fa-print"              ></i> Mints</a></li>
+                                    <li><a class="dropdown-item d-none" id="tab-dropdown-project"><i class="fa fa-certificate"   ></i> Official Tokens</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"               ></i> Orders</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"               ></i> Sends</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-snooze"             ></i> Sleeps</a></li>
@@ -807,6 +845,30 @@
                     </table>
                 </div>
 
+                <!-- Official Tokens (project roster — protocol/Project_Registry.md) -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-project" role="tabpanel" aria-labelledby="tab-project" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-project">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th class="block">Block</th>
+                            <th class="time">Time</th>
+                            <th class="asset-name">Token</th>
+                            <th>Total Supply</th>
+                            <th>Max Supply</th>
+                            <th>Max Mint</th>
+                            <th>Locks</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="9" class="loading-data">Loading official token data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
                 <!-- Subtokens -->
                 <div class="tab-pane fade show table-responsive" id="tab-pane-token" role="tabpanel" aria-labelledby="tab-token" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-token">
@@ -859,6 +921,7 @@
             'market',
             'mint',
             'order',
+            'project',
             'send',
             'sleep',
             'swap',
@@ -926,6 +989,20 @@
 
         // Setup listeners to load data panel when an action button is clicked
         setupActionListeners();
+
+        // Detect collection parents (tokens with PARENT.* children — see
+        // protocol/NFT_Standard.md#collections) and surface an item count
+        // with a shortcut to the Subtokens tab (the collection view)
+        $.getJSON('/' + XC.coin + '/explorer/tokens/' + XC.query + '/subtoken?start=0&length=1', function(o){
+            if(o && o.recordsTotal > 0){
+                $('#collection-items').html('<a href="#" id="collection-items-link">' + numeral(o.recordsTotal).format('0,0') + ' item' + (o.recordsTotal==1 ? '' : 's') + '</a>');
+                $('#collection-items-row').removeClass('d-none');
+                $('#collection-items-link').click(function(e){
+                    e.preventDefault();
+                    $('#tab-dropdown-token').click();
+                });
+            }
+        });
 
         // Activate the first tab by faking a click
         $('#tab-dropdown-info').click();

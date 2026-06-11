@@ -1,0 +1,50 @@
+<!-- NFTs — tokens following the NFT pattern (DECIMALS=0 + LOCK_MAX_SUPPLY=1, see protocol/NFT_Standard.md) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-gem"></i> NFTs
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-token">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="asset-name">Token</th>
+                        <th>Total Supply</th>
+                        <th>Max Supply</th>
+                        <th>Max Mint</th>
+                        <th>Locks</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="9" class="loading-data">Loading NFT data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'NFTs';
+    XC.pageInfo.description = 'Browse NFTs created on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays tokens following the NFT pattern (indivisible, permanently capped supply), including unique 1-of-1s, editions, and collections';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/nfts';
+    updatePageInfo();
+
+    // Load NFT-pattern tokens (the 'null' query segment keeps the
+    // /{COIN}/explorer/tokens/{QUERY}/{TYPE} route shape — the nft type
+    // is a fixed server-side filter and takes no search value)
+    loadDatatablesData(XC.coin, 'token', 'null', 'nft');
+
+});
+</script>

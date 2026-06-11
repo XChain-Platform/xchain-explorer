@@ -173,12 +173,14 @@ CREATE TABLE tokens (
     mint_stop_block    BIGINT UNSIGNED,                     -- BLOCK_INDEX when MINT transactions are NOT allowed (end mint)
     owner_id           BIGINT UNSIGNED,                     -- id of record in index_addresses table
     coin_price         VARCHAR(250) NOT NULL default 0,     -- last  price of 1 token in native coin (BTC, LTC, DOGE, etc)
-    coin_floor         VARCHAR(250) NOT NULL default 0      -- floor price of 1 token in native coin (BTC, LTC, DOGE, etc)
+    coin_floor         VARCHAR(250) NOT NULL default 0,     -- floor price of 1 token in native coin (BTC, LTC, DOGE, etc)
+    escrow_action_index BIGINT UNSIGNED DEFAULT NULL        -- action_index of ORDER/SWAP/DISPENSER holding ownership in escrow (NULL = ownership not escrowed)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE        INDEX tick_id          ON tokens (tick_id);
 CREATE        INDEX owner_id         ON tokens (owner_id);
 CREATE        INDEX lock_max_supply  ON tokens (lock_max_supply);
+CREATE        INDEX escrow_action_index ON tokens (escrow_action_index);
 CREATE        INDEX lock_mint        ON tokens (lock_mint);
 CREATE        INDEX lock_max_mint    ON tokens (lock_max_mint);
 CREATE        INDEX lock_mint_supply ON tokens (lock_mint_supply);
@@ -645,6 +647,8 @@ CREATE TABLE orders (
     get_coin_id      BIGINT UNSIGNED,          -- id of record in index_coins table
     get_tick_id      BIGINT UNSIGNED,          -- id of record in index_tickers table
     get_amount       VARCHAR(250),             -- Amount of GET_TICK in order
+    give_ownership   TINYINT(1) NOT NULL DEFAULT 0, -- 1 = order escrows GIVE_TICK ownership instead of a balance amount
+    get_ownership    TINYINT(1) NOT NULL DEFAULT 0, -- 1 = order requires matcher to currently own GET_TICK and transfer it
     get_address_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
     expiration       BIGINT UNSIGNED,          -- unix timestamp of order expiration date/time
     allow_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
@@ -654,6 +658,8 @@ CREATE TABLE orders (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index   ON orders (action_index);
+CREATE        INDEX give_ownership ON orders (give_ownership);
+CREATE        INDEX get_ownership  ON orders (get_ownership);
 CREATE        INDEX give_coin_id   ON orders (give_coin_id);
 CREATE        INDEX give_tick_id   ON orders (give_tick_id);
 CREATE        INDEX get_coin_id    ON orders (get_coin_id);
@@ -780,6 +786,8 @@ CREATE TABLE swaps (
     get_coin_id      BIGINT UNSIGNED,          -- id of record in index_coins table
     get_tick_id      BIGINT UNSIGNED,          -- id of record in index_tickers table
     get_amount       VARCHAR(250),             -- Amount of GET_TICK in swap
+    give_ownership   TINYINT(1) NOT NULL DEFAULT 0, -- 1 = swap escrows GIVE_TICK ownership instead of a balance amount
+    get_ownership    TINYINT(1) NOT NULL DEFAULT 0, -- 1 = swap requires matcher to currently own GET_TICK and transfer it
     get_address_id   BIGINT UNSIGNED,          -- id of record in index_addresses table
     expiration       BIGINT UNSIGNED,          -- unix timestamp of swap expiration date/time
     allow_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
@@ -789,6 +797,8 @@ CREATE TABLE swaps (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index   ON swaps (action_index);
+CREATE        INDEX give_ownership ON swaps (give_ownership);
+CREATE        INDEX get_ownership  ON swaps (get_ownership);
 CREATE        INDEX give_coin_id   ON swaps (give_coin_id);
 CREATE        INDEX give_tick_id   ON swaps (give_tick_id);
 CREATE        INDEX get_coin_id    ON swaps (get_coin_id);

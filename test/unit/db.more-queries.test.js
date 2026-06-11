@@ -952,6 +952,176 @@ describe('Database#getGatedFileRaw', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getFileRaw (non-gated FILE bytes from the colocated decoder DB)
+// ---------------------------------------------------------------------------
+
+describe('Database#getFileRaw', () => {
+    let db;
+    beforeEach(() => {
+        db = makeDb();
+        db.decoderDb = { BTC: 'XChain_Decoder_BTC' };
+    });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns raw bytes + declared MIME type when the decoder row matches by hash', async () => {
+        const bytes = Buffer.from('png-bytes');
+        const stub  = sinon.stub(db, 'doQuery');
+        stub.onFirstCall().resolves([{ hash: 'abc123', type: 'image/png' }]);
+        stub.onSecondCall().resolves([{ raw_data: bytes }]);
+        const result = await db.getFileRaw(cfg(), 42);
+        expect(result).to.deep.equal({ raw_data: bytes, type: 'image/png' });
+        // The decoder read must be database-qualified and matched by tx HASH
+        // (tx ids are numbered independently per DB and cannot be joined)
+        const [, decoderQuery, decoderArgs] = stub.secondCall.args;
+        expect(decoderQuery).to.include('`XChain_Decoder_BTC`.transactions');
+        expect(decoderQuery).to.include('`XChain_Decoder_BTC`.index_transactions');
+        expect(decoderArgs).to.deep.equal(['abc123']);
+    });
+
+    it('returns null when the FILE action is unknown', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        expect(await db.getFileRaw(cfg(), 999)).to.equal(null);
+    });
+
+    it('returns null when no decoder DB is configured for the coin', async () => {
+        db.decoderDb = {};
+        sinon.stub(db, 'doQuery').resolves([{ hash: 'abc123', type: 'image/png' }]);
+        expect(await db.getFileRaw(cfg(), 42)).to.equal(null);
+    });
+
+    it('returns null when the decoder DB name fails the identifier guard', async () => {
+        db.decoderDb = { BTC: 'bad`name; DROP' };
+        sinon.stub(db, 'doQuery').resolves([{ hash: 'abc123', type: 'image/png' }]);
+        expect(await db.getFileRaw(cfg(), 42)).to.equal(null);
+    });
+
+    it('returns null when the decoder row has no stored bytes', async () => {
+        const stub = sinon.stub(db, 'doQuery');
+        stub.onFirstCall().resolves([{ hash: 'abc123', type: 'image/png' }]);
+        stub.onSecondCall().resolves([{ raw_data: null }]);
+        expect(await db.getFileRaw(cfg(), 42)).to.equal(null);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Project registry queries (protocol/Project_Registry.md)
+// ---------------------------------------------------------------------------
+
+describe('Database#getProjectRosterInfo', () => {
+    let db;
+    beforeEach(() => {
+        db = makeDb();
+        db.baseCoin = { BTC: 'BTC' };
+    });
+    afterEach(() => { sinon.restore(); });
+
+    it('resolves the latest owner-valid roster link + item count', async () => {
+        const stub = sinon.stub(db, 'doQuery');
+        stub.onFirstCall().resolves([{ link_action_index: 74, roster_action_index: 73 }]);
+        stub.onSecondCall().resolves([{ total: 2 }]);
+        const info = await db.getProjectRosterInfo(cfg(), 'PROJECTX');
+        expect(info).to.deep.equal({ roster_action_index: 73, link_action_index: 74, total: 2 });
+        // The roster query must filter to the LOCAL chain on BOTH link sides and
+        // to valid TICK-type lists, newest link first
+        const [, query, args] = stub.firstCall.args;
+        expect(query).to.include("ls.type='1'");
+        expect(query).to.include('ORDER BY l.action_index DESC');
+        expect(args).to.deep.equal(['BTC', 'BTC', 'PROJECTX']);
+    });
+
+    it('returns null when no roster link exists', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        expect(await db.getProjectRosterInfo(cfg(), 'PROJECTX')).to.equal(null);
+    });
+
+    it('returns null when the base chain for the coin key is unknown', async () => {
+        db.baseCoin = {};
+        sinon.stub(db, 'doQuery').resolves([{ link_action_index: 1, roster_action_index: 1 }]);
+        expect(await db.getProjectRosterInfo(cfg(), 'PROJECTX')).to.equal(null);
+    });
+});
+
+describe('Database#getTokenProjects', () => {
+    let db;
+    beforeEach(() => {
+        db = makeDb();
+        db.baseCoin = { BTC: 'BTC' };
+    });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns normalized membership rows', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ project: 'PROJECTX', link_action_index: 74n, roster_action_index: 73n }]);
+        const rows = await db.getTokenProjects(cfg(), 'TOKENONE');
+        expect(rows).to.deep.equal([{ project: 'PROJECTX', link_action_index: 74, roster_action_index: 73 }]);
+    });
+
+    it('returns [] for a token on no current roster', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        expect(await db.getTokenProjects(cfg(), 'LONER')).to.deep.equal([]);
+    });
+
+    it('matches the CURRENT roster only (latest link per project)', async () => {
+        const stub = sinon.stub(db, 'doQuery').resolves([]);
+        await db.getTokenProjects(cfg(), 'TOKENONE');
+        const [, query] = stub.firstCall.args;
+        expect(query).to.include('MAX(l.action_index)');
+        expect(query).to.include('GROUP BY i1.tick_id');
+    });
+});
+
+describe('Database#getProject', () => {
+    let db;
+    beforeEach(() => {
+        db = makeDb();
+        db.baseCoin = { BTC: 'BTC' };
+    });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns [null] when the tick has no roster (→ 400 at the API layer)', async () => {
+        sinon.stub(db, 'getProjectRosterInfo').resolves(null);
+        const [data] = await db.getProject(makeActionConfig('getProject', 'token'));
+        expect(data).to.equal(null);
+    });
+
+    it('returns project + member rows when a roster exists', async () => {
+        sinon.stub(db, 'getProjectRosterInfo').resolves({ roster_action_index: 73, link_action_index: 74, total: 1 });
+        sinon.stub(db, 'doQuery').resolves([{ tick: 'TOKENONE', supply: '1', max_supply: '1', decimals: 0, lock_max_supply: 1 }]);
+        const config = makeActionConfig('getProject', 'token');
+        config.data.search = 'PROJECTX';
+        const [data] = await db.getProject(config);
+        expect(data.tick).to.equal('PROJECTX');
+        expect(data.roster_action_index).to.equal(73);
+        expect(data.members).to.have.length(1);
+        expect(data.members[0].tick).to.equal('TOKENONE');
+    });
+});
+
+describe('Database#getProjectTokens', () => {
+    let db;
+    beforeEach(() => {
+        db = makeDb();
+        db.baseCoin = { BTC: 'BTC' };
+    });
+    afterEach(() => { sinon.restore(); });
+
+    it('short-circuits to an empty datatable when no roster exists', async () => {
+        sinon.stub(db, 'getProjectRosterInfo').resolves(null);
+        const [query, args, count] = await db.getProjectTokens(makeActionConfig('getProjectTokens', 'roster'));
+        expect(query).to.deep.equal([]);
+        expect(count).to.equal(0);
+    });
+
+    it('builds a token-shaped query scoped to the roster list_items', async () => {
+        sinon.stub(db, 'getProjectRosterInfo').resolves({ roster_action_index: 73, link_action_index: 74, total: 2 });
+        const [query, args, count] = await db.getProjectTokens(makeActionConfig('getProjectTokens', 'roster'));
+        expect(query).to.include('list_items');
+        expect(query).to.include('li.action_index=?');
+        expect(args).to.deep.equal([73]);
+        expect(count).to.include('count(*)');
+    });
+});
+
+// ---------------------------------------------------------------------------
 // getBlocksSince
 // ---------------------------------------------------------------------------
 

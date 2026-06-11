@@ -137,6 +137,15 @@ class Database {
         // the indexer DB, since the tip is read by reusing the indexer pool with
         // a database-qualified query rather than a separate connection.
         this.decoderDb = {};
+        // Per-coin checkpoint-source database (optional). Where the local indexer
+        // DB carries no hub-mirror tables (single-server explorers reading synced
+        // replicas — xchain-sync excludes state_checkpoints/capability_snapshots),
+        // a per-network `checkpoint` config block can point at the hub DB on the
+        // same server. Like decoderDb, it is honored only when it shares
+        // server + credentials with the indexer pool, and is read with a
+        // database-qualified query filtered by chain/network (the hub table
+        // carries every chain; the per-coin endpoints must not leak siblings).
+        this.checkpointDb = {};
         // Define list of acceptable networks
         let networks = ['mainnet', 'testnet', 'regtest'];
         // Loop through config and setup pools based on if user/pass/host are different
@@ -213,6 +222,17 @@ class Database {
                                 let dPort = ("db_port" in dcfg) ? dcfg.db_port : dcfg.port;
                                 if(dHost==cfg.db_host && dPort==cfg.db_port && dcfg.user==cfg.user && dcfg.pass==cfg.pass)
                                     this.decoderDb[key] = dcfg.name;
+                            }
+
+                            // Record the checkpoint-source DB name for this coin (see
+                            // the checkpointDb note above) — same same-server/same-creds
+                            // rule as decoderDb, read by reusing this indexer pool.
+                            let kcfg = info[net].database.checkpoint;
+                            if(kcfg && !this.util.isNull(kcfg.name)){
+                                let kHost = ("db_host" in kcfg) ? kcfg.db_host : kcfg.host;
+                                let kPort = ("db_port" in kcfg) ? kcfg.db_port : kcfg.port;
+                                if(kHost==cfg.db_host && kPort==cfg.db_port && kcfg.user==cfg.user && kcfg.pass==cfg.pass)
+                                    this.checkpointDb[key] = { name: kcfg.name, chain: coin, network: net };
                             }
                         }
                     }
@@ -6899,33 +6919,67 @@ class Database {
         return await this.doQuery(config, query, [Number(actionIndex)]);
     }
 
+    // Resolve the checkpoint-table source for a coin: a configured same-server
+    // checkpoint DB (database-qualified + chain/network-filtered — the hub table
+    // carries every chain) or the local indexer DB's hub_db_sync mirror (already
+    // single-chain, no filter). dbName is config-derived, not client input, but
+    // database identifiers can't be bound — restrict to a safe identifier charset
+    // before use (same rule as the decoderDb readers above).
+    _checkpointSource(config){
+        let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
+        if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
+            return { table: '`' + src.name + '`.state_checkpoints',
+                     capTable: '`' + src.name + '`.capability_snapshots',
+                     filter: ' AND chain = ? AND network = ?',
+                     filterParams: [src.chain, src.network] };
+        return { table: 'state_checkpoints', capTable: 'capability_snapshots', filter: '', filterParams: [] };
+    }
+
+    // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from
+    // the mariadb driver as BigInt, which res.json() cannot serialize — coerce
+    // them to Number (chain heights are far below MAX_SAFE_INTEGER).
+    _normalizeCheckpointRows(rows){
+        return (rows || []).map(r => ({
+            ...r,
+            block_index:    Number(r.block_index),
+            checkpoint_seq: Number(r.checkpoint_seq),
+            snapshot_block: Number(r.snapshot_block)
+        }));
+    }
+
     // Quorum-signed state checkpoints (hub-mirrored state_checkpoints table).
     // blockIndex null → latest N (one per height: MAX(checkpoint_seq) wins);
     // blockIndex set → that height's latest-seq row only.
     async getCheckpointRows(config, blockIndex, limit) {
+        let src = this._checkpointSource(config);
         if (blockIndex !== null && blockIndex !== undefined) {
             let query = `SELECT chain, network, block_index, block_hash, ledger_hash, actions_hash,
                                 contract_hash, checkpoint_seq, snapshot_block, validator_signatures, created_at
-                         FROM state_checkpoints
-                         WHERE block_index = ?
+                         FROM ${src.table}
+                         WHERE block_index = ?${src.filter}
                          ORDER BY checkpoint_seq DESC LIMIT 1`;
-            return await this.doQuery(config, query, [Number(blockIndex)]);
+            return this._normalizeCheckpointRows(await this.doQuery(config, query, [Number(blockIndex), ...src.filterParams]));
         }
+        let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
         let query = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
                             sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.validator_signatures, sc.created_at
-                     FROM state_checkpoints sc
+                     FROM ${src.table} sc
                      JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq
-                           FROM state_checkpoints GROUP BY block_index) t
+                           FROM ${src.table} WHERE 1=1${src.filter} GROUP BY block_index) t
                        ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
+                     WHERE 1=1${scFilter}
                      ORDER BY sc.block_index DESC
                      LIMIT ?`;
-        return await this.doQuery(config, query, [Number(limit) || 10]);
+        return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...src.filterParams, Number(limit) || 10]));
     }
 
     // Hub-mirrored qualifying validator set for a capability at a snapshot block —
     // what checkpoint signatures verify against (presence = qualified).
+    // capability_snapshots is chain-agnostic (keyed by capability + BTC snapshot
+    // block), so the configured checkpoint DB needs no chain/network filter here.
     async getCapabilitySnapshotRows(config, capability, snapshotBlock) {
-        let query = `SELECT signing_pubkey, amount FROM capability_snapshots
+        let src = this._checkpointSource(config);
+        let query = `SELECT signing_pubkey, amount FROM ${src.capTable}
                      WHERE capability = ? AND snapshot_block = ?`;
         return await this.doQuery(config, query, [String(capability), Number(snapshotBlock)]);
     }

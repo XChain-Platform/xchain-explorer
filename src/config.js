@@ -337,7 +337,14 @@ module.exports = {
                     config[info.coin][info.network] = {
                         database: {
                             indexer: info['xchain-indexer'] || info.indexer,
-                            decoder: info['xchain-decoder'] || info.decoder
+                            decoder: info['xchain-decoder'] || info.decoder,
+                            // Optional hub-mirrored checkpoint source (config.json
+                            // only). Single-server deployments reading synced replica
+                            // DBs point this at the hub DB (e.g. XChain_Hub), since
+                            // xchain-sync deliberately excludes the hub-mirror tables
+                            // (state_checkpoints / capability_snapshots) from
+                            // replication. See db.js checkpointDb.
+                            checkpoint: info.checkpoint
                         },
                         address: coinConfig.address
                     };

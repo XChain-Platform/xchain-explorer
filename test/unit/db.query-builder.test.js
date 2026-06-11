@@ -487,3 +487,49 @@ describe('Database#getQueryOffsetSql', () => {
         expect(args).to.deep.equal([]);
     });
 });
+
+// ---------------------------------------------------------------------------
+// getQueryWhereSql — cross-chain mirrors + contract delegations
+// ---------------------------------------------------------------------------
+
+describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', () => {
+    let db;
+    before(() => { db = makeDb(); });
+
+    it('getCrossChainMatches with no type: base is m.id IS NOT NULL', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getCrossChainMatches', null));
+        expect(sql).to.equal('m.id IS NOT NULL');
+    });
+
+    it('getCrossChainMatches type=match filters m.match_id', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getCrossChainMatches', 'match'));
+        expect(sql).to.include('m.match_id=?');
+    });
+
+    it('getCrossChainMatches type=block filters m.snapshot_block (no b1 join)', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getCrossChainMatches', 'block'));
+        expect(sql).to.include('m.snapshot_block=?');
+        expect(sql).to.not.include('b1.block_index');
+    });
+
+    it('getCrossChainMatches type=status filters m.status', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getCrossChainMatches', 'status'));
+        expect(sql).to.include('m.status=?');
+    });
+
+    it('getCrossChainSettlements type=block filters its own m.block_index', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getCrossChainSettlements', 'block'));
+        expect(sql).to.include('m.block_index=?');
+        expect(sql).to.not.include('b1.block_index');
+    });
+
+    it('getCrossChainSettlements type=match filters m.match_id', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getCrossChainSettlements', 'match'));
+        expect(sql).to.include('m.match_id=?');
+    });
+
+    it('getContractDelegations type=contract filters m.target_contract_index', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getContractDelegations', 'contract'));
+        expect(sql).to.include('m.target_contract_index=?');
+    });
+});

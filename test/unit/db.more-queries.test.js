@@ -1635,6 +1635,13 @@ describe('Database#getDelegations', () => {
         const [query] = await db.getDelegations(makeActionConfig('getDelegations'));
         expect(query).to.include('delegations m');
     });
+
+    it('query exposes activation_block / deactivation_block (parity with getStakes)', async () => {
+        const db = makeDb();
+        const [query] = await db.getDelegations(makeActionConfig('getDelegations'));
+        expect(query).to.include('m.activation_block');
+        expect(query).to.include('m.deactivation_block');
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -3405,5 +3412,76 @@ describe('Database#getActionData', () => {
         });
         const result = await db.getActionData(cfg(), 100);
         expect(result.tx_data).to.equal('deadbeef');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getContractDelegations
+// ---------------------------------------------------------------------------
+
+describe('Database#getContractDelegations', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getContractDelegations(makeActionConfig('getContractDelegations'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query references "contract_delegations" with activation/deactivation bounds', async () => {
+        const db = makeDb();
+        const [query] = await db.getContractDelegations(makeActionConfig('getContractDelegations'));
+        expect(query).to.include('contract_delegations m');
+        expect(query).to.include('m.target_contract_index');
+        expect(query).to.include('m.activation_block');
+        expect(query).to.include('m.deactivation_block');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getCrossChainMatches
+// ---------------------------------------------------------------------------
+
+describe('Database#getCrossChainMatches', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query selects both legs and the quorum proof from "cross_chain_matches"', async () => {
+        const db = makeDb();
+        const [query] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
+        expect(query).to.include('cross_chain_matches m');
+        expect(query).to.include('m.match_id');
+        expect(query).to.include('m.a_action_index');
+        expect(query).to.include('m.b_action_index');
+        expect(query).to.include('m.validator_signatures');
+        expect(query).to.include('m.snapshot_block');
+    });
+
+    it('ORDER BY uses m.id (mirror cursor, no action_index)', async () => {
+        const db = makeDb();
+        const [query] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
+        expect(query).to.include('ORDER BY m.id');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getCrossChainSettlements
+// ---------------------------------------------------------------------------
+
+describe('Database#getCrossChainSettlements', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getCrossChainSettlements(makeActionConfig('getCrossChainSettlements'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query references "cross_chain_settlements" joined to blocks for the timestamp', async () => {
+        const db = makeDb();
+        const [query] = await db.getCrossChainSettlements(makeActionConfig('getCrossChainSettlements'));
+        expect(query).to.include('cross_chain_settlements m');
+        expect(query).to.include('m.match_id');
+        expect(query).to.include('m.local_action_index');
+        expect(query).to.include('b1.block_time as timestamp');
     });
 });

@@ -966,3 +966,38 @@ describe('Database#getActionType', () => {
         }
     });
 });
+
+// ---------------------------------------------------------------------------
+// getToken — escrow_action_index exposure
+// ---------------------------------------------------------------------------
+
+describe('Database#getToken escrow_action_index', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('selects t1.escrow_action_index and surfaces it under info', async () => {
+        let captured;
+        sinon.stub(db, 'doQuery').callsFake(async (cfgArg, query) => {
+            captured = query;
+            const rows = mockResults.tokenRow();
+            rows[0].escrow_action_index = 4242;
+            return rows;
+        });
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(captured).to.include('t1.escrow_action_index');
+        expect(data.info.escrow_action_index).to.equal(4242);
+    });
+
+    it('is null for a token whose ownership is not escrowed', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async () => {
+            const rows = mockResults.tokenRow();
+            rows[0].escrow_action_index = null;
+            return rows;
+        });
+        const config = cfg({ data: { search: 'XCHAIN' } });
+        const [data] = await db.getToken(config);
+        expect(data.info.escrow_action_index).to.be.null;
+    });
+});

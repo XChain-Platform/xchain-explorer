@@ -805,6 +805,11 @@ describe('Database#getOrderMatches', () => {
         expect(query).to.include('get_coin');
     });
 
+    it('query exposes settlement_type (instant vs coinpay)', () => {
+        const [query] = result;
+        expect(query).to.include('m.settlement_type');
+    });
+
     it('count uses WHERE_DATA and args is null', () => {
         const [, args, count] = result;
         expect(args).to.be.null;
@@ -1407,6 +1412,12 @@ describe('Database#getAttestations exposes payload and callback_params_json', ()
         // List + count return the standard [query, null, count] triple.
         expect(args).to.be.null;
         expect(count).to.include('attests m');
+    });
+
+    it('list query exposes response_payload (the provider response body)', async () => {
+        const config = makeActionConfig('getAttestations', 'address');
+        const [query] = await db.getAttestations(config);
+        expect(query).to.include('m.response_payload');
     });
 });
 

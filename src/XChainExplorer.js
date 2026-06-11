@@ -224,8 +224,15 @@ class XChainExplorer {
                 '/{COIN}/api/contract_stakes'                  : ['getContractStakes'],
                 '/{COIN}/api/contract_unstakes/{QUERY}/{TYPE}' : ['getContractUnstakes',  ['block', 'address', 'contract']],
                 '/{COIN}/api/contract_unstakes'                : ['getContractUnstakes'],
+                '/{COIN}/api/contract_delegations/{QUERY}/{TYPE}' : ['getContractDelegations', ['block', 'address', 'contract']],
+                '/{COIN}/api/contract_delegations'             : ['getContractDelegations'],
                 '/{COIN}/api/slash_events/{QUERY}/{TYPE}'      : ['getSlashEvents',       ['block', 'address', 'contract']],
                 '/{COIN}/api/slash_events'                     : ['getSlashEvents'],
+                // Cross-chain coordination mirrors (hub-replicated match + local settlement legs)
+                '/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}'     : ['getCrossChainMatches',     ['match', 'block', 'status']],
+                '/{COIN}/api/cross_chain_matches'                    : ['getCrossChainMatches'],
+                '/{COIN}/api/cross_chain_settlements/{QUERY}/{TYPE}' : ['getCrossChainSettlements', ['match', 'block']],
+                '/{COIN}/api/cross_chain_settlements'                : ['getCrossChainSettlements'],
                 // Attestation Endpoints (ATTEST v0 requests + v1 responses from the `attests` table)
                 '/{COIN}/api/attestations/{QUERY}/{TYPE}'      : ['getAttestations',      ['block', 'address', 'contract']],
                 '/{COIN}/api/attestations'                     : ['getAttestations'],

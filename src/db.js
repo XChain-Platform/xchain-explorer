@@ -464,6 +464,9 @@ class Database {
         // price_snapshots is a materialized consensus-round table — no action_index, its PK is m.id
         if(method=='getPriceSnapshots')
             sql = `m.id IS NOT NULL`;
+        // cross_chain_matches is a standalone mirror of the hub's match table — no action_index, its PK is m.id
+        if(method=='getCrossChainMatches')
+            sql = `m.id IS NOT NULL`;
         // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
             if(type=='address')
@@ -504,6 +507,13 @@ class Database {
             if(type=='pair')   sql += ' AND m.coin_pair=?';
             if(type=='round')  sql += ' AND m.round_number=?';
             if(type=='status') sql += ' AND m.status=?';
+        } else if(['getCrossChainMatches','getCrossChainSettlements'].includes(method)){
+            // standalone mirror tables (no actions/transactions chain) — filter on
+            // their own columns directly. matches carry snapshot_block (the
+            // BTC-anchored quorum block); settlements carry the local block_index.
+            if(type=='match')  sql += ' AND m.match_id=?';
+            if(type=='block')  sql += (method=='getCrossChainSettlements') ? ' AND m.block_index=?' : ' AND m.snapshot_block=?';
+            if(type=='status' && method=='getCrossChainMatches') sql += ' AND m.status=?';
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -522,7 +532,7 @@ class Database {
             if(type=='source')
                 sql += ' AND a2.address=?';
             if(type=='contract'){
-                if(['getContractStakes','getContractUnstakes','getSlashEvents'].includes(method))
+                if(['getContractStakes','getContractUnstakes','getContractDelegations','getSlashEvents'].includes(method))
                     sql += ' AND m.target_contract_index=?';
                 else if(method=='getContract')
                     // The contracts table has no contract_index column — it is keyed by action_index.
@@ -2235,6 +2245,7 @@ class Database {
                         m.give_action_index,
                         c2.coin as get_coin,
                         m.get_action_index,
+                        m.settlement_type,
                         b1.block_index,
                         b1.block_time as timestamp,
                         s1.status
@@ -3715,7 +3726,8 @@ class Database {
                         t1.mint_stop_block,
                         a1.address as owner,
                         t1.coin_price,
-                        t1.coin_floor
+                        t1.coin_floor,
+                        t1.escrow_action_index
                     FROM
                         tokens t1
                         LEFT  JOIN index_tickers      t2 ON (t2.id=t1.tick_id)
@@ -4955,6 +4967,7 @@ class Database {
                             t4.tick as get_tick,
                             m1.get_amount,
                             m1.get_action_index,
+                            m1.settlement_type,
                             b1.block_index,
                             b1.block_time as timestamp,
                             s1.status
@@ -5323,6 +5336,7 @@ class Database {
                             m.request_status,
                             m.response_hash,
                             m.response_status,
+                            m.response_payload,
                             m.meta,
                             m.validator_signatures,
                             m.callback_execute_action_index,
@@ -7592,6 +7606,8 @@ class Database {
                         a1.action_format,
                         a2.address as source,
                         a3.address as signing_pubkey,
+                        m.activation_block,
+                        m.deactivation_block,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -7744,6 +7760,130 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of CONTRACT DELEGATION actions (DELEGATE v1/v3 — type ∈ {address, block, contract}).
+    // Mirrors getContractStakes; contract_delegations carries no amount/version — the delegation
+    // re-points a stake's signing pubkey, with activation/deactivation block bounds.
+    async getContractDelegations(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_delegations m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.pubkey as signing_pubkey,
+                        m.target_contract_index,
+                        t3.tick,
+                        m.activation_block,
+                        m.deactivation_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        contract_delegations m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of cross-chain MATCH records (type ∈ {match, block, status}; block = snapshot_block).
+    // cross_chain_matches is a standalone mirror of the hub's finalized match table — no
+    // actions/transactions chain, so no joins; ordered by the mirror cursor m.id.
+    // validator_signatures (the 2f+1 quorum proof) is included: matches have no separate
+    // detail endpoint, and the proof is the point of inspecting one.
+    async getCrossChainMatches(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        cross_chain_matches m
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.match_id,
+                        m.snapshot_block,
+                        m.network,
+                        m.a_chain,
+                        m.a_action_index,
+                        m.a_kind,
+                        m.a_tick,
+                        m.a_amount,
+                        m.a_filled_before,
+                        m.a_ownership,
+                        m.a_payout_addr,
+                        m.b_chain,
+                        m.b_action_index,
+                        m.b_kind,
+                        m.b_tick,
+                        m.b_amount,
+                        m.b_filled_before,
+                        m.b_ownership,
+                        m.b_payout_addr,
+                        m.effective_time,
+                        m.validator_signatures,
+                        m.status,
+                        m.batch_root,
+                        m.anchor_txid,
+                        m.created_at
+                    FROM
+                        cross_chain_matches m
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of cross-chain SETTLEMENT legs (type ∈ {match, block}). Each row records a
+    // local ORDER/SWAP released from escrow for a finalized cross-chain match; joins blocks
+    // for the timestamp the leg was applied.
+    async getCrossChainSettlements(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        cross_chain_settlements m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.action_index,
+                        m.match_id,
+                        m.local_action_index,
+                        m.block_index,
+                        b1.block_time as timestamp
+                    FROM
+                        cross_chain_settlements m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     // Get list of SLASH events (xchain.contract.slash emissions — type ∈ {address, block, contract})
     // slash_events has no action_index of its own (side-effect of an EXECUTE), so this joins
     // blocks directly via m.block_index and orders by m.id rather than action_index.
@@ -7810,6 +7950,7 @@ class Database {
                         m.request_status,
                         m.response_status,
                         m.payload,
+                        m.response_payload,
                         m.callback_params_json,
                         b1.block_index,
                         b1.block_time as timestamp,

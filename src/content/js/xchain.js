@@ -351,7 +351,10 @@ function formatAmount(amount=null){
     return str.join('.');
 }
 
-// Return nice display string for token locks
+// Return nice display string for token locks. Field order MUST match the
+// 7-element pipe-string XChainExplorer.js builds for getIssues/getTokens/
+// getProjectTokens rows: max_supply|mint|mint_supply|max_mint|description|
+// sleep|callback.
 function formatLocks(locks=null){
     var lock = String(locks).split('|'),
         html = '';
@@ -360,8 +363,8 @@ function formatLocks(locks=null){
     if(lock[2]==1) html += '<i class="fa fa-bank pe-1"         title="Mint Supply"></i>';
     if(lock[3]==1) html += '<i class="fa fa-coins pe-1"        title="Max Mint"></i>';
     if(lock[4]==1) html += '<i class="fa fa-circle-info pe-1"  title="Description"></i>';
-    if(lock[6]==1) html += '<i class="fa fa-snooze pe-1"       title="Sleep"></i>';
-    if(lock[7]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
+    if(lock[5]==1) html += '<i class="fa fa-snooze pe-1"       title="Sleep"></i>';
+    if(lock[6]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
     return html;
 }
 

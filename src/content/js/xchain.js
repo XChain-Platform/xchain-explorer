@@ -3056,9 +3056,10 @@ function showTokenInfo(){
         let html = '';
         o.projects.forEach(function(p){
             let name = escapeHtml(p.project);
-            html += '<div class="alert alert-success mb-2" role="alert">'
-                 +  '<i class="fa fa-certificate pe-1"></i><b>Official:</b> this token is officially part of '
+            html += '<div class="alert alert-success mb-1" role="alert">'
+                 +  '<i class="fa fa-certificate pe-1"></i>This token is an official token in the '
                  +  formatLink('/' + XC.coin + '/token/' + name, '<b>' + name + '</b>', p.project)
+                 +  ' project.'
                  +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
                  +  '</div>';
         });

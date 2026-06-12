@@ -3588,8 +3588,33 @@ class Database {
     }
 
     // Get list of mempool transactions
+    //
+    // /{COIN}/api/mempool/{QUERY}/{TYPE} — unconfirmed actions read from the
+    // colocated decoder DB (see getDecoderMempoolRows). Rows are PRE-VALIDATION
+    // (the indexer can still reject them at confirmation), carry no destination
+    // column, and the full decoded action string ships in `data` — clients with
+    // format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
+    // Filtering is a best-effort prefilter done in JS (the data column is hex in
+    // SQL): TYPE=address matches the source OR any exact pipe-segment of the
+    // action string (covers SEND destinations across versions); TYPE=token
+    // matches any exact segment against the uppercased tick.
     async getMempool(config){
-        // TODO
+        let search = String(config.data.search || '');
+        let type   = String(config.data.type || '').toLowerCase();
+        let rows   = await this.getDecoderMempoolRows(config, 500);
+        let out    = [];
+        for(let row of rows){
+            let decoded = this.decodeMempoolRow(row);
+            if(!decoded) continue;
+            let segments = decoded.data.split('|');
+            let match = false;
+            if(type=='address')
+                match = (decoded.source===search) || segments.includes(search);
+            if(type=='token')
+                match = segments.includes(search.toUpperCase());
+            if(match) out.push(decoded);
+        }
+        return [out, null, out.length];
     }
 
     // Get network information
@@ -6831,6 +6856,55 @@ class Database {
             console.warn('getDecoderMempoolCount: mempool count unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
         }
         return 0;
+    }
+
+    // Raw unconfirmed (mempool) action rows from the decoder DB, with the source
+    // address and tx hash resolved via the DECODER'S OWN index tables (the decoder
+    // keeps separate index_transactions/index_addresses from the indexer DB).
+    // Rows are PRE-VALIDATION: the decoder writes whatever parses out of a mempool
+    // tx; the indexer may still reject it at confirmation time. destination_id is
+    // never populated by the decoder — destinations live inside the decoded action
+    // string (`data`), which callers parse. Same access pattern + safety rules as
+    // getDecoderMempoolCount. Returns [] when the decoder DB isn't reachable.
+    async getDecoderMempoolRows(config, limit) {
+        let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
+        if(this.util.isNull(dbName)) return [];
+        if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
+        let max = Math.max(1, Math.min(Number(limit) || 200, 500));
+        try {
+            let query = 'SELECT t1.hash AS tx_hash, a1.address AS source, m.data AS data_hex ' +
+                        'FROM `' + dbName + '`.mempool_transactions m ' +
+                        'LEFT JOIN `' + dbName + '`.index_transactions t1 ON (t1.id=m.tx_hash_id) ' +
+                        'LEFT JOIN `' + dbName + '`.index_addresses   a1 ON (a1.id=m.source_id) ' +
+                        'LIMIT ' + max;
+            let results = await this.doQuery(config, query, []);
+            return results || [];
+        } catch(e){
+            console.warn('getDecoderMempoolRows: mempool rows unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
+        }
+        return [];
+    }
+
+    // Decode one decoder mempool row: hex -> utf8 action string -> segments.
+    // The wire layout is pipe-joined with the action name first
+    // (e.g. SEND|0|TICK|AMOUNT|DESTINATION|MEMO). Returns null on garbage.
+    decodeMempoolRow(row) {
+        try {
+            if(!row || this.util.isNull(row.data_hex)) return null;
+            let text = Buffer.from(String(row.data_hex), 'hex').toString('utf8');
+            if(!text.length) return null;
+            let segments = text.split('|');
+            let action = String(segments[0] || '').trim().toUpperCase();
+            if(!/^[A-Z_]{2,32}$/.test(action)) return null;
+            return {
+                tx_hash: row.tx_hash || null,
+                source:  row.source || null,
+                action:  action,
+                data:    text
+            };
+        } catch(e){
+            return null;
+        }
     }
 
     // Suggested fee tiers (sat/vByte) for this coin, fetched from its encoder's

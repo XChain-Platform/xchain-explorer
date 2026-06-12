@@ -51,6 +51,52 @@ class Broadcaster {
         this.changeDetector.on('action',          (coin, action) => this._onAction(coin, action));
         this.changeDetector.on('lifecycle_event',  (coin, event)  => this._onLifecycleEvent(coin, event));
         this.changeDetector.on('entity_update',    (coin, event)  => this._onEntityUpdate(coin, event));
+        this.changeDetector.on('mempool_action',   (coin, row)    => this._onMempoolAction(coin, row));
+        this.changeDetector.on('mempool_removed',  (coin, row)    => this._onMempoolRemoved(coin, row));
+    }
+
+    // Handle a newly seen unconfirmed action (decoder mempool). Rows are
+    // PRE-VALIDATION — the indexer can still reject them at confirmation —
+    // so the payload deliberately carries the raw decoded action string
+    // (`data`) for clients to parse, and no validity claim.
+    _onMempoolAction(coin, row) {
+        const info = COIN_MAP[coin];
+        if (!info) return;
+
+        const event = {
+            type:      'MEMPOOL_ACTION',
+            chain:     info.chain,
+            network:   info.network,
+            timestamp: Date.now(),
+            data: {
+                tx_hash: row.tx_hash || null,
+                source:  row.source  || null,
+                action:  row.action  || null,
+                data:    row.data    || null
+            }
+        };
+
+        // Global mempool channel + the source's address channel (destinations
+        // live inside the undecoded action fields — clients parse those).
+        this._broadcastToChannel(coin, 'mempool', event, row);
+        if (row.source)
+            this._broadcastToChannel(coin, 'address', event, row, row.source);
+    }
+
+    // Handle a tx leaving the mempool (confirmed or evicted — indistinguishable
+    // here; subscribers reconcile against confirmed NEW_ACTION events).
+    _onMempoolRemoved(coin, row) {
+        const info = COIN_MAP[coin];
+        if (!info) return;
+
+        const event = {
+            type:      'MEMPOOL_REMOVED',
+            chain:     info.chain,
+            network:   info.network,
+            timestamp: Date.now(),
+            data:      { tx_hash: row.tx_hash || null }
+        };
+        this._broadcastToChannel(coin, 'mempool', event, row);
     }
 
     // Handle new block from ChangeDetector

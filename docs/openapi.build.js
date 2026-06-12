@@ -112,7 +112,7 @@ const ROUTES = [
     ['/{COIN}/api/escrows/{QUERY}/{TYPE}', 'getEscrows', ['block', 'address'], 'Core', 'Escrowed balances (orders/swaps/dispensers)'],
     ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token'], 'Core', 'Combined action history'],
     ['/{COIN}/api/holders/{QUERY}', 'getHolders', 'token', 'Tokens', 'Holders of a token'],
-    ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions'],
+    ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions from the decoder — PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
     ['/{COIN}/api/network', 'getNetwork', null, 'Network', 'Network statistics'],
     ['/{COIN}/api/pubkey/{QUERY}', 'getPublicKey', 'address', 'Core', 'Known public key for an address'],
     ['/{COIN}/api/project/{QUERY}', 'getProject', 'token', 'Tokens', 'Project registry roster (official tokens of a project tick)'],

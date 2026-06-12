@@ -4978,7 +4978,7 @@
         "tags": [
           "Core"
         ],
-        "summary": "Unconfirmed (mempool) actions",
+        "summary": "Unconfirmed (mempool) actions from the decoder — PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"

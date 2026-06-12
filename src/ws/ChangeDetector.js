@@ -49,6 +49,11 @@ class ChangeDetector extends EventEmitter {
         // Track last known state per coin (e.g., "BTC", "TBTC", "RLTC")
         this.state = {};
 
+        // Track the unconfirmed (decoder mempool) snapshot per coin. Keyed by
+        // tx_hash — the mempool table has no monotonic index, so each poll
+        // diffs the full (capped) snapshot against the previous one.
+        this.mempoolState = {};
+
         // Polling timer reference
         this.timer   = null;
         this.running = false;
@@ -62,6 +67,9 @@ class ChangeDetector extends EventEmitter {
         for (const coin of coins) {
             if (!this.state[coin]) {
                 this.state[coin] = { blockIndex: 0, actionIndex: 0, initialized: false };
+            }
+            if (!this.mempoolState[coin]) {
+                this.mempoolState[coin] = { seenHashes: new Set(), initialized: false };
             }
         }
 
@@ -90,7 +98,51 @@ class ChangeDetector extends EventEmitter {
             } catch (e) {
                 console.log('ChangeDetector poll error for', coin, ':', e);
             }
+            try {
+                await this._checkMempoolForCoin(coin);
+            } catch (e) {
+                console.log('ChangeDetector mempool poll error for', coin, ':', e);
+            }
         }
+    }
+
+    // Diff the decoder-DB mempool snapshot against the last poll. New rows emit
+    // `mempool_action` (decoded: tx_hash/source/action/data); rows that left the
+    // mempool (confirmed or evicted — we can't tell which) emit `mempool_removed`.
+    // Rows are PRE-VALIDATION: a mempool action can still be rejected by the
+    // indexer at confirmation, so consumers must treat these as provisional.
+    async _checkMempoolForCoin(coin) {
+        if (typeof this.db.getDecoderMempoolRows !== 'function') return;
+        const state = this.mempoolState[coin];
+        if (!state) return;
+
+        const rows = await this.db.getDecoderMempoolRows({ coin }, 500);
+        const current = new Set();
+        const decodedNew = [];
+        for (const row of rows) {
+            if (!row || !row.tx_hash) continue;
+            current.add(row.tx_hash);
+            if (!state.seenHashes.has(row.tx_hash)) {
+                const decoded = this.db.decodeMempoolRow(row);
+                if (decoded) decodedNew.push(decoded);
+            }
+        }
+
+        // First poll — seed without emitting (mirrors block/action init)
+        if (!state.initialized) {
+            state.seenHashes  = current;
+            state.initialized = true;
+            return;
+        }
+
+        for (const decoded of decodedNew)
+            this.emit('mempool_action', coin, decoded);
+
+        for (const hash of state.seenHashes)
+            if (!current.has(hash))
+                this.emit('mempool_removed', coin, { tx_hash: hash });
+
+        state.seenHashes = current;
     }
 
     // Check a single coin for changes

@@ -386,10 +386,12 @@ describe('Database#getMempool', () => {
     let db;
     before(() => { db = makeDb(); });
 
-    it('returns undefined gracefully (TODO stub)', async () => {
+    it('returns an empty direct-data result when no decoder DB is mapped', async () => {
         const config = cfg();
-        const result = await db.getMempool(config);
-        expect(result).to.be.undefined;
+        const [data, args, total] = await db.getMempool(config);
+        expect(data).to.deep.equal([]);
+        expect(args).to.equal(null);
+        expect(total).to.equal(0);
     });
 
     it('does not throw when called', async () => {

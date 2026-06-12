@@ -110,7 +110,7 @@ describe('XChainExplorer#processIconRequest', function () {
         await explorer.processIconRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.deep.equal({ error: 'Access denied' });
+        expect(res._body).to.deep.equal({ error: 'Access denied', code: 'PATH_DENIED' });
         // fs.existsSync must NOT be called — we blocked before reaching it
         expect(fsStub.existsSync.called).to.be.false;
     });
@@ -147,7 +147,7 @@ describe('XChainExplorer#processIconRequest', function () {
         await explorer.processIconRequest(req, res);
 
         expect(res._status).to.equal(403);
-        expect(res._body).to.deep.equal({ error: 'Access denied' });
+        expect(res._body).to.deep.equal({ error: 'Access denied', code: 'PATH_DENIED' });
         expect(fsStub.existsSync.called).to.be.false;
     });
 

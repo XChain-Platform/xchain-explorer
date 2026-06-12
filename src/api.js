@@ -92,6 +92,7 @@ async function startApi(){
         limit:           parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 500,
         standardHeaders: true,
         legacyHeaders:   false,
+        message:         { error: 'Too many requests', code: 'RATE_LIMITED' },
         skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) || req.path.startsWith('/icon') || req.path.startsWith('/images'),
     }));
 

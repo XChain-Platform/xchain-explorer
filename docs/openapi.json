@@ -1,0 +1,6161 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "XChain Explorer API",
+    "version": "1.0.0",
+    "description": "Read-only REST API for the XChain Platform — tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit max 100; balances/holders max 500). Errors are `{error: \"message\", code: \"STABLE_CODE\"}` — see the error-code registry at https://docs.xchain.io/protocol/Error_Codes.md. A WebSocket API lives at /{COIN}/api/websocket — see https://docs.xchain.io/components/explorer/WEBSOCKET.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
+    "license": {
+      "name": "AGPL-3.0-or-later",
+      "url": "https://docs.xchain.io/legal/LICENSING.md"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://explorer.xchain.io"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Core"
+    },
+    {
+      "name": "Tokens"
+    },
+    {
+      "name": "Action history"
+    },
+    {
+      "name": "Markets"
+    },
+    {
+      "name": "Dispensers"
+    },
+    {
+      "name": "Contracts"
+    },
+    {
+      "name": "Staking"
+    },
+    {
+      "name": "Prices"
+    },
+    {
+      "name": "Attestations"
+    },
+    {
+      "name": "Cross-chain"
+    },
+    {
+      "name": "Files"
+    },
+    {
+      "name": "Fees"
+    },
+    {
+      "name": "Checkpoints"
+    },
+    {
+      "name": "Network"
+    }
+  ],
+  "paths": {
+    "/{COIN}/api/addresses/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "addresses_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "ADDRESS actions (address registrations)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/airdrops/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "airdrops_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "AIRDROP actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/batches/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "batches_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "BATCH actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/broadcasts/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "broadcasts_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "BROADCAST actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/callbacks/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "callbacks_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "CALLBACK actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/destroys/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "destroys_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "DESTROY actions (token burns)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dividends/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "dividends_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "DIVIDEND actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispensers/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "dispensers_query_type",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "DISPENSER actions (vending machines)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "destination",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "dispenser_cancels_query_type",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser cancellations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_closes/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "dispenser_closes_query_type",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser closes",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_expires/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "dispenser_expires_query_type",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser expirations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_edits/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "dispenser_edits_query_type",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser edits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenses/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "dispenses_query_type",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenses (vending events: coin in, tokens out)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "destination",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/fees/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "fees_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "Protocol fee payments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "destination",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/files/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "files_query_type",
+        "tags": [
+          "Files"
+        ],
+        "summary": "FILE actions (on-chain files, incl. token-gated)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/issues/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "issues_query_type",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "ISSUE actions (token issuances)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/links/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "links_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "LINK actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/lists/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "lists_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "LIST actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/messages/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "messages_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "MESSAGE actions (encrypted messaging)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "destination"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/mints/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "mints_query_type",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "MINT actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "destination",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/orders/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "orders_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "ORDER actions (DEX orders)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/order_expires/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "order_expires_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order expirations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/order_edits/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "order_edits_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order edits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/order_cancels/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "order_cancels_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order cancellations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/order_matches/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "order_matches_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order matches (fills)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/coinpays/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "coinpays_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "COINPAY actions (native-coin payment legs)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/coinpay_expires/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "coinpay_expires_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "COINPAY expirations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/coinpay_obligations/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "coinpay_obligations_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Open COINPAY obligations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/sends/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "sends_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "SEND actions (token transfers)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "destination",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/sleeps/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "sleeps_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "SLEEP actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swaps/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "swaps_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "SWAP actions (peer-to-peer swaps)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_edits/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "swap_edits_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap edits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_expires/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "swap_expires_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap expirations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_cancels/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "swap_cancels_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap cancellations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_matches/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "swap_matches_query_type",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap matches",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/sweeps/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "sweeps_query_type",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "SWEEP actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "destination"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/prices/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "prices_query_type",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "PRICE oracle rows, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/prices": {
+      "get": {
+        "operationId": "prices",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "PRICE oracle rows (validator COIN/FIAT + user TOKEN/FIAT)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/price_snapshots/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "price_snapshots_query_type",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Federation price snapshots, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: pair = COIN/FIAT pair (e.g. BTC/USD); round = oracle round id; status = lifecycle status"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pair",
+                "round",
+                "status"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/price_snapshots": {
+      "get": {
+        "operationId": "price_snapshots",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Federation price snapshots (PBFT-finalized rounds)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contracts/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "contracts_query_type",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Deployed contracts, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contracts": {
+      "get": {
+        "operationId": "contracts",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Deployed smart contracts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract/{QUERY}": {
+      "get": {
+        "operationId": "contract_query",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "One contract (by action index)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract/{QUERY}/state": {
+      "get": {
+        "operationId": "contract_query_state",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract state (all keys)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract/{QUERY}/state/{TYPE}": {
+      "get": {
+        "operationId": "contract_query_state_type",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract state (one key)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": "contract"
+            },
+            "description": "How to interpret {QUERY}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract/{QUERY}/balance": {
+      "get": {
+        "operationId": "contract_query_balance",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract token balances",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract/{QUERY}/balance/{TYPE}": {
+      "get": {
+        "operationId": "contract_query_balance_type",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract balance (one tick)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": "contract"
+            },
+            "description": "How to interpret {QUERY}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/executions/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "executions_query_type",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract executions, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/executions": {
+      "get": {
+        "operationId": "executions",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract executions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/execution/{QUERY}": {
+      "get": {
+        "operationId": "execution_query",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "One execution (by action index)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: execution = execution action index"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/deposits/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "deposits_query_type",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract deposits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/withdrawals/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "withdrawals_query_type",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract withdrawals",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/stakes/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "stakes_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Capability stakes, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/stakes": {
+      "get": {
+        "operationId": "stakes",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Capability stakes (validator staking)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/validators": {
+      "get": {
+        "operationId": "validators",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Active validators and their capabilities",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/delegations/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "delegations_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Signing-key delegations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "source"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/rewards/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "rewards_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Validator rewards (oracle/anchor/attestation)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address; source = source address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "address",
+                "source"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract_stakes/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "contract_stakes_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Contract-targeted stakes, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract_stakes": {
+      "get": {
+        "operationId": "contract_stakes",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Contract-targeted stakes (STAKE v3)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract_unstakes/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "contract_unstakes_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Contract unstakes, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract_unstakes": {
+      "get": {
+        "operationId": "contract_unstakes",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Contract unstakes (UNSTAKE v1)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract_delegations/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "contract_delegations_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Contract-stake delegations, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/contract_delegations": {
+      "get": {
+        "operationId": "contract_delegations",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Contract-stake delegations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/slash_events/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "slash_events_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Slash events, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/slash_events": {
+      "get": {
+        "operationId": "slash_events",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Slash events",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "cross_chain_matches_query_type",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Cross-chain order matches, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: match = cross-chain match id; block = block height; status = lifecycle status"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "match",
+                "block",
+                "status"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/cross_chain_matches": {
+      "get": {
+        "operationId": "cross_chain_matches",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Cross-chain order matches (hub-replicated)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/cross_chain_settlements/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "cross_chain_settlements_query_type",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Cross-chain settlement legs, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: match = cross-chain match id; block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "match",
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/cross_chain_settlements": {
+      "get": {
+        "operationId": "cross_chain_settlements",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Cross-chain settlement legs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/attestations/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "attestations_query_type",
+        "tags": [
+          "Attestations"
+        ],
+        "summary": "ATTEST requests/responses, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "contract"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/attestations": {
+      "get": {
+        "operationId": "attestations",
+        "tags": [
+          "Attestations"
+        ],
+        "summary": "ATTEST v0 requests + v1 responses (incl. LLM attestations)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/status": {
+      "get": {
+        "operationId": "status",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Explorer status + chain config",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/actions": {
+      "get": {
+        "operationId": "actions",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Recent actions (all types)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/action/{QUERY}": {
+      "get": {
+        "operationId": "action_query",
+        "tags": [
+          "Core"
+        ],
+        "summary": "One action with full decoded data (by action index)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: action_index = action index"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/address/{QUERY}": {
+      "get": {
+        "operationId": "address_query",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Address summary",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/balances/{QUERY}": {
+      "get": {
+        "operationId": "balances_query",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Token balances for an address",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/block/{QUERY}": {
+      "get": {
+        "operationId": "block_query",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Block summary (by height or hash)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/credits/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "credits_query_type",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Ledger credits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/debits/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "debits_query_type",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Ledger debits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/escrows/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "escrows_query_type",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Escrowed balances (orders/swaps/dispensers)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/history/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "history_query_type",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Combined action history",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/holders/{QUERY}": {
+      "get": {
+        "operationId": "holders_query",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Holders of a token",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: token = a token tick"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/mempool/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "mempool_query_type",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Unconfirmed (mempool) actions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/network": {
+      "get": {
+        "operationId": "network",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Network statistics",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/pubkey/{QUERY}": {
+      "get": {
+        "operationId": "pubkey_query",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Known public key for an address",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/project/{QUERY}": {
+      "get": {
+        "operationId": "project_query",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Project registry roster (official tokens of a project tick)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: token = a token tick"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/token/{QUERY}": {
+      "get": {
+        "operationId": "token_query",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Token detail (supply, info, NFT/registry surfaces)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: token = a token tick"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/tokens/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "tokens_query_type",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Token search (type nft = unique tokens only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick; subtoken = parent tick (returns its sub-tokens); nft = NFT filter"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token",
+                "subtoken",
+                "nft"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/transaction/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "transaction_query_type",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Transaction lookup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: tx_hash = transaction hash; tx_index = transaction index"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tx_hash",
+                "tx_index"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/markets": {
+      "get": {
+        "operationId": "markets",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "All trading pairs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/markets/{TICK1}": {
+      "get": {
+        "operationId": "markets_tick1",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Trading pairs for one tick",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK1",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/market/{TICK1}/{TICK2}": {
+      "get": {
+        "operationId": "market_tick1_tick2",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Market summary for a pair",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK1",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TICK2",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/market/{TICK1}/{TICK2}/history": {
+      "get": {
+        "operationId": "market_tick1_tick2_history",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Trade history for a pair",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK1",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TICK2",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/market/{TICK1}/{TICK2}/history/{ADDRESS}": {
+      "get": {
+        "operationId": "market_tick1_tick2_history_address",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Trade history for a pair, one address",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK1",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TICK2",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ADDRESS",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/market/{TICK1}/{TICK2}/orders": {
+      "get": {
+        "operationId": "market_tick1_tick2_orders",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Open orders for a pair",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK1",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TICK2",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/market/{TICK1}/{TICK2}/orders/{ADDRESS}": {
+      "get": {
+        "operationId": "market_tick1_tick2_orders_address",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Open orders for a pair, one address",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK1",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TICK2",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ADDRESS",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/market/{TICK1}/{TICK2}/orderbook": {
+      "get": {
+        "operationId": "market_tick1_tick2_orderbook",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Aggregated order book for a pair",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK1",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TICK2",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/file/{ACTION_INDEX}/raw": {
+      "get": {
+        "operationId": "file_action_index_raw",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Raw FILE bytes (gated: ciphertext as octet-stream; non-gated: inline for safe media types)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "ACTION_INDEX",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/feequote": {
+      "get": {
+        "operationId": "feequote",
+        "tags": [
+          "Fees"
+        ],
+        "summary": "Native-coin protocol fee pre-flight quote (proxied from the indexer)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/feeschedule": {
+      "get": {
+        "operationId": "feeschedule",
+        "tags": [
+          "Fees"
+        ],
+        "summary": "Fee schedule + oracle prices (proxied from the indexer)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/checkpoints": {
+      "get": {
+        "operationId": "checkpoints",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Latest quorum-signed state checkpoints for this chain",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/checkpoint/{BLOCK_INDEX}/verify": {
+      "get": {
+        "operationId": "checkpoint_block_index_verify",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Verify a checkpoint: 2f+1 signatures, canonical string, validator set",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "BLOCK_INDEX",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    }
+  },
+  "components": {
+    "parameters": {
+      "coin": {
+        "name": "COIN",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "BTC",
+            "TBTC",
+            "RBTC",
+            "LTC",
+            "TLTC",
+            "RLTC",
+            "DOGE",
+            "TDOGE",
+            "RDOGE"
+          ]
+        },
+        "description": "Chain + network: BTC/LTC/DOGE mainnet; T prefix = testnet, R prefix = regtest"
+      },
+      "page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "description": "Page number"
+      },
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 10
+        },
+        "description": "Rows per page (max 100; balances/holders max 500)"
+      },
+      "sortorder": {
+        "name": "sortorder",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        },
+        "description": "Sort order"
+      }
+    },
+    "schemas": {
+      "ListResponse": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "description": "Total matching rows"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Result rows (fields vary per endpoint; amounts are decimal strings)"
+          }
+        },
+        "required": [
+          "total",
+          "data"
+        ]
+      },
+      "ObjectResponse": {
+        "type": "object",
+        "description": "Single result object (fields vary per endpoint; amounts are decimal strings)"
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable message"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable machine-readable code (see https://docs.xchain.io/protocol/Error_Codes.md)"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "CoinUnavailable": {
+        "description": "Coin not configured on this explorer",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

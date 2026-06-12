@@ -375,15 +375,10 @@ function isNftToken(decimals, lockMaxSupply){
     return Number(decimals)===0 && Number(lockMaxSupply)===1;
 }
 
-// Badge marking an NFT-pattern token. MAX_SUPPLY 1 = a unique 1-of-1,
-// N = an edition of N identical prints (NFT_Standard.md#definition).
-function nftBadge(maxSupply){
-    let unique = (Number(String(maxSupply).replace(/,/g,''))==1),
-        label  = (unique) ? 'NFT' : 'NFT Edition',
-        title  = (unique) ? 'Non-Fungible Token: unique 1-of-1 (indivisible, supply locked)'
-                          : 'Non-Fungible Token: edition of ' + formatAmount(maxSupply) + ' identical prints (indivisible, supply locked)';
-    return '<span class="badge bg-info text-dark ms-1" title="' + title + '"><i class="fa fa-gem pe-1"></i>' + label + '</span>';
-}
+// (The NFT badge + token-page NFT Information panel were removed by
+// operator decision 2026-06-12. The /nfts directory still works — its
+// filter is server-side; isNftToken above stays as the canonical
+// client-side classification reference, mirroring sdk.nft.isNft.)
 
 // Return path to the token icon
 function getTokenIcon(token){
@@ -1617,13 +1612,7 @@ function loadDatatablesData(coin, action, query, type){
                 amount2 = data[5];
                 amount3 = data[6];
                 locks   = data[7];
-                // data[8] = decimals; with lock_max_supply (first element of the
-                // locks string) it classifies NFT-pattern tokens (NFT_Standard.md)
-                let decimals = data[8],
-                    lockMax  = String(locks).split('|')[0],
-                    tickHtml = formatLink('/' + coin + '/token/' + token, token, token);
-                if(isNftToken(decimals, lockMax))
-                    tickHtml += nftBadge(amount2);
+                let tickHtml = formatLink('/' + coin + '/token/' + token, token, token);
                 $('td', row).eq(3).html(tickHtml);
                 $('td', row).eq(4).text(formatAmount(amount));
                 $('td', row).eq(5).text(formatAmount(amount2));
@@ -1638,11 +1627,7 @@ function loadDatatablesData(coin, action, query, type){
                 amount2 = data[5];
                 amount3 = data[6];
                 locks   = data[7];
-                let pDecimals = data[8],
-                    pLockMax  = String(locks).split('|')[0],
-                    pTickHtml = formatLink('/' + coin + '/token/' + token, token, token);
-                if(isNftToken(pDecimals, pLockMax))
-                    pTickHtml += nftBadge(amount2);
+                let pTickHtml = formatLink('/' + coin + '/token/' + token, token, token);
                 $('td', row).eq(3).html(pTickHtml);
                 $('td', row).eq(4).text(formatAmount(amount));
                 $('td', row).eq(5).text(formatAmount(amount2));
@@ -2658,6 +2643,22 @@ function updateTokenSection(id){
 // Fields). Resolves to the explorer's own raw FILE endpoint. Also guarantees
 // every entry carries a string `data` so downstream substring/split calls are
 // safe on data_ref-only entries.
+// Resolve an action reference ("action:<index>" same-chain, or
+// "action:<COIN>:<index>" sibling-chain — base ticker, network tier implied
+// by the page's chain, same convention as LINK COIN1/COIN2) to this
+// explorer's raw FILE path. Returns false for anything else.
+function actionRefToRawPath(ref){
+    if(typeof ref !== 'string')
+        return false;
+    var m = ref.match(/^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i);
+    if(!m)
+        return false;
+    // Same network tier as the current page: RBTC + DOGE → RDOGE, etc.
+    var tier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '';
+    var coin = m[1] ? (tier + m[1].toUpperCase()) : XC.coin;
+    return '/' + coin + '/api/file/' + m[2] + '/raw';
+}
+
 function resolveTisDataRefs(o){
     ['images','audio','video','files'].forEach(function(key){
         if(!o[key] || !o[key].length)
@@ -2665,11 +2666,9 @@ function resolveTisDataRefs(o){
         o[key].forEach(function(item){
             if(!item)
                 return;
-            if(typeof item.data_ref === 'string'){
-                var m = item.data_ref.match(/^action:([0-9]+)$/i);
-                if(m)
-                    item.data = '/' + XC.coin + '/api/file/' + m[1] + '/raw';
-            }
+            var path = (typeof item.data_ref === 'string') ? actionRefToRawPath(item.data_ref) : false;
+            if(path)
+                item.data = path;
             if(isNull(item.data))
                 item.data = '';
         });
@@ -3047,29 +3046,6 @@ function showTokenInfo(){
 
     // Basic Token Information
     $('.xchain-tick').text(o.info.tick);
-    // NFT-pattern badge + info panel (DECIMALS=0 + LOCK_MAX_SUPPLY=1 —
-    // NFT_Standard.md). locks.max_supply is a boolean here, Number(true)===1
-    // satisfies isNftToken. All values rendered come from the indexer DB
-    // (numeric/boolean), except the tick used in the parent link, which
-    // passed ISSUE validation ([A-Z0-9.] charset) — safe in an href.
-    if(isNftToken(o.info.decimals, o.locks.max_supply)){
-        $('.xchain-tick').append(nftBadge(o.supply.max));
-        let maxSupply = Number(String(o.supply.max).replace(/,/g,''));
-        $('#nft-type').text((maxSupply==1) ? 'Unique (1 of 1)' : 'Edition of ' + formatAmount(o.supply.max) + ' identical prints');
-        // The collector-verification guarantees, answerable from chain state
-        let guarantees = '<i class="fa fa-check pe-1 text-success"></i>Indivisible &mdash; 0 decimals, fractional amounts are invalid'
-                       + '<br><i class="fa fa-check pe-1 text-success"></i>Supply permanently capped at ' + formatAmount(o.supply.max);
-        if(o.locks.description)
-            guarantees += '<br><i class="fa fa-check pe-1 text-success"></i>Description locked &mdash; the metadata pointer can never change';
-        $('#nft-guarantees').html(guarantees);
-        // Collection membership via parent/child tick naming (PARENT.ITEM)
-        if(String(o.info.tick).includes('.')){
-            let parent = String(o.info.tick).split('.')[0];
-            $('#nft-collection').html(formatLink('/' + XC.coin + '/token/' + parent, parent, parent));
-            $('#nft-collection-row').removeClass('d-none');
-        }
-        $('#nft-info').removeClass('d-none');
-    }
 
     // Project registry surfaces (protocol/Project_Registry.md).
     // projects = registries whose current owner-attested roster includes this
@@ -3143,10 +3119,11 @@ function showTokenInfo(){
         ipfs    = /^ipfs:/i,
         ar      = /^ar:/i,
         arweave = /^https?:\/\/arweave\.net\//i,
-        // On-chain TIS document: DESCRIPTION = "action:<index>" pointing at a
-        // same-chain FILE action whose bytes are the TIS JSON
-        // (Token_Information_Standard.md — On-Chain TIS Documents).
-        act     = /^action:([0-9]+)$/i;
+        // On-chain TIS document: DESCRIPTION = "action:<index>" (same chain)
+        // or "action:<COIN>:<index>" (sibling chain) pointing at a FILE
+        // action whose bytes are the TIS JSON
+        // (Token_Information_Standard.md — On-Chain Format).
+        act     = /^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i;
 
     // Rescue arweave URLs that used the legacy "/x.json" trick (gateway no longer accepts random suffixes)
     if(typeof desc === 'string')
@@ -3165,12 +3142,15 @@ function showTokenInfo(){
     }
 
     // On-chain TIS document pointer — show a link to the FILE action that
-    // holds the token's information document. The index is regex-validated
-    // digits, so the href is safe by construction.
+    // holds the token's information document (on its own chain for the
+    // cross-chain form). Coin + index are regex-validated, so the href is
+    // safe by construction.
     if(act.test(desc)){
-        var actIdx = desc.match(act)[1];
+        var actM    = desc.match(act),
+            actTier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '',
+            actCoin = actM[1] ? (actTier + actM[1].toUpperCase()) : XC.coin;
         $('#token-description').html(
-            '<a href="/' + XC.coin + '/action/' + actIdx + '" title="Token information stored on-chain (FILE action ' + actIdx + ')">'
+            '<a href="/' + actCoin + '/action/' + actM[2] + '" title="Token information stored on-chain (' + actCoin + ' FILE action ' + actM[2] + ')">'
             + escapeHtml(desc) + '</a>'
         );
     }
@@ -3179,8 +3159,9 @@ function showTokenInfo(){
     let jsonUrl = false;
     if(act.test(desc)){
         // Same-origin raw FILE bytes from the colocated decoder DB — the
-        // resolution target for an on-chain TIS document.
-        jsonUrl = '/' + XC.coin + '/api/file/' + desc.match(act)[1] + '/raw';
+        // resolution target for an on-chain TIS document (same- or
+        // sibling-chain per the action ref).
+        jsonUrl = actionRefToRawPath(desc.trim());
     } else if(json.test(desc) || ipfs.test(desc) || ord.test(desc) || ar.test(desc) || arweave.test(desc)){
         if(ipfs.test(desc)){
             jsonUrl = 'https://ipfs.io/ipfs/' + String(desc).replace(ipfs,'');

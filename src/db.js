@@ -131,12 +131,17 @@ class Database {
 
         // Placeholder for connection pools
         this.pools = {};
-        // Per-coin decoder database name, used to read the decoder-tip reference
-        // (the decoder's highest processed block) for /api/status lag reporting. Only
-        // populated when the decoder DB sits on the same server/credentials as
-        // the indexer DB, since the tip is read by reusing the indexer pool with
-        // a database-qualified query rather than a separate connection.
+        // Per-coin decoder database name, used for the colocated-decoder reads
+        // (decoder tip for /api/status lag, mempool rows, raw FILE bytes).
+        // When the decoder DB shares server + credentials with the indexer DB
+        // the reads reuse the indexer pool with database-qualified queries;
+        // otherwise a DEDICATED per-coin pool is created (decoderPools below).
         this.decoderDb = {};
+        // Per-coin dedicated decoder-DB pools, created when the decoder DB does
+        // NOT share credentials with the indexer DB — the norm on xchain-node
+        // installs, which provision per-service DB users. Same-credentials
+        // deployments make no entry here and reuse the indexer pool.
+        this.decoderPools = {};
         // Per-coin checkpoint-source database (optional). Where the local indexer
         // DB carries no hub-mirror tables (single-server explorers reading synced
         // replicas — xchain-sync excludes state_checkpoints/capability_snapshots),
@@ -218,17 +223,33 @@ class Database {
                             this.pools[key].pool = pool;
 
                             // Record the decoder DB name for this coin so /api/status can
-                            // read the decoder tip (decoder's highest processed block) and report
-                            // indexer lag. The tip is read by reusing this indexer pool with a
-                            // database-qualified query, so only do this when the decoder DB is
-                            // on the same server with the same credentials; otherwise leave it
-                            // unset and decoder_tip/decoder_lag_blocks are simply omitted for this coin.
+                            // read the decoder tip (decoder's highest processed block), serve
+                            // mempool rows, and serve raw FILE bytes. Same credentials as the
+                            // indexer DB → reuse this indexer pool with database-qualified
+                            // queries; different credentials (xchain-node installs provision
+                            // per-service DB users) → create a DEDICATED decoder pool so the
+                            // colocated-decoder features still work.
                             let dcfg = info[net].database.decoder;
                             if(dcfg && !this.util.isNull(dcfg.name)){
                                 let dHost = ("db_host" in dcfg) ? dcfg.db_host : dcfg.host;
                                 let dPort = ("db_port" in dcfg) ? dcfg.db_port : dcfg.port;
-                                if(dHost==cfg.db_host && dPort==cfg.db_port && dcfg.user==cfg.user && dcfg.pass==cfg.pass)
+                                if(!this.util.isNull(dHost) && !this.util.isNull(dPort)){
                                     this.decoderDb[key] = dcfg.name;
+                                    if(!(dHost==cfg.db_host && dPort==cfg.db_port && dcfg.user==cfg.user && dcfg.pass==cfg.pass)){
+                                        this.decoderPools[key] = mariadb.createPool({
+                                            host:             dHost,
+                                            port:             dPort,
+                                            user:             dcfg.user,
+                                            password:         dcfg.pass,
+                                            database:         dcfg.name,
+                                            // Small pool — decoder reads are low-volume
+                                            // (status tip, mempool page, raw FILE bytes).
+                                            connectionLimit:  3,
+                                            insertIdAsNumber: true,
+                                            queryTimeout:     parseInt(process.env.DB_QUERY_TIMEOUT) || 30000
+                                        });
+                                    }
+                                }
                             }
 
                             // Record the checkpoint-source DB name for this coin (see
@@ -429,12 +450,20 @@ class Database {
         return [query, args, count];
     }
 
+    // Run a decoder-DB read. Same-credentials deployments reuse the indexer
+    // pool (the query is database-qualified); xchain-node installs (per-service
+    // DB users) run on the dedicated per-coin decoder pool created at init.
+    async doDecoderQuery(config, query, args){
+        let dedicated = this.decoderPools ? this.decoderPools[config.coin] : null;
+        return this.doQuery(config, query, args, dedicated || null);
+    }
+
     // Handle getting a database connection and running a query and returning the results
-    async doQuery(config, query, args){
+    async doQuery(config, query, args, poolOverride = null){
         let result = false;
         if(this.util.isNull(query)) return result;
         // Get connection from pool directly (local scope — no shared state)
-        let pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
+        let pool = poolOverride || ((this.pools[config.coin]) ? this.pools[config.coin].pool : null);
         if(!pool){
             console.log('Unable to get database connection pool');
             return result;
@@ -6825,7 +6854,7 @@ class Database {
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return null;
         try {
             let query   = 'SELECT MAX(block_index) as max_index FROM `' + dbName + '`.blocks';
-            let results = await this.doQuery(config, query, []);
+            let results = await this.doDecoderQuery(config, query, []);
             if (results && results.length && results[0].max_index !== null)
                 return Number(results[0].max_index);
         } catch(e){
@@ -6848,7 +6877,7 @@ class Database {
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return 0;
         try {
             let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions';
-            let results = await this.doQuery(config, query, []);
+            let results = await this.doDecoderQuery(config, query, []);
             if (results && results.length && results[0].count !== null)
                 return Number(results[0].count);
         } catch(e){
@@ -6877,7 +6906,7 @@ class Database {
                         'LEFT JOIN `' + dbName + '`.index_transactions t1 ON (t1.id=m.tx_hash_id) ' +
                         'LEFT JOIN `' + dbName + '`.index_addresses   a1 ON (a1.id=m.source_id) ' +
                         'LIMIT ' + max;
-            let results = await this.doQuery(config, query, []);
+            let results = await this.doDecoderQuery(config, query, []);
             return results || [];
         } catch(e){
             console.warn('getDecoderMempoolRows: mempool rows unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
@@ -7058,7 +7087,7 @@ class Database {
             let query = 'SELECT t1.raw_data FROM `' + dbName + '`.transactions t1 ' +
                         'INNER JOIN `' + dbName + '`.index_transactions t2 ON (t2.id=t1.tx_hash_id) ' +
                         'WHERE t2.hash=? LIMIT 1';
-            let results = await this.doQuery(config, query, [rows[0].hash]);
+            let results = await this.doDecoderQuery(config, query, [rows[0].hash]);
             if(results && results.length && !this.util.isNull(results[0].raw_data))
                 return { raw_data: results[0].raw_data, type: rows[0].type };
         } catch(e){

@@ -3142,7 +3142,11 @@ function showTokenInfo(){
         ord     = /^ord:/i,
         ipfs    = /^ipfs:/i,
         ar      = /^ar:/i,
-        arweave = /^https?:\/\/arweave\.net\//i;
+        arweave = /^https?:\/\/arweave\.net\//i,
+        // On-chain TIS document: DESCRIPTION = "action:<index>" pointing at a
+        // same-chain FILE action whose bytes are the TIS JSON
+        // (Token_Information_Standard.md — On-Chain TIS Documents).
+        act     = /^action:([0-9]+)$/i;
 
     // Rescue arweave URLs that used the legacy "/x.json" trick (gateway no longer accepts random suffixes)
     if(typeof desc === 'string')
@@ -3160,9 +3164,24 @@ function showTokenInfo(){
         $('#token-description').html(html);
     }
 
+    // On-chain TIS document pointer — show a link to the FILE action that
+    // holds the token's information document. The index is regex-validated
+    // digits, so the href is safe by construction.
+    if(act.test(desc)){
+        var actIdx = desc.match(act)[1];
+        $('#token-description').html(
+            '<a href="/' + XC.coin + '/action/' + actIdx + '" title="Token information stored on-chain (FILE action ' + actIdx + ')">'
+            + escapeHtml(desc) + '</a>'
+        );
+    }
+
     // Set the full url to get JSON content
     let jsonUrl = false;
-    if(json.test(desc) || ipfs.test(desc) || ord.test(desc) || ar.test(desc) || arweave.test(desc)){
+    if(act.test(desc)){
+        // Same-origin raw FILE bytes from the colocated decoder DB — the
+        // resolution target for an on-chain TIS document.
+        jsonUrl = '/' + XC.coin + '/api/file/' + desc.match(act)[1] + '/raw';
+    } else if(json.test(desc) || ipfs.test(desc) || ord.test(desc) || ar.test(desc) || arweave.test(desc)){
         if(ipfs.test(desc)){
             jsonUrl = 'https://ipfs.io/ipfs/' + String(desc).replace(ipfs,'');
         } else if(ord.test(desc)){

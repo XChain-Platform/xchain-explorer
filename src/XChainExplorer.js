@@ -1018,7 +1018,11 @@ class XChainExplorer {
         let valid  = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type);
         let inline = valid && (
             ((/^(image|audio|video)\//).test(type) && type!='image/svg+xml') ||
-            type=='application/pdf'
+            type=='application/pdf' ||
+            // On-chain TIS documents (DESCRIPTION = action:<index>) are JSON
+            // FILEs fetched same-origin by clients. JSON is render-safe:
+            // with nosniff set it can't be coerced into a scriptable type.
+            type=='application/json'
         );
         if(inline){
             res.set('Content-Type', type);

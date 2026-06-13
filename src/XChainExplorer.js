@@ -148,7 +148,6 @@ class XChainExplorer {
                 '/{COIN}'                     : 'coin_home.html',
                 '/{COIN}/blocks'              : 'blocks.html',
                 '/{COIN}/markets'             : 'markets.html',
-                '/{COIN}/nfts'                : 'nfts.html',
                 '/{COIN}/search'              : 'search.html',
                 '/{COIN}/tokens'              : 'tokens.html',
                 '/{COIN}/terms'               : 'terms.html',

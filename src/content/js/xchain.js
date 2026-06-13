@@ -376,9 +376,12 @@ function isNftToken(decimals, lockMaxSupply){
 }
 
 // (The NFT badge + token-page NFT Information panel were removed by
-// operator decision 2026-06-12. The /nfts directory still works — its
-// filter is server-side; isNftToken above stays as the canonical
-// client-side classification reference, mirroring sdk.nft.isNft.)
+// operator decision 2026-06-12, and the /nfts page was removed
+// 2026-06-13 — the rigid DECIMALS=0+LOCK_MAX_SUPPLY=1 line excludes
+// decimal-supply tokens people still call NFTs, which isn't worth
+// defending. The server-side 'nft' getTokens filter remains (now
+// orphaned); isNftToken stays as the canonical client-side
+// classification reference, mirroring sdk.nft.isNft.)
 
 // Return path to the token icon
 function getTokenIcon(token){

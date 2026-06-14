@@ -112,6 +112,33 @@
     </div>
 </div>
 
+<!-- Controller Bindings (protocol/Controller_Bound_Tokens.md) — guard contracts
+     that gate this token's native actions. Hidden until at least one binding is
+     still gating at the chain tip. -->
+<div class="container mt-3" id="token-controllers-card" style="display:none;">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-shield-halved"></i> Controller Bindings
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0">
+                <thead>
+                    <tr class="info">
+                        <th>Action Class</th>
+                        <th>Guard Contract</th>
+                        <th>Cooldown</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="token-controllers-body">
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container mt-3">
     <div class="row">
         <div class="col-xs-12">

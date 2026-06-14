@@ -972,3 +972,79 @@ CREATE TABLE events (
     code VARCHAR(50),
     data VARCHAR(250)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+-- ============================================================
+-- Smart contracts + Phase F controller / permissions surfaces
+-- (auto-generated from xchain-indexer/src/sql/*.sql)
+-- ============================================================
+
+DROP TABLE IF EXISTS contracts;
+CREATE TABLE contracts (
+    action_index          BIGINT UNSIGNED NOT NULL,
+    source_id             BIGINT UNSIGNED NOT NULL,
+    code                  MEDIUMTEXT NOT NULL,
+    code_hash             CHAR(64) NOT NULL,
+    api_version           INT UNSIGNED NOT NULL DEFAULT 1,
+    status_id             BIGINT UNSIGNED,
+    block_index           BIGINT UNSIGNED NOT NULL,
+    cooldown_blocks       INT UNSIGNED,
+    slash_destination_id  BIGINT UNSIGNED
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index         ON contracts (action_index);
+CREATE        INDEX source_id            ON contracts (source_id);
+CREATE        INDEX code_hash            ON contracts (code_hash);
+CREATE        INDEX status_id            ON contracts (status_id);
+CREATE        INDEX slash_destination_id ON contracts (slash_destination_id);
+
+DROP TABLE IF EXISTS contract_permissions;
+CREATE TABLE contract_permissions (
+    action_index    BIGINT UNSIGNED NOT NULL,
+    contract_index  BIGINT UNSIGNED NOT NULL,
+    permissions     TEXT,
+    max_take_bps    INT UNSIGNED,
+    block_index     BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON contract_permissions (action_index);
+CREATE        INDEX contract_index ON contract_permissions (contract_index);
+CREATE        INDEX block_index    ON contract_permissions (block_index);
+
+DROP TABLE IF EXISTS token_controllers;
+CREATE TABLE token_controllers (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    action_index        BIGINT UNSIGNED NOT NULL,
+    tick_id             BIGINT UNSIGNED NOT NULL,
+    action_class        VARCHAR(16) NOT NULL,
+    contract_index      BIGINT UNSIGNED NOT NULL,
+    bound_by_id         BIGINT UNSIGNED NOT NULL,
+    is_unbind           TINYINT(1) NOT NULL DEFAULT 0,
+    cooldown_blocks     INT UNSIGNED NOT NULL DEFAULT 0,
+    cooldown_end_block  BIGINT UNSIGNED,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON token_controllers (action_index);
+CREATE        INDEX tick_id        ON token_controllers (tick_id);
+CREATE        INDEX contract_index ON token_controllers (contract_index);
+CREATE        INDEX tick_class     ON token_controllers (tick_id, action_class);
+CREATE        INDEX block_index    ON token_controllers (block_index);
+
+DROP TABLE IF EXISTS address_controllers;
+CREATE TABLE address_controllers (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    action_index        BIGINT UNSIGNED NOT NULL,
+    address_id          BIGINT UNSIGNED NOT NULL,
+    action_class        VARCHAR(16) NOT NULL,
+    contract_index      BIGINT UNSIGNED NOT NULL,
+    is_unbind           TINYINT(1) NOT NULL DEFAULT 0,
+    cooldown_blocks     INT UNSIGNED NOT NULL DEFAULT 0,
+    cooldown_end_block  BIGINT UNSIGNED,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON address_controllers (action_index);
+CREATE        INDEX address_id     ON address_controllers (address_id);
+CREATE        INDEX contract_index ON address_controllers (contract_index);
+CREATE        INDEX address_class  ON address_controllers (address_id, action_class);
+CREATE        INDEX block_index    ON address_controllers (block_index);

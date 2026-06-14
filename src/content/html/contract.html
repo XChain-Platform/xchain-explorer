@@ -23,6 +23,26 @@
     </div>
 </div>
 
+<!-- Permissions Manifest (protocol/Controller_Bound_Tokens.md) — hidden until
+     the contract declares a manifest (permissions / max_take_bps). -->
+<div class="container" id="contract-manifest-card" style="display:none;">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-shield-halved"></i> Permissions Manifest
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0">
+                <tbody>
+                    <tr><th width="175">Can Emit</th><td class="contract-permissions">-</td></tr>
+                    <tr><th>Max Fee Take</th><td class="contract-max-take">-</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Stakes targeting this contract -->
 <div class="container">
     <div class="row">
@@ -72,6 +92,19 @@ $(document).ready(function() {
                 $('.contract-cooldown').text(numeral(o.cooldown_blocks).format('0,0') + ' blocks');
                 $('.contract-slash').html(isNull(o.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + o.slash_destination, o.slash_destination));
                 $('.contract-staking-row').removeClass('d-none');
+            }
+            // Permissions manifest (protocol/Controller_Bound_Tokens.md): the
+            // declared emission allowlist + per-contract fee cap. Both are null
+            // when the contract has no manifest row — show the card only when at
+            // least one is declared (an empty permissions array means "emits
+            // nothing", which is meaningful and shown).
+            if(Array.isArray(o.permissions) || !isNull(o.max_take_bps)){
+                if(Array.isArray(o.permissions))
+                    $('.contract-permissions').text(o.permissions.length ? o.permissions.join(', ') : 'Nothing');
+                else
+                    $('.contract-permissions').text('Unrestricted');
+                $('.contract-max-take').text(isNull(o.max_take_bps) ? 'Global cap' : (Number(o.max_take_bps) / 100) + '%');
+                $('#contract-manifest-card').show();
             }
             XC.pageInfo.title       = 'Contract ' + XC.query;
             XC.pageInfo.description = 'Smart contract ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';

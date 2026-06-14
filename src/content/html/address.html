@@ -68,6 +68,33 @@
     </div>
 </div>
 
+<!-- Controller Bindings (protocol/Controller_Bound_Tokens.md) — guard contracts
+     that gate this address's native actions. Hidden until at least one binding
+     is still gating at the chain tip. -->
+<div class="container" id="address-controllers-card" style="display:none;">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-shield-halved"></i> Controller Bindings
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0">
+                <thead>
+                    <tr class="info">
+                        <th>Action Class</th>
+                        <th>Guard Contract</th>
+                        <th>Cooldown</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="address-controllers-body">
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Transactions -->
 <div class="container">
     <div class="row">
@@ -791,6 +818,10 @@
                 $('#utxos-confirmed').text(o.utxos.confirmed);
                 $('#utxos-pending').text(o.utxos.pending);
                 $('#estimated-value').text(o.estimated_value.btc);
+
+                // Controller bindings (protocol/Controller_Bound_Tokens.md):
+                // guard contracts that gate this address's native actions.
+                renderControllerBindings(o.controllers, 'address-controllers-body', 'address-controllers-card');
 
                 // Build out QR code for address
                 $('.address_qrcode').qrcode({

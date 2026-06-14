@@ -3406,6 +3406,9 @@ class Database {
                 btc: "1.12345678"
             }
         };
+        // Controller bindings still gating this address's native actions
+        // (protocol/Controller_Bound_Tokens.md). [] when nothing gates.
+        data.controllers = await this.getAddressControllerBindings(config, config.data.search);
         return [data];
     }
 
@@ -3975,6 +3978,9 @@ class Database {
             // own roster metadata when it IS a project (null otherwise).
             data.projects = await this.getTokenProjects(config, data.info.tick);
             data.registry = await this.getProjectRosterInfo(config, data.info.tick);
+            // Controller bindings still gating this token's native actions
+            // (protocol/Controller_Bound_Tokens.md). [] when nothing gates.
+            data.controllers = await this.getTokenControllerBindings(config, data.info.tick);
         }
         return [data];
     }
@@ -7182,6 +7188,75 @@ class Database {
         }));
     }
 
+    /******************************************************************
+     * Controller bindings (protocol/Controller_Bound_Tokens.md)
+     *
+     * token_controllers / address_controllers are append-only bind/unbind
+     * event logs. The effective (still-gating) controller for a
+     * (subject, action_class) is the latest event by action_index, with a
+     * read-time cooldown: a `bind` always gates; an `unbind` gates only while
+     * the chain tip is below its cooldown_end_block. This mirrors the indexer's
+     * readEffectiveControllerMap / controllerEventIfGating (xchain-indexer
+     * src/db.js) so the explorer surfaces exactly what consensus enforces.
+     ******************************************************************/
+
+    // Reduce an append-only controller event log (token_controllers /
+    // address_controllers) to the array of bindings that are still gating at the
+    // chain tip. keyColumn is tick_id / address_id. Returns the shared shape:
+    // [{ action_class, contract_index, cooldown_blocks, is_unbind, bind_block }].
+    async _resolveControllerBindings(config, table, keyColumn, keyValue){
+        if(this.util.isNull(keyValue)) return [];
+        let query = `SELECT
+                        action_class,
+                        action_index,
+                        contract_index,
+                        is_unbind,
+                        cooldown_blocks,
+                        cooldown_end_block,
+                        block_index
+                    FROM ${table}
+                    WHERE ${keyColumn}=?
+                    ORDER BY action_index ASC`;
+        let rows = await this.doQuery(config, query, [keyValue]);
+        if(!rows || !rows.length) return [];
+        // Latest event per action_class wins (rows are action_index ASC, so the
+        // last seen for each class is the highest action_index).
+        let latest = new Map();
+        for(let row of rows)
+            latest.set(row.action_class, row);
+        // Read-time cooldown: resolve the chain tip once and gate each unbind.
+        let tip = await this.getMaxBlockIndex(config);
+        let bindings = [];
+        for(let [, row] of latest){
+            // controllerEventIfGating: a bind always gates; an unbind gates only
+            // while tip < cooldown_end_block (and never when it's NULL).
+            if(Number(row.is_unbind) === 1){
+                if(this.util.isNull(row.cooldown_end_block)) continue;
+                if(Number(tip) >= Number(row.cooldown_end_block)) continue;
+            }
+            bindings.push({
+                action_class:   row.action_class,
+                contract_index: Number(row.contract_index),
+                cooldown_blocks: Number(row.cooldown_blocks),
+                is_unbind:      Number(row.is_unbind),
+                bind_block:     Number(row.block_index)
+            });
+        }
+        return bindings;
+    }
+
+    // Controller bindings still gating a token (token-page display surface).
+    async getTokenControllerBindings(config, tick){
+        let tick_id = await this.getTickId(config, tick);
+        return this._resolveControllerBindings(config, 'token_controllers', 'tick_id', tick_id);
+    }
+
+    // Controller bindings still gating an address (address-page display surface).
+    async getAddressControllerBindings(config, address){
+        let address_id = await this.getAddressId(config, address);
+        return this._resolveControllerBindings(config, 'address_controllers', 'address_id', address_id);
+    }
+
     // Project detail (API endpoint) — project tick + roster metadata + member
     // tokens. Members are capped at 1000 per response; `total` always carries
     // the full roster size.
@@ -7568,22 +7643,14 @@ class Database {
         return [query, null, count];
     }
 
-    // Get single CONTRACT by action_index
+    // Get single CONTRACT by action_index. Data method (returns [data]) — the
+    // /api/contract/{idx} route serves a single record, not a datatable (the
+    // explorer contract listing uses getContracts). The LEFT JOIN surfaces the
+    // contract's permissions manifest (contract_permissions; null when none).
     async getContract(config){
+        let data  = null;
         let sql   = config.data.sql;
         let args  = [config.data.search];
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        contracts m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
                         m.action_index,
@@ -7598,7 +7665,9 @@ class Database {
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        s1.status
+                        s1.status,
+                        cp.permissions,
+                        cp.max_take_bps
                     FROM
                         contracts m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -7609,10 +7678,52 @@ class Database {
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
+                        LEFT  JOIN contract_permissions cp ON (cp.contract_index=m.action_index)
+                    WHERE ` + sql.where.data + `
                     ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length){
+            let row = results[0];
+            // Permissions manifest (protocol/Controller_Bound_Tokens.md): the
+            // declared emission allowlist + per-contract fee cap. permissions is
+            // stored as a JSON array (NULL = unrestricted / no manifest); parse
+            // it, falling back to null on absence or malformed JSON. max_take_bps
+            // is NULL when the global cap applies.
+            let permissions = null;
+            if(!this.util.isNull(row.permissions)){
+                try { permissions = JSON.parse(row.permissions); }
+                catch(e){ permissions = null; }
+            }
+            row.permissions  = permissions;
+            row.max_take_bps = this.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps);
+            data = row;
+        }
+        return [data];
+    }
+
+    // Get a contract's permissions manifest (protocol/Controller_Bound_Tokens.md):
+    // the declared emission allowlist + per-contract fee cap, or null when the
+    // contract declared no manifest. permissions is a JSON array on the wire
+    // (NULL = unrestricted); parse it, falling back to null on malformed JSON.
+    async getContractManifest(config, contractIndex){
+        if(this.util.isNull(contractIndex)) return null;
+        let query = `SELECT permissions, max_take_bps
+                     FROM contract_permissions
+                     WHERE contract_index=?
+                     LIMIT 1`;
+        let rows = await this.doQuery(config, query, [contractIndex]);
+        if(!rows || !rows.length) return null;
+        let row = rows[0];
+        let permissions = null;
+        if(!this.util.isNull(row.permissions)){
+            try { permissions = JSON.parse(row.permissions); }
+            catch(e){ permissions = null; }
+        }
+        return {
+            permissions:  permissions,
+            max_take_bps: this.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps)
+        };
     }
 
     // Get latest contract state keys for a contract

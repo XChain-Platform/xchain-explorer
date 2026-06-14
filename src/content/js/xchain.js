@@ -3035,6 +3035,28 @@ function showTokenContent(json){
         $('#additionalInfoNotAvailable').hide();
 }
 
+// Render a token's/address's controller bindings (protocol/Controller_Bound_Tokens.md)
+// into a table body, revealing the card when at least one binding is gating.
+// `controllers` is the API's `controllers` array; bodyId/cardId are element ids.
+// Each row: action class, linked guard contract, cooldown, Active/Unbinding badge.
+function renderControllerBindings(controllers, bodyId, cardId){
+    if(!controllers || !controllers.length)
+        return;
+    let html = '';
+    controllers.forEach(function(c){
+        let cls      = escapeHtml(String(c.action_class));
+        let contract = formatLink('/' + XC.coin + '/contract/' + Number(c.contract_index), Number(c.contract_index));
+        let cooldown = numeral(c.cooldown_blocks).format('0,0') + ' block' + (Number(c.cooldown_blocks)==1 ? '' : 's');
+        // is_unbind=1 rows are still gating only during their drop cooldown.
+        let badge    = (Number(c.is_unbind)===1)
+            ? '<span class="badge text-bg-warning">Unbinding</span>'
+            : '<span class="badge text-bg-success text-white">Active</span>';
+        html += '<tr><td>' + cls + '</td><td>' + contract + '</td><td>' + cooldown + '</td><td>' + badge + '</td></tr>';
+    });
+    $('#' + bodyId).html(html);
+    $('#' + cardId).show();
+}
+
 // Handle displaying token details
 function showTokenInfo(){
     // Setup short alias to token info object
@@ -3079,6 +3101,10 @@ function showTokenInfo(){
             $('#tab-dropdown-project').click();
         });
     }
+
+    // Controller bindings (protocol/Controller_Bound_Tokens.md): guard contracts
+    // that gate this token's native actions. Hidden until at least one is gating.
+    renderControllerBindings(o.controllers, 'token-controllers-body', 'token-controllers-card');
 
     $('#supply').text(formatAmount(o.supply.current));
     $('#max-supply').text(formatAmount(o.supply.max));

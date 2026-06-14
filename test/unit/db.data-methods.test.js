@@ -220,12 +220,21 @@ describe('Database#getData', () => {
 
 describe('Database#getAddress', () => {
     let db;
-    before(() => { db = makeDb(); });
+    beforeEach(() => {
+        db = makeDb();
+        // getAddress now appends controller bindings; stub the lookup so these
+        // header-shape assertions don't need a live pool (covered separately).
+        sinon.stub(db, 'getAddressControllerBindings').resolves([]);
+    });
+    afterEach(() => { sinon.restore(); });
 
     it('returns a data object with the expected top-level keys', async () => {
         const config = cfg({ data: { search: 'addr1bc' } });
         const [data] = await db.getAddress(config);
-        expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value']);
+        // controllers is the Controller_Bound_Tokens.md display surface; with no
+        // binding it resolves to []
+        expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value', 'controllers']);
+        expect(data.controllers).to.deep.equal([]);
     });
 
     it('echoes the search address into data.address', async () => {
@@ -654,10 +663,12 @@ describe('Database#getToken', () => {
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
         // projects/registry are the Project_Registry.md display surfaces; with
-        // no baseCoin map (un-inited db) they resolve to []/null
-        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry']);
+        // no baseCoin map (un-inited db) they resolve to []/null. controllers is
+        // the Controller_Bound_Tokens.md surface (→ [] with no pool/tick id).
+        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry', 'controllers']);
         expect(data.projects).to.deep.equal([]);
         expect(data.registry).to.equal(null);
+        expect(data.controllers).to.deep.equal([]);
     });
 
     it('maps lock_max_supply="1" to locks.max_supply === true', async () => {
@@ -988,7 +999,10 @@ describe('Database#getToken escrow_action_index', () => {
     it('selects t1.escrow_action_index and surfaces it under info', async () => {
         let captured;
         sinon.stub(db, 'doQuery').callsFake(async (cfgArg, query) => {
-            captured = query;
+            // getToken now also runs follow-up lookups (tick id, controller
+            // bindings); capture only the main token SELECT.
+            if(query.includes('FROM\n                        tokens t1'))
+                captured = query;
             const rows = mockResults.tokenRow();
             rows[0].escrow_action_index = 4242;
             return rows;
@@ -1068,5 +1082,253 @@ describe('Database#getStatus decoder health aggregation', () => {
             expect(data.chain_tip[code]).to.be.null;
             expect(data.chain_lag_blocks[code]).to.be.null;
         }
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getContract — single-record data method + permissions manifest LEFT JOIN
+// (protocol/Controller_Bound_Tokens.md)
+// ---------------------------------------------------------------------------
+
+describe('Database#getContract', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    // A minimal contract row as returned by the SELECT (manifest columns vary).
+    function contractRow(overrides = {}) {
+        return Object.assign({
+            action:            'DEPLOY',
+            action_index:      900,
+            action_format:     0,
+            source:            'deployerAddr',
+            code:              'module.exports={}',
+            code_hash:         'abc123',
+            api_version:       1,
+            cooldown_blocks:   null,
+            slash_destination: null,
+            block_index:       500,
+            timestamp:         1700000000,
+            tx_hash:           'tx900',
+            tx_index:          90,
+            status:            'valid',
+            permissions:       null,
+            max_take_bps:      null
+        }, overrides);
+    }
+
+    const baseCfg = () => cfg({ data: { search: '900', sql: { where: { data: 'm.action_index=?', offset: '' }, order: 'DESC', limit: 1 } } });
+
+    it('returns null when no contract found', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data).to.be.null;
+    });
+
+    it('returns null when doQuery returns false', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+        const [data] = await db.getContract(baseCfg());
+        expect(data).to.be.null;
+    });
+
+    it('returns the contract row with permissions=null / max_take_bps=null when no manifest', async () => {
+        sinon.stub(db, 'doQuery').resolves([contractRow()]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.action_index).to.equal(900);
+        expect(data.permissions).to.equal(null);
+        expect(data.max_take_bps).to.equal(null);
+    });
+
+    it('parses a JSON permissions array and coerces max_take_bps to a number', async () => {
+        sinon.stub(db, 'doQuery').resolves([contractRow({ permissions: '["send","mint"]', max_take_bps: '300' })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.permissions).to.deep.equal(['send', 'mint']);
+        expect(data.max_take_bps).to.equal(300);
+    });
+
+    it('falls back to permissions=null on malformed JSON', async () => {
+        sinon.stub(db, 'doQuery').resolves([contractRow({ permissions: 'not json' })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.permissions).to.equal(null);
+    });
+
+    it('preserves an empty permissions array ("emits nothing")', async () => {
+        sinon.stub(db, 'doQuery').resolves([contractRow({ permissions: '[]' })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.permissions).to.deep.equal([]);
+    });
+
+    it('LEFT JOINs contract_permissions on the contract action_index', async () => {
+        let captured;
+        sinon.stub(db, 'doQuery').callsFake(async (c, query) => { captured = query; return [contractRow()]; });
+        await db.getContract(baseCfg());
+        expect(captured).to.include('LEFT  JOIN contract_permissions cp');
+        expect(captured).to.include('cp.contract_index=m.action_index');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getContractManifest (protocol/Controller_Bound_Tokens.md)
+// ---------------------------------------------------------------------------
+
+describe('Database#getContractManifest', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('returns null when the contract has no manifest row', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        expect(await db.getContractManifest(cfg(), 900)).to.equal(null);
+    });
+
+    it('returns null when doQuery returns false', async () => {
+        sinon.stub(db, 'doQuery').resolves(false);
+        expect(await db.getContractManifest(cfg(), 900)).to.equal(null);
+    });
+
+    it('returns null without querying for a null contract index', async () => {
+        const q = sinon.stub(db, 'doQuery');
+        expect(await db.getContractManifest(cfg(), null)).to.equal(null);
+        expect(q.called).to.be.false;
+    });
+
+    it('parses permissions JSON and coerces max_take_bps', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ permissions: '["send"]', max_take_bps: '250' }]);
+        const m = await db.getContractManifest(cfg(), 900);
+        expect(m).to.deep.equal({ permissions: ['send'], max_take_bps: 250 });
+    });
+
+    it('returns permissions=null (unrestricted) but a real max_take_bps', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ permissions: null, max_take_bps: '100' }]);
+        const m = await db.getContractManifest(cfg(), 900);
+        expect(m.permissions).to.equal(null);
+        expect(m.max_take_bps).to.equal(100);
+    });
+
+    it('returns max_take_bps=null (global cap) when not set', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ permissions: '[]', max_take_bps: null }]);
+        const m = await db.getContractManifest(cfg(), 900);
+        expect(m.permissions).to.deep.equal([]);
+        expect(m.max_take_bps).to.equal(null);
+    });
+
+    it('falls back to permissions=null on malformed JSON', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ permissions: '{oops', max_take_bps: null }]);
+        const m = await db.getContractManifest(cfg(), 900);
+        expect(m.permissions).to.equal(null);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Controller bindings — read-time cooldown reduction
+// (protocol/Controller_Bound_Tokens.md). Mirrors the indexer's
+// readEffectiveControllerMap / controllerEventIfGating.
+// ---------------------------------------------------------------------------
+
+describe('Database#getTokenControllerBindings', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    // event() builds a token_controllers row.
+    function event(o) {
+        return Object.assign({
+            action_class: 'transfer', action_index: 1, contract_index: 50,
+            is_unbind: 0, cooldown_blocks: 0, cooldown_end_block: null, block_index: 100
+        }, o);
+    }
+
+    it('returns [] when the tick has no events', async () => {
+        sinon.stub(db, 'getTickId').resolves(7);
+        sinon.stub(db, 'doQuery').resolves([]);
+        expect(await db.getTokenControllerBindings(cfg(), 'XCHAIN')).to.deep.equal([]);
+    });
+
+    it('returns [] when the tick id is unknown', async () => {
+        sinon.stub(db, 'getTickId').resolves(null);
+        const q = sinon.stub(db, 'doQuery');
+        expect(await db.getTokenControllerBindings(cfg(), 'NOPE')).to.deep.equal([]);
+        // _resolveControllerBindings short-circuits on a null key (no event query)
+        expect(q.called).to.be.false;
+    });
+
+    it('surfaces an active bind with the shared binding shape', async () => {
+        sinon.stub(db, 'getTickId').resolves(7);
+        sinon.stub(db, 'doQuery').resolves([event({ action_class: 'trade', contract_index: 88, cooldown_blocks: 10, block_index: 120 })]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(200);
+        const out = await db.getTokenControllerBindings(cfg(), 'XCHAIN');
+        expect(out).to.deep.equal([{
+            action_class: 'trade', contract_index: 88, cooldown_blocks: 10, is_unbind: 0, bind_block: 120
+        }]);
+    });
+
+    it('latest event per action_class wins (a later bind supersedes an earlier one)', async () => {
+        sinon.stub(db, 'getTickId').resolves(7);
+        sinon.stub(db, 'doQuery').resolves([
+            event({ action_class: 'transfer', action_index: 1, contract_index: 50 }),
+            event({ action_class: 'transfer', action_index: 5, contract_index: 99 })
+        ]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(500);
+        const out = await db.getTokenControllerBindings(cfg(), 'XCHAIN');
+        expect(out).to.have.lengthOf(1);
+        expect(out[0].contract_index).to.equal(99);
+    });
+
+    it('an unbind still in cooldown gates (tip < cooldown_end_block)', async () => {
+        sinon.stub(db, 'getTickId').resolves(7);
+        sinon.stub(db, 'doQuery').resolves([
+            event({ action_class: 'burn', action_index: 1, contract_index: 50 }),
+            event({ action_class: 'burn', action_index: 2, is_unbind: 1, cooldown_blocks: 100, cooldown_end_block: 300, block_index: 200 })
+        ]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(250); // 250 < 300 → still gating
+        const out = await db.getTokenControllerBindings(cfg(), 'XCHAIN');
+        expect(out).to.have.lengthOf(1);
+        expect(out[0].is_unbind).to.equal(1);
+    });
+
+    it('an unbind past its cooldown no longer gates (tip >= cooldown_end_block)', async () => {
+        sinon.stub(db, 'getTickId').resolves(7);
+        sinon.stub(db, 'doQuery').resolves([
+            event({ action_class: 'burn', action_index: 1, contract_index: 50 }),
+            event({ action_class: 'burn', action_index: 2, is_unbind: 1, cooldown_blocks: 100, cooldown_end_block: 300, block_index: 200 })
+        ]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(300); // 300 >= 300 → expired
+        const out = await db.getTokenControllerBindings(cfg(), 'XCHAIN');
+        expect(out).to.deep.equal([]);
+    });
+
+    it('an unbind with a NULL cooldown_end_block never gates', async () => {
+        sinon.stub(db, 'getTickId').resolves(7);
+        sinon.stub(db, 'doQuery').resolves([
+            event({ action_class: 'mint', action_index: 9, is_unbind: 1, cooldown_end_block: null })
+        ]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(0);
+        expect(await db.getTokenControllerBindings(cfg(), 'XCHAIN')).to.deep.equal([]);
+    });
+});
+
+describe('Database#getAddressControllerBindings', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('resolves the address id and returns the gating bindings', async () => {
+        sinon.stub(db, 'getAddressId').resolves(42);
+        sinon.stub(db, 'doQuery').resolves([{
+            action_class: 'stake', action_index: 3, contract_index: 77,
+            is_unbind: 0, cooldown_blocks: 5, cooldown_end_block: null, block_index: 130
+        }]);
+        sinon.stub(db, 'getMaxBlockIndex').resolves(400);
+        const out = await db.getAddressControllerBindings(cfg(), 'addr1');
+        expect(out).to.deep.equal([{
+            action_class: 'stake', contract_index: 77, cooldown_blocks: 5, is_unbind: 0, bind_block: 130
+        }]);
+    });
+
+    it('returns [] for an unknown address without querying events', async () => {
+        sinon.stub(db, 'getAddressId').resolves(null);
+        const q = sinon.stub(db, 'doQuery');
+        expect(await db.getAddressControllerBindings(cfg(), 'ghost')).to.deep.equal([]);
+        expect(q.called).to.be.false;
     });
 });

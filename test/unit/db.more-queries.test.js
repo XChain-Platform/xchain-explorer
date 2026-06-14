@@ -1553,28 +1553,50 @@ describe('Database#getContracts', () => {
 // ---------------------------------------------------------------------------
 
 describe('Database#getContract', () => {
-    it('returns a 3-element array with args', async () => {
+    // getContract is a single-record data method (returns [data]); the
+    // /api/contract/{idx} route serves one record, not a datatable. It LEFT
+    // JOINs the permissions manifest (protocol/Controller_Bound_Tokens.md).
+    afterEach(() => { sinon.restore(); });
+
+    function contractRow(overrides = {}) {
+        return Object.assign({
+            action: 'DEPLOY', action_index: 42, action_format: 0, source: 'src',
+            code: 'module.exports={}', code_hash: 'h', api_version: 1,
+            cooldown_blocks: null, slash_destination: null, block_index: 5,
+            timestamp: 1, tx_hash: 'tx', tx_index: 4, status: 'valid',
+            permissions: null, max_take_bps: null
+        }, overrides);
+    }
+
+    it('returns [data] (single record) — null when none found', async () => {
         const db = makeDb();
+        sinon.stub(db, 'doQuery').resolves([]);
         const config = makeActionConfig('getContract', 'contract');
         config.data.search = '42';
         const result = await db.getContract(config);
-        expect(result).to.be.an('array').with.lengthOf(3);
+        expect(result).to.be.an('array').with.lengthOf(1);
+        expect(result[0]).to.be.null;
     });
 
-    it('query includes m.code field', async () => {
+    it('selects m.code and joins the contract_permissions manifest', async () => {
         const db = makeDb();
+        let query;
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => { query = q; return [contractRow()]; });
         const config = makeActionConfig('getContract', 'contract');
         config.data.search = '42';
-        const [query] = await db.getContract(config);
+        await db.getContract(config);
         expect(query).to.include('m.code,');
         expect(query).to.include('contracts m');
+        expect(query).to.include('LEFT  JOIN contract_permissions cp');
     });
 
-    it('args contains the search value', async () => {
+    it('passes the search value as the query arg', async () => {
         const db = makeDb();
+        let args;
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { args = a; return [contractRow()]; });
         const config = makeActionConfig('getContract', 'contract');
         config.data.search = '99';
-        const [, args] = await db.getContract(config);
+        await db.getContract(config);
         expect(args).to.be.an('array');
         expect(args[0]).to.equal('99');
     });

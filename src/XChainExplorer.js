@@ -1073,7 +1073,7 @@ class XChainExplorer {
 
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
             let qualified  = new Set(validators.map(v => String(v.signing_pubkey).toLowerCase()));
-            let quorum     = (qualified.size <= 1) ? 1 : (2 * Math.floor((qualified.size - 1) / 3) + 1);
+            let quorum     = (qualified.size <= 1) ? 1 : Math.max(2 * Math.floor((qualified.size - 1) / 3) + 1, Math.ceil((qualified.size + 1) / 2));
 
             let sigs = [];
             try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ sigs = []; }

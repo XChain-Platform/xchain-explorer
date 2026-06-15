@@ -28,6 +28,7 @@ const util           = require('./utility.js');
 const database       = require('./db.js');
 const IconDownloader = require('./IconDownloader.js');
 const IndexerConnector = require('./XChainIndexerConnector.js');
+const eq               = require('./equivocation_header.js');
 
 let slowRequests = 0;
 
@@ -1084,9 +1085,15 @@ class XChainExplorer {
             let cp = rows[0];
 
             // Canonical signing string — byte-identical to the hub engine + ANCHOR verifier.
-            let canonical = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
+            // At/above the EQUIV flag-day (gated on the BTC snapshot_block + network) the v0
+            // canonical is wrapped in the uniform header (TAG=XCHECKPOINT, v0 ROUND_ID, VIEW=0).
+            let canonRaw = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
                              cp.ledger_hash, cp.actions_hash, cp.contract_hash,
                              String(cp.checkpoint_seq), String(cp.snapshot_block)].join('|');
+            let canonical = eq.isEquivHeaderActive(cp.snapshot_block, cp.network)
+                ? eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT,
+                    cp.chain + '|' + cp.network + '|' + cp.block_index + '|' + cp.checkpoint_seq, 0, canonRaw)
+                : canonRaw;
 
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
             let qualified  = new Set(validators.map(v => String(v.signing_pubkey).toLowerCase()));

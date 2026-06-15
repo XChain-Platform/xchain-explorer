@@ -22,6 +22,7 @@
 const express        = require('express');
 const fs             = require('fs');
 const path           = require('path');
+const dns            = require('dns');
 const axios          = require('axios');
 const util           = require('./utility.js');
 const database       = require('./db.js');
@@ -1174,6 +1175,40 @@ class XChainExplorer {
      * - All content can be delivered via https/ssl (doesn't break browser SSL lock)
      * - Most .json files do not pass Access-Control-Allow-Origin header (xhr refuses to make request)
      *********************************************************/
+    // SSRF guard helper: classify a resolved IP literal as a private, loopback,
+    // link-local or cloud-metadata address that the /relay endpoint must refuse
+    // to connect to. IPv4-mapped IPv6 (::ffff:a.b.c.d) is unwrapped first so a
+    // mapped private v4 can't slip through.
+    _isPrivateAddress(ip){
+        let addr = String(ip).replace(/^\[|\]$/g, '').replace(/^::ffff:/i, '');
+        return [
+            /^127\./, /^0\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[01])\./,
+            /^192\.168\./, /^169\.254\./,
+            /^::1$/, /^fc00:/i, /^fd[0-9a-f]{2}:/i, /^fe80:/i,
+        ].some(r => r.test(addr));
+    }
+
+    // SSRF guard: a dns.lookup-compatible shim handed to axios so the address it
+    // is about to connect to is checked against _isPrivateAddress. Rejecting here
+    // (rather than re-resolving separately) means there is no gap between the
+    // check and the connection — closing the DNS-name / DNS-rebinding bypass of
+    // the literal hostname blocklist.
+    _ssrfSafeLookup(hostname, options, callback){
+        if(typeof options === 'function'){ callback = options; options = {}; }
+        dns.lookup(hostname, options, (err, address, family) => {
+            if(err) return callback(err);
+            let entries = Array.isArray(address) ? address : [{ address, family }];
+            for(let e of entries){
+                if(this._isPrivateAddress(e.address)){
+                    let denied = new Error('Destination resolves to a non-permitted address');
+                    denied.code = 'RELAY_DENIED';
+                    return callback(denied);
+                }
+            }
+            callback(null, address, family);
+        });
+    }
+
     async processRelayRequest(req, res){
         // Only proceed if we were passed a URL
         if(!this.util.isNull(req.query.url)){
@@ -1206,7 +1241,14 @@ class XChainExplorer {
                     return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
 
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
-                const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0 };
+                // The literal-hostname blocklist above only catches IPs written
+                // directly in the URL. A normal domain whose DNS A/AAAA record
+                // points at a private/metadata address (or rebinds between checks)
+                // would sail past it, so also validate the address axios actually
+                // connects to via a custom lookup — no separate re-resolution, so
+                // no TOCTOU window.
+                const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
+                               lookup: this._ssrfSafeLookup.bind(this) };
 
                 // Handle JSON files (also accept arweave.net gateway URLs without a .json extension)
                 const isArweave = /^arweave\.net$/i.test(parsed.hostname);

@@ -31,13 +31,15 @@ const { mockRes }              = require('../fixtures/mock-query-args.js');
 // Explorer factory with stubbed deps
 // ---------------------------------------------------------------------------
 
-function makeExplorer(axiosStub) {
-    const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+function makeExplorer(axiosStub, dnsStub) {
+    const stubs = {
         axios:    axiosStub || { get: sinon.stub().resolves({ data: {} }) },
         express:  { Router: () => ({ get: () => {}, use: () => {} }), static: () => {} },
         fs:       { existsSync: () => false },
         './db.js': function() { this.init = () => {}; }
-    });
+    };
+    if (dnsStub) stubs.dns = dnsStub;
+    const XChainExplorer = proxyquire('../../src/XChainExplorer.js', stubs);
 
     const configInfo = createConfigInfoStub();
     const app = { get: () => {}, post: () => {}, use: () => {}, listen: () => {} };
@@ -277,5 +279,72 @@ describe('Security: SSRF — Error response safety', function () {
         await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
         expect(res._body.error).to.not.include('192.168');
         expect(res._body.error).to.not.include('ECONNREFUSED');
+    });
+});
+
+// ===========================================================================
+// DNS-resolution bypass prevention (a domain pointing at a private/metadata IP)
+// ===========================================================================
+
+describe('Security: SSRF — DNS resolution bypass', function () {
+
+    it('_isPrivateAddress flags private / loopback / link-local / metadata IPs', function () {
+        const explorer = makeExplorer();
+        const priv = ['127.0.0.1', '127.255.255.255', '10.1.2.3', '172.16.0.1',
+                      '172.31.255.255', '192.168.0.5', '169.254.169.254', '0.0.0.0',
+                      '::1', '::ffff:127.0.0.1', 'fc00::1', 'fd12::1', 'fe80::1'];
+        for (const ip of priv) expect(explorer._isPrivateAddress(ip), ip).to.be.true;
+
+        const pub = ['8.8.8.8', '1.1.1.1', '93.184.216.34', '172.32.0.1', '2606:4700::1111'];
+        for (const ip of pub) expect(explorer._isPrivateAddress(ip), ip).to.be.false;
+    });
+
+    it('wires a lookup shim into the relay request options', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { ok: true } }) };
+        const explorer  = makeExplorer(axiosStub);
+        const res       = mockRes();
+        await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
+        const opts = axiosStub.get.firstCall.args[1];
+        expect(opts.lookup).to.be.a('function');
+    });
+
+    it('lookup rejects a hostname that resolves to a metadata IP (169.254.169.254)', function (done) {
+        const dnsStub = { lookup: (host, options, cb) => {
+            if (typeof options === 'function') { cb = options; options = {}; }
+            cb(null, '169.254.169.254', 4);                       // DNS A record → metadata
+        }};
+        const explorer = makeExplorer(undefined, dnsStub);
+        explorer._ssrfSafeLookup('metadata.attacker.example', {}, (err) => {
+            expect(err).to.be.an('error');
+            expect(err.code).to.equal('RELAY_DENIED');
+            done();
+        });
+    });
+
+    it('lookup rejects when any resolved address (all:true) is private', function (done) {
+        const dnsStub = { lookup: (host, options, cb) => {
+            if (typeof options === 'function') { cb = options; options = {}; }
+            cb(null, [{ address: '93.184.216.34', family: 4 }, { address: '10.0.0.5', family: 4 }]);
+        }};
+        const explorer = makeExplorer(undefined, dnsStub);
+        explorer._ssrfSafeLookup('rebind.attacker.example', { all: true }, (err) => {
+            expect(err).to.be.an('error');
+            expect(err.code).to.equal('RELAY_DENIED');
+            done();
+        });
+    });
+
+    it('lookup passes through a public address unchanged', function (done) {
+        const dnsStub = { lookup: (host, options, cb) => {
+            if (typeof options === 'function') { cb = options; options = {}; }
+            cb(null, '93.184.216.34', 4);
+        }};
+        const explorer = makeExplorer(undefined, dnsStub);
+        explorer._ssrfSafeLookup('example.com', {}, (err, address, family) => {
+            expect(err).to.not.exist;
+            expect(address).to.equal('93.184.216.34');
+            expect(family).to.equal(4);
+            done();
+        });
     });
 });

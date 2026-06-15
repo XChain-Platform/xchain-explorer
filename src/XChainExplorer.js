@@ -506,8 +506,13 @@ class XChainExplorer {
             // request path so a shorter route can't swallow a deeper one — e.g.
             // /contract/{QUERY} must NOT match /contract/{QUERY}/state (which would
             // otherwise make the /state and /state/{TYPE} routes unreachable).
+            // The 5th-segment literal must also match when the route declares one
+            // (e.g. .../state vs .../balance) — without this, two same-length routes
+            // sharing parts[1]/parts[2] are indistinguishable and the first-defined
+            // one wins, shadowing the other (the /balance route was unreachable).
             } else if(!match && parts.length==urlPath.length && parts[1]==String(urlPath[1]).toLowerCase() &&
-                parts[2]==String(urlPath[2]).toLowerCase()){
+                parts[2]==String(urlPath[2]).toLowerCase() &&
+                (this.util.isNull(parts[4]) || String(parts[4]).startsWith('{') || String(parts[4]).toLowerCase()==String(urlPath[4]).toLowerCase())){
                 // Handle exact explorer matches without any search type
                 if(cfg.type=='explorer' && urlPath.length==3)
                     match = true;

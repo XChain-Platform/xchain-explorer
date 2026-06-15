@@ -179,6 +179,29 @@ describe('XChainExplorer.processRequest – routing', function () {
             expect(cfg.data.type).to.equal('address');
         });
 
+        it('/BTC/api/contract/12/state → method=getContractState', async function () {
+            const { cfg } = await request(explorer, '/BTC/api/contract/12/state');
+            expect(cfg).to.not.be.null;
+            expect(cfg.data.method).to.equal('getContractState');
+            expect(cfg.data.search).to.equal('12');
+        });
+
+        // Regression: /contract/{QUERY}/balance and /contract/{QUERY}/state share
+        // segment count + parts[1]/parts[2]; before the 5th-segment literal check
+        // the first-defined (state) route shadowed balance, making it unreachable.
+        it('/BTC/api/contract/12/balance → method=getContractBalance (not shadowed by /state)', async function () {
+            const { cfg } = await request(explorer, '/BTC/api/contract/12/balance');
+            expect(cfg).to.not.be.null;
+            expect(cfg.data.method).to.equal('getContractBalance');
+            expect(cfg.data.search).to.equal('12');
+        });
+
+        it('/BTC/api/contract/12/balance/XCHAIN → method=getContractBalance, type=contract', async function () {
+            const { cfg } = await request(explorer, '/BTC/api/contract/12/balance/XCHAIN');
+            expect(cfg).to.not.be.null;
+            expect(cfg.data.method).to.equal('getContractBalance');
+        });
+
         it('/BTC/api/token/XCHAIN → method=getToken, type=token', async function () {
             const { cfg } = await request(explorer, '/BTC/api/token/XCHAIN');
             expect(cfg).to.not.be.null;

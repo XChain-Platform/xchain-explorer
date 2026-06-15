@@ -4,7 +4,7 @@
 -- Reference tables first (index_*)
 INSERT INTO index_actions (id, action) VALUES
 (1, 'SEND'), (2, 'ISSUE'), (3, 'ORDER'), (4, 'DESTROY'),
-(5, 'DISPENSER'), (6, 'DISPENSE'), (7, 'MINT'), (8, 'BROADCAST');
+(5, 'DISPENSER'), (6, 'DISPENSE'), (7, 'MINT'), (8, 'BROADCAST'), (9, 'XCALL');
 
 INSERT INTO index_addresses (id, address) VALUES
 (1, 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa'),
@@ -123,7 +123,8 @@ INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, ac
 (27, 7, 13, 1, 1, 1),  -- SEND in block 7
 (28, 8, 15, 1, 7, 1),  -- MINT in block 8
 (29, 9, 17, 1, 2, 1),  -- ISSUE in block 9
-(30, 10, 19, 1, 8, 1); -- BROADCAST in block 10
+(30, 10, 19, 1, 8, 1),  -- BROADCAST in block 10
+(31, 10, 20, 1, 9, 0); -- XCALL (v0 request) in block 10
 
 -- Tokens (4 tokens)
 INSERT INTO tokens (id, tick_id, action_index, last_action_index, supply, max_supply, max_mint, decimals, description,
@@ -296,3 +297,16 @@ INSERT INTO mappings_actions (action_index, type_id, id) VALUES
 (18, 2, 2), (18, 1, 1),
 (19, 2, 1), (19, 2, 2), (19, 1, 1),
 (20, 2, 3), (20, 1, 1);
+
+-- ---------------------------------------------------------------------------
+-- XCALL cross-chain call lifecycle (action 31, block 10): a completed call
+-- with its target-chain execution outcome and source-chain callback delivery.
+-- ---------------------------------------------------------------------------
+INSERT INTO xcalls (action_index, version, call_id, contract_index, target_chain, target_contract_index, method, params_json, gas_limit, cross_hops, callback_method, callback_params_json, deadline_block, request_status, result_status, result_payload, resolved_block, callback_action_index, block_index, status_id) VALUES
+(31, 0, 'cafecafecafecafecafecafecafecafecafecafecafecafecafecafecafecafe', 11, 'DOGE', 99, 'onArrival', '["x"]', 50000, 1, 'onResult', '["ctx"]', 300, 'completed', 'ok', '"42"', 10, NULL, 10, 1);
+
+INSERT INTO cross_chain_call_executions (action_index, call_id, execute_action_index, result_status, return_payload_b64, gas_used, block_index) VALUES
+(32, 'cafecafecafecafecafecafecafecafecafecafecafecafecafecafecafecafe', 33, 'ok', 'NDI=', 1000, 10);
+
+INSERT INTO cross_chain_call_callbacks (action_index, call_id, result_status, block_index) VALUES
+(34, 'cafecafecafecafecafecafecafecafecafecafecafecafecafecafecafecafe', 'ok', 10);

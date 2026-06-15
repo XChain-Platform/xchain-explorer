@@ -1048,3 +1048,64 @@ CREATE        INDEX address_id     ON address_controllers (address_id);
 CREATE        INDEX contract_index ON address_controllers (contract_index);
 CREATE        INDEX address_class  ON address_controllers (address_id, action_class);
 CREATE        INDEX block_index    ON address_controllers (block_index);
+
+-- ============================================================
+-- Cross-chain calls (XCALL) — source-chain lifecycle tables
+-- ============================================================
+
+DROP TABLE IF EXISTS xcalls;
+CREATE TABLE xcalls (
+    action_index          BIGINT UNSIGNED NOT NULL,
+    version               INT             NOT NULL,
+    call_id               VARCHAR(80)     NOT NULL,
+    contract_index        BIGINT UNSIGNED,
+    target_chain          VARCHAR(10),
+    target_contract_index BIGINT UNSIGNED,
+    method                VARCHAR(64),
+    params_json           TEXT,
+    gas_limit             BIGINT UNSIGNED,
+    cross_hops            INT,
+    callback_method       VARCHAR(64),
+    callback_params_json  TEXT,
+    deadline_block        BIGINT UNSIGNED,
+    request_status        VARCHAR(20),
+    result_status         VARCHAR(20),
+    result_payload        TEXT,
+    resolved_block        BIGINT UNSIGNED,
+    callback_action_index BIGINT UNSIGNED,
+    block_index           BIGINT UNSIGNED NOT NULL,
+    status_id             INT             NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON xcalls (action_index);
+CREATE        INDEX call_id        ON xcalls (call_id);
+CREATE        INDEX request_status ON xcalls (request_status, deadline_block);
+CREATE        INDEX block_index    ON xcalls (block_index);
+CREATE        INDEX contract_index ON xcalls (contract_index);
+
+DROP TABLE IF EXISTS cross_chain_call_executions;
+CREATE TABLE cross_chain_call_executions (
+    action_index       BIGINT UNSIGNED NOT NULL,
+    call_id            VARCHAR(80)     NOT NULL,
+    execute_action_index BIGINT UNSIGNED,
+    result_status      VARCHAR(20)     NOT NULL,
+    return_payload_b64 TEXT,
+    gas_used           BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    block_index        BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX call_id      ON cross_chain_call_executions (call_id);
+CREATE        INDEX action_index ON cross_chain_call_executions (action_index);
+CREATE        INDEX block_index  ON cross_chain_call_executions (block_index);
+
+DROP TABLE IF EXISTS cross_chain_call_callbacks;
+CREATE TABLE cross_chain_call_callbacks (
+    action_index          BIGINT UNSIGNED NOT NULL,
+    call_id               VARCHAR(80)     NOT NULL,
+    result_status         VARCHAR(20)     NOT NULL,
+    block_index           BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX call_id      ON cross_chain_call_callbacks (call_id);
+CREATE        INDEX action_index ON cross_chain_call_callbacks (action_index);
+CREATE        INDEX block_index  ON cross_chain_call_callbacks (block_index);

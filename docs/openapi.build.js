@@ -97,6 +97,9 @@ const ROUTES = [
     ['/{COIN}/api/cross_chain_matches', 'getCrossChainMatches', null, 'Cross-chain', 'Cross-chain order matches (hub-replicated)'],
     ['/{COIN}/api/cross_chain_settlements/{QUERY}/{TYPE}', 'getCrossChainSettlements', ['match', 'block'], 'Cross-chain', 'Cross-chain settlement legs, filtered'],
     ['/{COIN}/api/cross_chain_settlements', 'getCrossChainSettlements', null, 'Cross-chain', 'Cross-chain settlement legs'],
+    ['/{COIN}/api/xcalls/{QUERY}/{TYPE}', 'getXcalls', ['block', 'contract', 'status'], 'Cross-chain', 'XCALL cross-chain call requests, filtered by block/contract/status'],
+    ['/{COIN}/api/xcalls', 'getXcalls', null, 'Cross-chain', 'XCALL cross-chain call requests (VM-emitted; read-only)'],
+    ['/{COIN}/api/xcall/{QUERY}', 'getXcall', 'call_id', 'Cross-chain', 'Full XCALL lifecycle by call_id (request + target execution + source callback)'],
     // ── Attestations ──────────────────────────────────────────────────────
     ['/{COIN}/api/attestations/{QUERY}/{TYPE}', 'getAttestations', ['block', 'address', 'contract'], 'Attestations', 'ATTEST requests/responses, filtered'],
     ['/{COIN}/api/attestations', 'getAttestations', null, 'Attestations', 'ATTEST v0 requests + v1 responses (incl. LLM attestations)'],
@@ -110,7 +113,7 @@ const ROUTES = [
     ['/{COIN}/api/credits/{QUERY}/{TYPE}', 'getCredits', ['block', 'address'], 'Core', 'Ledger credits'],
     ['/{COIN}/api/debits/{QUERY}/{TYPE}', 'getDebits', ['block', 'address'], 'Core', 'Ledger debits'],
     ['/{COIN}/api/escrows/{QUERY}/{TYPE}', 'getEscrows', ['block', 'address'], 'Core', 'Escrowed balances (orders/swaps/dispensers)'],
-    ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token'], 'Core', 'Combined action history'],
+    ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token', 'recent'], 'Core', 'Combined action history'],
     ['/{COIN}/api/holders/{QUERY}', 'getHolders', 'token', 'Tokens', 'Holders of a token'],
     ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions from the decoder — PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
     ['/{COIN}/api/network', 'getNetwork', null, 'Network', 'Network statistics'],
@@ -146,6 +149,7 @@ const QUERY_DESC = {
     pair: 'COIN/FIAT pair (e.g. BTC/USD)', round: 'oracle round id', status: 'lifecycle status',
     subtoken: 'parent tick (returns its sub-tokens)', nft: 'NFT filter', recent: 'recent rows',
     tx_hash: 'transaction hash', tx_index: 'transaction index',
+    call_id: 'cross-chain call id (64-hex)',
 };
 
 function opId(p) {
@@ -174,7 +178,7 @@ function pathParams(p, types) {
 }
 const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'getToken', 'getProject',
     'getContract', 'getContractState', 'getContractBalance', 'getExecution', 'getPublicKey',
-    'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch']);
+    'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch', 'getXcall']);
 
 function operation([p, method, types, tag, summary]) {
     const isList = !LIST_METHODS_SINGLE.has(method);

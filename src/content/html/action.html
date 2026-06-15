@@ -660,6 +660,35 @@
                         </div>
 
 
+                        <!-- XCALL action (cross-chain call; VM-emitted, read-only) -->
+                        <div class="d-none" id="info-xcall">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Call ID</th><td class="xcall-call-id"></td></tr>
+                            <tr><th>Version</th><td class="xcall-version"></td></tr>
+                            <tr><th>Source Contract</th><td class="xcall-contract"></td></tr>
+                            <tr><th>Target Chain</th><td class="xcall-target-chain"></td></tr>
+                            <tr><th>Target Contract</th><td class="xcall-target-contract"></td></tr>
+                            <tr><th>Method</th><td class="xcall-method"></td></tr>
+                            <tr><th>Parameters</th><td class="xcall-params"></td></tr>
+                            <tr><th>Gas Limit</th><td class="xcall-gas-limit"></td></tr>
+                            <tr><th>Cross Hops</th><td class="xcall-cross-hops"></td></tr>
+                            <tr><th>Callback Method</th><td class="xcall-callback-method"></td></tr>
+                            <tr><th>Deadline Block</th><td class="xcall-deadline"></td></tr>
+                            <tr><th>Request Status</th><td class="xcall-request-status"></td></tr>
+                            <tr class="xcall-execution-row d-none"><th colspan="2" class="text-muted small">Target Execution</th></tr>
+                            <tr class="xcall-execution-row d-none"><th>Execute Action</th><td class="xcall-execute-action"></td></tr>
+                            <tr class="xcall-execution-row d-none"><th>Result Status</th><td class="xcall-result-status"></td></tr>
+                            <tr class="xcall-execution-row d-none"><th>Return Payload</th><td class="xcall-return-payload"></td></tr>
+                            <tr class="xcall-execution-row d-none"><th>Gas Used</th><td class="xcall-gas-used"></td></tr>
+                            <tr class="xcall-callback-row d-none"><th colspan="2" class="text-muted small">Source Callback Delivery</th></tr>
+                            <tr class="xcall-callback-row d-none"><th>Callback Result</th><td class="xcall-callback-result"></td></tr>
+                            <tr class="xcall-callback-row d-none"><th>Callback Action</th><td class="xcall-callback-action"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+
                         <!-- ISSUE action -->
                         <div class="d-none" id="info-issue">
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">

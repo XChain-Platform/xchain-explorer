@@ -585,6 +585,15 @@ class Database {
             if(type=='match')  sql += ' AND m.match_id=?';
             if(type=='block')  sql += (method=='getCrossChainSettlements') ? ' AND m.block_index=?' : ' AND m.snapshot_block=?';
             if(type=='status' && method=='getCrossChainMatches') sql += ' AND m.status=?';
+        } else if(method=='getXcalls'){
+            // xcalls joins the actions/transactions/blocks chain (b1 alias); filter on its own columns.
+            // contract = the source contract that emitted the call (contract_index, now indexed).
+            if(type=='block')    sql += ' AND b1.block_index=?';
+            if(type=='contract') sql += ' AND m.contract_index=?';
+            if(type=='status')   sql += ' AND m.request_status=?';
+        } else if(method=='getXcall'){
+            // single-call lifecycle keyed by the deterministic 64-hex call_id
+            sql += ' AND m.call_id=?';
         } else if(!['getBlocks'].includes(method)){
             // Handle queries for specific types of data types 
             if(type=='address'){
@@ -4117,7 +4126,7 @@ class Database {
             let debits  = true;
             let escrows = true;
             // Set credits/debits/escrow flags to false in certain cases
-            if(['ADDRESS','BROADCAST'].includes(type))
+            if(['ADDRESS','BROADCAST','XCALL'].includes(type))
                 credits = debits = escrows = false;
             // ADDRESS action
             if(type=='ADDRESS'){
@@ -5852,6 +5861,49 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
+            // XCALL action (cross-chain call request v0 / expire v2). VM-emitted; the
+            // execution outcome + callback delivery are attached post-query by call_id.
+            if(type=='XCALL'){
+                query = `SELECT
+                            a4.action,
+                            m.action_index,
+                            a1.action_format,
+                            m.version,
+                            m.call_id,
+                            m.contract_index,
+                            a2.address as source,
+                            m.target_chain,
+                            m.target_contract_index,
+                            m.method,
+                            m.params_json,
+                            m.gas_limit,
+                            m.cross_hops,
+                            m.callback_method,
+                            m.callback_params_json,
+                            m.deadline_block,
+                            m.request_status,
+                            m.result_status,
+                            m.result_payload,
+                            m.resolved_block,
+                            m.callback_action_index,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            xcalls m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
             // Run the SQL query to get the information on the action_index
             if(query){
                 results = await this.doQuery(config, query, args);
@@ -5899,6 +5951,23 @@ class Database {
                 }
                 delete data['pairs_json'];
                 delete data['sigs_json'];
+            }
+            // XCALL: parse the params JSON arrays and attach the target-chain execution
+            // outcome + source-chain callback delivery (each by call_id; null until the
+            // call is relayed/executed/delivered). Mirrors getXcall's lifecycle assembly.
+            if(type=='XCALL' && data['call_id']){
+                try { data['params'] = this.util.isNull(data['params_json']) ? null : JSON.parse(data['params_json']); }
+                catch(_) { data['params'] = data['params_json']; }
+                try { data['callback_params'] = this.util.isNull(data['callback_params_json']) ? null : JSON.parse(data['callback_params_json']); }
+                catch(_) { data['callback_params'] = data['callback_params_json']; }
+                let exec = await this.doQuery(config,
+                    `SELECT execute_action_index, result_status, return_payload_b64, gas_used, block_index as execution_block_index
+                     FROM cross_chain_call_executions WHERE call_id=? LIMIT 1`, [data['call_id']]);
+                data['execution'] = (exec && exec.length) ? exec[0] : null;
+                let cb = await this.doQuery(config,
+                    `SELECT result_status as callback_result_status, block_index as callback_block_index
+                     FROM cross_chain_call_callbacks WHERE call_id=? LIMIT 1`, [data['call_id']]);
+                data['callback_delivery'] = (cb && cb.length) ? cb[0] : null;
             }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
@@ -8616,6 +8685,134 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // List XCALL cross-chain call requests (xcalls table — VM-emitted, read-only).
+    // Joins the actions/transactions/blocks chain like getAttestations; filter by
+    // block / source contract / request_status (see getQueryWhereSql getXcalls branch).
+    async getXcalls(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        xcalls m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.version,
+                        m.call_id,
+                        m.contract_index,
+                        a2.address as source,
+                        m.target_chain,
+                        m.target_contract_index,
+                        m.method,
+                        m.gas_limit,
+                        m.cross_hops,
+                        m.callback_method,
+                        m.deadline_block,
+                        m.request_status,
+                        m.result_status,
+                        m.resolved_block,
+                        m.callback_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        xcalls m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Full XCALL lifecycle by call_id: the source request (xcalls) + the target-chain
+    // execution outcome (cross_chain_call_executions) + the source-chain callback
+    // delivery (cross_chain_call_callbacks). The latter two are null until the call is
+    // relayed/executed/delivered. Mirrors getContract's single-item return ([data]);
+    // data is null when the call_id is unknown.
+    async getXcall(config){
+        let data  = null;
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.version,
+                        m.call_id,
+                        m.contract_index,
+                        a2.address as source,
+                        m.target_chain,
+                        m.target_contract_index,
+                        m.method,
+                        m.params_json,
+                        m.gas_limit,
+                        m.cross_hops,
+                        m.callback_method,
+                        m.callback_params_json,
+                        m.deadline_block,
+                        m.request_status,
+                        m.result_status,
+                        m.result_payload,
+                        m.resolved_block,
+                        m.callback_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        xcalls m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length){
+            let row = results[0];
+            // params/callback_params are JSON arrays on the wire; parse, falling back to
+            // the raw string on malformed JSON (mirrors getContract's permissions parse).
+            try { row.params = this.util.isNull(row.params_json) ? null : JSON.parse(row.params_json); }
+            catch(e){ row.params = row.params_json; }
+            try { row.callback_params = this.util.isNull(row.callback_params_json) ? null : JSON.parse(row.callback_params_json); }
+            catch(e){ row.callback_params = row.callback_params_json; }
+            // Target-chain execution outcome (1:1 by call_id; null until executed).
+            let exec = await this.doQuery(config,
+                `SELECT execute_action_index, result_status, return_payload_b64, gas_used, block_index as execution_block_index
+                 FROM cross_chain_call_executions WHERE call_id=? LIMIT 1`, [row.call_id]);
+            row.execution = (exec && exec.length) ? exec[0] : null;
+            // Source-chain callback delivery (1:1 by call_id; null until delivered).
+            let cb = await this.doQuery(config,
+                `SELECT result_status as callback_result_status, block_index as callback_block_index
+                 FROM cross_chain_call_callbacks WHERE call_id=? LIMIT 1`, [row.call_id]);
+            row.callback_delivery = (cb && cb.length) ? cb[0] : null;
+            data = row;
+        }
+        return [data];
     }
 
     // Get new ATTEST rows since a given block_index — feeds the WebSocket

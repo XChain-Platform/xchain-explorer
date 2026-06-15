@@ -1783,6 +1783,22 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).text((version == 0) ? request_status : response_status);
                 $('td', row).eq(8).html(action_link);
             }
+            // XCALL (cross-chain call — source-chain request row). eq(3) overrides the
+            // generic source-address link with the emitting contract.
+            if(action=='xcall'){
+                let contract_index        = data[3];
+                let target_chain          = data[4];
+                let target_contract_index = data[5];
+                let method                = data[6];
+                let request_status        = data[7];
+                let cls = (request_status=='completed') ? 'success' : (request_status=='expired') ? 'danger' : (request_status=='pending') ? 'warning text-dark' : 'secondary';
+                $('td', row).eq(3).html(isNull(contract_index) ? '-' : formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(4).text(isNull(target_chain) ? '-' : target_chain);
+                $('td', row).eq(5).text(isNull(target_contract_index) ? '-' : target_contract_index);
+                $('td', row).eq(6).text(isNull(method) ? '-' : method);
+                $('td', row).eq(7).html('<span class="badge text-bg-' + cls + '">' + (request_status || '-') + '</span>');
+                $('td', row).eq(8).html(action_link);
+            }
         }
     });
 }
@@ -1935,6 +1951,7 @@ function showActionDetails(){
     if(o.action=='EXECUTE'){          found = true;  showExecuteDetails(o);         }
     if(o.action=='DEPOSIT'){          found = true;  showDepositDetails(o);         }
     if(o.action=='WITHDRAW'){         found = true;  showWithdrawDetails(o);        }
+    if(o.action=='XCALL'){            found = true;  showXcallDetails(o);           }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -2226,6 +2243,44 @@ function showCustodyDetails(kind, data){
     $('#info-' + kind + ' .' + kind + '-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
     $('#info-' + kind + ' .' + kind + '-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-' + kind + ' .' + kind + '-amount').html(formatAmount(data.amount));
+}
+
+// Display XCALL action information (cross-chain call request v0 / expire v2 — VM-emitted,
+// read-only). Surfaces the request plus, when present, the target-chain execution outcome
+// and the source-chain callback delivery.
+function showXcallDetails(data){
+    let statusBadge = function(s){
+        let cls = (s=='completed') ? 'success' : (s=='expired') ? 'danger' : (s=='pending') ? 'warning text-dark' : 'secondary';
+        return '<span class="badge text-bg-' + cls + '">' + (s || '-') + '</span>';
+    };
+    $('#info-xcall .xcall-call-id').html(formatHash(data.call_id, 32));
+    $('#info-xcall .xcall-version').html(Number(data.version) === 2 ? '<span class="badge text-bg-secondary">Expire (v2)</span>' : '<span class="badge text-bg-primary">Request (v0)</span>');
+    $('#info-xcall .xcall-contract').html(isNull(data.contract_index) ? '-' : formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    $('#info-xcall .xcall-target-chain').text(isNull(data.target_chain) ? '-' : data.target_chain);
+    $('#info-xcall .xcall-target-contract').text(isNull(data.target_contract_index) ? '-' : data.target_contract_index);
+    $('#info-xcall .xcall-method').text(isNull(data.method) ? '-' : data.method);
+    $('#info-xcall .xcall-params').text(Array.isArray(data.params) ? JSON.stringify(data.params) : (isNull(data.params) ? '-' : String(data.params)));
+    $('#info-xcall .xcall-gas-limit').text(isNull(data.gas_limit) ? '-' : numeral(data.gas_limit).format('0,0'));
+    $('#info-xcall .xcall-cross-hops').text(isNull(data.cross_hops) ? '-' : data.cross_hops);
+    $('#info-xcall .xcall-callback-method').text(isNull(data.callback_method) ? '-' : data.callback_method);
+    $('#info-xcall .xcall-deadline').html(isNull(data.deadline_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deadline_block, numeral(data.deadline_block).format('0,0')));
+    $('#info-xcall .xcall-request-status').html(statusBadge(data.request_status));
+    // Target-chain execution outcome (present once the call has executed on the far chain).
+    let exec = data.execution || null;
+    $('#info-xcall .xcall-execution-row').toggleClass('d-none', !exec);
+    if(exec){
+        $('#info-xcall .xcall-execute-action').html(isNull(exec.execute_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + exec.execute_action_index, exec.execute_action_index));
+        $('#info-xcall .xcall-result-status').text(isNull(exec.result_status) ? '-' : exec.result_status);
+        $('#info-xcall .xcall-return-payload').html(isNull(exec.return_payload_b64) ? '-' : formatHash(exec.return_payload_b64, 32));
+        $('#info-xcall .xcall-gas-used').text(isNull(exec.gas_used) ? '-' : numeral(exec.gas_used).format('0,0'));
+    }
+    // Source-chain callback delivery (present once the result has been delivered back).
+    let cb = data.callback_delivery || null;
+    $('#info-xcall .xcall-callback-row').toggleClass('d-none', !cb);
+    if(cb){
+        $('#info-xcall .xcall-callback-result').text(isNull(cb.callback_result_status) ? '-' : cb.callback_result_status);
+        $('#info-xcall .xcall-callback-action').html(isNull(data.callback_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.callback_action_index, data.callback_action_index));
+    }
 }
 
 // Display ISSUE action information

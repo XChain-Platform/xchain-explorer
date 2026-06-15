@@ -1485,3 +1485,74 @@ describe('Database#getAttestationsSince / getAttestationByActionIndex expose pay
         expect(captured[0]).to.include('fp.id=m.fee_payer_id');
     });
 });
+
+// ---------------------------------------------------------------------------
+// getXcalls (XCALL cross-chain call list)
+// ---------------------------------------------------------------------------
+
+describe('Database#getXcalls', () => {
+    let result;
+    before(async () => {
+        const config = makeActionConfig('getXcalls', 'contract');
+        result = await db.getXcalls(config);
+    });
+
+    it('returns a 3-element array', () => {
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads xcalls and joins the actions/transactions/blocks chain', () => {
+        const [query] = result;
+        expect(query).to.include('xcalls m');
+        expect(query).to.include('JOIN actions');
+        expect(query).to.include('JOIN transactions');
+        expect(query).to.include('JOIN blocks');
+        expect(query).to.include('m.call_id');
+        expect(query).to.include('m.request_status');
+    });
+
+    it('count uses same WHERE, args is null, ORDER BY + LIMIT applied', () => {
+        const [query, args, count] = result;
+        expect(args).to.be.null;
+        expect(count).to.include(WHERE_DATA);
+        expect(query).to.include('ORDER BY m.action_index DESC');
+        expect(query).to.include('LIMIT 100');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getXcall (single XCALL lifecycle by call_id)
+// ---------------------------------------------------------------------------
+
+describe('Database#getXcall', () => {
+    let captured, originalDoQuery;
+
+    before(() => {
+        originalDoQuery = db.doQuery;
+        // Return a row with a call_id so the execution + callback follow-up queries run.
+        db.doQuery = async (config, query) => {
+            captured.push(query);
+            return [{ call_id: 'abc', params_json: null, callback_params_json: null }];
+        };
+    });
+    after(() => { db.doQuery = originalDoQuery; });
+    beforeEach(() => { captured = []; });
+
+    it('queries xcalls, then the execution + callback lifecycle tables by call_id', async () => {
+        const config = makeActionConfig('getXcall', 'call_id');
+        const result = await db.getXcall(config);
+        expect(result).to.be.an('array').with.lengthOf(1);
+        expect(captured).to.have.lengthOf(3);
+        expect(captured[0]).to.include('xcalls m');
+        expect(captured[1]).to.include('cross_chain_call_executions');
+        expect(captured[2]).to.include('cross_chain_call_callbacks');
+    });
+
+    it('attaches execution + callback_delivery sub-objects to the returned row', async () => {
+        const config = makeActionConfig('getXcall', 'call_id');
+        const [data] = await db.getXcall(config);
+        expect(data).to.be.an('object');
+        expect(data).to.have.property('execution');
+        expect(data).to.have.property('callback_delivery');
+    });
+});

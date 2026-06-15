@@ -4279,6 +4279,161 @@
         }
       }
     },
+    "/{COIN}/api/xcalls/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "xcalls_query_type",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "XCALL cross-chain call requests, filtered by block/contract/status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; contract = contract action index; status = lifecycle status"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "contract",
+                "status"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/xcalls": {
+      "get": {
+        "operationId": "xcalls",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "XCALL cross-chain call requests (VM-emitted; read-only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/xcall/{QUERY}": {
+      "get": {
+        "operationId": "xcall_query",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Full XCALL lifecycle by call_id (request + target execution + source callback)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up — interpreted per {TYPE}: call_id = cross-chain call id (64-hex)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/attestations/{QUERY}/{TYPE}": {
       "get": {
         "operationId": "attestations_query_type",
@@ -4870,7 +5025,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick; recent = recent rows"
           },
           {
             "name": "TYPE",
@@ -4881,7 +5036,8 @@
               "enum": [
                 "block",
                 "address",
-                "token"
+                "token",
+                "recent"
               ]
             },
             "description": "How to interpret {QUERY}"

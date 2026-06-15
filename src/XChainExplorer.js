@@ -140,6 +140,7 @@ class XChainExplorer {
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
                 '/{COIN}/slash_events'        : 'slash_events.html',
                 '/{COIN}/attestations'        : 'attestations.html',
+                '/{COIN}/xcalls'              : 'xcalls.html',
                 '/{COIN}/sends'               : 'sends.html',
                 '/{COIN}/sleeps'              : 'sleeps.html',
                 '/{COIN}/swaps'               : 'swaps.html',
@@ -234,6 +235,10 @@ class XChainExplorer {
                 '/{COIN}/api/cross_chain_matches'                    : ['getCrossChainMatches'],
                 '/{COIN}/api/cross_chain_settlements/{QUERY}/{TYPE}' : ['getCrossChainSettlements', ['match', 'block']],
                 '/{COIN}/api/cross_chain_settlements'                : ['getCrossChainSettlements'],
+                // Cross-chain calls (XCALL — VM-emitted; read-only). List by block/contract/status; single-call lifecycle by call_id.
+                '/{COIN}/api/xcalls/{QUERY}/{TYPE}'                  : ['getXcalls',               ['block', 'contract', 'status']],
+                '/{COIN}/api/xcalls'                                 : ['getXcalls'],
+                '/{COIN}/api/xcall/{QUERY}'                          : ['getXcall',                'call_id'],
                 // Attestation Endpoints (ATTEST v0 requests + v1 responses from the `attests` table)
                 '/{COIN}/api/attestations/{QUERY}/{TYPE}'      : ['getAttestations',      ['block', 'address', 'contract']],
                 '/{COIN}/api/attestations'                     : ['getAttestations'],
@@ -322,6 +327,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/contract_unstakes/{QUERY}/{TYPE}'         : ['getContractUnstakes', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/slash_events/{QUERY}/{TYPE}'              : ['getSlashEvents',  ['block', 'address', 'contract']],
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
+                '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
+                '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'token', 'transaction']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
@@ -922,6 +929,10 @@ class XChainExplorer {
                     // Attestation list page
                     if(method=='getAttestations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer];
+                    // XCALL cross-chain call list page (source request rows). action_index stays
+                    // LAST (the datatables client uses it as the paging offset cursor).
+                    if(method=='getXcalls')
+                        info = [count_reverse, info.block_index, info.timestamp, info.contract_index, info.target_chain, info.target_contract_index, info.method, info.request_status, status, info.action_index];
                     if(method=='getSearch'){
                         if(cfg.data.type=='address')
                             info = [count, info.address, null];

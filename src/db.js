@@ -5654,63 +5654,68 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // DEPLOY action (contract deployment; v1 surfaces cooldown_blocks + slash_destination)
+            // DEPLOY action. The chunk carrier (v4) and the actual deploy (v0-v3) share the
+            // DEPLOY action name but live in different tables, so pick the detail query by the
+            // format version: v4 → deploy_chunks (one base64 code slice); v0-v3 → contracts
+            // (v1 surfaces cooldown_blocks + slash_destination).
             if(type=='DEPLOY'){
-                query = `SELECT
-                            a2.action,
-                            a1.action_format,
-                            m.action_index,
-                            a3.address as source,
-                            m.code_hash,
-                            m.api_version,
-                            m.cooldown_blocks,
-                            sd.address as slash_destination,
-                            b1.block_index,
-                            b1.block_time as timestamp,
-                            t2.hash as tx_hash,
-                            t1.tx_index,
-                            s1.status
-                        FROM
-                            contracts m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
-                            LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
-                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        WHERE
-                            m.action_index=?
-                        LIMIT 1`;
-            }
-            // DEPLOYCHUNK action (one base64 code slice of a chunked deploy → deploy_chunks)
-            if(type=='DEPLOYCHUNK'){
-                query = `SELECT
-                            a2.action,
-                            a1.action_format,
-                            m.action_index,
-                            a3.address as source,
-                            m.code_hash,
-                            m.chunk_index,
-                            m.total_chunks,
-                            b1.block_index,
-                            b1.block_time as timestamp,
-                            t2.hash as tx_hash,
-                            t1.tx_index,
-                            s1.status
-                        FROM
-                            deploy_chunks m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                            LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        WHERE
-                            m.action_index=?
-                        LIMIT 1`;
+                let fmtRows = await this.doQuery(config, 'SELECT action_format FROM actions WHERE action_index=? LIMIT 1', [action_index]);
+                let actionFormat = (fmtRows && fmtRows.length) ? Number(fmtRows[0].action_format) : null;
+                if(actionFormat === 4){
+                    query = `SELECT
+                                a2.action,
+                                a1.action_format,
+                                m.action_index,
+                                a3.address as source,
+                                m.code_hash,
+                                m.chunk_index,
+                                m.total_chunks,
+                                b1.block_index,
+                                b1.block_time as timestamp,
+                                t2.hash as tx_hash,
+                                t1.tx_index,
+                                s1.status
+                            FROM
+                                deploy_chunks m
+                                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                                INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                                INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                                LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                                LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
+                                LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                                LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            WHERE
+                                m.action_index=?
+                            LIMIT 1`;
+                } else {
+                    query = `SELECT
+                                a2.action,
+                                a1.action_format,
+                                m.action_index,
+                                a3.address as source,
+                                m.code_hash,
+                                m.api_version,
+                                m.cooldown_blocks,
+                                sd.address as slash_destination,
+                                b1.block_index,
+                                b1.block_time as timestamp,
+                                t2.hash as tx_hash,
+                                t1.tx_index,
+                                s1.status
+                            FROM
+                                contracts m
+                                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                                INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                                INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                                LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                                LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                                LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
+                                LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                                LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            WHERE
+                                m.action_index=?
+                            LIMIT 1`;
+                }
             }
             // EXECUTE action (contract method call → contract_executions)
             if(type=='EXECUTE'){

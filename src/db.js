@@ -7537,7 +7537,11 @@ class Database {
     // block), so the configured checkpoint DB needs no chain/network filter here.
     async getCapabilitySnapshotRows(config, capability, snapshotBlock) {
         let src = this._checkpointSource(config);
-        let query = `SELECT signing_pubkey, amount FROM ${src.capTable}
+        // `source` carries the stake-weight grouping key (the staking source a
+        // signing key delegates from); `amount` is that key's stake weight. Both
+        // are needed for stake-weighted quorum at/above the activation flag-day —
+        // below it `source` is the empty string and only the count matters.
+        let query = `SELECT signing_pubkey, amount, source FROM ${src.capTable}
                      WHERE capability = ? AND snapshot_block = ?`;
         return await this.doQuery(config, query, [String(capability), Number(snapshotBlock)]);
     }

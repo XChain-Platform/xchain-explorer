@@ -29,6 +29,7 @@ const database       = require('./db.js');
 const IconDownloader = require('./IconDownloader.js');
 const IndexerConnector = require('./XChainIndexerConnector.js');
 const eq               = require('./equivocation_header.js');
+const swq              = require('./stake_weighted_quorum.js');
 
 let slowRequests = 0;
 
@@ -1099,24 +1100,44 @@ class XChainExplorer {
             let qualified  = new Set(validators.map(v => String(v.signing_pubkey).toLowerCase()));
             let quorum     = (qualified.size <= 1) ? 1 : Math.max(2 * Math.floor((qualified.size - 1) / 3) + 1, Math.ceil((qualified.size + 1) / 2));
 
+            // Stake-weighted-or-count is gated on the BTC-anchored snapshot_block +
+            // network — the same flag-day the hub/indexer flip on. Below it the count
+            // quorum decides; at/above it the VALID signers' distinct stake sources
+            // must clear the source-deduped 3·Σ > 2·S predicate.
+            let isWeighted = swq.isStakeWeightedQuorumActive(cp.snapshot_block, cp.network);
+
             let sigs = [];
             try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ sigs = []; }
-            let validSigs = 0, seen = new Set();
+            let validSigs = 0, seen = new Set(), validSigners = [];
             for(let s of sigs){
                 let pk  = String(s && s.pubkey || '').toLowerCase();
                 let sig = String(s && s.sig || '');
                 if(!pk || seen.has(pk) || !qualified.has(pk)) continue;
                 seen.add(pk);
-                if(this.util.ed25519Verify(canonical, sig, pk)) validSigs++;
+                if(this.util.ed25519Verify(canonical, sig, pk)){ validSigs++; validSigners.push(pk); }
             }
+
+            // Per-validator { pubkey, weight, source } so a client can re-derive the
+            // weighted verdict locally (weight = the key's stake amount; source = its
+            // stake-weight grouping key, empty string in the legacy count regime).
+            let validatorSet = validators.map(v => ({
+                pubkey: String(v.signing_pubkey).toLowerCase(),
+                weight: String(v.amount != null ? v.amount : '0'),
+                source: String(v.source != null ? v.source : '')
+            }));
+
+            let verified = isWeighted
+                ? (qualified.size > 0 && swq.meetsStakeThreshold(this.util, validatorSet, validSigners))
+                : (qualified.size > 0 && validSigs >= quorum);
 
             return res.json({
                 checkpoint:    cp,
                 canonical:     canonical,
-                validators:    validators.map(v => String(v.signing_pubkey).toLowerCase()),
+                validators:    validatorSet,
+                is_weighted:   isWeighted,
                 quorum:        quorum,
                 valid_sigs:    validSigs,
-                verified:      (qualified.size > 0 && validSigs >= quorum),
+                verified:      verified,
                 // qualified.size === 0 → the oracle_publish snapshot isn't mirrored
                 // here; the sigs may still be valid (clients can verify elsewhere).
                 snapshot_available: qualified.size > 0

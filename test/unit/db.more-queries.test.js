@@ -1641,11 +1641,17 @@ describe('Database#getContractBalance', () => {
         expect(result).to.be.an('array').with.lengthOf(3);
     });
 
-    it('query references "contract_balances" table', async () => {
+    it('reads the standard balances table via the contract C: address', async () => {
         const db = makeDb();
-        const [query] = await db.getContractBalance(makeActionConfig('getContractBalance'));
-        expect(query).to.include('contract_balances m');
+        const [query, args] = await db.getContractBalance(makeActionConfig('getContractBalance'));
+        // custody now lives in `balances` keyed by the derived C: address —
+        // the legacy `contract_balances` table was removed.
+        expect(query).to.not.include('contract_balances');
+        expect(query).to.include('balances m');
+        expect(query).to.include('index_addresses a2');
         expect(query).to.include('t3.tick');
+        expect(args).to.be.an('array').with.lengthOf(1);
+        expect(String(args[0])).to.match(/^C:/);
     });
 });
 

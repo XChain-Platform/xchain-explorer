@@ -505,6 +505,13 @@ class Database {
         let sql    = `m.action_index IS NOT NULL`;
         let type   = config.data.type;
         let method = config.data.method;
+        // Contract custody lives in the standard `balances` table keyed by the
+        // contract's derived address C:<CHAIN>:<action_index> (the legacy
+        // contract_balances table was removed) — filter by that address like a
+        // normal balance lookup. Early-return so the type=='contract' branch
+        // below doesn't append a contract_index clause balances has no column for.
+        if(method=='getContractBalance')
+            return `m.address_id IS NOT NULL AND a2.address=?`;
         // Force SQL and type on certain methods which do not have the action_index field
         if(['getBalances','getHolders'].includes(method))
             sql = `m.address_id IS NOT NULL`;
@@ -7794,23 +7801,27 @@ class Database {
         return [query, args, count];
     }
 
-    // Get contract balances for a contract
+    // Get contract custody balances — custody lives in the standard `balances`
+    // table under the contract's derived address C:<CHAIN>:<action_index>.
     async getContractBalance(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
+        let sql     = config.data.sql;
+        let chain   = this.baseCoin ? this.baseCoin[config.coin] : null;
+        let address = 'C:' + chain + ':' + config.data.search;
+        let args    = [address];
         let count = `SELECT
                         count(*) as total
                     FROM
-                        contract_balances m
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        balances m
+                        LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=m.address_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
-                        m.contract_index,
                         t3.tick,
                         m.amount
                     FROM
-                        contract_balances m
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        balances m
+                        LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=m.address_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY t3.tick ASC
                     LIMIT ` + sql.limit;

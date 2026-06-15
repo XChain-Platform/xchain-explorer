@@ -7405,6 +7405,25 @@ class Database {
         return { table: 'state_checkpoints', capTable: 'capability_snapshots', filter: '', filterParams: [] };
     }
 
+    // Resolve the cross_chain_matches source for a coin, mirroring _checkpointSource.
+    // cross_chain_matches is hub-mirrored (hub_db_sync), so xchain-sync excludes it from
+    // per-block replication: on a synced replica the local copy is frozen at bootstrap and
+    // never refreshed by the live block stream. Where a same-server checkpoint hub DB is
+    // configured (the same DB that already backs state_checkpoints/capability_snapshots),
+    // read matches from it instead so the endpoint serves live, retraction-aware rows. The
+    // hub table carries every chain AND network, so a network filter is required (the local
+    // mirror is implicitly single-network and needs none). dbName is config-derived, not
+    // client input, but database identifiers can't be bound — restrict to a safe identifier
+    // charset before use (same rule as _checkpointSource / the decoderDb readers).
+    _matchSource(config){
+        let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
+        if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
+            return { table: '`' + src.name + '`.cross_chain_matches',
+                     networkFilter: ' AND m.network = ?',
+                     networkParam: src.network };
+        return { table: 'cross_chain_matches', networkFilter: '', networkParam: null };
+    }
+
     // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from
     // the mariadb driver as BigInt, which res.json() cannot serialize — coerce
     // them to Number (chain heights are far below MAX_SAFE_INTEGER).
@@ -8430,11 +8449,17 @@ class Database {
     // detail endpoint, and the proof is the point of inspecting one.
     async getCrossChainMatches(config){
         let sql   = config.data.sql;
+        // On a synced replica the local cross_chain_matches copy is frozen at bootstrap
+        // (hub-mirrored, excluded from xchain-sync's per-block stream), so redirect to the
+        // co-located hub DB when one is configured. The hub table is multi-network, so a
+        // network filter rides along; it appends one `?` AFTER any type filter in
+        // sql.where.data, so the returned args must be ordered [<type filter?>, network].
+        let src   = this._matchSource(config);
         let count = `SELECT
                         count(*) as total
                     FROM
-                        cross_chain_matches m
-                    WHERE ` + sql.where.data;
+                        ${src.table} m
+                    WHERE ` + sql.where.data + src.networkFilter;
         let query = `SELECT
                         m.id,
                         m.match_id,
@@ -8463,11 +8488,19 @@ class Database {
                         m.anchor_txid,
                         m.created_at
                     FROM
-                        cross_chain_matches m
-                    WHERE ` + sql.where.data + sql.where.offset +`
+                        ${src.table} m
+                    WHERE ` + sql.where.data + src.networkFilter + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, null, count];
+        // Non-redirect path: keep args null (baseArgs defaults to [config.data.search],
+        // current behavior). Redirect path: supply explicit args so the network `?` binds —
+        // [config.data.search] only when a type filter (match/block/status) added its own `?`.
+        let args = null;
+        if(src.networkParam !== null){
+            let typeArgs = ['match','block','status'].includes(config.data.type) ? [config.data.search] : [];
+            args = [...typeArgs, src.networkParam];
+        }
+        return [query, args, count];
     }
 
     // Get list of cross-chain SETTLEMENT legs (type ∈ {match, block}). Each row records a

@@ -3330,6 +3330,22 @@ describe('Database#getActionData', () => {
         expect(result.code_hash).to.equal('c0dehash');
     });
 
+    it('DEPLOY v4 chunk carrier — returns chunk data from deploy_chunks (action_format===4 branch)', async () => {
+        // v4 carriers share the DEPLOY action name but live in deploy_chunks (one base64
+        // code slice each), so getActionData picks the detail query by action_format. The
+        // chunk fields are routed ONLY through the deploy_chunks query (via `extra`), so the
+        // assertions fail unless the action_format probe actually drives the v4 branch — the
+        // base row carries action_format:4 but no chunk fields, proving discrimination.
+        stubForType(db, 'DEPLOY', baseRow({ action: 'DEPLOY', action_format: 4 }), {
+            'deploy_chunks': [ baseRow({ action: 'DEPLOY', action_format: 4, code_hash: 'c0dehash', chunk_index: 2, total_chunks: 5 }) ]
+        });
+        const result = await db.getActionData(cfg(), 100);
+        expect(result.action_format).to.equal(4);
+        expect(result.code_hash).to.equal('c0dehash');
+        expect(result.chunk_index).to.equal(2);
+        expect(result.total_chunks).to.equal(5);
+    });
+
     it('EXECUTE action — returns execution data (lines 5466-5496)', async () => {
         stubForType(db, 'EXECUTE', baseRow({ action: 'EXECUTE', method_name: 'transfer', gas_used: 1000, contract_index: 5 }));
         const result = await db.getActionData(cfg(), 100);
@@ -3660,6 +3676,48 @@ describe('Database#getCrossChainMatches', () => {
         const db = makeDb();
         const [query] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
         expect(query).to.include('ORDER BY m.id');
+    });
+
+    it('no checkpoint hub DB → reads the local table, args null, no network filter', async () => {
+        const db = makeDb();
+        // checkpointDb is empty by default — local mirror path.
+        const [query, args, count] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
+        expect(query).to.include('cross_chain_matches m');
+        expect(query).to.not.include('`');                 // not database-qualified
+        expect(query).to.not.include('m.network = ?');
+        expect(count).to.not.include('m.network = ?');
+        expect(args).to.equal(null);
+    });
+
+    it('checkpoint hub DB configured → database-qualifies to the hub table + network filter (count + data)', async () => {
+        const db = makeDb();
+        db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+        const [query, args, count] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
+        expect(query).to.include('`XChain_Hub`.cross_chain_matches m');
+        expect(query).to.include('m.network = ?');
+        expect(count).to.include('`XChain_Hub`.cross_chain_matches m');
+        expect(count).to.include('m.network = ?');
+        // type defaults to 'address' (no type filter `?`), so args = [network] only.
+        expect(args).to.deep.equal(['mainnet']);
+    });
+
+    it('redirect with a type filter → args order is [search, network]', async () => {
+        const db = makeDb();
+        db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+        // type='status' adds one `?` (m.status=?) to sql.where.data, bound to config.data.search,
+        // so the network `?` must bind AFTER it.
+        const [, args] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches', 'status'));
+        expect(args).to.deep.equal(['addr1', 'mainnet']);
+    });
+
+    it('redirect rejects an unsafe hub DB identifier and falls back to the local table', async () => {
+        const db = makeDb();
+        db.checkpointDb = { BTC: { name: 'bad name; DROP', chain: 'BTC', network: 'mainnet' } };
+        const [query, args] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
+        expect(query).to.include('cross_chain_matches m');
+        expect(query).to.not.include('bad name');
+        expect(query).to.not.include('m.network = ?');
+        expect(args).to.equal(null);
     });
 });
 

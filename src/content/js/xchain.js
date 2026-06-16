@@ -1331,6 +1331,22 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(fee);
                 $('td', row).eq(7).html(action_link);
             }
+            // Price (PRICE oracle — v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)
+            if(action=='price'){
+                let version = data[4];
+                let pcoin   = data[5];
+                token       = data[6];
+                let fiat    = data[7];
+                value       = data[8];
+                fee         = data[9];
+                $('td', row).eq(4).html(Number(version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
+                $('td', row).eq(5).text(isNull(pcoin) ? '-' : pcoin);
+                $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(7).text(isNull(fiat) ? '-' : fiat);
+                $('td', row).eq(8).text(isNull(value) ? '-' : value);
+                $('td', row).eq(9).text(isNull(fee) ? '-' : fee);
+                $('td', row).eq(10).html(action_link);
+            }
             // Callback
             if(action=='callback'){
                 token  = data[4];

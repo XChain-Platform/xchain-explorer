@@ -139,6 +139,7 @@ class XChainExplorer {
                 '/{COIN}/withdrawals'         : 'withdrawals.html',
                 '/{COIN}/validators'          : 'validators.html',
                 '/{COIN}/contract_stakes'     : 'contract_stakes.html',
+                '/{COIN}/prices'              : 'prices.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
                 '/{COIN}/slash_events'        : 'slash_events.html',
                 '/{COIN}/attestations'        : 'attestations.html',
@@ -331,6 +332,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
                 '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
+                '/{COIN}/explorer/prices/{QUERY}/{TYPE}'                    : ['getPrices',       ['block', 'address', 'source', 'token']],
+                '/{COIN}/explorer/prices'                                   : ['getPrices'],
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'token', 'transaction']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
@@ -870,6 +873,8 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.method, info.action, info.action_index];
                     if(method=='getFiles')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, info.gate_ticker, status, info.action_index];
+                    if(method=='getPrices')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.coin, info.tick, info.fiat, info.value, info.fee, status, info.action_index];
                     if(method=='getHistory')
                         info = [count_reverse, info.block_index, info.timestamp, info.action, info.details, status, info.action_index];
                     if(method=='getHolders')

@@ -5,7 +5,7 @@
 //
 // This file is part of XChain Platform. Licensed under the GNU Affero
 // General Public License v3.0 or later; see LICENSE.md. A commercial
-// license (without AGPL source-disclosure terms) is available —
+// license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
 window.FontAwesomeKitConfig = {"asyncLoading":{"enabled":false},"autoA11y":{"enabled":true},"baseUrl":"https://ka-p.fontawesome.com","baseUrlKit":"https://kit.fontawesome.com","customIconsCssPath":"93eea41c0e/72315847/kit-upload.css","detectConflictsUntil":null,"iconUploads":{},"id":72315847,"license":"pro","method":"css","minify":{"enabled":true},"token":"93eea41c0e","uploadsUrl":"https://kit-uploads.fontawesome.com","v4FontFaceShim":{"enabled":true},"v4shim":{"enabled":true},"v5FontFaceShim":{"enabled":true},"version":"6.4.0"};

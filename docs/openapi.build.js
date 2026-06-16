@@ -65,6 +65,7 @@ const ROUTES = [
     ['/{COIN}/api/prices', 'getPrices', null, 'Prices', 'PRICE oracle rows (validator COIN/FIAT + user TOKEN/FIAT)'],
     ['/{COIN}/api/price_snapshots/{QUERY}/{TYPE}', 'getPriceSnapshots', ['pair', 'round', 'status'], 'Prices', 'Federation price snapshots, filtered'],
     ['/{COIN}/api/price_snapshots', 'getPriceSnapshots', null, 'Prices', 'Federation price snapshots (PBFT-finalized rounds)'],
+    ['/{COIN}/api/controllers', 'getControllers', null, 'Tokens', 'Controller bind/unbind events (programmable-policy guards on tokens + addresses)'],
     // ── Contracts ─────────────────────────────────────────────────────────
     ['/{COIN}/api/contracts/{QUERY}/{TYPE}', 'getContracts', ['block', 'address', 'source'], 'Contracts', 'Deployed contracts, filtered'],
     ['/{COIN}/api/contracts', 'getContracts', null, 'Contracts', 'Deployed smart contracts'],
@@ -76,6 +77,7 @@ const ROUTES = [
     ['/{COIN}/api/executions/{QUERY}/{TYPE}', 'getExecutions', ['block', 'address', 'contract'], 'Contracts', 'Contract executions, filtered'],
     ['/{COIN}/api/executions', 'getExecutions', null, 'Contracts', 'Contract executions'],
     ['/{COIN}/api/execution/{QUERY}', 'getExecution', 'execution', 'Contracts', 'One execution (by action index)'],
+    ['/{COIN}/api/deploy_chunks', 'getDeployChunks', null, 'Contracts', 'Chunked DEPLOY (v4) carriers'],
     ['/{COIN}/api/deposits/{QUERY}/{TYPE}', 'getDeposits', ['block', 'address', 'source', 'contract'], 'Contracts', 'Contract deposits'],
     ['/{COIN}/api/withdrawals/{QUERY}/{TYPE}', 'getWithdrawals', ['block', 'address', 'source', 'contract'], 'Contracts', 'Contract withdrawals'],
     // ── Staking ───────────────────────────────────────────────────────────

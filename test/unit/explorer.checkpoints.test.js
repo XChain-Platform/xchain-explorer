@@ -1,0 +1,244 @@
+/*********************************************************************
+ *
+ * Copyright © 2025–2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available —
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ * Unit tests for the ANCHOR light-client surface in src/XChainExplorer.js:
+ *   GET /{COIN}/api/checkpoints              → processCheckpointsRequest
+ *   GET /{COIN}/api/checkpoint/{h}/verify    → processCheckpointVerifyRequest
+ *
+ * Covers: coin/height validation (404/400), limit clamping, the {checkpoints,
+ * count} list shape, and the verify verdict — legacy count quorum, sub-quorum
+ * rejection, an unmirrored snapshot, the stake-weighted branch, and the EQUIV
+ * uniform-header canonical wrapping. eq/swq activation is pinned per-test so the
+ * verdict does not depend on the live flag-day maps.
+ */
+
+'use strict';
+
+const proxyquire = require('proxyquire');
+const sinon      = require('sinon');
+const { expect } = require('chai');
+
+const { createConfigInfoStub } = require('../fixtures/mock-config.js');
+const { mockRes }              = require('../fixtures/mock-query-args.js');
+
+// Same module instances XChainExplorer requires (Node module cache) — stubbing
+// the activation predicates here pins the verify path deterministically.
+const eq  = require('../../src/equivocation_header.js');
+const swq = require('../../src/stake_weighted_quorum.js');
+
+// ── Load XChainExplorer with heavy deps replaced ────────────────────────────
+const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const express = () => mockApp;
+express.static = () => {};
+express.json   = () => {};
+
+class MockDB { constructor() {} async init() {} }
+
+const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+    'express': express,
+    './db.js': MockDB,
+    'fs': { existsSync: () => true, readFileSync: () => 'mock' }
+});
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function makeExplorer() {
+    const explorer = new XChainExplorer(mockApp, createConfigInfoStub());
+    explorer.db.pools = { BTC: {} };                       // BTC is a known coin
+    explorer.db.getCheckpointRows = sinon.stub().resolves([]);
+    explorer.db.getCapabilitySnapshotRows = sinon.stub().resolves([]);
+    // Signature cryptography is out of scope here — drive the verdict via snapshot
+    // membership + how many sigs are supplied. Verify is exercised end-to-end in
+    // the SDK CheckpointVerifier + indexer ANCHOR suites.
+    sinon.stub(explorer.util, 'ed25519Verify').returns(true);
+    return explorer;
+}
+
+function req(params, query) { return { params: params || {}, query: query || {} }; }
+
+const CP = {
+    chain: 'BTC', network: 'regtest', block_index: 500,
+    block_hash: 'c0'.repeat(32), ledger_hash: 'a1'.repeat(32),
+    actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
+    checkpoint_seq: 7, snapshot_block: 100,
+    validator_signatures: JSON.stringify([{ pubkey: 'a'.repeat(64), sig: '1'.repeat(128) }])
+};
+const PK = (c) => c.repeat(64);
+const snapRow = (pk, source) => ({ signing_pubkey: pk, amount: '5', source: source });
+
+beforeEach(function () {
+    // Default: legacy count quorum, no EQUIV header. Individual tests override.
+    sinon.stub(eq,  'isEquivHeaderActive').returns(false);
+    sinon.stub(swq, 'isStakeWeightedQuorumActive').returns(false);
+});
+afterEach(function () { sinon.restore(); });
+
+// ===========================================================================
+// GET /{COIN}/api/checkpoints
+// ===========================================================================
+describe('XChainExplorer.processCheckpointsRequest', function () {
+
+    it('404s an unknown coin', async function () {
+        const explorer = makeExplorer();
+        const res = mockRes();
+        await explorer.processCheckpointsRequest(req({ coin: 'ZZZ' }), res);
+        expect(res._status).to.equal(404);
+        expect(res._body).to.include({ code: 'UNKNOWN_COIN' });
+    });
+
+    it('returns { checkpoints, count } from the mirrored rows', async function () {
+        const explorer = makeExplorer();
+        const rows = [{ checkpoint_seq: 7 }, { checkpoint_seq: 6 }];
+        explorer.db.getCheckpointRows.resolves(rows);
+        const res = mockRes();
+        await explorer.processCheckpointsRequest(req({ coin: 'btc' }), res);   // case-insensitive
+        expect(res._status).to.equal(200);
+        expect(res._body.checkpoints).to.deep.equal(rows);
+        expect(res._body.count).to.equal(2);
+    });
+
+    it('defaults the limit to 10 and clamps it at 100', async function () {
+        const explorer = makeExplorer();
+        const res = mockRes();
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }), res);
+        expect(explorer.db.getCheckpointRows.firstCall.args[2]).to.equal(10);   // default
+
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '9999' }), mockRes());
+        expect(explorer.db.getCheckpointRows.secondCall.args[2]).to.equal(100); // clamped
+    });
+
+    it('returns null-safe { checkpoints: [], count: 0 } when the query yields nothing', async function () {
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves(null);
+        const res = mockRes();
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }), res);
+        expect(res._body).to.deep.equal({ checkpoints: [], count: 0 });
+    });
+
+    it('500s (not throws) when the DB query fails', async function () {
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.rejects(new Error('db down'));
+        const res = mockRes();
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }), res);
+        expect(res._status).to.equal(500);
+        expect(res._body).to.include({ code: 'SERVER_ERROR' });
+    });
+});
+
+// ===========================================================================
+// GET /{COIN}/api/checkpoint/{blockIndex}/verify
+// ===========================================================================
+describe('XChainExplorer.processCheckpointVerifyRequest', function () {
+
+    it('404s an unknown coin', async function () {
+        const explorer = makeExplorer();
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'ZZZ', blockIndex: '500' }), res);
+        expect(res._status).to.equal(404);
+        expect(res._body).to.include({ code: 'UNKNOWN_COIN' });
+    });
+
+    it('400s a non-numeric block_index', async function () {
+        const explorer = makeExplorer();
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: 'abc' }), res);
+        expect(res._status).to.equal(400);
+        expect(res._body).to.include({ code: 'INVALID_BLOCK_INDEX' });
+    });
+
+    it('404s when no checkpoint exists at the height', async function () {
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._status).to.equal(404);
+        expect(res._body).to.include({ code: 'CHECKPOINT_NOT_FOUND' });
+    });
+
+    it('legacy count quorum: a single signer of a 1-validator set verifies, and emits the raw canonical', async function () {
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+
+        const expectedCanon = ['XCHECKPOINT', 'BTC', 'regtest', '500', CP.block_hash,
+            CP.ledger_hash, CP.actions_hash, CP.contract_hash, '7', '100'].join('|');
+        expect(res._status).to.equal(200);
+        expect(res._body.canonical).to.equal(expectedCanon);   // EQUIV inactive → raw
+        expect(res._body.is_weighted).to.equal(false);
+        expect(res._body.quorum).to.equal(1);
+        expect(res._body.valid_sigs).to.equal(1);
+        expect(res._body.verified).to.equal(true);
+        expect(res._body.snapshot_available).to.equal(true);
+        expect(res._body.validators).to.deep.equal([{ pubkey: PK('a'), weight: '5', source: 'src_a' }]);
+    });
+
+    it('rejects below the majority floor: 1 valid sig of a 4-validator set (quorum 3)', async function () {
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.resolves(
+            ['a', 'b', 'c', 'd'].map(c => snapRow(PK(c), 'src_' + c)));   // only PK('a') signed
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.quorum).to.equal(3);
+        expect(res._body.valid_sigs).to.equal(1);
+        expect(res._body.verified).to.equal(false);
+    });
+
+    it('reports snapshot_available=false (and unverified) when the oracle_publish set is not mirrored here', async function () {
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.resolves([]);   // nothing mirrored
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.snapshot_available).to.equal(false);
+        expect(res._body.verified).to.equal(false);
+    });
+
+    it('stake-weighted branch: defers the verdict to the source-deduped predicate', async function () {
+        swq.isStakeWeightedQuorumActive.returns(true);
+        const thresholdStub = sinon.stub(swq, 'meetsStakeThreshold').returns(true);
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.is_weighted).to.equal(true);
+        expect(res._body.verified).to.equal(true);
+        expect(thresholdStub.calledOnce).to.equal(true);
+    });
+
+    it('EQUIV active: the canonical is the v0 raw wrapped in the uniform header', async function () {
+        eq.isEquivHeaderActive.returns(true);
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+
+        const raw = ['XCHECKPOINT', 'BTC', 'regtest', '500', CP.block_hash,
+            CP.ledger_hash, CP.actions_hash, CP.contract_hash, '7', '100'].join('|');
+        const expected = eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT, 'BTC|regtest|500|7', 0, raw);
+        expect(res._body.canonical).to.equal(expected);
+    });
+
+    it('500s (not throws) when the snapshot lookup fails', async function () {
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.rejects(new Error('db down'));
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._status).to.equal(500);
+        expect(res._body).to.include({ code: 'SERVER_ERROR' });
+    });
+});

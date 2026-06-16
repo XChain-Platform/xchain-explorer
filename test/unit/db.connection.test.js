@@ -297,6 +297,15 @@ describe('Database – connection management', function () {
             config.BTC.regtest.database.indexer = {
                 host: '10.9.9.9', port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Indexer'
             };
+            // Keep the regtest decoder on the SAME host/creds as its indexer so it
+            // reuses that pool — this test isolates INDEXER pool separation by host.
+            // (A decoder on a different host/creds than its indexer correctly spawns
+            // its own dedicated pool; that path is exercised elsewhere. Leaving the
+            // default 127.0.0.1 decoder here would mismatch the 10.9.9.9 indexer and
+            // add a third, unrelated createPool call.)
+            config.BTC.regtest.database.decoder = {
+                host: '10.9.9.9', port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Decoder'
+            };
             // Make createPool return distinct objects so the inequality check is meaningful
             const poolA = createMockPool();
             const poolB = createMockPool();

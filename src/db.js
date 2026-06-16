@@ -8303,10 +8303,13 @@ class Database {
     // UNION of BOTH logs: token_controllers (ISSUE-bound, per-tick) + address_controllers
     // (ADDRESS-bound, self-signed). Each is append-only (one immutable row per bind/unbind); the
     // *effective* gating set is resolved on the token/address detail pages — this list surfaces the
-    // raw events. The status column is the parent action's validation status (controller tables have
-    // no status_id of their own). Like the sibling VM list views (getExecutions/getContracts), this
-    // is not in actionTables, so the cursor-offset optimizer no-ops and the list serves the newest
-    // page ordered by m.action_index DESC (low-volume table; matches the established VM-view pattern).
+    // raw events. status is the literal 'valid': the indexer records a controller event ONLY while
+    // applying a valid bind/unbind, and reorg rollback DELETEs the rows (DELETE WHERE action_index >=
+    // orphan), so every surviving row is a valid event by construction. (We do NOT join the parent
+    // action table for status — an ADDRESS v1 controller-bind never writes the `addresses` table,
+    // which is the fee-preference variant, so that join would always be NULL → false 'invalid'.)
+    // Like the sibling VM list views (getExecutions/getContracts), this is not in actionTables, so the
+    // cursor-offset optimizer no-ops and the list serves the newest page ordered by m.action_index DESC.
     _controllerUnionSql(){
         return `
             SELECT
@@ -8320,14 +8323,12 @@ class Database {
                 c.is_unbind          AS is_unbind,
                 c.cooldown_blocks    AS cooldown_blocks,
                 c.cooldown_end_block AS cooldown_end_block,
-                s1.status            AS status
+                'valid'              AS status
             FROM token_controllers c
                 INNER JOIN actions        a1 ON (a1.action_index=c.action_index)
                 INNER JOIN transactions   t1 ON (t1.tx_index=a1.tx_index)
                 INNER JOIN blocks         b1 ON (b1.block_index=t1.block_index)
                 LEFT  JOIN index_tickers  tk ON (tk.id=c.tick_id)
-                LEFT  JOIN issues         p1 ON (p1.action_index=c.action_index)
-                LEFT  JOIN index_statuses s1 ON (s1.id=p1.status_id)
             UNION ALL
             SELECT
                 c.action_index       AS action_index,
@@ -8340,14 +8341,12 @@ class Database {
                 c.is_unbind          AS is_unbind,
                 c.cooldown_blocks    AS cooldown_blocks,
                 c.cooldown_end_block AS cooldown_end_block,
-                s1.status            AS status
+                'valid'              AS status
             FROM address_controllers c
                 INNER JOIN actions         a1 ON (a1.action_index=c.action_index)
                 INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                 INNER JOIN blocks          b1 ON (b1.block_index=t1.block_index)
                 LEFT  JOIN index_addresses ad ON (ad.id=c.address_id)
-                LEFT  JOIN addresses       p1 ON (p1.action_index=c.action_index)
-                LEFT  JOIN index_statuses  s1 ON (s1.id=p1.status_id)
         `;
     }
 

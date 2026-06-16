@@ -1347,6 +1347,41 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(9).text(isNull(fee) ? '-' : fee);
                 $('td', row).eq(10).html(action_link);
             }
+            // Controller binding (programmable-policy guard — bind/unbind event on a token or address)
+            if(action=='controller'){
+                let scope    = data[3];
+                let subject  = data[4];
+                let aclass   = data[5];
+                let guard    = data[6];
+                let isUnbind = data[7];
+                let cdBlocks = data[8];
+                let cdEnd    = data[9];
+                // data[3] (scope) is not an address — override the generic source link cell
+                $('td', row).eq(3).html(scope=='address'
+                    ? '<span class="badge text-bg-info">Address</span>'
+                    : '<span class="badge text-bg-secondary">Token</span>');
+                $('td', row).eq(4).html(isNull(subject) ? '-' : (scope=='address'
+                    ? formatLink('/' + coin + '/address/' + subject, subject)
+                    : formatLink('/' + coin + '/token/' + subject, subject, subject)));
+                $('td', row).eq(5).text(isNull(aclass) ? '-' : aclass);
+                $('td', row).eq(6).html(isNull(guard) ? '-' : formatLink('/' + coin + '/contract/' + guard, guard));
+                $('td', row).eq(7).html(Number(isUnbind)===1
+                    ? '<span class="badge text-bg-warning">Unbind</span>'
+                    : '<span class="badge text-bg-success">Bind</span>');
+                $('td', row).eq(8).text(isNull(cdBlocks) ? '-' : numeral(cdBlocks).format('0,0'));
+                $('td', row).eq(9).text(isNull(cdEnd) ? '-' : numeral(cdEnd).format('0,0'));
+                $('td', row).eq(10).html(action_link);
+            }
+            // Deploy chunk (chunked DEPLOY v4 carrier — one base64 code slice of a contract source)
+            if(action=='deploy_chunk'){
+                let codeHash = data[4];
+                let chunkIdx = data[5];
+                let total    = data[6];
+                $('td', row).eq(4).html(isNull(codeHash) ? '-' : '<span class="font-monospace" title="' + codeHash + '">' + String(codeHash).substring(0,16) + '…</span>');
+                $('td', row).eq(5).text(isNull(chunkIdx) ? '-' : numeral(chunkIdx).format('0,0'));
+                $('td', row).eq(6).text(isNull(total) ? '-' : numeral(total).format('0,0'));
+                $('td', row).eq(7).html(action_link);
+            }
             // Callback
             if(action=='callback'){
                 token  = data[4];
@@ -2249,6 +2284,28 @@ function showExecuteDetails(data){
     $('#info-execute .execute-method').text(data.method_name);
     $('#info-execute .execute-gas').text(numeral(data.gas_used).format('0,0') + ' / ' + numeral(data.gas_limit).format('0,0'));
     $('#info-execute .execute-emitted').text(data.emitted_count);
+    // Emitted-children drill-down: list the actions this EXECUTE emitted (emit.execute /
+    // emit.send / internal SLASH …) in emission order. Each child links by action_index;
+    // internal emissions that move ledger state without minting an on-wire action (e.g. SLASH)
+    // have a null action_index and render as "internal".
+    let emissions = Array.isArray(data.emissions) ? data.emissions : [];
+    if(emissions.length){
+        let rows = '';
+        emissions.forEach(function(e, idx){
+            let child = isNull(e.action_index)
+                ? '<span class="text-muted">internal</span>'
+                : formatLink('/' + XC.coin + '/action/' + e.action_index, e.action_index);
+            rows += '<tr><td class="text-center">' + (idx+1) + '</td><td>' + e.emitted_action + '</td><td>' + child + '</td></tr>';
+        });
+        let table = '<table class="table table-sm mb-0">'
+            + '<thead><tr><th class="text-center">#</th><th>Action</th><th>Emitted</th></tr></thead>'
+            + '<tbody>' + rows + '</tbody></table>';
+        $('#info-execute .execute-emissions').html(table);
+        $('#execute-emissions-row').removeClass('d-none');
+    } else {
+        $('#info-execute .execute-emissions').empty();
+        $('#execute-emissions-row').addClass('d-none');
+    }
     $('#info-execute .execute-error').text(isNull(data.error_message) ? '-' : data.error_message);
 }
 

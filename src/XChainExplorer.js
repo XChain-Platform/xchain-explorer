@@ -134,12 +134,14 @@ class XChainExplorer {
                 '/{COIN}/contracts'            : 'contracts.html',
                 '/{COIN}/contract/{QUERY}'    : 'contract.html',
                 '/{COIN}/executions'          : 'executions.html',
+                '/{COIN}/deploy_chunks'       : 'deploy_chunks.html',
                 '/{COIN}/execution/{QUERY}'   : 'execution.html',
                 '/{COIN}/deposits'            : 'deposits.html',
                 '/{COIN}/withdrawals'         : 'withdrawals.html',
                 '/{COIN}/validators'          : 'validators.html',
                 '/{COIN}/contract_stakes'     : 'contract_stakes.html',
                 '/{COIN}/prices'              : 'prices.html',
+                '/{COIN}/controllers'         : 'controllers.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
                 '/{COIN}/slash_events'        : 'slash_events.html',
                 '/{COIN}/attestations'        : 'attestations.html',
@@ -204,6 +206,8 @@ class XChainExplorer {
                 '/{COIN}/api/prices'                          : ['getPrices'],
                 '/{COIN}/api/price_snapshots/{QUERY}/{TYPE}'  : ['getPriceSnapshots',    ['pair', 'round', 'status']],
                 '/{COIN}/api/price_snapshots'                 : ['getPriceSnapshots'],
+                // Controller-bound token / address policy guards (Controller_Bound_Tokens.md) — bind/unbind event stream
+                '/{COIN}/api/controllers'                     : ['getControllers'],
                 // VM / Contract Endpoints
                 '/{COIN}/api/contracts/{QUERY}/{TYPE}'         : ['getContracts',        ['block', 'address', 'source']],
                 '/{COIN}/api/contracts'                        : ['getContracts'],
@@ -215,6 +219,7 @@ class XChainExplorer {
                 '/{COIN}/api/executions/{QUERY}/{TYPE}'        : ['getExecutions',        ['block', 'address', 'contract']],
                 '/{COIN}/api/executions'                       : ['getExecutions'],
                 '/{COIN}/api/execution/{QUERY}'                : ['getExecution',          'execution'],
+                '/{COIN}/api/deploy_chunks'                    : ['getDeployChunks'],
                 // Deposit / Withdrawal Endpoints
                 '/{COIN}/api/deposits/{QUERY}/{TYPE}'          : ['getDeposits',          ['block', 'address', 'source', 'contract']],
                 '/{COIN}/api/withdrawals/{QUERY}/{TYPE}'       : ['getWithdrawals',       ['block', 'address', 'source', 'contract']],
@@ -320,6 +325,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/coinpay_obligations/{QUERY}/{TYPE}'       : ['getCoinpayObligations', ['block', 'address']],
                 '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address']],
                 '/{COIN}/explorer/executions/{QUERY}/{TYPE}'                 : ['getExecutions',   ['block', 'address', 'contract']],
+                '/{COIN}/explorer/deploy_chunks'                             : ['getDeployChunks'],
                 '/{COIN}/explorer/deposits/{QUERY}/{TYPE}'                   : ['getDeposits',     ['block', 'address', 'contract']],
                 '/{COIN}/explorer/withdrawals/{QUERY}/{TYPE}'                : ['getWithdrawals',  ['block', 'address', 'contract']],
                 '/{COIN}/explorer/stakes/{QUERY}/{TYPE}'                     : ['getStakes',       ['block', 'address']],
@@ -334,6 +340,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
                 '/{COIN}/explorer/prices/{QUERY}/{TYPE}'                    : ['getPrices',       ['block', 'address', 'source', 'token']],
                 '/{COIN}/explorer/prices'                                   : ['getPrices'],
+                '/{COIN}/explorer/controllers'                              : ['getControllers'],
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'token', 'transaction']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
@@ -875,6 +882,10 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, info.gate_ticker, status, info.action_index];
                     if(method=='getPrices')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.coin, info.tick, info.fiat, info.value, info.fee, status, info.action_index];
+                    if(method=='getControllers')
+                        info = [count_reverse, info.block_index, info.timestamp, info.scope, info.subject, info.action_class, info.contract_index, info.is_unbind, info.cooldown_blocks, info.cooldown_end_block, status, info.action_index];
+                    if(method=='getDeployChunks')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.code_hash, info.chunk_index, info.total_chunks, status, info.action_index];
                     if(method=='getHistory')
                         info = [count_reverse, info.block_index, info.timestamp, info.action, info.details, status, info.action_index];
                     if(method=='getHolders')

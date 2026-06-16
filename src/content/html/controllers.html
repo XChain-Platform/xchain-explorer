@@ -1,0 +1,50 @@
+<!-- Controller Bindings -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-shield"></i> Controller Bindings
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-controller">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Scope</th>
+                        <th class="">Subject</th>
+                        <th class="">Class</th>
+                        <th class="">Guard</th>
+                        <th class="">Event</th>
+                        <th class="">Cooldown</th>
+                        <th class="">Drop Block</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="11" class="loading-data">Loading controller binding data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'Controller Bindings';
+    XC.pageInfo.description = 'Programmable-policy controller bind/unbind events on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — guard contracts bound to tokens (transfer/trade/burn/mint/stake classes) and self-signed address gates.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/controllers';
+    updatePageInfo();
+
+    // Load all controller bind/unbind events
+    loadDatatablesData(XC.coin, 'controller', null, null);
+
+});
+</script>

@@ -5969,6 +5969,17 @@ class Database {
                      FROM cross_chain_call_callbacks WHERE call_id=? LIMIT 1`, [data['call_id']]);
                 data['callback_delivery'] = (cb && cb.length) ? cb[0] : null;
             }
+            // EXECUTE: attach the actions this contract call emitted (emit.execute / emit.send /
+            // internal SLASH etc.), ordered by emission position. Children link by action_index
+            // (NULL for internal emissions that move ledger state without minting an on-wire
+            // action, e.g. SLASH). Browsing children needs contract_emissions — actions.source_id
+            // is the emitting contract address, not a parent→child pointer.
+            if(type=='EXECUTE'){
+                let emits = await this.doQuery(config,
+                    `SELECT position, emitted_action, action_index
+                     FROM contract_emissions WHERE execution_index=? ORDER BY position ASC`, [action_index]);
+                data['emissions'] = (emits && emits.length) ? emits : [];
+            }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
                 // Set correct arguments for the query
@@ -8284,6 +8295,129 @@ class Database {
                         price_snapshots m
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Controller bind/unbind event stream (programmable-policy guards, Controller_Bound_Tokens.md).
+    // UNION of BOTH logs: token_controllers (ISSUE-bound, per-tick) + address_controllers
+    // (ADDRESS-bound, self-signed). Each is append-only (one immutable row per bind/unbind); the
+    // *effective* gating set is resolved on the token/address detail pages — this list surfaces the
+    // raw events. The status column is the parent action's validation status (controller tables have
+    // no status_id of their own). Like the sibling VM list views (getExecutions/getContracts), this
+    // is not in actionTables, so the cursor-offset optimizer no-ops and the list serves the newest
+    // page ordered by m.action_index DESC (low-volume table; matches the established VM-view pattern).
+    _controllerUnionSql(){
+        return `
+            SELECT
+                c.action_index       AS action_index,
+                'token'              AS scope,
+                b1.block_index       AS block_index,
+                b1.block_time        AS timestamp,
+                tk.tick              AS subject,
+                c.action_class       AS action_class,
+                c.contract_index     AS contract_index,
+                c.is_unbind          AS is_unbind,
+                c.cooldown_blocks    AS cooldown_blocks,
+                c.cooldown_end_block AS cooldown_end_block,
+                s1.status            AS status
+            FROM token_controllers c
+                INNER JOIN actions        a1 ON (a1.action_index=c.action_index)
+                INNER JOIN transactions   t1 ON (t1.tx_index=a1.tx_index)
+                INNER JOIN blocks         b1 ON (b1.block_index=t1.block_index)
+                LEFT  JOIN index_tickers  tk ON (tk.id=c.tick_id)
+                LEFT  JOIN issues         p1 ON (p1.action_index=c.action_index)
+                LEFT  JOIN index_statuses s1 ON (s1.id=p1.status_id)
+            UNION ALL
+            SELECT
+                c.action_index       AS action_index,
+                'address'            AS scope,
+                b1.block_index       AS block_index,
+                b1.block_time        AS timestamp,
+                ad.address           AS subject,
+                c.action_class       AS action_class,
+                c.contract_index     AS contract_index,
+                c.is_unbind          AS is_unbind,
+                c.cooldown_blocks    AS cooldown_blocks,
+                c.cooldown_end_block AS cooldown_end_block,
+                s1.status            AS status
+            FROM address_controllers c
+                INNER JOIN actions         a1 ON (a1.action_index=c.action_index)
+                INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                INNER JOIN blocks          b1 ON (b1.block_index=t1.block_index)
+                LEFT  JOIN index_addresses ad ON (ad.id=c.address_id)
+                LEFT  JOIN addresses       p1 ON (p1.action_index=c.action_index)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=p1.status_id)
+        `;
+    }
+
+    async getControllers(config){
+        let sql   = config.data.sql;
+        let union = this._controllerUnionSql();
+        let count = `SELECT count(*) as total FROM ( ` + union + ` ) m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.action_index,
+                        m.scope,
+                        m.block_index,
+                        m.timestamp,
+                        m.subject,
+                        m.action_class,
+                        m.contract_index,
+                        m.is_unbind,
+                        m.cooldown_blocks,
+                        m.cooldown_end_block,
+                        m.status
+                    FROM ( ` + union + ` ) m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Chunked DEPLOY carriers (DEPLOY v4) — one base64 code slice per row in deploy_chunks. The
+    // assembler reassembles the VALID chunks of a (source, code_hash) group into the final contract
+    // source (DEPLOY.md); the assembled contract itself appears under Contracts. This list surfaces
+    // each on-chain carrier (its chunk position + group size + status). code_part (the base64 slice)
+    // is intentionally NOT selected — it is large and only the assembler needs it. Not in actionTables
+    // (sibling of getExecutions) — serves the newest page ordered by m.action_index DESC.
+    async getDeployChunks(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        deploy_chunks m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        m.code_hash,
+                        m.chunk_index,
+                        m.total_chunks,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        deploy_chunks m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }

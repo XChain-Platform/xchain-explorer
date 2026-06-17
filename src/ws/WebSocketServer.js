@@ -60,7 +60,7 @@ class WebSocketServer {
 
     // Attach to HTTP and/or HTTPS servers
     attach(servers) {
-        // Create a noServer WSS — we handle upgrade manually for path filtering
+        // Create a noServer WSS (we handle upgrade manually for path filtering)
         this.wss = new WSServer({ noServer: true });
 
         this.wss.on('connection', (ws, req, clientInfo) => {
@@ -103,7 +103,7 @@ class WebSocketServer {
         return this.clients;
     }
 
-    // Handle HTTP upgrade request — validate path and coin before upgrading
+    // Handle HTTP upgrade request: validate path and coin before upgrading
     _handleUpgrade(req, socket, head) {
         const match = WS_PATH_REGEX.exec(req.url);
         if (!match) {
@@ -185,7 +185,7 @@ class WebSocketServer {
             latestBlockIndex  = await db.getMaxBlockIndex(config) || 0;
             latestActionIndex = await db.getMaxActionIndex(config) || 0;
         } catch (e) {
-            // Non-fatal — send WELCOME with zeros
+            // Non-fatal: send WELCOME with zeros
         }
 
         const welcome = {
@@ -227,7 +227,7 @@ class WebSocketServer {
     _onMessage(client, data) {
         client.lastActivity = Date.now();
 
-        // Rate limiting — sliding 1-second window
+        // Rate limiting: sliding 1-second window
         const now = Date.now();
         if (now - client.msgWindowStart > 1000) {
             client.msgCount      = 0;
@@ -235,7 +235,7 @@ class WebSocketServer {
         }
         client.msgCount++;
         if (client.msgCount > this.maxMsgPerSec) {
-            this._sendError(client, 'RATE_LIMITED', 'Too many messages — max ' + this.maxMsgPerSec + '/sec');
+            this._sendError(client, 'RATE_LIMITED', 'Too many messages (max ' + this.maxMsgPerSec + '/sec)');
             return;
         }
 
@@ -379,7 +379,7 @@ class WebSocketServer {
         const db     = this.explorer.db;
         const config = { coin: client.coin };
 
-        // Check depth — reject if too far behind
+        // Check depth: reject if too far behind
         try {
             const currentMax = await db.getMaxActionIndex(config) || 0;
             if (currentMax - sinceActionIndex > this.catchUpMaxDepth) {
@@ -449,7 +449,7 @@ class WebSocketServer {
             this._send(client, complete);
 
         } catch (e) {
-            console.log('Catch-up error for client', client.id, ':', e);
+            console.error('Catch-up error for client', client.id, ':', e);
         } finally {
             client.catchUpInProgress = false;
         }
@@ -514,8 +514,8 @@ class WebSocketServer {
                     });
                 }
             } catch (e) {
-                // Non-fatal — skip this snapshot
-                console.log('Snapshot error for', sub.channel, ':', e);
+                // Non-fatal: skip this snapshot
+                console.error('Snapshot error for', sub.channel, ':', e);
             }
         }
     }
@@ -577,7 +577,7 @@ class WebSocketServer {
         this.pingTimer = setInterval(() => {
             for (const [, client] of this.clients) {
                 if (!client.alive) {
-                    // Missed previous pong — terminate
+                    // Missed previous pong: terminate
                     client.ws.terminate();
                     continue;
                 }
@@ -586,7 +586,7 @@ class WebSocketServer {
             }
         }, this.pingInterval);
 
-        // Idle timeout check — only disconnect clients with zero subscriptions
+        // Idle timeout check: only disconnect clients with zero subscriptions
         this.idleTimer = setInterval(() => {
             const now = Date.now();
             for (const [, client] of this.clients) {

@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -30,8 +30,8 @@ const xchainHubConnector    = require('./XChainHubConnector')
 const API_HOST       = process.env.API_HOST || '127.0.0.1';
 const API_USER       = false;
 const API_PASS       = false;
-const API_PORT_HTTP  = 8080;
-const API_PORT_HTTPS = 8081;
+const API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
+const API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
 // Parse a non-negative integer from an env var, falling back to defaultVal when
 // the value is absent, empty, or non-numeric. Preserves 0 as a valid value.
@@ -57,7 +57,7 @@ try {
         ca:   fs.readFileSync(path.join(SSL_DIR, "ca.pem"))
     };
 } catch (err) {
-    console.log("SSL files not found in " + SSL_DIR + " — HTTPS server will not start");
+    console.log("SSL files not found in " + SSL_DIR + "; HTTPS server will not start");
 }
 
 //This will hold the connection with the xchain-hub if a url and port are provided
@@ -69,11 +69,14 @@ let configCache = null;
 // Epoch ms of the last time the hub returned a usable config to us, regardless of
 // whether that config differed from what we already had. Stays null until the first
 // success, and is intentionally NOT advanced when we fall back to the disk/in-memory
-// cache after an unreachable hub — so the age derived from it reflects genuine
+// cache after an unreachable hub, so the age derived from it reflects genuine
 // staleness of the served config when the hub is down.
 let hubConfigFetchedAt = null;
 //Emisor for config changed event
 const configChangedEmisor = new EventTarget();
+// Set to true after the first 'changed' event fires so late subscribers
+// registered after startSync() has already ticked get an immediate replay.
+let configChangedFired = false;
 
 // Path to the on-disk last-known-good config cache. When the hub is
 // unreachable at startup, this lets the explorer come up serving the last
@@ -83,7 +86,7 @@ const configChangedEmisor = new EventTarget();
 const CONFIG_CACHE_FILE = process.env.CONFIG_CACHE_FILE || path.join(__dirname, '..', 'tmp', 'config-cache.json');
 
 // Persist the last-known-good hub config (already in the flattened
-// {configs:[...]} shape) to disk. Best-effort — a write failure must never
+// {configs:[...]} shape) to disk. Best-effort: a write failure must never
 // break config loading, so failures are logged and swallowed.
 function persistConfigCache(flattenedConfig){
     try {
@@ -120,13 +123,13 @@ module.exports = {
     },
 
     startSync: function(endpoints){
-        // Bare `getConfig` is not in lexical scope here — it lives on
+        // Bare `getConfig` is not in lexical scope here; it lives on
         // module.exports. Arrow + `this` keeps the binding so the
         // scheduled tick actually refreshes the cache.
         //
         // The .catch() is essential: getConfig is async, so any rejection on a
         // tick (e.g. a hub blip) would otherwise surface as an unhandled
-        // promise rejection — fatal in Node 15+. Swallow it, log, and keep
+        // promise rejection (fatal in Node 15+). Swallow it, log, and keep
         // serving the in-memory cache until the hub recovers.
         setInterval(() => {
             this.getConfig(endpoints, false) //cache=false to replace the current cache
@@ -180,13 +183,13 @@ module.exports = {
 
                 if (hubReturnedNothing){
                     // A transient blip during a periodic sync tick must not wipe
-                    // a good config — keep serving what we already have. Surface
+                    // a good config; keep serving what we already have. Surface
                     // it at error level (the connector only logs per-endpoint
                     // warns) so operators get one unambiguous signal that the
                     // hub is down and the served config is now stale, instead of
                     // discovering it only when downstream DB queries start failing.
                     if (configCache){
-                        console.error('Hub unreachable — all endpoints failed after retries. Serving last-known-good cached config (may be stale until the hub recovers).');
+                        console.error('Hub unreachable: all endpoints failed after retries. Serving last-known-good cached config (may be stale until the hub recovers).');
                         return configCache;
                     }
 
@@ -208,14 +211,14 @@ module.exports = {
                         jsonConfig = {"configs":[]};
                     }
                 } else {
-                    // The hub returned a usable config — record the fetch time even when the
+                    // The hub returned a usable config; record the fetch time even when the
                     // content is unchanged below, so the age exposed in /status reflects the
                     // last genuine contact with the hub, not the last config change.
                     hubConfigFetchedAt = Date.now();
 
                     // Compare by JSON content, not reference. getAllConfig returns
                     // a fresh object every call, so the prior `!=` check fired on
-                    // every refresh — triggering downstream pool rebuilds 60×/hour
+                    // every refresh, triggering downstream pool rebuilds 60x/hour
                     // even when the hub returned identical config. Stringify lets
                     // unchanged content short-circuit out via the else branch.
                     const fetchedStr = JSON.stringify(jsonConfig)
@@ -362,13 +365,18 @@ module.exports = {
         }
     },
     
-    //Adds a listener to the config change event
+    //Adds a listener to the config change event.
+    //If a 'changed' event has already fired (startSync ticked before this
+    //subscriber registered), replay it immediately so the caller's handler
+    //runs at least once and never misses the initial pool-rebuild signal.
     onConfigChanged: function(callback){
       configChangedEmisor.addEventListener("changed", callback);
+      if(configChangedFired) callback(new CustomEvent("changed"));
     },
 
     //Triggers the config changed event
     triggerConfigChanged: function(){
+      configChangedFired = true;
       const event = new CustomEvent("changed");
       configChangedEmisor.dispatchEvent(event);
     }

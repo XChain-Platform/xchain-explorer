@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -206,7 +206,7 @@ class XChainExplorer {
                 '/{COIN}/api/prices'                          : ['getPrices'],
                 '/{COIN}/api/price_snapshots/{QUERY}/{TYPE}'  : ['getPriceSnapshots',    ['pair', 'round', 'status']],
                 '/{COIN}/api/price_snapshots'                 : ['getPriceSnapshots'],
-                // Controller-bound token / address policy guards (Controller_Bound_Tokens.md) — bind/unbind event stream
+                // Controller-bound token / address policy guards (Controller_Bound_Tokens.md): bind/unbind event stream
                 '/{COIN}/api/controllers'                     : ['getControllers'],
                 // VM / Contract Endpoints
                 '/{COIN}/api/contracts/{QUERY}/{TYPE}'         : ['getContracts',        ['block', 'address', 'source']],
@@ -229,6 +229,9 @@ class XChainExplorer {
                 '/{COIN}/api/validators'                       : ['getValidators'],
                 '/{COIN}/api/delegations/{QUERY}/{TYPE}'       : ['getDelegations',       ['block', 'address', 'source']],
                 '/{COIN}/api/rewards/{QUERY}/{TYPE}'           : ['getValidatorRewards',  ['address', 'source']],
+                // Full-node possession-proof verdicts (NODEPROOF v0, read-only)
+                '/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}' : ['getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address']],
+                '/{COIN}/api/full_node_verifications'               : ['getFullNodeVerifications'],
                 // Contract-targeted Staking (STAKE v3 / UNSTAKE v1 + slash side-effects)
                 '/{COIN}/api/contract_stakes/{QUERY}/{TYPE}'   : ['getContractStakes',    ['block', 'address', 'contract']],
                 '/{COIN}/api/contract_stakes'                  : ['getContractStakes'],
@@ -243,7 +246,7 @@ class XChainExplorer {
                 '/{COIN}/api/cross_chain_matches'                    : ['getCrossChainMatches'],
                 '/{COIN}/api/cross_chain_settlements/{QUERY}/{TYPE}' : ['getCrossChainSettlements', ['match', 'block']],
                 '/{COIN}/api/cross_chain_settlements'                : ['getCrossChainSettlements'],
-                // Cross-chain calls (XCALL — VM-emitted; read-only). List by block/contract/status; single-call lifecycle by call_id.
+                // Cross-chain calls (XCALL, VM-emitted, read-only). List by block/contract/status; single-call lifecycle by call_id.
                 '/{COIN}/api/xcalls/{QUERY}/{TYPE}'                  : ['getXcalls',               ['block', 'contract', 'status']],
                 '/{COIN}/api/xcalls'                                 : ['getXcalls'],
                 '/{COIN}/api/xcall/{QUERY}'                          : ['getXcall',                'call_id'],
@@ -274,7 +277,7 @@ class XChainExplorer {
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
                 '/{COIN}/api/network'                          : ['getNetwork'],   
                 '/{COIN}/api/pubkey/{QUERY}'                   : ['getPublicKey',        'address'],
-                // Project registry — current roster of a project tick (protocol/Project_Registry.md)
+                // Project registry: current roster of a project tick (protocol/Project_Registry.md)
                 '/{COIN}/api/project/{QUERY}'                  : ['getProject',          'token'],
                 '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
                 '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken', 'nft']],
@@ -331,6 +334,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/stakes/{QUERY}/{TYPE}'                     : ['getStakes',       ['block', 'address']],
                 '/{COIN}/explorer/delegations/{QUERY}/{TYPE}'                : ['getDelegations',  ['block', 'address']],
                 '/{COIN}/explorer/rewards/{QUERY}/{TYPE}'                    : ['getValidatorRewards', ['address']],
+                '/{COIN}/explorer/full_node_verifications/{QUERY}/{TYPE}'    : ['getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address']],
                 '/{COIN}/explorer/validators/{QUERY}/{TYPE}'                 : ['getValidators',   ['block', 'address']],
                 '/{COIN}/explorer/contract_stakes/{QUERY}/{TYPE}'           : ['getContractStakes',   ['block', 'address', 'contract']],
                 '/{COIN}/explorer/contract_unstakes/{QUERY}/{TYPE}'         : ['getContractUnstakes', ['block', 'address', 'contract']],
@@ -370,11 +374,11 @@ class XChainExplorer {
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
 
         // Raw bytes for a FILE action. Gated files return their ciphertext as
-        // application/octet-stream (holders decrypt client-side — see
+        // application/octet-stream (holders decrypt client-side; see
         // xchain-documentation/protocol/TOKEN_GATED_CONTENT.md); non-gated files
         // return the stored bytes from the colocated decoder DB, served inline
         // only for safe media MIME types (this is how TIS `data_ref` entries
-        // resolve for NFT display — see protocol/NFT_Standard.md).
+        // resolve for NFT display; see protocol/NFT_Standard.md).
         // Registered before the wildcard so the express route matcher hits this first.
         this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processFileRawRequest(req, res); });
 
@@ -385,7 +389,7 @@ class XChainExplorer {
         this.app.get('/:coin/api/feequote',    (req, res) => { this.processFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/feeschedule', (req, res) => { this.processFeeScheduleRequest(req, res); });
 
-        // Quorum-signed state checkpoints — the light-client verification surface.
+        // Quorum-signed state checkpoints (the light-client verification surface).
         // /checkpoints lists the latest signed checkpoints for the coin's chain;
         // /checkpoint/:blockIndex/verify re-verifies the 2f+1 oracle_publish
         // signatures server-side AND returns everything a client needs to verify
@@ -522,11 +526,11 @@ class XChainExplorer {
                     cfg.data.search3 = urlPath[6];
                 }
             // Handle action matches. Require the route's segment count to match the
-            // request path so a shorter route can't swallow a deeper one — e.g.
+            // request path so a shorter route can't swallow a deeper one, e.g.
             // /contract/{QUERY} must NOT match /contract/{QUERY}/state (which would
             // otherwise make the /state and /state/{TYPE} routes unreachable).
             // The 5th-segment literal must also match when the route declares one
-            // (e.g. .../state vs .../balance) — without this, two same-length routes
+            // (e.g. .../state vs .../balance); without this, two same-length routes
             // sharing parts[1]/parts[2] are indistinguishable and the first-defined
             // one wins, shadowing the other (the /balance route was unreachable).
             } else if(!match && parts.length==urlPath.length && parts[1]==String(urlPath[1]).toLowerCase() &&
@@ -645,8 +649,8 @@ class XChainExplorer {
         else if(['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
             response.code = 400;
             response.json = {
-                error: 'Explorer was unable to successfully process your request.',
-                code: 'BAD_REQUEST'
+                error: 'The requested resource was not found.',
+                code: 'NOT_FOUND'
             };
         }
 
@@ -742,7 +746,7 @@ class XChainExplorer {
         if(method=='getSearch')
             data = data.data;
 
-        // For API requests, SQL OFFSET already handled pagination — return all rows
+        // For API requests, SQL OFFSET already handled pagination; return all rows
         if(cfg.type=='api'){
             start = 0;
         }
@@ -917,7 +921,7 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership, info.get_ownership];
                     if(method=='getSweeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.orders, info.swaps, info.dispensers, status, info.action_index];
-                    // NOTE: decimals sits BEFORE the trailing id — the datatables client
+                    // NOTE: decimals sits BEFORE the trailing id; the datatables client
                     // uses the LAST element of each row for offset paging (offset_first/
                     // offset_last), so new fields must never displace it. decimals +
                     // locks (lock_max_supply) let the client badge NFT-pattern tokens.
@@ -937,6 +941,10 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, status, info.action_index];
                     if(method=='getValidatorRewards')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.reward_type, info.amount, info.id];
+                    // Full-node possession-proof verdict list page. action_index stays LAST
+                    // (the datatables client uses it as the paging offset cursor).
+                    if(method=='getFullNodeVerifications')
+                        info = [count_reverse, info.block_index, info.timestamp, info.signing_pubkey, info.staking_source, info.epoch_height, info.target_height, info.challenge_id, info.passed, info.action_index];
                     // Contract-targeted staking list pages
                     if(method=='getContractStakes')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.target_contract_index, info.tick, info.amount, info.version, status, info.action_index];
@@ -993,7 +1001,7 @@ class XChainExplorer {
     }
 
     /**********************************************************
-     * FILE content — raw bytes
+     * FILE content: raw bytes
      *
      * GET /{COIN}/api/file/{ACTION_INDEX}/raw
      *
@@ -1006,7 +1014,7 @@ class XChainExplorer {
      * decoder DB. This is the resolution target for TIS `data_ref`
      * entries (`action:<index>`), so NFT-pattern tokens with fully
      * on-chain artwork can render in the browser. The declared MIME
-     * type is honored INLINE only for safe media types — on-chain
+     * type is honored INLINE only for safe media types; on-chain
      * bytes are attacker-controlled, and serving them as text/html
      * (or letting the browser sniff them into it) from the explorer
      * origin would be stored XSS. Everything else downloads as an
@@ -1025,7 +1033,7 @@ class XChainExplorer {
         let raw  = null;
         let file = null;
         try {
-            // Gated file first — ciphertext is served exactly as before
+            // Gated file first: ciphertext is served exactly as before
             let rows = await this.db.getGatedFileRaw(config, actionIndex);
             if(rows && rows.length > 0) raw = rows[0].raw_data;
             // Fall through to the non-gated FILE bytes (decoder DB)
@@ -1041,7 +1049,7 @@ class XChainExplorer {
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         if(raw){
-            // Gated ciphertext — opaque bytes
+            // Gated ciphertext: opaque bytes
             res.set('Content-Type', 'application/octet-stream');
             return res.send(raw);
         }
@@ -1067,7 +1075,7 @@ class XChainExplorer {
         return res.send(file.raw_data);
     }
 
-    // GET /{COIN}/api/checkpoints[?limit=N] — latest quorum-signed state checkpoints
+    // GET /{COIN}/api/checkpoints[?limit=N]: latest quorum-signed state checkpoints
     // for this coin's chain, from the hub-mirrored state_checkpoints table.
     async processCheckpointsRequest(req, res){
         try {
@@ -1083,7 +1091,7 @@ class XChainExplorer {
         }
     }
 
-    // GET /{COIN}/api/checkpoint/{blockIndex}/verify — re-verify the checkpoint at a
+    // GET /{COIN}/api/checkpoint/{blockIndex}/verify: re-verify the checkpoint at a
     // height against the mirrored oracle_publish capability snapshot. Returns the
     // canonical signing string + qualifying validator set so a client can ALSO
     // verify independently rather than trusting this server's `verified` flag.
@@ -1101,7 +1109,7 @@ class XChainExplorer {
                 return res.status(404).json({ error: 'No checkpoint at this height', code: 'CHECKPOINT_NOT_FOUND' });
             let cp = rows[0];
 
-            // Canonical signing string — byte-identical to the hub engine + ANCHOR verifier.
+            // Canonical signing string, byte-identical to the hub engine + ANCHOR verifier.
             // At/above the EQUIV flag-day (gated on the BTC snapshot_block + network) the v0
             // canonical is wrapped in the uniform header (TAG=XCHECKPOINT, v0 ROUND_ID, VIEW=0).
             let canonRaw = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
@@ -1117,13 +1125,14 @@ class XChainExplorer {
             let quorum     = (qualified.size <= 1) ? 1 : Math.max(2 * Math.floor((qualified.size - 1) / 3) + 1, Math.ceil((qualified.size + 1) / 2));
 
             // Stake-weighted-or-count is gated on the BTC-anchored snapshot_block +
-            // network — the same flag-day the hub/indexer flip on. Below it the count
+            // network, the same flag-day the hub/indexer flip on. Below it the count
             // quorum decides; at/above it the VALID signers' distinct stake sources
             // must clear the source-deduped 3·Σ > 2·S predicate.
             let isWeighted = swq.isStakeWeightedQuorumActive(cp.snapshot_block, cp.network);
 
             let sigs = [];
-            try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ sigs = []; }
+            let sigsParseFailed = false;
+            try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ console.error('processCheckpointVerifyRequest: validator_signatures parse failed for ' + cp.chain + '/' + cp.block_index + ':', e); sigs = []; sigsParseFailed = true; }
             let validSigs = 0, seen = new Set(), validSigners = [];
             for(let s of sigs){
                 let pk  = String(s && s.pubkey || '').toLowerCase();
@@ -1156,7 +1165,8 @@ class XChainExplorer {
                 verified:      verified,
                 // qualified.size === 0 → the oracle_publish snapshot isn't mirrored
                 // here; the sigs may still be valid (clients can verify elsewhere).
-                snapshot_available: qualified.size > 0
+                snapshot_available:      qualified.size > 0,
+                signatures_unparseable:  sigsParseFailed
             });
         } catch (e) {
             console.error('processCheckpointVerifyRequest error:', e);
@@ -1192,7 +1202,7 @@ class XChainExplorer {
                 return res.status(404).json({ error: 'unknown coin', code: 'UNKNOWN_COIN' });
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
-                return res.status(503).json({ error: 'native fee pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
+                return res.status(501).json({ error: 'native fee pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
             if(this.util.isNull(req.query.action))
                 return res.status(400).json({ error: 'action is required', code: 'MISSING_PARAMETER' });
             let connector = new IndexerConnector(url);
@@ -1219,7 +1229,7 @@ class XChainExplorer {
                 return res.status(404).json({ error: 'unknown coin', code: 'UNKNOWN_COIN' });
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
-                return res.status(503).json({ error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
+                return res.status(501).json({ error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
             let connector = new IndexerConnector(url);
             return res.json(await connector.feeschedule());
         } catch(e){
@@ -1251,7 +1261,7 @@ class XChainExplorer {
     // SSRF guard: a dns.lookup-compatible shim handed to axios so the address it
     // is about to connect to is checked against _isPrivateAddress. Rejecting here
     // (rather than re-resolving separately) means there is no gap between the
-    // check and the connection — closing the DNS-name / DNS-rebinding bypass of
+    // check and the connection, closing the DNS-name / DNS-rebinding bypass of
     // the literal hostname blocklist.
     _ssrfSafeLookup(hostname, options, callback){
         if(typeof options === 'function'){ callback = options; options = {}; }
@@ -1305,7 +1315,7 @@ class XChainExplorer {
                 // directly in the URL. A normal domain whose DNS A/AAAA record
                 // points at a private/metadata address (or rebinds between checks)
                 // would sail past it, so also validate the address axios actually
-                // connects to via a custom lookup — no separate re-resolution, so
+                // connects to via a custom lookup; no separate re-resolution, so
                 // no TOCTOU window.
                 const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
                                lookup: this._ssrfSafeLookup.bind(this) };

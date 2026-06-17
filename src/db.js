@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -51,6 +51,7 @@ class Database {
         this.actionTables = [
             'addresses',
             'airdrops',
+            'anchor_actions',
             'batches',
             'broadcasts',
             'callbacks',
@@ -62,6 +63,7 @@ class Database {
             'dispenses',
             'dividends',
             'files',
+            'full_node_verifications',
             'issues',
             'links',
             'lists',
@@ -138,13 +140,13 @@ class Database {
         // otherwise a DEDICATED per-coin pool is created (decoderPools below).
         this.decoderDb = {};
         // Per-coin dedicated decoder-DB pools, created when the decoder DB does
-        // NOT share credentials with the indexer DB — the norm on xchain-node
+        // NOT share credentials with the indexer DB (the norm on xchain-node
         // installs, which provision per-service DB users. Same-credentials
         // deployments make no entry here and reuse the indexer pool.
         this.decoderPools = {};
         // Per-coin checkpoint-source database (optional). Where the local indexer
         // DB carries no hub-mirror tables (single-server explorers reading synced
-        // replicas — xchain-sync excludes state_checkpoints/capability_snapshots),
+        // replicas (xchain-sync excludes state_checkpoints/capability_snapshots),
         // a per-network `checkpoint` config block can point at the hub DB on the
         // same server. Like decoderDb, it is honored only when it shares
         // server + credentials with the indexer pool, and is read with a
@@ -153,7 +155,7 @@ class Database {
         this.checkpointDb = {};
         // Per-key base chain name (RBTC → 'BTC'), used by the project-registry
         // queries to honor only same-chain LINKs (LINK skips owner validation
-        // when COIN2 is remote — see protocol/Project_Registry.md).
+        // when COIN2 is remote; see protocol/Project_Registry.md).
         this.baseCoin = {};
         // Define list of acceptable networks
         let networks = ['mainnet', 'testnet', 'regtest'];
@@ -172,7 +174,7 @@ class Database {
                         let key  = coin;
                         if(net=='testnet') key = 'T' + coin;
                         if(net=='regtest') key = 'R' + coin;
-                        // Record the base chain name for this key (RBTC → BTC) —
+                        // Record the base chain name for this key (RBTC -> BTC):
                         // LINK/LIST rows store the bare chain name in index_coins
                         this.baseCoin[key] = coin;
                         if (("db_host" in cfg) && ("db_port" in cfg)){
@@ -198,7 +200,7 @@ class Database {
                             // A MariaDB pool is bound to one default database (`database:` above)
                             // and the explorer issues unqualified queries (e.g. `FROM blocks`)
                             // that run against it. The old code shared a pool across entries with
-                            // the same host/port/user/pass but DIFFERENT databases — so when every
+                            // the same host/port/user/pass but DIFFERENT databases, so when every
                             // coin used one MariaDB user (e.g. the single-server NO_HUB deployment
                             // reading synced DBs) all 9 collapsed onto the first pool and every
                             // coin served the first database's data (BTC). Including the database
@@ -242,7 +244,7 @@ class Database {
                                             user:             dcfg.user,
                                             password:         dcfg.pass,
                                             database:         dcfg.name,
-                                            // Small pool — decoder reads are low-volume
+                                            // Small pool: decoder reads are low-volume
                                             // (status tip, mempool page, raw FILE bytes).
                                             connectionLimit:  3,
                                             insertIdAsNumber: true,
@@ -253,7 +255,7 @@ class Database {
                             }
 
                             // Record the checkpoint-source DB name for this coin (see
-                            // the checkpointDb note above) — same same-server/same-creds
+                            // the checkpointDb note above); same same-server/same-creds
                             // rule as decoderDb, read by reusing this indexer pool.
                             let kcfg = info[net].database.checkpoint;
                             if(kcfg && !this.util.isNull(kcfg.name)){
@@ -462,7 +464,7 @@ class Database {
     async doQuery(config, query, args, poolOverride = null){
         let result = false;
         if(this.util.isNull(query)) return result;
-        // Get connection from pool directly (local scope — no shared state)
+        // Get connection from pool directly (local scope, no shared state)
         let pool = poolOverride || ((this.pools[config.coin]) ? this.pools[config.coin].pool : null);
         if(!pool){
             console.log('Unable to get database connection pool');
@@ -491,7 +493,7 @@ class Database {
             result = await db.query(query, args);
         } catch (error){
             if(process.env.DEBUG) console.log('SQL Query Error:', error);
-            else console.log('SQL query failed');
+            else console.error('SQL query failed:', error.message, error.stack);
         } finally {
             db.release();
         }
@@ -507,7 +509,7 @@ class Database {
         let method = config.data.method;
         // Contract custody lives in the standard `balances` table keyed by the
         // contract's derived address C:<CHAIN>:<action_index> (the legacy
-        // contract_balances table was removed) — filter by that address like a
+        // contract_balances table was removed), so filter by that address like a
         // normal balance lookup. Early-return so the type=='contract' branch
         // below doesn't append a contract_index clause balances has no column for.
         if(method=='getContractBalance')
@@ -525,14 +527,20 @@ class Database {
             sql = `cs.id IS NOT NULL`;
         if(['getMarket','getMarkets'].includes(method))
             sql = `m.id IS NOT NULL`;
-        // slash_events has no action_index — its PK is m.id
+        // slash_events has no action_index; its PK is m.id
         if(method=='getSlashEvents')
             sql = `m.id IS NOT NULL`;
-        // price_snapshots is a materialized consensus-round table — no action_index, its PK is m.id
+        // capability_slash_events has no action_index of its own; its PK is m.id
+        if(method=='getCapabilitySlashEvents')
+            sql = `m.id IS NOT NULL`;
+        // price_snapshots is a materialized consensus-round table with no action_index; its PK is m.id
         if(method=='getPriceSnapshots')
             sql = `m.id IS NOT NULL`;
-        // cross_chain_matches is a standalone mirror of the hub's match table — no action_index, its PK is m.id
+        // cross_chain_matches is a standalone mirror of the hub's match table with no action_index; its PK is m.id
         if(method=='getCrossChainMatches')
+            sql = `m.id IS NOT NULL`;
+        // oracle_prices is the hub-mirrored user-published oracle row table; no action_index, keyed by m.id
+        if(method=='getOraclePrices')
             sql = `m.id IS NOT NULL`;
         // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
@@ -561,11 +569,11 @@ class Database {
         } else if(method=='getTokens' && ['token','subtoken'].includes(type)){
             sql += ' AND t3.tick LIKE ?';
         // NFT-pattern tokens (NFT_Standard.md#classification-rule-for-clients):
-        // indivisible + permanently capped. Fixed predicate — no bind arg.
+        // indivisible + permanently capped. Fixed predicate, no bind arg.
         } else if(method=='getTokens' && type=='nft'){
             sql += ' AND m.decimals=0 AND m.lock_max_supply=1';
         } else if(method=='getSlashEvents'){
-            // slash_events has no actions/transactions chain — join directly via m.block_index
+            // slash_events has no actions/transactions chain; join directly via m.block_index
             // and resolve type=address through the staker's pubkey (signing_pubkey_id).
             if(type=='block')    sql += ' AND m.block_index=?';
             if(type=='contract') sql += ' AND m.target_contract_index=?';
@@ -573,13 +581,32 @@ class Database {
                 SELECT DISTINCT signing_pubkey_id FROM contract_stakes
                 WHERE source_id = (SELECT id FROM index_addresses WHERE address=?)
             )`;
+        } else if(method=='getCapabilitySlashEvents'){
+            // capability_slash_events joins blocks directly; filter by block, capability engine, or pubkey.
+            if(type=='block')      sql += ' AND m.block_index=?';
+            if(type=='capability') sql += ' AND m.capability=?';
+            if(type=='pubkey')     sql += ' AND pk.pubkey=?';
+            if(type=='address')    sql += ' AND sub.address=?';
+        } else if(method=='getFullNodeVerifications'){
+            // full_node_verifications joins the actions/transactions/blocks chain via
+            // m.action_index (one row per verified validator). Filter on the verdict's own
+            // block (m.block_index), the challenge epoch (m.epoch_height), the verified
+            // signing pubkey (pk), or the staking source address (a3, joined on m.source_id).
+            if(type=='block')   sql += ' AND m.block_index=?';
+            if(type=='epoch')   sql += ' AND m.epoch_height=?';
+            if(type=='pubkey')  sql += ' AND pk.pubkey=?';
+            if(type=='address') sql += ' AND a3.address=?';
         } else if(method=='getPriceSnapshots'){
-            // price_snapshots is a standalone table — filter on its own columns directly
+            // price_snapshots is a standalone table; filter on its own columns directly
             if(type=='pair')   sql += ' AND m.coin_pair=?';
             if(type=='round')  sql += ' AND m.round_number=?';
             if(type=='status') sql += ' AND m.status=?';
+        } else if(method=='getOraclePrices'){
+            // oracle_prices is a standalone hub-mirror table; filter on its own columns
+            if(type=='token')   sql += ' AND m.tick=?';
+            if(type=='address') sql += ' AND m.source_address=?';
         } else if(['getCrossChainMatches','getCrossChainSettlements'].includes(method)){
-            // standalone mirror tables (no actions/transactions chain) — filter on
+            // standalone mirror tables (no actions/transactions chain); filter on
             // their own columns directly. matches carry snapshot_block (the
             // BTC-anchored quorum block); settlements carry the local block_index.
             if(type=='match')  sql += ' AND m.match_id=?';
@@ -615,7 +642,7 @@ class Database {
                 if(['getContractStakes','getContractUnstakes','getContractDelegations','getSlashEvents'].includes(method))
                     sql += ' AND m.target_contract_index=?';
                 else if(method=='getContract')
-                    // The contracts table has no contract_index column — it is keyed by action_index.
+                    // The contracts table has no contract_index column; it is keyed by action_index.
                     sql += ' AND m.action_index=?';
                 else if(method=='getContractState')
                     // contract_index filter is applied inside the latest-per-key subquery; no outer clause/arg.
@@ -655,13 +682,17 @@ class Database {
         if(method=='getBlocks')
             stop = false;
         if(action && start !== false){
-            // Set field name to use for offset (hardcoded whitelist — never from user input)
+            // Set field name to use for offset (hardcoded whitelist, never from user input)
             let field = 'm.action_index';
             if(method=='getBlocks')
                 field = 'b1.block_index';
             if(method=='getTokens')
                 field = 'm.id';
             if(method=='getSlashEvents')
+                field = 'm.id';
+            if(method=='getCapabilitySlashEvents')
+                field = 'm.id';
+            if(method=='getOraclePrices')
                 field = 'm.id';
             // Build out the Offset SQL using parameterized values
             if(action=='prev'){
@@ -706,7 +737,7 @@ class Database {
         // Bail out in certain instances
         if(['getBalances','getHolders','getTransaction','getSearch','getMarkets','getMarket'].includes(method))
             return [];
-        // Bail out if we are doing a token, subtoken or nft search — these paginate
+        // Bail out if we are doing a token, subtoken or nft search; these paginate
         // by fetch-and-slice (no action_index offsets)
         if(method=='getTokens' && ['token','subtoken','nft'].includes(type))
             return [];
@@ -2143,6 +2174,7 @@ class Database {
                         m.expiration,
                         m.allow_list,
                         m.block_list,
+                        m.payout_legs,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -2611,6 +2643,7 @@ class Database {
                         m.expiration,
                         m.allow_list,
                         m.block_list,
+                        m.payout_legs,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -2888,7 +2921,7 @@ class Database {
                 args = [this.util.escapeLike(config.data.search) + '.%'];
         }
         // NFT-pattern filter is a fixed predicate (decimals=0 + lock_max_supply=1)
-        // with no search placeholder — keep the default m.id ordering (newest first)
+        // with no search placeholder; keep the default m.id ordering (newest first)
         if(type=='nft')
             args = [];
         let count = `SELECT
@@ -3466,12 +3499,14 @@ class Database {
                         b1.block_time as timestamp,
                         t1.hash as ledger_hash,
                         t2.hash as actions_hash,
-                        t3.hash as contract_hash
+                        t3.hash as contract_hash,
+                        t4.hash as state_hash
                     FROM
                         blocks b1
                         LEFT  JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=b1.actions_hash_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=b1.contract_hash_id)
+                        LEFT  JOIN index_transactions t4 ON (t4.id=b1.state_hash_id)
                     WHERE ` + sql.where.data + `
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
@@ -3637,10 +3672,10 @@ class Database {
 
     // Get list of mempool transactions
     //
-    // /{COIN}/api/mempool/{QUERY}/{TYPE} — unconfirmed actions read from the
+    // /{COIN}/api/mempool/{QUERY}/{TYPE}: unconfirmed actions read from the
     // colocated decoder DB (see getDecoderMempoolRows). Rows are PRE-VALIDATION
     // (the indexer can still reject them at confirmation), carry no destination
-    // column, and the full decoded action string ships in `data` — clients with
+    // column, and the full decoded action string ships in `data`; clients with
     // format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
     // Filtering is a best-effort prefilter done in JS (the data column is hex in
     // SQL): TYPE=address matches the source OR any exact pipe-segment of the
@@ -3689,13 +3724,13 @@ class Database {
         // Live fee tiers from this coin's encoder (estimatesmartfee), cached.
         let fee = await this.getFeeEstimate(config);
         // Live USD price from the xchain-hub oracle (mainnet coins only; null for
-        // testnet/regtest or when no oracle price is available — see getCoinPriceUsd()).
+        // testnet/regtest or when no oracle price is available (see getCoinPriceUsd()).
         let coinPriceUsd = await this.getCoinPriceUsd(config);
 
         let data = {
             // Per-action-type record counts (real; populated below).
             totals : {},
-            // Network information — block/time are the real indexer tip for this coin.
+            // Network information: block/time are the real indexer tip for this coin.
             network: {
                 block : block,
                 time  : blockTime,
@@ -3710,7 +3745,7 @@ class Database {
             // Coin identity is REAL (from the per-coin chain config). usd price is
             // REAL for mainnet coins (from the xchain-hub oracle); testnet/regtest
             // keep the $0.00 placeholder (no market). price.btc stays the identity
-            // 1.0 (coin priced in itself) — a coin/BTC cross is future work.
+            // 1.0 (coin priced in itself); a coin/BTC cross is future work.
             coin: {
                 name: coinName,
                 symbol: coinTick,
@@ -3719,7 +3754,7 @@ class Database {
                     usd: coinPriceUsd != null ? coinPriceUsd : '0.00'
                 }
             },
-            // XChain token info — price is a PLACEHOLDER pending XCHAIN issuance + a
+            // XChain token info: price is a PLACEHOLDER pending XCHAIN issuance + a
             // market (it must be DEX-derived, not an external feed).
             xchain: {
                 name: 'XChain',
@@ -3731,7 +3766,7 @@ class Database {
             },
             // Same-chain finality guidance (display/UX only). The indexer processes
             // actions at the chain tip, so this is a recommended "treat a receipt as
-            // final after N confirmations" value per chain — not a gate. Mirrors the
+            // final after N confirmations" value per chain, not a gate. Mirrors the
             // hub's per-chain cross-chain confirmation thresholds and honors the same
             // XCHAIN_CONFIRMATIONS_<COIN> overrides so display stays consistent.
             finality: {
@@ -3764,7 +3799,7 @@ class Database {
         // config (in memory + on disk) and serves it even when the hub is unreachable, so a
         // climbing age here is the only signal that the served hub-derived config is stale.
         // null until the first successful fetch. getHubConfigFetchedAt may be absent against
-        // an older config module — guard so /status never throws on the lookup.
+        // an older config module; guard so /status never throws on the lookup.
         let hubFetchedAtMs = (typeof this.configInfo.getHubConfigFetchedAt === 'function')
                                 ? this.configInfo.getHubConfigFetchedAt()
                                 : null;
@@ -3778,7 +3813,7 @@ class Database {
             // Decoder-tip reference and indexer lag per coin. decoder_tip is the
             // decoder's highest *processed* block; decoder_lag_blocks is
             // decoder_tip - last_block, i.e. how far the indexer trails the decoder.
-            // This is the indexer->decoder slice of the pipeline ONLY — it is NOT a
+            // This is the indexer->decoder slice of the pipeline ONLY, not a
             // whole-pipeline health signal. The coin node's actual chain tip is not
             // visible here: the explorer reads only the indexer/decoder DBs and never
             // talks to a coin node, so a decoder that has fallen behind the chain node
@@ -3800,14 +3835,14 @@ class Database {
                 // Decoder tip (decoder's highest processed block) and the gap to the
                 // indexer. decoder_tip can be null when the decoder DB is
                 // unreachable/unknown; decoder_lag_blocks is then null too. Clamp to
-                // >= 0 — the indexer reads from the decoder so it can never lead the
+                // >= 0: the indexer reads from the decoder so it can never lead the
                 // decoder's tip.
                 let decoderTip = await this.getDecoderTip({ coin, data: {} });
                 data.decoder_tip[coin]        = decoderTip;
                 data.decoder_lag_blocks[coin] = (decoderTip === null) ? null : Math.max(0, decoderTip - data.last_block[coin]);
             }
         }
-        // Chain→decoder visibility — the slice the DB-derived fields above can't
+        // Chain->decoder visibility: the slice the DB-derived fields above can't
         // see (the explorer never talks to a coin node, so a decoder stalled far
         // behind the chain still shows decoder_lag_blocks=0 once the indexer
         // catches up to its tip). Best-effort per coin via the decoder's own
@@ -3984,7 +4019,7 @@ class Database {
             }
             // Expose the token's own decimals (the grouping loop above skips every
             // *decimals* column so callback_decimals doesn't leak into info).
-            // Clients need it for NFT-pattern classification — NFT_Standard.md:
+            // Clients need it for NFT-pattern classification (NFT_Standard.md:
             // DECIMALS=0 AND LOCK_MAX_SUPPLY=1 (the lock is already in locks.max_supply).
             data.info.decimals   = Number(row.decimals);
             data.supply.decimals = Number(row.decimals);
@@ -4126,7 +4161,7 @@ class Database {
             let debits  = true;
             let escrows = true;
             // Set credits/debits/escrow flags to false in certain cases
-            if(['ADDRESS','BROADCAST','XCALL'].includes(type))
+            if(['ADDRESS','BROADCAST','XCALL','NODEPROOF'].includes(type))
                 credits = debits = escrows = false;
             // ADDRESS action
             if(type=='ADDRESS'){
@@ -5491,7 +5526,7 @@ class Database {
                         ORDER BY
                             t1.tick ASC`;
             }
-            // ATTEST action (v0 request / v1 response — both rows live in `attests`,
+            // ATTEST action (v0 request / v1 response; both rows live in `attests`,
             // distinguished by `version`; verified federation sigs ride in the
             // validator_signatures JSON column on v1 rows)
             if(type=='ATTEST'){
@@ -5508,6 +5543,8 @@ class Database {
                             m.redundancy,
                             m.deadline_block,
                             m.gas_escrow,
+                            m.fee_amount,
+                            ft.tick as fee_tick,
                             m.request_status,
                             m.response_hash,
                             m.response_status,
@@ -5531,6 +5568,7 @@ class Database {
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
+                            LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         WHERE
@@ -5609,7 +5647,9 @@ class Database {
                             a1.action_index=?
                         LIMIT 1`;
             }
-            // DELEGATE action (v0/v2 capability → delegations; v1/v3 contract-targeted → contract_delegations)
+            // DELEGATE action (v0/v2 capability -> delegations; v1/v3 contract-targeted -> contract_delegations).
+            // A DELEGATE may also write a stake_key_revocations row (revocation variant);
+            // revoked_pubkey and deactivation_block are NULL when no revocation occurred.
             if(type=='DELEGATE'){
                 query = `SELECT
                             a2.action,
@@ -5625,7 +5665,9 @@ class Database {
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
                             t1.tx_index,
-                            COALESCE(ds.status, cds.status) as status
+                            COALESCE(ds.status, cds.status) as status,
+                            pk3.pubkey as revoked_pubkey,
+                            skr.deactivation_block as revocation_deactivation_block
                         FROM
                             actions a1
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
@@ -5640,6 +5682,8 @@ class Database {
                             LEFT  JOIN index_pubkeys      pk2 ON (pk2.id=cd.signing_pubkey_id)
                             LEFT  JOIN index_tickers      tk ON (tk.id=cd.tick_id)
                             LEFT  JOIN index_statuses     cds ON (cds.id=cd.status_id)
+                            LEFT  JOIN stake_key_revocations skr ON (skr.action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk3 ON (pk3.id=skr.signing_pubkey_id)
                         WHERE
                             a1.action_index=?
                         LIMIT 1`;
@@ -5904,6 +5948,76 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
+            // NODEPROOF action (full-node possession-proof verdict v0). The verdict is a
+            // single quorum-signed action that writes one full_node_verifications row per
+            // PASS pubkey, all sharing this action_index; so challenge_id/epoch_height/
+            // target_height are verdict-level constants (pulled here from any one row) and
+            // the per-validator PASS list is attached as `verifications` below.
+            if(type=='NODEPROOF'){
+                query = `SELECT
+                            a4.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.challenge_id,
+                            m.epoch_height,
+                            m.target_height,
+                            a2.address as source,
+                            m.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index
+                        FROM
+                            full_node_verifications m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // ANCHOR action (DOGE-only; v0 = checkpoint, v1 = checkpoint+archive, v2 = continuation chunk).
+            // archive_b64 is intentionally omitted (large; only the recovery assembler needs it).
+            if(type=='ANCHOR'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.version,
+                            m.chain,
+                            m.network,
+                            m.block_index,
+                            m.block_hash,
+                            m.ledger_hash,
+                            m.actions_hash,
+                            m.contract_hash,
+                            m.checkpoint_seq,
+                            m.snapshot_block,
+                            m.match_batch_seq,
+                            m.match_count,
+                            m.batch_crc32,
+                            m.total_chunks,
+                            m.chunk_index,
+                            m.validator_signatures,
+                            m.block_index_doge,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            s1.status
+                        FROM
+                            anchor_actions m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
             // Run the SQL query to get the information on the action_index
             if(query){
                 results = await this.doQuery(config, query, args);
@@ -5932,7 +6046,7 @@ class Database {
             if(type=='ATTEST'){
                 if(data['validator_signatures']){
                     try { data['signatures'] = JSON.parse(data['validator_signatures']); }
-                    catch(_) { data['signatures'] = []; }
+                    catch(_) { console.warn('getActionData: ATTEST validator_signatures parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
                 } else {
                     data['signatures'] = [];
                 }
@@ -5943,11 +6057,11 @@ class Database {
             if(type=='PRICE'){
                 if(data['pairs_json']){
                     try { data['pairs'] = JSON.parse(data['pairs_json']); }
-                    catch(_) { data['pairs'] = []; }
+                    catch(_) { console.warn('getActionData: PRICE pairs_json parse failed for action_index=' + action_index + ':', _); data['pairs'] = []; }
                 }
                 if(data['sigs_json']){
                     try { data['signatures'] = JSON.parse(data['sigs_json']); }
-                    catch(_) { data['signatures'] = []; }
+                    catch(_) { console.warn('getActionData: PRICE sigs_json parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
                 }
                 delete data['pairs_json'];
                 delete data['sigs_json'];
@@ -5972,13 +6086,32 @@ class Database {
             // EXECUTE: attach the actions this contract call emitted (emit.execute / emit.send /
             // internal SLASH etc.), ordered by emission position. Children link by action_index
             // (NULL for internal emissions that move ledger state without minting an on-wire
-            // action, e.g. SLASH). Browsing children needs contract_emissions — actions.source_id
+            // action, e.g. SLASH). Browsing children needs contract_emissions (actions.source_id
             // is the emitting contract address, not a parent→child pointer.
             if(type=='EXECUTE'){
                 let emits = await this.doQuery(config,
                     `SELECT position, emitted_action, action_index
                      FROM contract_emissions WHERE execution_index=? ORDER BY position ASC`, [action_index]);
                 data['emissions'] = (emits && emits.length) ? emits : [];
+            }
+            // NODEPROOF: attach the per-validator PASS list this verdict recorded. One row
+            // per verified full node (sharing this action_index), each carrying the verified
+            // signing pubkey and its staking source address (index_pubkeys / index_addresses).
+            if(type=='NODEPROOF'){
+                let verifs = await this.doQuery(config,
+                    `SELECT
+                            m.signing_pubkey_id,
+                            pk.pubkey as signing_pubkey,
+                            m.source_id,
+                            a3.address as staking_source,
+                            m.passed,
+                            m.block_index
+                     FROM full_node_verifications m
+                        LEFT JOIN index_pubkeys   pk ON (pk.id=m.signing_pubkey_id)
+                        LEFT JOIN index_addresses a3 ON (a3.id=m.source_id)
+                     WHERE m.action_index=?
+                     ORDER BY m.id ASC`, [action_index]);
+                data['verifications'] = (verifs && verifs.length) ? verifs : [];
             }
             // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
@@ -6965,7 +7098,7 @@ class Database {
     // is the indexer's own position; the decoder DB's MAX(block_index) is the
     // decoder's position. Comparing the two yields the indexer->decoder lag, which
     // is what lets /api/status distinguish a stalled indexer from a healthy one.
-    // NOTE: this is NOT the coin node's chain tip — the explorer never talks to a
+    // NOTE: this is NOT the coin node's chain tip; the explorer never talks to a
     // coin node, so a decoder lagging the chain node is invisible here; that gap is
     // surfaced by the decoder's own health() JSON-RPC. Reuses the indexer connection
     // pool via a database-qualified query (the decoder DB is on the same server) and
@@ -6984,7 +7117,7 @@ class Database {
             if (results && results.length && results[0].max_index !== null)
                 return Number(results[0].max_index);
         } catch(e){
-            // Decoder DB unreachable, missing, or no cross-DB grant — omit the tip.
+            // Decoder DB unreachable, missing, or no cross-DB grant: omit the tip.
             console.warn('getDecoderTip: decoder tip unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
         }
         return null;
@@ -6999,7 +7132,7 @@ class Database {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return 0;
         // dbName is config-derived, not client input, but database identifiers
-        // can't be bound — restrict to a safe identifier charset before use.
+        // can't be bound; restrict to a safe identifier charset before use.
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return 0;
         try {
             let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions';
@@ -7007,7 +7140,7 @@ class Database {
             if (results && results.length && results[0].count !== null)
                 return Number(results[0].count);
         } catch(e){
-            // Decoder DB unreachable, missing table, or no cross-DB grant — report 0.
+            // Decoder DB unreachable, missing table, or no cross-DB grant: report 0.
             console.warn('getDecoderMempoolCount: mempool count unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
         }
         return 0;
@@ -7018,7 +7151,7 @@ class Database {
     // keeps separate index_transactions/index_addresses from the indexer DB).
     // Rows are PRE-VALIDATION: the decoder writes whatever parses out of a mempool
     // tx; the indexer may still reject it at confirmation time. destination_id is
-    // never populated by the decoder — destinations live inside the decoded action
+    // never populated by the decoder; destinations live inside the decoded action
     // string (`data`), which callers parse. Same access pattern + safety rules as
     // getDecoderMempoolCount. Returns [] when the decoder DB isn't reachable.
     async getDecoderMempoolRows(config, limit) {
@@ -7118,7 +7251,7 @@ class Database {
         if(!hubUrl) return null;
         // Resolve the base mainnet symbol. The oracle only prices the real asset,
         // so a request is eligible only when its route code IS the base symbol
-        // (mainnet) — 'BTC' === 'BTC'. Testnet/regtest codes ('TBTC','RDOGE') differ.
+        // (mainnet): 'BTC' === 'BTC'. Testnet/regtest codes ('TBTC','RDOGE') differ.
         let code = String(config.coin);
         let sym = null;
         try {
@@ -7180,7 +7313,7 @@ class Database {
     }
 
     // Raw bytes + declared MIME type for a non-gated FILE action. The indexer DB
-    // stores only FILE metadata (files table) — the bytes live in the colocated
+    // stores only FILE metadata (files table); the bytes live in the colocated
     // decoder DB's transactions.raw_data, read with the same DB-qualified pattern
     // and identifier guard as getDecoderTip. The decoder row is matched by tx HASH
     // (each DB numbers tx_index/tx_hash_id independently, so ids can't be joined
@@ -7206,7 +7339,7 @@ class Database {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return null;
         // dbName is config-derived, not client input, but database identifiers
-        // can't be bound — restrict to a safe identifier charset before use
+        // can't be bound; restrict to a safe identifier charset before use
         // (same rule as getDecoderTip).
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return null;
         try {
@@ -7217,7 +7350,7 @@ class Database {
             if(results && results.length && !this.util.isNull(results[0].raw_data))
                 return { raw_data: results[0].raw_data, type: rows[0].type };
         } catch(e){
-            // Decoder DB unreachable, missing, or no cross-DB grant — omit the bytes.
+            // Decoder DB unreachable, missing, or no cross-DB grant: omit the bytes.
             console.warn('getFileRaw: decoder raw_data unavailable for ' + config.coin + ' action ' + actionIndex + ': ' + (e && e.message ? e.message : e));
         }
         return null;
@@ -7231,7 +7364,7 @@ class Database {
      * valid ISSUE actions, with BOTH sides on the local chain (LINK
      * skips owner validation when COIN2 is remote, so cross-chain
      * roster links carry no authority). Authority comes from LINK's
-     * owner validation at processing time — display only needs
+     * owner validation at processing time; display only needs
      * status='valid' rows.
      ******************************************************************/
 
@@ -7326,17 +7459,25 @@ class Database {
     // [{ action_class, contract_index, cooldown_blocks, is_unbind, bind_block }].
     async _resolveControllerBindings(config, table, keyColumn, keyValue){
         if(this.util.isNull(keyValue)) return [];
+        // token_controllers carries bound_by_id (the token owner who signed the event);
+        // address_controllers has no such column so bound_by is NULL for address-scoped bindings.
+        let boundBySelect = (table === 'token_controllers')
+            ? `,\n                        signer.address AS bound_by`
+            : `,\n                        NULL AS bound_by`;
+        let boundByJoin = (table === 'token_controllers')
+            ? `\n                    LEFT JOIN index_addresses signer ON (signer.id=c.bound_by_id)`
+            : '';
         let query = `SELECT
-                        action_class,
-                        action_index,
-                        contract_index,
-                        is_unbind,
-                        cooldown_blocks,
-                        cooldown_end_block,
-                        block_index
-                    FROM ${table}
-                    WHERE ${keyColumn}=?
-                    ORDER BY action_index ASC`;
+                        c.action_class,
+                        c.action_index,
+                        c.contract_index,
+                        c.is_unbind,
+                        c.cooldown_blocks,
+                        c.cooldown_end_block,
+                        c.block_index` + boundBySelect + `
+                    FROM ${table} c` + boundByJoin + `
+                    WHERE c.${keyColumn}=?
+                    ORDER BY c.action_index ASC`;
         let rows = await this.doQuery(config, query, [keyValue]);
         if(!rows || !rows.length) return [];
         // Latest event per action_class wins (rows are action_index ASC, so the
@@ -7359,7 +7500,8 @@ class Database {
                 contract_index: Number(row.contract_index),
                 cooldown_blocks: Number(row.cooldown_blocks),
                 is_unbind:      Number(row.is_unbind),
-                bind_block:     Number(row.block_index)
+                bind_block:     Number(row.block_index),
+                bound_by:       row.bound_by || null
             });
         }
         return bindings;
@@ -7377,7 +7519,7 @@ class Database {
         return this._resolveControllerBindings(config, 'address_controllers', 'address_id', address_id);
     }
 
-    // Project detail (API endpoint) — project tick + roster metadata + member
+    // Project detail (API endpoint): project tick + roster metadata + member
     // tokens. Members are capped at 1000 per response; `total` always carries
     // the full roster size.
     async getProject(config){
@@ -7419,7 +7561,7 @@ class Database {
     }
 
     // SQL-builder for the explorer roster datatable (token-page "Official
-    // Tokens" tab) — member tokens of the project's current roster, shaped
+    // Tokens" tab): member tokens of the project's current roster, shaped
     // exactly like getTokens rows.
     async getProjectTokens(config){
         let sql  = config.data.sql;
@@ -7470,10 +7612,10 @@ class Database {
     }
 
     // Resolve the checkpoint-table source for a coin: a configured same-server
-    // checkpoint DB (database-qualified + chain/network-filtered — the hub table
+    // checkpoint DB (database-qualified + chain/network-filtered; the hub table
     // carries every chain) or the local indexer DB's hub_db_sync mirror (already
     // single-chain, no filter). dbName is config-derived, not client input, but
-    // database identifiers can't be bound — restrict to a safe identifier charset
+    // database identifiers can't be bound; restrict to a safe identifier charset
     // before use (same rule as the decoderDb readers above).
     _checkpointSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
@@ -7493,7 +7635,7 @@ class Database {
     // read matches from it instead so the endpoint serves live, retraction-aware rows. The
     // hub table carries every chain AND network, so a network filter is required (the local
     // mirror is implicitly single-network and needs none). dbName is config-derived, not
-    // client input, but database identifiers can't be bound — restrict to a safe identifier
+    // client input, but database identifiers can't be bound; restrict to a safe identifier
     // charset before use (same rule as _checkpointSource / the decoderDb readers).
     _matchSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
@@ -7505,7 +7647,7 @@ class Database {
     }
 
     // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from
-    // the mariadb driver as BigInt, which res.json() cannot serialize — coerce
+    // the mariadb driver as BigInt, which res.json() cannot serialize; coerce
     // them to Number (chain heights are far below MAX_SAFE_INTEGER).
     _normalizeCheckpointRows(rows){
         return (rows || []).map(r => ({
@@ -7542,7 +7684,7 @@ class Database {
         return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...src.filterParams, Number(limit) || 10]));
     }
 
-    // Hub-mirrored qualifying validator set for a capability at a snapshot block —
+    // Hub-mirrored qualifying validator set for a capability at a snapshot block;
     // what checkpoint signatures verify against (presence = qualified).
     // capability_snapshots is chain-agnostic (keyed by capability + BTC snapshot
     // block), so the configured checkpoint DB needs no chain/network filter here.
@@ -7550,7 +7692,7 @@ class Database {
         let src = this._checkpointSource(config);
         // `source` carries the stake-weight grouping key (the staking source a
         // signing key delegates from); `amount` is that key's stake weight. Both
-        // are needed for stake-weighted quorum at/above the activation flag-day —
+        // are needed for stake-weighted quorum at/above the activation flag-day;
         // below it `source` is the empty string and only the count matters.
         let query = `SELECT signing_pubkey, amount, source FROM ${src.capTable}
                      WHERE capability = ? AND snapshot_block = ?`;
@@ -7564,6 +7706,7 @@ class Database {
                         b1.block_time,
                         t1.hash as block_hash,
                         t3.hash as contract_hash,
+                        t4.hash as state_hash,
                         (SELECT COUNT(*) FROM transactions t WHERE t.block_index=b1.block_index) as tx_count,
                         (SELECT COUNT(*) FROM actions a
                             INNER JOIN transactions t ON t.tx_index=a.tx_index
@@ -7572,6 +7715,7 @@ class Database {
                         blocks b1
                         LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
                         LEFT JOIN index_transactions t3 ON (t3.id=b1.contract_hash_id)
+                        LEFT JOIN index_transactions t4 ON (t4.id=b1.state_hash_id)
                     WHERE
                         b1.block_index > ?
                     ORDER BY b1.block_index ASC
@@ -7584,12 +7728,12 @@ class Database {
     async getActionsSince(config, sinceActionIndex, limit) {
         // NOTE: the generic `actions` table carries no status_id (status lives on
         // the per-ACTION-type tables, e.g. issues/sends/mints, joined as m.status_id
-        // elsewhere) and no status column — so this feed reports status as NULL.
+        // elsewhere) and no status column; so this feed reports status as NULL.
         // The earlier `s1.id=a1.status_id` join referenced a non-existent column and
         // made the whole query throw (ER_BAD_FIELD_ERROR), which silently killed the
         // WebSocket NEW_ACTION stream: the ChangeDetector advanced its action pointer
         // but getActionsSince returned [] every poll, so no NEW_ACTION ever fired.
-        // Source is taken from actions.source_id (a1) — the action's true source,
+        // Source is taken from actions.source_id (a1): the action's true source,
         // which for VM-emitted actions differs from the EXECUTE caller on transactions.
         let query = `SELECT
                         a1.action_index,
@@ -7786,7 +7930,7 @@ class Database {
         return [query, null, count];
     }
 
-    // Get single CONTRACT by action_index. Data method (returns [data]) — the
+    // Get single CONTRACT by action_index. Data method (returns [data]): the
     // /api/contract/{idx} route serves a single record, not a datatable (the
     // explorer contract listing uses getContracts). The LEFT JOIN surfaces the
     // contract's permissions manifest (contract_permissions; null when none).
@@ -7904,7 +8048,7 @@ class Database {
         return [query, args, count];
     }
 
-    // Get contract custody balances — custody lives in the standard `balances`
+    // Get contract custody balances; custody lives in the standard `balances`
     // table under the contract's derived address C:<CHAIN>:<action_index>.
     async getContractBalance(config){
         let sql     = config.data.sql;
@@ -8270,7 +8414,7 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of PRICE round snapshots (materialized COIN/FIAT consensus rounds — keyed by id, no action_index)
+    // Get list of PRICE round snapshots (materialized COIN/FIAT consensus rounds, keyed by id, no action_index)
     async getPriceSnapshots(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8299,14 +8443,46 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of hub-mirrored oracle_prices rows (user-published PRICE v1 oracle rows
+    // replicated by hub_db_sync). These are the aggregated hub-effective published-oracle
+    // prices that feed oracle-priced DISPENSERs. type in {token, address}.
+    async getOraclePrices(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        oracle_prices m
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.source_address,
+                        m.source_chain,
+                        m.coin,
+                        m.tick,
+                        m.fiat,
+                        m.value,
+                        m.fee,
+                        m.memo,
+                        m.block_time,
+                        m.effective_at,
+                        m.action_index,
+                        m.created_at
+                    FROM
+                        oracle_prices m
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     // Controller bind/unbind event stream (programmable-policy guards, Controller_Bound_Tokens.md).
     // UNION of BOTH logs: token_controllers (ISSUE-bound, per-tick) + address_controllers
     // (ADDRESS-bound, self-signed). Each is append-only (one immutable row per bind/unbind); the
-    // *effective* gating set is resolved on the token/address detail pages — this list surfaces the
+    // *effective* gating set is resolved on the token/address detail pages; this list surfaces the
     // raw events. status is the literal 'valid': the indexer records a controller event ONLY while
     // applying a valid bind/unbind, and reorg rollback DELETEs the rows (DELETE WHERE action_index >=
     // orphan), so every surviving row is a valid event by construction. (We do NOT join the parent
-    // action table for status — an ADDRESS v1 controller-bind never writes the `addresses` table,
+    // action table for status; an ADDRESS v1 controller-bind never writes the `addresses` table,
     // which is the fee-preference variant, so that join would always be NULL → false 'invalid'.)
     // Like the sibling VM list views (getExecutions/getContracts), this is not in actionTables, so the
     // cursor-offset optimizer no-ops and the list serves the newest page ordered by m.action_index DESC.
@@ -8323,12 +8499,14 @@ class Database {
                 c.is_unbind          AS is_unbind,
                 c.cooldown_blocks    AS cooldown_blocks,
                 c.cooldown_end_block AS cooldown_end_block,
-                'valid'              AS status
+                'valid'              AS status,
+                signer.address       AS bound_by
             FROM token_controllers c
-                INNER JOIN actions        a1 ON (a1.action_index=c.action_index)
-                INNER JOIN transactions   t1 ON (t1.tx_index=a1.tx_index)
-                INNER JOIN blocks         b1 ON (b1.block_index=t1.block_index)
-                LEFT  JOIN index_tickers  tk ON (tk.id=c.tick_id)
+                INNER JOIN actions        a1     ON (a1.action_index=c.action_index)
+                INNER JOIN transactions   t1     ON (t1.tx_index=a1.tx_index)
+                INNER JOIN blocks         b1     ON (b1.block_index=t1.block_index)
+                LEFT  JOIN index_tickers  tk     ON (tk.id=c.tick_id)
+                LEFT  JOIN index_addresses signer ON (signer.id=c.bound_by_id)
             UNION ALL
             SELECT
                 c.action_index       AS action_index,
@@ -8341,7 +8519,8 @@ class Database {
                 c.is_unbind          AS is_unbind,
                 c.cooldown_blocks    AS cooldown_blocks,
                 c.cooldown_end_block AS cooldown_end_block,
-                'valid'              AS status
+                'valid'              AS status,
+                NULL                 AS bound_by
             FROM address_controllers c
                 INNER JOIN actions         a1 ON (a1.action_index=c.action_index)
                 INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
@@ -8365,7 +8544,8 @@ class Database {
                         m.is_unbind,
                         m.cooldown_blocks,
                         m.cooldown_end_block,
-                        m.status
+                        m.status,
+                        m.bound_by
                     FROM ( ` + union + ` ) m
                     WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
@@ -8373,12 +8553,12 @@ class Database {
         return [query, null, count];
     }
 
-    // Chunked DEPLOY carriers (DEPLOY v4) — one base64 code slice per row in deploy_chunks. The
+    // Chunked DEPLOY carriers (DEPLOY v4): one base64 code slice per row in deploy_chunks. The
     // assembler reassembles the VALID chunks of a (source, code_hash) group into the final contract
     // source (DEPLOY.md); the assembled contract itself appears under Contracts. This list surfaces
     // each on-chain carrier (its chunk position + group size + status). code_part (the base64 slice)
-    // is intentionally NOT selected — it is large and only the assembler needs it. Not in actionTables
-    // (sibling of getExecutions) — serves the newest page ordered by m.action_index DESC.
+    // is intentionally NOT selected; it is large and only the assembler needs it. Not in actionTables
+    // (sibling of getExecutions); serves the newest page ordered by m.action_index DESC.
     async getDeployChunks(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8497,7 +8677,61 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of CONTRACT STAKE actions (STAKE v3 — type ∈ {address, block, contract})
+    // Get list of FULL-NODE VERIFICATION records (NODEPROOF v0 possession-proof verdicts).
+    // One row per (epoch, verified validator): the validator answered the derived possession
+    // challenge for `epoch_height` correctly, as recorded by a quorum-signed NODEPROOF verdict.
+    // signing_pubkey resolves the verified full node (index_pubkeys); staking_source resolves
+    // the stake the share dedupes by (index_addresses on m.source_id); source is the verdict
+    // submitter. Like the sibling list views this is ordered newest-first by m.id.
+    async getFullNodeVerifications(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        full_node_verifications m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.challenge_id,
+                        m.epoch_height,
+                        m.target_height,
+                        m.signing_pubkey_id,
+                        pk.pubkey as signing_pubkey,
+                        m.source_id,
+                        a3.address as staking_source,
+                        a2.address as source,
+                        m.passed,
+                        m.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index
+                    FROM
+                        full_node_verifications m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of CONTRACT STAKE actions (STAKE v3, type in {address, block, contract})
     async getContractStakes(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8548,7 +8782,7 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of CONTRACT UNSTAKE actions (UNSTAKE v1 — type ∈ {address, block, contract})
+    // Get list of CONTRACT UNSTAKE actions (UNSTAKE v1, type in {address, block, contract})
     async getContractUnstakes(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8597,8 +8831,8 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of CONTRACT DELEGATION actions (DELEGATE v1/v3 — type ∈ {address, block, contract}).
-    // Mirrors getContractStakes; contract_delegations carries no amount/version — the delegation
+    // Get list of CONTRACT DELEGATION actions (DELEGATE v1/v3, type in {address, block, contract}).
+    // Mirrors getContractStakes; contract_delegations carries no amount/version; the delegation
     // re-points a stake's signing pubkey, with activation/deactivation block bounds.
     async getContractDelegations(config){
         let sql   = config.data.sql;
@@ -8649,7 +8883,7 @@ class Database {
     }
 
     // Get list of cross-chain MATCH records (type ∈ {match, block, status}; block = snapshot_block).
-    // cross_chain_matches is a standalone mirror of the hub's finalized match table — no
+    // cross_chain_matches is a standalone mirror of the hub's finalized match table with no
     // actions/transactions chain, so no joins; ordered by the mirror cursor m.id.
     // validator_signatures (the 2f+1 quorum proof) is included: matches have no separate
     // detail endpoint, and the proof is the point of inspecting one.
@@ -8692,6 +8926,7 @@ class Database {
                         m.status,
                         m.batch_root,
                         m.anchor_txid,
+                        m.finalizing_view,
                         m.created_at
                     FROM
                         ${src.table} m
@@ -8699,7 +8934,7 @@ class Database {
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
         // Non-redirect path: keep args null (baseArgs defaults to [config.data.search],
-        // current behavior). Redirect path: supply explicit args so the network `?` binds —
+        // current behavior). Redirect path: supply explicit args so the network `?` binds;
         // [config.data.search] only when a type filter (match/block/status) added its own `?`.
         let args = null;
         if(src.networkParam !== null){
@@ -8735,7 +8970,7 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of SLASH events (xchain.contract.slash emissions — type ∈ {address, block, contract})
+    // Get list of SLASH events (xchain.contract.slash emissions, type in {address, block, contract})
     // slash_events has no action_index of its own (side-effect of an EXECUTE), so this joins
     // blocks directly via m.block_index and orders by m.id rather than action_index.
     async getSlashEvents(config){
@@ -8771,9 +9006,48 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of capability_slash_events (equivocation bond-burns against consensus validators).
+    // Mirrors getSlashEvents; joins blocks directly via m.block_index.
+    // type in {block, capability, pubkey, address} where address matches the submitter.
+    async getCapabilitySlashEvents(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        capability_slash_events m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_addresses    sub ON (sub.id=m.submitter_id)
+                        LEFT  JOIN index_addresses    dst ON (dst.id=m.destination_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.slash_action_index,
+                        pk.pubkey as slashed_pubkey,
+                        m.capability,
+                        m.equiv_key,
+                        m.amount,
+                        m.bounty_amount,
+                        m.treasury_amount,
+                        sub.address as submitter,
+                        dst.address as destination,
+                        m.block_index,
+                        b1.block_time as timestamp
+                    FROM
+                        capability_slash_events m
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_addresses    sub ON (sub.id=m.submitter_id)
+                        LEFT  JOIN index_addresses    dst ON (dst.id=m.destination_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     // Get list of ATTEST actions from the consolidated `attests` table. Lists both
     // v0 (request) and v1 (response) rows; `version` + request/response status let
-    // the UI tell them apart. type ∈ {address, block, contract}.
+    // the UI tell them apart. type in {address, block, contract}.
     async getAttestations(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8798,6 +9072,9 @@ class Database {
                         m.contract_index,
                         a2.address as source,
                         fp.address as fee_payer,
+                        m.gas_escrow,
+                        m.fee_amount,
+                        ft.tick as fee_tick,
                         m.request_status,
                         m.response_status,
                         m.payload,
@@ -8815,6 +9092,7 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
+                        LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -8824,7 +9102,7 @@ class Database {
         return [query, null, count];
     }
 
-    // List XCALL cross-chain call requests (xcalls table — VM-emitted, read-only).
+    // List XCALL cross-chain call requests (xcalls table, VM-emitted, read-only).
     // Joins the actions/transactions/blocks chain like getAttestations; filter by
     // block / source contract / request_status (see getQueryWhereSql getXcalls branch).
     async getXcalls(config){
@@ -8952,7 +9230,7 @@ class Database {
         return [data];
     }
 
-    // Get new ATTEST rows since a given block_index — feeds the WebSocket
+    // Get new ATTEST rows since a given block_index; feeds the WebSocket
     // attestation channel (ChangeDetector). Returns request + response rows.
     async getAttestationsSince(config, sinceBlockIndex, limit){
         let query = `SELECT
@@ -8984,7 +9262,7 @@ class Database {
         return results || [];
     }
 
-    // Look up a single ATTEST row by action_index — used by the WebSocket
+    // Look up a single ATTEST row by action_index; used by the WebSocket
     // ChangeDetector to enrich a new ATTEST action with its version + status
     // before broadcasting on the attestation channel.
     async getAttestationByActionIndex(config, action_index){

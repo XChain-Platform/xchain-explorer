@@ -39,8 +39,8 @@ dotenv.config();
 //xchain-hub endpoints (multi-instance with fallback)
 const xchainHubConnector = require('./XChainHubConnector');
 const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
-const EXPLORER_API_PORT_HTTP = process.env.EXPLORER_API_PORT_HTTP
-const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS
+const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
+const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
 // Setup the basic API functionality
 async function startApi(){
@@ -85,7 +85,7 @@ async function startApi(){
     // Allow CORS from any origin (public read-only explorer)
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
 
-    // Rate limiting — requests per minute per IP (image requests are excluded;
+    // Rate limiting: requests per minute per IP (image requests are excluded;
     // override the default with EXPLORER_RATE_LIMIT_RPM)
     app.use(rateLimit({
         windowMs:        60 * 1000,
@@ -143,10 +143,10 @@ async function startApi(){
     // the hub after startup get picked up without a container restart.
     // Started only after the explorer instance exists so the database's
     // config-changed listener is registered before the first sync tick can
-    // fire — otherwise an early tick could rebuild config with no subscriber
+    // fire; otherwise an early tick could rebuild config with no subscriber
     // listening and the connection pools would silently miss the update.
     // In standalone mode (NO_HUB=1) HUB_ENDPOINTS is null and config comes from
-    // src/config.json, which doesn't change at runtime — so skip the periodic
+    // src/config.json, which doesn't change at runtime, so skip the periodic
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 

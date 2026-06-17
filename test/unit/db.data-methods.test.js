@@ -39,7 +39,7 @@ const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const mockResults              = require('../fixtures/mock-db-results.js');
 
 // ---------------------------------------------------------------------------
-// Bootstrap — no real MariaDB pool needed
+// Bootstrap (no real MariaDB pool needed)
 // ---------------------------------------------------------------------------
 
 const Database = proxyquire('../../src/db.js', {
@@ -378,7 +378,7 @@ describe('Database#getStatus', () => {
     });
 
     it('excludes coins from last_block/last_block_time when they have no active pool', async () => {
-        // No pools set up — even COIN_AVAILABLE coins are absent from both maps
+        // No pools set up: even COIN_AVAILABLE coins are absent from both maps
         db.pools = {};
         const config = cfg();
         const [data] = await db.getStatus(config);
@@ -486,7 +486,7 @@ describe('Database#getNetwork', () => {
         expect(data.coin.symbol).to.equal('BTC');
     });
 
-    it('does not hardcode Bitcoin — a coin absent from config falls back to its own code', async () => {
+    it('does not hardcode Bitcoin: a coin absent from config falls back to its own code', async () => {
         sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
         sinon.stub(db, 'getMaxBlockIndex').resolves(0);
         sinon.stub(db, 'getMaxBlockTime').resolves(0);
@@ -557,7 +557,7 @@ describe('Database#getFeeEstimate', () => {
         expect(global.fetch.firstCall.args[0]).to.contain('/BTC/');
     });
 
-    it('caches within the TTL — two calls trigger one fetch', async () => {
+    it('caches within the TTL (two calls trigger one fetch)', async () => {
         process.env.ENCODER_URL = 'https://encoder.example';
         global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { low: 1, medium: 1, high: 1 } }) });
         await db.getFeeEstimate(cfg());
@@ -611,7 +611,7 @@ describe('Database#getCoinPriceUsd', () => {
         expect(global.fetch.called).to.equal(false);
     });
 
-    it('caches within the TTL — two calls trigger one fetch', async () => {
+    it('caches within the TTL (two calls trigger one fetch)', async () => {
         process.env.HUB_URL = 'http://hub.example';
         global.fetch = sinon.stub().resolves({ ok: true, json: async () => ({ result: { price: '100.00000000' } }) });
         await db.getCoinPriceUsd(cfg());
@@ -769,7 +769,7 @@ describe('Database#getToken', () => {
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
         // decimals power client-side NFT-pattern classification (DECIMALS=0 +
-        // LOCK_MAX_SUPPLY=1 — NFT_Standard.md); callback_decimals stays internal
+        // LOCK_MAX_SUPPLY=1, see NFT_Standard.md); callback_decimals stays internal
         expect(data.info.decimals).to.equal(8);
         expect(data.supply.decimals).to.equal(8);
         expect(data.info).to.not.have.property('callback_decimals');
@@ -988,7 +988,7 @@ describe('Database#getActionType', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getToken — escrow_action_index exposure
+// getToken: escrow_action_index exposure
 // ---------------------------------------------------------------------------
 
 describe('Database#getToken escrow_action_index', () => {
@@ -1026,7 +1026,7 @@ describe('Database#getToken escrow_action_index', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getStatus — chain→decoder health aggregation
+// getStatus: chain to decoder health aggregation
 // ---------------------------------------------------------------------------
 
 describe('Database#getStatus decoder health aggregation', () => {
@@ -1086,7 +1086,7 @@ describe('Database#getStatus decoder health aggregation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getContract — single-record data method + permissions manifest LEFT JOIN
+// getContract: single-record data method + permissions manifest LEFT JOIN
 // (protocol/Controller_Bound_Tokens.md)
 // ---------------------------------------------------------------------------
 
@@ -1220,7 +1220,7 @@ describe('Database#getContractManifest', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Controller bindings — read-time cooldown reduction
+// Controller bindings: read-time cooldown reduction
 // (protocol/Controller_Bound_Tokens.md). Mirrors the indexer's
 // readEffectiveControllerMap / controllerEventIfGating.
 // ---------------------------------------------------------------------------
@@ -1258,7 +1258,7 @@ describe('Database#getTokenControllerBindings', () => {
         sinon.stub(db, 'getMaxBlockIndex').resolves(200);
         const out = await db.getTokenControllerBindings(cfg(), 'XCHAIN');
         expect(out).to.deep.equal([{
-            action_class: 'trade', contract_index: 88, cooldown_blocks: 10, is_unbind: 0, bind_block: 120
+            action_class: 'trade', contract_index: 88, cooldown_blocks: 10, is_unbind: 0, bind_block: 120, bound_by: null
         }]);
     });
 
@@ -1321,7 +1321,7 @@ describe('Database#getAddressControllerBindings', () => {
         sinon.stub(db, 'getMaxBlockIndex').resolves(400);
         const out = await db.getAddressControllerBindings(cfg(), 'addr1');
         expect(out).to.deep.equal([{
-            action_class: 'stake', contract_index: 77, cooldown_blocks: 5, is_unbind: 0, bind_block: 130
+            action_class: 'stake', contract_index: 77, cooldown_blocks: 5, is_unbind: 0, bind_block: 130, bound_by: null
         }]);
     });
 

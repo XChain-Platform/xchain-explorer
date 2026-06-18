@@ -33,8 +33,9 @@ const { mockRes }              = require('../fixtures/mock-query-args.js');
 
 // Same module instances XChainExplorer requires (Node module cache); stubbing
 // the activation predicates here pins the verify path deterministically.
-const eq  = require('../../src/equivocation_header.js');
-const swq = require('../../src/stake_weighted_quorum.js');
+const eq   = require('../../src/equivocation_header.js');
+const swq  = require('../../src/stake_weighted_quorum.js');
+const ckpt = require('../../src/checkpoint_commitment_activation.js');
 
 // ── Load XChainExplorer with heavy deps replaced ────────────────────────────
 const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
@@ -181,6 +182,37 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.verified).to.equal(true);
         expect(res._body.snapshot_available).to.equal(true);
         expect(res._body.validators).to.deep.equal([{ pubkey: PK('a'), weight: '5', source: 'src_a' }]);
+    });
+
+    it('SPV Phase 2: post CHECKPOINT_COMMITMENT flag-day the emitted canonical commits the roots', async function () {
+        // Pin the checkpoint-commitment flag-day active; EQUIV stays off (default) so the
+        // canonical is the raw v0 string + the SPV root suffix, with no header wrapping.
+        sinon.stub(ckpt, 'isCheckpointCommitmentActive').returns(true);
+        const STATE_ROOT = 'd4'.repeat(32), BLOCK_MERKLE = 'e5'.repeat(32);
+        const cpRow = { ...CP, state_root: STATE_ROOT, state_root_version: 1,
+                        block_merkle_root: BLOCK_MERKLE, block_merkle_version: 1 };
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([cpRow]);
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        const expected = ['XCHECKPOINT', 'BTC', 'regtest', '500', 'c0'.repeat(32), 'a1'.repeat(32),
+                          'b2'.repeat(32), 'c3'.repeat(32), '7', '100',
+                          STATE_ROOT, '1', BLOCK_MERKLE, '1'].join('|');
+        expect(res._body.canonical).to.equal(expected);
+        expect(res._body.verified).to.equal(true);
+    });
+
+    it('SPV Phase 2: a null-root row keeps the rootless canonical even post-flag-day', async function () {
+        sinon.stub(ckpt, 'isCheckpointCommitmentActive').returns(true);
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);   // CP has no roots
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        const rootless = ['XCHECKPOINT', 'BTC', 'regtest', '500', 'c0'.repeat(32), 'a1'.repeat(32),
+                          'b2'.repeat(32), 'c3'.repeat(32), '7', '100'].join('|');
+        expect(res._body.canonical).to.equal(rootless);
     });
 
     it('rejects below the majority floor: 1 valid sig of a 4-validator set (quorum 3)', async function () {

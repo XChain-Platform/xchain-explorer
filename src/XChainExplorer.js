@@ -30,6 +30,7 @@ const IconDownloader = require('./IconDownloader.js');
 const IndexerConnector = require('./XChainIndexerConnector.js');
 const eq               = require('./equivocation_header.js');
 const swq              = require('./stake_weighted_quorum.js');
+const ckpt             = require('./checkpoint_commitment_activation.js');
 
 let slowRequests = 0;
 
@@ -1122,6 +1123,16 @@ class XChainExplorer {
             let canonRaw = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
                              cp.ledger_hash, cp.actions_hash, cp.contract_hash,
                              String(cp.checkpoint_seq), String(cp.snapshot_block)].join('|');
+            // SPV Phase 2 (spec §6.1): post CHECKPOINT_COMMITMENT flag-day the signed string
+            // additively commits the light-client roots + version bytes from the checkpoint row.
+            // Appended to the RAW string BEFORE the EQUIV wrap; byte-identical to hub/SDK/anchor.
+            // Append only when the roots are present (legacy/null-root rows keep their original
+            // rootless canonical; the hub never signs a rootless checkpoint post-flag-day).
+            if(ckpt.isCheckpointCommitmentActive(cp.snapshot_block, cp.network) &&
+               cp.state_root != null && cp.block_merkle_root != null &&
+               cp.state_root_version != null && cp.block_merkle_version != null)
+                canonRaw += '|' + [String(cp.state_root).toLowerCase(), String(cp.state_root_version),
+                                   String(cp.block_merkle_root).toLowerCase(), String(cp.block_merkle_version)].join('|');
             let canonical = eq.isEquivHeaderActive(cp.snapshot_block, cp.network)
                 ? eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT,
                     cp.chain + '|' + cp.network + '|' + cp.block_index + '|' + cp.checkpoint_seq, 0, canonRaw)

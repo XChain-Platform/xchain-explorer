@@ -39,7 +39,7 @@ const fsStub = {
     existsSync:   sinon.stub().returns(true)
 };
 
-// A minimal hub config response — shape returned by XChainHubConnector.getAllConfig():
+// A minimal hub config response: shape returned by XChainHubConnector.getAllConfig():
 //   { bitcoin: { mainnet: { indexer: {...}, decoder: {...} } } }
 const mockHubResponse = {
     bitcoin: {
@@ -50,7 +50,7 @@ const mockHubResponse = {
     }
 };
 
-// Hub connector stub — returned config is controlled per-test
+// Hub connector stub: returned config is controlled per-test
 class MockHubConnector {
     constructor(url, port) {
         this.url  = url;
@@ -101,7 +101,7 @@ function loadConfig(overrides) {
 describe('config', function () {
 
     // -----------------------------------------------------------------------
-    // getConfig — file config (no hub)
+    // getConfig: file config (no hub)
     // -----------------------------------------------------------------------
 
     describe('getConfig() with file config (no hub url/port)', function () {
@@ -127,7 +127,7 @@ describe('config', function () {
         it('populates COIN_AVAILABLE only with coins from the file config', async function () {
             const config = loadConfig();
             const result = await config.getConfig(null, null, false);
-            // Only BTC/mainnet is in mockFileConfig; mainnet prefix is '' → key 'BTC'
+            // Only BTC/mainnet is in mockFileConfig; mainnet prefix is '' -> key 'BTC'
             expect(result.COIN_AVAILABLE).to.include.key('BTC');
             expect(result.COIN_AVAILABLE).to.not.include.key('LTC');
             expect(result.COIN_AVAILABLE).to.not.include.key('DOGE');
@@ -153,7 +153,7 @@ describe('config', function () {
     });
 
     // -----------------------------------------------------------------------
-    // COIN_SUPPORTED — all 9 combinations
+    // COIN_SUPPORTED: all 9 combinations
     // -----------------------------------------------------------------------
 
     describe('COIN_SUPPORTED', function () {
@@ -162,7 +162,7 @@ describe('config', function () {
             const config    = loadConfig();
             const result    = await config.getConfig(null, null, false);
             const supported = result.COIN_SUPPORTED;
-            // 3 coins × 3 networks = 9 entries
+            // 3 coins x 3 networks = 9 entries
             // Prefixes: mainnet='', testnet='T', regtest='R'
             expect(supported).to.include.key('BTC');    // mainnet
             expect(supported).to.include.key('TBTC');   // testnet
@@ -184,7 +184,7 @@ describe('config', function () {
     });
 
     // -----------------------------------------------------------------------
-    // getConfig — caching
+    // getConfig: caching
     // -----------------------------------------------------------------------
 
     describe('getConfig() caching', function () {
@@ -206,7 +206,7 @@ describe('config', function () {
     });
 
     // -----------------------------------------------------------------------
-    // getConfig — throws when no valid config
+    // getConfig: throws when no valid config
     // -----------------------------------------------------------------------
 
     describe('getConfig() with no valid config', function () {
@@ -239,7 +239,7 @@ describe('config', function () {
     });
 
     // -----------------------------------------------------------------------
-    // getConfig — with hub url/port
+    // getConfig: with hub url/port
     // -----------------------------------------------------------------------
 
     describe('getConfig() with hub url/port', function () {
@@ -254,7 +254,7 @@ describe('config', function () {
         it('populates COIN_AVAILABLE from the hub response', async function () {
             const config = loadConfig();
             const result = await config.getConfig('hub-host', 3000, false);
-            // mockHubResponse has bitcoin/mainnet → maps to BTC/mainnet → code 'BTC'
+            // mockHubResponse has bitcoin/mainnet -> maps to BTC/mainnet -> code 'BTC'
             expect(result.COIN_AVAILABLE).to.include.key('BTC');
         });
 
@@ -264,6 +264,33 @@ describe('config', function () {
             config.onConfigChanged(function () { fired = true; });
             await config.getConfig('hub-host', 3000, false);
             expect(fired).to.be.true;
+        });
+
+        it('skips an unrecognized coin key (e.g. chain_tips pushed under the abbreviation) without crashing', async function () {
+            // The hub config tree carries a phantom 'BTC' top-level key (chain_tips
+            // written by an indexer under the coin abbreviation rather than the full
+            // name 'bitcoin'). That key maps to no coin label; the explorer must skip
+            // it instead of building configs/undefined.js and throwing at startup.
+            class PollutedHubConnector {
+                async getAllConfig() {
+                    return {
+                        bitcoin: mockHubResponse.bitcoin,
+                        BTC: { mainnet: { chain_tips: { block_height: '821000', block_time: '1718000000' } } }
+                    };
+                }
+            }
+            const config = proxyquire('../../src/config.js', {
+                'fs':                   fsStub,
+                'path':                 path,
+                './utility.js':         MockUtility,
+                './XChainHubConnector': PollutedHubConnector,
+                './config.json':        mockFileConfig
+            });
+            const result = await config.getConfig('hub-host', 3000, false);
+            expect(result).to.be.an('object');
+            // The real coin still loads; the junk key is absent.
+            expect(result.COIN_AVAILABLE).to.include.key('BTC');
+            expect(result).to.not.have.key('undefined');
         });
 
         it('degrades gracefully when hub getAllConfig returns null (no cached value yet)', async function () {
@@ -314,19 +341,19 @@ describe('config', function () {
     });
 
     // -----------------------------------------------------------------------
-    // startSync — documents existing behavior
+    // startSync: documents existing behavior
     // -----------------------------------------------------------------------
 
     describe('startSync()', function () {
 
         it('schedules a recurring config refresh (setInterval call does not throw)', function () {
             // startSync calls setInterval(getConfig, ...) where getConfig refers to
-            // the module-level export method by name — this is an open ReferenceError
+            // the module-level export method by name. This is an open ReferenceError
             // in Node because the local scope has no 'getConfig' symbol.
             // The test documents this known behavior.
             const config = loadConfig();
             // The ReferenceError is thrown synchronously inside setInterval callback,
-            // but setInterval itself schedules it — the call to startSync does not throw.
+            // but setInterval itself schedules it; the call to startSync does not throw.
             // We verify that the function at least exists and is callable.
             expect(config.startSync).to.be.a('function');
         });
@@ -357,7 +384,7 @@ describe('config', function () {
     });
 
     // -----------------------------------------------------------------------
-    // getConfig — resilience when the hub is unreachable
+    // getConfig: resilience when the hub is unreachable
     // -----------------------------------------------------------------------
 
     describe('getConfig() resilience (hub unreachable)', function () {
@@ -410,7 +437,7 @@ describe('config', function () {
                 './XChainHubConnector': NullHubConnector,
                 './config.json':        mockFileConfig
             });
-            // Must NOT throw (the old worry was throwError → process.exit).
+            // Must NOT throw (the old worry was throwError -> process.exit).
             const result = await config.getConfig(['http://hub:10000'], false);
             expect(result).to.be.an('object');
             expect(result.COIN_AVAILABLE).to.be.an('object');
@@ -439,10 +466,10 @@ describe('config', function () {
                 './XChainHubConnector': FlakyHubConnector,
                 './config.json':        mockFileConfig
             });
-            const first  = await config.getConfig(['http://hub:10000'], false); // hub up → BTC
-            const second = await config.getConfig(['http://hub:10000'], false); // blip → keep cache
+            const first  = await config.getConfig(['http://hub:10000'], false); // hub up -> BTC
+            const second = await config.getConfig(['http://hub:10000'], false); // blip -> keep cache
             expect(first.COIN_AVAILABLE).to.include.key('BTC');
-            expect(second).to.equal(first); // same object — cache was not torn down
+            expect(second).to.equal(first); // same object; cache was not torn down
         });
 
     });

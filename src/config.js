@@ -72,6 +72,10 @@ let configCache = null;
 // cache after an unreachable hub, so the age derived from it reflects genuine
 // staleness of the served config when the hub is down.
 let hubConfigFetchedAt = null;
+// Tracks unrecognized top-level hub config keys we've already warned about, so a
+// non-coin key (e.g. chain_tips written under an abbreviation) that reappears on
+// every config refresh is logged once rather than on every block.
+const warnedUnknownCoins = new Set();
 //Emisor for config changed event
 const configChangedEmisor = new EventTarget();
 // Set to true after the first 'changed' event fires so late subscribers
@@ -229,6 +233,20 @@ module.exports = {
                         for (let nextCoin in jsonConfig){
                             let nextCoinLabel = coinNetworksKeys.find(key => config['COIN_NETWORKS'][key].toLowerCase() == nextCoin)
 
+                            // The hub config tree can carry top-level keys that are
+                            // not coins (e.g. chain_tips pushed by indexers under the
+                            // coin abbreviation 'BTC' rather than the full name
+                            // 'bitcoin'). Those don't map to a known coin label, so
+                            // skip them instead of emitting an entry with coin:undefined
+                            // that the coin-config loader below would choke on.
+                            if(!nextCoinLabel){
+                                if(!warnedUnknownCoins.has(nextCoin)){
+                                    warnedUnknownCoins.add(nextCoin);
+                                    console.warn('Config: skipping unrecognized coin key from hub config: ' + nextCoin);
+                                }
+                                continue;
+                            }
+
                             for (let nextNetwork in jsonConfig[nextCoin]){
                                 let coinNetworkJson = {"coin":nextCoinLabel, "network":nextNetwork}
 
@@ -316,13 +334,17 @@ module.exports = {
                 // Define COIN specific configuration file
                 let coinFile   = path.join(__dirname, 'configs', info.coin + '.js');
 
-                // Load COIN specific configuration file, or throw error
+                // Load COIN specific configuration file, or skip this entry.
+                // A missing file means the config carried a coin this explorer
+                // build has no config for (or an unmappable/junk key). Skip it
+                // with a warning rather than throwing, so one stray entry can't
+                // take the whole explorer down at startup.
                 if(fs.existsSync(coinFile)){
                     let cfg    = require(coinFile);
                     coinConfig = cfg.getConfig(info.network);
                 } else {
-                    let error = 'Missing COIN config file : ' + coinFile;
-                    throw new Error(error);
+                    console.warn('Config: skipping config entry, missing COIN config file : ' + coinFile);
+                    continue;
                 }
 
                 // Define COIN information object

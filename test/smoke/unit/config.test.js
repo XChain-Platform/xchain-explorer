@@ -176,12 +176,12 @@ describe('SM-02: Config rejects no valid configuration', function () {
 });
 
 // ---------------------------------------------------------------------------
-// SM-03: Config rejects missing coin config file
+// SM-03: Config skips a coin with a missing config file
 // ---------------------------------------------------------------------------
 
-describe('SM-03: Config rejects invalid coin config file', function () {
+describe('SM-03: Config skips a coin with a missing config file', function () {
 
-    it('throws "Missing COIN config file" for a non-existent coin', async function () {
+    it('skips a non-existent coin instead of throwing, so startup survives', async function () {
         const invalidConfig = {
             configs: [
                 {
@@ -207,13 +207,12 @@ describe('SM-03: Config rejects invalid coin config file', function () {
             './config.json':        invalidConfig
         });
 
-        try {
-            await config.getConfig(null, null, false);
-            expect.fail('Expected an error to be thrown');
-        } catch (err) {
-            expect(err).to.be.instanceOf(Error);
-            expect(err.message).to.include('Missing COIN config file');
-        }
+        // The coin's config file is missing (existsSync -> false). Rather than
+        // throwing and taking the whole explorer down at startup, the loader skips
+        // that entry and still returns a usable config object.
+        const result = await config.getConfig(null, null, false);
+        expect(result).to.be.an('object');
+        expect(result).to.not.have.property('INVALID');
     });
 
 });

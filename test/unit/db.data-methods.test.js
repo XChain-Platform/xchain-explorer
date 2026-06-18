@@ -657,6 +657,23 @@ describe('Database#getToken', () => {
         expect(data).to.be.null;
     });
 
+    it('filters by name (t2.tick) for a plain ticker search', async () => {
+        const dq = sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+        await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        const [, queryStr, args] = dq.firstCall.args;
+        expect(queryStr).to.include('t2.tick=?');
+        expect(args).to.deep.equal(['XCHAIN']);
+    });
+
+    it('filters by tick_id for a ^id search, and does not truncate it', async () => {
+        const dq = sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+        await db.getToken(cfg({ data: { search: '^1234' } }));
+        const [, queryStr, args] = dq.firstCall.args;
+        expect(queryStr).to.include('t1.tick_id=?');
+        expect(queryStr).to.not.include('t2.tick=?');
+        expect(args).to.deep.equal([1234]); // NOT 123
+    });
+
     it('returns an object with info, callback, market, lists, locks, mints, supply, projects, registry keys', async () => {
         sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
 
@@ -942,6 +959,18 @@ describe('Database#getTickId', () => {
 
         const id = await db.getTickId(cfg(), 'XCHAIN');
         expect(id).to.be.null;
+    });
+
+    it('resolves a ^id reference directly to its numeric id, no DB lookup', async () => {
+        const dq = sinon.stub(db, 'doQuery').resolves([]);
+        expect(await db.getTickId(cfg(), '^7')).to.equal(7);
+        expect(await db.getTickId(cfg(), '^1234')).to.equal(1234); // NOT truncated to 123
+        expect(dq.called).to.equal(false);
+    });
+
+    it('falls through to a name lookup when the ^body is non-numeric', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        expect(await db.getTickId(cfg(), '^abc')).to.be.null;
     });
 });
 

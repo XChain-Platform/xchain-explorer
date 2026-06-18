@@ -3894,7 +3894,13 @@ class Database {
     // Get token information
     async getToken(config){
         let data  = null;
-        let args  = [config.data.search];
+        // A token may be looked up by its full name (PEPE) or by its numeric id
+        // with a caret prefix (^1234). For the id form, filter on tick_id instead
+        // of the name so both references resolve to the same token.
+        let search   = String(config.data.search);
+        let tickIdRef = (search.charAt(0) === '^' && this.util.isNumeric(search.substring(1)));
+        let tickWhere = tickIdRef ? 't1.tick_id=?' : 't2.tick=?';
+        let args  = [ tickIdRef ? Number(search.substring(1)) : config.data.search ];
         let query = `SELECT
                         t2.tick,
                         t1.tick_id,
@@ -3930,8 +3936,8 @@ class Database {
                         LEFT  JOIN index_addresses    a1 ON (a1.id=t1.owner_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=t1.callback_tick_id)
                         LEFT  JOIN tokens             t4 ON (t4.tick_id=t1.callback_tick_id)
-                    WHERE 
-                        t2.tick=?
+                    WHERE
+                        ` + tickWhere + `
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
         if(results && results.length){
@@ -6345,6 +6351,11 @@ class Database {
 
     // Get tick id for a given token (cached)
     async getTickId(config, tick){
+        // A `^<id>` reference resolves directly to the numeric id, no lookup
+        // needed. Everything after the caret is the id (do not drop any digit).
+        let str = String(tick);
+        if(str.charAt(0) === '^' && this.util.isNumeric(str.substring(1)))
+            return Number(str.substring(1));
         let cached = this._cacheGet(this._tickIdCache, tick);
         if(cached !== undefined) return cached;
         let id    = null;

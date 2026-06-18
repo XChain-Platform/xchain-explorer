@@ -31,6 +31,7 @@ const IndexerConnector = require('./XChainIndexerConnector.js');
 const eq               = require('./equivocation_header.js');
 const swq              = require('./stake_weighted_quorum.js');
 const ckpt             = require('./checkpoint_commitment_activation.js');
+const ProofServer      = require('./proofServer.js');
 
 let slowRequests = 0;
 
@@ -54,6 +55,10 @@ class XChainExplorer {
 
         // Create instance of the datbase class
         this.db   = new database(this);
+
+        // SPV light-client proof server (Phase 3): builds read-only Merkle proofs
+        // a client verifies locally against a quorum-signed checkpoint's state_root.
+        this.proofServer = new ProofServer(this.db);
 
         // Setup alias to list of supported URLs
         this.urls = this.setupUrls();
@@ -402,6 +407,17 @@ class XChainExplorer {
         // Spec: xchain-documentation/protocol/actions/ANCHOR.md
         this.app.get('/:coin/api/checkpoints', (req, res) => { this.processCheckpointsRequest(req, res); });
         this.app.get('/:coin/api/checkpoint/:blockIndex/verify', (req, res) => { this.processCheckpointVerifyRequest(req, res); });
+
+        // SPV light-client proof endpoints (Phase 3, spec §8.1). Read-only; a client
+        // recomputes the proof locally and binds it to a quorum-signed checkpoint's
+        // committed state_root (never trusting this server's word). The balance proof
+        // + checkpoint range are live; action / validator-set / contract-state are
+        // reserved (501) pending their design dependencies (see the handlers).
+        this.app.get('/:coin/api/proof/balance/:address/:tick', (req, res) => { this.processBalanceProofRequest(req, res); });
+        this.app.get('/:coin/api/checkpoints/range', (req, res) => { this.processCheckpointsRangeRequest(req, res); });
+        this.app.get('/:coin/api/proof/action/:actionIndex', (req, res) => { this.processActionProofRequest(req, res); });
+        this.app.get('/:coin/api/proof/validator-set', (req, res) => { this.processValidatorSetProofRequest(req, res); });
+        this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
 
         // Setup wildcard listener to process all other requests (includes static failures)
         this.app.get('*', (req, res) => { this.processRequest(req, res); });
@@ -1190,6 +1206,92 @@ class XChainExplorer {
             console.error('processCheckpointVerifyRequest error:', e);
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
+    }
+
+    // GET /{COIN}/api/proof/balance/{address}/{tick}?height=H  (SPV spec §4.4/§8.1)
+    // Returns a BalanceProof bound to the nearest signed checkpoint at height >= H
+    // (or the latest), which the client recomputes locally against the committed
+    // state_root. A claimed-zero balance comes back as an SMT non-inclusion proof.
+    async processBalanceProofRequest(req, res){
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            if(!parsed)
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let address = String(req.params.address || '');
+            let tick    = String(req.params.tick || '');
+            if(!address || !tick)
+                return res.status(400).json({ error: 'address and tick are required', code: 'MISSING_PARAMETER' });
+            let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
+            if(height !== null && !/^[0-9]+$/.test(String(height)))
+                return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });
+            let config = { coin, data: {} };
+            let result = await this.proofServer.balanceProof(config, parsed.coin, parsed.network, address, tick,
+                                                             height === null ? null : Number(height));
+            if(result.error){
+                let map = { NO_CHECKPOINT: [404, 'No signed checkpoint at or above this height'],
+                            CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
+                            NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
+                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
+                let m = map[result.error] || [500, 'Server error'];
+                return res.status(m[0]).json({ error: m[1], code: result.error });
+            }
+            return res.json(result);
+        } catch(e){
+            console.error('processBalanceProofRequest error:', e && e.message);
+            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+        }
+    }
+
+    // GET /{COIN}/api/checkpoints/range?from=&to=  (SPV spec §8.1, forward-following)
+    async processCheckpointsRangeRequest(req, res){
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let from = req.query.from, to = req.query.to;
+            if(!/^[0-9]+$/.test(String(from)) || !/^[0-9]+$/.test(String(to)))
+                return res.status(400).json({ error: 'from and to (integers) are required', code: 'INVALID_RANGE' });
+            from = Number(from); to = Number(to);
+            if(to < from)
+                return res.status(400).json({ error: 'to must be >= from', code: 'INVALID_RANGE' });
+            // Cap the span so a single request cannot scan an unbounded range.
+            let limit = Math.min(500, (to - from) + 1);
+            let config = { coin, data: {} };
+            return res.json(await this.proofServer.checkpointRange(config, from, to, limit));
+        } catch(e){
+            console.error('processCheckpointsRangeRequest error:', e && e.message);
+            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+        }
+    }
+
+    // GET /{COIN}/api/proof/action/{actionIndex}  (SPV spec §5/§8.1)
+    // RESERVED: a per-row block-content proof needs the indexer's frozen §5.1 leaf
+    // ordering (getBlockHashes' binary-collation row gather), which is not yet ported
+    // to the proof server. Returns 501 until that ordering is reproduced + round-trip
+    // verified against a committed block_merkle_root.
+    async processActionProofRequest(req, res){
+        return res.status(501).json({ error: 'action proof not yet implemented (block-content leaf ordering port pending)',
+                                      code: 'NOT_IMPLEMENTED' });
+    }
+
+    // GET /{COIN}/api/proof/validator-set?height=<btc_snapshot>  (SPV spec §7.2/§8.1)
+    // RESERVED: serving the oracle_publish set against BTC's committed stakes_root
+    // requires binding the signer set's BTC snapshot_block to a checkpointed stakes_root
+    // height; that binding is defined alongside Phase 5 forward-following. 501 until then.
+    async processValidatorSetProofRequest(req, res){
+        return res.status(501).json({ error: 'validator-set proof not yet implemented (snapshot-height binding lands with Phase 5)',
+                                      code: 'NOT_IMPLEMENTED' });
+    }
+
+    // GET /{COIN}/api/proof/contract-state/{contractIndex}/{key}  (SPV spec §8.1)
+    // RESERVED: contract_state_root is committed EMPTY in state_root_version 1 (spec
+    // §10 D1), so no real contract-state proof can be served until a later version.
+    async processContractStateProofRequest(req, res){
+        return res.status(501).json({ error: 'contract-state proof unsupported in state_root_version 1 (committed EMPTY per spec D1)',
+                                      code: 'UNSUPPORTED_VERSION' });
     }
 
     // Resolve an explorer coin code (e.g. 'BTC', 'TBTC', 'RDOGE') to its base coin + network

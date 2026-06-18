@@ -7807,6 +7807,88 @@ class Database {
         return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...src.filterParams, Number(limit) || 10]));
     }
 
+    // ── SPV light-client proof serving (Phase 3, spec §8.1) ──────────────────
+    // All read-only. The signed checkpoint (with the committed state_root) is read
+    // from the co-located hub DB; the SMT node store + per-block sub-roots + the
+    // authoritative balance derivation are read from the indexer DB (the default
+    // per-coin pool). state_tree_nodes is NOT replicated by xchain-sync, so a proof
+    // server MUST point at a full indexer DB (a thin replica cannot serve proofs).
+
+    // The signed checkpoint at the nearest checkpointed height >= `height` (or the
+    // latest when height is null), resolving MAX(checkpoint_seq) per height. Carries
+    // the Phase 2 committed roots so a client can bind a proof to the signed state_root.
+    async getCheckpointAtOrAbove(config, height) {
+        let src = this._checkpointSource(config);
+        let scFilter   = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let heightInner = (height != null) ? ' AND block_index >= ?' : '';
+        let q = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
+                        sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.state_root, sc.state_root_version,
+                        sc.block_merkle_root, sc.block_merkle_version, sc.validator_signatures
+                 FROM ${src.table} sc
+                 JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq FROM ${src.table}
+                       WHERE 1=1${src.filter}${heightInner} GROUP BY block_index) t
+                   ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
+                 WHERE 1=1${scFilter}
+                 ORDER BY sc.block_index ASC LIMIT 1`;
+        let params = (height != null)
+            ? [...src.filterParams, Number(height), ...src.filterParams]
+            : [...src.filterParams, ...src.filterParams];
+        let rows = await this.doQuery(config, q, params);
+        return (rows && rows.length) ? rows[0] : null;
+    }
+
+    // Ordered signed checkpoints in [from, to] (forward-following, spec §8.1).
+    async getCheckpointRange(config, fromH, toH, limit) {
+        let src = this._checkpointSource(config);
+        let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let q = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
+                        sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.state_root, sc.state_root_version,
+                        sc.block_merkle_root, sc.block_merkle_version, sc.validator_signatures, sc.created_at
+                 FROM ${src.table} sc
+                 JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq FROM ${src.table}
+                       WHERE 1=1${src.filter} AND block_index BETWEEN ? AND ? GROUP BY block_index) t
+                   ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
+                 WHERE 1=1${scFilter}
+                 ORDER BY sc.block_index ASC LIMIT ?`;
+        let params = [...src.filterParams, Number(fromH), Number(toH), ...src.filterParams, Number(limit) || 100];
+        return await this.doQuery(config, q, params) || [];
+    }
+
+    // Per-block sub-roots from the indexer DB (state_tree_nodes' companion roots).
+    async getStateTreeRow(config, blockIndex) {
+        let rows = await this.doQuery(config,
+            `SELECT balances_root, stakes_root, state_root, block_merkle_root
+             FROM state_tree_roots WHERE block_index = ? LIMIT 1`, [Number(blockIndex)]);
+        return (rows && rows.length) ? rows[0] : null;
+    }
+
+    // One internal SMT node (content-addressed) from the indexer node store.
+    async getStateNode(config, nodeHashHex) {
+        let rows = await this.doQuery(config,
+            'SELECT left_hash, right_hash FROM state_tree_nodes WHERE node_hash = ? LIMIT 1',
+            [String(nodeHashHex)]);
+        return (rows && rows.length) ? rows[0] : null;
+    }
+
+    // Authoritative net-spendable balance (SUM credits - SUM debits) at 18 dp,
+    // resolved by canonical strings (never the mutable balances cache), matching
+    // the indexer's stateCommitment.getNetBalance leaf source.
+    async getNetBalance18(config, address, tick) {
+        let rows = await this.doQuery(config,
+            `SELECT CAST(
+                (SELECT COALESCE(SUM(CAST(c.amount AS DECIMAL(60,18))),0) FROM credits c
+                    INNER JOIN index_addresses a ON a.id=c.address_id
+                    INNER JOIN index_tickers   t ON t.id=c.tick_id
+                    WHERE a.address=? AND t.tick=?)
+              - (SELECT COALESCE(SUM(CAST(d.amount AS DECIMAL(60,18))),0) FROM debits d
+                    INNER JOIN index_addresses a ON a.id=d.address_id
+                    INNER JOIN index_tickers   t ON t.id=d.tick_id
+                    WHERE a.address=? AND t.tick=?)
+             AS DECIMAL(60,18)) AS net`,
+            [address, tick, address, tick]);
+        return (rows && rows.length) ? String(rows[0].net) : '0';
+    }
+
     // Hub-mirrored qualifying validator set for a capability at a snapshot block;
     // what checkpoint signatures verify against (presence = qualified).
     // capability_snapshots is chain-agnostic (keyed by capability + BTC snapshot

@@ -30,7 +30,7 @@ const axios = require('axios');
 // Mirrors the INDEXER_API_URL convention used by XChainIndexerConnector:
 //   DECODER_API_URL_<COIN>_<NETWORK>   (e.g. DECODER_API_URL_BTC_REGTEST)
 //   DECODER_API_URL                     (generic fallback)
-// Returns null when none is configured — the caller then reports the coin's
+// Returns null when none is configured; the caller then reports the coin's
 // decoder health as 'unconfigured' rather than guessing at a URL.
 function resolveDecoderUrl(coin, network){
     let c = String(coin || '').toUpperCase();

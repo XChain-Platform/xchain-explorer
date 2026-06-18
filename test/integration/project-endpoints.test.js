@@ -11,14 +11,14 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — Project Registry surfaces (protocol/Project_Registry.md)
+ * Integration tests: Project Registry surfaces (protocol/Project_Registry.md)
  *
  * Covers:
- *   - /{COIN}/api/project/{TICK} — current roster resolution (latest
+ *   - /{COIN}/api/project/{TICK}: current roster resolution (latest
  *     owner-valid TICK-type LIST linked to the project's ISSUE wins)
- *   - /{COIN}/api/token/{TICK} — `projects` (membership banners) and
+ *   - /{COIN}/api/token/{TICK}: `projects` (membership banners) and
  *     `registry` (own-roster metadata) fields
- *   - /{COIN}/explorer/projects/{TICK}/roster — datatable rows
+ *   - /{COIN}/explorer/projects/{TICK}/roster: datatable rows
  *   - Ignore rules: superseded rosters, unlinked lists, invalid links,
  *     reverse-orientation links, ADDRESS-type lists
  *
@@ -65,14 +65,14 @@ before(async function () {
     // LIST 75 = [TOKENTHREE], never owner-linked (no authority)
     await db.query(`INSERT IGNORE INTO lists (action_index, type, edit, list_action_index, status_id) VALUES (75,'1',NULL,NULL,1)`);
     await db.query(`INSERT IGNORE INTO list_items (action_index, item_id) VALUES (75,4)`);
-    // INVALID link (status_id 2) pointing LIST 75 at the project — no authority
+    // INVALID link (status_id 2) pointing LIST 75 at the project; no authority
     await db.query(`INSERT IGNORE INTO links (action_index, coin1_id, coin1_action_index, coin2_id, coin2_action_index, memo_id, status_id) VALUES
         (76, 1, 75, 1, 70, NULL, 2)`);
     // Reverse-orientation link (ISSUE on coin1, LIST on coin2): consensus-valid
     // but NOT an attestation (only the COIN2 side is owner-validated)
     await db.query(`INSERT IGNORE INTO links (action_index, coin1_id, coin1_action_index, coin2_id, coin2_action_index, memo_id, status_id) VALUES
         (77, 1, 70, 1, 75, NULL, 1)`);
-    // ADDRESS-type LIST 78 validly linked to the project — not a roster
+    // ADDRESS-type LIST 78 validly linked to the project (not a roster)
     await db.query(`INSERT IGNORE INTO lists (action_index, type, edit, list_action_index, status_id) VALUES (78,'2',NULL,NULL,1)`);
     await db.query(`INSERT IGNORE INTO list_items (action_index, item_id) VALUES (78,1)`);
     await db.query(`INSERT IGNORE INTO links (action_index, coin1_id, coin1_action_index, coin2_id, coin2_action_index, memo_id, status_id) VALUES
@@ -107,7 +107,7 @@ describe('Project API (/api/project/{tick})', function () {
     it('ignores unlinked, invalidly-linked, reverse-linked, and ADDRESS-type lists', async function () {
         const res = await request.get('/RBTC/api/project/PROJECTX');
         // LIST 75 (TOKENTHREE) reached the project only through an invalid link,
-        // a reverse-orientation link, and never as a tick roster — must not count
+        // a reverse-orientation link, and never as a tick roster; must not count
         const ticks = res.body.members.map(m => m.tick);
         expect(ticks).to.not.include('TOKENTHREE');
         expect(res.body.roster_action_index).to.not.equal(75);

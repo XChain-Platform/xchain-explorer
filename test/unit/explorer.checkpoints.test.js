@@ -16,7 +16,7 @@
  *   GET /{COIN}/api/checkpoint/{h}/verify    → processCheckpointVerifyRequest
  *
  * Covers: coin/height validation (404/400), limit clamping, the {checkpoints,
- * count} list shape, and the verify verdict — legacy count quorum, sub-quorum
+ * count} list shape, and the verify verdict: legacy count quorum, sub-quorum
  * rejection, an unmirrored snapshot, the stake-weighted branch, and the EQUIV
  * uniform-header canonical wrapping. eq/swq activation is pinned per-test so the
  * verdict does not depend on the live flag-day maps.
@@ -31,7 +31,7 @@ const { expect } = require('chai');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
-// Same module instances XChainExplorer requires (Node module cache) — stubbing
+// Same module instances XChainExplorer requires (Node module cache); stubbing
 // the activation predicates here pins the verify path deterministically.
 const eq  = require('../../src/equivocation_header.js');
 const swq = require('../../src/stake_weighted_quorum.js');
@@ -56,7 +56,7 @@ function makeExplorer() {
     explorer.db.pools = { BTC: {} };                       // BTC is a known coin
     explorer.db.getCheckpointRows = sinon.stub().resolves([]);
     explorer.db.getCapabilitySnapshotRows = sinon.stub().resolves([]);
-    // Signature cryptography is out of scope here — drive the verdict via snapshot
+    // Signature cryptography is out of scope here; drive the verdict via snapshot
     // membership + how many sigs are supplied. Verify is exercised end-to-end in
     // the SDK CheckpointVerifier + indexer ANCHOR suites.
     sinon.stub(explorer.util, 'ed25519Verify').returns(true);

@@ -39,7 +39,7 @@ describe('ChannelManager', function () {
     });
 
     // -----------------------------------------------------------------
-    // Subscribe — global channels
+    // Subscribe: global channels
     // -----------------------------------------------------------------
 
     describe('subscribe – global channels', function () {
@@ -83,7 +83,7 @@ describe('ChannelManager', function () {
     });
 
     // -----------------------------------------------------------------
-    // Subscribe — entity channels
+    // Subscribe: entity channels
     // -----------------------------------------------------------------
 
     describe('subscribe – entity channels', function () {
@@ -132,7 +132,7 @@ describe('ChannelManager', function () {
     });
 
     // -----------------------------------------------------------------
-    // Subscribe — batch entity subscriptions
+    // Subscribe: batch entity subscriptions
     // -----------------------------------------------------------------
 
     describe('subscribe – batch', function () {
@@ -167,7 +167,7 @@ describe('ChannelManager', function () {
     });
 
     // -----------------------------------------------------------------
-    // Subscribe — filters
+    // Subscribe: filters
     // -----------------------------------------------------------------
 
     describe('subscribe – filters', function () {
@@ -231,7 +231,7 @@ describe('ChannelManager', function () {
             const client = createClient(1);
             cm2.subscribe(client, ['blocks']);
             cm2.subscribe(client, ['actions']);
-            // Re-subscribe to blocks — should update, not count as new
+            // Re-subscribe to blocks: should update, not count as new
             const result = cm2.subscribe(client, ['blocks']);
             expect(result.success).to.be.true;
         });

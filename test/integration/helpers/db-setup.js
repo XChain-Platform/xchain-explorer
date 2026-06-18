@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration test helper — manages the test MariaDB lifecycle.
+ * Integration test helper. Manages the test MariaDB lifecycle.
  *
  * Expects a MariaDB instance on port 3307 (see docker-compose.test.yml).
  * Provides functions to import the schema and seed data.

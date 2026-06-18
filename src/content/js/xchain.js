@@ -370,14 +370,14 @@ function formatLocks(locks=null){
 
 // Canonical NFT-pattern classification (NFT_Standard.md#classification-rule-for-clients):
 // a token follows the NFT pattern when DECIMALS=0 AND LOCK_MAX_SUPPLY=1.
-// Mirrors sdk.nft.isNft — keep the two in sync.
+// Mirrors sdk.nft.isNft; keep the two in sync.
 function isNftToken(decimals, lockMaxSupply){
     return Number(decimals)===0 && Number(lockMaxSupply)===1;
 }
 
 // (The NFT badge + token-page NFT Information panel were removed by
 // operator decision 2026-06-12, and the /nfts page was removed
-// 2026-06-13 — the rigid DECIMALS=0+LOCK_MAX_SUPPLY=1 line excludes
+// 2026-06-13: the rigid DECIMALS=0+LOCK_MAX_SUPPLY=1 line excludes
 // decimal-supply tokens people still call NFTs, which isn't worth
 // defending. The server-side 'nft' getTokens filter remains (now
 // orphaned); isNftToken stays as the canonical client-side
@@ -616,7 +616,7 @@ function bech32DecodeAddress(address){
 // chain + network (or any supported network when none is selected yet).
 // Verifies base58 structure + version byte and the full bech32/bech32m
 // checksum. The base58check double-SHA256 checksum is verified server-side
-// (no synchronous SHA-256 in the browser) — a checksum typo here just yields
+// (no synchronous SHA-256 in the browser); a checksum typo here just yields
 // an empty lookup rather than a bad route.
 function isCryptoAddress(address, chain, network){
     if(isNull(address))
@@ -638,7 +638,7 @@ function isCryptoAddress(address, chain, network){
         }
     }
     let str = String(address);
-    // Segwit address — full bech32/bech32m validation against a known HRP
+    // Segwit address: full bech32/bech32m validation against a known HRP
     let decoded = bech32DecodeAddress(str);
     if(decoded){
         for(let params of candidates)
@@ -646,7 +646,7 @@ function isCryptoAddress(address, chain, network){
                 return true;
         return false;
     }
-    // Base58 address — structural validation + network version byte
+    // Base58 address: structural validation + network version byte
     let bytes = base58DecodeAddress(str);
     if(!bytes || bytes.length!=25)
         return false;
@@ -934,7 +934,7 @@ function getActionDetails(action, info){
     if(action=='BROADCAST'){
         let percent = bcmul(info.fee, 100, 2);
         // info.message / info.value are BROADCAST free text (on-chain,
-        // attacker-controlled) and this html is injected via .html() — escape them.
+        // attacker-controlled) and this html is injected via .html(). Escape them.
         if(info.action_format==0){
             html += escapeHtml(info.message);
         } else if(info.action_format==1){
@@ -1331,7 +1331,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(fee);
                 $('td', row).eq(7).html(action_link);
             }
-            // Price (PRICE oracle — v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)
+            // Price (PRICE oracle: v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)
             if(action=='price'){
                 let version = data[4];
                 let pcoin   = data[5];
@@ -1347,7 +1347,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(9).text(isNull(fee) ? '-' : fee);
                 $('td', row).eq(10).html(action_link);
             }
-            // Controller binding (programmable-policy guard — bind/unbind event on a token or address)
+            // Controller binding (programmable-policy guard: bind/unbind event on a token or address)
             if(action=='controller'){
                 let scope    = data[3];
                 let subject  = data[4];
@@ -1356,7 +1356,7 @@ function loadDatatablesData(coin, action, query, type){
                 let isUnbind = data[7];
                 let cdBlocks = data[8];
                 let cdEnd    = data[9];
-                // data[3] (scope) is not an address — override the generic source link cell
+                // data[3] (scope) is not an address; override the generic source link cell
                 $('td', row).eq(3).html(scope=='address'
                     ? '<span class="badge text-bg-info">Address</span>'
                     : '<span class="badge text-bg-secondary">Token</span>');
@@ -1372,7 +1372,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(9).text(isNull(cdEnd) ? '-' : numeral(cdEnd).format('0,0'));
                 $('td', row).eq(10).html(action_link);
             }
-            // Deploy chunk (chunked DEPLOY v4 carrier — one base64 code slice of a contract source)
+            // Deploy chunk (chunked DEPLOY v4 carrier: one base64 code slice of a contract source)
             if(action=='deploy_chunk'){
                 let codeHash = data[4];
                 let chunkIdx = data[5];
@@ -1515,9 +1515,9 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 amount2 = data[6];
                 locks   = data[7];
-                // data[8] = ownership-transfer destination — when set, this issue
+                // data[8] = ownership-transfer destination; when set, this issue
                 // moved the token's ownership record (the provenance trail for
-                // NFT collections — NFT_Standard.md#collections)
+                // NFT collections (NFT_Standard.md#collections))
                 let transfer = data[8];
                 if(!isNull(transfer))
                     $('td', row).eq(3).html(source_link + ' <i class="fa fa-arrow-right ps-1 pe-1" title="Token ownership transferred"></i> ' + formatLink('/' + coin + '/address/' + transfer, transfer));
@@ -1674,7 +1674,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).html(formatLocks(locks));
                 $('td', row).eq(8).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
             }
-            // Official Tokens (project roster — same row shape as Tokens)
+            // Official Tokens (project roster; same row shape as Tokens)
             if(action=='project'){
                 token   = data[3];
                 amount  = data[4];
@@ -1806,7 +1806,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(8).html(formatLink('/' + coin + '/block/' + cooldown_end, numeral(cooldown_end).format(fmtInteger)));
                 $('td', row).eq(9).html(action_link);
             }
-            // Slash event (xchain.contract.slash emission — no own action_index; links to the EXECUTE)
+            // Slash event (xchain.contract.slash emission; no own action_index; links to the EXECUTE)
             if(action=='slash_event'){
                 let pubkey         = data[3];
                 let contract_index = data[4];
@@ -1834,7 +1834,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).text((version == 0) ? request_status : response_status);
                 $('td', row).eq(8).html(action_link);
             }
-            // XCALL (cross-chain call — source-chain request row). eq(3) overrides the
+            // XCALL (cross-chain call, source-chain request row). eq(3) overrides the
             // generic source-address link with the emitting contract.
             if(action=='xcall'){
                 let contract_index        = data[3];
@@ -2160,7 +2160,7 @@ function showFileDetails(data){
     } else {
         $('#info-file .file-gated-row').addClass('d-none');
     }
-    // File viewer — non-gated media renders inline from the raw FILE endpoint
+    // File viewer: non-gated media renders inline from the raw FILE endpoint
     // (the server only serves whitelisted media MIME types inline; everything
     // else is offered as a download). Gated files show a locked notice. The
     // rawUrl is built from XC.coin + the numeric action_index, not user input;
@@ -2183,7 +2183,7 @@ function showFileDetails(data){
     viewer.html(html);
 }
 
-// Display ATTEST action information (v0 request / v1 response — `attests` table)
+// Display ATTEST action information (v0 request / v1 response; `attests` table)
 function showAttestDetails(data){
     let isResponse = (Number(data.version) === 1);
     $('#info-attest .attest-type').html(isResponse ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' : '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
@@ -2318,7 +2318,7 @@ function showCustodyDetails(kind, data){
     $('#info-' + kind + ' .' + kind + '-amount').html(formatAmount(data.amount));
 }
 
-// Display XCALL action information (cross-chain call request v0 / expire v2 — VM-emitted,
+// Display XCALL action information (cross-chain call request v0 / expire v2, VM-emitted,
 // read-only). Surfaces the request plus, when present, the target-chain execution outcome
 // and the source-chain callback delivery.
 function showXcallDetails(data){
@@ -2673,7 +2673,7 @@ function showLockStatus(locked){
 // Function to remove HTML content from string
 // Escape user-controlled text for safe insertion via jQuery .html() / innerHTML.
 // The canonical five-entity replacement. Apply to ANY on-chain free-text field
-// (description, memo, message, token names) before it reaches an HTML sink —
+// (description, memo, message, token names) before it reaches an HTML sink.
 // those values are attacker-controlled and the indexer stores them verbatim.
 function escapeHtml(s){
     if(s === null || s === undefined) return '';
@@ -2687,7 +2687,7 @@ function stripHtml(html){
     // not run and whose resource handlers (img/onerror, svg/onload) do not fire,
     // so hostile markup can't execute while we pull out plain text. The previous
     // version assigned user input to a live element's .innerHTML, which fires
-    // onerror/onload during the assignment — itself an XSS execution sink.
+    // onerror/onload during the assignment, which is itself an XSS execution sink.
     try {
         var doc = new DOMParser().parseFromString(String(html), 'text/html');
         return doc.body.textContent || '';
@@ -2707,7 +2707,7 @@ function getArrayItemByType(arr, type){
 }
 
 // Handle loading remote image icon. Sets the IMG src directly so any
-// image URL works (ipfs gateway, arweave, imgur, etc.) — the previous
+// image URL works (ipfs gateway, arweave, imgur, etc.). The previous
 // /relay-based path only worked for .json/.png/arweave.net URLs and
 // silently no-op'd on everything else. The IMG's error handler in
 // token.html falls back to default.png if the URL fails to load.
@@ -2770,12 +2770,12 @@ function updateTokenSection(id){
 
 // Resolve TIS `data_ref` entries across the media arrays. A data_ref of
 // "action:<index>" points at an on-chain FILE action; clients prefer it over
-// `data` when both are present (Token_Information_Standard.md — File Entry
+// `data` when both are present (Token_Information_Standard.md, File Entry
 // Fields). Resolves to the explorer's own raw FILE endpoint. Also guarantees
 // every entry carries a string `data` so downstream substring/split calls are
 // safe on data_ref-only entries.
 // Resolve an action reference ("action:<index>" same-chain, or
-// "action:<COIN>:<index>" sibling-chain — base ticker, network tier implied
+// "action:<COIN>:<index>" sibling-chain (base ticker, network tier implied
 // by the page's chain, same convention as LINK COIN1/COIN2) to this
 // explorer's raw FILE path. Returns false for anything else.
 function actionRefToRawPath(ref){
@@ -2807,10 +2807,10 @@ function resolveTisDataRefs(o){
     return o;
 }
 
-// Lock marker for token-gated TIS entries (`locked: true`) — lets media lists
+// Lock marker for token-gated TIS entries (`locked: true`). Lets media lists
 // render a locked state without fetching the FILE action first.
 function lockedContentIcon(item){
-    return (item && item.locked) ? '<i class="fa fa-lock pe-1" title="Token-gated content — holders decrypt with their unlock key"></i>' : '';
+    return (item && item.locked) ? '<i class="fa fa-lock pe-1" title="Token-gated content: holders decrypt with their unlock key"></i>' : '';
 }
 
 // Pick the entry whose media should display from a TIS media array: prefer the
@@ -2899,7 +2899,7 @@ function showTokenContent(json){
         var table = $('#socialInfo table tbody');
         table.empty();
         o.social.slice(0,10).forEach(function(item){
-            // On-chain fields — escape type, href and link text.
+            // On-chain fields: escape type, href and link text.
             let html = '<tr><th>' + escapeHtml(item.type) + '</th><td><a href="'+ escapeHtml(getValidUrl(item.data)) + '" target="_blank">' + escapeHtml(item.data) + '</a></td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
@@ -2914,7 +2914,7 @@ function showTokenContent(json){
         o.images.slice(0,10).forEach(function(item){
             if(item.data.substring(0,4)=='data')
                 return;
-            // On-chain fields — escape type, size, href and link text.
+            // On-chain fields: escape type, size, href and link text.
             let html = '<tr><th>' + lockedContentIcon(item) + escapeHtml(item.type);
             if(item.size)
                 html += ' (' + escapeHtml(String(item.size)) + ')';
@@ -2923,7 +2923,7 @@ function showTokenContent(json){
             XC.tokenInfoFound = true;
         });
         updateTokenSection('#imagesInfo');
-        // Extract the display image from the images array — named display types
+        // Extract the display image from the images array; named display types
         // first, then the first non-locked entry (fixes the old `first.data`
         // dereference of a string, which hid the artwork for plain TIS docs
         // whose entries carry MIME types instead of display-type tags)
@@ -2990,7 +2990,7 @@ function showTokenContent(json){
         table.empty();
         table.append('<tr><th>Type</th><th>Host</th><th>Value</th></tr>')
         o.dns.slice(0,10).forEach(function(item){
-            // On-chain DNS record fields — escape all three.
+            // On-chain DNS record fields: escape all three.
             var html = '<tr><td>' + escapeHtml(item.type) + '</td><td>' + escapeHtml(item.host) + '</td><td>' + escapeHtml(item.value) + '</td></tr>';
             table.append(html);
             XC.tokenInfoFound = true;
@@ -3104,7 +3104,7 @@ function showTokenContent(json){
                 if(ext=='mp4') type = 'video/mp4';
                 if(ext=='wmv') type = 'video/x-ms-asf';
                 if(ext=='mov') type = 'video/quicktime'
-                // `video` is an on-chain media URL (attacker-controlled) — escape it so it
+                // `video` is an on-chain media URL (attacker-controlled); escape it so it
                 // cannot break out of the src attribute. `type` is a fixed constant above.
                 html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + escapeHtml(video) + '"></video>';
             }
@@ -3117,7 +3117,7 @@ function showTokenContent(json){
                 el = $('#audio-wrapper-soundcloud');
                 html = '<iframe src="https://w.soundcloud.com/player/?url=' + escapeHtml(audio) + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
             } else {
-                // `audio` is an on-chain media URL (attacker-controlled) — escape it.
+                // `audio` is an on-chain media URL (attacker-controlled); escape it.
                 html = '<audio src="' + escapeHtml(audio) + '" autoplay="true" controls loop preload></audio>';
             }
             el.html(html).show();
@@ -3280,7 +3280,7 @@ function showTokenInfo(){
         // On-chain TIS document: DESCRIPTION = "action:<index>" (same chain)
         // or "action:<COIN>:<index>" (sibling chain) pointing at a FILE
         // action whose bytes are the TIS JSON
-        // (Token_Information_Standard.md — On-Chain Format).
+        // (Token_Information_Standard.md, On-Chain Format).
         act     = /^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i;
 
     // Rescue arweave URLs that used the legacy "/x.json" trick (gateway no longer accepts random suffixes)
@@ -3299,7 +3299,7 @@ function showTokenInfo(){
         $('#token-description').html(html);
     }
 
-    // On-chain TIS document pointer — show a link to the FILE action that
+    // On-chain TIS document pointer: show a link to the FILE action that
     // holds the token's information document (on its own chain for the
     // cross-chain form). Coin + index are regex-validated, so the href is
     // safe by construction.
@@ -3316,7 +3316,7 @@ function showTokenInfo(){
     // Set the full url to get JSON content
     let jsonUrl = false;
     if(act.test(desc)){
-        // Same-origin raw FILE bytes from the colocated decoder DB — the
+        // Same-origin raw FILE bytes from the colocated decoder DB;
         // resolution target for an on-chain TIS document (same- or
         // sibling-chain per the action ref).
         jsonUrl = actionRefToRawPath(desc.trim());
@@ -3502,7 +3502,7 @@ function legacyJsonToXChainTIS(o){
     // Token descriptions are untrusted on-chain free text and must NEVER be
     // rendered as HTML. The old code did the opposite: it un-escaped the value
     // and, on a denylist hit (<script/<iframe/onload), promoted the raw markup
-    // into json.html — which is injected via .html() at the token-detail body —
+    // into json.html, which is injected via .html() at the token-detail body.
     // a denylist is trivially bypassed (<img onerror>, <svg onload>, …). Reduce
     // to plain text via the inert stripHtml; the render path then treats it as
     // text. (Rich/HTML descriptions, if ever wanted, need a real sanitizer.)

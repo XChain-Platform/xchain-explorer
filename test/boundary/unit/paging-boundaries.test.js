@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Boundary tests — getPagingDataResults with extreme parameter values
+ * Boundary tests for getPagingDataResults with extreme parameter values
  *
  * Tests negative limit/page/length/start, zero values, overflow values,
  * and combinatorial edge cases that could produce incorrect SQL LIMIT
@@ -82,7 +82,7 @@ function generateRows(count) {
 // Tests
 // ===========================================================================
 
-describe('Boundary: getPagingDataResults — API mode', function () {
+describe('Boundary: getPagingDataResults (API mode)', function () {
 
     let explorer;
     before(function () { explorer = makeExplorer(); });
@@ -106,7 +106,7 @@ describe('Boundary: getPagingDataResults — API mode', function () {
         expect(result).to.have.length(100);
     });
 
-    it('negative limit=-1 — clamped to 1, returns 1 row', function () {
+    it('negative limit=-1 (clamped to 1, returns 1 row)', function () {
         const rows = generateRows(10);
         const cfg = makeApiConfig('getSends', null, null, { query: { limit: -1, page: 1 } });
         const result = explorer.getPagingDataResults(cfg, rows, 10);
@@ -126,7 +126,7 @@ describe('Boundary: getPagingDataResults — API mode', function () {
     // page boundaries
     // -----------------------------------------------------------------------
 
-    it('page=0 — limit becomes 0, returns empty', function () {
+    it('page=0 (limit becomes 0, returns empty)', function () {
         const rows = generateRows(10);
         const cfg = makeApiConfig('getSends', null, null, { query: { limit: 10, page: 0 } });
         const result = explorer.getPagingDataResults(cfg, rows, 10);
@@ -135,7 +135,7 @@ describe('Boundary: getPagingDataResults — API mode', function () {
         expect(result).to.have.length(10);
     });
 
-    it('negative page=-1 — clamped to 1, returns 5 rows', function () {
+    it('negative page=-1 (clamped to 1, returns 5 rows)', function () {
         const rows = generateRows(10);
         const cfg = makeApiConfig('getSends', null, null, { query: { limit: 5, page: -1 } });
         const result = explorer.getPagingDataResults(cfg, rows, 10);
@@ -204,7 +204,7 @@ describe('Boundary: getPagingDataResults — API mode', function () {
 // Explorer mode boundaries
 // ===========================================================================
 
-describe('Boundary: getPagingDataResults — Explorer mode', function () {
+describe('Boundary: getPagingDataResults (Explorer mode)', function () {
 
     let explorer;
     before(function () { explorer = makeExplorer(); });
@@ -246,7 +246,7 @@ describe('Boundary: getPagingDataResults — Explorer mode', function () {
         expect(result).to.have.length(200);
     });
 
-    it('negative length=-5 — clamped to 1, returns 1 row', function () {
+    it('negative length=-5 (clamped to 1, returns 1 row)', function () {
         const rows = generateRows(10);
         const cfg = makeExplorerConfig('getSends', null, null, { length: -5, start: 0 });
         const result = explorer.getPagingDataResults(cfg, rows, 10);
@@ -262,7 +262,7 @@ describe('Boundary: getPagingDataResults — Explorer mode', function () {
         expect(result).to.be.an('array').with.length(0);
     });
 
-    it('negative start=-1 — clamped to 0, returns 10 rows', function () {
+    it('negative start=-1 (clamped to 0, returns 10 rows)', function () {
         const rows = generateRows(10);
         const cfg = makeExplorerConfig('getSends', null, null, { length: 10, start: -1 });
         const result = explorer.getPagingDataResults(cfg, rows, 10);

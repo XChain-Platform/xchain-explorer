@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration test helper — boots the explorer against a test MariaDB
+ * Integration test helper: boots the explorer against a test MariaDB
  * and returns a supertest agent for making HTTP requests.
  */
 

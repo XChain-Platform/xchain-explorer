@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — explorer (DataTables) endpoints
+ * Integration tests: explorer (DataTables) endpoints
  *
  * Explorer responses follow the DataTables server-side protocol:
  *   { recordsTotal: N, recordsFiltered: N, data: [[...], [...], ...] }
@@ -78,7 +78,7 @@ describe('GET /RBTC/explorer/sends/{address}/address', function () {
 });
 
 // ---------------------------------------------------------------------------
-// Pagination — start / length parameters
+// Pagination: start / length parameters
 // ---------------------------------------------------------------------------
 
 describe('Explorer pagination with start and length parameters', function () {
@@ -147,7 +147,7 @@ describe('GET /RBTC/explorer/balances/{address}/address', function () {
 // Tokens list
 // ---------------------------------------------------------------------------
 
-describe('GET /RBTC/explorer/tokens — token list', function () {
+describe('GET /RBTC/explorer/tokens (token list)', function () {
 
     it('returns recordsTotal >= 2 (seed has tokens issued in block 1)', async function () {
         const res = await request

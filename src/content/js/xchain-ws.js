@@ -224,7 +224,7 @@ var XChainWS = {
 
     // Handle connection error
     _onError: function() {
-        // The close event follows — status update happens there
+        // The close event follows; status update happens there
     },
 
     // Reconnect with exponential backoff and jitter
@@ -294,7 +294,7 @@ var XChainWS = {
         // Find or create the status indicator element
         var el = document.getElementById('xchain-ws-status');
         if (!el) {
-            // Create indicator — small dot in the navbar
+            // Create indicator (small dot in the navbar)
             var navbar = document.querySelector('.navbar .container');
             if (!navbar) return;
             el = document.createElement('span');
@@ -307,7 +307,7 @@ var XChainWS = {
         switch (state) {
             case 'connected':
                 el.style.backgroundColor = '#28a745';
-                el.title = 'Live — connected';
+                el.title = 'Live (connected)';
                 break;
             case 'connecting':
             case 'reconnecting':

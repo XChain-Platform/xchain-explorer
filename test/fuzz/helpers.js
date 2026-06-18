@@ -10,7 +10,7 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-// ─── Iterative-loop fuzz helpers (NOT fast-check — not a dep in this monorepo) ─
+// Iterative-loop fuzz helpers (NOT fast-check; not a dep in this monorepo)
 // Random input generators + an ITERATIONS budget, mirroring the decoder fuzz
 // harness idiom (crypto-seeded random values, loop, invariant assertions).
 

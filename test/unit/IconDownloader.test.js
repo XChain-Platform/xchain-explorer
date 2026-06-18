@@ -84,7 +84,7 @@ function makeStubs(opts) {
         fspStub.mkdir.rejects(new Error('mkdir failed'));
     }
 
-    // exec stub — default: sniffMime returns 'image/png', convert succeeds
+    // exec stub (default): sniffMime returns 'image/png', convert succeeds
     const execStub = makeExecStub([
         ['--mime-type', opts.sniffMimeResult !== undefined
             ? (opts.sniffMimeReject ? null : { stdout: opts.sniffMimeResult + '\n', stderr: '' })
@@ -211,7 +211,7 @@ describe('IconDownloader', function () {
     // Lifecycle: start() disabled
     // -----------------------------------------------------------------------
 
-    describe('start() — disabled', function () {
+    describe('start() (disabled)', function () {
         it('returns without setting a timer when enabled=false', async function () {
             const stubs = makeStubs();
             const IconDownloader = loadIconDownloader(stubs);
@@ -241,7 +241,7 @@ describe('IconDownloader', function () {
     // Lifecycle: start() enabled
     // -----------------------------------------------------------------------
 
-    describe('start() — enabled', function () {
+    describe('start() (enabled)', function () {
         it('sets a timer and merges user config over defaults', async function () {
             const stubs = makeStubs();
             const IconDownloader = loadIconDownloader(stubs);
@@ -350,7 +350,7 @@ describe('IconDownloader', function () {
     });
 
     // -----------------------------------------------------------------------
-    // runOnce() — re-entrancy guard
+    // runOnce(): re-entrancy guard
     // -----------------------------------------------------------------------
 
     describe('runOnce()', function () {
@@ -550,7 +550,7 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer({
                 BTC: { mainnet: { database: { indexer: 'xchain_btc' } } },
             }, {
-                // BTC pool is absent from pools — pools has LTC instead
+                // BTC pool is absent from pools; pools has LTC instead
                 LTC: { pool: makeMockPool(makeMockConn([])) },
             });
 
@@ -722,7 +722,7 @@ describe('IconDownloader', function () {
     });
 
     // -----------------------------------------------------------------------
-    // _processToken() — decision tree
+    // _processToken(): decision tree
     // -----------------------------------------------------------------------
 
     describe('_processToken()', function () {
@@ -936,7 +936,7 @@ describe('IconDownloader', function () {
     });
 
     // -----------------------------------------------------------------------
-    // _fetchSourceBytes() — all scheme branches
+    // _fetchSourceBytes(): all scheme branches
     // -----------------------------------------------------------------------
 
     describe('_fetchSourceBytes()', function () {
@@ -962,7 +962,7 @@ describe('IconDownloader', function () {
         it('stamp: throws on empty base64', async function () {
             const stubs = makeStubs();
             const d = makeDownloader(stubs);
-            const src = { scheme: 'stamp', data: 'AA==' };  // decodes to 0x00 — single byte, fine
+            const src = { scheme: 'stamp', data: 'AA==' };  // decodes to 0x00 (single byte, fine)
             const r = await d._fetchSourceBytes(src, 2);
             expect(r).to.be.instanceOf(Buffer);
         });
@@ -971,13 +971,13 @@ describe('IconDownloader', function () {
             const stubs = makeStubs();
             const d = makeDownloader(stubs);
             // An empty base64 string decodes to 0 bytes
-            const src = { scheme: 'stamp', data: '' };  // empty — but wait, data comes from resolver which validates
+            const src = { scheme: 'stamp', data: '' };  // empty; data comes from resolver which validates
             // Force it via src directly
             // We simulate the error by passing data that decodes to nothing
             // Buffer.from('', 'base64') => empty buffer
             try {
                 await d._fetchSourceBytes({ scheme: 'stamp', data: 'AA==' }, 2);
-                // that one has 1 byte — should succeed
+                // that one has 1 byte and should succeed
             } catch (e) {
                 // should not throw for AA==
                 throw new Error('unexpected throw for valid stamp');
@@ -1065,7 +1065,7 @@ describe('IconDownloader', function () {
         });
 
         it('ord: throws when base64 decodes to empty buffer', async function () {
-            // A base64 data URL that decodes to empty — use empty string after base64,
+            // A base64 data URL that decodes to empty: use empty string after base64,
             const stubs = makeStubs({
                 axiosResponse: {
                     status:  200,
@@ -1496,7 +1496,7 @@ describe('IconDownloader', function () {
     });
 
     // -----------------------------------------------------------------------
-    // _processFlavor() integration — batch query + token loop
+    // _processFlavor(): integration, batch query + token loop
     // -----------------------------------------------------------------------
 
     describe('_processFlavor()', function () {
@@ -1509,7 +1509,7 @@ describe('IconDownloader', function () {
             const conn = makeMockConn([
                 [],  // _discover INSERT
                 [],  // _discover UPDATE
-                [],  // SELECT batch — empty
+                [],  // SELECT batch (empty)
             ]);
             const pool  = makeMockPool(conn);
             const flavor = { coin: 'BTC', network: 'mainnet', pool };
@@ -1765,7 +1765,7 @@ describe('IconDownloader', function () {
     // Pure helpers (truncate / md5 tested indirectly, but direct coverage via _markFailure)
     // -----------------------------------------------------------------------
 
-    describe('truncate() — via _processToken error message path', function () {
+    describe('truncate(): via _processToken error message path', function () {
         it('truncates fetch error messages to 255 chars via _processToken', async function () {
             const src = { scheme: 'image_url', url: 'https://example.com/a.png' };
             const stubs = makeStubs({

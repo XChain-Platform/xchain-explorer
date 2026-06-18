@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Toxiproxy client — manages proxy creation and toxic injection
+ * Toxiproxy client: manages proxy creation and toxic injection
  * for chaos engineering experiments.
  *
  * Toxiproxy API docs: https://github.com/Shopify/toxiproxy#http-api
@@ -79,7 +79,7 @@ async function createProxy() {
             enabled:  true
         });
     } catch (e) {
-        // 409 = proxy already exists — that's fine
+        // 409 = proxy already exists, that's fine
         if (e.statusCode !== 409) throw e;
     }
 }
@@ -230,7 +230,7 @@ const faults = {
 };
 
 // -------------------------------------------------------------------------
-// Health check — wait for toxiproxy to be ready
+// Health check: wait for toxiproxy to be ready
 // -------------------------------------------------------------------------
 
 async function waitForToxiproxy(timeoutMs = 15000) {

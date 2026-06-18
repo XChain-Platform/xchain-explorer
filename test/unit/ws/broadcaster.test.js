@@ -126,7 +126,7 @@ describe('Broadcaster', function () {
     // Action broadcasting with filter pipeline
     // -----------------------------------------------------------------
 
-    describe('action events — filter pipeline', function () {
+    describe('action events: filter pipeline', function () {
 
         it('broadcasts NEW_ACTION to actions subscribers', function () {
             const client = createClient(1, 'BTC');

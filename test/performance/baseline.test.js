@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance baseline tests — single-request latency for all endpoint categories.
+ * Performance baseline tests: single-request latency for all endpoint categories.
  *
  * Measures handler + MariaDB round-trip time for individual requests.
  * Requires: MariaDB on port 3307 (docker compose -f test/integration/fixtures/docker-compose.test.yml up -d)
@@ -52,7 +52,7 @@ function timedGet(url) {
     });
 }
 
-describe('Performance baseline — single-request latency', function () {
+describe('Performance baseline: single-request latency', function () {
 
     before(async function () {
         this.timeout(60000);
@@ -109,7 +109,7 @@ describe('Performance baseline — single-request latency', function () {
             times.push(result.elapsed);
         }
 
-        // Compare first 5 vs last 5 — last 5 should not be > 2x the first 5
+        // Compare first 5 vs last 5; last 5 should not be > 2x the first 5
         const firstAvg = times.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
         const lastAvg  = times.slice(-5).reduce((a, b) => a + b, 0) / 5;
 

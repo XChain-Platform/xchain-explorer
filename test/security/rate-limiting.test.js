@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Security tests — Rate Limiting & Request Hardening
+ * Security tests: Rate Limiting and Request Hardening
  *
  * Verifies body size limits, trust proxy configuration, and rate limiter settings
  * by inspecting the api.js configuration (not making live HTTP requests).
@@ -38,7 +38,7 @@ const apiSource = fs.readFileSync(
 // Body size limit
 // ===========================================================================
 
-describe('Security: Rate Limiting — Body size limit', function () {
+describe('Security: Rate Limiting: Body size limit', function () {
 
     it('express.json() has explicit body size limit', function () {
         // Check that express.json is called with a limit option
@@ -57,7 +57,7 @@ describe('Security: Rate Limiting — Body size limit', function () {
 // Trust proxy configuration
 // ===========================================================================
 
-describe('Security: Rate Limiting — Trust proxy', function () {
+describe('Security: Rate Limiting: Trust proxy', function () {
 
     it('trust proxy is set to specific value (not boolean true)', function () {
         // Should NOT use app.enable('trust proxy') which sets it to boolean true
@@ -74,7 +74,7 @@ describe('Security: Rate Limiting — Trust proxy', function () {
 // Rate limiter configuration
 // ===========================================================================
 
-describe('Security: Rate Limiting — Rate limiter config', function () {
+describe('Security: Rate Limiting: Rate limiter config', function () {
 
     it('rate limiter is configured', function () {
         expect(apiSource).to.include('rateLimit(');
@@ -95,7 +95,7 @@ describe('Security: Rate Limiting — Rate limiter config', function () {
     it('has max requests configured', function () {
         // express-rate-limit v7 renamed `max` to `limit`; api.js uses
         // `limit: parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || <default>`
-        // — assert the fallback default is sane.
+        // assert the fallback default is sane.
         const match = apiSource.match(/limit:\s*.*?\|\|\s*(\d+)/) || apiSource.match(/max:\s*(\d+)/);
         expect(match).to.not.be.null;
         const maxRequests = parseInt(match[1], 10);
@@ -108,7 +108,7 @@ describe('Security: Rate Limiting — Rate limiter config', function () {
 // Helmet security headers
 // ===========================================================================
 
-describe('Security: Rate Limiting — Helmet configuration', function () {
+describe('Security: Rate Limiting: Helmet configuration', function () {
 
     it('helmet is enabled', function () {
         expect(apiSource).to.include('app.use(helmet(');
@@ -127,7 +127,7 @@ describe('Security: Rate Limiting — Helmet configuration', function () {
 // CORS configuration
 // ===========================================================================
 
-describe('Security: Rate Limiting — CORS configuration', function () {
+describe('Security: Rate Limiting: CORS configuration', function () {
 
     it('CORS middleware is configured', function () {
         expect(apiSource).to.include('app.use(cors(');

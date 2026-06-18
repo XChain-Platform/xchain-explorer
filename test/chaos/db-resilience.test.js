@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Engineering — Database Resilience
+ * Chaos Engineering: Database Resilience
  *
  * Experiment IDs:
  *   CE-DB-01  Complete database unavailability (30 s outage)
@@ -25,7 +25,7 @@
  *   - MariaDB reachable via toxiproxy on port 3307
  *   - Toxiproxy API on port 8474
  *
- * Run with --timeout 0 (Mocha flag) — do not set timeouts in code.
+ * Run with --timeout 0 (Mocha flag). Do not set timeouts in code.
  */
 
 const { expect } = require('chai');
@@ -52,7 +52,7 @@ const {
 const COIN    = 'RBTC';
 // /explorer/blocks/all hits the DB and returns real data (DataTables format)
 const HEALTH  = `/${COIN}/explorer/blocks/all`;
-// /api/status returns config without DB — used for "process alive" checks
+// /api/status returns config without DB, used for "process alive" checks
 const STATUS  = `/${COIN}/api/status`;
 
 // -------------------------------------------------------------------------
@@ -83,7 +83,7 @@ describe('CE-DB-01: Complete Database Unavailability', function () {
         await resetProxy();
     });
 
-    it('baseline — API returns 200 before fault injection', async function () {
+    it('baseline: API returns 200 before fault injection', async function () {
         const res = await httpGet(HEALTH);
         expect(res.statusCode).to.be.below(500);
     });
@@ -103,14 +103,14 @@ describe('CE-DB-01: Complete Database Unavailability', function () {
         await faults.dbDown();
 
         // Even with DB down the server should still accept TCP connections and
-        // return some HTTP response (error or otherwise) — it must not crash.
+        // return some HTTP response (error or otherwise). It must not crash.
         let gotHttpResponse = false;
         try {
             const res = await httpGet(HEALTH, { timeout: 5000 });
             // Any HTTP response (including 500) proves the process is alive.
             gotHttpResponse = typeof res.statusCode === 'number';
         } catch (e) {
-            // A network-level error is also acceptable — the server accepted the
+            // A network-level error is also acceptable. The server accepted the
             // connection and closed it gracefully rather than crashing.
             gotHttpResponse = e.message !== 'connect ECONNREFUSED';
         }
@@ -174,7 +174,7 @@ describe('CE-DB-02: Slow Query Responses', function () {
         // Use a generous per-request timeout so we see responses, not timeouts.
         const { responses, errors, total } = await concurrentRequests(HEALTH, 5, { timeout: 20000 });
 
-        // All 5 requests should receive an HTTP response — none should error out.
+        // All 5 requests should receive an HTTP response, none should error out.
         expect(errors.length).to.equal(0);
         expect(responses.length).to.equal(total);
     });
@@ -222,7 +222,7 @@ describe('CE-DB-03: Connection Pool Exhaustion', function () {
     });
 
     it('most requests fail or time out when DB holds connections for 30 s', async function () {
-        // Inject a 30 s timeout toxic — each DB connection will be held open
+        // Inject a 30 s timeout toxic. Each DB connection will be held open
         // without responding for 30 s, quickly exhausting the connection pool.
         await faults.timeout(30000);
 
@@ -241,7 +241,7 @@ describe('CE-DB-03: Connection Pool Exhaustion', function () {
         await concurrentRequests(HEALTH, 30, { timeout: 5000 });
 
         // The server must still accept new TCP connections even when its pool is
-        // exhausted — it should not crash or stop listening.
+        // exhausted. It should not crash or stop listening.
         let serverAlive = false;
         try {
             const res = await httpGet(HEALTH, { timeout: 5000 });
@@ -276,7 +276,7 @@ describe('CE-DB-04: Intermittent Connection Drops (30 % TCP reset probability)',
         await resetProxy();
     });
 
-    it('sequential requests survive 30 % reset toxic — retry logic handles drops', async function () {
+    it('sequential requests survive 30 % reset toxic (retry logic handles drops)', async function () {
         await faults.resetConnections(0.3);
 
         let successCount = 0;
@@ -297,7 +297,7 @@ describe('CE-DB-04: Intermittent Connection Drops (30 % TCP reset probability)',
 
         // The explorer has a 3-retry loop with 1s sleep in getConnection/doQuery.
         // With a 30% reset probability, the retry logic may recover all failures,
-        // resulting in 0 observed failures at the HTTP level. This is acceptable —
+        // resulting in 0 observed failures at the HTTP level. This is acceptable:
         // it proves the retry logic works. We verify that most requests succeed.
         expect(successCount).to.be.above(25,
             'Majority of requests should succeed (retry logic handles TCP resets)');
@@ -319,7 +319,7 @@ describe('CE-DB-04: Intermittent Connection Drops (30 % TCP reset probability)',
             }
         }
 
-        // The failure rate should remain well below 100 % — 80 % is a generous
+        // The failure rate should remain well below 100 %. 80 % is a generous
         // upper bound for a 30 % reset probability.
         const failureRate = failureCount / 50;
         expect(failureRate).to.be.below(0.8);

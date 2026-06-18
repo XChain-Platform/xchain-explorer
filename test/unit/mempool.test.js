@@ -14,7 +14,7 @@
  * Unit tests for the decoder-DB mempool surface: db.getDecoderMempoolRows /
  * db.decodeMempoolRow / db.getMempool, the ChangeDetector mempool diffing,
  * and Broadcaster MEMPOOL_ACTION / MEMPOOL_REMOVED routing. The decoder DB
- * is stubbed throughout — no real database.
+ * is stubbed throughout; no real database.
  */
 
 'use strict';

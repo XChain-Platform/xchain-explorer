@@ -264,7 +264,7 @@ describe('ChangeDetector', function () {
             const cd = new ChangeDetector({ db, pollInterval: 60000 });
             cd.state['BTC'] = { blockIndex: 100, actionIndex: 500, initialized: true };
 
-            // _poll catches per-coin errors — should not throw
+            // _poll catches per-coin errors; should not throw
             await cd._poll();
         });
     });

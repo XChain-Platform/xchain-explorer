@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration boundary tests — Search LIKE injection and data value edges
+ * Integration boundary tests: Search LIKE injection and data value edges
  *
  * Tests LIKE wildcard characters in search, long search strings,
  * empty searches, zero-supply tokens, maximum-value balances,
@@ -256,7 +256,7 @@ describe('Boundary Integration: Market endpoints', function () {
         const res = await request.get('/RBTC/api/market/FAKE1/FAKE2');
         expect(res.status).to.equal(200);
         // Market endpoint returns {runtime: '...'} for nonexistent pairs
-        // No data property is returned — this is a boundary finding
+        // No data property is returned (boundary finding)
         expect(res.body).to.be.an('object');
     });
 });

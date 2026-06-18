@@ -216,7 +216,7 @@ describe('Database#getQueryWhereSql', () => {
 
     it('type=block on getBlocks: does NOT append block clause (getBlocks excluded)', async () => {
         const sql = await db.getQueryWhereSql(cfg('getBlocks', 'block'));
-        // getBlocks is in the exclusion list — only base sql returned
+        // getBlocks is in the exclusion list; only base sql returned
         expect(sql).to.equal('b1.block_index IS NOT NULL');
     });
 
@@ -360,7 +360,7 @@ describe('Database#getQueryOffsetSql', () => {
         expect(args).to.deep.equal([]);
     });
 
-    // --- Default field (m.action_index) — parameterized --------------------
+    // --- Default field (m.action_index): parameterized ---------------------
 
     it('action=next with start only: parameterized placeholder', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, null));
@@ -496,7 +496,7 @@ describe('Database#getQueryOffsetSql', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getQueryWhereSql — cross-chain mirrors + contract delegations
+// getQueryWhereSql: cross-chain mirrors + contract delegations
 // ---------------------------------------------------------------------------
 
 describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', () => {

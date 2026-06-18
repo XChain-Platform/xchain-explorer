@@ -47,7 +47,7 @@ class MockDB {
 }
 
 // ---------------------------------------------------------------------------
-// Minimal Express stub — returns the same mockApp every time
+// Minimal Express stub: returns the same mockApp every time
 // ---------------------------------------------------------------------------
 
 const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
@@ -293,7 +293,7 @@ describe('XChainExplorer.processRequest – error responses', function () {
 
     it('returns HTTP 503 when coin is supported but not available', async function () {
         // LTC is in COIN_SUPPORTED but not in COIN_AVAILABLE (per mock-config fixture).
-        // validDataRequest=false so getData is never called — 503 is returned.
+        // validDataRequest=false so getData is never called; 503 is returned.
         const explorer = makeExplorer();
         const res      = await handle(explorer, '/LTC/api/sends/addr1/address');
         const body     = parseBody(res);
@@ -343,7 +343,7 @@ describe('XChainExplorer.processRequest – response headers', function () {
         const explorer = makeExplorer();
         const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
 
-        // Custom headers object should not contain this — cors middleware handles it
+        // Custom headers object should not contain this (cors middleware handles it)
         expect(res._headers).to.not.have.property('Access-Control-Allow-Origin');
     });
 
@@ -390,7 +390,7 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
 
-        // Should not throw — jsonStringify handles BigInt
+        // Should not throw; jsonStringify handles BigInt
         let res;
         expect(async () => {
             res = await handle(explorer, '/BTC/api/sends/addr1/address');
@@ -423,7 +423,7 @@ describe('XChainExplorer.processRequest – HTML responses', function () {
         const explorer = makeExplorer();
         const res      = await handle(explorer, '/');
 
-        // HTML response — res.send() is called (not res.type('json').send())
+        // HTML response: res.send() is called (not res.type('json').send())
         expect(res._type).to.not.equal('json');
         expect(res._body).to.be.a('string');
     });

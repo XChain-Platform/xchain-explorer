@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — Error handling and invalid request behaviour
+ * Integration tests: Error handling and invalid request behaviour
  *
  * Verifies that the explorer returns correct HTTP status codes and bodies
  * for unsupported coins, unavailable coins, unknown paths, null query values,

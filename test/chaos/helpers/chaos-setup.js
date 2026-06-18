@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos test setup — boots the explorer against MariaDB via toxiproxy
+ * Chaos test setup. Boots the explorer against MariaDB via toxiproxy
  * and provides HTTP load generation utilities.
  *
  * Requires:

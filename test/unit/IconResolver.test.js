@@ -19,7 +19,7 @@ const {
 } = require('../../src/IconResolver');
 
 // ---------------------------------------------------------------------------
-// resolveDescriptionToSource — full priority chain
+// resolveDescriptionToSource: full priority chain
 // ---------------------------------------------------------------------------
 
 describe('IconResolver.resolveDescriptionToSource', function(){
@@ -79,7 +79,7 @@ describe('IconResolver.resolveDescriptionToSource', function(){
 });
 
 // ---------------------------------------------------------------------------
-// selectIconUrlFromCip25Json — CIP25 / TIS image array priority
+// selectIconUrlFromCip25Json: CIP25 / TIS image array priority
 // ---------------------------------------------------------------------------
 
 describe('IconResolver.selectIconUrlFromCip25Json', function(){
@@ -179,7 +179,7 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
 });
 
 // ---------------------------------------------------------------------------
-// rewriteSchemeUrl — direct unit tests
+// rewriteSchemeUrl: direct unit tests
 // ---------------------------------------------------------------------------
 
 describe('IconResolver.rewriteSchemeUrl', function(){

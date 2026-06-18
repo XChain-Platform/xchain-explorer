@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for src/XChainDecoderConnector.js — the minimal JSON-RPC client
+ * Unit tests for src/XChainDecoderConnector.js: the minimal JSON-RPC client
  * /api/status uses to aggregate each decoder's self-reported chain→decoder lag.
  */
 

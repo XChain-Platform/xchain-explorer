@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — special endpoints
+ * Integration tests: special endpoints
  *
  * Covers the /icon handler, /relay SSRF-protection handler, JSON-RPC ping,
  * HTML page serving, and static file routing in xchain-explorer.
@@ -69,10 +69,10 @@ after(async function () {
 describe('Special Endpoints', function () {
 
     // -----------------------------------------------------------------------
-    // 1. Icon endpoint — redirects for missing files
+    // 1. Icon endpoint: redirects for missing files
     // -----------------------------------------------------------------------
 
-    it('GET /icon/default.png — icon endpoint serves files', async function () {
+    it('GET /icon/default.png: icon endpoint serves files', async function () {
         // A nonexistent icon file should redirect (302) to /icon/default.png.
         // The handler calls fs.existsSync; the file does not exist in test env.
         const res = await request.get('/icon/nonexistent.png');
@@ -95,7 +95,7 @@ describe('Special Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // 3. Relay — SSRF protection: loopback IP
+    // 3. Relay: SSRF protection for loopback IP
     // -----------------------------------------------------------------------
 
     it('relay blocks private IPs (SSRF protection)', async function () {
@@ -107,7 +107,7 @@ describe('Special Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // 4. Relay — non-http/https protocol rejected
+    // 4. Relay: non-http/https protocol rejected
     // -----------------------------------------------------------------------
 
     it('relay blocks non-http protocols', async function () {
@@ -119,7 +119,7 @@ describe('Special Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // 5. Relay — missing url param does not crash
+    // 5. Relay: missing url param does not crash
     // -----------------------------------------------------------------------
 
     it('relay without url returns error', async function () {
@@ -131,7 +131,7 @@ describe('Special Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // 6. Relay — localhost hostname blocked
+    // 6. Relay: localhost hostname blocked
     // -----------------------------------------------------------------------
 
     it('relay blocks localhost', async function () {
@@ -143,7 +143,7 @@ describe('Special Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // 7. Relay — 10.x.x.x private range blocked
+    // 7. Relay: 10.x.x.x private range blocked
     // -----------------------------------------------------------------------
 
     it('relay blocks 10.x.x.x private range', async function () {
@@ -155,7 +155,7 @@ describe('Special Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // 8. Relay — 192.168.x.x private range blocked
+    // 8. Relay: 192.168.x.x private range blocked
     // -----------------------------------------------------------------------
 
     it('relay blocks 192.168.x.x private range', async function () {

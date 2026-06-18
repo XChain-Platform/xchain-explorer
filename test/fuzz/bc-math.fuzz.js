@@ -16,7 +16,7 @@
 // an arithmetic or comparison regression silently corrupts balances and order
 // books. The unit suite checks fixed examples; this hammers the same helpers
 // with thousands of random-magnitude decimals and asserts algebraic INVARIANTS
-// that must hold for every input — commutativity, self-cancellation, comparison
+// that must hold for every input: commutativity, self-cancellation, comparison
 // trichotomy, and the sub-1e-12 comparison fix (decimal.js-native .gt/.lt, not
 // mathjs.larger's ~1e-12 epsilon, which once made bcgt('0.000000000000001','0')
 // wrongly return false).

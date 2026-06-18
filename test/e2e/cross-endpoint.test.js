@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E tests — Cross-Endpoint Consistency
+ * E2E tests: Cross-Endpoint Consistency
  *
  * Validates mathematical and relational consistency across different
  * API endpoints querying the same underlying data.
@@ -41,7 +41,7 @@ after(async function () {
 });
 
 // ===========================================================================
-// E2E-37 — Balance == sum(credits) - sum(debits)
+// E2E-37: Balance == sum(credits) - sum(debits)
 // ===========================================================================
 
 describe('E2E-37: Balance equals credits minus debits', function () {
@@ -88,7 +88,7 @@ describe('E2E-37: Balance equals credits minus debits', function () {
 });
 
 // ===========================================================================
-// E2E-38 — Token supply == sum(holder balances)
+// E2E-38: Token supply == sum(holder balances)
 // ===========================================================================
 
 describe('E2E-38: Token supply equals sum of holder balances', function () {
@@ -118,7 +118,7 @@ describe('E2E-38: Token supply equals sum of holder balances', function () {
 });
 
 // ===========================================================================
-// E2E-39 — Action data from transaction matches send endpoint
+// E2E-39: Action data from transaction matches send endpoint
 // ===========================================================================
 
 describe('E2E-39: Transaction and send endpoints are consistent', function () {
@@ -139,7 +139,7 @@ describe('E2E-39: Transaction and send endpoints are consistent', function () {
         const txRes = await request.get('/RBTC/api/transaction/9/tx_index');
         expect(txRes.status).to.equal(200);
 
-        // Get the send — action_index 9 is in block 5
+        // Get the send (action_index 9 is in block 5)
         const sendRes = await request.get('/RBTC/api/sends/5/block');
         expect(sendRes.status).to.equal(200);
 
@@ -153,20 +153,20 @@ describe('E2E-39: Transaction and send endpoints are consistent', function () {
 });
 
 // ===========================================================================
-// E2E-40 — Block action counts match action endpoint totals
+// E2E-40: Block action counts match action endpoint totals
 // ===========================================================================
 
 describe('E2E-40: Block-scoped action counts are consistent', function () {
 
     it('block 2 has exactly 2 sends', async function () {
-        // Block 2 actions: 3 (SEND), 4 (SEND) — from seed
+        // Block 2 seeded actions: 3 (SEND), 4 (SEND)
         const res = await request.get('/RBTC/api/sends/2/block');
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(2);
     });
 
     it('block 4 has exactly 3 orders', async function () {
-        // Block 4 actions: 7 (ORDER), 8 (ORDER), 22 (ORDER) — from seed
+        // Block 4 seeded actions: 7 (ORDER), 8 (ORDER), 22 (ORDER)
         const res = await request.get('/RBTC/api/orders/4/block');
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(3);

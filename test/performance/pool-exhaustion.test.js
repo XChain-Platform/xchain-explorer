@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Pool exhaustion tests — verifies behavior when concurrent requests exceed the DB pool limit.
+ * Pool exhaustion tests: verifies behavior when concurrent requests exceed the DB pool limit.
  *
  * With connectionLimit=25, these tests fire 30+ simultaneous requests to verify
  * the server handles pool saturation gracefully without crashes or hangs.
@@ -40,7 +40,7 @@ function httpGet(url) {
     });
 }
 
-describe('Pool exhaustion — concurrent requests beyond pool limit', function () {
+describe('Pool exhaustion: concurrent requests beyond pool limit', function () {
 
     before(async function () {
         this.timeout(60000);
@@ -64,7 +64,7 @@ describe('Pool exhaustion — concurrent requests beyond pool limit', function (
         const errorRate = errors / results.length;
 
         expect(errorRate).to.be.below(0.10,
-            `${errors}/30 requests failed (${(errorRate * 100).toFixed(0)}%) — expected < 10% error rate`);
+            `${errors}/30 requests failed (${(errorRate * 100).toFixed(0)}%); expected < 10% error rate`);
     });
 
     it('handles 50 simultaneous requests without hanging (timeout < 20s)', async function () {
@@ -76,7 +76,7 @@ describe('Pool exhaustion — concurrent requests beyond pool limit', function (
         const elapsed = Date.now() - start;
 
         expect(elapsed).to.be.below(20000,
-            `Requests took ${elapsed}ms — possible pool deadlock`);
+            `Requests took ${elapsed}ms (possible pool deadlock)`);
     });
 
     it('recovers to normal latency after pool saturation burst', async function () {
@@ -90,7 +90,7 @@ describe('Pool exhaustion — concurrent requests beyond pool limit', function (
         // Recovery: single requests should be fast again
         const recovery = await httpGet(url);
         expect(recovery.elapsed).to.be.below(1000,
-            `Post-saturation recovery took ${recovery.elapsed}ms — pool may not be releasing connections`);
+            `Post-saturation recovery took ${recovery.elapsed}ms; pool may not be releasing connections`);
         expect(recovery.status).to.equal(200);
     });
 

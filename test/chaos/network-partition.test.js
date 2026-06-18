@@ -221,7 +221,7 @@ describe('CE-NET-03: Packet Slicing (Degraded Network)', function () {
         console.log(`    CE-NET-03 sliced avg: ${avg.toFixed(1)}ms (baseline: ${baselineElapsed ? baselineElapsed.toFixed(1) : 'N/A'}ms)`);
 
         // Slicing tiny responses may not add measurable latency, so we only
-        // assert that responses complete successfully — the key chaos insight
+        // assert that responses complete successfully. The key chaos insight
         // is that data integrity is preserved, not necessarily that latency rises.
         for (const r of results) {
             expect(r.statusCode).to.be.oneOf([200, 404, 429]);
@@ -260,7 +260,7 @@ describe('CE-NET-04: Bandwidth Throttling', function () {
     });
 
     it('should eventually complete all requests despite 1KB/sec bandwidth cap', async function () {
-        // Throttle to 1 KB/sec — tiny responses will still be slow
+        // Throttle to 1 KB/sec; tiny responses will still be slow
         await faults.limitBandwidth(1024);
 
         const { responses } = await concurrentRequests(TEST_PATH, 5, { timeout: 60000 });

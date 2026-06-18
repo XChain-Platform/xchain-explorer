@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Smoke tests — Database connectivity (SM-06 through SM-08)
+ * Smoke tests: Database connectivity (SM-06 through SM-08)
  *
  * Requires MariaDB on port 3307 (start with: npm run test:integration:up).
  * Verifies pool creation, connection success, and bounded failure handling.

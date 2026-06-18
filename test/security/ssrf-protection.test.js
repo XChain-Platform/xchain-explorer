@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Security tests — SSRF Protection
+ * Security tests: SSRF Protection
  *
  * Tests the /relay endpoint against SSRF bypass vectors including
  * redirect-based bypass, protocol smuggling, and URL parsing edge cases.
@@ -59,7 +59,7 @@ function makeRelayReq(url) {
 // Redirect-based SSRF bypass prevention
 // ===========================================================================
 
-describe('Security: SSRF — Redirect bypass prevention', function () {
+describe('Security: SSRF: Redirect bypass prevention', function () {
 
     it('sets maxRedirects to 0 (blocks redirect-based SSRF)', async function () {
         const axiosStub = { get: sinon.stub().resolves({ data: { ok: true } }) };
@@ -91,7 +91,7 @@ describe('Security: SSRF — Redirect bypass prevention', function () {
 // Protocol validation
 // ===========================================================================
 
-describe('Security: SSRF — Protocol validation', function () {
+describe('Security: SSRF: Protocol validation', function () {
 
     let explorer;
     before(() => { explorer = makeExplorer(); });
@@ -128,7 +128,7 @@ describe('Security: SSRF — Protocol validation', function () {
 // Private IP blocklist
 // ===========================================================================
 
-describe('Security: SSRF — Private IP blocklist', function () {
+describe('Security: SSRF: Private IP blocklist', function () {
 
     let explorer;
     before(() => { explorer = makeExplorer(); });
@@ -170,7 +170,7 @@ describe('Security: SSRF — Private IP blocklist', function () {
 // File extension filtering
 // ===========================================================================
 
-describe('Security: SSRF — File extension filtering', function () {
+describe('Security: SSRF: File extension filtering', function () {
 
     let explorer;
     before(() => { explorer = makeExplorer(); });
@@ -213,7 +213,7 @@ describe('Security: SSRF — File extension filtering', function () {
 // URL parsing edge cases
 // ===========================================================================
 
-describe('Security: SSRF — URL parsing edge cases', function () {
+describe('Security: SSRF: URL parsing edge cases', function () {
 
     let explorer;
     before(() => { explorer = makeExplorer(); });
@@ -246,10 +246,10 @@ describe('Security: SSRF — URL parsing edge cases', function () {
 
     it('handles URL with percent-encoded dots (resolves to empty hostname)', async function () {
         const res = mockRes();
-        // new URL('http://127%2E0%2E0%2E1/test.json') parses with empty hostname
-        // so it does NOT resolve to 127.0.0.1 — not an SSRF risk
+        // new URL('http://127%2E0%2E0%2E1/test.json') parses with empty hostname,
+        // so it does not resolve to 127.0.0.1 (not an SSRF risk)
         await explorer.processRelayRequest(makeRelayReq('http://127%2E0%2E0%2E1/test.json'), res);
-        // The URL has empty hostname — not blocked but also not pointing at internal IP
+        // The URL has empty hostname: not blocked but also not pointing at internal IP
         expect(res._status).to.not.equal(500); // should not crash
     });
 });
@@ -258,7 +258,7 @@ describe('Security: SSRF — URL parsing edge cases', function () {
 // Error handling (no info leakage)
 // ===========================================================================
 
-describe('Security: SSRF — Error response safety', function () {
+describe('Security: SSRF: Error response safety', function () {
 
     it('returns generic error message on network failure', async function () {
         const axiosStub = { get: sinon.stub().rejects(new Error('ECONNREFUSED')) };
@@ -286,7 +286,7 @@ describe('Security: SSRF — Error response safety', function () {
 // DNS-resolution bypass prevention (a domain pointing at a private/metadata IP)
 // ===========================================================================
 
-describe('Security: SSRF — DNS resolution bypass', function () {
+describe('Security: SSRF: DNS resolution bypass', function () {
 
     it('_isPrivateAddress flags private / loopback / link-local / metadata IPs', function () {
         const explorer = makeExplorer();

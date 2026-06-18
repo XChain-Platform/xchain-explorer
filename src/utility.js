@@ -108,7 +108,7 @@ class Utility {
     // Handle getting the local wall-clock time in seconds.
     // NOTE: this is non-deterministic across hosts. It is for display-only use
     // (e.g. relative "x ago" timers) and must NEVER be used to derive any value
-    // that should match consensus state — block processing and any activation /
+    // that should match consensus state; block processing and any activation /
     // expiration check that mirrors the indexer must use a block timestamp.
     getWallClockTime(){
         return this.bcdiv(Date.now(), 1000, 0);
@@ -199,7 +199,7 @@ class Utility {
     // Uses decimal.js's native .gt/.lt/.gte/.lte (exact) rather than
     // mathjs.larger/smaller/largerEq/smallerEq, which apply mathjs's comparison
     // epsilon (~1e-12 relative) and treat any two amounts differing by less than
-    // that as EQUAL — corrupting every comparison of sub-1e-12 amounts for
+    // that as EQUAL, corrupting every comparison of sub-1e-12 amounts for
     // 18-decimal tokens (e.g. bcgt('0.000000000000001','0') returned false).
     bcgt(numA, numB){
         return mathjs.bignumber(numA).gt(mathjs.bignumber(numB));

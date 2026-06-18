@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E tests — Data Formatting & Type Consistency
+ * E2E tests: Data Formatting & Type Consistency
  *
  * Validates that data types are preserved through the SQL→API pipeline:
  * BigInts as strings, timestamps as integers, booleans as booleans,
@@ -42,7 +42,7 @@ after(async function () {
 });
 
 // ===========================================================================
-// E2E-14 — BigInt Serialization
+// E2E-14: BigInt Serialization
 // ===========================================================================
 
 describe('E2E-14: BigInt values survive serialization', function () {
@@ -55,7 +55,7 @@ describe('E2E-14: BigInt values survive serialization', function () {
         const row = res.body.data.find(r => r.tick === 'BIGTOKEN');
         expect(row).to.exist;
 
-        // Must be a string — BigInt amounts cannot be Number without precision loss
+        // Must be a string: BigInt amounts lose precision if coerced to Number
         expect(row.amount).to.be.a('string');
         // Exact seeded value: 18014398509481984.00000000 (2^54, above MAX_SAFE_INTEGER)
         expect(row.amount).to.equal('18014398509481984.00000000');
@@ -82,7 +82,7 @@ describe('E2E-14: BigInt values survive serialization', function () {
 });
 
 // ===========================================================================
-// E2E-15 — Timestamp Format Consistency
+// E2E-15: Timestamp Format Consistency
 // ===========================================================================
 
 describe('E2E-15: Timestamps are Unix integers', function () {
@@ -92,7 +92,7 @@ describe('E2E-15: Timestamps are Unix integers', function () {
         expect(res.status).to.equal(200);
 
         // Seeded: block 5 block_time = 1700002400
-        // MariaDB BIGINT may arrive as string — verify the value regardless of type
+        // MariaDB BIGINT may arrive as string; verify the value regardless of type
         expect(Number(res.body.timestamp)).to.equal(1700002400);
     });
 
@@ -114,7 +114,7 @@ describe('E2E-15: Timestamps are Unix integers', function () {
 });
 
 // ===========================================================================
-// E2E-16 — Boolean Fields
+// E2E-16: Boolean Fields
 // ===========================================================================
 
 describe('E2E-16: Token lock fields are boolean type', function () {
@@ -153,7 +153,7 @@ describe('E2E-16: Token lock fields are boolean type', function () {
 });
 
 // ===========================================================================
-// E2E-17 — Null Handling
+// E2E-17: Null Handling
 // ===========================================================================
 
 describe('E2E-17: Null fields are JSON null', function () {
@@ -196,7 +196,7 @@ describe('E2E-17: Null fields are JSON null', function () {
 });
 
 // ===========================================================================
-// E2E-18 — Decimal Precision
+// E2E-18: Decimal Precision
 // ===========================================================================
 
 describe('E2E-18: Amount decimal places match token config', function () {

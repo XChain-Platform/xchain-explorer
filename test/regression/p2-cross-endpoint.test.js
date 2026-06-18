@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * P2 Regression Tests — Cross-Endpoint Consistency and E2E Pipeline
+ * P2 Regression Tests: Cross-Endpoint Consistency and E2E Pipeline
  *
  * Validates that the same data appears consistently across related
  * endpoints, and that action-specific endpoints return correct data.

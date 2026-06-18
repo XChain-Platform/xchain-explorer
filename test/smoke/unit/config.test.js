@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Smoke tests — Configuration loading (SM-01 through SM-04)
+ * Smoke tests: Configuration loading (SM-01 through SM-04)
  *
  * These tests verify that the explorer can load configuration without
  * external dependencies. They use proxyquire to stub fs (SSL reads)

@@ -33,8 +33,8 @@ function loadConnector(axiosStub) {
 }
 
 // Axios-style error for a non-2xx response that still carries a valid JSON-RPC
-// body — e.g. the hub's HTTP 503 "degraded" health response when its DB pool is
-// down. Axios attaches the full response to the thrown error as err.response.
+// body (e.g. the hub's HTTP 503 "degraded" health response when its DB pool is
+// down). Axios attaches the full response to the thrown error as err.response.
 function degraded503Error(body) {
     const err = new Error('Request failed with status code 503');
     err.response = {
@@ -194,7 +194,7 @@ describe('XChainHubConnector', function () {
             const XChainHubConnector = loadConnector(axiosStub);
             const connector = new XChainHubConnector('localhost', 3000);
             await connector.getAllConfig();
-            // With multi-attempt retry, warn is called multiple times — just check it fired
+            // With multi-attempt retry, warn is called multiple times; just check it fired
             expect(consoleStub.called).to.be.true;
             expect(consoleStub.firstCall.args.join(' ')).to.include('network down');
             consoleStub.restore();
@@ -246,7 +246,7 @@ describe('XChainHubConnector', function () {
     });
 
     // -----------------------------------------------------------------------
-    // Retry behavior — bridges the startup race where the hub is still booting
+    // Retry behavior: bridges the startup race where the hub is still booting
     // -----------------------------------------------------------------------
 
     describe('getAllConfig() retry behavior', function () {
@@ -272,7 +272,7 @@ describe('XChainHubConnector', function () {
         it('returns the result once an endpoint recovers on a later attempt', async function () {
             const mockResult = { bitcoin: { mainnet: { indexer: {}, decoder: {} } } };
             const axiosStub  = makeAxiosStub();
-            // First pass fails, second pass succeeds — the hub finished booting.
+            // First pass fails, second pass succeeds: the hub finished booting.
             axiosStub.post.onFirstCall().rejects(new Error('ECONNREFUSED'));
             axiosStub.post.onSecondCall().resolves({ data: { result: mockResult } });
             const XChainHubConnector = loadConnector(axiosStub);
@@ -282,7 +282,7 @@ describe('XChainHubConnector', function () {
             expect(axiosStub.post.callCount).to.equal(2);
         });
 
-        it('ping() does not retry — a single attempt only', async function () {
+        it('ping() does not retry: a single attempt only', async function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.rejects(new Error('ECONNREFUSED'));
             const XChainHubConnector = loadConnector(axiosStub);
@@ -295,7 +295,7 @@ describe('XChainHubConnector', function () {
     });
 
     // -----------------------------------------------------------------------
-    // parseEndpoints() — hub discovery vs. standalone (NO_HUB) mode
+    // parseEndpoints(): hub discovery vs. standalone (NO_HUB) mode
     // -----------------------------------------------------------------------
     describe('parseEndpoints()', function () {
 

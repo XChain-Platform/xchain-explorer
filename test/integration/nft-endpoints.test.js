@@ -11,13 +11,13 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — NFT display surfaces (protocol/NFT_Standard.md)
+ * Integration tests: NFT display surfaces (protocol/NFT_Standard.md)
  *
  * Covers:
- *   - /{COIN}/api/tokens/null/nft + /{COIN}/explorer/tokens/null/nft —
+ *   - /{COIN}/api/tokens/null/nft + /{COIN}/explorer/tokens/null/nft:
  *     the NFT-pattern filter (DECIMALS=0 AND LOCK_MAX_SUPPLY=1)
- *   - /{COIN}/api/token/{tick} — decimals exposure for client classification
- *   - /{COIN}/api/file/{idx}/raw — non-gated FILE bytes resolved from the
+ *   - /{COIN}/api/token/{tick}: decimals exposure for client classification
+ *   - /{COIN}/api/file/{idx}/raw: non-gated FILE bytes resolved from the
  *     colocated decoder DB (TIS data_ref target), inline MIME whitelist,
  *     gated ciphertext passthrough, and the /{COIN}/nfts HTML page
  *
@@ -35,7 +35,7 @@ const { createApp } = require('./helpers/app-setup');
 
 let request;
 
-// PNG magic bytes — enough to assert byte-exact passthrough
+// PNG magic bytes (enough to assert byte-exact passthrough)
 const PNG_BYTES  = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
 const HTML_BYTES = Buffer.from('<html><script>alert(1)</script></html>');
 const CIPHERTEXT = Buffer.from('aabbccddeeff', 'hex');
@@ -65,7 +65,7 @@ before(async function () {
 
     // --- FILE seeds ---------------------------------------------------------
     // action 95 = non-gated PNG (tx 5, hash id 5); action 97 = non-gated HTML
-    // (tx 7, hash id 7) — must NOT be served inline; action 96 = gated file.
+    // (tx 7, hash id 7). action 97 must NOT be served inline; action 96 = gated file.
     await db.query(`INSERT IGNORE INTO files (action_index, name, title, type_id, memo_id, status_id) VALUES
         (95, 'pepe.png',  'Pepe Artwork', 1, NULL, 1),
         (97, 'page.html', 'Sketchy HTML', 2, NULL, 1)`);
@@ -81,9 +81,9 @@ before(async function () {
     await db.query(`INSERT IGNORE INTO gated_files (action_index, gate_ticker, encryption_method, key_hash, status_id, raw_data) VALUES
         (96, 'PEPEUNIQUE', 1, '${'a'.repeat(64)}', 1, ?)`, [CIPHERTEXT]);
 
-    // --- Decoder DB (colocated, same creds — matches src/config behavior) ---
+    // --- Decoder DB (colocated, same creds; matches src/config behavior) ---
     // The decoder numbers tx_index independently of the indexer, so the seeds
-    // deliberately use DIFFERENT tx_index values (505/507) — the explorer must
+    // deliberately use DIFFERENT tx_index values (505/507). The explorer must
     // match rows by tx HASH, never by id.
     await db.query(`CREATE DATABASE IF NOT EXISTS ${DECODER_DB}`);
     await db.query(`CREATE TABLE IF NOT EXISTS ${DECODER_DB}.index_transactions (
@@ -126,7 +126,7 @@ describe('NFT token filter (type=nft)', function () {
 
     // NOTE: mocha runs every file's root before() hook up front, so fixtures
     // from sibling integration files (e.g. PROJECTX, itself NFT-pattern) share
-    // this DB — assert subset + predicate, never exact totals.
+    // this DB. Assert subset + predicate, never exact totals.
     it('GET /RBTC/api/tokens/null/nft returns only NFT-pattern tokens', async function () {
         const res = await request.get('/RBTC/api/tokens/null/nft');
         expect(res.status).to.equal(200);

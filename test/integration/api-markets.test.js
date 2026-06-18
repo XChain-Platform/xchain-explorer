@@ -13,10 +13,10 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — market endpoints
+ * Integration tests: market endpoints
  *
  * Seed data (seed-baseline.sql) provides:
- *   markets:       2 pairs — XCHAIN/TOKENONE (tick1_price=2.0) and XCHAIN/TOKENTWO (tick1_price=5.0)
+ *   markets:       2 pairs (XCHAIN/TOKENONE tick1_price=2.0, XCHAIN/TOKENTWO tick1_price=5.0)
  *   orders:        6 orders; 4 with current status 'open'
  *   order_matches: 3 matches
  */
@@ -66,7 +66,7 @@ describe('GET /RBTC/api/markets', function () {
 });
 
 // ---------------------------------------------------------------------------
-// GET /RBTC/api/markets/{TICK1} — filter by token
+// GET /RBTC/api/markets/{TICK1}: filter by token
 // ---------------------------------------------------------------------------
 
 describe('GET /RBTC/api/markets/XCHAIN', function () {
@@ -81,7 +81,7 @@ describe('GET /RBTC/api/markets/XCHAIN', function () {
 });
 
 // ---------------------------------------------------------------------------
-// GET /RBTC/api/market/{TICK1}/{TICK2} — specific pair
+// GET /RBTC/api/market/{TICK1}/{TICK2}: specific pair
 // ---------------------------------------------------------------------------
 
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE', function () {
@@ -92,7 +92,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE', function () {
         // getMarket returns an array but getQuery destructures it, so only the first
         // row object is passed through as data. processRequest sets json = data (the
         // single object), then ksort() sorts its keys. The response body is therefore
-        // a single market object — not a wrapped array.
+        // a single market object (not a wrapped array).
         expect(res.body).to.be.an('object').and.not.an('array');
         expect(res.body).to.include.keys('tick1', 'tick2', 'tick1_price', 'id');
     });
@@ -100,7 +100,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE', function () {
 });
 
 // ---------------------------------------------------------------------------
-// GET /RBTC/api/market/{TICK1}/{TICK2}/orders — open orders for pair
+// GET /RBTC/api/market/{TICK1}/{TICK2}/orders: open orders for pair
 // ---------------------------------------------------------------------------
 
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orders', function () {
@@ -108,7 +108,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orders', function () {
     it('returns open orders for the XCHAIN/TOKENONE pair', async function () {
         const res = await request.get('/RBTC/api/market/XCHAIN/TOKENONE/orders').expect(200);
 
-        // getMarketOrders returns [data, null, total] — wrapped as { total, data } when total is numeric
+        // getMarketOrders returns [data, null, total]; wrapped as { total, data } when total is numeric
         expect(res.body).to.have.property('total');
         expect(res.body).to.have.property('data').that.is.an('array');
         // total may be 0 if no open orders exist for this specific pair combination
@@ -118,7 +118,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orders', function () {
 });
 
 // ---------------------------------------------------------------------------
-// GET /RBTC/api/market/{TICK1}/{TICK2}/orderbook — aggregated orderbook
+// GET /RBTC/api/market/{TICK1}/{TICK2}/orderbook: aggregated orderbook
 // ---------------------------------------------------------------------------
 
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
@@ -126,7 +126,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
     it('returns bids and asks arrays', async function () {
         const res = await request.get('/RBTC/api/market/XCHAIN/TOKENONE/orderbook').expect(200);
 
-        // getOrderbook returns { bids: [], asks: [] } — merged directly into json
+        // getOrderbook returns { bids: [], asks: [] }; merged directly into json
         expect(res.body).to.have.property('bids').that.is.an('array');
         expect(res.body).to.have.property('asks').that.is.an('array');
     });
@@ -143,7 +143,7 @@ describe('GET /RBTC/api/market/FAKE/PAIR', function () {
         const res = await request.get('/RBTC/api/market/FAKE/PAIR');
 
         // Explorer returns 400 when data and total are both null/empty,
-        // or a 200 with empty array — accept either outcome
+        // or a 200 with empty array; accept either outcome
         if (res.status === 200) {
             // If it resolved to data, it should be empty
             const body = res.body;

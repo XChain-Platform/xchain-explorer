@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — /api/status and /api/network endpoints
+ * Integration tests: /api/status and /api/network endpoints
  */
 
 const { expect } = require('chai');
@@ -55,7 +55,7 @@ describe('GET /RBTC/api/status', function () {
     });
 
     it('status works even for an unsupported coin prefix', async function () {
-        // /BTC/api/status — BTC (mainnet) is supported but not available;
+        // /BTC/api/status: BTC (mainnet) is supported but not available;
         // the explorer forces status requests to validDataRequest=true regardless
         const res = await request.get('/BTC/api/status').expect(200);
 

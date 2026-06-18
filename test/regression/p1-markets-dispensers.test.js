@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * P1 Regression Tests — Markets, Dispensers, Pagination
+ * P1 Regression Tests: Markets, Dispensers, Pagination
  *
  * Covers market pair queries, dispenser endpoints, order endpoints,
  * BigNumber accuracy, and pagination correctness.
@@ -48,12 +48,12 @@ after(async function () {
 });
 
 // ===========================================================================
-// @p1 @market Markets — list all pairs
+// @p1 @market Markets: list all pairs
 // ===========================================================================
 
 describe('@p1 @market Markets list regression', function () {
 
-    it('GET /RBTC/api/markets — lists all market pairs', async function () {
+    it('GET /RBTC/api/markets: lists all market pairs', async function () {
         const res = await request.get('/RBTC/api/markets').expect(200);
         expect(res.body).to.have.property('total');
         expect(res.body).to.have.property('data').that.is.an('array');
@@ -68,24 +68,24 @@ describe('@p1 @market Markets list regression', function () {
 });
 
 // ===========================================================================
-// @p1 @market Markets — filter by token
+// @p1 @market Markets: filter by token
 // ===========================================================================
 
 describe('@p1 @market Markets filter by token regression', function () {
 
-    it('GET /RBTC/api/markets/XCHAIN — returns both pairs', async function () {
+    it('GET /RBTC/api/markets/XCHAIN: returns both pairs', async function () {
         const res = await request.get('/RBTC/api/markets/XCHAIN').expect(200);
         expect(res.body.data.length).to.be.at.least(2);
     });
 });
 
 // ===========================================================================
-// @p1 @market Market — specific pair
+// @p1 @market Market: specific pair
 // ===========================================================================
 
 describe('@p1 @market Market specific pair regression', function () {
 
-    it('GET /RBTC/api/market/XCHAIN/TOKENONE — returns market data object', async function () {
+    it('GET /RBTC/api/market/XCHAIN/TOKENONE: returns market data object', async function () {
         const res = await request.get('/RBTC/api/market/XCHAIN/TOKENONE').expect(200);
         expect(res.body).to.be.an('object').and.not.an('array');
         expect(res.body).to.include.keys('tick1', 'tick2', 'tick1_price', 'id');
@@ -107,18 +107,18 @@ describe('@p1 @market Market specific pair regression', function () {
 });
 
 // ===========================================================================
-// @p1 @market Market — orders and orderbook
+// @p1 @market Market: orders and orderbook
 // ===========================================================================
 
 describe('@p1 @market Market orders and orderbook regression', function () {
 
-    it('GET /RBTC/api/market/XCHAIN/TOKENONE/orders — returns orders wrapper', async function () {
+    it('GET /RBTC/api/market/XCHAIN/TOKENONE/orders: returns orders wrapper', async function () {
         const res = await request.get('/RBTC/api/market/XCHAIN/TOKENONE/orders').expect(200);
         expect(res.body).to.have.property('total');
         expect(res.body).to.have.property('data').that.is.an('array');
     });
 
-    it('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook — returns bids and asks', async function () {
+    it('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook: returns bids and asks', async function () {
         const res = await request.get('/RBTC/api/market/XCHAIN/TOKENONE/orderbook').expect(200);
         expect(res.body).to.have.property('bids').that.is.an('array');
         expect(res.body).to.have.property('asks').that.is.an('array');
@@ -131,7 +131,7 @@ describe('@p1 @market Market orders and orderbook regression', function () {
 
 describe('@p1 @action Orders API regression', function () {
 
-    it('GET /RBTC/api/orders/{block}/block — returns orders in block', async function () {
+    it('GET /RBTC/api/orders/{block}/block: returns orders in block', async function () {
         const res = await request.get('/RBTC/api/orders/4/block');
         expect(res.status).to.equal(200);
         // Block 4 has action_index 7 (ORDER), 8 (ORDER), 22 (ORDER)
@@ -146,7 +146,7 @@ describe('@p1 @action Orders API regression', function () {
 
 describe('@p1 @action Dispensers API regression', function () {
 
-    it('GET /RBTC/api/dispensers/{block}/block — returns dispensers in block', async function () {
+    it('GET /RBTC/api/dispensers/{block}/block: returns dispensers in block', async function () {
         const res = await request.get('/RBTC/api/dispensers/6/block');
         expect(res.status).to.equal(200);
         // Block 6: action_index 11, 12, 25 (all dispensers)
@@ -160,7 +160,7 @@ describe('@p1 @action Dispensers API regression', function () {
 
 describe('@p1 @action Dispenses API regression', function () {
 
-    it('GET /RBTC/api/dispenses/{block}/block — returns dispenses in block', async function () {
+    it('GET /RBTC/api/dispenses/{block}/block: returns dispenses in block', async function () {
         const res = await request.get('/RBTC/api/dispenses/6/block');
         expect(res.status).to.equal(200);
         // Block 6: action_index 25, 26
@@ -174,7 +174,7 @@ describe('@p1 @action Dispenses API regression', function () {
 
 describe('@p1 @action Issues API regression', function () {
 
-    it('GET /RBTC/api/issues/{block}/block — returns issues in block', async function () {
+    it('GET /RBTC/api/issues/{block}/block: returns issues in block', async function () {
         const res = await request.get('/RBTC/api/issues/1/block');
         expect(res.status).to.equal(200);
         // Block 1: action_index 1 (ISSUE), 2 (ISSUE)
@@ -188,7 +188,7 @@ describe('@p1 @action Issues API regression', function () {
 
 describe('@p1 @action Mints API regression', function () {
 
-    it('GET /RBTC/api/mints/{block}/block — returns mints in block', async function () {
+    it('GET /RBTC/api/mints/{block}/block: returns mints in block', async function () {
         const res = await request.get('/RBTC/api/mints/9/block');
         expect(res.status).to.equal(200);
         // Block 9: action_index 18 (MINT)
@@ -202,7 +202,7 @@ describe('@p1 @action Mints API regression', function () {
 
 describe('@p1 @action Destroys API regression', function () {
 
-    it('GET /RBTC/api/destroys/{block}/block — returns destroys in block', async function () {
+    it('GET /RBTC/api/destroys/{block}/block: returns destroys in block', async function () {
         const res = await request.get('/RBTC/api/destroys/10/block');
         expect(res.status).to.equal(200);
         // Block 10: action_index 20 (DESTROY)
@@ -216,7 +216,7 @@ describe('@p1 @action Destroys API regression', function () {
 
 describe('@p1 @action Broadcasts API regression', function () {
 
-    it('GET /RBTC/api/broadcasts/{block}/block — returns broadcasts in block', async function () {
+    it('GET /RBTC/api/broadcasts/{block}/block: returns broadcasts in block', async function () {
         const res = await request.get('/RBTC/api/broadcasts/10/block');
         expect(res.status).to.equal(200);
         // Block 10: action_index 30 (BROADCAST)

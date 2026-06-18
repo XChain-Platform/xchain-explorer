@@ -133,7 +133,7 @@ describe('CE-RES-02: Cache Behavior Under Load', function () {
         // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-02: completed=${totalCompleted}/200, errors=${totalErrors}`);
 
-        // All 200 requests must complete (fulfilled or rejected — no process crash)
+        // All 200 requests must complete (fulfilled or rejected, no process crash)
         expect(totalCompleted + totalErrors, 'all 200 requests should have settled')
             .to.equal(200);
 
@@ -196,12 +196,12 @@ describe('CE-RES-03: Event Loop Saturation', function () {
         // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-03: event loop lag after burst=${afterLag}ms`);
 
-        // Event loop lag is expected to be elevated during the burst — this is
+        // Event loop lag is expected to be elevated during the burst. This is
         // informational rather than a hard assertion, but we log it for review.
         expect(duringLag, 'event loop lag should be measurable during burst').to.be.at.least(0);
 
         // After the burst ends, latency must return to near-baseline (< 100ms).
-        // We use a generous threshold to avoid flakiness — we only care about
+        // We use a generous threshold to avoid flakiness; we only care about
         // catastrophic freezes, not precise scheduling jitter.
         expect(afterLag, 'event loop lag should recover to under 100ms after burst ends')
             .to.be.below(100);

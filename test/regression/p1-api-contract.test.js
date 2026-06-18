@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * P1 Regression Tests — API Contract and Response Format
+ * P1 Regression Tests: API Contract and Response Format
  *
  * Verifies response shapes, content-types, status codes, headers,
  * key ordering, and the explorer DataTables format contract.
@@ -255,7 +255,7 @@ describe('@p1 @contract Special endpoints regression', function () {
 
 describe('@p1 @contract Error responses are JSON envelopes', function () {
 
-    // /file/raw — documented, externally-consumed gated-content endpoint.
+    // /file/raw: documented, externally-consumed gated-content endpoint.
     it('/file/raw returns JSON { error } on a non-numeric action_index (400)', async function () {
         const res = await request.get('/RBTC/api/file/not-a-number/raw');
         expect(res.status).to.equal(400);
@@ -270,7 +270,7 @@ describe('@p1 @contract Error responses are JSON envelopes', function () {
         expect(res.body.error).to.be.a('string').with.length.above(0);
     });
 
-    // /relay — SSRF rejection path.
+    // /relay: SSRF rejection path.
     it('/relay returns JSON { error } on a blocked destination (403)', async function () {
         const res = await request.get('/relay?url=http://127.0.0.1/test');
         expect(res.status).to.equal(403);

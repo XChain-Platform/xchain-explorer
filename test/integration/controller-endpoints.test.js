@@ -11,14 +11,14 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — Controller + Permissions-Manifest surfaces
+ * Integration tests: Controller + Permissions-Manifest surfaces
  * (protocol/Controller_Bound_Tokens.md)
  *
  * Covers:
- *   - /{COIN}/api/contract/{idx} — `permissions` (parsed JSON array | null)
+ *   - /{COIN}/api/contract/{idx}: `permissions` (parsed JSON array | null)
  *     and `max_take_bps` (number | null) from the permissions manifest
- *   - /{COIN}/api/token/{tick} — `controllers[]` (gating token bindings)
- *   - /{COIN}/api/address/{addr} — `controllers[]` (gating address bindings)
+ *   - /{COIN}/api/token/{tick}: `controllers[]` (gating token bindings)
+ *   - /{COIN}/api/address/{addr}: `controllers[]` (gating address bindings)
  *   - Read-time cooldown: a `bind` always gates; an `unbind` gates only while
  *     the chain tip is below cooldown_end_block; latest event per class wins
  *   - Defaults: null manifest fields, [] when nothing gates
@@ -59,7 +59,7 @@ before(async function () {
     await db.query(`INSERT IGNORE INTO contract_permissions (action_index, contract_index, permissions, max_take_bps, block_index) VALUES
         (90, 90, '["send","mint"]', 300, 5)`);
 
-    // --- Unmanifested contract (action_index 91) — no permissions row -------
+    // --- Unmanifested contract (action_index 91): no permissions row -------
     await db.query(`INSERT IGNORE INTO index_transactions (id, hash) VALUES (61,'contract_deploy_tx2_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')`);
     await db.query(`INSERT IGNORE INTO transactions (tx_index, block_index, tx_hash_id, source_id) VALUES (61, 6, 61, 60)`);
     await db.query(`INSERT IGNORE INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format) VALUES (91, 6, 61, 0, 20, 0)`);
@@ -87,7 +87,7 @@ before(async function () {
         (105, 2, 'mint', 91, 1, 0, 5, NULL, 3),
         (106, 2, 'mint', 91, 1, 1, 5, 15, 9)`);
 
-    // --- A token with NO bindings (TOKENTWO = tick_id 3) — no rows ----------
+    // --- A token with NO bindings (TOKENTWO = tick_id 3): no rows ----------
 
     // --- Address controller bindings (addr id 1) ---------------------------
     await db.query(`INSERT IGNORE INTO address_controllers
@@ -112,7 +112,7 @@ after(async function () {
 // Contract permissions manifest
 // ===========================================================================
 
-describe('Contract API (/api/contract/{idx}) — permissions manifest', function () {
+describe('Contract API (/api/contract/{idx}): permissions manifest', function () {
 
     it('surfaces a parsed permissions array and numeric max_take_bps', async function () {
         const res = await request.get('/RBTC/api/contract/90');
@@ -135,7 +135,7 @@ describe('Contract API (/api/contract/{idx}) — permissions manifest', function
 // Token controller bindings
 // ===========================================================================
 
-describe('Token API (/api/token/{tick}) — controllers[]', function () {
+describe('Token API (/api/token/{tick}): controllers[]', function () {
 
     it('lists only the bindings still gating at the chain tip', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
@@ -171,7 +171,7 @@ describe('Token API (/api/token/{tick}) — controllers[]', function () {
 // Address controller bindings
 // ===========================================================================
 
-describe('Address API (/api/address/{addr}) — controllers[]', function () {
+describe('Address API (/api/address/{addr}): controllers[]', function () {
 
     const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';

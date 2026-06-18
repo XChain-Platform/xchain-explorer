@@ -18,7 +18,7 @@
  * priority chain used in content/js/xchain.js so the server-side
  * pipeline picks the same source the asset/token page would.
  *
- * Functions in this file do NOT make network calls — they just classify
+ * Functions in this file do NOT make network calls; they just classify
  * the description and tell the caller what to fetch (or what inline
  * bytes are already encoded).
  *
@@ -44,11 +44,11 @@ function resolveDescriptionToSource(description){
     const desc = description.trim();
     if(desc === '') return null;
 
-    // 1. stamp:base64data — embedded image bytes
+    // 1. stamp:base64data: embedded image bytes
     if(/^stamp:/i.test(desc)){
         const b64 = desc.replace(/^stamp:/i, '').trim();
         if(b64 === '') return null;
-        // Validate that the base64 actually decodes — corrupt stamps are
+        // Validate that the base64 actually decodes. Corrupt stamps are
         // unrecoverable, so don't waste retry slots on them.
         if(!/^[A-Za-z0-9+/=_-]+$/.test(b64)) return null;
         try {
@@ -60,7 +60,7 @@ function resolveDescriptionToSource(description){
         return { scheme: 'stamp', data: b64 };
     }
 
-    // 2. ord:HASH — Ordinals inscription, resolved via the inscription decoder
+    // 2. ord:HASH: Ordinals inscription, resolved via the inscription decoder
     if(/^ord:/i.test(desc)){
         let hash = desc.replace(/^ord:/i, '').trim();
         if(hash === '') return null;
@@ -73,21 +73,21 @@ function resolveDescriptionToSource(description){
         return { scheme: 'ord', url: 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash };
     }
 
-    // 3. ipfs:HASH or ipfs://HASH — IPFS gateway
+    // 3. ipfs:HASH or ipfs://HASH: IPFS gateway
     if(/^ipfs:/i.test(desc)){
         const hash = desc.replace(/^ipfs:(\/\/)?/i, '').trim();
         if(hash === '') return null;
         return { scheme: 'ipfs', url: 'https://ipfsc.crystalsuite.com/' + hash };
     }
 
-    // 4. ar:HASH — Arweave gateway
+    // 4. ar:HASH: Arweave gateway
     if(/^ar:/i.test(desc)){
         const hash = desc.replace(/^ar:/i, '').trim();
         if(hash === '') return null;
         return { scheme: 'arweave', url: 'https://arweave.net/' + hash };
     }
 
-    // 5. imgur formats — accepts:
+    // 5. imgur formats. Accepts:
     //   imgur/<image>[;<title>]
     //   imgur.com/<image>
     //   imgur.com/a/<image>           (album short)
@@ -96,7 +96,7 @@ function resolveDescriptionToSource(description){
     //   https?://imgur.com/a/<image>
     //   https?://imgur.com/gallery/<image>
     // Direct image URLs at i.imgur.com (https://i.imgur.com/...) are NOT
-    // matched here — they fall through to the bare-image-URL branch.
+    // matched here; they fall through to the bare-image-URL branch.
     if(/^(?:https?:\/\/)?imgur(\.com)?\//i.test(desc)){
         const rest = desc.replace(/^(?:https?:\/\/)?imgur(\.com)?\//i, '');
         let name = rest.split(';')[0].trim();
@@ -108,10 +108,10 @@ function resolveDescriptionToSource(description){
         return { scheme: 'imgur', url: 'https://i.imgur.com/' + name };
     }
 
-    // 6. Pointers to non-image media — can't generate an icon from these
+    // 6. Pointers to non-image media: can't generate an icon from these
     if(/^(youtube|soundcloud)\//i.test(desc)) return null;
 
-    // 7. Bare arweave URL — strip the legacy /x.json suffix that no longer works
+    // 7. Bare arweave URL: strip the legacy /x.json suffix that no longer works
     if(/^https?:\/\/arweave\.net\//i.test(desc)){
         let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
         url = url.split(';')[0];   // strip ;hash suffix if any
@@ -125,7 +125,7 @@ function resolveDescriptionToSource(description){
         return { scheme: 'json_url', url };
     }
 
-    // 9. Bare image URL — recognized by extension on the path component
+    // 9. Bare image URL: recognized by extension on the path component
     if(/^https?:\/\//i.test(desc)){
         const url  = desc.split(';')[0];
         const path = (() => {
@@ -167,9 +167,8 @@ function selectIconUrlFromCip25Json(json){
     if(json === null || json === undefined) return null;
     if(typeof json !== 'object') return null;
 
-    // Normalize: map a top-level "icon" onto "image" (overwrites image —
-    // an explicit "icon" field is more specific than "image" when both
-    // exist).
+    // Normalize: map a top-level "icon" onto "image". An explicit "icon" field
+    // is more specific than "image" when both exist, so it wins.
     const j = (json.icon) ? Object.assign({}, json, { image: json.icon }) : json;
 
     const images = Array.isArray(j.images) ? j.images : [];

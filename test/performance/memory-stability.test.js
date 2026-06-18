@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Memory stability tests — detects heap leaks during sustained load.
+ * Memory stability tests: detects heap leaks during sustained load.
  *
  * Samples process.memoryUsage() before and after autocannon runs to detect
  * monotonically growing heap (indicative of a memory leak).
@@ -35,7 +35,7 @@ function heapMB() {
     return process.memoryUsage().heapUsed / 1024 / 1024;
 }
 
-describe('Memory stability — heap usage under load', function () {
+describe('Memory stability: heap usage under load', function () {
 
     before(async function () {
         this.timeout(60000);
@@ -52,7 +52,7 @@ describe('Memory stability — heap usage under load', function () {
     it('heap growth stays below 50MB during 15s sustained load', async function () {
         this.timeout(45000);
 
-        // Warm up — let JIT settle and caches fill
+        // Warm up: let JIT settle and caches fill
         await runAutocannon({
             url:         getServerUrl() + '/RBTC/api/tokens',
             connections: 5,
@@ -73,7 +73,7 @@ describe('Memory stability — heap usage under load', function () {
         const growth    = heapAfter - heapBefore;
 
         expect(growth).to.be.below(50,
-            `Heap grew by ${growth.toFixed(1)}MB during sustained load — possible memory leak`);
+            `Heap grew by ${growth.toFixed(1)}MB during sustained load (possible memory leak)`);
 
         console.log(`    Heap: before=${heapBefore.toFixed(1)}MB, after=${heapAfter.toFixed(1)}MB, growth=${growth.toFixed(1)}MB`);
     });
@@ -95,7 +95,7 @@ describe('Memory stability — heap usage under load', function () {
         // Heap should not grow monotonically across 3 cycles (trend < 30MB)
         const trend = samples[2] - samples[0];
         expect(trend).to.be.below(30,
-            `Heap trend across 3 cycles: +${trend.toFixed(1)}MB (samples: ${samples.map(s => s.toFixed(1)).join(', ')}) — possible accumulation`);
+            `Heap trend across 3 cycles: +${trend.toFixed(1)}MB (samples: ${samples.map(s => s.toFixed(1)).join(', ')}) - possible accumulation`);
 
         console.log(`    Heap across cycles: ${samples.map(s => s.toFixed(1) + 'MB').join(' -> ')}`);
     });
@@ -116,7 +116,7 @@ describe('Memory stability — heap usage under load', function () {
 
         // Heap should be reasonable (< 200MB) even after filling caches
         expect(heapSnapshot).to.be.below(200,
-            `Heap is ${heapSnapshot.toFixed(1)}MB — caches may be unbounded`);
+            `Heap is ${heapSnapshot.toFixed(1)}MB (caches may be unbounded)`);
     });
 
 });

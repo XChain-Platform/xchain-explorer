@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Boundary integration test helper — boots the explorer against test MariaDB.
+ * Boundary integration test helper. Boots the explorer against test MariaDB.
  * Reuses the same pattern as the base integration test app-setup.
  */
 

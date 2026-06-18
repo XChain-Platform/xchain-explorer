@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Smoke tests — Status and network API endpoints (SM-09, SM-10, SM-13)
+ * Smoke tests: Status and network API endpoints (SM-09, SM-10, SM-13)
  *
  * Requires MariaDB on port 3307 (start with: npm run test:integration:up).
  * Validates the most fundamental API endpoints respond with correct structure.

@@ -29,11 +29,11 @@ const COIN_MAP = {};
     COIN_MAP['R' + chain] = { chain, network: 'regtest' };
 });
 
-// mariadb returns BIGINT columns (action_index, block_index, block_time, …) as JS
-// BigInt, which JSON.stringify cannot serialize — it throws "Do not know how to
-// serialize a BigInt". Every send below is wrapped in a try/catch that swallowed
-// that throw, so EVERY event (NEW_ACTION, NEW_BLOCK, …) was silently dropped at the
-// socket boundary. Coerce BigInt → Number (these indices are far below
+// mariadb returns BIGINT columns (action_index, block_index, block_time, etc.) as JS
+// BigInt, which JSON.stringify cannot serialize (it throws "Do not know how to
+// serialize a BigInt"). Every send below is wrapped in a try/catch that swallowed
+// that throw, so EVERY event (NEW_ACTION, NEW_BLOCK, etc.) was silently dropped at the
+// socket boundary. Coerce BigInt to Number (these indices are far below
 // Number.MAX_SAFE_INTEGER) so events actually reach subscribers.
 function safeStringify(msg) {
     return JSON.stringify(msg, (key, value) => (typeof value === 'bigint' ? Number(value) : value));
@@ -56,7 +56,7 @@ class Broadcaster {
     }
 
     // Handle a newly seen unconfirmed action (decoder mempool). Rows are
-    // PRE-VALIDATION — the indexer can still reject them at confirmation —
+    // PRE-VALIDATION: the indexer can still reject them at confirmation,
     // so the payload deliberately carries the raw decoded action string
     // (`data`) for clients to parse, and no validity claim.
     _onMempoolAction(coin, row) {
@@ -77,14 +77,14 @@ class Broadcaster {
         };
 
         // Global mempool channel + the source's address channel (destinations
-        // live inside the undecoded action fields — clients parse those).
+        // live inside the undecoded action fields; clients parse those).
         this._broadcastToChannel(coin, 'mempool', event, row);
         if (row.source)
             this._broadcastToChannel(coin, 'address', event, row, row.source);
     }
 
-    // Handle a tx leaving the mempool (confirmed or evicted — indistinguishable
-    // here; subscribers reconcile against confirmed NEW_ACTION events).
+    // Handle a tx leaving the mempool. Confirmed and evicted are indistinguishable
+    // here; subscribers reconcile against confirmed NEW_ACTION events.
     _onMempoolRemoved(coin, row) {
         const info = COIN_MAP[coin];
         if (!info) return;
@@ -255,7 +255,7 @@ class Broadcaster {
             // Backpressure check
             if (client.ws.bufferedAmount > this.maxBackpressure) continue;
 
-            // Filter pipeline (AND logic) — all non-null filters must pass
+            // Filter pipeline (AND logic): all non-null filters must pass
             if (!this._passesFilter(filter, event, actionData)) continue;
 
             // Apply fields projection
@@ -295,7 +295,7 @@ class Broadcaster {
 
     // Evaluate filter pipeline against an event
     _passesFilter(filter, event, actionData) {
-        // Types filter — check event type or action field
+        // Types filter: check event type or action field
         if (filter.types) {
             const actionType = (actionData && actionData.action) || (event.data && event.data.action) || event.type;
             if (!filter.types.has(actionType) && !filter.types.has(event.type)) {
@@ -309,7 +309,7 @@ class Broadcaster {
             if (status && !filter.statuses.has(status)) return false;
         }
 
-        // Ticks filter (for global actions channel — filter by token)
+        // Ticks filter (for global actions channel): filter by token
         if (filter.ticks) {
             const tick = (actionData && actionData.tick) || (event.data && event.data.tick) ||
                          (event.data && event.data.give_tick) || (event.data && event.data.get_tick);
@@ -320,7 +320,7 @@ class Broadcaster {
         return true;
     }
 
-    // Apply fields projection — keep only requested keys in data, preserve envelope
+    // Apply fields projection: keep only requested keys in data, preserve envelope
     _applyFieldsProjection(event, fields) {
         const projected = {
             type:      event.type,

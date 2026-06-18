@@ -119,12 +119,12 @@ class ChannelManager {
 
         for (const channel of channels) {
             if (GLOBAL_CHANNELS.has(channel)) {
-                // Global channel — no entity key
+                // Global channel (no entity key)
                 const result = this._addSubscription(client, channel, null, filter);
                 if (result.error) return { success: false, error: result.error };
                 subscribed.push({ channel });
             } else {
-                // Entity channel — resolve entity key(s) from params
+                // Entity channel: resolve entity key(s) from params
                 const entityKeys = this._resolveEntityKeys(channel, params);
                 if (entityKeys.error) return { success: false, error: entityKeys.error };
 
@@ -364,7 +364,7 @@ class ChannelManager {
                 break;
 
             case 'token':
-                // "ticks" as a batch param vs "tick" as singular — but "ticks" is also used as a filter
+                // "ticks" as a batch param vs "tick" as singular, but "ticks" is also used as a filter
                 // Use context: if subscribing to "token" channel, ticks means entity list
                 if (params.tick) {
                     keys.push({ tick: params.tick });

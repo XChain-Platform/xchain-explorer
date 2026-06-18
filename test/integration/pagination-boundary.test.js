@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — Pagination boundary conditions
+ * Integration tests: Pagination boundary conditions
  *
  * Exercises the limit/page/sortorder parameters and verifies boundary
  * behaviour: default limit, explicit limit, no-overlap between pages,
@@ -60,10 +60,10 @@ after(async function () {
 describe('Pagination Boundary Conditions', function () {
 
     // -----------------------------------------------------------------------
-    // 1. Default limit is 100 — all seeded rows are returned
+    // 1. Default limit is 100: all seeded rows are returned
     // -----------------------------------------------------------------------
 
-    it('default limit is 100 — all seeded sends are returned', async function () {
+    it('default limit is 100: all seeded sends are returned', async function () {
         // Seed has 7 sends for addr1; default limit is 100 so all should come back
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address`);
 
@@ -143,7 +143,7 @@ describe('Pagination Boundary Conditions', function () {
     // 6. getHolders sorts by amount DESC (absolute)
     // -----------------------------------------------------------------------
 
-    it('getHolders sorts by amount DESC — first holder has largest amount', async function () {
+    it('getHolders sorts by amount DESC: first holder has largest amount', async function () {
         // XCHAIN balances from seed: addr1=500000, addr2=200000, addr3=100000
         const res = await request.get('/RBTC/api/holders/XCHAIN');
 

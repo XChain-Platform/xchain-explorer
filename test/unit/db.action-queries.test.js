@@ -504,7 +504,7 @@ describe('Database#getFiles (non-token type)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getFiles  (token type path — uses mappings_files)
+// getFiles  (token type path, uses mappings_files)
 // ---------------------------------------------------------------------------
 
 describe('Database#getFiles (token type)', () => {
@@ -1413,7 +1413,7 @@ describe('ACTION query methods: sql.where.offset appended to query', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ATTEST queries — payload + callback_params_json projection
+// ATTEST queries: payload + callback_params_json projection
 //
 // The `attests` table stores the full attestation request body in `payload`
 // (oracle URL for http_get providers, JSON prompt envelope for llm providers)

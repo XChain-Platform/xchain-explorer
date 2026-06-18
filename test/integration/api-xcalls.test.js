@@ -47,7 +47,7 @@ after(async function () {
 
 describe('API XCALL Endpoints', function () {
 
-    it('GET /RBTC/api/xcalls/{block}/block — returns xcalls in a block', async function () {
+    it('GET /RBTC/api/xcalls/{block}/block: returns xcalls in a block', async function () {
         const res = await request.get('/RBTC/api/xcalls/10/block').expect(200);
         expect(Number(res.body.total)).to.equal(1);
         expect(res.body.data).to.be.an('array').with.lengthOf(1);
@@ -55,26 +55,26 @@ describe('API XCALL Endpoints', function () {
         expect(res.body.data[0].target_chain).to.equal('DOGE');
     });
 
-    it('GET /RBTC/api/xcalls/{contract}/contract — returns xcalls emitted by a source contract', async function () {
+    it('GET /RBTC/api/xcalls/{contract}/contract: returns xcalls emitted by a source contract', async function () {
         const res = await request.get('/RBTC/api/xcalls/11/contract').expect(200);
         expect(Number(res.body.total)).to.equal(1);
         expect(res.body.data[0].call_id).to.equal(CALL_ID);
         expect(Number(res.body.data[0].contract_index)).to.equal(11);
     });
 
-    it('GET /RBTC/api/xcalls/{status}/status — filters by request_status', async function () {
+    it('GET /RBTC/api/xcalls/{status}/status: filters by request_status', async function () {
         const res = await request.get('/RBTC/api/xcalls/completed/status').expect(200);
         expect(Number(res.body.total)).to.equal(1);
         expect(res.body.data[0].request_status).to.equal('completed');
     });
 
-    it('GET /RBTC/api/xcalls — lists all xcalls', async function () {
+    it('GET /RBTC/api/xcalls: lists all xcalls', async function () {
         const res = await request.get('/RBTC/api/xcalls').expect(200);
         expect(Number(res.body.total)).to.be.at.least(1);
         expect(res.body.data).to.be.an('array').with.length.greaterThan(0);
     });
 
-    it('GET /RBTC/api/xcall/{call_id} — returns the full lifecycle (request + execution + callback)', async function () {
+    it('GET /RBTC/api/xcall/{call_id}: returns the full lifecycle (request, execution, and callback)', async function () {
         const res = await request.get('/RBTC/api/xcall/' + CALL_ID).expect(200);
         expect(res.body).to.be.an('object');
         expect(res.body.call_id).to.equal(CALL_ID);
@@ -91,7 +91,7 @@ describe('API XCALL Endpoints', function () {
         expect(res.body.callback_delivery.callback_result_status).to.equal('ok');
     });
 
-    it('GET /RBTC/api/xcall/{unknown} — returns no call (null/empty) without error', async function () {
+    it('GET /RBTC/api/xcall/{unknown}: returns no call (null/empty) without error', async function () {
         const res = await request.get('/RBTC/api/xcall/' + 'f'.repeat(64)).expect(200);
         expect(res.body == null || res.body.call_id === undefined).to.equal(true);
     });

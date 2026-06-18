@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Smoke tests — Data query endpoints (SM-11, SM-16)
+ * Smoke tests: Data query endpoints (SM-11, SM-16)
  *
  * Requires MariaDB on port 3307 (start with: npm run test:integration:up).
  * Validates core data endpoints return the standard response envelope.

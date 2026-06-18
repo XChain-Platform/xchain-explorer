@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E test helper — extends the integration db-setup with E2E-specific seed data.
+ * E2E test helper. Extends the integration db-setup with E2E-specific seed data.
  *
  * Reuses the integration helper for schema import and baseline seeding,
  * then layers on seed-e2e.sql which adds BigInt tokens, consistency-check

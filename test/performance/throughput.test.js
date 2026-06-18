@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Throughput tests — measures maximum sustained requests/second using autocannon.
+ * Throughput tests: measures maximum sustained requests/second using autocannon.
  *
  * Requires: MariaDB on port 3307 (docker compose -f test/integration/fixtures/docker-compose.test.yml up -d)
  */
@@ -64,7 +64,7 @@ const SCENARIOS = [
     },
 ];
 
-describe('Throughput — sustained RPS under load', function () {
+describe('Throughput: sustained RPS under load', function () {
 
     before(async function () {
         this.timeout(60000);

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Security tests — SQL Injection Prevention
+ * Security tests: SQL Injection Prevention
  *
  * Verifies that all SQL-facing parameters are properly sanitized or parameterized,
  * preventing SQL injection via query parameters, offsets, limits, and sort orders.
@@ -27,7 +27,7 @@ const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 // ---------------------------------------------------------------------------
-// Database factory — stubbed so no real DB connection needed
+// Database factory: stubbed so no real DB connection needed
 // ---------------------------------------------------------------------------
 
 function makeDb() {
@@ -50,10 +50,10 @@ function cfgOffset(method, action, start, stop) {
 }
 
 // ===========================================================================
-// getQueryOffsetSql — Parameterized Offsets
+// getQueryOffsetSql: Parameterized Offsets
 // ===========================================================================
 
-describe('Security: SQL Injection — Offset Parameterization', function () {
+describe('Security: SQL Injection: Offset Parameterization', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -75,7 +75,7 @@ describe('Security: SQL Injection — Offset Parameterization', function () {
 
     it('rejects SQL injection payload in stop parameter', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 100, '1; DROP TABLE users'));
-        // stop should be sanitized — only start appears
+        // stop is sanitized; only start appears
         expect(sql).to.equal(' AND m.action_index < ?');
         expect(args).to.deep.equal([100]);
     });
@@ -114,10 +114,10 @@ describe('Security: SQL Injection — Offset Parameterization', function () {
 });
 
 // ===========================================================================
-// getQuery — Order and Limit Validation
+// getQuery: Order and Limit Validation
 // ===========================================================================
 
-describe('Security: SQL Injection — Order/Limit Validation', function () {
+describe('Security: SQL Injection: Order/Limit Validation', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -195,10 +195,10 @@ describe('Security: SQL Injection — Order/Limit Validation', function () {
 });
 
 // ===========================================================================
-// getQueryWhereSql — Parameterized WHERE Clauses
+// getQueryWhereSql: Parameterized WHERE Clauses
 // ===========================================================================
 
-describe('Security: SQL Injection — WHERE clause parameterization', function () {
+describe('Security: SQL Injection: WHERE clause parameterization', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -244,10 +244,10 @@ describe('Security: SQL Injection — WHERE clause parameterization', function (
 });
 
 // ===========================================================================
-// getSearch — LIKE query escaping
+// getSearch: LIKE query escaping
 // ===========================================================================
 
-describe('Security: SQL Injection — LIKE wildcard escaping', function () {
+describe('Security: SQL Injection: LIKE wildcard escaping', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -273,7 +273,7 @@ describe('Security: SQL Injection — LIKE wildcard escaping', function () {
 });
 
 // ===========================================================================
-// sanitizeInt — Defense-in-depth integer validation
+// sanitizeInt: Defense-in-depth integer validation
 // ===========================================================================
 
 describe('Security: sanitizeInt defense-in-depth', function () {
@@ -325,7 +325,7 @@ describe('Security: sanitizeInt defense-in-depth', function () {
 });
 
 // ===========================================================================
-// getData — offset args merging
+// getData: offset args merging
 // ===========================================================================
 
 describe('Security: getData merges offset args safely', function () {

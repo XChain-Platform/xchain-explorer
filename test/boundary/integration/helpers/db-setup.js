@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Boundary integration test helper — reuses base DB setup with boundary fixtures.
+ * Boundary integration test helper. Reuses base DB setup with boundary fixtures.
  */
 
 const mariadb = require('mariadb');

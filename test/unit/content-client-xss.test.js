@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Client-side XSS regression harness — src/content/js/xchain.js
+ * Client-side XSS regression harness: src/content/js/xchain.js
  *
  * The stored-XSS fix (afa867d) hardened three free-text sinks in the browser
  * bundle: escapeHtml(), stripHtml(), highlightSearchTerm(). That file is a
@@ -101,7 +101,7 @@ const PAYLOADS = {
     mixed:       'hello <b>bold</b> <img src=x onerror=alert(1)> world',
 };
 
-describe('client XSS — src/content/js/xchain.js (jsdom regression harness)', function () {
+describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', function () {
     let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc;
 
     before(function () {
@@ -180,7 +180,7 @@ describe('client XSS — src/content/js/xchain.js (jsdom regression harness)', f
             });
         });
 
-        it('parses inertly — does not mutate the live document during extraction', function () {
+        it('parses inertly: does not mutate the live document during extraction', function () {
             const { fns, dom } = loadClientFns();
             fns.stripHtml('<img src=x onerror=alert(1)><script>x</script>');
             expect(dom.window.document.querySelectorAll('img,script').length).to.equal(0);
@@ -188,7 +188,7 @@ describe('client XSS — src/content/js/xchain.js (jsdom regression harness)', f
     });
 
     // The custom-HTML token feature is protected by an iframe sandbox (no
-    // allow-same-origin), NOT by escaping — so buildSandboxedContentDoc passes the
+    // allow-same-origin), NOT by escaping, so buildSandboxedContentDoc passes the
     // attacker HTML through verbatim. These tests lock the wrapper's structure and
     // the producer/consumer height-message contract, not escaping.
     describe('buildSandboxedContentDoc() + resize contract', function () {

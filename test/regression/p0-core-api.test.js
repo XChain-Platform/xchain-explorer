@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * P0 Regression Tests — Core API Endpoints
+ * P0 Regression Tests: Core API Endpoints
  *
  * Curated integration tests for the most critical data retrieval endpoints:
  * sends, balances, tokens, addresses, actions, status, network.
@@ -54,12 +54,12 @@ after(async function () {
 });
 
 // ===========================================================================
-// @p0 @core Sends — primary data retrieval
+// @p0 @core Sends: primary data retrieval
 // ===========================================================================
 
 describe('@p0 @core Sends API regression', function () {
 
-    it('GET /RBTC/api/sends/{block}/block — correct count and ordering', async function () {
+    it('GET /RBTC/api/sends/{block}/block: correct count and ordering', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(2);
@@ -68,14 +68,14 @@ describe('@p0 @core Sends API regression', function () {
         expect(Number(res.body.data[0].action_index)).to.be.greaterThan(Number(res.body.data[1].action_index));
     });
 
-    it('GET /RBTC/api/sends/{address}/address — returns all sends involving address', async function () {
+    it('GET /RBTC/api/sends/{address}/address: returns all sends involving address', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address`);
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(7);
         expect(res.body.data).to.be.an('array').with.lengthOf(7);
     });
 
-    it('GET /RBTC/api/sends/{tick}/token — filters by token', async function () {
+    it('GET /RBTC/api/sends/{tick}/token: filters by token', async function () {
         const res = await request.get('/RBTC/api/sends/XCHAIN/token');
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(5);
@@ -84,7 +84,7 @@ describe('@p0 @core Sends API regression', function () {
         }
     });
 
-    it('GET /RBTC/api/sends/{address}/source — filters by source only', async function () {
+    it('GET /RBTC/api/sends/{address}/source: filters by source only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/source`);
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(5);
@@ -93,7 +93,7 @@ describe('@p0 @core Sends API regression', function () {
         }
     });
 
-    it('GET /RBTC/api/sends/{address}/destination — filters by destination only', async function () {
+    it('GET /RBTC/api/sends/{address}/destination: filters by destination only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR2}/destination`);
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(3);
@@ -148,7 +148,7 @@ describe('@p0 @core Sends API regression', function () {
 
 describe('@p0 @core Balances API regression', function () {
 
-    it('GET /RBTC/api/balances/{address} — returns all token balances', async function () {
+    it('GET /RBTC/api/balances/{address}: returns all token balances', async function () {
         const res = await request.get(`/RBTC/api/balances/${ADDR1}`);
         expect(res.status).to.equal(200);
         expect(res.body.address).to.equal(ADDR1);
@@ -182,7 +182,7 @@ describe('@p0 @core Balances API regression', function () {
 
 describe('@p0 @core Holders API regression', function () {
 
-    it('GET /RBTC/api/holders/{tick} — returns holder list', async function () {
+    it('GET /RBTC/api/holders/{tick}: returns holder list', async function () {
         const res = await request.get('/RBTC/api/holders/XCHAIN');
         expect(res.status).to.equal(200);
         expect(res.body.tick).to.equal('XCHAIN');
@@ -192,7 +192,7 @@ describe('@p0 @core Holders API regression', function () {
         expect(Number(res.body.total)).to.be.at.least(3);
     });
 
-    it('default sort is DESC by amount — largest holder first', async function () {
+    it('default sort is DESC by amount (largest holder first)', async function () {
         const res = await request.get('/RBTC/api/holders/XCHAIN');
         expect(res.status).to.equal(200);
         expect(res.body.data[0].address).to.equal(ADDR1);
@@ -205,7 +205,7 @@ describe('@p0 @core Holders API regression', function () {
 
 describe('@p0 @core Token API regression', function () {
 
-    it('GET /RBTC/api/token/{tick} — returns full token detail', async function () {
+    it('GET /RBTC/api/token/{tick}: returns full token detail', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
         expect(res.status).to.equal(200);
         // projects/registry are the Project_Registry.md display surfaces (2026-06)
@@ -245,7 +245,7 @@ describe('@p0 @core Token API regression', function () {
 
 describe('@p0 @core Block API regression', function () {
 
-    it('GET /RBTC/api/block/{N} — returns block info', async function () {
+    it('GET /RBTC/api/block/{N}: returns block info', async function () {
         const res = await request.get('/RBTC/api/block/5');
         expect(res.status).to.equal(200);
         expect(Number(res.body.block_index)).to.equal(5);
@@ -266,7 +266,7 @@ describe('@p0 @core Block API regression', function () {
 
 describe('@p0 @core Transaction API regression', function () {
 
-    it('GET /RBTC/api/transaction/{hash}/tx_hash — returns by hash', async function () {
+    it('GET /RBTC/api/transaction/{hash}/tx_hash: returns by hash', async function () {
         const hash = 'aaa1111111111111111111111111111111111111111111111111111111111111';
         const res = await request.get(`/RBTC/api/transaction/${hash}/tx_hash`);
         expect(res.status).to.equal(200);
@@ -276,7 +276,7 @@ describe('@p0 @core Transaction API regression', function () {
         expect(res.body.actions).to.be.an('array');
     });
 
-    it('GET /RBTC/api/transaction/{index}/tx_index — returns by index', async function () {
+    it('GET /RBTC/api/transaction/{index}/tx_index: returns by index', async function () {
         const res = await request.get('/RBTC/api/transaction/1/tx_index');
         expect(res.status).to.equal(200);
         expect(Number(res.body.tx_index)).to.equal(1);
@@ -290,7 +290,7 @@ describe('@p0 @core Transaction API regression', function () {
 
 describe('@p0 @core Credits and Debits API regression', function () {
 
-    it('GET /RBTC/api/credits/{address}/address — returns credits', async function () {
+    it('GET /RBTC/api/credits/{address}/address: returns credits', async function () {
         const res = await request.get(`/RBTC/api/credits/${ADDR2}/address`);
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.be.at.least(3);
@@ -298,7 +298,7 @@ describe('@p0 @core Credits and Debits API regression', function () {
         expect(first).to.have.all.keys(['action_index', 'tx_index', 'address', 'tick', 'amount', 'action', 'block_index', 'timestamp', 'tx_hash']);
     });
 
-    it('GET /RBTC/api/debits/{address}/address — returns debits', async function () {
+    it('GET /RBTC/api/debits/{address}/address: returns debits', async function () {
         const res = await request.get(`/RBTC/api/debits/${ADDR1}/address`);
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.be.at.least(3);
@@ -312,13 +312,13 @@ describe('@p0 @core Credits and Debits API regression', function () {
 
 describe('@p0 @core Status and Network API regression', function () {
 
-    it('GET /RBTC/api/status — returns supported and available coins', async function () {
+    it('GET /RBTC/api/status: returns supported and available coins', async function () {
         const res = await request.get('/RBTC/api/status').expect(200);
         expect(res.body.supported).to.include.keys('BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC');
         expect(res.body.available).to.have.property('RBTC');
     });
 
-    it('GET /RBTC/api/network — returns totals, network, fee, coin, xchain', async function () {
+    it('GET /RBTC/api/network: returns totals, network, fee, coin, xchain', async function () {
         const res = await request.get('/RBTC/api/network').expect(200);
         expect(res.body).to.have.property('totals').that.is.an('object');
         expect(res.body).to.have.property('network').that.is.an('object');
@@ -340,7 +340,7 @@ describe('@p0 @core Status and Network API regression', function () {
 
 describe('@p0 @core Address API regression', function () {
 
-    it('GET /RBTC/api/address/{addr} — returns address summary', async function () {
+    it('GET /RBTC/api/address/{addr}: returns address summary', async function () {
         const res = await request.get(`/RBTC/api/address/${ADDR1}`);
         expect(res.status).to.equal(200);
         expect(res.body.address).to.exist;

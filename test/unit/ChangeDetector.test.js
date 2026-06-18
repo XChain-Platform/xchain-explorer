@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for src/ws/ChangeDetector.js — the indexer-DB poller that turns
+ * Unit tests for src/ws/ChangeDetector.js: the indexer-DB poller that turns
  * new blocks/actions into WebSocket events. All collaborators are injected, so
  * no real DB or timers are needed (fake timers used only for the poll loop).
  */
@@ -281,7 +281,7 @@ describe('ChangeDetector', function () {
             det.db.getMarketInfo.rejects(new Error('db'));
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
-            // ORDER_MATCH touches token? no — use an action that hits all four branches
+            // ORDER_MATCH touches token? No. Use an action that hits all four branches
             // separately: source addr (address), and ORDER_MATCH (market). Token/dispenser
             // need their own action types, so fire one of each.
             await det._emitEntityUpdates('BTC', {}, { source: 'addrA', action: 'MINT', action_index: 3 });      // address + token

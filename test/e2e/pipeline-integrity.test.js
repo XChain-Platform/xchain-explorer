@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E tests — Pipeline Integrity
+ * E2E tests: Pipeline Integrity
  *
  * Validates that specific seeded values round-trip correctly through
  * the full SQL pipeline: MariaDB → db.js query → API JSON response.
@@ -41,7 +41,7 @@ after(async function () {
 });
 
 // ===========================================================================
-// E2E-01 — Issue → Token Query (exact seeded values)
+// E2E-01: Issue -> Token Query (exact seeded values)
 // ===========================================================================
 
 describe('E2E-01: Token query returns exact seeded values', function () {
@@ -81,7 +81,7 @@ describe('E2E-01: Token query returns exact seeded values', function () {
 });
 
 // ===========================================================================
-// E2E-02 — Send → Balance (exact seeded amount)
+// E2E-02: Send -> Balance (exact seeded amount)
 // ===========================================================================
 
 describe('E2E-02: Balance returns exact seeded amount', function () {
@@ -109,7 +109,7 @@ describe('E2E-02: Balance returns exact seeded amount', function () {
 });
 
 // ===========================================================================
-// E2E-03 — Token supply field matches seeded tokens.supply
+// E2E-03: Token supply field matches seeded tokens.supply
 // ===========================================================================
 
 describe('E2E-03: Token supply reflects seeded value', function () {
@@ -130,7 +130,7 @@ describe('E2E-03: Token supply reflects seeded value', function () {
 });
 
 // ===========================================================================
-// E2E-04 — Multi-action block returns diverse action types
+// E2E-04: Multi-action block returns diverse action types
 // ===========================================================================
 
 describe('E2E-04: Multi-action block 201', function () {
@@ -186,7 +186,7 @@ describe('E2E-04: Multi-action block 201', function () {
 });
 
 // ===========================================================================
-// E2E-07 — Address profile
+// E2E-07: Address profile
 // ===========================================================================
 
 describe('E2E-07: Address profile endpoint', function () {
@@ -196,7 +196,7 @@ describe('E2E-07: Address profile endpoint', function () {
         const res  = await request.get(`/RBTC/api/address/${addr}`);
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
-        // getAddress() is currently a stub — this documents current behavior
+        // getAddress() is currently a stub; this documents current behavior
         // and will need updating when the stub is replaced with real data
         expect(res.body.address).to.exist;
     });

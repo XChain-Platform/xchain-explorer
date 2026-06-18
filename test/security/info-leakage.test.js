@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Security tests — Information Leakage Prevention
+ * Security tests: Information Leakage Prevention
  *
  * Verifies that debug logging is gated, version headers removed,
  * runtime headers gated, and error responses don't contain internal details.
@@ -80,7 +80,7 @@ async function handle(explorer, urlPath, query = {}) {
 // Custom header removal
 // ===========================================================================
 
-describe('Security: Info Leakage — Custom headers', function () {
+describe('Security: Info Leakage: Custom headers', function () {
 
     it('does not include XChain-Explorer-Version header', async function () {
         getDataResult = [[{ action_index: 1 }], 1];
@@ -106,7 +106,7 @@ describe('Security: Info Leakage — Custom headers', function () {
 // Runtime header gating
 // ===========================================================================
 
-describe('Security: Info Leakage — Runtime header', function () {
+describe('Security: Info Leakage: Runtime header', function () {
 
     afterEach(() => { delete process.env.DEBUG; });
 
@@ -131,7 +131,7 @@ describe('Security: Info Leakage — Runtime header', function () {
 // Debug logging gating
 // ===========================================================================
 
-describe('Security: Info Leakage — Debug logging', function () {
+describe('Security: Info Leakage: Debug logging', function () {
 
     let consoleLogStub, consoleDirStub;
 
@@ -173,7 +173,7 @@ describe('Security: Info Leakage — Debug logging', function () {
 // Error response safety
 // ===========================================================================
 
-describe('Security: Info Leakage — Error responses', function () {
+describe('Security: Info Leakage: Error responses', function () {
 
     it('returns generic error for failed data requests (no stack trace)', async function () {
         getDataResult = [null, null];
@@ -204,7 +204,7 @@ describe('Security: Info Leakage — Error responses', function () {
 // Runtime info in JSON response
 // ===========================================================================
 
-describe('Security: Info Leakage — JSON response runtime', function () {
+describe('Security: Info Leakage: JSON response runtime', function () {
 
     it('includes runtime string in JSON responses (public info)', async function () {
         getDataResult = [[{ action_index: 1 }], 1];

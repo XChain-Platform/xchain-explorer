@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for db.getCoinPriceUsd() — the Explorer leg of the price-oracle
+ * Unit tests for db.getCoinPriceUsd(): the Explorer leg of the price-oracle
  * pipeline (campaign gap "C2": hub oracle round -> price_snapshots -> Explorer
  * USD). The hub finalizes an oracle round into a price_snapshots row and serves
  * it via the `getprice` JSON-RPC; getCoinPriceUsd() fetches that and is what
@@ -33,7 +33,7 @@ const { expect }  = require('chai');
 const Utility     = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
-// No real MariaDB pool — getCoinPriceUsd touches no DB, only configInfo + the hub.
+// No real MariaDB pool: getCoinPriceUsd touches no DB, only configInfo + the hub.
 const Database = proxyquire('../../src/db.js', {
     mariadb: { createPool: () => ({}) }
 });
@@ -119,7 +119,8 @@ describe('Database#getCoinPriceUsd (C2: oracle -> Explorer USD)', function () {
         const db = makeDb();
         const usd = await db.getCoinPriceUsd({ coin: 'RBTC' });
         expect(usd).to.equal(null);
-        expect(hub.hits).to.equal(0);   // gated before any hub call — this is why a regtest Explorer shows $0.00
+        // gated before any hub call (this is why a regtest Explorer shows $0.00)
+        expect(hub.hits).to.equal(0);
     });
 
     it('returns null for a testnet route code (mainnet-only gating)', async function () {
@@ -151,7 +152,7 @@ describe('Database#getCoinPriceUsd (C2: oracle -> Explorer USD)', function () {
         expect(hub.hits).to.equal(0);
     });
 
-    it('caches within PRICE_CACHE_MS — second call does not re-hit the hub', async function () {
+    it('caches within PRICE_CACHE_MS: second call does not re-hit the hub', async function () {
         const db = makeDb();
         const a = await db.getCoinPriceUsd({ coin: 'BTC' });
         const b = await db.getCoinPriceUsd({ coin: 'BTC' });

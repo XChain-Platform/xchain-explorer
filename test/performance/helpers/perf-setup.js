@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance test helper — boots the explorer against a test MariaDB
+ * Performance test helper: boots the explorer against a test MariaDB
  * and provides autocannon load generation utilities.
  *
  * Requires: MariaDB on port 3307 (see docker-compose.test.yml)

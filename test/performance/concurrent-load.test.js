@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Concurrent load tests — measures p95/p99 latency at increasing connection counts.
+ * Concurrent load tests: measures p95/p99 latency at increasing connection counts.
  *
  * Validates that response times stay within bounds as concurrency scales.
  * Requires: MariaDB on port 3307 (docker compose -f test/integration/fixtures/docker-compose.test.yml up -d)
@@ -34,7 +34,7 @@ const RAMP_LEVELS = [
 
 const TARGET_PATH = '/RBTC/api/tokens';
 
-describe('Concurrent load — ramping connections', function () {
+describe('Concurrent load: ramping connections', function () {
 
     before(async function () {
         this.timeout(60000);

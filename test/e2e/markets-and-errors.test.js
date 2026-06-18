@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E tests — Market Value Verification & Advanced Error Handling
+ * E2E tests: Market Value Verification and Advanced Error Handling
  *
  * Validates that market endpoints return exact seeded price/volume data,
  * market history is correctly ordered, SQL injection is prevented, and
@@ -42,7 +42,7 @@ after(async function () {
 });
 
 // ===========================================================================
-// E2E-09 — Market detail returns exact seeded prices
+// E2E-09: Market detail returns exact seeded prices
 // ===========================================================================
 
 describe('E2E-09: Market detail value verification', function () {
@@ -81,7 +81,7 @@ describe('E2E-09: Market detail value verification', function () {
 });
 
 // ===========================================================================
-// E2E-11 — Market history endpoint
+// E2E-11: Market history endpoint
 // ===========================================================================
 
 describe('E2E-11: Market history returns ordered trade data', function () {
@@ -124,7 +124,7 @@ describe('E2E-11: Market history returns ordered trade data', function () {
 });
 
 // ===========================================================================
-// E2E-13 — Filtered market listing
+// E2E-13: Filtered market listing
 // ===========================================================================
 
 describe('E2E-13: Filtered market listing returns correct count', function () {
@@ -156,14 +156,14 @@ describe('E2E-13: Filtered market listing returns correct count', function () {
 });
 
 // ===========================================================================
-// E2E-31 — SQL Injection Prevention
+// E2E-31: SQL Injection Prevention
 // ===========================================================================
 
 describe('E2E-31: SQL injection is prevented', function () {
 
     it('injection in token query does not cause 500', async function () {
         const res = await request.get("/RBTC/api/token/' OR '1'='1");
-        // Should be 400 (not found) or 200 (empty) — never 500
+        // Should be 400 (not found) or 200 (empty); a 500 is never acceptable
         expect(res.status).to.not.equal(500);
     });
 
@@ -181,7 +181,7 @@ describe('E2E-31: SQL injection is prevented', function () {
 });
 
 // ===========================================================================
-// E2E-34 — Empty Database Handling
+// E2E-34: Empty Database Handling
 // ===========================================================================
 
 describe('E2E-34: Empty database returns graceful responses', function () {

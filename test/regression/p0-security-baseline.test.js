@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * P0 Regression Tests — Security Baseline
+ * P0 Regression Tests: Security Baseline
  *
  * Curated security regression tests that must pass on every commit.
  * Covers SQL injection prevention, input sanitization, SSRF protection,
@@ -50,7 +50,7 @@ function cfgOffset(method, action, start, stop) {
 }
 
 // ===========================================================================
-// @p0 @security SQL Injection — Offset Parameterization
+// @p0 @security SQL Injection: Offset Parameterization
 // ===========================================================================
 
 describe('@p0 @security SQL injection offset parameterization regression', function () {
@@ -99,7 +99,7 @@ describe('@p0 @security SQL injection offset parameterization regression', funct
 });
 
 // ===========================================================================
-// @p0 @security SQL Injection — WHERE clause parameterization
+// @p0 @security SQL Injection: WHERE clause parameterization
 // ===========================================================================
 
 describe('@p0 @security SQL injection WHERE clause regression', function () {
@@ -148,7 +148,7 @@ describe('@p0 @security SQL injection WHERE clause regression', function () {
 });
 
 // ===========================================================================
-// @p0 @security SQL Injection — Order/Limit Validation
+// @p0 @security SQL Injection: Order/Limit Validation
 // ===========================================================================
 
 describe('@p0 @security SQL injection order/limit regression', function () {

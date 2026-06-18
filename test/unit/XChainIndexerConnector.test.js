@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for src/XChainIndexerConnector.js — the minimal JSON-RPC client
+ * Unit tests for src/XChainIndexerConnector.js: the minimal JSON-RPC client
  * the explorer uses to proxy read-only fee endpoints to the colocated indexer.
  */
 

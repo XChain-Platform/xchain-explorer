@@ -10,12 +10,12 @@
  *
  **********************************************************************
  *
- * XChain Explorer — Stake-Weighted Quorum (STAKE_WEIGHTED_QUORUM / WI-1)
+ * XChain Explorer: Stake-Weighted Quorum (STAKE_WEIGHTED_QUORUM / WI-1)
  *
  * The single, CONSENSUS-CRITICAL implementation of the stake-weighted quorum
  * predicate for the explorer. The checkpoint /verify endpoint decides whether a
  * quorum-signed checkpoint meets quorum and publishes the qualifying set + the
- * activation flag so clients can re-derive the same verdict — it MUST flip on the
+ * activation flag so clients can re-derive the same verdict. It MUST flip on the
  * same flag-day and apply the same predicate as the hub + indexer, or its
  * `verified` field (and any client that trusts it) diverges from consensus.
  *
@@ -25,11 +25,11 @@
  ********************************************************************/
 
 // Per-network activation height (LOCAL COPY of the canonical map in
-// xchain-documentation/protocol/constants.js — kept equal by the cross-service
+// xchain-documentation/protocol/constants.js, kept equal by the cross-service
 // regression suite). Keyed on the BTC-anchored snapshot_block, NOT the local
 // processing height, so every chain + the hub flip on the same anchor.
 const STAKE_WEIGHTED_QUORUM_ACTIVATION = {
-    mainnet: 999999999,   // PLACEHOLDER — set the real BTC flag-day height before mainnet enable
+    mainnet: 999999999,   // PLACEHOLDER: set the real BTC flag-day height before mainnet enable
     testnet: 0,
     regtest: 0,
 };
@@ -45,10 +45,10 @@ function isStakeWeightedQuorumActive(snapshotBlock, network){
 }
 
 // Source-deduped stake-weighted quorum test.
-//   util            — explorer utility (mathjs bignumber bcadd/bcmul/bcgt)
-//   validators      — full snapshot: [{ pubkey, source, weight }]  (every key of a
+//   util            : explorer utility (mathjs bignumber bcadd/bcmul/bcgt)
+//   validators      : full snapshot: [{ pubkey, source, weight }]  (every key of a
 //                     source carries the SAME source + weight)
-//   signerPubkeys   — iterable of pubkeys that produced a VALID signature
+//   signerPubkeys   : iterable of pubkeys that produced a VALID signature
 // Returns true iff 3·Σ(distinct signing-source weight) > 2·S, where
 // S = Σ(weight over DISTINCT sources). A source counts ONCE no matter how many of
 // its keys signed (DELEGATE v0 is additive). Degenerate cases fall out with no

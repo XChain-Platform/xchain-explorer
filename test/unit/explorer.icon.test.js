@@ -26,7 +26,7 @@ const ICONS_DIR = path.resolve(path.join(__dirname, '../../src/content/icons'));
 /**
  * Build a minimal XChainExplorer instance with the given fs stub.
  * We use proxyquire with noCallThru so that heavy dependencies (mariadb,
- * express, axios) never execute — only fs is the seam we care about here.
+ * express, axios) never execute; only fs is the seam we care about here.
  */
 function makeExplorer(fsStub) {
     const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
@@ -58,7 +58,7 @@ function makeIconReq(iconPath) {
 describe('XChainExplorer#processIconRequest', function () {
 
     // -----------------------------------------------------------------------
-    // Valid icon path — file exists
+    // Valid icon path: file exists
     // -----------------------------------------------------------------------
 
     it('serves the file when icon exists', async function () {
@@ -80,7 +80,7 @@ describe('XChainExplorer#processIconRequest', function () {
     });
 
     // -----------------------------------------------------------------------
-    // Missing icon — redirect to default
+    // Missing icon: redirect to default
     // -----------------------------------------------------------------------
 
     it('redirects to /icon/default.png when icon does not exist', async function () {
@@ -97,7 +97,7 @@ describe('XChainExplorer#processIconRequest', function () {
     });
 
     // -----------------------------------------------------------------------
-    // Path traversal — full escape (../../etc/passwd)
+    // Path traversal: full escape (../../etc/passwd)
     // -----------------------------------------------------------------------
 
     it('returns 403 for a path traversal that escapes the icons directory', async function () {
@@ -111,12 +111,12 @@ describe('XChainExplorer#processIconRequest', function () {
 
         expect(res._status).to.equal(403);
         expect(res._body).to.deep.equal({ error: 'Access denied', code: 'PATH_DENIED' });
-        // fs.existsSync must NOT be called — we blocked before reaching it
+        // fs.existsSync must NOT be called; we blocked before reaching it
         expect(fsStub.existsSync.called).to.be.false;
     });
 
     // -----------------------------------------------------------------------
-    // Path traversal — stays within icons dir (edge case — should be allowed)
+    // Path traversal: stays within icons dir (edge case, should be allowed)
     // -----------------------------------------------------------------------
 
     it('allows a .. segment that resolves back into the icons directory', async function () {
@@ -134,7 +134,7 @@ describe('XChainExplorer#processIconRequest', function () {
     });
 
     // -----------------------------------------------------------------------
-    // Path traversal — URL-encoded attempt
+    // Path traversal: URL-encoded attempt
     // -----------------------------------------------------------------------
 
     it('returns 403 when the resolved path points outside icons directory via deep traversal', async function () {

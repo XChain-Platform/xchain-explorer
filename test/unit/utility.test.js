@@ -18,7 +18,7 @@ const proxyquire = require('proxyquire').noCallThru();
 // Helpers
 // ---------------------------------------------------------------------------
 
-// Real Utility (no stubbing of fs yet — we stub per-suite where needed)
+// Real Utility (no stubbing of fs yet; we stub per-suite where needed)
 const Utility = require('../../src/utility');
 
 function makeUtil(configInfo) {
@@ -282,7 +282,7 @@ describe('Utility', function () {
         });
 
         it('respects decimal precision truncation', function () {
-            // 0.3333333333 * 3 = 0.9999999999 — precision 4 should truncate
+            // 0.3333333333 * 3 = 0.9999999999, precision 4 should truncate
             const result = u.bcmul('0.3333333333333333333', '3', 4);
             expect(result.toString()).to.equal('1');
         });

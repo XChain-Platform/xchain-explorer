@@ -27,7 +27,7 @@ const axios = require('axios');
 // FEE_DESTINATION env-override convention used elsewhere in the stack:
 //   INDEXER_API_URL_<COIN>_<NETWORK>   (e.g. INDEXER_API_URL_BTC_REGTEST)
 //   INDEXER_API_URL                     (generic fallback)
-// Returns null when none is configured — the caller then surfaces "pre-flight unavailable" so a
+// Returns null when none is configured. The caller then surfaces "pre-flight unavailable" so a
 // client falls back to paying the fee in XCHAIN rather than risking a forfeited native fee.
 function resolveIndexerUrl(coin, network){
     let c = String(coin || '').toUpperCase();

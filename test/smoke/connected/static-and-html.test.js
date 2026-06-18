@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Smoke tests — Static file serving and HTML routes (SM-12, SM-14, SM-15)
+ * Smoke tests: Static file serving and HTML routes (SM-12, SM-14, SM-15)
  *
  * Requires MariaDB on port 3307 (start with: npm run test:integration:up).
  * Validates static asset serving, HTML page delivery, and 404 handling.
@@ -50,7 +50,7 @@ describe('SM-12: Static file serving', function () {
         const res = await request.get('/json/');
 
         // Static directories may return 200 (with index), 403 (forbidden directory listing),
-        // or 404 (no index file) — but never 500
+        // or 404 (no index file). It must never return 500.
         expect(res.status).to.not.equal(500);
     });
 

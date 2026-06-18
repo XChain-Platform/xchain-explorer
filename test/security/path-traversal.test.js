@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Security tests — Path Traversal Prevention
+ * Security tests: Path Traversal Prevention
  *
  * Tests the /icon endpoint with various directory traversal payloads
  * and verifies the boundary check logic.
@@ -56,7 +56,7 @@ function makeIconReq(iconPath) {
 // Basic path traversal
 // ===========================================================================
 
-describe('Security: Path Traversal — Basic attacks', function () {
+describe('Security: Path Traversal: Basic attacks', function () {
 
     let explorer;
     before(() => { explorer = makeExplorer(); });
@@ -73,7 +73,7 @@ describe('Security: Path Traversal — Basic attacks', function () {
 // Boundary check validation (pure logic test)
 // ===========================================================================
 
-describe('Security: Path Traversal — Boundary check logic', function () {
+describe('Security: Path Traversal: Boundary check logic', function () {
 
     it('path.resolve prevents ../ from escaping content/icons/', function () {
         const dirPath  = path.resolve(path.join(__dirname, '../../src/content/icons'));
@@ -104,7 +104,7 @@ describe('Security: Path Traversal — Boundary check logic', function () {
 // Icon request handling
 // ===========================================================================
 
-describe('Security: Path Traversal — Icon request behavior', function () {
+describe('Security: Path Traversal: Icon request behavior', function () {
 
     it('sends file when icon exists within directory', async function () {
         const fsStub = { existsSync: sinon.stub().returns(true) };
@@ -140,12 +140,12 @@ describe('Security: Path Traversal — Icon request behavior', function () {
 // Edge cases
 // ===========================================================================
 
-describe('Security: Path Traversal — Edge cases', function () {
+describe('Security: Path Traversal: Edge cases', function () {
 
     let explorer;
     before(() => { explorer = makeExplorer(); });
 
-    it('handles empty icon path (blocked — resolves to dir itself)', async function () {
+    it('handles empty icon path (blocked: resolves to dir itself)', async function () {
         const res = mockRes();
         await explorer.processIconRequest(makeIconReq('/'), res);
         // After stripping /icon, path is "/" which resolves to the icons dir itself
@@ -157,7 +157,7 @@ describe('Security: Path Traversal — Edge cases', function () {
         const res = mockRes();
         const longPath = '/' + 'A'.repeat(500) + '.png';
         await explorer.processIconRequest(makeIconReq(longPath), res);
-        // Should not throw — either serves or redirects
+        // Should not throw; either serves or redirects
         expect(res._status).to.not.equal(500);
     });
 });

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — Response format, headers, and field conventions
+ * Integration tests: Response format, headers, and field conventions
  *
  * Verifies Content-Type, custom headers, alphabetical key ordering, explorer
  * array-of-arrays format, runtime field, null-vs-"null" correctness, and

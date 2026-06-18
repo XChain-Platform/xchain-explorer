@@ -3,7 +3,7 @@
   "info": {
     "title": "XChain Explorer API",
     "version": "1.0.0",
-    "description": "Read-only REST API for the XChain Platform — tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit max 100; balances/holders max 500). Errors are `{error: \"message\", code: \"STABLE_CODE\"}` — see the error-code registry at https://docs.xchain.io/protocol/Error_Codes.md. A WebSocket API lives at /{COIN}/api/websocket — see https://docs.xchain.io/components/explorer/WEBSOCKET.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
+    "description": "Read-only REST API for the XChain Platform: tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit max 100; balances/holders max 500). Errors are `{error: \"message\", code: \"STABLE_CODE\"}`. See the error-code registry at https://docs.xchain.io/protocol/Error_Codes.md. A WebSocket API lives at /{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/WEBSOCKET.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
     "license": {
       "name": "AGPL-3.0-or-later",
       "url": "https://docs.xchain.io/legal/LICENSING.md"
@@ -77,7 +77,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -143,7 +143,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -210,7 +210,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -276,7 +276,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -342,7 +342,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -409,7 +409,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -476,7 +476,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -543,7 +543,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -612,7 +612,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -678,7 +678,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -744,7 +744,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -810,7 +810,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -876,7 +876,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -945,7 +945,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -1014,7 +1014,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -1081,7 +1081,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -1148,7 +1148,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1214,7 +1214,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1280,7 +1280,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address"
           },
           {
             "name": "TYPE",
@@ -1348,7 +1348,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -1417,7 +1417,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -1484,7 +1484,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1550,7 +1550,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1616,7 +1616,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1682,7 +1682,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height"
           },
           {
             "name": "TYPE",
@@ -1747,7 +1747,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1813,7 +1813,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1879,7 +1879,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -1945,7 +1945,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -2014,7 +2014,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -2081,7 +2081,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -2148,7 +2148,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -2214,7 +2214,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -2280,7 +2280,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -2346,7 +2346,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height"
           },
           {
             "name": "TYPE",
@@ -2411,7 +2411,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; destination = destination address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address"
           },
           {
             "name": "TYPE",
@@ -2479,7 +2479,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -2591,7 +2591,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: pair = COIN/FIAT pair (e.g. BTC/USD); round = oracle round id; status = lifecycle status"
+            "description": "The value to look up (interpreted per {TYPE}): pair = COIN/FIAT pair (e.g. BTC/USD); round = oracle round id; status = lifecycle status"
           },
           {
             "name": "TYPE",
@@ -2746,7 +2746,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address"
           },
           {
             "name": "TYPE",
@@ -2857,7 +2857,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
           }
         ],
         "responses": {
@@ -2901,7 +2901,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
           }
         ],
         "responses": {
@@ -2945,7 +2945,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -2999,7 +2999,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
           }
         ],
         "responses": {
@@ -3043,7 +3043,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -3097,7 +3097,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -3208,7 +3208,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: execution = execution action index"
+            "description": "The value to look up (interpreted per {TYPE}): execution = execution action index"
           }
         ],
         "responses": {
@@ -3296,7 +3296,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -3364,7 +3364,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -3432,7 +3432,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address"
           },
           {
             "name": "TYPE",
@@ -3587,7 +3587,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; source = source address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address"
           },
           {
             "name": "TYPE",
@@ -3654,7 +3654,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address; source = source address"
+            "description": "The value to look up (interpreted per {TYPE}): address = an XChain address; source = source address"
           },
           {
             "name": "TYPE",
@@ -3668,6 +3668,118 @@
               ]
             },
             "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "full_node_verifications_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Full-node possession-proof verdicts (NODEPROOF v0), filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; epoch = epoch; pubkey = pubkey; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "epoch",
+                "pubkey",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/full_node_verifications": {
+      "get": {
+        "operationId": "full_node_verifications",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Full-node possession-proof verdicts (NODEPROOF v0)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
           },
           {
             "$ref": "#/components/parameters/page"
@@ -3720,7 +3832,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -3831,7 +3943,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -3942,7 +4054,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -4053,7 +4165,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -4164,7 +4276,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: match = cross-chain match id; block = block height; status = lifecycle status"
+            "description": "The value to look up (interpreted per {TYPE}): match = cross-chain match id; block = block height; status = lifecycle status"
           },
           {
             "name": "TYPE",
@@ -4275,7 +4387,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: match = cross-chain match id; block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): match = cross-chain match id; block = block height"
           },
           {
             "name": "TYPE",
@@ -4385,7 +4497,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; contract = contract action index; status = lifecycle status"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; contract = contract action index; status = lifecycle status"
           },
           {
             "name": "TYPE",
@@ -4496,7 +4608,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: call_id = cross-chain call id (64-hex)"
+            "description": "The value to look up (interpreted per {TYPE}): call_id = cross-chain call id (64-hex)"
           }
         ],
         "responses": {
@@ -4540,7 +4652,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
           },
           {
             "name": "TYPE",
@@ -4596,6 +4708,118 @@
           "Attestations"
         ],
         "summary": "ATTEST v0 requests + v1 responses (incl. LLM attestations)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/anchors/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "anchors_query_type",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "ANCHOR state checkpoints, filtered by block/chain/network/status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; chain = target chain (e.g. BTC, LTC, DOGE); network = target network (mainnet, testnet, regtest); status = lifecycle status"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "chain",
+                "network",
+                "status"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/anchors": {
+      "get": {
+        "operationId": "anchors",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "ANCHOR state checkpoints (cross-chain quorum-signed)",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -4730,7 +4954,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: action_index = action index"
+            "description": "The value to look up (interpreted per {TYPE}): action_index = action index"
           }
         ],
         "responses": {
@@ -4774,7 +4998,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): address = an XChain address"
           }
         ],
         "responses": {
@@ -4818,7 +5042,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): address = an XChain address"
           },
           {
             "$ref": "#/components/parameters/page"
@@ -4871,7 +5095,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height"
           }
         ],
         "responses": {
@@ -4915,7 +5139,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -4981,7 +5205,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -5047,7 +5271,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
           },
           {
             "name": "TYPE",
@@ -5113,7 +5337,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick; recent = recent rows"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; recent = recent rows"
           },
           {
             "name": "TYPE",
@@ -5181,7 +5405,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): token = a token tick"
           },
           {
             "$ref": "#/components/parameters/page"
@@ -5222,7 +5446,7 @@
         "tags": [
           "Core"
         ],
-        "summary": "Unconfirmed (mempool) actions from the decoder — PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse",
+        "summary": "Unconfirmed (mempool) actions from the decoder. PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -5234,7 +5458,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -5335,7 +5559,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): address = an XChain address"
           }
         ],
         "responses": {
@@ -5379,7 +5603,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): token = a token tick"
           }
         ],
         "responses": {
@@ -5423,7 +5647,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): token = a token tick"
           }
         ],
         "responses": {
@@ -5467,7 +5691,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: block = block height; address = an XChain address; token = a token tick; subtoken = parent tick (returns its sub-tokens); nft = NFT filter"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; subtoken = parent tick (returns its sub-tokens); nft = NFT filter"
           },
           {
             "name": "TYPE",
@@ -5536,7 +5760,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up — interpreted per {TYPE}: tx_hash = transaction hash; tx_index = transaction index"
+            "description": "The value to look up (interpreted per {TYPE}): tx_hash = transaction hash; tx_index = transaction index"
           },
           {
             "name": "TYPE",

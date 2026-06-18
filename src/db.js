@@ -144,14 +144,19 @@ class Database {
         // installs, which provision per-service DB users. Same-credentials
         // deployments make no entry here and reuse the indexer pool.
         this.decoderPools = {};
-        // Per-coin checkpoint-source database (optional). Where the local indexer
-        // DB carries no hub-mirror tables (single-server explorers reading synced
-        // replicas (xchain-sync excludes state_checkpoints/capability_snapshots),
-        // a per-network `checkpoint` config block can point at the hub DB on the
-        // same server. Like decoderDb, it is honored only when it shares
-        // server + credentials with the indexer pool, and is read with a
-        // database-qualified query filtered by chain/network (the hub table
-        // carries every chain; the per-coin endpoints must not leak siblings).
+        // Per-coin checkpoint-source database: the MANDATORY co-located hub DB for
+        // serving the hub-mirrored tables (state_checkpoints, capability_snapshots,
+        // cross_chain_matches). xchain-sync excludes these tables from every snapshot
+        // and stream, so a serving node has no replicated copy: it MUST read them from
+        // the hub DB on the same server, declared via a per-network `checkpoint` config
+        // block. Like decoderDb, it is honored only when it shares server + credentials
+        // with the indexer pool, and is read with a database-qualified query filtered by
+        // chain/network (the hub table carries every chain; the per-coin endpoints must
+        // not leak siblings). This is now a hard requirement, not an optional override:
+        // when a serving coin has no entry here, _checkpointSource / _matchSource throw
+        // (fail loud) instead of falling back to a stale local mirror (#4138), and
+        // _assertCheckpointDbForServingCoins() turns the same gap into a fatal startup
+        // error so a misconfigured thin replica never silently serves empty hub data.
         this.checkpointDb = {};
         // Per-key base chain name (RBTC → 'BTC'), used by the project-registry
         // queries to honor only same-chain LINKs (LINK skips owner validation
@@ -268,6 +273,43 @@ class Database {
                     }
                 }
             }
+        }
+
+        // Mandatory co-located hub DB invariant (#4138). The hub-mirrored tables
+        // (state_checkpoints, capability_snapshots, cross_chain_matches) are NEVER
+        // replicated by xchain-sync, so a serving coin with no co-located hub DB has
+        // only a stale/empty bootstrap copy. Fail loud at startup rather than letting
+        // a thin replica silently serve empty hub-mirror data with no alarm.
+        this._assertCheckpointDbForServingCoins();
+    }
+
+    // Startup assertion: every coin/network this explorer serves (has an indexer
+    // pool for) MUST have a co-located hub DB configured (database.checkpoint,
+    // same host+credentials as the indexer DB). Without it the hub-mirrored tables
+    // cannot be served correctly, because xchain-sync never replicates them. A
+    // missing entry is a fatal misconfiguration: throw a clear, named error so a
+    // mis-provisioned thin replica fails to start instead of silently serving
+    // empty state_checkpoints / capability_snapshots / cross_chain_matches (#4138).
+    // Opt-out: ALLOW_NO_COLOCATED_HUB_DB=1 downgrades the fatal error to a warning,
+    // for deployments that intentionally do not expose the hub-mirrored endpoints.
+    _assertCheckpointDbForServingCoins(){
+        let missing = [];
+        for(let key in this.pools){
+            if(!this.checkpointDb[key]) missing.push(key);
+        }
+        if(missing.length){
+            let msg = 'Mandatory co-located hub DB missing for serving coin(s): ' + missing.join(', ') +
+                '. The hub-mirrored tables (state_checkpoints, capability_snapshots, ' +
+                'cross_chain_matches) are never replicated by xchain-sync and must be served ' +
+                'from a co-located hub DB on the same server. Add a database.checkpoint block ' +
+                '(same host + credentials as the indexer DB) for each serving coin/network. ' +
+                'Set ALLOW_NO_COLOCATED_HUB_DB=1 to start anyway (hub-mirrored endpoints will ' +
+                'fail loud per request instead).';
+            if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
+                console.warn('[explorer] WARNING: ' + msg);
+                return;
+            }
+            throw new Error(msg);
         }
     }
 
@@ -618,6 +660,12 @@ class Database {
             if(type=='block')    sql += ' AND b1.block_index=?';
             if(type=='contract') sql += ' AND m.contract_index=?';
             if(type=='status')   sql += ' AND m.request_status=?';
+        } else if(method=='getAnchors'){
+            // anchor_actions joins the actions/transactions/blocks chain (b1 via t1); filter on its own columns.
+            if(type=='block')   sql += ' AND b1.block_index=?';
+            if(type=='chain')   sql += ' AND m.chain=?';
+            if(type=='network') sql += ' AND m.network=?';
+            if(type=='status')  sql += ' AND s1.status=?';
         } else if(method=='getXcall'){
             // single-call lifecycle keyed by the deterministic 64-hex call_id
             sql += ' AND m.call_id=?';
@@ -693,6 +741,8 @@ class Database {
             if(method=='getCapabilitySlashEvents')
                 field = 'm.id';
             if(method=='getOraclePrices')
+                field = 'm.id';
+            if(method=='getFullNodeVerifications')
                 field = 'm.id';
             // Build out the Offset SQL using parameterized values
             if(action=='prev'){
@@ -3780,11 +3830,12 @@ class Database {
         tables.push('tokens');
         // Loop through tables and get count
         for(let table of tables){
-            // Get total number of matching records for this type of action and add to grand total
-            let count = `SELECT
-                        count(*) as count
-                    FROM
-                        ` + table;
+            // full_node_verifications stores one row per validator pubkey per NODEPROOF
+            // verdict (fan-out); COUNT(*) over-counts by validator set size. Use
+            // COUNT(DISTINCT action_index) to report verdict count instead.
+            let count = (table === 'full_node_verifications')
+                ? `SELECT count(DISTINCT action_index) as count FROM ` + table
+                : `SELECT count(*) as count FROM ` + table;
             let results = await this.doQuery(config, count);
             if(results && results.length)
                 data.totals[table] = results[0].count;
@@ -6528,6 +6579,17 @@ class Database {
 
     // Get action summary information for a given action_index
     async getActionSummaryData(config, actions){
+        // --- Performance note (Fix B / #3841) ---
+        // This loop issues one getActionData() call per row, which is a serial N+1 pattern.
+        // The LRU _actionDataCache helps on repeated page views but not on first loads.
+        //
+        // Batched-fetch follow-up (post-launch): group the action_index set by action type
+        // (the `action` column is already returned by the getHistoryData main query), issue
+        // one per-type JOIN query for the whole page, and stitch results into the same
+        // detailFields shape below. This would collapse ~100 round-trips to ~30 (one per
+        // distinct action type on the page). Tracked as #3841.
+        const t0 = Date.now();
+        // --- End Fix B ---
         // Define a list of detail fields we want to pass forward in history items
         // Note: We limit this to just enough details to show basic history info, user can request full info on action if they want more info
         let detailFields = [
@@ -6578,8 +6640,13 @@ class Database {
             }
             data.details = details;
         }
+        // Slow-page observability (Fix B): warn when first-load latency is high so
+        // the batched-fetch follow-up (#3841) can be prioritised against real data.
+        const elapsed = Date.now() - t0;
+        if(elapsed > 500)
+            console.warn('getActionSummaryData: slow page (' + elapsed + 'ms, ' + actions.length + ' actions) -- N+1 serial getActionData; see #3841 for batched fix');
         return actions;
-    }        
+    }
 
     // Get list of blocks and a count of each transaction type for the given block_index
     async getBlocks(config){
@@ -6627,10 +6694,16 @@ class Database {
             for(let table of this.actionTables){
                 if(query2 != '')
                     query2 += ' UNION ALL ';
+                // full_node_verifications writes one row per validator pubkey sharing one
+                // action_index (NODEPROOF fan-out), so COUNT(*) over-counts by validator
+                // set size. Use COUNT(DISTINCT action_index) for this table only.
+                const countExpr = (table === 'full_node_verifications')
+                    ? 'count(DISTINCT m.action_index)'
+                    : 'count(*)';
                 query2 += `SELECT
                             '` + table + `' as action,
                             b1.block_index,
-                            count(*) as count
+                            ` + countExpr + ` as count
                         FROM
                             ` + table + ` m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -6657,12 +6730,30 @@ class Database {
 
     // Get list of search results for a given
     async getSearch(config){
+        // --- Performance guard (Fix A) ---
+        // Every search term is wrapped in leading+trailing % which defeats all B-tree indexes,
+        // causing full-table scans across every search column. Short terms (e.g. 1-2 chars)
+        // are especially costly because they can match a huge fraction of every table.
+        // The proper long-term fix is a FULLTEXT index on the searched columns, or a
+        // normalized lowercase prefix column with a covering index -- tracked post-launch.
+        // Until then: reject terms below the minimum length to cap scan cost.
+        const SEARCH_MIN_LENGTH = 3;
+        const searchRaw = (config.data.search || '').trim();
+        if(searchRaw.length < SEARCH_MIN_LENGTH){
+            return [{ data: [], totals: { addresses: 0, broadcasts: 0, tokens: 0, transactions: 0 } }, null, 0];
+        }
+        // Cap the result LIMIT to a safe ceiling regardless of what the pager computed,
+        // as a defense-in-depth measure against runaway scans on popular terms.
+        const SEARCH_MAX_ROWS = 100;
+        // --- End Fix A ---
         // Define list of search types
         let searchTypes = ['address', 'broadcast', 'token', 'transaction'];
         let dataType    = config.data.type;
-        let search      = '%' + this.util.escapeLike(config.data.search) + '%';
+        let search      = '%' + this.util.escapeLike(searchRaw) + '%';
         let total       = 0;
         let sql  = config.data.sql;
+        // Clamp sql.limit to the ceiling defined above
+        const searchLimit = Math.min(Number(sql.limit) || SEARCH_MAX_ROWS, SEARCH_MAX_ROWS);
         let data = {
             data: [],
             totals: {
@@ -6699,51 +6790,51 @@ class Database {
             if(['broadcast','token'].includes(dataType))
                 args.push(search);
             if(dataType=='address')
-                query = `SELECT 
-                            address 
-                        FROM 
-                            index_addresses 
-                        WHERE 
+                query = `SELECT
+                            address
+                        FROM
+                            index_addresses
+                        WHERE
                             LOWER(address) LIKE LOWER( ? )
                         ORDER BY address ASC
-                        LIMIT ` + sql.limit;
+                        LIMIT ` + searchLimit;
             if(dataType=='transaction')
-                query = `SELECT 
-                            t2.hash 
+                query = `SELECT
+                            t2.hash
                         FROM
-                            transactions t1 
+                            transactions t1
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        WHERE 
+                        WHERE
                             LOWER(t2.hash) LIKE LOWER( ? )
                         ORDER BY t2.hash ASC
-                        LIMIT ` + sql.limit;
+                        LIMIT ` + searchLimit;
             if(dataType=='broadcast')
-                query = `SELECT 
+                query = `SELECT
                             b.message,
                             m.memo,
                             b.action_index,
                             s.status
-                        FROM 
+                        FROM
                             broadcasts b
                             LEFT  JOIN index_memos    m ON (m.id=b.memo_id)
                             LEFT  JOIN index_statuses s ON (s.id=b.status_id)
-                        WHERE 
+                        WHERE
                             LOWER(b.message) LIKE LOWER( ? ) OR
                             LOWER(m.memo)    LIKE LOWER( ? )
                         ORDER BY b.action_index DESC
-                        LIMIT ` + sql.limit;
+                        LIMIT ` + searchLimit;
             if(dataType=='token'){
-                query = `SELECT 
+                query = `SELECT
                             t2.tick,
-                            t1.description 
-                        FROM 
+                            t1.description
+                        FROM
                             tokens t1
                             LEFT  JOIN index_tickers t2 ON (t2.id=t1.tick_id)
-                        WHERE 
+                        WHERE
                             LOWER(t2.tick)        LIKE LOWER( ? ) OR
                             LOWER(t1.description) LIKE LOWER( ? )
                         ORDER BY t2.tick ASC
-                        LIMIT ` + sql.limit;
+                        LIMIT ` + searchLimit;
             }
             if(query){
                 let results = await this.doQuery(config, query, args);
@@ -7626,12 +7717,21 @@ class Database {
         return [query, args, count];
     }
 
-    // Resolve the checkpoint-table source for a coin: a configured same-server
-    // checkpoint DB (database-qualified + chain/network-filtered; the hub table
-    // carries every chain) or the local indexer DB's hub_db_sync mirror (already
-    // single-chain, no filter). dbName is config-derived, not client input, but
-    // database identifiers can't be bound; restrict to a safe identifier charset
-    // before use (same rule as the decoderDb readers above).
+    // Resolve the checkpoint-table source for a coin. These hub-mirrored tables
+    // (state_checkpoints, capability_snapshots) are pushed/retracted by the hub
+    // out-of-band with block apply, so xchain-sync EXCLUDES them from every
+    // snapshot and stream. A serving node therefore MUST read them from the
+    // mandatory co-located hub DB (the same-server `checkpoint` config block,
+    // database-qualified + chain/network-filtered; the hub table carries every
+    // chain). There is deliberately NO local-mirror fallback: a thin replica
+    // without a co-located hub DB has only a stale/empty bootstrap copy of these
+    // tables, and silently serving that would publish wrong consensus-relevant
+    // data with no alarm (#4138). When the hub DB is absent or its configured
+    // name is not a safe identifier we FAIL LOUD by throwing, surfacing the
+    // misconfiguration to the route (HTTP 500 + log) instead of serving stale
+    // rows. dbName is config-derived, not client input, but database identifiers
+    // can't be bound; restrict to a safe identifier charset before use (same rule
+    // as the decoderDb readers above).
     _checkpointSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
@@ -7639,26 +7739,34 @@ class Database {
                      capTable: '`' + src.name + '`.capability_snapshots',
                      filter: ' AND chain = ? AND network = ?',
                      filterParams: [src.chain, src.network] };
-        return { table: 'state_checkpoints', capTable: 'capability_snapshots', filter: '', filterParams: [] };
+        throw new Error('No co-located hub DB configured for coin ' + config.coin +
+            ': state_checkpoints / capability_snapshots are served only from the mandatory ' +
+            'co-located hub DB (config database.checkpoint, same host+credentials as the indexer DB), ' +
+            'never from a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
     // Resolve the cross_chain_matches source for a coin, mirroring _checkpointSource.
-    // cross_chain_matches is hub-mirrored (hub_db_sync), so xchain-sync excludes it from
-    // per-block replication: on a synced replica the local copy is frozen at bootstrap and
-    // never refreshed by the live block stream. Where a same-server checkpoint hub DB is
-    // configured (the same DB that already backs state_checkpoints/capability_snapshots),
-    // read matches from it instead so the endpoint serves live, retraction-aware rows. The
-    // hub table carries every chain AND network, so a network filter is required (the local
-    // mirror is implicitly single-network and needs none). dbName is config-derived, not
-    // client input, but database identifiers can't be bound; restrict to a safe identifier
-    // charset before use (same rule as _checkpointSource / the decoderDb readers).
+    // cross_chain_matches is hub-mirrored (hub_db_sync), so xchain-sync EXCLUDES it from
+    // every snapshot and per-block stream: a thin replica's local copy is a stale bootstrap
+    // dump the live stream never refreshes. A serving node therefore MUST read matches from
+    // the mandatory co-located hub DB (the same DB that already backs state_checkpoints/
+    // capability_snapshots) so the endpoint serves live, retraction-aware rows. There is
+    // deliberately NO local-mirror fallback (#4138): when the hub DB is absent or its name
+    // is not a safe identifier we FAIL LOUD by throwing rather than silently serving the
+    // stale local mirror. The hub table carries every chain AND network, so a network filter
+    // is required. dbName is config-derived, not client input, but database identifiers can't
+    // be bound; restrict to a safe identifier charset before use (same rule as
+    // _checkpointSource / the decoderDb readers).
     _matchSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
             return { table: '`' + src.name + '`.cross_chain_matches',
                      networkFilter: ' AND m.network = ?',
                      networkParam: src.network };
-        return { table: 'cross_chain_matches', networkFilter: '', networkParam: null };
+        throw new Error('No co-located hub DB configured for coin ' + config.coin +
+            ': cross_chain_matches is served only from the mandatory co-located hub DB ' +
+            '(config database.checkpoint, same host+credentials as the indexer DB), never from ' +
+            'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
     // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from
@@ -8904,11 +9012,12 @@ class Database {
     // detail endpoint, and the proof is the point of inspecting one.
     async getCrossChainMatches(config){
         let sql   = config.data.sql;
-        // On a synced replica the local cross_chain_matches copy is frozen at bootstrap
-        // (hub-mirrored, excluded from xchain-sync's per-block stream), so redirect to the
-        // co-located hub DB when one is configured. The hub table is multi-network, so a
-        // network filter rides along; it appends one `?` AFTER any type filter in
-        // sql.where.data, so the returned args must be ordered [<type filter?>, network].
+        // cross_chain_matches is hub-mirrored: xchain-sync never replicates it, so it is
+        // served only from the mandatory co-located hub DB, never from a stale local mirror.
+        // _matchSource throws (fail loud) if no co-located hub DB is configured for this coin.
+        // The hub table is multi-network, so a network filter rides along; it appends one `?`
+        // AFTER any type filter in sql.where.data, so the returned args must be ordered
+        // [<type filter?>, network].
         let src   = this._matchSource(config);
         let count = `SELECT
                         count(*) as total
@@ -9164,6 +9273,60 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // List ANCHOR checkpoint records from anchor_actions. Joins the
+    // actions/transactions/blocks chain like getAttestations/getXcalls.
+    // type in {block, chain, network, status}.
+    async getAnchors(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        anchor_actions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        m.version,
+                        m.chain,
+                        m.network,
+                        m.block_index,
+                        m.block_hash,
+                        m.ledger_hash,
+                        m.actions_hash,
+                        m.contract_hash,
+                        m.checkpoint_seq,
+                        m.snapshot_block,
+                        m.match_batch_seq,
+                        m.match_count,
+                        m.batch_crc32,
+                        m.total_chunks,
+                        m.chunk_index,
+                        m.block_index_doge,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        anchor_actions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)

@@ -13,7 +13,7 @@
  **********************************************************************
  * Additional unit tests for uncovered methods in src/db.js
  *
- * Covers (SQL-builder methods — return [query, args, count]):
+ * Covers (SQL-builder methods, return [query, args, count]):
  *   - getCoinpays, getCoinpayExpires, getCoinpayObligations
  *   - getMarkets, getMarket, getMarketOrders, getMarketHistory, getOrderbook
  *   - getActions, getAction, getBlocks
@@ -25,7 +25,7 @@
  *   - getValidatorRewards, getContractStakes, getContractUnstakes, getSlashEvents
  *   - getHistory
  *
- * Covers (helper/detail methods — stub doQuery):
+ * Covers (helper/detail methods, stub doQuery):
  *   - getMaxBlockIndex, getMaxBlockTime, getMaxActionIndex
  *   - getGatedFileRaw, getBlocksSince, getActionsSince
  *   - getAddressBalances, getTokenInfo, getMarketInfo, getDispenserInfo
@@ -56,7 +56,7 @@ const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const mockResults              = require('../fixtures/mock-db-results.js');
 
 // ---------------------------------------------------------------------------
-// Bootstrap — no real MariaDB pool needed
+// Bootstrap: no real MariaDB pool needed
 // ---------------------------------------------------------------------------
 
 const Database = proxyquire('../../src/db.js', {
@@ -115,7 +115,7 @@ describe('Database LRU cache helpers', () => {
         db._cacheSet(db._addressIdCache, 'addr1', 99);
         const v1 = db._cacheGet(db._addressIdCache, 'addr1');
         expect(v1).to.equal(99);
-        // After get, the key is re-inserted (LRU touch) — it is still present
+        // After get, the key is re-inserted (LRU touch); it is still present
         expect(db._cacheGet(db._addressIdCache, 'addr1')).to.equal(99);
     });
 
@@ -294,7 +294,7 @@ describe('Database#getMarkets', () => {
             if(q.includes('count(*) as total')) return [{ total: 1 }];
             return [marketRow];
         });
-        // search = 'XCHAIN' — matches row.tick2 => reverse=true, so tick1 becomes row.tick1 ('BTC')
+        // search = 'XCHAIN' matches row.tick2 => reverse=true, so tick1 becomes row.tick1 ('BTC')
         const config = makeActionConfig('getMarkets', 'token', { search: 'XCHAIN' });
         const [data] = await db.getMarkets(config);
         expect(data).to.have.lengthOf(1);
@@ -351,7 +351,7 @@ describe('Database#getMarketOrders', () => {
     afterEach(() => { sinon.restore(); });
 
     it('returns [data, null, total]', async () => {
-        // count returns 0 — no inner query executed
+        // count returns 0, so no inner query is executed
         sinon.stub(db, 'doQuery').resolves([{ total: 0 }]);
         const config = makeActionConfig('getMarketOrders', null);
         config.data.search2 = 'BTC';
@@ -613,6 +613,53 @@ describe('Database#getSearch', () => {
         config.data.search = 'XCHAIN';
         const [data] = await db.getSearch(config);
         expect(data.totals.tokens).to.equal(2);
+    });
+
+    // Fix A: minimum search term length guard
+    it('returns zero results immediately when search term is too short (< 3 chars)', async () => {
+        const spy = sinon.spy(db, 'doQuery');
+        const config = makeActionConfig('getSearch', 'address');
+        config.data.search = 'ab';
+        const [data, second, total] = await db.getSearch(config);
+        expect(total).to.equal(0);
+        expect(data.totals.addresses).to.equal(0);
+        expect(data.data).to.deep.equal([]);
+        expect(spy.callCount).to.equal(0); // no DB queries issued
+    });
+
+    it('returns zero results immediately for empty search string', async () => {
+        const spy = sinon.spy(db, 'doQuery');
+        const config = makeActionConfig('getSearch', 'address');
+        config.data.search = '';
+        const [data, , total] = await db.getSearch(config);
+        expect(total).to.equal(0);
+        expect(spy.callCount).to.equal(0);
+    });
+
+    it('proceeds normally when search term meets minimum length (3+ chars)', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ count: 0 }]);
+        const config = makeActionConfig('getSearch', 'address');
+        config.data.search = 'abc';
+        const [data, , total] = await db.getSearch(config);
+        expect(total).to.equal(0);
+        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'tokens', 'transactions']);
+    });
+
+    // Fix A: LIMIT cap
+    it('clamps LIMIT to 100 even when sql.limit is larger', async () => {
+        let capturedQuery = null;
+        let callN = 0;
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+            callN++;
+            if(callN <= 4) return [{ count: callN === 1 ? 5 : 0 }];
+            capturedQuery = q;
+            return [{ address: 'addr1' }];
+        });
+        const config = makeActionConfig('getSearch', 'address');
+        config.data.search = 'addr';
+        config.data.sql.limit = 999;
+        await db.getSearch(config);
+        expect(capturedQuery).to.include('LIMIT 100');
     });
 });
 
@@ -1438,7 +1485,7 @@ describe('Database#getOrderAmountsRemaining', () => {
             return [{ give_action_index: 999, get_action_index: 60, give_amount: '40', get_amount: '80' }];
         });
         const [give, get] = await db.getOrderAmountsRemaining(cfg(), 60);
-        // bcsub with decimals=0 — whole numbers deducted correctly
+        // bcsub with decimals=0: whole numbers deducted correctly
         expect(Number(give)).to.equal(60);   // 100 - 40 = 60
         expect(Number(get)).to.equal(120);   // 200 - 80 = 120
     });
@@ -1487,7 +1534,7 @@ describe('Database#getOrderInfoBatch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getHistory — wraps getHistoryData with [data, null, count]
+// getHistory: wraps getHistoryData with [data, null, count]
 // ---------------------------------------------------------------------------
 
 describe('Database#getHistory', () => {
@@ -1568,7 +1615,7 @@ describe('Database#getContract', () => {
         }, overrides);
     }
 
-    it('returns [data] (single record) — null when none found', async () => {
+    it('returns [data] (single record), null when none found', async () => {
         const db = makeDb();
         sinon.stub(db, 'doQuery').resolves([]);
         const config = makeActionConfig('getContract', 'contract');
@@ -1644,7 +1691,7 @@ describe('Database#getContractBalance', () => {
     it('reads the standard balances table via the contract C: address', async () => {
         const db = makeDb();
         const [query, args] = await db.getContractBalance(makeActionConfig('getContractBalance'));
-        // custody now lives in `balances` keyed by the derived C: address —
+        // custody now lives in `balances` keyed by the derived C: address.
         // the legacy `contract_balances` table was removed.
         expect(query).to.not.include('contract_balances');
         expect(query).to.include('balances m');
@@ -1964,10 +2011,10 @@ describe('Database#getDecoderTip', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getQueryWhereSql — additional branches not covered by query-builder tests
+// getQueryWhereSql: additional branches not covered by query-builder tests
 // ---------------------------------------------------------------------------
 
-describe('Database#getQueryWhereSql — additional branches', () => {
+describe('Database#getQueryWhereSql: additional branches', () => {
     let db;
     before(() => { db = makeDb(); });
 
@@ -2029,7 +2076,7 @@ describe('Database#getQueryWhereSql — additional branches', () => {
 
     it('type=contract on getContractState: no extra clause appended', async () => {
         const sql = await db.getQueryWhereSql(makeConfig({ data: { method: 'getContractState', type: 'contract' } }));
-        // contract_index filter is applied inside the subquery — no outer clause
+        // contract_index filter is applied inside the subquery; no outer clause
         expect(sql).to.equal('cs.id IS NOT NULL');
     });
 
@@ -2041,10 +2088,10 @@ describe('Database#getQueryWhereSql — additional branches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getQueryOffsetSql — getSlashEvents uses m.id
+// getQueryOffsetSql: getSlashEvents uses m.id
 // ---------------------------------------------------------------------------
 
-describe('Database#getQueryOffsetSql — getSlashEvents', () => {
+describe('Database#getQueryOffsetSql: getSlashEvents', () => {
     let db;
     before(() => { db = makeDb(); });
 
@@ -2066,7 +2113,7 @@ describe('Database#getQueryOffsetSql — getSlashEvents', () => {
 });
 
 // ---------------------------------------------------------------------------
-// setupConnectionPools — called when config changes (lines 37-38)
+// setupConnectionPools: called when config changes (lines 37-38)
 // ---------------------------------------------------------------------------
 
 describe('Database constructor onConfigChanged', () => {
@@ -2084,7 +2131,7 @@ describe('Database constructor onConfigChanged', () => {
 });
 
 // ---------------------------------------------------------------------------
-// setupConnectionPools — pool cleanup (lines 122-129)
+// setupConnectionPools: pool cleanup (lines 122-129)
 // ---------------------------------------------------------------------------
 
 describe('Database#setupConnectionPools', () => {
@@ -2112,7 +2159,7 @@ describe('Database#setupConnectionPools', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getData — general path (lines 302-336)
+// getData: general path (lines 302-336)
 // ---------------------------------------------------------------------------
 
 describe('Database#getData', () => {
@@ -2165,7 +2212,7 @@ describe('Database#getData', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getQuery — API path (lines 340-399)
+// getQuery: API path (lines 340-399)
 // ---------------------------------------------------------------------------
 
 describe('Database#getQuery (API path)', () => {
@@ -2255,10 +2302,10 @@ describe('Database#getQuery (API path)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getHistoryData — additional branches (lines 5967-5976, 6000-6007)
+// getHistoryData: additional branches (lines 5967-5976, 6000-6007)
 // ---------------------------------------------------------------------------
 
-describe('Database#getHistoryData — additional branches', () => {
+describe('Database#getHistoryData: additional branches', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
@@ -2314,10 +2361,10 @@ describe('Database#getHistoryData — additional branches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getActionSummaryData — non-SEND action (lines 6069-6072)
+// getActionSummaryData: non-SEND action (lines 6069-6072)
 // ---------------------------------------------------------------------------
 
-describe('Database#getActionSummaryData — non-SEND actions', () => {
+describe('Database#getActionSummaryData: non-SEND actions', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
@@ -2351,17 +2398,17 @@ describe('Database#getActionSummaryData — non-SEND actions', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getSearch — broadcast branch (lines 6222-6244)
+// getSearch: broadcast branch (lines 6222-6244)
 // ---------------------------------------------------------------------------
 
-describe('Database#getSearch — broadcast type', () => {
+describe('Database#getSearch: broadcast type', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
     it('populates broadcast results when broadcast type matches', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            // Count queries run via Promise.all — identify by query content
+            // Count queries run via Promise.all; identify by query content
             if(q.includes('FROM broadcasts')) return [{ count: 1 }];
             if(q.includes('FROM index_addresses')) return [{ count: 0 }];
             if(q.includes('FROM transactions') && q.includes('count')) return [{ count: 0 }];
@@ -2400,11 +2447,11 @@ describe('Database#getSearch — broadcast type', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getOrderInfoBatch — edit results loop + match deduction loop
+// getOrderInfoBatch: edit results loop + match deduction loop
 // (lines 6514-6522, 6561-6585)
 // ---------------------------------------------------------------------------
 
-describe('Database#getOrderInfoBatch — edit + match loops', () => {
+describe('Database#getOrderInfoBatch: edit + match loops', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
@@ -2471,7 +2518,7 @@ describe('Database#getOrderInfoBatch — edit + match loops', () => {
             }];
             if(callN === 2) return []; // no edits
             if(callN === 3) return [{ action_index: 61, give_amount: '50', get_amount: '100' }];
-            return []; // no matches — give_remaining and get_remaining come from amtResults unchanged
+            return []; // no matches, so give_remaining and get_remaining come from amtResults unchanged
         });
         const map = await db.getOrderInfoBatch(cfg(), [61]);
         expect(Number(map[61].give_remaining)).to.equal(50);
@@ -2480,7 +2527,7 @@ describe('Database#getOrderInfoBatch — edit + match loops', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getQueryOffsets — bail-out cases and doQuery-stub paths (lines 601-837)
+// getQueryOffsets: bail-out cases and doQuery-stub paths (lines 601-837)
 // ---------------------------------------------------------------------------
 
 describe('Database#getQueryOffsets', () => {
@@ -2750,7 +2797,7 @@ describe('Database#getQueryOffsets', () => {
     it('getFiles type=token + action=first: uses mappings_files SQL (lines 724-736)', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             if(q.includes('FROM index_tickers')) return [{ id: 2 }];
-            // getFiles + token + first — the first/last SQL block runs first, then stop
+            // getFiles + token + first: the first/last SQL block runs first, then stops
             if(q.includes('mappings_files') || q.includes('offset_index')) return [{ offset_index: 500 }];
             return [];
         });
@@ -2781,10 +2828,10 @@ describe('Database#getQueryOffsets', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getOrderbook — bid price aggregation (lines 3199-3213)
+// getOrderbook: bid price aggregation (lines 3199-3213)
 // ---------------------------------------------------------------------------
 
-describe('Database#getOrderbook — bid/ask price aggregation', () => {
+describe('Database#getOrderbook: bid/ask price aggregation', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
@@ -2804,7 +2851,7 @@ describe('Database#getOrderbook — bid/ask price aggregation', () => {
         config.data.search  = 'XCHAIN';
         config.data.search2 = 'BTC';
         const [data] = await db.getOrderbook(config);
-        // Both at same bid price — they merge into one bid entry
+        // Both at same bid price, so they merge into one bid entry
         expect(data.bids.length).to.equal(1);
     });
 
@@ -2823,13 +2870,13 @@ describe('Database#getOrderbook — bid/ask price aggregation', () => {
         config.data.search  = 'XCHAIN';
         config.data.search2 = 'BTC';
         const [data] = await db.getOrderbook(config);
-        // Both at same ask price — they merge into one ask entry
+        // Both at same ask price, so they merge into one ask entry
         expect(data.asks.length).to.equal(1);
     });
 });
 
 // ---------------------------------------------------------------------------
-// getQuery — Explorer path (lines 359-390)
+// getQuery: Explorer path (lines 359-390)
 // ---------------------------------------------------------------------------
 
 describe('Database#getQuery (Explorer path)', () => {
@@ -2927,10 +2974,10 @@ describe('Database#getQuery (Explorer path)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getQueryOffsets — remaining uncovered branches (639-640, 651-653, 689-697)
+// getQueryOffsets: remaining uncovered branches (639-640, 651-653, 689-697)
 // ---------------------------------------------------------------------------
 
-describe('Database#getQueryOffsets — remaining branches', () => {
+describe('Database#getQueryOffsets: remaining branches', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
@@ -3000,7 +3047,7 @@ describe('Database#getQueryOffsets — remaining branches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getActionData — batch tests for many action types (lines 3918-5811)
+// getActionData: batch tests for many action types (lines 3918-5811)
 // ---------------------------------------------------------------------------
 
 describe('Database#getActionData', () => {
@@ -3037,7 +3084,7 @@ describe('Database#getActionData', () => {
         sinon.stub(db, 'getActionFeeData').resolves(null);
         sinon.stub(db, 'getTransactionData').resolves(null);
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            // Credits/debits/escrows — return empty (table names: credits, debits, escrows)
+            // Credits/debits/escrows: return empty (table names: credits, debits, escrows)
             if(q && (queryHasTable(q,'\\bcredits\\b') || queryHasTable(q,'\\bdebits\\b') || queryHasTable(q,'\\bescrows\\b'))) return [];
             // Extra routing provided by caller
             for(const [pattern, rows] of Object.entries(extra)){
@@ -3072,7 +3119,7 @@ describe('Database#getActionData', () => {
         expect(result).to.have.property('fee', null);
     });
 
-    it('ADDRESS action — skips credits/debits/escrows (lines 3944-3973)', async () => {
+    it('ADDRESS action: skips credits/debits/escrows (lines 3944-3973)', async () => {
         stubForType(db, 'ADDRESS', baseRow({ action: 'ADDRESS' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.credits).to.be.null;
@@ -3081,14 +3128,14 @@ describe('Database#getActionData', () => {
         expect(result.source).to.equal('addr1');
     });
 
-    it('AIRDROP action — returns airdrop data (lines 3975-4004)', async () => {
+    it('AIRDROP action: returns airdrop data (lines 3975-4004)', async () => {
         stubForType(db, 'AIRDROP', baseRow({ action: 'AIRDROP', tick: 'XCHAIN', amount: '100', list_action_index: 5 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('AIRDROP');
         expect(result.tick).to.equal('XCHAIN');
     });
 
-    it('BROADCAST action — skips credits/debits/escrows (lines 4041-4070)', async () => {
+    it('BROADCAST action: skips credits/debits/escrows (lines 4041-4070)', async () => {
         stubForType(db, 'BROADCAST', baseRow({ action: 'BROADCAST', message: 'hello', value: '100' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.credits).to.be.null;
@@ -3097,7 +3144,7 @@ describe('Database#getActionData', () => {
         expect(result.message).to.equal('hello');
     });
 
-    it('COINPAY action — returns coinpay settlement data from the coinpays table', async () => {
+    it('COINPAY action: returns coinpay settlement data from the coinpays table', async () => {
         stubForType(db, 'COINPAY', baseRow({ action: 'COINPAY', obligation_action_index: 42, coin_amount: '0.5', txid: 'deadbeef', vout: 1 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('COINPAY');
@@ -3109,7 +3156,7 @@ describe('Database#getActionData', () => {
         expect(queried).to.be.true;
     });
 
-    it('COINPAY_EXPIRE action — returns expiry data from the coinpay_expires table', async () => {
+    it('COINPAY_EXPIRE action: returns expiry data from the coinpay_expires table', async () => {
         stubForType(db, 'COINPAY_EXPIRE', baseRow({ action: 'COINPAY_EXPIRE', obligation_action_index: 42 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('COINPAY_EXPIRE');
@@ -3118,14 +3165,14 @@ describe('Database#getActionData', () => {
         expect(queried).to.be.true;
     });
 
-    it('DESTROY action — returns destroy data (lines 4105-4133)', async () => {
+    it('DESTROY action: returns destroy data (lines 4105-4133)', async () => {
         stubForType(db, 'DESTROY', baseRow({ action: 'DESTROY', tick: 'XCHAIN', amount: '50' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DESTROY');
         expect(result.tick).to.equal('XCHAIN');
     });
 
-    it('DISPENSER action — includes state object + skips get_remaining (lines 4135-4218)', async () => {
+    it('DISPENSER action: includes state object and skips get_remaining (lines 4135-4218)', async () => {
         const row = baseRow({ action: 'DISPENSER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', give_escrow: '100', expiration: 0, allow_list: null, block_list: null, current_status: 'open' });
         sinon.stub(db, 'getActionType').resolves('DISPENSER');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3145,7 +3192,7 @@ describe('Database#getActionData', () => {
         expect(result.state).not.to.have.property('get_remaining');
     });
 
-    it('DISPENSER query2 with edits — give_escrow added to give_remaining (lines 5674-5697)', async () => {
+    it('DISPENSER query2 with edits: give_escrow added to give_remaining (lines 5674-5697)', async () => {
         const row = baseRow({ action: 'DISPENSER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', give_escrow: '100', expiration: 0, allow_list: null, block_list: null, current_status: 'open' });
         // An edit row with give_escrow set (triggers line 5684) and allow_list (triggers 5693)
         const editRow = { give_escrow: '50', expiration: null, allow_list: 'someList', block_list: null, block_time: 0 };
@@ -3166,7 +3213,7 @@ describe('Database#getActionData', () => {
         expect(result.state.allow_list).to.equal('someList');
     });
 
-    it('DISPENSER query3 dispenses — give_remaining reduced by dispenses (lines 5732-5735)', async () => {
+    it('DISPENSER query3 dispenses: give_remaining reduced by dispenses (lines 5732-5735)', async () => {
         const row = baseRow({ action: 'DISPENSER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', give_escrow: '100', expiration: 0, allow_list: null, block_list: null, current_status: 'open' });
         const dispenseRow = { give_amount: '10' };
         sinon.stub(db, 'getActionType').resolves('DISPENSER');
@@ -3184,27 +3231,27 @@ describe('Database#getActionData', () => {
         expect(Number(result.state.give_remaining)).to.equal(90);
     });
 
-    it('DISPENSE action — returns dispense data (lines 4396-4433)', async () => {
+    it('DISPENSE action: returns dispense data (lines 4396-4433)', async () => {
         stubForType(db, 'DISPENSE', baseRow({ action: 'DISPENSE', dispenser_action_index: 70, give_tick: 'XCHAIN', give_amount: '10' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DISPENSE');
     });
 
-    it('ISSUE action — returns issue data (lines 4502-4554)', async () => {
+    it('ISSUE action: returns issue data (lines 4502-4554)', async () => {
         stubForType(db, 'ISSUE', baseRow({ action: 'ISSUE', tick: 'XCHAIN', max_supply: '21000000', max_mint: '100', decimals: 8 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.tick).to.equal('XCHAIN');
         expect(result.max_supply).to.equal('21000000');
     });
 
-    it('MINT action — returns mint data (lines 4671-4701)', async () => {
+    it('MINT action: returns mint data (lines 4671-4701)', async () => {
         stubForType(db, 'MINT', baseRow({ action: 'MINT', tick: 'XCHAIN', amount: '100' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('MINT');
         expect(result.amount).to.equal('100');
     });
 
-    it('ORDER action — includes state + get/give remaining (lines 4703-4781)', async () => {
+    it('ORDER action: includes state + get/give remaining (lines 4703-4781)', async () => {
         const row = baseRow({ action: 'ORDER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', give_price: '0.00001', get_price: '100000', expiration: 900000, allow_list: null, block_list: null, current_status: 'open' });
         sinon.stub(db, 'getActionType').resolves('ORDER');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3222,7 +3269,7 @@ describe('Database#getActionData', () => {
         expect(result.state).to.have.property('give_remaining');
     });
 
-    it('SEND action — includes sends array from query2 (lines 4929-4966)', async () => {
+    it('SEND action: includes sends array from query2 (lines 4929-4966)', async () => {
         const mainRow = baseRow({ action: 'SEND' });
         const sendRow = { destination: 'addr2', tick: 'XCHAIN', amount: '100', status: 'valid', memo: null };
         sinon.stub(db, 'getActionType').resolves('SEND');
@@ -3240,13 +3287,13 @@ describe('Database#getActionData', () => {
         expect(result.sends[0].tick).to.equal('XCHAIN');
     });
 
-    it('SLEEP action — returns sleep data (lines 4968-4997)', async () => {
+    it('SLEEP action: returns sleep data (lines 4968-4997)', async () => {
         stubForType(db, 'SLEEP', baseRow({ action: 'SLEEP', resume_block: 600 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.resume_block).to.equal(600);
     });
 
-    it('SWEEP action — includes issues from query2 (lines 5211-5257)', async () => {
+    it('SWEEP action: includes issues from query2 (lines 5211-5257)', async () => {
         const mainRow = baseRow({ action: 'SWEEP' });
         sinon.stub(db, 'getActionType').resolves('SWEEP');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3261,7 +3308,7 @@ describe('Database#getActionData', () => {
         expect(result.issues).to.be.an('array');
     });
 
-    it('ATTEST action — expands validator_signatures JSON (lines 5260-5302)', async () => {
+    it('ATTEST action: expands validator_signatures JSON (lines 5260-5302)', async () => {
         const sigs = JSON.stringify([{ validator: 'v1', sig: 'abc' }]);
         stubForType(db, 'ATTEST', baseRow({ action: 'ATTEST', validator_signatures: sigs, attest_version: 1 }));
         const result = await db.getActionData(cfg(), 100);
@@ -3271,19 +3318,19 @@ describe('Database#getActionData', () => {
         expect(result).not.to.have.property('validator_signatures');
     });
 
-    it('ATTEST action — handles missing validator_signatures gracefully', async () => {
+    it('ATTEST action: handles missing validator_signatures gracefully', async () => {
         stubForType(db, 'ATTEST', baseRow({ action: 'ATTEST', attest_version: 0 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.signatures).to.deep.equal([]);
     });
 
-    it('ATTEST action — handles invalid JSON in validator_signatures', async () => {
+    it('ATTEST action: handles invalid JSON in validator_signatures', async () => {
         stubForType(db, 'ATTEST', baseRow({ action: 'ATTEST', validator_signatures: 'bad json', attest_version: 1 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.signatures).to.deep.equal([]);
     });
 
-    it('PRICE action — expands pairs_json and sigs_json (lines 5551-5640)', async () => {
+    it('PRICE action: expands pairs_json and sigs_json (lines 5551-5640)', async () => {
         const pairs = JSON.stringify([{ pair: 'BTC/USD', price: '50000' }]);
         const sigs  = JSON.stringify([{ validator: 'v1', sig: 'xyz' }]);
         stubForType(db, 'PRICE', baseRow({ action: 'PRICE', pairs_json: pairs, sigs_json: sigs }));
@@ -3294,47 +3341,47 @@ describe('Database#getActionData', () => {
         expect(result).not.to.have.property('sigs_json');
     });
 
-    it('PRICE action — handles missing/invalid JSON gracefully', async () => {
+    it('PRICE action: handles missing/invalid JSON gracefully', async () => {
         stubForType(db, 'PRICE', baseRow({ action: 'PRICE', pairs_json: 'bad', sigs_json: null }));
         const result = await db.getActionData(cfg(), 100);
         expect(result).to.have.property('action', 'PRICE');
     });
 
-    it('STAKE action — returns stake data (lines 5303-5338)', async () => {
+    it('STAKE action: returns stake data (lines 5303-5338)', async () => {
         stubForType(db, 'STAKE', baseRow({ action: 'STAKE', signing_pubkey: 'deadbeef', amount: '1000' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.signing_pubkey).to.equal('deadbeef');
     });
 
-    it('UNSTAKE action — returns unstake data (lines 5340-5373)', async () => {
+    it('UNSTAKE action: returns unstake data (lines 5340-5373)', async () => {
         stubForType(db, 'UNSTAKE', baseRow({ action: 'UNSTAKE', signing_pubkey: 'deadbeef', amount: '500' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('UNSTAKE');
     });
 
-    it('DELEGATE action — returns delegate data (lines 5375-5408)', async () => {
+    it('DELEGATE action: returns delegate data (lines 5375-5408)', async () => {
         stubForType(db, 'DELEGATE', baseRow({ action: 'DELEGATE', tick: 'XCHAIN', amount: '100' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DELEGATE');
     });
 
-    it('COLLECT action — returns collect data (lines 5410-5434)', async () => {
+    it('COLLECT action: returns collect data (lines 5410-5434)', async () => {
         stubForType(db, 'COLLECT', baseRow({ action: 'COLLECT', tick: 'XCHAIN', amount: '25' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('COLLECT');
     });
 
-    it('DEPLOY action — returns deploy data (lines 5436-5464)', async () => {
+    it('DEPLOY action: returns deploy data (lines 5436-5464)', async () => {
         stubForType(db, 'DEPLOY', baseRow({ action: 'DEPLOY', code_hash: 'c0dehash', contract_index: 5 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.code_hash).to.equal('c0dehash');
     });
 
-    it('DEPLOY v4 chunk carrier — returns chunk data from deploy_chunks (action_format===4 branch)', async () => {
+    it('DEPLOY v4 chunk carrier: returns chunk data from deploy_chunks (action_format===4 branch)', async () => {
         // v4 carriers share the DEPLOY action name but live in deploy_chunks (one base64
         // code slice each), so getActionData picks the detail query by action_format. The
         // chunk fields are routed ONLY through the deploy_chunks query (via `extra`), so the
-        // assertions fail unless the action_format probe actually drives the v4 branch — the
+        // assertions fail unless the action_format probe actually drives the v4 branch, so the
         // base row carries action_format:4 but no chunk fields, proving discrimination.
         stubForType(db, 'DEPLOY', baseRow({ action: 'DEPLOY', action_format: 4 }), {
             'deploy_chunks': [ baseRow({ action: 'DEPLOY', action_format: 4, code_hash: 'c0dehash', chunk_index: 2, total_chunks: 5 }) ]
@@ -3346,31 +3393,31 @@ describe('Database#getActionData', () => {
         expect(result.total_chunks).to.equal(5);
     });
 
-    it('EXECUTE action — returns execution data (lines 5466-5496)', async () => {
+    it('EXECUTE action: returns execution data (lines 5466-5496)', async () => {
         stubForType(db, 'EXECUTE', baseRow({ action: 'EXECUTE', method_name: 'transfer', gas_used: 1000, contract_index: 5 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.method_name).to.equal('transfer');
     });
 
-    it('DEPOSIT action — returns deposit data (lines 5498-5526)', async () => {
+    it('DEPOSIT action: returns deposit data (lines 5498-5526)', async () => {
         stubForType(db, 'DEPOSIT', baseRow({ action: 'DEPOSIT', tick: 'XCHAIN', amount: '100', contract_index: 5 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DEPOSIT');
     });
 
-    it('WITHDRAW action — returns withdraw data (lines 5498-5526)', async () => {
+    it('WITHDRAW action: returns withdraw data (lines 5498-5526)', async () => {
         stubForType(db, 'WITHDRAW', baseRow({ action: 'WITHDRAW', tick: 'XCHAIN', amount: '100', contract_index: 5 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('WITHDRAW');
     });
 
-    it('UNKNOWN action — returns unknown data with invalid status (lines 5528-5549)', async () => {
+    it('UNKNOWN action: returns unknown data with invalid status (lines 5528-5549)', async () => {
         stubForType(db, 'UNKNOWN', baseRow({ action: 'UNKNOWN', status: 'invalid' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.status).to.equal('invalid');
     });
 
-    it('SWAP action — includes state object (lines 4999-5063)', async () => {
+    it('SWAP action: includes state object (lines 4999-5063)', async () => {
         const row = baseRow({ action: 'SWAP', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', current_status: 'open', expiration: 0, allow_list: null, block_list: null });
         sinon.stub(db, 'getActionType').resolves('SWAP');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3386,49 +3433,49 @@ describe('Database#getActionData', () => {
         expect(result.state).to.have.property('give_remaining');
     });
 
-    it('ORDER_MATCH action — returns match data (lines 4896-4927)', async () => {
+    it('ORDER_MATCH action: returns match data (lines 4896-4927)', async () => {
         stubForType(db, 'ORDER_MATCH', baseRow({ action: 'ORDER_MATCH', forward_action_index: 60, backward_action_index: 61, give_amount: '100', get_amount: '0.001' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('ORDER_MATCH');
     });
 
-    it('SWAP_MATCH action — returns match data (lines 5178-5209)', async () => {
+    it('SWAP_MATCH action: returns match data (lines 5178-5209)', async () => {
         stubForType(db, 'SWAP_MATCH', baseRow({ action: 'SWAP_MATCH', forward_action_index: 60, backward_action_index: 61 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('SWAP_MATCH');
     });
 
-    it('DIVIDEND action — returns dividend data (lines 4435-4464)', async () => {
+    it('DIVIDEND action: returns dividend data (lines 4435-4464)', async () => {
         stubForType(db, 'DIVIDEND', baseRow({ action: 'DIVIDEND', dividend_tick: 'XCHAIN', tick: 'PEPE', amount: '1000' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DIVIDEND');
     });
 
-    it('FILE action — returns file data (lines 4466-4500)', async () => {
+    it('FILE action: returns file data (lines 4466-4500)', async () => {
         stubForType(db, 'FILE', baseRow({ action: 'FILE', name: 'test.txt', title: 'Test File' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.name).to.equal('test.txt');
     });
 
-    it('LINK action — returns link data (lines 4556-4587)', async () => {
+    it('LINK action: returns link data (lines 4556-4587)', async () => {
         stubForType(db, 'LINK', baseRow({ action: 'LINK', coin1: 'BTC', coin2: 'LTC', coin1_action_index: 50, coin2_action_index: 51 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.coin1).to.equal('BTC');
     });
 
-    it('MESSAGE action — returns message data (lines 4639-4669)', async () => {
+    it('MESSAGE action: returns message data (lines 4639-4669)', async () => {
         stubForType(db, 'MESSAGE', baseRow({ action: 'MESSAGE', encryption_method: 'ECIES', plaintext_message: 'hello' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.encryption_method).to.equal('ECIES');
     });
 
-    it('CALLBACK action — returns callback data (lines 4072-4103)', async () => {
+    it('CALLBACK action: returns callback data (lines 4072-4103)', async () => {
         stubForType(db, 'CALLBACK', baseRow({ action: 'CALLBACK', callback_tick: 'NEWTOKEN', callback_amount: '100' }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.callback_tick).to.equal('NEWTOKEN');
     });
 
-    it('LIST action — populates list and edits from query2/query3 (lines 4589-4637)', async () => {
+    it('LIST action: populates list and edits from query2/query3 (lines 4589-4637)', async () => {
         const mainRow = baseRow({ action: 'LIST', type: 1 }); // type=1 → tick list
         sinon.stub(db, 'getActionType').resolves('LIST');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3447,7 +3494,7 @@ describe('Database#getActionData', () => {
         expect(result).to.have.property('edits');
     });
 
-    it('BATCH action — populates actions array from sub-getActionData calls (lines 4006-4039)', async () => {
+    it('BATCH action: populates actions array from sub-getActionData calls (lines 4006-4039)', async () => {
         const mainRow = baseRow({ action: 'BATCH' });
         sinon.stub(db, 'getActionType').resolves('BATCH');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3471,7 +3518,7 @@ describe('Database#getActionData', () => {
         expect(result.actions).to.be.an('array').with.lengthOf(2);
     });
 
-    it('ORDER action — deducts match amounts from state.give/get_remaining (line 5718-5729)', async () => {
+    it('ORDER action: deducts match amounts from state.give/get_remaining (line 5718-5729)', async () => {
         const row = baseRow({ action: 'ORDER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '200', give_price: '0.00001', get_price: '100000', expiration: 0, allow_list: null, block_list: null, current_status: 'open' });
         sinon.stub(db, 'getActionType').resolves('ORDER');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3480,7 +3527,7 @@ describe('Database#getActionData', () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             if(q && (q.includes('FROM credits') || q.includes('FROM debits') || q.includes('FROM escrows'))) return [];
             if(q && q.includes('order_edits')) return [];
-            // query3 = order_matches — return one match where 100 is get side
+            // query3 = order_matches: return one match where 100 is get side
             if(q && q.includes('order_matches')) return [{ give_action_index: 999, get_action_index: 100, give_amount: '40', get_amount: '80' }];
             return [row];
         });
@@ -3490,61 +3537,61 @@ describe('Database#getActionData', () => {
         expect(result.state.get_remaining).to.equal('120');
     });
 
-    it('ORDER_CANCEL action — returns cancel data (lines 4783-4820)', async () => {
+    it('ORDER_CANCEL action: returns cancel data (lines 4783-4820)', async () => {
         stubForType(db, 'ORDER_CANCEL', baseRow({ action: 'ORDER_CANCEL', order_action_index: 60 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.order_action_index).to.equal(60);
     });
 
-    it('ORDER_EDIT action — returns edit data (lines 4822-4863)', async () => {
+    it('ORDER_EDIT action: returns edit data (lines 4822-4863)', async () => {
         stubForType(db, 'ORDER_EDIT', baseRow({ action: 'ORDER_EDIT', order_action_index: 60, expiration: 999999 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.expiration).to.equal(999999);
     });
 
-    it('ORDER_EXPIRE action — returns expire data (lines 4865-4893)', async () => {
+    it('ORDER_EXPIRE action: returns expire data (lines 4865-4893)', async () => {
         stubForType(db, 'ORDER_EXPIRE', baseRow({ action: 'ORDER_EXPIRE', order_action_index: 60 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('ORDER_EXPIRE');
     });
 
-    it('SWAP_CANCEL action — returns cancel data (lines 5066-5103)', async () => {
+    it('SWAP_CANCEL action: returns cancel data (lines 5066-5103)', async () => {
         stubForType(db, 'SWAP_CANCEL', baseRow({ action: 'SWAP_CANCEL', swap_action_index: 70 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.swap_action_index).to.equal(70);
     });
 
-    it('SWAP_EDIT action — returns edit data (lines 5105-5145)', async () => {
+    it('SWAP_EDIT action: returns edit data (lines 5105-5145)', async () => {
         stubForType(db, 'SWAP_EDIT', baseRow({ action: 'SWAP_EDIT', swap_action_index: 70, expiration: 999999 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('SWAP_EDIT');
     });
 
-    it('SWAP_EXPIRE action — returns expire data (lines 5147-5176)', async () => {
+    it('SWAP_EXPIRE action: returns expire data (lines 5147-5176)', async () => {
         stubForType(db, 'SWAP_EXPIRE', baseRow({ action: 'SWAP_EXPIRE', swap_action_index: 70 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('SWAP_EXPIRE');
     });
 
-    it('DISPENSER_CLOSE action — returns close data (lines 4220-4258)', async () => {
+    it('DISPENSER_CLOSE action: returns close data (lines 4220-4258)', async () => {
         stubForType(db, 'DISPENSER_CLOSE', baseRow({ action: 'DISPENSER_CLOSE', dispenser_action_index: 70 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DISPENSER_CLOSE');
     });
 
-    it('DISPENSER_CANCEL action — returns cancel data (lines 4260-4304)', async () => {
+    it('DISPENSER_CANCEL action: returns cancel data (lines 4260-4304)', async () => {
         stubForType(db, 'DISPENSER_CANCEL', baseRow({ action: 'DISPENSER_CANCEL', dispenser_action_index: 70 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DISPENSER_CANCEL');
     });
 
-    it('DISPENSER_EDIT action — returns edit data (lines 4306-4354)', async () => {
+    it('DISPENSER_EDIT action: returns edit data (lines 4306-4354)', async () => {
         stubForType(db, 'DISPENSER_EDIT', baseRow({ action: 'DISPENSER_EDIT', dispenser_action_index: 70 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DISPENSER_EDIT');
     });
 
-    it('DISPENSER_EXPIRE action — returns expire data (lines 4356-4394)', async () => {
+    it('DISPENSER_EXPIRE action: returns expire data (lines 4356-4394)', async () => {
         stubForType(db, 'DISPENSER_EXPIRE', baseRow({ action: 'DISPENSER_EXPIRE', dispenser_action_index: 70 }));
         const result = await db.getActionData(cfg(), 100);
         expect(result.action).to.equal('DISPENSER_EXPIRE');
@@ -3655,14 +3702,21 @@ describe('Database#getContractDelegations', () => {
 // ---------------------------------------------------------------------------
 
 describe('Database#getCrossChainMatches', () => {
+    // cross_chain_matches is hub-mirrored and served only from the mandatory co-located
+    // hub DB (#4138). These structural tests configure that hub DB so the query builds;
+    // the "no hub DB → fail loud" behavior is covered by its own test below.
+    const HUB = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+
     it('returns a 3-element array', async () => {
         const db = makeDb();
+        db.checkpointDb = { ...HUB };
         const result = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
         expect(result).to.be.an('array').with.lengthOf(3);
     });
 
     it('query selects both legs and the quorum proof from "cross_chain_matches"', async () => {
         const db = makeDb();
+        db.checkpointDb = { ...HUB };
         const [query] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
         expect(query).to.include('cross_chain_matches m');
         expect(query).to.include('m.match_id');
@@ -3674,19 +3728,21 @@ describe('Database#getCrossChainMatches', () => {
 
     it('ORDER BY uses m.id (mirror cursor, no action_index)', async () => {
         const db = makeDb();
+        db.checkpointDb = { ...HUB };
         const [query] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
         expect(query).to.include('ORDER BY m.id');
     });
 
-    it('no checkpoint hub DB → reads the local table, args null, no network filter', async () => {
+    it('no checkpoint hub DB → fails loud (no silent local-mirror fallback, #4138)', async () => {
         const db = makeDb();
-        // checkpointDb is empty by default — local mirror path.
-        const [query, args, count] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
-        expect(query).to.include('cross_chain_matches m');
-        expect(query).to.not.include('`');                 // not database-qualified
-        expect(query).to.not.include('m.network = ?');
-        expect(count).to.not.include('m.network = ?');
-        expect(args).to.equal(null);
+        // checkpointDb is empty by default. The hub-mirrored cross_chain_matches table is
+        // never replicated by xchain-sync, so a serving node MUST read it from the co-located
+        // hub DB. Without one, getCrossChainMatches throws instead of serving stale local rows.
+        let err = null;
+        try { await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches')); }
+        catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.message).to.match(/co-located hub DB/i);
     });
 
     it('checkpoint hub DB configured → database-qualifies to the hub table + network filter (count + data)', async () => {
@@ -3710,14 +3766,17 @@ describe('Database#getCrossChainMatches', () => {
         expect(args).to.deep.equal(['addr1', 'mainnet']);
     });
 
-    it('redirect rejects an unsafe hub DB identifier and falls back to the local table', async () => {
+    it('rejects an unsafe hub DB identifier by failing loud (no local-mirror fallback, #4138)', async () => {
         const db = makeDb();
         db.checkpointDb = { BTC: { name: 'bad name; DROP', chain: 'BTC', network: 'mainnet' } };
-        const [query, args] = await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches'));
-        expect(query).to.include('cross_chain_matches m');
-        expect(query).to.not.include('bad name');
-        expect(query).to.not.include('m.network = ?');
-        expect(args).to.equal(null);
+        // An unsafe configured identifier is a misconfiguration, not a reason to silently
+        // serve the stale local mirror: throw rather than fall back.
+        let err = null;
+        try { await db.getCrossChainMatches(makeActionConfig('getCrossChainMatches')); }
+        catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.message).to.match(/co-located hub DB/i);
+        expect(err.message).to.not.include('bad name');
     });
 });
 

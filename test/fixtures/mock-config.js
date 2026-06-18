@@ -55,7 +55,11 @@ function getFullConfig() {
             mainnet: {
                 database: {
                     indexer: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Mainnet_Indexer' },
-                    decoder: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Mainnet_Decoder' }
+                    decoder: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Mainnet_Decoder' },
+                    // Mandatory co-located hub DB for the hub-mirrored tables (#4138). A serving
+                    // node must declare this; the explorer asserts it at startup and reads
+                    // state_checkpoints / capability_snapshots / cross_chain_matches from it.
+                    checkpoint: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_Hub' }
                 },
                 address: {
                     burn: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
@@ -68,7 +72,8 @@ function getFullConfig() {
             regtest: {
                 database: {
                     indexer: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Indexer' },
-                    decoder: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Decoder' }
+                    decoder: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Decoder' },
+                    checkpoint: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_Hub' }
                 },
                 address: {
                     burn: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',

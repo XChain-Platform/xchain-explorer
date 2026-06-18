@@ -3,7 +3,7 @@
  * Copyright © 2025–2026 Dankest, LLC
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Licensed under the GNU Affero GPL v3.0 or later; see LICENSE.md.
- * A commercial license is available — contact legal@dankest.llc.
+ * A commercial license is available - contact legal@dankest.llc.
  *
  * Generates docs/openapi.json (OpenAPI 3.1) for the explorer's public REST API.
  *
@@ -86,6 +86,8 @@ const ROUTES = [
     ['/{COIN}/api/validators', 'getValidators', null, 'Staking', 'Active validators and their capabilities'],
     ['/{COIN}/api/delegations/{QUERY}/{TYPE}', 'getDelegations', ['block', 'address', 'source'], 'Staking', 'Signing-key delegations'],
     ['/{COIN}/api/rewards/{QUERY}/{TYPE}', 'getValidatorRewards', ['address', 'source'], 'Staking', 'Validator rewards (oracle/anchor/attestation)'],
+    ['/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}', 'getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address'], 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0), filtered'],
+    ['/{COIN}/api/full_node_verifications', 'getFullNodeVerifications', null, 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0)'],
     ['/{COIN}/api/contract_stakes/{QUERY}/{TYPE}', 'getContractStakes', ['block', 'address', 'contract'], 'Staking', 'Contract-targeted stakes, filtered'],
     ['/{COIN}/api/contract_stakes', 'getContractStakes', null, 'Staking', 'Contract-targeted stakes (STAKE v3)'],
     ['/{COIN}/api/contract_unstakes/{QUERY}/{TYPE}', 'getContractUnstakes', ['block', 'address', 'contract'], 'Staking', 'Contract unstakes, filtered'],
@@ -105,6 +107,9 @@ const ROUTES = [
     // ── Attestations ──────────────────────────────────────────────────────
     ['/{COIN}/api/attestations/{QUERY}/{TYPE}', 'getAttestations', ['block', 'address', 'contract'], 'Attestations', 'ATTEST requests/responses, filtered'],
     ['/{COIN}/api/attestations', 'getAttestations', null, 'Attestations', 'ATTEST v0 requests + v1 responses (incl. LLM attestations)'],
+    // ── Anchors ───────────────────────────────────────────────────────────
+    ['/{COIN}/api/anchors/{QUERY}/{TYPE}', 'getAnchors', ['block', 'chain', 'network', 'status'], 'Checkpoints', 'ANCHOR state checkpoints, filtered by block/chain/network/status'],
+    ['/{COIN}/api/anchors', 'getAnchors', null, 'Checkpoints', 'ANCHOR state checkpoints (cross-chain quorum-signed)'],
     // ── Core ──────────────────────────────────────────────────────────────
     ['/{COIN}/api/status', 'getStatus', null, 'Network', 'Explorer status + chain config'],
     ['/{COIN}/api/actions', 'getActions', null, 'Core', 'Recent actions (all types)'],
@@ -117,7 +122,7 @@ const ROUTES = [
     ['/{COIN}/api/escrows/{QUERY}/{TYPE}', 'getEscrows', ['block', 'address'], 'Core', 'Escrowed balances (orders/swaps/dispensers)'],
     ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token', 'recent'], 'Core', 'Combined action history'],
     ['/{COIN}/api/holders/{QUERY}', 'getHolders', 'token', 'Tokens', 'Holders of a token'],
-    ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions from the decoder — PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
+    ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions from the decoder. PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
     ['/{COIN}/api/network', 'getNetwork', null, 'Network', 'Network statistics'],
     ['/{COIN}/api/pubkey/{QUERY}', 'getPublicKey', 'address', 'Core', 'Known public key for an address'],
     ['/{COIN}/api/project/{QUERY}', 'getProject', 'token', 'Tokens', 'Project registry roster (official tokens of a project tick)'],
@@ -149,6 +154,7 @@ const QUERY_DESC = {
     destination: 'destination address', token: 'a token tick', contract: 'contract action index',
     execution: 'execution action index', action_index: 'action index', match: 'cross-chain match id',
     pair: 'COIN/FIAT pair (e.g. BTC/USD)', round: 'oracle round id', status: 'lifecycle status',
+    chain: 'target chain (e.g. BTC, LTC, DOGE)', network: 'target network (mainnet, testnet, regtest)',
     subtoken: 'parent tick (returns its sub-tokens)', nft: 'NFT filter', recent: 'recent rows',
     tx_hash: 'transaction hash', tx_index: 'transaction index',
     call_id: 'cross-chain call id (64-hex)',
@@ -163,7 +169,7 @@ function pathParams(p, types) {
         const kinds = Array.isArray(types) ? types : [types];
         params.push({
             name: 'QUERY', in: 'path', required: true, schema: { type: 'string' },
-            description: 'The value to look up — interpreted per {TYPE}: ' +
+            description: 'The value to look up (interpreted per {TYPE}): ' +
                 kinds.filter(Boolean).map((t) => `${t} = ${QUERY_DESC[t] || t}`).join('; '),
         });
     }
@@ -222,16 +228,16 @@ const spec = {
     info: {
         title: 'XChain Explorer API',
         version: '1.0.0',
-        description: 'Read-only REST API for the XChain Platform — tokens, balances, actions, '
+        description: 'Read-only REST API for the XChain Platform: tokens, balances, actions, '
             + 'markets, smart contracts, staking, attestations, and state checkpoints on '
             + 'Bitcoin, Litecoin, and Dogecoin.\n\n'
             + 'Conventions: `coin` is the host chain, `tick` is a token symbol (there is no '
             + '"asset" field). Amounts are arbitrary-precision decimal strings. List responses '
             + 'are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters '
             + '(limit max 100; balances/holders max 500). Errors are '
-            + '`{error: "message", code: "STABLE_CODE"}` — see the error-code registry at '
+            + '`{error: "message", code: "STABLE_CODE"}`. See the error-code registry at '
             + 'https://docs.xchain.io/protocol/Error_Codes.md. A WebSocket API lives at '
-            + '/{COIN}/api/websocket — see https://docs.xchain.io/components/explorer/WEBSOCKET.md.\n\n'
+            + '/{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/WEBSOCKET.md.\n\n'
             + 'LLM-friendly docs: https://docs.xchain.io/llms.txt',
         license: { name: 'AGPL-3.0-or-later', url: 'https://docs.xchain.io/legal/LICENSING.md' },
     },

@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -24,6 +24,20 @@
  * iconDownload.enabled = true. The operator must additionally grant
  * the explorer's MySQL user write access on the `icons` table in each
  * indexer database. Requires ImageMagick `convert` on the host PATH.
+ *
+ * SANCTIONED SHARED-WRITE EXCEPTION (#3752):
+ * The explorer is otherwise a strictly read-only consumer of the
+ * indexer-owned databases. This worker is the one explicitly-sanctioned
+ * exception: it issues INSERT IGNORE / UPDATE against the
+ * indexer-owned `icons` table (via netInfo.database.indexer), so the
+ * explorer's DB user requires an INSERT + UPDATE grant on that table.
+ * This is intentional, not a boundary violation: icon-download state
+ * (fetch attempts, hashes, retry timers) is explorer-side bookkeeping
+ * that happens to live in the indexer schema for colocation. Relocating
+ * icon-state ownership into the indexer (so the explorer reverts to
+ * pure read-only) is a tracked POST-LAUNCH follow-up, not done here.
+ * The write sites below are marked SHARED-WRITE so the exception stays
+ * auditable; do NOT add new explorer writes to indexer-owned tables.
  *
  ********************************************************************/
 
@@ -210,7 +224,11 @@ class IconDownloader {
      * processed. NULL-safe via the `<=>` operator.
      */
     async _discover(conn){
-        // (a) New tokens — INSERT IGNORE on UNIQUE token_id
+        // SHARED-WRITE EXCEPTION (#3752): these statements write the indexer-owned
+        // `icons` table. This is the sanctioned exception to the explorer's read-only
+        // boundary and requires an INSERT + UPDATE grant on the indexer DB's icons
+        // table. Tracked post-launch follow-up: move icon-state ownership to the indexer.
+        // (a) New tokens: INSERT IGNORE on UNIQUE token_id
         await conn.query(
             `INSERT IGNORE INTO icons (token_id, description_hash, status)
              SELECT t.id, MD5(t.description), 'pending'
@@ -269,7 +287,7 @@ class IconDownloader {
             iconHash = await this._writeIcon(bytes, iconPath);
         } catch (e){
             // Stamp descriptions are immutable: if the decoded bytes aren't a
-            // usable image, retrying won't help — mark terminal as no-icon-source.
+            // usable image, retrying won't help; mark terminal as no-icon-source.
             if(src.scheme === 'stamp'){
                 await this._markOk(conn, row.icon_id, null, null, null, descHash);
                 this._log(`    - ${tick}: stamp bytes are not a usable image`);
@@ -311,7 +329,7 @@ class IconDownloader {
                 const resp = await this._httpFetch(src.url);
                 let json;
                 try { json = JSON.parse(resp.body.toString('utf8')); }
-                catch (e) { throw new Error('ord: bad decoder JSON'); }
+                catch (e) { throw new Error('ord: bad decoder JSON from ' + src.url + ': ' + e.message + ' | head=' + resp.body.toString('utf8').slice(0, 80)); }
                 const data = json && json.images && json.images[0] && json.images[0].data;
                 if(typeof data !== 'string')
                     throw new Error('ord: missing images[0].data');
@@ -327,8 +345,8 @@ class IconDownloader {
             case 'arweave_url':
             case 'ipfs': {
                 // Could be JSON (CIP25/TIS) or a direct image. Don't trust
-                // the Content-Type header — IPFS gateways routinely serve
-                // content as text/plain regardless of the actual bytes.
+                // the Content-Type header (IPFS gateways routinely serve
+                // content as text/plain regardless of the actual bytes).
                 const resp = await this._httpFetch(src.url);
 
                 // Try JSON parse first
@@ -342,7 +360,7 @@ class IconDownloader {
                     return await this._fetchSourceBytes(next, depth - 1);
                 }
 
-                // Not JSON — return raw bytes; _writeIcon sniffs MIME from
+                // Not JSON: return raw bytes; _writeIcon sniffs MIME from
                 // the bytes themselves and rejects anything that isn't an
                 // allowed image type.
                 return resp.body;
@@ -428,6 +446,9 @@ class IconDownloader {
      *****************************************************************/
 
     async _markOk(conn, iconId, sourceUrl, sourceHash, iconHash, descHash){
+        // SHARED-WRITE EXCEPTION (#3752): UPDATE on the indexer-owned `icons` table.
+        // Sanctioned write outside the explorer read-only boundary; needs an UPDATE
+        // grant on the indexer DB. Icon-state ownership relocation is a post-launch follow-up.
         await conn.query(
             `UPDATE icons SET
                  status='ok', attempts=0, last_error=NULL, next_retry_at=NULL,
@@ -438,6 +459,9 @@ class IconDownloader {
     }
 
     async _markFailure(conn, iconId, attempts, errMsg){
+        // SHARED-WRITE EXCEPTION (#3752): UPDATE on the indexer-owned `icons` table.
+        // Sanctioned write outside the explorer read-only boundary; needs an UPDATE
+        // grant on the indexer DB. Icon-state ownership relocation is a post-launch follow-up.
         if(attempts >= this.cfg.maxAttempts){
             await conn.query(
                 `UPDATE icons SET status='failed', attempts=?, last_error=?,
@@ -497,13 +521,13 @@ async function safeUnlink(p){
     try { await fsp.unlink(p); } catch (e) { /* ignore */ }
 }
 
-// MIME sniff via the `file` command — works without adding a dependency
+// MIME sniff via the `file` command (works without adding a dependency)
 async function sniffMime(filePath){
     const { stdout } = await execAsync(`file --mime-type -b ${shellEscape(filePath)}`);
     return stdout.trim();
 }
 
-// 1h, 1d, 7d (then permanent — capped via maxAttempts)
+// 1h, 1d, 7d, then permanent (capped via maxAttempts)
 function backoffSeconds(attempts){
     if(attempts <= 1) return 3600;
     if(attempts === 2) return 86400;

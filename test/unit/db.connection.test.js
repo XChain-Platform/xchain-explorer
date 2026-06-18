@@ -49,7 +49,7 @@ function buildExplorer(configOverrides) {
 }
 
 // ---------------------------------------------------------------------------
-// Shared mock pool (used for proxyquire — createPool returns this by default)
+// Shared mock pool (used for proxyquire; createPool returns this by default)
 // ---------------------------------------------------------------------------
 
 let mockMariadb;
@@ -214,7 +214,10 @@ describe('Database – connection management', function () {
             config.BTC.testnet = {
                 database: {
                     indexer: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Testnet_Indexer' },
-                    decoder: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Testnet_Decoder' }
+                    decoder: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Testnet_Decoder' },
+                    // Mandatory co-located hub DB (#4138): a serving coin must declare it
+                    // or setupConnectionPools throws the startup assertion.
+                    checkpoint: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_Hub' }
                 }
             };
             const db = freshDatabase(null, config);
@@ -239,6 +242,11 @@ describe('Database – connection management', function () {
             config.BTC.mainnet.database.indexer = {
                 host: '10.0.0.1', port: 3307, user: 'admin', pass: 'secret', name: 'XChain_BTC_Mainnet_Indexer'
             };
+            // Keep the mandatory co-located hub DB on the SAME host/creds as the
+            // relocated indexer so the #4138 startup assertion is satisfied.
+            config.BTC.mainnet.database.checkpoint = {
+                host: '10.0.0.1', port: 3307, user: 'admin', pass: 'secret', name: 'XChain_Hub'
+            };
             const db = freshDatabase(null, config);
             await db.setupConnectionPools();
             expect(db.pools['BTC'].config.host).to.equal('10.0.0.1');
@@ -248,7 +256,7 @@ describe('Database – connection management', function () {
         it('does NOT share a pool across different databases even when host/port/user/pass match', async function () {
             // Regression: a MariaDB pool is pinned to one default database, and the explorer
             // runs unqualified queries (FROM blocks) against it. Sharing one pool across coins
-            // that differ only by database name made every coin query the first pool's DB —
+            // that differ only by database name made every coin query the first pool's DB.
             // e.g. all coins served BTC data on the single-server NO_HUB deployment where every
             // coin uses one MariaDB user. Same creds + different DB must yield SEPARATE pools.
             const config = getFullConfig();
@@ -273,7 +281,7 @@ describe('Database – connection management', function () {
 
         it('reuses the same pool only when host/port/user/pass AND database all match', async function () {
             // The sharing optimization is preserved for the (safe) case where two config
-            // entries point at the exact same database — same default DB, so one pool is fine.
+            // entries point at the exact same database (same default DB), so one pool is fine.
             const config = getFullConfig();
             config.BTC.mainnet.database.indexer = {
                 host: '127.0.0.1', port: 3306, user: 'root', pass: 'pass', name: 'XChain_Shared_Indexer'
@@ -298,13 +306,19 @@ describe('Database – connection management', function () {
                 host: '10.9.9.9', port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Indexer'
             };
             // Keep the regtest decoder on the SAME host/creds as its indexer so it
-            // reuses that pool — this test isolates INDEXER pool separation by host.
+            // reuses that pool; this test isolates INDEXER pool separation by host.
             // (A decoder on a different host/creds than its indexer correctly spawns
             // its own dedicated pool; that path is exercised elsewhere. Leaving the
             // default 127.0.0.1 decoder here would mismatch the 10.9.9.9 indexer and
             // add a third, unrelated createPool call.)
             config.BTC.regtest.database.decoder = {
                 host: '10.9.9.9', port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Decoder'
+            };
+            // Keep the mandatory co-located hub DB on the SAME host/creds as the relocated
+            // regtest indexer so the #4138 startup assertion is satisfied. It reuses the
+            // indexer pool (same host/creds), so it does NOT add a createPool call.
+            config.BTC.regtest.database.checkpoint = {
+                host: '10.9.9.9', port: 3306, user: 'root', pass: 'pass', name: 'XChain_Hub'
             };
             // Make createPool return distinct objects so the inequality check is meaningful
             const poolA = createMockPool();

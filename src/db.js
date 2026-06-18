@@ -3897,6 +3897,7 @@ class Database {
         let args  = [config.data.search];
         let query = `SELECT
                         t2.tick,
+                        t1.tick_id,
                         t1.supply,
                         t1.max_supply,
                         t1.max_mint,
@@ -4023,6 +4024,9 @@ class Database {
             // DECIMALS=0 AND LOCK_MAX_SUPPLY=1 (the lock is already in locks.max_supply).
             data.info.decimals   = Number(row.decimals);
             data.supply.decimals = Number(row.decimals);
+            // Expose the immutable numeric ticker id (index_tickers.id) so clients
+            // (e.g. the SDK) can compact a ticker name into its `^<id>` wire form.
+            data.info.tick_id    = (row.tick_id !== undefined && row.tick_id !== null) ? Number(row.tick_id) : null;
             // Project registry surfaces (protocol/Project_Registry.md):
             // projects = registries whose CURRENT roster includes this token
             // (drives the "Official: part of X" banner); registry = this token's

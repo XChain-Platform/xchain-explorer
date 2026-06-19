@@ -7788,7 +7788,9 @@ class Database {
         let src = this._checkpointSource(config);
         if (blockIndex !== null && blockIndex !== undefined) {
             let query = `SELECT chain, network, block_index, block_hash, ledger_hash, actions_hash,
-                                contract_hash, checkpoint_seq, snapshot_block, validator_signatures, created_at
+                                contract_hash, checkpoint_seq, snapshot_block,
+                                state_root, state_root_version, block_merkle_root, block_merkle_version,
+                                validator_signatures, created_at
                          FROM ${src.table}
                          WHERE block_index = ?${src.filter}
                          ORDER BY checkpoint_seq DESC LIMIT 1`;
@@ -7796,7 +7798,9 @@ class Database {
         }
         let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
         let query = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
-                            sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.validator_signatures, sc.created_at
+                            sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block,
+                            sc.state_root, sc.state_root_version, sc.block_merkle_root, sc.block_merkle_version,
+                            sc.validator_signatures, sc.created_at
                      FROM ${src.table} sc
                      JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq
                            FROM ${src.table} WHERE 1=1${src.filter} GROUP BY block_index) t

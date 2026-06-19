@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — REST API action endpoints (sends)
+ * Integration tests: REST API action endpoints (sends)
  *
  * Boots a real Express app against a test MariaDB on port 3307.
  * Uses the baseline seed fixture which includes 10 sends across multiple
@@ -58,23 +58,23 @@ after(async function () {
 });
 
 // ===========================================================================
-// API Action Endpoints — Sends
+// API Action Endpoints: Sends
 // ===========================================================================
 
-describe('API Action Endpoints — Sends', function () {
+describe('API Action Endpoints: Sends', function () {
 
     // -----------------------------------------------------------------------
     // 1. Block query
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/sends/{block}/block — returns sends in a specific block', async function () {
+    it('GET /RBTC/api/sends/{block}/block: returns sends in a specific block', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
 
         expect(res.status).to.equal(200);
         expect(Number(res.body.total)).to.equal(2);
         expect(res.body.data).to.be.an('array').with.lengthOf(2);
 
-        // Default sort is DESC by action_index → [10, 9]
+        // Default sort is DESC by action_index -> [10, 9]
         expect(Number(res.body.data[0].action_index)).to.equal(10);
         expect(Number(res.body.data[1].action_index)).to.equal(9);
     });
@@ -83,11 +83,11 @@ describe('API Action Endpoints — Sends', function () {
     // 2. Address query (source or destination)
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/sends/{address}/address — returns sends by address (source or dest)', async function () {
+    it('GET /RBTC/api/sends/{address}/address: returns sends by address (source or dest)', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address`);
 
         expect(res.status).to.equal(200);
-        // addr1 is source on 3,6,9,16,19 and dest on 4,15 → 7 total
+        // addr1 is source on 3,6,9,16,19 and dest on 4,15 -> 7 total
         expect(Number(res.body.total)).to.equal(7);
         expect(res.body.data).to.be.an('array').with.lengthOf(7);
 
@@ -99,11 +99,11 @@ describe('API Action Endpoints — Sends', function () {
     // 3. Token query
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/sends/{tick}/token — filters by token', async function () {
+    it('GET /RBTC/api/sends/{tick}/token: filters by token', async function () {
         const res = await request.get('/RBTC/api/sends/XCHAIN/token');
 
         expect(res.status).to.equal(200);
-        // XCHAIN sends: action_indexes 3, 5, 9, 16, 19 → 5 total
+        // XCHAIN sends: action_indexes 3, 5, 9, 16, 19 -> 5 total
         expect(Number(res.body.total)).to.equal(5);
         expect(res.body.data).to.be.an('array').with.lengthOf(5);
 
@@ -117,11 +117,11 @@ describe('API Action Endpoints — Sends', function () {
     // 4. Source-only query
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/sends/{address}/source — filters by source only', async function () {
+    it('GET /RBTC/api/sends/{address}/source: filters by source only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/source`);
 
         expect(res.status).to.equal(200);
-        // addr1 as source: 3, 6, 9, 16, 19 → 5 total
+        // addr1 as source: 3, 6, 9, 16, 19 -> 5 total
         expect(Number(res.body.total)).to.equal(5);
         expect(res.body.data).to.be.an('array').with.lengthOf(5);
 
@@ -135,11 +135,11 @@ describe('API Action Endpoints — Sends', function () {
     // 5. Destination-only query
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/sends/{address}/destination — filters by destination only', async function () {
+    it('GET /RBTC/api/sends/{address}/destination: filters by destination only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR2}/destination`);
 
         expect(res.status).to.equal(200);
-        // addr2 as destination: 3, 10, 19 → 3 total
+        // addr2 as destination: 3, 10, 19 -> 3 total
         expect(Number(res.body.total)).to.equal(3);
         expect(res.body.data).to.be.an('array').with.lengthOf(3);
 
@@ -190,7 +190,7 @@ describe('API Action Endpoints — Sends', function () {
         expect(page1.body.data).to.be.an('array').with.lengthOf(2);
         expect(page2.body.data).to.be.an('array').with.lengthOf(2);
 
-        // Pages must not overlap — collect all action_indexes across both pages
+        // Pages must not overlap: collect all action_indexes across both pages
         const page1Indexes = page1.body.data.map(r => r.action_index);
         const page2Indexes = page2.body.data.map(r => r.action_index);
         const overlap = page1Indexes.filter(i => page2Indexes.includes(i));
@@ -205,7 +205,7 @@ describe('API Action Endpoints — Sends', function () {
         const res = await request.get('/RBTC/api/sends/2/block');
 
         expect(res.status).to.equal(200);
-        // Block 2 sends: action_indexes 3, 4 → total = 2
+        // Block 2 sends: action_indexes 3, 4 -> total = 2
         expect(Number(res.body.total)).to.equal(2);
         expect(res.body.data).to.be.an('array').with.lengthOf(2);
     });

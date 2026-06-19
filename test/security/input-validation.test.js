@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Security tests — Input Validation
+ * Security tests: Input Validation
  *
  * Tests all API input parameters with malicious values:
  * type confusion, special characters, extreme lengths, null bytes, unicode.
@@ -38,7 +38,7 @@ function makeDb() {
 // Query parameter type confusion
 // ===========================================================================
 
-describe('Security: Input Validation — Type confusion', function () {
+describe('Security: Input Validation: Type confusion', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -104,7 +104,7 @@ describe('Security: Input Validation — Type confusion', function () {
 // Special character handling
 // ===========================================================================
 
-describe('Security: Input Validation — Special characters', function () {
+describe('Security: Input Validation: Special characters', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -127,7 +127,7 @@ describe('Security: Input Validation — Special characters', function () {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
-                search: '\u0027 OR 1=1 --',
+                search: '' OR 1=1 --',
                 type: 'address'
             }
         });
@@ -154,7 +154,7 @@ describe('Security: Input Validation — Special characters', function () {
 // Extreme value handling
 // ===========================================================================
 
-describe('Security: Input Validation — Extreme values', function () {
+describe('Security: Input Validation: Extreme values', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -218,7 +218,7 @@ describe('Security: Input Validation — Extreme values', function () {
 // Method name validation
 // ===========================================================================
 
-describe('Security: Input Validation — Method name safety', function () {
+describe('Security: Input Validation: Method name safety', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -256,14 +256,14 @@ describe('Security: Input Validation — Method name safety', function () {
                 type: 'address'
             }
         });
-        // toString is a function, but returns a string not [query, args, count]
-        // The typeof check passes but the result won't destructure properly
-        // This is acceptable behavior — no SQL injection occurs
+        // toString is a function, but returns a string not [query, args, count].
+        // The typeof check passes but the result won't destructure properly.
+        // This is acceptable: no SQL injection occurs.
         try {
             const [query, args, count] = await db.getQuery(config);
             // If it doesn't throw, query won't be a SQL string
         } catch (e) {
-            // Expected — toString() returns a string, not an array
+            // toString() returns a string, not an array; catching is expected
         }
     });
 });
@@ -272,7 +272,7 @@ describe('Security: Input Validation — Method name safety', function () {
 // DataTables parameter validation
 // ===========================================================================
 
-describe('Security: Input Validation — DataTables parameters', function () {
+describe('Security: Input Validation: DataTables parameters', function () {
 
     let db;
     before(() => { db = makeDb(); });
@@ -290,7 +290,7 @@ describe('Security: Input Validation — DataTables parameters', function () {
                 }
             }
         });
-        // draw is never used in SQL — it's a DataTables client-side value
+        // draw is never used in SQL; it is a DataTables client-side value
         await db.getQuery(config);
         expect(config.data.sql.limit).to.be.a('number');
     });

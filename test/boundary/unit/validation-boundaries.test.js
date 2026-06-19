@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Boundary tests — Validation functions (isInteger, isNumeric, isNull)
+ * Boundary tests: Validation functions (isInteger, isNumeric, isNull)
  *
  * Tests extreme and edge-case inputs to the core validation helpers
  * that gate all query parameter acceptance.
@@ -27,7 +27,7 @@ const Utility    = require('../../../src/utility');
 const util = new Utility(null);
 
 // ===========================================================================
-// isInteger — guards limit, page, length, start
+// isInteger: guards limit, page, length, start
 // ===========================================================================
 
 describe('Boundary: isInteger()', function () {
@@ -43,14 +43,14 @@ describe('Boundary: isInteger()', function () {
     });
 
     it('accepts -1 (negative integer)', function () {
-        // NOTE: This passes — negative values are accepted by isInteger.
-        // Pagination parameters must add their own floor checks.
+        // NOTE: This passes. Negative values are accepted by isInteger;
+        // pagination parameters must add their own floor checks.
         expect(util.isInteger(-1)).to.be.true;
     });
 
     it('rejects Number.MAX_SAFE_INTEGER (exceeds 32-bit range)', function () {
         // isInteger uses value === (value|0) which truncates to 32-bit signed
-        // MAX_SAFE_INTEGER (2^53 - 1) exceeds 32-bit → rejected
+        // MAX_SAFE_INTEGER (2^53 - 1) exceeds 32-bit -> rejected
         expect(util.isInteger(Number.MAX_SAFE_INTEGER)).to.be.false;
     });
 
@@ -145,7 +145,7 @@ describe('Boundary: isInteger()', function () {
 });
 
 // ===========================================================================
-// isNumeric — guards offset values
+// isNumeric: guards offset values
 // ===========================================================================
 
 describe('Boundary: isNumeric()', function () {
@@ -229,7 +229,7 @@ describe('Boundary: isNumeric()', function () {
 });
 
 // ===========================================================================
-// isNull — guards offset.start, offset.action, and general null checks
+// isNull: guards offset.start, offset.action, and general null checks
 // ===========================================================================
 
 describe('Boundary: isNull()', function () {

@@ -10,10 +10,10 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-// ─── Fuzz: Utility input sanitization / serialization ─────────────────────────
+// Fuzz: Utility input sanitization / serialization
 //
 // escapeLike feeds straight into MariaDB LIKE patterns, sanitizeInt guards
-// query offsets/limits, and jsonStringify renders every API response — all sit
+// query offsets/limits, and jsonStringify renders every API response. All sit
 // directly on the untrusted-input path. These fuzz the helpers with thousands of
 // hostile/random inputs (SQL metacharacters, control bytes, unicode, BigInt /
 // BigNumber values) and assert their safety invariants hold for EVERY input.
@@ -54,7 +54,7 @@ describe('Fuzz: Utility input sanitization', function () {
     // The realistic untrusted domain: anything that can arrive via an HTTP query
     // string (always strings) or a JSON body (string/number/boolean/null/array/
     // object). Symbols and functions cannot cross either boundary, so they are
-    // out of scope (and parseInt(Symbol) would throw — a non-reachable edge).
+    // out of scope (parseInt(Symbol) would throw, a non-reachable edge).
     const garbage = [
       undefined, null, '', NaN, Infinity, -Infinity, {}, [], [1, 2], { a: 1 },
       'abc', '12abc', '  7  ', '0x1F', '1e500', '٤٢', '\n5', true, false,

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Boundary tests — Relay SSRF bypass vectors and Icon path traversal
+ * Boundary tests: Relay SSRF bypass vectors and Icon path traversal
  *
  * Tests the /relay endpoint with various SSRF bypass techniques
  * (decimal IP, octal IP, IPv6-mapped, credentials in URL, protocol edge cases)
@@ -63,7 +63,7 @@ function makeIconReq(iconPath) {
 }
 
 // ===========================================================================
-// RELAY ENDPOINT — SSRF Bypass Vectors
+// RELAY ENDPOINT: SSRF Bypass Vectors
 // ===========================================================================
 
 describe('Boundary: Relay SSRF Protection', function () {
@@ -115,7 +115,7 @@ describe('Boundary: Relay SSRF Protection', function () {
     it('allows 172.32.0.1 (just outside private class B)', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('http://172.32.0.1/file.json'), res);
-        // Not blocked by SSRF check — will fail on actual request (connection refused)
+        // Not blocked by SSRF check; will fail on actual request (connection refused)
         // so should get 400 from the catch block, NOT 403
         expect(res._status).to.not.equal(403);
     });
@@ -175,7 +175,7 @@ describe('Boundary: Relay SSRF Protection', function () {
     it('blocks IPv6-mapped IPv4 [::ffff:127.0.0.1]', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('http://[::ffff:127.0.0.1]/secret.json'), res);
-        // After bracket stripping: "::ffff:127.0.0.1" → blocked by /^::ffff:/i pattern
+        // After bracket stripping: "::ffff:127.0.0.1" blocked by /^::ffff:/i pattern
         expect(res._status).to.equal(403);
     });
 
@@ -189,7 +189,7 @@ describe('Boundary: Relay SSRF Protection', function () {
     it('tests localhost with port', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('http://localhost:8080/secret.json'), res);
-        // URL parser separates hostname and port — hostname is just "localhost"
+        // URL parser separates hostname and port; hostname is just "localhost"
         expect(res._status).to.equal(403);
     });
 
@@ -230,7 +230,7 @@ describe('Boundary: Relay SSRF Protection', function () {
     it('handles URL with credentials (user:pass@host)', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('http://user:pass@example.com/data.json'), res);
-        // Should not crash — hostname should be "example.com", not blocked
+        // Should not crash; hostname is "example.com", not blocked
         expect(res._status).to.not.equal(403);
     });
 
@@ -243,14 +243,14 @@ describe('Boundary: Relay SSRF Protection', function () {
     it('returns 503 for empty url string', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq(''), res);
-        // isNull('') is true → falls through to 503
+        // isNull('') is true -> falls through to 503
         expect(res._status).to.equal(503);
     });
 
     it('returns 400 for malformed URL', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('not-a-valid-url'), res);
-        // new URL() will throw → catch → 400
+        // new URL() will throw -> catch -> 400
         expect(res._status).to.equal(400);
     });
 
@@ -259,7 +259,7 @@ describe('Boundary: Relay SSRF Protection', function () {
         const expl = makeExplorer(axiosStub);
         const res = mockRes();
         await expl.processRelayRequest(makeRelayReq('https://example.com/data.xml'), res);
-        // .xml is not .json or .png → falls through
+        // .xml is not .json or .png -> falls through
         expect(res._status).to.equal(503);
     });
 
@@ -273,7 +273,7 @@ describe('Boundary: Relay SSRF Protection', function () {
 });
 
 // ===========================================================================
-// ICON ENDPOINT — Path Traversal
+// ICON ENDPOINT: Path Traversal
 // ===========================================================================
 
 describe('Boundary: Icon Path Traversal', function () {
@@ -302,7 +302,7 @@ describe('Boundary: Icon Path Traversal', function () {
         const res = mockRes();
         await explorer.processIconRequest(req, res);
         // On Linux, backslashes are literal filename chars, path stays within icons dir
-        // File doesn't exist → redirect to default
+        // File doesn't exist -> redirect to default
         const code = res._redirect ? res._redirect.code : res._status;
         expect(code).to.be.oneOf([200, 302, 403]);
     });
@@ -331,7 +331,7 @@ describe('Boundary: Icon Path Traversal', function () {
         const req = makeIconReq('/');
         const res = mockRes();
         await explorer.processIconRequest(req, res);
-        // req.path.replace(/^\/icon/, '') → '/' → resolves to icons dir itself
+        // req.path.replace(/^\/icon/, '') -> '/' -> resolves to icons dir itself
         // startsWith check: dirPath/... should fail since resolved path won't include path.sep after dirPath
         expect([302, 403]).to.include(res._status || (res._redirect ? res._redirect.code : 0));
     });
@@ -342,7 +342,7 @@ describe('Boundary: Icon Path Traversal', function () {
         const req = makeIconReq('/' + longName);
         const res = mockRes();
         await explorer.processIconRequest(req, res);
-        // File won't exist → redirect to default
+        // File won't exist -> redirect to default
         expect(res._redirect).to.deep.include({ code: 302, url: '/icon/default.png' });
     });
 
@@ -352,7 +352,7 @@ describe('Boundary: Icon Path Traversal', function () {
         const res = mockRes();
         try {
             await explorer.processIconRequest(req, res);
-            // Should either block (403) or redirect (302) — not serve wrong file
+            // Should either block (403) or redirect (302); should not serve wrong file
             const code = res._status || (res._redirect ? res._redirect.code : 0);
             expect([302, 403]).to.include(code);
         } catch (e) {

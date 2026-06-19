@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration boundary tests — API and Explorer pagination
+ * Integration boundary tests: API and Explorer pagination
  *
  * Tests limit/page/length/start/offset/action/sortorder boundary values
  * against a real MariaDB instance with boundary seed data.
@@ -46,7 +46,7 @@ after(async function () {
 });
 
 // ===========================================================================
-// API Mode — limit boundaries
+// API Mode: limit boundaries
 // ===========================================================================
 
 describe('Boundary Integration: API limit parameter', function () {
@@ -64,20 +64,20 @@ describe('Boundary Integration: API limit parameter', function () {
         expect(res.body.data.length).to.be.at.most(100);
     });
 
-    it('BV-API-05: limit=0 — string "0" is truthy, accepted as zero, SQL LIMIT 0', async function () {
+    it('BV-API-05: limit=0 (string "0" is truthy, accepted as zero, SQL LIMIT 0)', async function () {
         // BOUNDARY FINDING: In HTTP query params, limit=0 arrives as string "0"
         // which is truthy, so it passes the `q.limit && ...` check.
         // isInteger(Number("0")) = isInteger(0) = true, so limit=0 is accepted.
-        // SQL LIMIT 0 returns no rows → empty data.
+        // SQL LIMIT 0 returns no rows -> empty data.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=0`);
         expect(res.status).to.equal(200);
         expect(res.body.data).to.be.an('array');
-        // May be empty (LIMIT 0) or may error — either way, no crash
+        // May be empty (LIMIT 0) or may error; either way, no crash
     });
 
-    it('BV-API-06: negative limit=-1 — accepted by isInteger, produces SQL error', async function () {
+    it('BV-API-06: negative limit=-1 (accepted by isInteger, produces SQL error)', async function () {
         // BOUNDARY FINDING: "-1" passes isInteger check. SQL LIMIT -1 is invalid
-        // in MariaDB → SQL error is caught → returns 200 with empty/error data
+        // in MariaDB -> SQL error is caught -> returns 200 with empty/error data
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=-1`);
         expect(res.status).to.equal(200);
         expect(res.body.data).to.be.an('array');
@@ -103,12 +103,12 @@ describe('Boundary Integration: API limit parameter', function () {
 });
 
 // ===========================================================================
-// API Mode — page boundaries
+// API Mode: page boundaries
 // ===========================================================================
 
 describe('Boundary Integration: API page parameter', function () {
 
-    it('BV-API-10: page=0 — string "0" is truthy, accepted, produces LIMIT 0', async function () {
+    it('BV-API-10: page=0 (string "0" is truthy, accepted, produces LIMIT 0)', async function () {
         // Same issue as limit=0: "0" is truthy as a string
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=3&page=0`);
         expect(res.status).to.equal(200);
@@ -141,7 +141,7 @@ describe('Boundary Integration: API page parameter', function () {
 });
 
 // ===========================================================================
-// API Mode — sortorder boundaries
+// API Mode: sortorder boundaries
 // ===========================================================================
 
 describe('Boundary Integration: API sortorder parameter', function () {
@@ -149,7 +149,7 @@ describe('Boundary Integration: API sortorder parameter', function () {
     it('BV-SORT-01: sortorder=ASC returns ascending action_index', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?sortorder=ASC`);
         expect(res.status).to.equal(200);
-        // action_index may be returned as string (BigInt serialization) — parse to number
+        // action_index may be returned as string (BigInt serialization); parse to number
         const indices = res.body.data.map(r => Number(r.action_index));
         for (let i = 0; i < indices.length - 1; i++) {
             expect(indices[i]).to.be.at.most(indices[i + 1]);
@@ -208,7 +208,7 @@ describe('Boundary Integration: URL path segments', function () {
 
     it('BV-URL-03: unsupported coin ETH falls to HTML handler', async function () {
         const res = await request.get('/ETH/api/sends/test/address');
-        // ETH not in COIN_SUPPORTED → falls to HTML handler
+        // ETH not in COIN_SUPPORTED -> falls to HTML handler
         // Without HTML templates in test env, returns 404 or 503
         expect(res.status).to.be.oneOf([200, 404, 503]);
     });
@@ -259,7 +259,7 @@ describe('Boundary Integration: Balances and Holders limits', function () {
     // The query performs a full table scan of all balances with no tick filter
     // because the tick ID lookup returns null, causing an unbounded query.
     // This is a performance/DoS vulnerability documented in the boundary plan.
-    it.skip('getHolders for nonexistent token — KNOWN HANG (performance boundary)', async function () {
+    it.skip('getHolders for nonexistent token: KNOWN HANG (performance boundary)', async function () {
         const res = await request.get('/RBTC/api/holders/DOESNOTEXIST');
         expect(res.status).to.equal(200);
     });

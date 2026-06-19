@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests — Single-Item API Endpoints
+ * Integration tests: Single-Item API Endpoints
  *
  * Tests the /{COIN}/api/* endpoints that return a single record or a
  * focused summary (block, token, transaction, balances, holders,
@@ -56,7 +56,7 @@ describe('Single-Item API Endpoints', function () {
     // Block
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/block/{N} — returns block info', async function () {
+    it('GET /RBTC/api/block/{N}: returns block info', async function () {
         const res = await request.get('/RBTC/api/block/5');
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
@@ -71,7 +71,7 @@ describe('Single-Item API Endpoints', function () {
     // Balances
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/balances/{address} — returns all token balances', async function () {
+    it('GET /RBTC/api/balances/{address}: returns all token balances', async function () {
         const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
         const res  = await request.get(`/RBTC/api/balances/${addr}`);
         expect(res.status).to.equal(200);
@@ -92,7 +92,7 @@ describe('Single-Item API Endpoints', function () {
     // Holders
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/holders/{tick} — returns token holders', async function () {
+    it('GET /RBTC/api/holders/{tick}: returns token holders', async function () {
         const res = await request.get('/RBTC/api/holders/XCHAIN');
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
@@ -106,15 +106,15 @@ describe('Single-Item API Endpoints', function () {
         const first = res.body.data[0];
         expect(first).to.have.property('address').that.is.a('string');
         expect(first).to.have.property('amount').that.is.a('string');
-        // Default sort is DESC by ABS(amount) → addr1 (500000) should be first
+        // Default sort is DESC by ABS(amount), so addr1 (500000) should be first
         expect(first.address).to.equal('bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa');
     });
 
     // -----------------------------------------------------------------------
-    // Token — standard fields and locks
+    // Token: standard fields and locks
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/token/{tick} — returns token detail', async function () {
+    it('GET /RBTC/api/token/{tick}: returns token detail', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
@@ -130,17 +130,17 @@ describe('Single-Item API Endpoints', function () {
         expect(res.body.info.owner).to.be.a('string');
         expect(res.body.info.coin).to.be.a('string');
 
-        // locks section — TOKENONE has lock_max_supply=1, rest are 0
+        // locks section: TOKENONE has lock_max_supply=1, rest are 0
         expect(res.body.locks).to.be.an('object');
         expect(res.body.locks.max_supply).to.equal(true);
         expect(res.body.locks.mint).to.equal(false);
 
-        // supply section — values are formatted strings
+        // supply section: values are formatted strings
         expect(res.body.supply.current).to.be.a('string');
         expect(res.body.supply.max).to.be.a('string');
     });
 
-    it('GET /RBTC/api/token/{tick} — token with all locks', async function () {
+    it('GET /RBTC/api/token/{tick}: token with all locks', async function () {
         const res = await request.get('/RBTC/api/token/TOKENTHREE');
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
@@ -160,10 +160,10 @@ describe('Single-Item API Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // Transaction — by hash
+    // Transaction: by hash
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/transaction/{hash}/tx_hash — returns transaction by hash', async function () {
+    it('GET /RBTC/api/transaction/{hash}/tx_hash: returns transaction by hash', async function () {
         // tx_index=1 uses hash 'aaa1111...111' (index_transactions id=1)
         const hash = 'aaa1111111111111111111111111111111111111111111111111111111111111';
         const res  = await request.get(`/RBTC/api/transaction/${hash}/tx_hash`);
@@ -176,10 +176,10 @@ describe('Single-Item API Endpoints', function () {
     });
 
     // -----------------------------------------------------------------------
-    // Transaction — by index
+    // Transaction: by index
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/transaction/{index}/tx_index — returns transaction by index', async function () {
+    it('GET /RBTC/api/transaction/{index}/tx_index: returns transaction by index', async function () {
         const res = await request.get('/RBTC/api/transaction/1/tx_index');
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
@@ -193,7 +193,7 @@ describe('Single-Item API Endpoints', function () {
     // Credits
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/credits/{address}/address — returns credits for address', async function () {
+    it('GET /RBTC/api/credits/{address}/address: returns credits for address', async function () {
         const addr = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
         const res  = await request.get(`/RBTC/api/credits/${addr}/address`);
         expect(res.status).to.equal(200);
@@ -213,7 +213,7 @@ describe('Single-Item API Endpoints', function () {
     // Debits
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/debits/{address}/address — returns debits for address', async function () {
+    it('GET /RBTC/api/debits/{address}/address: returns debits for address', async function () {
         const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
         const res  = await request.get(`/RBTC/api/debits/${addr}/address`);
         expect(res.status).to.equal(200);
@@ -245,7 +245,7 @@ describe('Single-Item API Endpoints', function () {
     // Address summary (stub)
     // -----------------------------------------------------------------------
 
-    it('GET /RBTC/api/address/{addr} — returns address summary', async function () {
+    it('GET /RBTC/api/address/{addr}: returns address summary', async function () {
         const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
         const res  = await request.get(`/RBTC/api/address/${addr}`);
         expect(res.status).to.equal(200);

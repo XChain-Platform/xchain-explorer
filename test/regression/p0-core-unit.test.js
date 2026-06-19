@@ -11,13 +11,13 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * P0 Regression Tests — Core Unit
+ * P0 Regression Tests: Core Unit
  *
  * Curated unit tests for the most critical utility functions,
  * input sanitization, and formatting logic. These run on every
  * commit and must always pass.
  *
- * No database or network required — pure unit tests.
+ * No database or network required; pure unit tests.
  *
  * Run: mocha test/regression/p0-core-unit.test.js --timeout 0
  */
@@ -49,7 +49,7 @@ function makeDb() {
 }
 
 // ===========================================================================
-// @p0 @core sanitizeInt — integer validation (defense-in-depth)
+// @p0 @core sanitizeInt: integer validation (defense-in-depth)
 // ===========================================================================
 
 describe('@p0 @core sanitizeInt regression', function () {
@@ -100,7 +100,7 @@ describe('@p0 @core sanitizeInt regression', function () {
 });
 
 // ===========================================================================
-// @p0 @core escapeLike — LIKE query escaping
+// @p0 @core escapeLike: LIKE query escaping
 // ===========================================================================
 
 describe('@p0 @core escapeLike regression', function () {
@@ -132,7 +132,7 @@ describe('@p0 @core escapeLike regression', function () {
 });
 
 // ===========================================================================
-// @p0 @core isNull — null detection
+// @p0 @core isNull: null detection
 // ===========================================================================
 
 describe('@p0 @core isNull regression', function () {
@@ -150,7 +150,7 @@ describe('@p0 @core isNull regression', function () {
 });
 
 // ===========================================================================
-// @p0 @core isNumeric — numeric detection
+// @p0 @core isNumeric: numeric detection
 // ===========================================================================
 
 describe('@p0 @core isNumeric regression', function () {
@@ -171,7 +171,7 @@ describe('@p0 @core isNumeric regression', function () {
 });
 
 // ===========================================================================
-// @p0 @core millisecondsToTimeString — formatting
+// @p0 @core millisecondsToTimeString: formatting
 // ===========================================================================
 
 describe('@p0 @core millisecondsToTimeString regression', function () {
@@ -180,7 +180,7 @@ describe('@p0 @core millisecondsToTimeString regression', function () {
     before(function () { u = makeUtil(); });
 
     it('returns empty string for sub-second values', function () {
-        // 42ms = 0s, 0m, 0h, 0d → empty string (by design)
+        // 42ms = 0s, 0m, 0h, 0d -> empty string (by design)
         expect(u.millisecondsToTimeString(42)).to.equal('');
         expect(u.millisecondsToTimeString(0)).to.equal('');
     });
@@ -206,7 +206,7 @@ describe('@p0 @core millisecondsToTimeString regression', function () {
 });
 
 // ===========================================================================
-// @p0 @core logError / throwError — error logging
+// @p0 @core logError / throwError: error logging
 // ===========================================================================
 
 describe('@p0 @core error logging regression', function () {
@@ -225,7 +225,7 @@ describe('@p0 @core error logging regression', function () {
 });
 
 // ===========================================================================
-// @p0 @core Query builder — sortorder whitelist
+// @p0 @core Query builder: sortorder whitelist
 // ===========================================================================
 
 describe('@p0 @core query builder sortorder regression', function () {
@@ -276,7 +276,7 @@ describe('@p0 @core query builder sortorder regression', function () {
 });
 
 // ===========================================================================
-// @p0 @core Query builder — limit clamping
+// @p0 @core Query builder: limit clamping
 // ===========================================================================
 
 describe('@p0 @core query builder limit clamping regression', function () {

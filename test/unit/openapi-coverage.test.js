@@ -14,7 +14,7 @@
  * Drift guard: docs/openapi.json must stay in lockstep with the `api` route
  * table in src/XChainExplorer.js and the special pre-wildcard app.get()
  * registrations. If you add/remove/rename a route, regenerate the spec
- * (node docs/openapi.build.js) — this test fails until both sides match.
+ * (node docs/openapi.build.js); this test fails until both sides match.
  */
 
 'use strict';
@@ -34,7 +34,7 @@ function sourceApiRoutes() {
 }
 
 // app.get('/:coin/api/...') registrations, normalized to the spec's
-// template style (:coin → {COIN}, :actionIndex → {ACTION_INDEX}).
+// template style (:coin -> {COIN}, :actionIndex -> {ACTION_INDEX}).
 function sourceSpecialRoutes() {
     const out = new Set();
     for (const m of SRC.matchAll(/app\.get\('(\/:coin\/api\/[^']*)'/g)) {
@@ -56,7 +56,7 @@ describe('openapi.json route coverage', () => {
         expect(src.size).to.be.greaterThan(50, 'source route extraction looks broken');
         const missing = [...src].filter((p) => !specTable.has(p));
         const extra   = [...specTable].filter((p) => !src.has(p));
-        expect(missing, 'routes missing from docs/openapi.json — run node docs/openapi.build.js').to.deep.equal([]);
+        expect(missing, 'routes missing from docs/openapi.json (run: node docs/openapi.build.js)').to.deep.equal([]);
         expect(extra, 'spec documents routes that no longer exist in src/XChainExplorer.js').to.deep.equal([]);
     });
 

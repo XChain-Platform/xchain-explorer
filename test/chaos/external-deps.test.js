@@ -13,17 +13,17 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Engineering — External Dependency Resilience
+ * Chaos Engineering: External Dependency Resilience
  *
  * Experiment IDs:
- *   CE-EXT-01  Relay endpoint — slow/unreachable upstream
- *   CE-EXT-02  Config sync resilience — cache clearing and rapid reloads
+ *   CE-EXT-01  Relay endpoint (slow/unreachable upstream)
+ *   CE-EXT-02  Config sync resilience (cache clearing and rapid reloads)
  *
  * Prerequisites (docker-compose.chaos.yml):
  *   - MariaDB reachable via toxiproxy on port 3307
  *   - Toxiproxy API on port 8474
  *
- * Run with --timeout 0 (Mocha flag) — do not set timeouts in code.
+ * Run with --timeout 0 (Mocha flag). Do not set timeouts in code.
  */
 
 const { expect } = require('chai');
@@ -67,7 +67,7 @@ after(async function () {
 });
 
 // -------------------------------------------------------------------------
-// CE-EXT-01: Relay Endpoint — Slow Upstream
+// CE-EXT-01: Relay Endpoint (Slow Upstream)
 //
 // The relay endpoint at /relay?url= has these protections baked in:
 //   - SSRF blocking (private/loopback IPs are rejected immediately)
@@ -84,10 +84,10 @@ after(async function () {
 //      event-loop time (the server stays responsive under concurrent relay load).
 // -------------------------------------------------------------------------
 
-describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
+describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
 
     // URL that is syntactically valid but will never respond:
-    //   - example.invalid  →  DNS lookup fails quickly with ENOTFOUND
+    //   - example.invalid  ->  DNS lookup fails quickly with ENOTFOUND
     // This exercises the relay's error-handling path without introducing a
     // multi-second wait caused by a real TCP timeout.
     const INVALID_URL = encodeURIComponent('http://example.invalid/test.json');
@@ -97,12 +97,12 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
     // event-loop isolation test where we deliberately accept slow relay calls.
     const TIMEOUT_URL  = encodeURIComponent('http://192.0.2.1/test.json');
 
-    it('baseline — normal API endpoint returns 200 before any relay activity', async function () {
+    it('baseline: normal API endpoint returns 200 before any relay activity', async function () {
         const res = await httpGet(HEALTH);
         expect(res.statusCode).to.be.below(500);
     });
 
-    it('relay returns a non-2xx status (or network error) for an unreachable host — not a server crash', async function () {
+    it('relay returns a non-2xx status (or network error) for an unreachable host, not a server crash', async function () {
         const relayPath = `/relay?url=${INVALID_URL}`;
 
         let statusCode;
@@ -111,7 +111,7 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
             const res = await httpGet(relayPath, { timeout: 15000 });
             statusCode = res.statusCode;
         } catch (e) {
-            // A network-level error from our test client is also fine — it means
+            // A network-level error from our test client is also fine. It means
             // the relay responded with a connection-level signal (e.g. RST) rather
             // than crashing the whole Node process.
             threwNetworkError = true;
@@ -121,7 +121,7 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
             // The relay must not forward a 2xx as if the upstream had succeeded.
             expect(statusCode).to.be.above(299);
         }
-        // Either branch proves the server is still alive — if it had crashed the
+        // Either branch proves the server is still alive. If it had crashed the
         // httpGet itself would throw ECONNREFUSED, not a clean HTTP response or a
         // graceful relay error.
     });
@@ -133,7 +133,7 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
         // even though the relay requests are blocking their own async chains.
         const relayPath  = `/relay?url=${TIMEOUT_URL}`;
 
-        // Kick off relay requests in the background — don't await yet.
+        // Kick off relay requests in the background. Don't await yet.
         const relayPromise = concurrentRequests(relayPath, 10, { timeout: 12000 });
 
         // Small head-start so relay requests are already in-flight when we
@@ -167,12 +167,12 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
 
         // --- Relay assertions ---
 
-        // Every relay call must resolve — none should hang indefinitely.
+        // Every relay call must resolve. None should hang indefinitely.
         const relayTotal = relayResponses.length + relayErrors.length;
         expect(relayTotal).to.equal(10,
             'All relay requests must settle (succeed or fail) without hanging');
 
-        // Relay failures are expected for unreachable upstream — we just require
+        // Relay failures are expected for unreachable upstream. We just require
         // that every call fails gracefully (no unhandled rejection / server crash).
         const relayFailed = relayErrors.length +
             relayResponses.filter(r => r.statusCode >= 400).length;
@@ -193,7 +193,7 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
         expect(serverAlive).to.equal(true);
     });
 
-    it('relay rejects non-http(s) protocols with a 4xx or 5xx — no crash', async function () {
+    it('relay rejects non-http(s) protocols with a 4xx or 5xx (no crash)', async function () {
         const ftpUrl    = encodeURIComponent('ftp://example.com/file.txt');
         const relayPath = `/relay?url=${ftpUrl}`;
 
@@ -205,11 +205,11 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
             // Network-level close is also acceptable.
             return;
         }
-        // Must not be a 2xx — relay should reject the protocol.
+        // Must not be a 2xx. Relay should reject the protocol.
         expect(statusCode).to.be.above(299);
     });
 
-    it('relay rejects a private IP (SSRF protection) with a 4xx or 5xx — no crash', async function () {
+    it('relay rejects a private IP (SSRF protection) with a 4xx or 5xx (no crash)', async function () {
         // 10.0.0.1 is a private RFC-1918 address; the relay's SSRF guard must
         // block it before making any outbound connection.
         const privateUrl = encodeURIComponent('http://10.0.0.1/secret');
@@ -231,21 +231,21 @@ describe('CE-EXT-01: Relay Endpoint — Slow Upstream', function () {
 // CE-EXT-02: Config Sync Resilience
 //
 // The explorer's configInfo (the test stub from createTestConfigInfo) exposes:
-//   - getConfig()            — returns cached config or builds a fresh one
-//   - _clearCache()          — nulls the in-memory cache
-//   - triggerConfigChanged() — fires all registered "changed" listeners
-//   - onConfigChanged(cb)    — registers a listener
+//   - getConfig()            : returns cached config or builds a fresh one
+//   - _clearCache()          : nulls the in-memory cache
+//   - triggerConfigChanged() : fires all registered "changed" listeners
+//   - onConfigChanged(cb)    : registers a listener
 //
 // The real src/config.js runs a setInterval every 60 s (startSync) and calls
 // triggerConfigChanged() when new hub data differs from the cached value.
 //
 // Chaos hypothesis: rapid cache clears and config-changed events must not
-// destabilise the server — requests should continue to succeed.
+// destabilise the server. Requests should continue to succeed.
 // -------------------------------------------------------------------------
 
 describe('CE-EXT-02: Config Sync Resilience', function () {
 
-    it('baseline — API works normally before any config manipulation', async function () {
+    it('baseline: API works normally before any config manipulation', async function () {
         const res = await httpGet(HEALTH);
         expect(res.statusCode).to.be.below(500);
     });
@@ -258,7 +258,7 @@ describe('CE-EXT-02: Config Sync Resilience', function () {
         configInfo._clearCache();
 
         // The next getConfig() call (triggered by the next API request) should
-        // rebuild the cache from the static test fixture — transparently.
+        // rebuild the cache from the static test fixture, transparently.
         const res = await httpGet(HEALTH, { timeout: 5000 });
         expect(res.statusCode).to.be.below(500,
             'API must serve requests after cache is cleared (next call rebuilds cache)');
@@ -324,7 +324,7 @@ describe('CE-EXT-02: Config Sync Resilience', function () {
         await churnPromise;
 
         // Config churn triggers setupConnectionPools() which recreates DB pools.
-        // During pool recreation, queries may fail — this is expected behavior.
+        // During pool recreation, queries may fail. This is expected behavior.
         // The key assertion is that all requests settle (no hangs) and the server
         // does not crash. Some or all may fail during active churn.
         const total = responses.length + errors.length;

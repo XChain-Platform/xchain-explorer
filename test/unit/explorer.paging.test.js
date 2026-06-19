@@ -23,7 +23,7 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeApiConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
 
 // ---------------------------------------------------------------------------
-// Minimal Express mock — just enough for XChainExplorer constructor
+// Minimal Express mock: just enough for XChainExplorer constructor
 // ---------------------------------------------------------------------------
 const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
 const express  = () => mockApp;
@@ -31,7 +31,7 @@ express.static = () => {};
 express.json   = () => {};
 
 // ---------------------------------------------------------------------------
-// Mock DB — getMaxMethodResults returns realistic values
+// Mock DB: getMaxMethodResults returns realistic values
 // ---------------------------------------------------------------------------
 class MockDB {
     constructor() {}
@@ -134,7 +134,7 @@ function makeIssue(overrides = {}) {
     }, overrides);
 }
 
-// Generic block row — actions sub-object matches the 26-field array
+// Generic block row: actions sub-object matches the 26-field array
 function makeBlock(overrides = {}) {
     return Object.assign({
         block_index: 500,
@@ -175,7 +175,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
     describe('API pagination', function () {
 
         it('page 1 with default limit (100) returns all rows passed (SQL handles pagination)', function () {
-            // SQL OFFSET now limits rows — getPagingDataResults receives only the current page
+            // SQL OFFSET limits rows; getPagingDataResults receives only the current page
             const rows = Array.from({ length: 100 }, (_, i) => makeSend({ action_index: 100 - i }));
             const cfg  = makeApiConfig('getSends', null, null);
             const result = explorer.getPagingDataResults(cfg, rows, 150);
@@ -248,7 +248,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
             expect(result).to.have.length(10);
         });
 
-        it('start=10 length=10 returns rows 11–20', function () {
+        it('start=10 length=10 returns rows 11-20', function () {
             const rows = Array.from({ length: 25 }, (_, i) => makeSend({ action_index: 25 - i }));
             const cfg  = makeExplorerConfig('getSends', null, null, { start: 10, length: 10 });
             const result = explorer.getPagingDataResults(cfg, rows, 25);
@@ -313,7 +313,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
     describe('count and count_reverse numbering', function () {
 
         it('count_reverse = total - (count - 1) for first row (count=1, total=50)', function () {
-            // start=0, first row → count=1, count_reverse = 50 - (1-1) = 50
+            // start=0, first row -> count=1, count_reverse = 50 - (1-1) = 50
             const rows = [makeSend({ action_index: 100 })];
             const cfg  = makeExplorerConfig('getSends', null, null, { start: 0, length: 10 });
             const result = explorer.getPagingDataResults(cfg, rows, 50);
@@ -377,7 +377,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
                 action: 'prev'
             });
             const result = explorer.getPagingDataResults(cfg, rows, 10);
-            // Reversed → last item comes first
+            // Reversed: last item comes first
             // Each row's action_index is at position [8]
             expect(toNum(result[0][8])).to.equal(8);
             expect(toNum(result[2][8])).to.equal(10);
@@ -419,7 +419,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
     // STATUS CONVERSION
     // -----------------------------------------------------------------------
 
-    describe('status conversion (valid → 1, else → 0)', function () {
+    describe('status conversion (valid => 1, else => 0)', function () {
 
         it('status=valid maps to 1 in getSends', function () {
             const rows = [makeSend({ status: 'valid' })];
@@ -516,7 +516,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
             expect(r[1]).to.equal('XCHAIN');
             // amount formatted to 8 decimals
             expect(r[2]).to.equal('1000.00000000');
-            // percent = (1000 / 21000000) * 100 ≈ 0.00476190...
+            // percent = (1000 / 21000000) * 100 ~= 0.00476190...
             expect(parseFloat(r[3])).to.be.closeTo(0.004761904761, 0.000001);
             // value = 1000 * 0.0001 = 0.1
             expect(parseFloat(r[4])).to.be.closeTo(0.1, 0.000001);
@@ -646,7 +646,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
             expect(r[4]).to.equal('high');
             expect(r[5]).to.equal(1);
             expect(r[6]).to.equal(1);  // dispenser_preference (owner only)
-            expect(r[7]).to.equal(1);  // valid → 1
+            expect(r[7]).to.equal(1);  // valid -> 1
             expect(r[8]).to.equal(99);
         });
 

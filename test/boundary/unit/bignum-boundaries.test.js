@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Boundary tests — BigNumber math and JSON serialization
+ * Boundary tests: BigNumber math and JSON serialization
  *
  * Tests bcformat, bcdiv, bcmul, bcadd, bcsub, and jsonStringify
  * at extreme values: zero, negative, very large, division by zero,
@@ -28,12 +28,12 @@ const Utility    = require('../../../src/utility');
 const util = new Utility(null);
 
 // ===========================================================================
-// bcformat — formats numbers with decimal precision
+// bcformat: formats numbers with decimal precision
 // ===========================================================================
 
 describe('Boundary: bcformat()', function () {
 
-    it('formats zero with 8 decimals — preserves trailing zeros', function () {
+    it('formats zero with 8 decimals (preserves trailing zeros)', function () {
         const result = util.bcformat(0, 8);
         expect(String(result)).to.equal('0.00000000');
     });
@@ -48,7 +48,7 @@ describe('Boundary: bcformat()', function () {
         expect(String(result)).to.include('9999999999999999');
     });
 
-    it('formats with 0 decimals — rounds to nearest integer', function () {
+    it('formats with 0 decimals (rounds to nearest integer)', function () {
         const result = util.bcformat('1234.5678', 0);
         // mathjs rounds to nearest integer
         expect(String(result)).to.match(/^123[45]/);
@@ -66,7 +66,7 @@ describe('Boundary: bcformat()', function () {
 });
 
 // ===========================================================================
-// bcadd — addition
+// bcadd: addition
 // ===========================================================================
 
 describe('Boundary: bcadd()', function () {
@@ -89,10 +89,10 @@ describe('Boundary: bcadd()', function () {
     });
 
     it('adds very small decimals precisely (requires decimals param)', function () {
-        // bcadd with precision 8 returns scientific notation from bignumber
-        // Use bcformat to get fixed notation for display
+        // bcadd with precision 8 returns scientific notation from bignumber;
+        // use bcformat to get fixed notation for display
         const result = util.bcadd('0.00000001', '0.00000001', 8);
-        // Result is '2e-8' as a bignumber — format it for comparison
+        // Result is '2e-8' as a bignumber; format it for comparison
         const formatted = util.bcformat(result, 8);
         expect(String(formatted)).to.equal('0.00000002');
     });
@@ -104,7 +104,7 @@ describe('Boundary: bcadd()', function () {
 });
 
 // ===========================================================================
-// bcsub — subtraction
+// bcsub: subtraction
 // ===========================================================================
 
 describe('Boundary: bcsub()', function () {
@@ -128,7 +128,7 @@ describe('Boundary: bcsub()', function () {
 });
 
 // ===========================================================================
-// bcmul — multiplication (used for limit * page)
+// bcmul: multiplication (used for limit * page)
 // ===========================================================================
 
 describe('Boundary: bcmul()', function () {
@@ -162,7 +162,7 @@ describe('Boundary: bcmul()', function () {
 });
 
 // ===========================================================================
-// bcdiv — division (used for percent calculations)
+// bcdiv: division (used for percent calculations)
 // ===========================================================================
 
 describe('Boundary: bcdiv()', function () {
@@ -175,7 +175,7 @@ describe('Boundary: bcdiv()', function () {
         expect(String(util.bcdiv(0, 100, 8))).to.equal('0');
     });
 
-    it('divides by zero — throws or returns Infinity', function () {
+    it('divides by zero (throws or returns Infinity)', function () {
         // This is a critical boundary: token with supply=0 in percent calculation
         // bcmul(bcdiv(amount, 0, 8), 100, 8)
         try {
@@ -204,7 +204,7 @@ describe('Boundary: bcdiv()', function () {
 });
 
 // ===========================================================================
-// bcgt, bclt, bcgte, bclte — comparisons at boundaries
+// bcgt, bclt, bcgte, bclte: comparisons at boundaries
 // ===========================================================================
 
 describe('Boundary: BigNumber comparisons', function () {
@@ -240,7 +240,7 @@ describe('Boundary: BigNumber comparisons', function () {
 });
 
 // ===========================================================================
-// jsonStringify — BigInt and mathjs BigNumber serialization
+// jsonStringify: BigInt and mathjs BigNumber serialization
 // ===========================================================================
 
 describe('Boundary: jsonStringify()', function () {

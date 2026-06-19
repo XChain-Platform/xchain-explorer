@@ -24,7 +24,7 @@ const axios = require('axios');
 
 // Fold a getallconfigs delta (only the rows that changed since our cursor) into
 // the cached nested config map, mutating and returning `base`. The hub's configs
-// table is upsert-only — rows are never deleted — so applying successive deltas
+// table is upsert-only (rows are never deleted), so applying successive deltas
 // reconstructs exactly the tree a full fetch would have produced.
 function mergeConfigDelta(base, delta){
     for(let coin in delta){
@@ -67,7 +67,7 @@ class XChainHubConnector {
         // falling back).
         this._lastGoodIdx = 0;
         // Per-endpoint failure detail from the most recent _call() (final retry
-        // pass). Populated with "url → code|message" strings for each unreachable
+        // pass). Populated with "url -> code|message" strings for each unreachable
         // endpoint so callers can report exactly what was tried and why, instead
         // of a bare null.
         this.lastFailures = [];
@@ -90,7 +90,7 @@ class XChainHubConnector {
         // still carries a valid JSON-RPC body. Axios throws on any non-2xx, so
         // without inspecting err.response that state is indistinguishable from an
         // unreachable endpoint. Remember such a body as a fallback but keep
-        // retrying — a degraded DB may recover within the backoff window — and
+        // retrying (a degraded DB may recover within the backoff window), and
         // only surface it if no endpoint comes back healthy.
         let degraded = null;
         for(let attempt = 1; attempt <= attempts; attempt++){
@@ -110,12 +110,12 @@ class XChainHubConnector {
                     if(err.response && err.response.data && err.response.data.result !== undefined){
                         degraded = err.response.data.result;
                     } else {
-                        this.lastFailures.push(url + ' → ' + (err.code || err.message));
+                        this.lastFailures.push(url + ' -> ' + (err.code || err.message));
                         console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
                     }
                 }
             }
-            // All endpoints failed this pass — back off before the next, unless
+            // All endpoints failed this pass. Back off before the next unless
             // this was the final attempt.
             if(attempt < attempts){
                 const backoff = delayMs * Math.pow(2, attempt - 1);
@@ -130,10 +130,10 @@ class XChainHubConnector {
     }
 
     async ping(){
-        // Liveness check — a single attempt, no retry/backoff.
+        // Liveness check: a single attempt, no retry/backoff.
         let result = await this._call({ jsonrpc: '2.0', method: 'ping', id: 1 }, { attempts: 1 });
         // A reachable-but-degraded hub returns a non-null {status:"degraded"}
-        // body. The hub is up, so report it as reachable — but log the degraded
+        // body. The hub is up, so report it as reachable, but log the degraded
         // state so it stays visible to operators.
         if(result && typeof result === 'object' && result.status === 'degraded'){
             console.warn('Hub reachable but reporting degraded state: ', result);
@@ -155,11 +155,11 @@ class XChainHubConnector {
         if(result === null) return null;
         // A reachable-but-degraded hub can't serve config (its DB is down) and
         // returns a {status:"degraded"} body. Treat it like an unreachable hub
-        // for config purposes — return null so config.js falls back to its
-        // last-known-good cache — but log the accurate cause so the operator
+        // for config purposes: return null so config.js falls back to its
+        // last-known-good cache, but log the accurate cause so the operator
         // sees "degraded" rather than a misleading "unreachable".
         if(result && typeof result === 'object' && result.status === 'degraded'){
-            console.warn('Hub reachable but DB degraded; cannot fetch config — falling back to cached config.');
+            console.warn('Hub reachable but DB degraded; cannot fetch config. Falling back to cached config.');
             return null;
         }
         this.configs = this._applyConfigResult(result);
@@ -171,7 +171,7 @@ class XChainHubConnector {
     // watermark is present the payload is a delta (only rows changed since the
     // cursor we sent), so we MERGE it into the cache and advance the cursor.
     // Older hubs return the bare map (or a { configs, seq } wrapper without a
-    // watermark) — those are always the full tree, so we REPLACE. Callers
+    // watermark); those are always the full tree, so we REPLACE. Callers
     // (config.js) see the same full-map shape regardless of hub version. seq is 0
     // against an old hub, which the caller treats as "no committed change seen".
     // The configs table is upsert-only (no row deletes), so merging successive
@@ -190,7 +190,7 @@ class XChainHubConnector {
         this.lastSeq = seq;
 
         if(watermark === undefined || watermark === null){
-            // Hub doesn't report a watermark — payload is the full tree. Reset the
+            // Hub doesn't report a watermark, so payload is the full tree. Reset the
             // cursor so the next poll also requests in full.
             this.lastWatermark = 0;
             return payload;
@@ -203,7 +203,7 @@ class XChainHubConnector {
             // Delta against the cursor we sent: merge changed rows into the cache.
             return mergeConfigDelta(this.configs, payload || {});
         }
-        // First fetch (or post-restart) — payload is the full tree.
+        // First fetch (or post-restart): payload is the full tree.
         return payload;
     }
 }
@@ -215,7 +215,7 @@ XChainHubConnector.parseEndpoints = function(){
     // Standalone mode: when the hub is disabled (NO_HUB=1) the explorer reads its
     // coin/network + DB config from src/config.json instead of the hub. Returning
     // null makes getConfig()/startSync() take the file/NODE_CONFIG path (see
-    // config.js) — this is how a single-server instance points at a local/synced
+    // config.js). This is how a single-server instance points at a local/synced
     // MariaDB the hub doesn't advertise (the hub publishes docker-internal db_host).
     if(['1','true','yes'].includes(String(process.env.NO_HUB || '').toLowerCase()))
         return null;

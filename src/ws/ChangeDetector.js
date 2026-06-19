@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -50,7 +50,7 @@ class ChangeDetector extends EventEmitter {
         this.state = {};
 
         // Track the unconfirmed (decoder mempool) snapshot per coin. Keyed by
-        // tx_hash — the mempool table has no monotonic index, so each poll
+        // tx_hash: the mempool table has no monotonic index, so each poll
         // diffs the full (capped) snapshot against the previous one.
         this.mempoolState = {};
 
@@ -76,7 +76,7 @@ class ChangeDetector extends EventEmitter {
         this.timer = setInterval(() => this._poll(), this.pollInterval);
         this._poll();
 
-        console.log('ChangeDetector started — polling every', this.pollInterval, 'ms for', coins.join(', '));
+        console.log('ChangeDetector started: polling every', this.pollInterval, 'ms for', coins.join(', '));
     }
 
     // Stop the polling loop
@@ -96,19 +96,19 @@ class ChangeDetector extends EventEmitter {
             try {
                 await this._checkCoin(coin);
             } catch (e) {
-                console.log('ChangeDetector poll error for', coin, ':', e);
+                console.error('ChangeDetector poll error for', coin, ':', e);
             }
             try {
                 await this._checkMempoolForCoin(coin);
             } catch (e) {
-                console.log('ChangeDetector mempool poll error for', coin, ':', e);
+                console.error('ChangeDetector mempool poll error for', coin, ':', e);
             }
         }
     }
 
     // Diff the decoder-DB mempool snapshot against the last poll. New rows emit
     // `mempool_action` (decoded: tx_hash/source/action/data); rows that left the
-    // mempool (confirmed or evicted — we can't tell which) emit `mempool_removed`.
+    // mempool (confirmed or evicted; we can't tell which) emit `mempool_removed`.
     // Rows are PRE-VALIDATION: a mempool action can still be rejected by the
     // indexer at confirmation, so consumers must treat these as provisional.
     async _checkMempoolForCoin(coin) {
@@ -128,7 +128,7 @@ class ChangeDetector extends EventEmitter {
             }
         }
 
-        // First poll — seed without emitting (mirrors block/action init)
+        // First poll: seed without emitting (mirrors block/action init)
         if (!state.initialized) {
             state.seenHashes  = current;
             state.initialized = true;
@@ -153,7 +153,7 @@ class ChangeDetector extends EventEmitter {
         const currentBlockIndex  = await this.db.getMaxBlockIndex(config) || 0;
         const currentActionIndex = await this.db.getMaxActionIndex(config) || 0;
 
-        // First poll — seed state without emitting
+        // First poll: seed state without emitting
         if (!prev.initialized) {
             prev.blockIndex  = currentBlockIndex;
             prev.actionIndex = currentActionIndex;
@@ -242,7 +242,7 @@ class ChangeDetector extends EventEmitter {
                         }
                     }
                 } catch (e) {
-                    // Non-fatal — emit the base event without enrichment
+                    // Non-fatal: emit the base event without enrichment
                 }
             }
 
@@ -279,10 +279,10 @@ class ChangeDetector extends EventEmitter {
             }
         }
 
-        // Check subscribed tokens — only if the action involves a tick field
+        // Check subscribed tokens: only if the action involves a tick field
         // The action data from getActionsSince doesn't include tick directly,
         // so we check if any token subscribers exist and emit updates for affected tokens
-        // This is a lightweight check — full tick resolution would require joining more tables
+        // This is a lightweight check; full tick resolution would require joining more tables
         const subscribedTicks = this.channelManager.getSubscribedTicks(coin);
         if (subscribedTicks.size > 0 && ['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND'].includes(action.action)) {
             for (const tick of subscribedTicks) {
@@ -373,7 +373,7 @@ class ChangeDetector extends EventEmitter {
                 }
             });
         } catch (e) {
-            // Non-fatal — attestation enrichment failure must not break the poll loop
+            // Non-fatal: attestation enrichment failure must not break the poll loop
         }
     }
 

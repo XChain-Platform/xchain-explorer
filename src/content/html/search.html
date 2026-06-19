@@ -13,16 +13,16 @@
                     <ul class="dropdown-menu mt-1" id="search-coin-dropdown-menu">
                         <li><h6 class="dropdown-header">Mainnet</h6></li>
                         <li><a class="dropdown-item" data-coin="BTC"   title="Bitcoin"          ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-mainnet" ></i></span>Bitcoin</a></li>
-                        <li><a class="dropdown-item" data-coin="DOGE"  title="Dogecoin"         ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-mainnet"></i></span>Dogecoin</a></li>
                         <li><a class="dropdown-item" data-coin="LTC"   title="Litecoin"         ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-mainnet"></i></span>Litecoin</a></li>
+                        <li><a class="dropdown-item" data-coin="DOGE"  title="Dogecoin"         ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-mainnet"></i></span>Dogecoin</a></li>
                         <li><h6 class="dropdown-header">Testnet</h6></li>
                         <li><a class="dropdown-item" data-coin="TBTC"  title="Bitcoin Testnet"  ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-testnet" ></i></span>Bitcoin</a></li>
-                        <li><a class="dropdown-item" data-coin="TDOGE" title="Dogecoin Testnet" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-testnet"></i></span>Dogecoin</a></li>
                         <li><a class="dropdown-item" data-coin="TLTC"  title="Litecoin Testnet" ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-testnet"></i></span>Litecoin</a></li>
+                        <li><a class="dropdown-item" data-coin="TDOGE" title="Dogecoin Testnet" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-testnet"></i></span>Dogecoin</a></li>
                         <li><h6 class="dropdown-header">Regtest</h6></li>
                         <li><a class="dropdown-item" data-coin="RBTC"  title="Bitcoin Regtest"  ><span class="wrapicon-25"><i class="fa fa-xchain-bitcoin-regtest" ></i></span>Bitcoin</a></li>
-                        <li><a class="dropdown-item" data-coin="RDOGE" title="Dogecoin Regtest" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-regtest"></i></span>Dogecoin</a></li>
                         <li><a class="dropdown-item" data-coin="RLTC"  title="Litecoin Regtest" ><span class="wrapicon-25"><i class="fa fa-xchain-litecoin-regtest"></i></span>Litecoin</a></li>
+                        <li><a class="dropdown-item" data-coin="RDOGE" title="Dogecoin Regtest" ><span class="wrapicon-25"><i class="fa fa-xchain-dogecoin-regtest"></i></span>Dogecoin</a></li>
                     </ul>
                 </div>
                 <button type="submit" class="btn btn-success"><i class="fa fa-search fa-lg"></i> Search</button>
@@ -207,7 +207,7 @@
 
         // Update the page with SEO friendly info
         XC.pageInfo.title       = 'Search for `' + XC.query + '`';
-        XC.pageInfo.description = 'Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays XChain Platform search results for the search  for `' + XC.query + '`.';
+        XC.pageInfo.description = 'Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform search results for `' + XC.query + '`.';
         XC.pageInfo.canonical   = '/search?' + window.location.search;
         updatePageInfo();
 

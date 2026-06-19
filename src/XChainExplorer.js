@@ -1186,7 +1186,7 @@ class XChainExplorer {
             }));
 
             let verified = isWeighted
-                ? (qualified.size > 0 && swq.meetsStakeThreshold(this.util, validatorSet, validSigners))
+                ? (qualified.size > 0 && swq.meetsStakeThreshold(validatorSet, validSigners))
                 : (qualified.size > 0 && validSigs >= quorum);
 
             return res.json({

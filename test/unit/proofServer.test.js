@@ -144,3 +144,99 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
         assert.strictEqual(r.error, 'CHECKPOINT_PRE_COMMITMENT');
     });
 });
+
+describe('SPV Phase 3: ProofServer.actionProof round-trip', function () {
+
+    const BLOCK = 200;
+    // A representative block: ledger leaves (2 credits + 1 debit) precede the actions
+    // leaves in the frozen §5.1 order, so the actions leaves land at indices 3,4,5.
+    // Includes a tx_index-NULL synthetic action (ORDER_MATCH), which the block_merkle
+    // tree covers exactly as the consensus hash does.
+    const blockRows = {
+        block_index: BLOCK,
+        ledger: {
+            credits: [{ action_index: 10, address: ADDR_A, tick: TICK, amount: '5' },
+                      { action_index: 11, address: ADDR_Z, tick: TICK, amount: '3' }],
+            debits:  [{ action_index: 11, address: ADDR_A, tick: TICK, amount: '3' }],
+            escrows: []
+        },
+        actions: [
+            { action_index: 10, tx_index: 100,  action: 'ISSUE' },
+            { action_index: 11, tx_index: 101,  action: 'SEND' },
+            { action_index: 12, tx_index: null, action: 'ORDER_MATCH' }
+        ],
+        contracts: { contracts: [], state: [], executions: [], emissions: [], deposits: [], withdrawals: [] }
+    };
+    const BLOCK_MERKLE = M.toHex(M.blockMerkleRoot(M.blockMerkleLeaves(blockRows)));
+
+    function makeActionServer() {
+        const db = {
+            async getActionBlockIndex(config, aix) {
+                return blockRows.actions.some(a => a.action_index === Number(aix)) ? BLOCK : null;
+            },
+            async getCheckpointAt() {
+                return { chain: CHAIN, network: NET, block_index: BLOCK, block_hash: 'c0'.repeat(32),
+                    ledger_hash: 'a1'.repeat(32), actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
+                    checkpoint_seq: 0, snapshot_block: 100, state_root: 'd4'.repeat(32), state_root_version: 1,
+                    block_merkle_root: BLOCK_MERKLE, block_merkle_version: 1, validator_signatures: '[]' };
+            },
+            async getStateTreeRow() {
+                return { balances_root: EMPTY_ROOT, stakes_root: EMPTY_ROOT, state_root: 'd4'.repeat(32), block_merkle_root: BLOCK_MERKLE };
+            },
+            async getBlockLeafRows() { return blockRows; }
+        };
+        return new ProofServer(db);
+    }
+
+    it('an action inclusion proof verifies against the committed block_merkle_root', async function () {
+        const server = makeActionServer();
+        const r = await server.actionProof({ coin: COIN }, CHAIN, NET, 11);
+        assert.ok(!r.error, 'no error: ' + r.error);
+        const p = r.proof;
+        assert.strictEqual(p.height, BLOCK);
+        assert.strictEqual(p.action_index, 11);
+        assert.strictEqual(p.action, 'SEND');
+        assert.strictEqual(p.tx_index, 101);
+        assert.strictEqual(p.block_merkle_root, BLOCK_MERKLE);
+        // The committed leaf is exactly actionsLeaf(row), and the proof recomputes the root.
+        const expectLeaf = M.toHex(M.actionsLeaf({ action_index: 11, tx_index: 101, action: 'SEND' }));
+        assert.strictEqual(p.leaf, expectLeaf);
+        assert.ok(M.verifyFixedMerkleProof(BLOCK_MERKLE, M.toBuf(p.leaf), p.merkle_proof.index, p.merkle_proof.siblings),
+            'action inclusion proof must verify against block_merkle_root');
+        // The proof index sits past the 3 ledger leaves (credit,credit,debit).
+        assert.strictEqual(p.merkle_proof.index, 3 + 1);
+    });
+
+    it('proves a tx_index-NULL synthetic action (ORDER_MATCH)', async function () {
+        const server = makeActionServer();
+        const r = await server.actionProof({ coin: COIN }, CHAIN, NET, 12);
+        assert.ok(!r.error, 'no error: ' + r.error);
+        assert.strictEqual(r.proof.tx_index, null);
+        assert.strictEqual(r.proof.action, 'ORDER_MATCH');
+        const expectLeaf = M.toHex(M.actionsLeaf({ action_index: 12, tx_index: null, action: 'ORDER_MATCH' }));
+        assert.strictEqual(r.proof.leaf, expectLeaf);
+        assert.ok(M.verifyFixedMerkleProof(BLOCK_MERKLE, M.toBuf(r.proof.leaf), r.proof.merkle_proof.index, r.proof.merkle_proof.siblings));
+    });
+
+    it('returns ACTION_NOT_FOUND for an unknown action', async function () {
+        const server = makeActionServer();
+        const r = await server.actionProof({ coin: COIN }, CHAIN, NET, 999);
+        assert.strictEqual(r.error, 'ACTION_NOT_FOUND');
+    });
+
+    it('returns ACTION_BLOCK_NOT_CHECKPOINTED when the block was never checkpointed', async function () {
+        const server = makeActionServer();
+        server.db.getCheckpointAt = async () => null;
+        const r = await server.actionProof({ coin: COIN }, CHAIN, NET, 11);
+        assert.strictEqual(r.error, 'ACTION_BLOCK_NOT_CHECKPOINTED');
+    });
+
+    it('refuses when the committed block_merkle_root disagrees with the local block tree', async function () {
+        const server = makeActionServer();
+        server.db.getCheckpointAt = async () => ({ chain: CHAIN, network: NET, block_index: BLOCK,
+            checkpoint_seq: 0, snapshot_block: 100, state_root: 'd4'.repeat(32), state_root_version: 1,
+            block_merkle_root: 'ff'.repeat(32), block_merkle_version: 1, validator_signatures: '[]' });
+        const r = await server.actionProof({ coin: COIN }, CHAIN, NET, 11);
+        assert.strictEqual(r.error, 'PROOF_BLOCK_MERKLE_MISMATCH');
+    });
+});

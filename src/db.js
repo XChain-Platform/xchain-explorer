@@ -7889,6 +7889,129 @@ class Database {
         return (rows && rows.length) ? String(rows[0].net) : '0';
     }
 
+    // The action's own block_index (its consensus block, a.block_index), used to
+    // resolve which block's block_merkle_root an action proof binds to. Null if the
+    // action does not exist on this server.
+    async getActionBlockIndex(config, actionIndex) {
+        let rows = await this.doQuery(config,
+            'SELECT block_index FROM actions WHERE action_index=? LIMIT 1', [Number(actionIndex)]);
+        return (rows && rows.length && rows[0].block_index != null) ? Number(rows[0].block_index) : null;
+    }
+
+    // The signed checkpoint AT EXACTLY this height (MAX(checkpoint_seq)). An action
+    // proof binds to the checkpoint that commits THIS block's block_merkle_root, which
+    // is per-block, so unlike a balance proof (nearest at-or-above) it needs the exact
+    // height. Null if that block was never checkpointed (D3: checkpointed heights only).
+    async getCheckpointAt(config, blockIndex) {
+        let src = this._checkpointSource(config);
+        let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let q = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
+                        sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.state_root, sc.state_root_version,
+                        sc.block_merkle_root, sc.block_merkle_version, sc.validator_signatures
+                 FROM ${src.table} sc
+                 JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq FROM ${src.table}
+                       WHERE 1=1${src.filter} AND block_index=? GROUP BY block_index) t
+                   ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
+                 WHERE 1=1${scFilter}
+                 ORDER BY sc.block_index ASC LIMIT 1`;
+        let params = [...src.filterParams, Number(blockIndex), ...src.filterParams];
+        let rows = await this.doQuery(config, q, params);
+        return (rows && rows.length) ? rows[0] : null;
+    }
+
+    // The canonical per-block leaf rows (ledger/actions/contracts) in the EXACT order
+    // + binary collations the indexer's getBlockHashes hashes them (SPV spec §5.1).
+    // A verbatim port of the indexer gather (db.js getBlockHashes): every query scopes
+    // by the ACTION's own block_index (a.block_index, covering tx_index-NULL synthetic
+    // actions), resolves canonical strings (never local AUTO_INCREMENT ids), and pins
+    // BINARY collations on the tie-order keys so the order is collation-independent.
+    // Returns the shape merkle.blockMerkleLeaves consumes; a single byte of drift from
+    // the indexer gather silently invalidates every produced action proof.
+    async getBlockLeafRows(config, block_index) {
+        const bi = Number(block_index);
+        const ledger = { credits: [], debits: [], escrows: [] };
+        ledger.credits = await this.doQuery(config,
+            `SELECT c.action_index, a1.address AS address, t1.tick AS tick, c.amount
+             FROM credits c
+                INNER JOIN actions a ON (a.action_index=c.action_index)
+                LEFT  JOIN index_addresses a1 ON (a1.id=c.address_id)
+                LEFT  JOIN index_tickers   t1 ON (t1.id=c.tick_id)
+             WHERE a.block_index=?
+             ORDER BY c.action_index ASC, a1.address COLLATE utf8_bin ASC, t1.tick COLLATE utf8mb4_bin ASC, c.amount ASC`, [bi]);
+        ledger.debits = await this.doQuery(config,
+            `SELECT d.action_index, a1.address AS address, t1.tick AS tick, d.amount
+             FROM debits d
+                INNER JOIN actions a ON (a.action_index=d.action_index)
+                LEFT  JOIN index_addresses a1 ON (a1.id=d.address_id)
+                LEFT  JOIN index_tickers   t1 ON (t1.id=d.tick_id)
+             WHERE a.block_index=?
+             ORDER BY d.action_index ASC, a1.address COLLATE utf8_bin ASC, t1.tick COLLATE utf8mb4_bin ASC, d.amount ASC`, [bi]);
+        ledger.escrows = await this.doQuery(config,
+            `SELECT e.action_index, a1.address AS address, t1.tick AS tick, e.amount
+             FROM escrows e
+                INNER JOIN actions a ON (a.action_index=e.action_index)
+                LEFT  JOIN index_addresses a1 ON (a1.id=e.address_id)
+                LEFT  JOIN index_tickers   t1 ON (t1.id=e.tick_id)
+             WHERE a.block_index=?
+             ORDER BY e.action_index ASC, a1.address COLLATE utf8_bin ASC, t1.tick COLLATE utf8mb4_bin ASC, e.amount ASC`, [bi]);
+        const actions = await this.doQuery(config,
+            `SELECT a.action_index, a.tx_index, ia.action AS action
+             FROM actions a
+                LEFT JOIN index_actions ia ON (ia.id=a.action_id)
+             WHERE a.block_index=?
+             ORDER BY a.action_index ASC`, [bi]);
+        const contracts = { contracts: [], state: [], executions: [], emissions: [], deposits: [], withdrawals: [] };
+        contracts.contracts = await this.doQuery(config,
+            `SELECT c.action_index, a1.address AS source_address, c.code_hash, s1.status AS status
+             FROM contracts c
+                INNER JOIN actions a ON (a.action_index=c.action_index)
+                LEFT  JOIN index_addresses a1 ON (a1.id=c.source_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=c.status_id)
+             WHERE a.block_index=?
+             ORDER BY c.action_index ASC`, [bi]);
+        contracts.state = await this.doQuery(config,
+            `SELECT cs.contract_index, cs.state_key, cs.state_value
+             FROM contract_state cs
+                INNER JOIN (SELECT MAX(id) as max_id FROM contract_state
+                            WHERE block_index=? GROUP BY contract_index, state_key) latest
+                   ON cs.id = latest.max_id
+             ORDER BY cs.contract_index ASC, cs.state_key ASC`, [bi]);
+        contracts.executions = await this.doQuery(config,
+            `SELECT ce.action_index, ce.contract_index, a1.address AS caller_address, ce.gas_used, s1.status AS status, ce.emitted_count
+             FROM contract_executions ce
+                INNER JOIN actions a ON (a.action_index=ce.action_index)
+                LEFT  JOIN index_addresses a1 ON (a1.id=ce.caller_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=ce.status_id)
+             WHERE a.block_index=?
+             ORDER BY ce.action_index ASC`, [bi]);
+        contracts.emissions = await this.doQuery(config,
+            `SELECT em.execution_index, em.emitted_action, em.action_index, em.position
+             FROM contract_emissions em
+                INNER JOIN contract_executions ce ON (ce.action_index=em.execution_index)
+                INNER JOIN actions a ON (a.action_index=ce.action_index)
+             WHERE a.block_index=?
+             ORDER BY em.execution_index ASC, em.position ASC`, [bi]);
+        contracts.deposits = await this.doQuery(config,
+            `SELECT d.action_index, d.contract_index, a1.address AS source_address, t1.tick AS tick, d.amount, s1.status AS status
+             FROM deposits d
+                INNER JOIN actions a ON (a.action_index=d.action_index)
+                LEFT  JOIN index_addresses a1 ON (a1.id=d.source_id)
+                LEFT  JOIN index_tickers   t1 ON (t1.id=d.tick_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=d.status_id)
+             WHERE a.block_index=?
+             ORDER BY d.action_index ASC, d.contract_index ASC, a1.address COLLATE utf8_bin ASC, t1.tick COLLATE utf8mb4_bin ASC, d.amount ASC, s1.status COLLATE utf8_bin ASC`, [bi]);
+        contracts.withdrawals = await this.doQuery(config,
+            `SELECT w.action_index, w.contract_index, a1.address AS source_address, t1.tick AS tick, w.amount, s1.status AS status
+             FROM withdrawals w
+                INNER JOIN actions a ON (a.action_index=w.action_index)
+                LEFT  JOIN index_addresses a1 ON (a1.id=w.source_id)
+                LEFT  JOIN index_tickers   t1 ON (t1.id=w.tick_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=w.status_id)
+             WHERE a.block_index=?
+             ORDER BY w.action_index ASC, w.contract_index ASC, a1.address COLLATE utf8_bin ASC, t1.tick COLLATE utf8mb4_bin ASC, w.amount ASC, s1.status COLLATE utf8_bin ASC`, [bi]);
+        return { block_index: bi, ledger, actions, contracts };
+    }
+
     // Hub-mirrored qualifying validator set for a capability at a snapshot block;
     // what checkpoint signatures verify against (presence = qualified).
     // capability_snapshots is chain-agnostic (keyed by capability + BTC snapshot

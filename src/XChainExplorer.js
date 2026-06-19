@@ -1268,13 +1268,38 @@ class XChainExplorer {
     }
 
     // GET /{COIN}/api/proof/action/{actionIndex}  (SPV spec §5/§8.1)
-    // RESERVED: a per-row block-content proof needs the indexer's frozen §5.1 leaf
-    // ordering (getBlockHashes' binary-collation row gather), which is not yet ported
-    // to the proof server. Returns 501 until that ordering is reproduced + round-trip
-    // verified against a committed block_merkle_root.
+    // A per-row block-content inclusion proof for the action, bound to the signed
+    // checkpoint that commits its block's block_merkle_root. block_merkle_root is
+    // per-block, so the action's block must itself be checkpointed (D3); a non-
+    // checkpointed block returns 409. The client recomputes the root locally.
     async processActionProofRequest(req, res){
-        return res.status(501).json({ error: 'action proof not yet implemented (block-content leaf ordering port pending)',
-                                      code: 'NOT_IMPLEMENTED' });
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            if(!parsed)
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let actionIndex = req.params.actionIndex;
+            if(!/^[0-9]+$/.test(String(actionIndex)))
+                return res.status(400).json({ error: 'Invalid action index', code: 'INVALID_ACTION_INDEX' });
+            let config = { coin, data: {} };
+            let result = await this.proofServer.actionProof(config, parsed.coin, parsed.network, Number(actionIndex));
+            if(result.error){
+                let map = { ACTION_NOT_FOUND: [404, 'No such action on this server'],
+                            ACTION_BLOCK_NOT_CHECKPOINTED: [409, 'The action\'s block is not checkpointed (no signed block_merkle_root to bind to)'],
+                            CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
+                            NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
+                            ACTION_LEAF_NOT_FOUND: [500, 'Action row not present in its block leaf set'],
+                            PROOF_BLOCK_MERKLE_MISMATCH: [500, 'Committed block_merkle_root does not match the local block tree'] };
+                let m = map[result.error] || [500, 'Server error'];
+                return res.status(m[0]).json({ error: m[1], code: result.error });
+            }
+            return res.json(result);
+        } catch(e){
+            console.error('processActionProofRequest error:', e && e.message);
+            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+        }
     }
 
     // GET /{COIN}/api/proof/validator-set?height=<btc_snapshot>  (SPV spec §7.2/§8.1)

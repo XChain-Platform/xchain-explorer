@@ -125,6 +125,62 @@ class ProofServer {
         };
     }
 
+    // GET /:coin/api/proof/action/:actionIndex  (spec §5 / §8.1)
+    // A per-row block-content inclusion proof for the action's row, bound to the
+    // checkpoint that commits THAT block's block_merkle_root. block_merkle_root is
+    // per-block, so the action's block must itself be checkpointed (D3: checkpointed
+    // heights only); a non-checkpointed block returns ACTION_BLOCK_NOT_CHECKPOINTED.
+    // The client recomputes the root from the leaf + siblings (merkle.verifyFixedMerkleProof)
+    // and requires it to equal the checkpoint's committed block_merkle_root.
+    async actionProof(config, chain, network, actionIndex) {
+        const blockIndex = await this.db.getActionBlockIndex(config, actionIndex);
+        if (blockIndex == null) return { error: 'ACTION_NOT_FOUND' };
+        const cp = await this.db.getCheckpointAt(config, blockIndex);
+        if (!cp) return { error: 'ACTION_BLOCK_NOT_CHECKPOINTED' };
+        if (cp.block_merkle_root == null) return { error: 'CHECKPOINT_PRE_COMMITMENT' };  // pre-flag-day
+        const tr = await this.db.getStateTreeRow(config, blockIndex);
+        if (!tr || tr.block_merkle_root == null) return { error: 'NO_STATE_TREE' };        // not a full indexer DB
+
+        // Reassemble the block's ordered leaf vector with the twin-guarded ordering
+        // (the same merkle.blockMerkleLeaves the indexer committed with), then locate
+        // the target action's leaf: the actions leaves follow all ledger leaves in §5.1
+        // order, so its index is (ledger leaf count) + (its position in the actions set).
+        const rows = await this.db.getBlockLeafRows(config, blockIndex);
+        const leaves = M.blockMerkleLeaves(rows);
+        const aix = Number(actionIndex);
+        const actionPos = (rows.actions || []).findIndex(r => Number(r.action_index) === aix);
+        if (actionPos < 0) return { error: 'ACTION_LEAF_NOT_FOUND' };
+        const ledgerCount = ['credits', 'debits', 'escrows']
+            .reduce((n, k) => n + ((rows.ledger && rows.ledger[k]) ? rows.ledger[k].length : 0), 0);
+        const leafIndex = ledgerCount + actionPos;
+        const actionRow = rows.actions[actionPos];
+        const expectedLeaf = M.toHex(M.actionsLeaf({
+            action_index: actionRow.action_index, tx_index: actionRow.tx_index,
+            action: (actionRow.action == null) ? '' : actionRow.action }));
+
+        // Bind: the local block_merkle_root must equal both the per-block row and the
+        // signed checkpoint, else this server's tree disagrees with the signed root and
+        // a client could not verify the proof. Also assert the located leaf is the action.
+        const localRoot = M.toHex(M.blockMerkleRoot(leaves));
+        if (String(cp.block_merkle_root).toLowerCase() !== localRoot ||
+            String(tr.block_merkle_root).toLowerCase() !== localRoot ||
+            M.toHex(leaves[leafIndex]) !== expectedLeaf)
+            return { error: 'PROOF_BLOCK_MERKLE_MISMATCH' };
+
+        const mp = M.fixedMerkleProof(leaves, leafIndex);
+        return {
+            proof: {
+                chain, network, height: Number(cp.block_index), action_index: aix,
+                tx_index: (actionRow.tx_index == null) ? null : Number(actionRow.tx_index),
+                action: actionRow.action == null ? null : String(actionRow.action),
+                leaf: expectedLeaf,
+                merkle_proof: { index: mp.index, siblings: mp.siblings },
+                block_merkle_root: cp.block_merkle_root, block_merkle_version: cp.block_merkle_version
+            },
+            checkpoint: this._shapeCheckpoint(cp)
+        };
+    }
+
     // GET /:coin/api/checkpoints/range?from=&to=  (spec §8.1, forward-following)
     async checkpointRange(config, fromH, toH, limit) {
         const rows = await this.db.getCheckpointRange(config, fromH, toH, limit);

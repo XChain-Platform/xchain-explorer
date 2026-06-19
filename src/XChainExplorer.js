@@ -1303,12 +1303,42 @@ class XChainExplorer {
     }
 
     // GET /{COIN}/api/proof/validator-set?height=<btc_snapshot>  (SPV spec §7.2/§8.1)
-    // RESERVED: serving the oracle_publish set against BTC's committed stakes_root
-    // requires binding the signer set's BTC snapshot_block to a checkpointed stakes_root
-    // height; that binding is defined alongside Phase 5 forward-following. 501 until then.
+    // Proves the oracle_publish/cross_chain signer set + weights + source-deduped total
+    // at BTC snapshot height S, bound to the BTC checkpoint at block_index == S. BTC-only.
     async processValidatorSetProofRequest(req, res){
-        return res.status(501).json({ error: 'validator-set proof not yet implemented (snapshot-height binding lands with Phase 5)',
-                                      code: 'NOT_IMPLEMENTED' });
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            if(!parsed)
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            if(parsed.coin !== 'BTC')
+                return res.status(400).json({ error: 'validator-set proof is BTC-only (stakes_root is BTC-only)', code: 'STAKES_BTC_ONLY' });
+            let height = req.query.height;
+            if(!/^[0-9]+$/.test(String(height)))
+                return res.status(400).json({ error: 'height (BTC snapshot block) is required', code: 'INVALID_HEIGHT' });
+            let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
+            if(!url)
+                return res.status(501).json({ error: 'validator-set proof unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
+            let connector = new IndexerConnector(url);
+            let config = { coin, data: {} };
+            let result = await this.proofServer.validatorSetProof(config, parsed.coin, parsed.network, Number(height), connector);
+            if(result.error){
+                let map = { STAKES_BTC_ONLY: [400, 'validator-set proof is BTC-only'],
+                            SNAPSHOT_NOT_YET_CHECKPOINTED: [409, 'No BTC checkpoint at this snapshot height yet (retry after the chain advances)'],
+                            CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
+                            NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
+                            INDEXER_UNAVAILABLE: [502, 'Indexer API unavailable for the stake set'],
+                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
+                let m = map[result.error] || [500, 'Server error'];
+                return res.status(m[0]).json({ error: m[1], code: result.error });
+            }
+            return res.json(result);
+        } catch(e){
+            console.error('processValidatorSetProofRequest error:', e && e.message);
+            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+        }
     }
 
     // GET /{COIN}/api/proof/contract-state/{contractIndex}/{key}  (SPV spec §8.1)

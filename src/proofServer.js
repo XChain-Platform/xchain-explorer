@@ -181,6 +181,60 @@ class ProofServer {
         };
     }
 
+    // GET /BTC/api/proof/validator-set?height=S  (spec §7 / §8.1)
+    // Proves the oracle_publish (and cross_chain) signer set + weights + the source-
+    // deduped total S at BTC snapshot height S, against the committed stakes_root. The
+    // set binds to the BTC checkpoint whose block_index == S (stakes_root there is built
+    // from the SAME stake query the quorum uses at snapshot S). BTC-only (§4.1). The
+    // (source, weight) preimages come from the indexer API; the SMT proof binds them, so
+    // a forged preimage cannot verify. `indexerConn` is an XChainIndexerConnector.
+    async validatorSetProof(config, chain, network, snapshotHeight, indexerConn, capabilities) {
+        if (String(chain).toUpperCase() !== 'BTC') return { error: 'STAKES_BTC_ONLY' };
+        const cp = await this.db.getCheckpointAt(config, snapshotHeight);
+        if (!cp) return { error: 'SNAPSHOT_NOT_YET_CHECKPOINTED' };          // no BTC checkpoint at block_index == S yet
+        if (cp.state_root == null) return { error: 'CHECKPOINT_PRE_COMMITMENT' };
+        const tr = await this.db.getStateTreeRow(config, snapshotHeight);
+        if (!tr || tr.stakes_root == null) return { error: 'NO_STATE_TREE' };
+        let stateRoot;
+        try { stateRoot = this._bindRoots(cp, tr); }
+        catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
+        const sub  = M.stateRootProof({ balances_root: tr.balances_root, stakes_root: tr.stakes_root }, 'stakes_root');
+        const caps = (capabilities && capabilities.length) ? capabilities : ['oracle_publish', 'cross_chain'];
+        const out  = {};
+        for (const cap of caps) {
+            let res;
+            try { res = await indexerConn.stakeWeights(cap, Number(cp.block_index)); }
+            catch (e) { return { error: 'INDEXER_UNAVAILABLE' }; }
+            if (!res || res.error) continue;                                 // capability not configured here -> skip
+            const validators = res.validators || [];
+            const seen = new Map();                                          // source -> weight (source-deduped)
+            for (const v of validators) if (!seen.has(v.source)) seen.set(v.source, String(v.weight));
+            const total = M.sumCanonicalAmounts(Array.from(seen.values()));
+            const proven = [];
+            for (const v of validators) {
+                const smt = await this._prove(config, tr.stakes_root, M.stakeKey(String(v.pubkey), cap));
+                proven.push({ pubkey: v.pubkey, source: v.source, weight: String(v.weight),
+                              smt_proof: { key: smt.key, leaf_value: smt.leaf_value, compressed: smt.compressed } });
+            }
+            let totalProof = null;
+            if (total !== M.canonicalAmount('0')) {
+                const tsmt = await this._prove(config, tr.stakes_root, M.stakeKey(M.STAKE_TOTAL_PUBKEY, cap));
+                totalProof = { key: tsmt.key, leaf_value: tsmt.leaf_value, compressed: tsmt.compressed };
+            }
+            out[cap] = { total, total_proof: totalProof, validators: proven };
+        }
+        return {
+            proof: {
+                chain, network, height: Number(cp.block_index),
+                stakes_root: tr.stakes_root, balances_root: tr.balances_root,
+                sub_root_path: { index: sub.index, siblings: sub.siblings },
+                state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version,
+                capabilities: out
+            },
+            checkpoint: this._shapeCheckpoint(cp)
+        };
+    }
+
     // GET /:coin/api/checkpoints/range?from=&to=  (spec §8.1, forward-following)
     async checkpointRange(config, fromH, toH, limit) {
         const rows = await this.db.getCheckpointRange(config, fromH, toH, limit);

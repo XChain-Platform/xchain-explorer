@@ -240,3 +240,69 @@ describe('SPV Phase 3: ProofServer.actionProof round-trip', function () {
         assert.strictEqual(r.error, 'PROOF_BLOCK_MERKLE_MISMATCH');
     });
 });
+
+describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
+
+    const S = 100;                              // BTC snapshot height == BTC checkpoint block_index
+    const CAP = 'oracle_publish';
+    const PKA = 'aa'.repeat(32), PKB = 'bb'.repeat(32), PKC = 'cc'.repeat(32);
+    // Source S1 has two pubkeys (weight 10 each); S2 one (30). Source-deduped total 40.
+    const VALS = [{ pubkey: PKA, source: 'S1', weight: '10' },
+                  { pubkey: PKB, source: 'S1', weight: '10' },
+                  { pubkey: PKC, source: 'S2', weight: '30' }];
+
+    function makeServer() {
+        const entries = VALS.map(v => [ M.toHex(M.stakeKey(v.pubkey, CAP)), M.toHex(M.stakeMemberLeaf(v.source, v.weight)) ]);
+        entries.push([ M.toHex(M.stakeKey(M.STAKE_TOTAL_PUBKEY, CAP)), M.toHex(M.stakeTotalLeaf('40')) ]);
+        const built = buildStore(entries);
+        const stakesRoot = built.root, balancesRoot = EMPTY_ROOT;
+        const stateRoot  = M.toHex(M.stateRoot({ balances_root: balancesRoot, stakes_root: stakesRoot }));
+        const db = {
+            async getCheckpointAt() {
+                return { chain: CHAIN, network: NET, block_index: S, block_hash: 'c0'.repeat(32),
+                    ledger_hash: 'a1'.repeat(32), actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
+                    checkpoint_seq: 0, snapshot_block: S, state_root: stateRoot, state_root_version: 1,
+                    block_merkle_root: 'e5'.repeat(32), block_merkle_version: 1, validator_signatures: '[]' };
+            },
+            async getStateTreeRow() { return { balances_root: balancesRoot, stakes_root: stakesRoot, state_root: stateRoot, block_merkle_root: 'e5'.repeat(32) }; },
+            async getStateNode(config, h) { return built.nodes.get(h) || null; }
+        };
+        const indexerConn = { async stakeWeights(cap) { return (cap === CAP) ? { capability: cap, validators: VALS } : { error: 'capability not configured' }; } };
+        return { server: new ProofServer(db), stakesRoot, stateRoot, indexerConn };
+    }
+
+    it('proves each signer (source+weight) and the source-deduped total against stakes_root', async function () {
+        const { server, stakesRoot, stateRoot, indexerConn } = makeServer();
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
+        assert.ok(!r.error, 'no error: ' + r.error);
+        const op = r.proof.capabilities[CAP];
+        assert.strictEqual(op.total, M.canonicalAmount('40'));
+        // every member proof verifies and its leaf commits exactly (source, weight)
+        for (const v of op.validators) {
+            const keyBuf = M.stakeKey(v.pubkey, CAP);
+            assert.strictEqual(v.smt_proof.leaf_value, M.toHex(M.stakeMemberLeaf(v.source, v.weight)), 'member leaf preimage bind');
+            assert.ok(M.verifyCompressedSmtProof(stakesRoot, keyBuf, v.smt_proof.leaf_value, v.smt_proof.compressed),
+                'member proof must verify against stakes_root: ' + v.pubkey);
+        }
+        // the total proof verifies and commits 40
+        assert.strictEqual(op.total_proof.leaf_value, M.toHex(M.stakeTotalLeaf('40')));
+        assert.ok(M.verifyCompressedSmtProof(stakesRoot, M.stakeKey(M.STAKE_TOTAL_PUBKEY, CAP), op.total_proof.leaf_value, op.total_proof.compressed),
+            'total proof must verify against stakes_root');
+        // sub_root_path binds stakes_root into the committed state_root
+        assert.ok(M.verifyFixedMerkleProof(stateRoot, M.toBuf(r.proof.stakes_root), r.proof.sub_root_path.index, r.proof.sub_root_path.siblings),
+            'sub_root_path must bind stakes_root into state_root');
+    });
+
+    it('rejects a non-BTC chain (stakes_root is BTC-only)', async function () {
+        const { server, indexerConn } = makeServer();
+        const r = await server.validatorSetProof({ coin: 'RLTC' }, 'LTC', NET, S, indexerConn);
+        assert.strictEqual(r.error, 'STAKES_BTC_ONLY');
+    });
+
+    it('reports SNAPSHOT_NOT_YET_CHECKPOINTED when no BTC checkpoint exists at S', async function () {
+        const { server, indexerConn } = makeServer();
+        server.db.getCheckpointAt = async () => null;
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
+        assert.strictEqual(r.error, 'SNAPSHOT_NOT_YET_CHECKPOINTED');
+    });
+});

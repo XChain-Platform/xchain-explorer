@@ -3508,6 +3508,15 @@ class Database {
         // Controller bindings still gating this address's native actions
         // (protocol/Controller_Bound_Tokens.md). [] when nothing gates.
         data.controllers = await this.getAddressControllerBindings(config, config.data.search);
+        // Surface the immutable index_addresses id (mirrors how getToken surfaces
+        // tick_id in info). The SDK address compactor reads info.address_id to rewrite
+        // an address to its smaller ^<id> wire form (see xchain-sdk addressResolver.js);
+        // null when the address has never been indexed.
+        let addressId = await this.getAddressId(config, config.data.search);
+        data.info = {
+            address:    config.data.search,
+            address_id: (addressId !== null && addressId !== undefined) ? Number(addressId) : null
+        };
         return [data];
     }
 

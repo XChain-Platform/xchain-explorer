@@ -38,10 +38,6 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const mockResults              = require('../fixtures/mock-db-results.js');
 
-// ---------------------------------------------------------------------------
-// Bootstrap (no real MariaDB pool needed)
-// ---------------------------------------------------------------------------
-
 const Database = proxyquire('../../src/db.js', {
     mariadb: { createPool: () => ({}) }
 });
@@ -54,21 +50,15 @@ function makeDb() {
     return new Database(mockExplorer);
 }
 
-// Shared minimal config used across tests
 function cfg(overrides = {}) {
     return makeConfig({ coin: 'BTC', ...overrides });
 }
-
-// ---------------------------------------------------------------------------
-// doQuery
-// ---------------------------------------------------------------------------
 
 describe('Database#doQuery', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
-    // Helper: set up db.pools with a mock pool for the given coin key
     function setupMockPool(coin, fakeConn) {
         db.pools = {};
         db.pools[coin] = {
@@ -135,10 +125,6 @@ describe('Database#doQuery', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getData
-// ---------------------------------------------------------------------------
-
 describe('Database#getData', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -152,7 +138,6 @@ describe('Database#getData', () => {
             callCount++;
             return callCount === 1 ? rows : countRows;
         });
-        // Stub getQuery to return a plain SQL string + count query
         sinon.stub(db, 'getQuery').resolves(['SELECT 1', null, 'SELECT count(*) as total FROM sends']);
 
         const config = cfg({ data: { method: 'getSends', search: null, query: {}, sql: { where: { data: 'm.action_index IS NOT NULL', offset: '' }, order: 'DESC', limit: 100 }, offset: { action: null, start: null, stop: null } } });
@@ -214,10 +199,6 @@ describe('Database#getData', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getAddress
-// ---------------------------------------------------------------------------
-
 describe('Database#getAddress', () => {
     let db;
     beforeEach(() => {
@@ -267,10 +248,6 @@ describe('Database#getAddress', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getBlock
-// ---------------------------------------------------------------------------
-
 describe('Database#getBlock', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -310,10 +287,6 @@ describe('Database#getBlock', () => {
         expect(data).to.include.keys(['block_index', 'timestamp', 'ledger_hash', 'actions_hash', 'contract_hash']);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getStatus
-// ---------------------------------------------------------------------------
 
 describe('Database#getStatus', () => {
     let db;
@@ -389,7 +362,6 @@ describe('Database#getStatus', () => {
     });
 
     it('excludes coins from last_block/last_block_time when they have no active pool', async () => {
-        // No pools set up: even COIN_AVAILABLE coins are absent from both maps
         db.pools = {};
         const config = cfg();
         const [data] = await db.getStatus(config);
@@ -397,10 +369,6 @@ describe('Database#getStatus', () => {
         expect(Object.keys(data.last_block_time)).to.have.lengthOf(0);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getMempool
-// ---------------------------------------------------------------------------
 
 describe('Database#getMempool', () => {
     let db;
@@ -425,10 +393,6 @@ describe('Database#getMempool', () => {
         expect(threw).to.be.false;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getNetwork
-// ---------------------------------------------------------------------------
 
 describe('Database#getNetwork', () => {
     let db;
@@ -508,10 +472,6 @@ describe('Database#getNetwork', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDecoderMempoolCount
-// ---------------------------------------------------------------------------
-
 describe('Database#getDecoderMempoolCount', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -544,10 +504,6 @@ describe('Database#getDecoderMempoolCount', () => {
         expect(await db.getDecoderMempoolCount(cfg())).to.equal(0);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getFeeEstimate
-// ---------------------------------------------------------------------------
 
 describe('Database#getFeeEstimate', () => {
     let db, origFetch;
@@ -590,10 +546,6 @@ describe('Database#getFeeEstimate', () => {
         expect(v).to.deep.equal(FALLBACK);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getCoinPriceUsd
-// ---------------------------------------------------------------------------
 
 describe('Database#getCoinPriceUsd', () => {
     let db, origFetch;
@@ -642,10 +594,6 @@ describe('Database#getCoinPriceUsd', () => {
         expect(await db.getCoinPriceUsd(cfg())).to.equal(null);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getToken
-// ---------------------------------------------------------------------------
 
 describe('Database#getToken', () => {
     let db;
@@ -737,7 +685,6 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        // allow_list is null in tokenRow
         expect(data.lists).to.have.property('allow');
     });
 
@@ -770,7 +717,6 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        // max_mint key → replace('_mint','') = 'max'
         expect(data.mints.max).to.equal(100);
     });
 
@@ -779,7 +725,6 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        // mint_address_max → replace('mint_','') = 'address_max'
         expect(data.mints.address_max).to.equal(0);
     });
 
@@ -821,10 +766,6 @@ describe('Database#getToken', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getTransaction
-// ---------------------------------------------------------------------------
-
 describe('Database#getTransaction', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -837,11 +778,10 @@ describe('Database#getTransaction', () => {
         let call = 0;
         sinon.stub(db, 'doQuery').callsFake(async () => {
             call++;
-            if(call === 1) return txRow;       // transaction lookup
-            if(call === 2) return actionRows;  // actions lookup
+            if(call === 1) return txRow;
+            if(call === 2) return actionRows;
             return [];
         });
-        // Stub helper methods that would require their own DB calls
         sinon.stub(db, 'getTransactionData').resolves(null);
         sinon.stub(db, 'getActionSummaryData').callsFake(async (cfg, actions) => actions);
 
@@ -911,10 +851,6 @@ describe('Database#getTransaction', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getAddressId
-// ---------------------------------------------------------------------------
-
 describe('Database#getAddressId', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -941,10 +877,6 @@ describe('Database#getAddressId', () => {
         expect(id).to.be.null;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getTickId
-// ---------------------------------------------------------------------------
 
 describe('Database#getTickId', () => {
     let db;
@@ -985,10 +917,6 @@ describe('Database#getTickId', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getActionType
-// ---------------------------------------------------------------------------
-
 describe('Database#getActionType', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1027,10 +955,6 @@ describe('Database#getActionType', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getToken: escrow_action_index exposure
-// ---------------------------------------------------------------------------
-
 describe('Database#getToken escrow_action_index', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1064,10 +988,6 @@ describe('Database#getToken escrow_action_index', () => {
         expect(data.info.escrow_action_index).to.be.null;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getStatus: chain to decoder health aggregation
-// ---------------------------------------------------------------------------
 
 describe('Database#getStatus decoder health aggregation', () => {
     const axios = require('axios');
@@ -1125,11 +1045,8 @@ describe('Database#getStatus decoder health aggregation', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getContract: single-record data method + permissions manifest LEFT JOIN
-// (protocol/Controller_Bound_Tokens.md)
-// ---------------------------------------------------------------------------
-
+// getContract is a single-record data method (returns [data]); it LEFT JOINs
+// the permissions manifest (protocol/Controller_Bound_Tokens.md).
 describe('Database#getContract', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1207,10 +1124,6 @@ describe('Database#getContract', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getContractManifest (protocol/Controller_Bound_Tokens.md)
-// ---------------------------------------------------------------------------
-
 describe('Database#getContractManifest', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1259,12 +1172,8 @@ describe('Database#getContractManifest', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Controller bindings: read-time cooldown reduction
-// (protocol/Controller_Bound_Tokens.md). Mirrors the indexer's
-// readEffectiveControllerMap / controllerEventIfGating.
-// ---------------------------------------------------------------------------
-
+// Controller bindings: read-time cooldown reduction (protocol/Controller_Bound_Tokens.md).
+// Mirrors the indexer's readEffectiveControllerMap / controllerEventIfGating.
 describe('Database#getTokenControllerBindings', () => {
     let db;
     beforeEach(() => { db = makeDb(); });

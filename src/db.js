@@ -18,28 +18,19 @@
  *
  ********************************************************************/
 
-// Load required libraries
 const mariadb = require('mariadb');
 const DecoderConnector = require('./XChainDecoderConnector.js');
 
 class Database {
 
-    // Handle constructing a class instance
     constructor(explorer){
-
-        // Setup alias to explorer configuration
         this.configInfo = explorer.configInfo
-
-        // Setup alias to utility class instance
         this.util   = explorer.util;
 
-        //create the database with new config data
         this.configInfo.onConfigChanged(()=>{
-            // Setup the connection pools
             this.setupConnectionPools();
         })
 
-        // Placeholder for transaction connection
         this.transactionConnection = null;
 
         // LRU caches for frequently-queried immutable lookups
@@ -47,7 +38,6 @@ class Database {
         this._tickIdCache     = new Map();
         this._actionDataCache = new Map();
 
-        // Define list of action tables to pull action_indexes from
         this.actionTables = [
             'addresses',
             'airdrops',
@@ -86,7 +76,6 @@ class Database {
     }
 
     async init(){
-        // Setup the connection pools
         await this.setupConnectionPools()
     }
 
@@ -112,7 +101,6 @@ class Database {
      * Database Connection Pool Functions
      *****************************************************************/
 
-    // Handle initializing the database connection pool
     async setupConnectionPools(){
         let coinConfigs = await this.configInfo.getConfig()
 
@@ -131,7 +119,6 @@ class Database {
             }
         }
 
-        // Placeholder for connection pools
         this.pools = {};
         // Per-coin decoder database name, used for the colocated-decoder reads
         // (decoder tip for /api/status lag, mempool rows, raw FILE bytes).
@@ -162,9 +149,7 @@ class Database {
         // queries to honor only same-chain LINKs (LINK skips owner validation
         // when COIN2 is remote; see protocol/Project_Registry.md).
         this.baseCoin = {};
-        // Define list of acceptable networks
         let networks = ['mainnet', 'testnet', 'regtest'];
-        // Loop through config and setup pools based on if user/pass/host are different
         for(let coin in coinConfigs){
             let info = coinConfigs[coin];
             if(info.mainnet || info.testnet || info.regtest){
@@ -175,7 +160,6 @@ class Database {
                         // Remap host/port to db_host/db_port if needed (e.g. local config.json)
                         if(!("db_host" in cfg) && ("host" in cfg)) cfg.db_host = cfg.host;
                         if(!("db_port" in cfg) && ("port" in cfg)) cfg.db_port = cfg.port;
-                        // Make the key equal the the config.COINS value (BTC, TBTC, RBTC, etc) for easy matching
                         let key  = coin;
                         if(net=='testnet') key = 'T' + coin;
                         if(net=='regtest') key = 'R' + coin;
@@ -183,7 +167,6 @@ class Database {
                         // LINK/LIST rows store the bare chain name in index_coins
                         this.baseCoin[key] = coin;
                         if (("db_host" in cfg) && ("db_port" in cfg)){
-                            // Database connection information
                             this.pools[key] = {
                                 "config": {
                                     host:     cfg.db_host,
@@ -222,11 +205,9 @@ class Database {
                                     !this.util.isNull(data.pool) )
                                     pool = data.pool;
                             }
-                            // Setup new pool of connections
                             if(!pool)
                                 pool = mariadb.createPool(this.pools[key].config);
 
-                            // Save the pool connection under the COIN-NETWORK key for easy reference
                             this.pools[key].pool = pool;
 
                             // Record the decoder DB name for this coin so /api/status can
@@ -317,14 +298,12 @@ class Database {
      * Common database connection functions (connect / release)
      *****************************************************************/
 
-    // Handle getting a database Connection    
     async getConnection(config){
         if(this.transactionConnection)
             return this.transactionConnection;
         let connection = null,
             retryCount = 0,
             maxRetrys  = 3;
-        // Try to get connection from the database connection pool using config.coin
         let pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
         // Lazy recovery: a missing pool usually means the explorer started before
         // the hub was reachable and never built pools for this coin. Rebuild from
@@ -335,14 +314,12 @@ class Database {
             pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
         }
         if(pool){
-            while(connection == null){        
+            while(connection == null){
                 try {
                     connection = await pool.getConnection();
-                    // console.log("Connected to database!");
                 } catch (e){
                     if(process.env.DEBUG) console.log('Database connection error:', e);
                     connection = null;
-                    // Retry getting a connection again after a brief delay
                     if(retryCount <= maxRetrys){
                         retryCount++;
                         console.log("Can't connect to database. Trying again (attempt " + retryCount + ")...");
@@ -359,6 +336,7 @@ class Database {
         this.transactionConnection = connection;
         return connection;
     }
+
 
     // Rebuild connection pools from the current config, at most once per 10s and
     // never concurrently. Used as a lazy recovery path when a query finds no pool
@@ -378,10 +356,8 @@ class Database {
         return this._poolRebuildPromise;
     }
 
-    // Handle releasing a connection and freeing it up for additional queries
     async releaseConnection(){
         if(this.transactionConnection != null){
-            // console.log("releasing database connection");
             await this.transactionConnection.release();
             this.transactionConnection = null;
         }  
@@ -391,22 +367,16 @@ class Database {
      * General database functions
      *****************************************************************/
 
-    // Handle returning database data given a explorer config object
     async getData(config){
-        // Placeholder for data and total record count
         let data  = [];
         let total = null;
-        // Get database query based on config object
         let [query, args, count] = await this.getQuery(config);
-        // If query is an object, it is data, so just pass it forward the data and total
         if(typeof query === 'object'){
             data = query;
             if(this.util.isNumeric(count))
                 total = count;
         } else {
-            // Default args to the search string if specific search args object was not given (null)
             let baseArgs = (args && typeof args === 'object') ? args : [config.data.search];
-            // Build query args by appending parameterized offset args (if any)
             let queryArgs = [...baseArgs];
             let offsetArgs = config.data.sql.where.offsetArgs;
             if(offsetArgs && offsetArgs.length)
@@ -416,7 +386,6 @@ class Database {
                 query += ' OFFSET ?';
                 queryArgs.push(config.data.sql.apiOffset);
             }
-            // Run the database query to get the data
             if(query!='')
                 data = await this.doQuery(config, query, queryArgs);
             // Count query uses only base args (no offset/limit placeholders)
@@ -428,27 +397,23 @@ class Database {
         return [data, total];
     }
 
-    // Handle getting a SQL query given a explorer config object
     async getQuery(config){
-        let count = '';   // Placeholder for sql query for total count
-        let query = '';   // Placeholder for sql query for data
-        let args  = null; // Placeholder for sql arguments (if needed)
+        let count = '';
+        let query = '';
+        let args  = null;
         let data  = config.data;
         let q     = (data.query) ? data.query : false;
         let max   = this.getMaxMethodResults(data.method);
         let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
         limit = Math.max(1, Math.min(Number(limit), max));
-        // Handle determining record sort order based on request method
         let default_order = (['getBalances'].includes(data.method)) ? 'ASC' : 'DESC';
         let order         = (q && q.sortorder && ['ASC','DESC'].includes(String(q.sortorder).toUpperCase())) ? String(q.sortorder).toUpperCase() : default_order;
-        // Handle API queries
         if(config.type=='api'){
             // Use SQL OFFSET for pagination instead of fetching all preceding pages
             let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
             page = Math.max(1, Number(page));
             config.data.sql.apiOffset = (page - 1) * limit;
         }
-        // Handle Explorer queries
         if(config.type=='explorer'){
             let offset = (q.offset) ? q.offset : false;
             let start  = (q.start) ? q.start : 0;
@@ -456,27 +421,20 @@ class Database {
             let action = (q.action) ? q.action : false;
             start  = Math.max(0, Number(start));
             length = Math.max(1, Math.min(Number(length), max));
-            // Tweak the action in special cases to display data in correct order
             if(['getHolders','getBalances'].includes(data.method) && ['prev','last'].includes(action))
                 config.data.query.action = config.data.offset.action = action = 'next';
-            // Set limit to the length
             limit = length;
-            // Limit results to 100 max (except in special cases where we can not use an offset)
             if(limit > max)
                 limit = max;
-            // Tweak the limit on the last page
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
-            // Tweak limit in certain cases where we can't select just the data we want using offsets
-            // (token/subtoken/nft/roster searches skip action_index offsets and paginate by
-            // fetch-and-slice, so the SQL limit must cover start+length rows)
+            // token/subtoken/nft/roster searches paginate by fetch-and-slice (no action_index offsets),
+            // so the SQL limit must cover start+length rows.
             if(['getBalances', 'getHolders','getSearch','getProjectTokens'].includes(data.method) ||
                 (data.method=='getTokens' && ['token','subtoken','nft'].includes(data.type)))
                 limit = this.util.bcadd(start,length);
-            // Set the order to ascending for previous and last requests
             if(['prev','last'].includes(action))
                 order = 'ASC';
-            // Get the SQL query offset data (speeds up sql queries)
             let [offset1, offset2] = await this.getQueryOffsets(config, offset, limit);
             config.data.offset.start = offset1;
             config.data.offset.stop  = offset2;
@@ -484,11 +442,9 @@ class Database {
             config.data.sql.where.offset     = offsetSql;
             config.data.sql.where.offsetArgs = offsetArgs;
         }
-        // Save the SQL query data in the config object
         config.data.sql.where.data = await this.getQueryWhereSql(config);
         config.data.sql.order = order
         config.data.sql.limit = limit;
-        // Get the SQL query and list of arguments
         if(typeof this[data.method] === 'function')
             [query, args, count] = await this[data.method](config);
         return [query, args, count];
@@ -502,11 +458,9 @@ class Database {
         return this.doQuery(config, query, args, dedicated || null);
     }
 
-    // Handle getting a database connection and running a query and returning the results
     async doQuery(config, query, args, poolOverride = null){
         let result = false;
         if(this.util.isNull(query)) return result;
-        // Get connection from pool directly (local scope, no shared state)
         let pool = poolOverride || ((this.pools[config.coin]) ? this.pools[config.coin].pool : null);
         if(!pool){
             console.log('Unable to get database connection pool');
@@ -542,10 +496,7 @@ class Database {
         return result;
     }
 
-    // Handle building out WHERE sql based on the config
-    // Note: we do this in a single function to reduce duplicated code
     async getQueryWhereSql(config){
-        // console.log('getQueryWhereSql config=',config);
         let sql    = `m.action_index IS NOT NULL`;
         let type   = config.data.type;
         let method = config.data.method;
@@ -556,7 +507,6 @@ class Database {
         // below doesn't append a contract_index clause balances has no column for.
         if(method=='getContractBalance')
             return `m.address_id IS NOT NULL AND a2.address=?`;
-        // Force SQL and type on certain methods which do not have the action_index field
         if(['getBalances','getHolders'].includes(method))
             sql = `m.address_id IS NOT NULL`;
         if(['getBlocks','getBlock'].includes(method))
@@ -584,7 +534,6 @@ class Database {
         // oracle_prices is the hub-mirrored user-published oracle row table; no action_index, keyed by m.id
         if(method=='getOraclePrices')
             sql = `m.id IS NOT NULL`;
-        // getHistory uses the mappings_actions table to pull data
         if(method=='getHistory'){
             if(type=='address')
                 sql += ' AND m.type_id=2 AND m.id=?';
@@ -592,7 +541,6 @@ class Database {
                 sql += ' AND m.type_id=1 AND m.id=?';
             if(type=='block')
                 sql += ' AND b1.block_index=?';
-        // getMarkets uses tickers to pull data
         } else if(method=='getMarket'){
             sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
         } else if(method=='getMarkets'){
@@ -607,7 +555,6 @@ class Database {
                     sql += ' AND a2.address=?';
                 }
             }
-        // Handle token searches
         } else if(method=='getTokens' && ['token','subtoken'].includes(type)){
             sql += ' AND t3.tick LIKE ?';
         // NFT-pattern tokens (NFT_Standard.md#classification-rule-for-clients):
@@ -670,7 +617,6 @@ class Database {
             // single-call lifecycle keyed by the deterministic 64-hex call_id
             sql += ' AND m.call_id=?';
         } else if(!['getBlocks'].includes(method)){
-            // Handle queries for specific types of data types 
             if(type=='address'){
                 if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
                     sql += ' AND (a2.address=? OR a3.address=?)';
@@ -714,10 +660,8 @@ class Database {
      * Explorer Paging / Offset specific code
      *****************************************************************/
 
-    // Handle getting basic WHERE query which uses offset values to speed up queries
-    // Note: table `m` is a universal reference to the main action table
+    // table `m` is a universal reference to the main action table
     async getQueryOffsetSql(config){
-        // console.log('getQueryOffsetSql config=',config)
         let method = config.data.method;
         let offset = (config.data.offset) ? config.data.offset : false;
         let action = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
@@ -726,11 +670,10 @@ class Database {
         if(start === false || stop === false) { /* sanitizeInt handles NaN/Infinity */ }
         let sql    = '';
         let args   = [];
-        // Unset stop offset in case of getBlocks
         if(method=='getBlocks')
             stop = false;
         if(action && start !== false){
-            // Set field name to use for offset (hardcoded whitelist, never from user input)
+            // hardcoded whitelist, never from user input
             let field = 'm.action_index';
             if(method=='getBlocks')
                 field = 'b1.block_index';
@@ -744,7 +687,6 @@ class Database {
                 field = 'm.id';
             if(method=='getFullNodeVerifications')
                 field = 'm.id';
-            // Build out the Offset SQL using parameterized values
             if(action=='prev'){
                 sql = ` AND ` + field + ` > ?`;
                 args.push(start);
@@ -767,7 +709,6 @@ class Database {
         return [sql, args];
     }
 
-    // Handle getting query offset values using the action table
     async getQueryOffsets(config, offset1, length){
         let offset2  = false;
         let method = config.data.method;
@@ -784,14 +725,11 @@ class Database {
         let whereArgs = [];
         let limit  = 1;
         let order  = 'DESC';
-        // Bail out in certain instances
         if(['getBalances','getHolders','getTransaction','getSearch','getMarkets','getMarket'].includes(method))
             return [];
-        // Bail out if we are doing a token, subtoken or nft search; these paginate
-        // by fetch-and-slice (no action_index offsets)
+        // token/subtoken/nft searches paginate by fetch-and-slice (no action_index offsets)
         if(method=='getTokens' && ['token','subtoken','nft'].includes(type))
             return [];
-        // Lookup id for address and tickers
         if(['address','token','block'].includes(type)){
             if(type=='address')
                 sql = `SELECT id FROM index_addresses WHERE address=? LIMIT 1`;
@@ -802,7 +740,6 @@ class Database {
                 if(rows.length>0)
                     id = Number(rows[0].id);
             }
-            // Build out where SQL using parameterized values
             if(type=='address'){
                 if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
                     where = ` AND (t1.source_id=? OR m.destination_id=?)`;
@@ -842,21 +779,16 @@ class Database {
                 }
             }
         }
-        // Translate method into table for use in SQL queries (validated against actionTables whitelist)
         table = String(method).toLowerCase().replace('get','');
         if(!this.actionTables.includes(table) && !['blocks','tokens','history','files','markets','market'].includes(table))
             return [];
-        // Lookup start offset for first and last page requests
         if(['first','last'].includes(action)){
-            // Get offset for first page requests
             if(action=='first')
                 order = 'DESC';
-            // Get offset for last page requests
             if(action=='last'){
                 order = 'ASC';
                 limit = this.util.bcadd(length,1);
             }
-            // Build out SQL to get start offset
             if(type=='block' && this.util.isNull(config.data.search)){
                 sql = `SELECT
                             b1.block_index as offset_index
@@ -920,12 +852,11 @@ class Database {
                         ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
             }
-            // Run Query to try and get offset information
             rows = await this.doQuery(config, sql, whereArgs.length ? whereArgs : undefined);
             if(rows.length>0){
                 for(let row of rows){
                     offset1 = Number(row.offset_index);
-                    // Increase/Decrease offset by 1, so latest results are returned
+                    // Increase/Decrease offset by 1 so latest results are returned
                     if(action=='first')
                         offset1++;
                     if(action=='last')
@@ -933,7 +864,6 @@ class Database {
                 }
             }
         }
-        // Lookup stop offset
         if(offset1){
             if(type=='block'){
                 if(action=='last'){
@@ -944,7 +874,6 @@ class Database {
             } else {
                 limit = this.util.bcadd(length,1);
                 order = 'DESC';
-                // If we have offset value and action, use parameterized SQL to speed up query
                 let stopWhereArgs = [...whereArgs];
                 if(action && offset1){
                     if(action=='prev'){
@@ -955,7 +884,6 @@ class Database {
                         stopWhereArgs.push(offset1);
                     }
                 }
-                // Build out SQL to get stop offset
                 if(method=='getHistory'){
                     sql = `SELECT
                             m.action_index as offset_index
@@ -996,9 +924,8 @@ class Database {
                         ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
                 }
-                // Run Query to try and get offset information
                 rows = await this.doQuery(config, sql, stopWhereArgs.length ? stopWhereArgs : undefined);
-                // Only set the stop offset number if we have more data to show
+                // Only set the stop offset when we have more data to show
                 if(rows.length>0 && rows.length == limit){
                     for(let row of rows)
                         offset2 = Number(row.offset_index);
@@ -1008,14 +935,11 @@ class Database {
         return [offset1, offset2];
     }
 
-    // Method to determine the maximum results to return for each method
     getMaxMethodResults(method){
-        // Define array of methods and the max results for each method
         let methods = {
             getBalances: 500,
             getHolders:  500
         }
-        // Use defined method max or default max of 100
         let max = (this.util.isInteger(methods[method])) ? methods[method] : 100;
         return max;
     }
@@ -1100,7 +1024,6 @@ class Database {
      * /{COIN}/explorer/tokens/{QUERY}/{TYPE}        getTokens       block, address
      ******************************************************************/
 
-    // Get list of ADDRESS actions
     async getAddresses(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1146,7 +1069,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of AIRDROP actions
     async getAirdrops(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1194,7 +1116,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of BATCH actions
     async getBatches(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1234,7 +1155,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of BROADCAST actions
     async getBroadcasts(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1281,7 +1201,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of CALLBACK actions
     async getCallbacks(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1331,7 +1250,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of DESTROY actions
     async getDestroys(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1378,8 +1296,7 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of DISPENSER actions
-    // TODO: Circle back and update this SQL to pull all fields once dispensers are implemented in indexer
+    // TODO: update this SQL to pull all fields once dispensers are implemented in indexer
     async getDispensers(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -1446,7 +1363,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of DISPENSER_CANCEL actions
     async getDispenserCancels(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1490,7 +1406,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of DISPENSER_CLOSE actions
     async getDispenserCloses(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1546,7 +1461,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of DISPENSER_EDIT actions
     async getDispenserEdits(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1593,7 +1507,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of DISPENSER_EXPIRE actions
     async getDispenserExpires(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1634,7 +1547,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of DISPENSE actions
     async getDispenses(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -1697,7 +1609,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of DIVIDEND actions
     async getDividends(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1747,7 +1658,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of FEE actions
     async getFees(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1801,7 +1711,6 @@ class Database {
         return [query, null, count];
     }  
 
-    // Get list of FILE actions
     async getFiles(config){
         let sql   = config.data.sql;
         let count = null;
@@ -1908,7 +1817,6 @@ class Database {
         return [query, null, count];
     }    
 
-    // Get list of ISSUE actions
     async getIssues(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -1982,7 +1890,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of LINK actions
     async getLinks(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2033,7 +1940,6 @@ class Database {
         return [query, null, count];
     }    
 
-    // Get list of LIST actions
     async getLists(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2076,7 +1982,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of MESSAGE actions
     async getMessages(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -2128,7 +2033,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of MINT actions
     async getMints(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -2182,7 +2086,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of ORDER actions
     async getOrders(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -2252,7 +2155,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of ORDER_CANCEL actions
     async getOrderCancels(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2296,7 +2198,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of ORDER_EDIT actions
     async getOrderEdits(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2343,7 +2244,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of ORDER_EXPIRE actions
     async getOrderExpires(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2384,7 +2284,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of ORDER_MATCH actions
     async getOrderMatches(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2428,7 +2327,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of COINPAY actions
     async getCoinpays(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2470,7 +2368,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of COINPAY_EXPIRE actions
     async getCoinpayExpires(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2505,7 +2402,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of COINPay obligations
     async getCoinpayObligations(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -2549,7 +2445,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of SEND actions
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -2603,7 +2498,6 @@ class Database {
         return [query, args, count];
     } 
 
-    // Get list of SLEEP actions
     async getSleeps(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2651,7 +2545,6 @@ class Database {
         return [query, null, count];
     } 
 
-    // Get list of SWAP actions
     async getSwaps(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -2725,7 +2618,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of SWAP_CANCEL actions
     async getSwapCancels(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2769,7 +2661,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of SWAP_EDIT actions
     async getSwapEdits(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2816,7 +2707,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of SWAP_EXPIRE actions
     async getSwapExpires(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2857,7 +2747,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of SWAP_MATCH actions
     async getSwapMatches(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -2900,7 +2789,6 @@ class Database {
          return [query, null, count];
     }
 
-    // Get list of SWEEP actions
     async getSweeps(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -2955,14 +2843,12 @@ class Database {
         return [query, args, count];
     } 
 
-    // Get list of tokens
     async getTokens(config){
         let sql    = config.data.sql;
         let search = config.data.search; 
         let type   = config.data.type;
         let args   = [search];
         let order  = 'm.id ' + sql.order;
-        // Handle token wildcard searches
         if(['token','subtoken'].includes(type)){
             order = 't3.tick ' + sql.order;
             if(type=='token')
@@ -3031,7 +2917,6 @@ class Database {
      * /{COIN}/api/market/{QUERY}/{QUERY}/orderbook       getOrderbook
      ******************************************************************/
 
-    // Get list of markets
     async getMarkets(config){
         let data  = [];
         let total = 0;
@@ -3109,7 +2994,6 @@ class Database {
         return [data, null, total];
     } 
 
-    // Get market information
     async getMarket(config){
         let data  = [];
         let total = 0;
@@ -3176,7 +3060,6 @@ class Database {
         return data;
     } 
 
-    // Get market orders (open orders)
     async getMarketOrders(config){
         let data    = [];
         let total   = 0;
@@ -3256,7 +3139,6 @@ class Database {
         return [data, null, total];
     } 
 
-    // Get market history (order matches)
     async getMarketHistory(config){
         let data    = [];
         let total   = 0;
@@ -3331,7 +3213,6 @@ class Database {
         return [data, null, total];
     } 
 
-    // Get market orderbook
     async getOrderbook(config){
         let data   = {
             asks: [],
@@ -3402,7 +3283,6 @@ class Database {
                 data.bids.push([bid.price, bid.amount]);
             for(let ask of asks)
                 data.asks.push([ask.price, ask.amount]);
-            // Set the market name
             data.market = tick1 + '/' + tick2;
         }
         return [data];
@@ -3429,13 +3309,11 @@ class Database {
      * /{COIN}/api/transaction/{QUERY}/{TYPE} getTransaction  tx_hash, tx_index
      ******************************************************************/
 
-    // Get information on a given action_index
     async getAction(config){
         let data = await this.getActionData(config, config.data.search);
         return [data];
     }
 
-    // Get list of actions with optional query-param filters: tick, txid, blockIndex
     async getActions(config){
         let sql   = config.data.sql;
         let q     = (config.data.query) ? config.data.query : {};
@@ -3486,8 +3364,7 @@ class Database {
         return [query, args, count];
     }
 
-    // Get address information for a given address (tokens held/owned, estimated value, XCHAIN balance, etc)
-    // TODO: Update this API call to pull data from the utxo-tracker API
+    // TODO: pull balance data from the utxo-tracker API instead of placeholder values
     async getAddress(config){
         let data = {
             address: config.data.search,
@@ -3525,7 +3402,6 @@ class Database {
         return [data];
     }
 
-    // Get list of address balances
     async getBalances(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -3553,7 +3429,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get block information for a given block
     async getBlock(config){
         let data = null;
         let sql   = config.data.sql;
@@ -3579,7 +3454,6 @@ class Database {
         return [data];
     }
 
-    // Get list of credits
     async getCredits(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -3619,7 +3493,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of debits
     async getDebits(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -3659,7 +3532,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of escrows
     async getEscrows(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -3705,7 +3577,6 @@ class Database {
         return [data, null, count];
     }
 
-    // Get list of holders of a token
     async getHolders(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -3734,7 +3605,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of mempool transactions
     //
     // /{COIN}/api/mempool/{QUERY}/{TYPE}: unconfirmed actions read from the
     // colocated decoder DB (see getDecoderMempoolRows). Rows are PRE-VALIDATION
@@ -3764,7 +3634,6 @@ class Database {
         return [out, null, out.length];
     }
 
-    // Get network information
     async getNetwork(config){
         // Resolve the coin this request is for. config.coin is the route code
         // (BTC / TBTC / RDOGE …); the per-coin chain identity (name + ticker)
@@ -3839,10 +3708,8 @@ class Database {
                 DOGE: parseInt(process.env.XCHAIN_CONFIRMATIONS_DOGE, 10) || 60
             }
         };
-        // Build out a list of tables to get stats on
         let tables = structuredClone(this.actionTables);
         tables.push('tokens');
-        // Loop through tables and get count
         for(let table of tables){
             // full_node_verifications stores one row per validator pubkey per NODEPROOF
             // verdict (fan-out); COUNT(*) over-counts by validator set size. Use
@@ -3857,7 +3724,6 @@ class Database {
         return [data];
     }
 
-    // Get explorer status
     async getStatus(config){
         let coinConfigs = await this.configInfo.getConfig();
         // Age of the explorer's last successful hub-config fetch. The explorer caches hub
@@ -3956,7 +3822,6 @@ class Database {
         return [data];
     }
 
-    // Get token information
     async getToken(config){
         let data  = null;
         // A token may be looked up by its full name (PEPE) or by its numeric id
@@ -4012,7 +3877,6 @@ class Database {
         let results = await this.doQuery(config, query, args);
         if(results && results.length){
             let row = results[0];
-            // Define basic token data object format
             data = {
                 info: {
                     coin: config.coin,   // Current COIN (BTC, LTC, DOGE, etc)
@@ -4116,7 +3980,6 @@ class Database {
         return [data];
     }
 
-    // Get transaction information
     async getTransaction(config){
         let data = {
             actions: []
@@ -4128,7 +3991,6 @@ class Database {
             where = ' AND t1.hash=?';
         if(config.data.type=='tx_index')
             where = ' AND m.tx_index=?';
-        // Lookup transaction information
         let query = `SELECT
                         m.tx_index,
                         t1.hash as tx_hash,
@@ -4146,7 +4008,6 @@ class Database {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             data = Object.assign({}, data, results[0]);
-        // Lookup actions associated with transaction
         if(data.tx_index){
             args = [data.tx_index];
             query = `SELECT
@@ -4173,7 +4034,6 @@ class Database {
         return [data]
     }
 
-    // Get public key for an address from indexer database
     async getPublicKey(config){
         let data = null;
         let query = `SELECT
@@ -4190,7 +4050,6 @@ class Database {
         return [data];
     }
 
-    // Get raw transaction data from indexer database
     async getTransactionData(config, hash){
         let data = null;
         let query = `SELECT
@@ -4215,7 +4074,6 @@ class Database {
      * Commonly used functions 
      *****************************************************************/
 
-    // Get information for a given action_index, this includes looking up any related data
     async getActionData(config, action_index){
         // Check LRU cache first (action data is immutable once confirmed on-chain).
         // Key MUST include config.coin: action_index is per-coin, and a multi-coin
@@ -4224,7 +4082,6 @@ class Database {
         let cached = this._cacheGet(this._actionDataCache, config.coin + ':' + action_index);
         if(cached !== undefined) return structuredClone(cached);
         let coinConfigs = await this.configInfo.getConfig()
-        // Define the basic data object with standardized fields
         let data = {
             credits: null,
             debits:  null,
@@ -4233,20 +4090,16 @@ class Database {
         };
         let type = await this.getActionType(config, action_index);
         if(type){
-            // Placeholders for queries and arguments
             let query   = null;
             let query2  = null;
             let query3  = null;
             let args    = [action_index];
             let results = null;
-            // Flag to indicate if we should return credits/debits/escrow data
             let credits = true;
             let debits  = true;
             let escrows = true;
-            // Set credits/debits/escrow flags to false in certain cases
             if(['ADDRESS','BROADCAST','XCALL','NODEPROOF'].includes(type))
                 credits = debits = escrows = false;
-            // ADDRESS action
             if(type=='ADDRESS'){
                 query = `SELECT
                             a3.action,
@@ -4276,7 +4129,6 @@ class Database {
                             a1.action_index=?
                         LIMIT 1`;
             }
-            // AIRDROP action
             if(type=='AIRDROP'){
                 query = `SELECT
                             a3.action,
@@ -4307,7 +4159,6 @@ class Database {
                             a1.action_index=?
                         LIMIT 1`;
             }
-            // BATCH action
             if(type=='BATCH'){
                 query = `SELECT
                             a3.action,
@@ -4331,7 +4182,6 @@ class Database {
                         WHERE 
                             b1.action_index=?
                         LIMIT 1`;
-                // Get list of associated action_indexes
                 query2 = `SELECT
                             a1.action_index
                         FROM
@@ -4342,7 +4192,6 @@ class Database {
                         ORDER BY 
                             a1.action_index ASC`;
             }
-            // BROADCAST action
             if(type=='BROADCAST'){
                 query = `SELECT
                             a2.action,
@@ -4373,7 +4222,6 @@ class Database {
                             b1.action_index=?
                         LIMIT 1`;
             }
-            // CALLBACK action
             if(type=='CALLBACK'){
                 query = `SELECT
                             a2.action,
@@ -4406,7 +4254,6 @@ class Database {
                         LIMIT 1`;
 
             }
-            // COINPAY action
             if(type=='COINPAY'){
                 query = `SELECT
                             a2.action,
@@ -4435,7 +4282,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // COINPAY_EXPIRE action
             if(type=='COINPAY_EXPIRE'){
                 query = `SELECT
                             a2.action,
@@ -4455,7 +4301,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // DESTROY action
             if(type=='DESTROY'){
                 query = `SELECT
                             a2.action,
@@ -4570,7 +4415,6 @@ class Database {
                             s.status='valid'
                         ORDER BY m.action_index ASC`;
             }
-            // DISPENSER_CLOSE action
             if(type=='DISPENSER_CLOSE'){
                 query = `SELECT
                             a4.action,
@@ -4610,7 +4454,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // DISPENSER_CANCEL action
             if(type=='DISPENSER_CANCEL'){
                 query = `SELECT
                             a2.action,
@@ -4656,7 +4499,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // DISPENSER_EDIT action
             if(type=='DISPENSER_EDIT'){
                 query = `SELECT
                             a2.action,
@@ -4706,7 +4548,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // DISPENSER_EXPIRE action
             if(type=='DISPENSER_EXPIRE'){
                 query = `SELECT
                             a4.action,
@@ -4746,7 +4587,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // DISPENSE action
             if(type=='DISPENSE'){
                 query = `SELECT
                         a4.action,
@@ -4785,7 +4625,6 @@ class Database {
                     LIMIT 1`;
             }
 
-            // DIVIDEND action
             if(type=='DIVIDEND'){
                 query = `SELECT
                         a4.action,
@@ -4817,7 +4656,6 @@ class Database {
                         m.action_index=?
                     LIMIT 1`;
             }
-            // FILE action
             if(type=='FILE'){
                 query = `SELECT
                             a2.action,
@@ -4853,7 +4691,6 @@ class Database {
                         LIMIT 1`;
                 // TODO: Add code to lookup actual file data from transactions and return an `data` item
             }
-            // ISSUE action
             if(type=='ISSUE'){
                 query = `SELECT
                             a2.action,
@@ -4907,7 +4744,6 @@ class Database {
                             i1.action_index=?
                         LIMIT 1`;
             }
-            // LINK action
             if(type=='LINK'){
                 query = `SELECT
                             a2.action,
@@ -4940,7 +4776,6 @@ class Database {
                             l1.action_index=?
                         LIMIT 1`;
             }
-            // LIST action
             if(type=='LIST'){
                 query = `SELECT
                             a2.action,
@@ -4990,7 +4825,6 @@ class Database {
                         WHERE 
                             l1.action_index=?`;
             }
-            // MESSAGE action
             if(type=='MESSAGE'){
                 query = `SELECT
                             a2.action,
@@ -5022,7 +4856,6 @@ class Database {
                             m1.action_index=?
                         LIMIT 1`;
             }
-            // MINT action
             if(type=='MINT'){
                 query = `SELECT
                             a2.action,
@@ -5054,7 +4887,6 @@ class Database {
                             m1.action_index=?
                         LIMIT 1`;
             }
-            // ORDER action
             if(type=='ORDER'){
                 query = `SELECT
                             a2.action,
@@ -5134,7 +4966,6 @@ class Database {
                             s.status='valid'
                         ORDER BY action_index ASC`;
             }
-            // ORDER_CANCEL action
             if(type=='ORDER_CANCEL'){
                 query = `SELECT
                             a2.action,
@@ -5173,7 +5004,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // ORDER_EDIT action
             if(type=='ORDER_EDIT'){
                 query = `SELECT
                             a2.action,
@@ -5215,7 +5045,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // ORDER_EXPIRE action
             if(type=='ORDER_EXPIRE'){
                 query = `SELECT
                             a2.action,
@@ -5246,7 +5075,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // ORDER_MATCH action
             if(type=='ORDER_MATCH'){
                 query = `SELECT
                             a2.action,
@@ -5280,7 +5108,6 @@ class Database {
                             m1.action_index=?
                         LIMIT 1`;
             }
-            // SEND action
             if(type=='SEND'){
                 // Get basic information on the send
                 query = `SELECT
@@ -5319,7 +5146,6 @@ class Database {
                         WHERE 
                             s1.action_index=?`;
             }
-            // SLEEP action
             if(type=='SLEEP'){
                 query = `SELECT
                             a2.action,
@@ -5350,7 +5176,6 @@ class Database {
                             s1.action_index=?
                         LIMIT 1`;
             }
-            // SWAP action
             if(type=='SWAP'){
                 query = `SELECT
                             a2.action,
@@ -5417,7 +5242,6 @@ class Database {
                             s.status='valid'
                         ORDER BY action_index ASC`;
             }
-            // SWAP_CANCEL action
             if(type=='SWAP_CANCEL'){
                 query = `SELECT
                             a2.action,
@@ -5456,7 +5280,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // SWAP_EDIT action
             if(type=='SWAP_EDIT'){
                 query = `SELECT
                             a2.action,
@@ -5498,7 +5321,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // SWAP_EXPIRE action
             if(type=='SWAP_EXPIRE'){
                 query = `SELECT
                             a2.action,
@@ -5529,7 +5351,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // SWAP_MATCH action
             if(type=='SWAP_MATCH'){
                 query = `SELECT
                             a2.action,
@@ -5771,7 +5592,6 @@ class Database {
                             a1.action_index=?
                         LIMIT 1`;
             }
-            // COLLECT action (validator reward claim → reward_claims)
             if(type=='COLLECT'){
                 query = `SELECT
                             a2.action,
@@ -6101,7 +5921,6 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // Run the SQL query to get the information on the action_index
             if(query){
                 results = await this.doQuery(config, query, args);
                 if(results && results.length)
@@ -6118,7 +5937,6 @@ class Database {
                     status:         data['current_status']
                 }
                 delete data['current_status'];
-                // Set the state a bit differently for dispensers
                 if(type=='DISPENSER'){
                    data.state.give_remaining = data['give_escrow'];
                    delete data.state.get_remaining;
@@ -6196,7 +6014,6 @@ class Database {
                      ORDER BY m.id ASC`, [action_index]);
                 data['verifications'] = (verifs && verifs.length) ? verifs : [];
             }
-            // If we have a secondary query defined, run it and apply the data to the correct place in the data object
             if(query2){
                 // Set correct arguments for the query
                 let args2 = [action_index];
@@ -6204,7 +6021,6 @@ class Database {
                     args2.push(data.tx_index);
                 results = await this.doQuery(config, query2, args2);
                 if(results && results.length){
-                    // Loop through action_indexes and add to actions array
                     if(type=='BATCH'){
                         let actions = [];
                         for(let row of results){
@@ -6245,7 +6061,6 @@ class Database {
                                 // rather than a JS '>' on mixed Number/bignumber operands.
                                 active = this.util.bcgt(now, this.util.bcadd(row.block_time, coinConfigs['DISPENSER_LIST_DELAY']));
                             } 
-                            // Handle setting the current expiration and allow/block list based on any edits
                             if(!this.util.isNull(row.expiration))  data.state.expiration  = row.expiration;
                             if(active){
                                 if(!this.util.isNull(row.allow_list))  data.state.allow_list  = row.allow_list;
@@ -6255,15 +6070,12 @@ class Database {
                     }
                 }
             }
-            // If we have a third query defined, run it and apply the data to the correct place in the data object
             if(query3){
-                // Set correct arguments for the query
                 let args3 = [action_index];
                 if(type=='ORDER')
                     args3.push(action_index);
                 results = await this.doQuery(config, query3, args3);
                 if(results && results.length){
-                    // Handle populating the list edits based off the list TYPE field
                     if(type=='LIST'){
                         let edits = [];
                         for(let row of results){
@@ -6272,11 +6084,9 @@ class Database {
                         }
                         data.edits = edits.sort();
                     }
-                    // Determine get/give remaining and order status
                     if(type=='ORDER'){
                         let give_remaining = data['give_amount'],
                             get_remaining  = data['get_amount'];
-                        // Loop through each order match and deduct amount from remaining
                         for(let row of results){
                             let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
                             let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
@@ -6293,7 +6103,6 @@ class Database {
                     }
                 }
             }
-            // Handle looking up any CREDITS associated with this action
             if(credits){
                 query = `SELECT
                             a1.address,
@@ -6313,7 +6122,6 @@ class Database {
                 if(results && results.length)
                     data.credits = results;
             }
-            // Handle looking up any DEBITS associated with this action
             if(debits){
                 query = `SELECT
                             a1.address,
@@ -6333,7 +6141,6 @@ class Database {
                 if(results && results.length)
                     data.debits = results;
             }
-            // Handle looking up any ESCROWS associated with this action
             if(escrows){
                 query = `SELECT
                             a1.address,
@@ -6353,14 +6160,11 @@ class Database {
                 if(results && results.length)
                     data.escrows = results;
             }
-            // Include any fee associated with this action_index
             let fee = await this.getActionFeeData(config, action_index);
             if(fee)
                 data.fee = fee;
-            // Include raw transaction data
             let txData = await this.getTransactionData(config, data.tx_hash);
             data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
-            // Include any related action_indexes
             // data.related = await this.getRelatedActions(config, action_index);;
         }
         // Store in LRU cache for future lookups (per-coin key, see getActionData entry)
@@ -6402,7 +6206,6 @@ class Database {
         return fee;
     }
 
-    // Get address id for a given address (cached)
     async getAddressId(config, address){
         let cached = this._cacheGet(this._addressIdCache, address);
         if(cached !== undefined) return cached;
@@ -6441,7 +6244,6 @@ class Database {
         return (results && results.length) ? results[0].id : null;
     }
 
-    // Get tick id for a given token (cached)
     async getTickId(config, tick){
         // A `^<id>` reference resolves directly to the numeric id, no lookup
         // needed. Everything after the caret is the id (do not drop any digit).
@@ -6465,10 +6267,8 @@ class Database {
         if(id !== null) this._cacheSet(this._tickIdCache, tick, id);
         return id;
     }
-    // Get action type for a given action_index
     async getActionType(config, action_index){
         let type = null;
-        // Lookup the ACTION based on the action_index
         let args = [action_index];
         let sql  = `SELECT 
                         a2.action
@@ -6501,29 +6301,11 @@ class Database {
         if(type){
 
         }
-        // Lookup the related actions based on the action_index
-        // let args = [action_index];
-        // let sql  = `SELECT 
-        //                 a2.action
-        //             FROM
-        //                 actions a1
-        //                 LEFT  JOIN index_actions a2 ON (a2.id=a1.action_id)
-        //             WHERE
-        //                 a1.action_index=?`;
-        // let results = await this.doQuery(config, sql, args);
-        // if(results && results.length)
-        //     type = results[0].action;
         return actions;
     }
 
-    // Get history information for a given address
-    // NOTE: Supports following search types ('block', 'address', 'token', 'recent')
+    // Supports search types: 'block', 'address', 'token', 'recent'.
     async getHistoryData(config){
-        // console.log('getHistoryData config=');
-        // console.dir(config, {
-        //     colors: true,
-        //     depth: 3
-        // });
         let sql       = config.data.sql;
         let type      = config.data.type;
         let q         = config.data.query;
@@ -6539,12 +6321,11 @@ class Database {
         let count     = null;
         let query     = null;
         let where     = sql.where.data;
-        // Get any IDs based on the query type
         if(type=='address')
             id = await this.getAddressId(config, config.data.search);
         if(type=='token')
             id = await this.getTickId(config, config.data.search);
-        // Quickly set total to highest action_index if we are doing full history search (speeds up search by reducing number of queries)
+        // For full-history (search='null'): pre-set total to the highest action_index to avoid a COUNT(*) scan.
         if(config.data.search=='null'){
             let query = `SELECT
                             action_index
@@ -6556,9 +6337,8 @@ class Database {
             if(results && results.length)
                 q.total = Number(results[0].action_index);
         }
-        // Build out the correct WHERE sql arguments based on search type
         args = (type=='block') ? [config.data.search] : [id];
-        // If we have a total passed on the querystring, then skip getting total count (speed up explorer queries)            
+        // Skip COUNT query when total is passed on the querystring (speeds up explorer pagination)
         if(q && q.total){
             total = q.total;
         } else {
@@ -6577,7 +6357,6 @@ class Database {
             if(results && results.length)
                 total = this.util.bcadd(total, results[0].count, 0);
         }
-        // If we have offset value and action, use parameterized SQL to speed up query
         if(action && start){
             if(action=='prev'){
                 where += ' AND m.action_index > ?';
@@ -6587,9 +6366,7 @@ class Database {
                 args.push(start);
             }
         }
-        // If we have any records, then run the SQL query to pull the data
         if(total){
-            // Get basic action data
             query = `SELECT
                         DISTINCT(m.action_index) as action_index,
                         a2.action,
@@ -6618,7 +6395,6 @@ class Database {
         return [data, total];
     }
 
-    // Get action summary information for a given action_index
     async getActionSummaryData(config, actions){
         // --- Performance note (Fix B / #3841) ---
         // This loop issues one getActionData() call per row, which is a serial N+1 pattern.
@@ -6631,8 +6407,7 @@ class Database {
         // distinct action type on the page). Tracked as #3841.
         const t0 = Date.now();
         // --- End Fix B ---
-        // Define a list of detail fields we want to pass forward in history items
-        // Note: We limit this to just enough details to show basic history info, user can request full info on action if they want more info
+        // Minimal field set for history list items; full info is available per-action.
         let detailFields = [
             'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
             'action_format',                                                                                               // Action details
@@ -6651,7 +6426,6 @@ class Database {
             'resume_block',                                                                                                // Sleep
             'balances', 'ownerships', 'orders', 'swaps', 'dispensers'                                                      // Sweeps
         ];
-        // Lookup extended information on the action_index
         for(let data of actions){
             let info = await this.getActionData(config, data.action_index);
             data.status = info.status;
@@ -6663,7 +6437,6 @@ class Database {
                     found  = true;
                     detail = info[name];
                 }
-                // Handle sends by extracting the first send data
                 if(info.action=='SEND' && info.sends && info.sends.length>0){
                     found = true;
                     detail = info.sends[0][name];
@@ -6674,7 +6447,6 @@ class Database {
                     // If details object does not exist yet, create it
                     if(!details)
                         details = {};
-                    // Populate details object with fields we care about
                     details[name] = detail;
                 }
 
@@ -6689,7 +6461,6 @@ class Database {
         return actions;
     }
 
-    // Get list of blocks and a count of each transaction type for the given block_index
     async getBlocks(config){
         let sql     = config.data.sql;
         let offset  = config.data.offset;
@@ -6697,7 +6468,6 @@ class Database {
         let total   = 0;
         let query   = '';
         let results = null;
-        // Get count of total number of blocks
         query = `SELECT
                     count(*) as total
                 FROM
@@ -6706,7 +6476,6 @@ class Database {
         results = await this.doQuery(config, query);
         if(results && results.length)
             total = results[0].total;
-        // Loop through the specified blocks
         query = `SELECT
                     block_index,
                     block_time
@@ -6718,7 +6487,6 @@ class Database {
                 LIMIT ` + sql.limit;
         results = await this.doQuery(config, query);
         if(results && results.length){
-            // Collect all block_indexes and build a lookup map
             let blockIndexes = results.map(r => r.block_index);
             let blockMap = {};
             for(let row of results){
@@ -6728,7 +6496,6 @@ class Database {
                     actions: {}
                 };
             }
-            // Build ONE batched UNION ALL query for all blocks at once
             let query2 = '';
             let blockArgs = [];
             let placeholders = blockIndexes.map(() => '?').join(',');
@@ -6763,13 +6530,11 @@ class Database {
                         blockMap[bIdx].actions[row.action] = row.count;
                 }
             }
-            // Preserve original result order
             data = results.map(r => blockMap[r.block_index]);
         }
         return [data, null, total];
     }
 
-    // Get list of search results for a given
     async getSearch(config){
         // --- Performance guard (Fix A) ---
         // Every search term is wrapped in leading+trailing % which defeats all B-tree indexes,
@@ -6787,13 +6552,11 @@ class Database {
         // as a defense-in-depth measure against runaway scans on popular terms.
         const SEARCH_MAX_ROWS = 100;
         // --- End Fix A ---
-        // Define list of search types
         let searchTypes = ['address', 'broadcast', 'token', 'transaction'];
         let dataType    = config.data.type;
         let search      = '%' + this.util.escapeLike(searchRaw) + '%';
         let total       = 0;
         let sql  = config.data.sql;
-        // Clamp sql.limit to the ceiling defined above
         const searchLimit = Math.min(Number(sql.limit) || SEARCH_MAX_ROWS, SEARCH_MAX_ROWS);
         let data = {
             data: [],
@@ -6804,7 +6567,6 @@ class Database {
                 transactions: 0
             },
         };
-        // Build all COUNT queries and run them in parallel
         let countQueries = [
             { type: 'address',     query: `SELECT COUNT(*) AS count FROM index_addresses WHERE LOWER(address) LIKE LOWER( ? )`, args: [search] },
             { type: 'transaction', query: `SELECT COUNT(*) AS count FROM transactions t1 LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id) WHERE LOWER(t2.hash) LIKE LOWER( ? )`, args: [search] },
@@ -6824,7 +6586,6 @@ class Database {
                 if(type==dataType)      total = cnt;
             }
         }
-        // If we detected some search results dump the actual data
         if(total){
             let query = false;
             let args  = [search];
@@ -6965,7 +6726,6 @@ class Database {
 
     // Return order edit information for given action_index
     async getOrderEditInfo(config, action_index){
-        // Define empty edit object
         let edit  = {
             expiration: false,
             allow_list: false,
@@ -6995,17 +6755,14 @@ class Database {
         return edit;
     }    
 
-    // Handle getting total amounts remaining for a given order
     async getOrderAmountsRemaining(config, action_index){
-        // Placeholders for amount escrowed and amount matched
         let give_coin_id   = 0,
             give_tick_id   = 0,
             give_remaining = 0,
             get_coin_id    = 0,
             get_tick_id    = 0,
             get_remaining  = 0;
-        // Get initial amounts from the orders table
-        let query  = `SELECT 
+        let query  = `SELECT
                         o.give_coin_id,
                         o.give_tick_id,
                         o.give_amount,
@@ -7029,7 +6786,6 @@ class Database {
             get_tick_id    = info.get_tick_id;  
             get_remaining  = info.get_amount;
         }
-        // Lookup amounts matched in order_matches
         query = `SELECT
                     m.give_action_index,
                     m.get_action_index,
@@ -7045,7 +6801,6 @@ class Database {
         args = [action_index, action_index, 'valid'];
         results = await this.doQuery(config, query, args);
         if(results.length > 0){
-            // Loop through each order match and deduct amount from remaining
             for(let row of results){
                 let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
                 let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
@@ -7060,13 +6815,11 @@ class Database {
      * Batch query methods (eliminate N+1 patterns)
      *****************************************************************/
 
-    // Batch fetch order info for multiple action_indexes at once
     async getOrderInfoBatch(config, action_indexes){
         if(!action_indexes || action_indexes.length === 0) return {};
         let orderMap = {};
         let placeholders = action_indexes.map(() => '?').join(',');
 
-        // 1. Main order query (batch)
         let query = `SELECT
                         o1.action_index,
                         t2.tick as give_tick,
@@ -7118,7 +6871,6 @@ class Database {
             }
         }
 
-        // 2. Batch order edits
         let editQuery = `SELECT
                             o.order_action_index,
                             o.expiration,
@@ -7143,7 +6895,6 @@ class Database {
             }
         }
 
-        // 3. Batch order amounts (initial amounts)
         let amtQuery = `SELECT
                             o.action_index,
                             o.give_amount,
@@ -7163,8 +6914,6 @@ class Database {
             }
         }
 
-        // 4. Batch order matches (deductions)
-        // Build WHERE for all action_indexes: any match where give or get side is one of our orders
         let matchPlaceholders = action_indexes.map(() => '?').join(',');
         let matchQuery = `SELECT
                             m.give_action_index,
@@ -7181,7 +6930,6 @@ class Database {
         let matchResults = await this.doQuery(config, matchQuery, [...action_indexes, ...action_indexes, 'valid']);
         if(matchResults && matchResults.length > 0){
             for(let row of matchResults){
-                // Apply deductions to each relevant order
                 for(let idx of action_indexes){
                     if(row.give_action_index == idx || row.get_action_index == idx){
                         if(remainingMap[idx]){
@@ -7195,7 +6943,6 @@ class Database {
             }
         }
 
-        // 5. Combine: prices + remaining amounts
         for(let idx of action_indexes){
             let order = orderMap[idx];
             if(order){
@@ -7219,7 +6966,6 @@ class Database {
      * where possible) and are called every poll cycle.
      *****************************************************************/
 
-    // Get the highest block_index in the blocks table
     async getMaxBlockIndex(config) {
         let query   = `SELECT MAX(block_index) as max_index FROM blocks`;
         let results = await this.doQuery(config, query, []);
@@ -7441,7 +7187,6 @@ class Database {
         }
     }
 
-    // Get the highest action_index in the actions table
     async getMaxActionIndex(config) {
         let query   = `SELECT MAX(action_index) as max_index FROM actions`;
         let results = await this.doQuery(config, query, []);
@@ -8072,7 +7817,6 @@ class Database {
         return await this.doQuery(config, query, [String(capability), Number(snapshotBlock)]);
     }
 
-    // Get new blocks since a given block_index
     async getBlocksSince(config, sinceBlockIndex, limit) {
         let query = `SELECT
                         b1.block_index,
@@ -8097,7 +7841,6 @@ class Database {
         return results || [];
     }
 
-    // Get new actions since a given action_index
     async getActionsSince(config, sinceActionIndex, limit) {
         // NOTE: the generic `actions` table carries no status_id (status lives on
         // the per-ACTION-type tables, e.g. issues/sends/mints, joined as m.status_id
@@ -8135,7 +7878,6 @@ class Database {
      * Used for snapshot-on-subscribe and lifecycle event enrichment.
      *****************************************************************/
 
-    // Get address balances for WebSocket snapshot
     async getAddressBalances(config, address) {
         let query = `SELECT
                         t1.tick,
@@ -8151,7 +7893,6 @@ class Database {
         return results || [];
     }
 
-    // Get token info for WebSocket snapshot
     async getTokenInfo(config, tick) {
         let query = `SELECT
                         t2.tick,
@@ -8172,7 +7913,6 @@ class Database {
         return null;
     }
 
-    // Get market info for WebSocket snapshot
     async getMarketInfo(config, tick1, tick2) {
         let query = `SELECT
                         t1.tick as tick1,
@@ -8193,7 +7933,6 @@ class Database {
         return null;
     }
 
-    // Get dispenser info for WebSocket snapshot
     async getDispenserInfo(config, actionIndex) {
         let query = `SELECT
                         d.action_index,
@@ -8221,7 +7960,6 @@ class Database {
         return null;
     }
 
-    // Get COINPay obligation details for a given order_match action_index
     async getCoinpayObligation(config, orderMatchActionIndex) {
         let query = `SELECT
                         co.action_index as obligation_action_index,
@@ -8242,7 +7980,6 @@ class Database {
         return null;
     }
 
-    // Get the settlement_type for an order_match
     async getOrderMatchSettlement(config, actionIndex) {
         let query = `SELECT
                         om.action_index,
@@ -8258,7 +7995,6 @@ class Database {
         return null;
     }
 
-    // Get list of CONTRACT actions
     async getContracts(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8386,7 +8122,6 @@ class Database {
         };
     }
 
-    // Get latest contract state keys for a contract
     async getContractState(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -8448,7 +8183,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of CONTRACT EXECUTION actions
     async getExecutions(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8493,7 +8227,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get single CONTRACT EXECUTION by action_index
     async getExecution(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -8541,7 +8274,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of DEPOSIT actions
     async getDeposits(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8586,7 +8318,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of WITHDRAWAL actions
     async getWithdrawals(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8631,7 +8362,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of STAKE actions
     async getStakes(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8678,7 +8408,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of active validators (stakes with status='valid')
     async getValidators(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8725,7 +8454,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of PRICE actions (v0 validator COIN/FIAT snapshots + v1 user TOKEN/FIAT oracle)
     async getPrices(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8787,7 +8515,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of PRICE round snapshots (materialized COIN/FIAT consensus rounds, keyed by id, no action_index)
     async getPriceSnapshots(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8974,7 +8701,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of DELEGATION actions
     async getDelegations(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9019,7 +8745,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of VALIDATOR REWARD records
     async getValidatorRewards(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9104,7 +8829,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of CONTRACT STAKE actions (STAKE v3, type in {address, block, contract})
     async getContractStakes(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9155,7 +8879,6 @@ class Database {
         return [query, null, count];
     }
 
-    // Get list of CONTRACT UNSTAKE actions (UNSTAKE v1, type in {address, block, contract})
     async getContractUnstakes(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9318,9 +9041,6 @@ class Database {
         return [query, args, count];
     }
 
-    // Get list of cross-chain SETTLEMENT legs (type ∈ {match, block}). Each row records a
-    // local ORDER/SWAP released from escrow for a finalized cross-chain match; joins blocks
-    // for the timestamp the leg was applied.
     async getCrossChainSettlements(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9663,8 +9383,6 @@ class Database {
         return [data];
     }
 
-    // Get new ATTEST rows since a given block_index; feeds the WebSocket
-    // attestation channel (ChangeDetector). Returns request + response rows.
     async getAttestationsSince(config, sinceBlockIndex, limit){
         let query = `SELECT
                         m.action_index,
@@ -9695,9 +9413,6 @@ class Database {
         return results || [];
     }
 
-    // Look up a single ATTEST row by action_index; used by the WebSocket
-    // ChangeDetector to enrich a new ATTEST action with its version + status
-    // before broadcasting on the attestation channel.
     async getAttestationByActionIndex(config, action_index){
         let query = `SELECT
                         m.action_index, m.version, m.request_id, m.provider_id, m.contract_index,

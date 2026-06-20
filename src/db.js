@@ -4207,8 +4207,11 @@ class Database {
 
     // Get information for a given action_index, this includes looking up any related data
     async getActionData(config, action_index){
-        // Check LRU cache first (action data is immutable once confirmed on-chain)
-        let cached = this._cacheGet(this._actionDataCache, action_index);
+        // Check LRU cache first (action data is immutable once confirmed on-chain).
+        // Key MUST include config.coin: action_index is per-coin, and a multi-coin
+        // explorer instance shares this one cache, so a bare-index key returns one
+        // coin's action for the same index on another coin.
+        let cached = this._cacheGet(this._actionDataCache, config.coin + ':' + action_index);
         if(cached !== undefined) return structuredClone(cached);
         let coinConfigs = await this.configInfo.getConfig()
         // Define the basic data object with standardized fields
@@ -6350,8 +6353,8 @@ class Database {
             // Include any related action_indexes
             // data.related = await this.getRelatedActions(config, action_index);;
         }
-        // Store in LRU cache for future lookups
-        this._cacheSet(this._actionDataCache, action_index, structuredClone(data));
+        // Store in LRU cache for future lookups (per-coin key, see getActionData entry)
+        this._cacheSet(this._actionDataCache, config.coin + ':' + action_index, structuredClone(data));
         return data;
     }
 

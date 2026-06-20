@@ -18,7 +18,6 @@
  *
  ********************************************************************/
 
-// Load required libraries
 const express        = require('express');
 const fs             = require('fs');
 const path           = require('path');
@@ -37,36 +36,27 @@ let slowRequests = 0;
 
 class XChainExplorer {
 
-    // Handle constructing a class instance
     constructor(app, configInfo){
 
-        // XChain Indexer Version
         this.version = process.env.npm_package_version;
         this.name    = process.env.npm_package_name;
 
-        // Setup alias to app (express)
         this.app = app;
 
-        // Setup alias to explorer config
         this.configInfo  = configInfo;
 
-        // Create instance of the utility class
         this.util = new util(this.configInfo);
 
-        // Create instance of the datbase class
         this.db   = new database(this);
 
         // SPV light-client proof server (Phase 3): builds read-only Merkle proofs
         // a client verifies locally against a quorum-signed checkpoint's state_root.
         this.proofServer = new ProofServer(this.db);
 
-        // Setup alias to list of supported URLs
         this.urls = this.setupUrls();
 
-        // Define any custom headers to pass with each request
         this.headers = {};
 
-        // Setup empty request response
         this.response = {
             head: null, // Placeholder for any custom headers
             html: null, // Placeholder for any HTML content
@@ -88,13 +78,10 @@ class XChainExplorer {
         }
     }
 
-    // Function to define a list of explorer urls
     setupUrls(){
 
-        // Define list of URLS to parse through and determine how to process each
         let urls = {
 
-            // Define list of static file directories to just serve out the raw file
             'static' : [
                 'css',
                 'fonts',
@@ -104,9 +91,7 @@ class XChainExplorer {
                 'js'
             ],
 
-            // List of HTML URLs and the HTML content file to serve out
             'html' : {
-                // Top level pages
                 '/'                           : 'home.html',
                 '/about'                      : 'about.html',
                 '/api'                        : 'api.html',
@@ -157,7 +142,6 @@ class XChainExplorer {
                 '/{COIN}/swaps'               : 'swaps.html',
                 '/{COIN}/swap_matches'        : 'swaps.html',
                 '/{COIN}/sweeps'              : 'sweeps.html',
-                // Misc 
                 '/{COIN}'                     : 'coin_home.html',
                 '/{COIN}/blocks'              : 'blocks.html',
                 '/{COIN}/markets'             : 'markets.html',
@@ -165,7 +149,6 @@ class XChainExplorer {
                 '/{COIN}/tokens'              : 'tokens.html',
                 '/{COIN}/terms'               : 'terms.html',
                 '/{COIN}/mempool'             : 'mempool.html',
-                //  Specific Information pages
                 '/{COIN}/address/{QUERY}'     : 'address.html',
                 '/{COIN}/action/{QUERY}'      : 'action.html',
                 '/{COIN}/block/{QUERY}'       : 'block.html',
@@ -176,9 +159,7 @@ class XChainExplorer {
 
             },
 
-            // List of API endpoints and the related method
             'api' : {
-                // API Action Endpoints                        Method                    Types
                 '/{COIN}/api/addresses/{QUERY}/{TYPE}'         : ['getAddresses',        ['block', 'address']],
                 '/{COIN}/api/airdrops/{QUERY}/{TYPE}'          : ['getAirdrops',         ['block', 'address', 'token']],
                 '/{COIN}/api/batches/{QUERY}/{TYPE}'           : ['getBatches',          ['block', 'address']],
@@ -226,10 +207,8 @@ class XChainExplorer {
                 '/{COIN}/api/executions'                       : ['getExecutions'],
                 '/{COIN}/api/execution/{QUERY}'                : ['getExecution',          'execution'],
                 '/{COIN}/api/deploy_chunks'                    : ['getDeployChunks'],
-                // Deposit / Withdrawal Endpoints
                 '/{COIN}/api/deposits/{QUERY}/{TYPE}'          : ['getDeposits',          ['block', 'address', 'source', 'contract']],
                 '/{COIN}/api/withdrawals/{QUERY}/{TYPE}'       : ['getWithdrawals',       ['block', 'address', 'source', 'contract']],
-                // Staking / Validator Endpoints
                 '/{COIN}/api/stakes/{QUERY}/{TYPE}'            : ['getStakes',            ['block', 'address', 'source']],
                 '/{COIN}/api/stakes'                           : ['getStakes'],
                 '/{COIN}/api/validators'                       : ['getValidators'],
@@ -262,7 +241,6 @@ class XChainExplorer {
                 // ANCHOR checkpoint list (anchor_actions, read-only)
                 '/{COIN}/api/anchors/{QUERY}/{TYPE}'           : ['getAnchors',           ['block', 'chain', 'network', 'status']],
                 '/{COIN}/api/anchors'                          : ['getAnchors'],
-                // Core Action Endpoints (continued)
                 '/{COIN}/api/sends/{QUERY}/{TYPE}'             : ['getSends',            ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/sleeps/{QUERY}/{TYPE}'            : ['getSleeps',           ['block', 'address', 'token']],
                 '/{COIN}/api/swaps/{QUERY}/{TYPE}'             : ['getSwaps',            ['block', 'address', 'token']],
@@ -271,7 +249,6 @@ class XChainExplorer {
                 '/{COIN}/api/swap_cancels/{QUERY}/{TYPE}'      : ['getSwapCancels',      ['block', 'address']],
                 '/{COIN}/api/swap_matches/{QUERY}/{TYPE}'      : ['getSwapMatches',      ['block']],
                 '/{COIN}/api/sweeps/{QUERY}/{TYPE}'            : ['getSweeps',           ['block', 'address', 'source', 'destination']],
-                // Misc API Endpoints                          Method                    Types
                 '/{COIN}/api/status'                           : ['getStatus'],
                 '/{COIN}/api/actions'                          : ['getActions'],
                 '/{COIN}/api/action/{QUERY}'                   : ['getAction',           'action_index'],
@@ -302,9 +279,7 @@ class XChainExplorer {
                 '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'         : ['getOrderbook']
             }, 
 
-            // List of explorer endpoints and the related method
             'explorer' : {
-                // Explorer Endpoints                           Method           Types
                 '/{COIN}/explorer/addresses/{QUERY}/{TYPE}'                 : ['getAddresses',    ['block', 'address']],
                 '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'                  : ['getAirdrops',     ['block', 'address', 'token']],
                 '/{COIN}/explorer/balances/{QUERY}/{TYPE}'                  : ['getBalances',     'address'],
@@ -364,10 +339,7 @@ class XChainExplorer {
             }
         };
 
-        // Setup listener for icon requests
         this.app.use('/icon', (req, res) => { this.processIconRequest(req, res); });
-
-        // Setup listener for relay requests
         this.app.use('/relay', (req, res) => { this.processRelayRequest(req, res); });
 
         // Machine-readable API spec (OpenAPI 3.1). Regenerated by docs/openapi.build.js;
@@ -379,7 +351,6 @@ class XChainExplorer {
             res.type('application/json').send(this.openapiSpec);
         });
 
-        // Setup listeners for STATIC file requests
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
 
@@ -419,29 +390,21 @@ class XChainExplorer {
         this.app.get('/:coin/api/proof/validator-set', (req, res) => { this.processValidatorSetProofRequest(req, res); });
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
 
-        // Setup wildcard listener to process all other requests (includes static failures)
         this.app.get('*', (req, res) => { this.processRequest(req, res); });
 
-        // Return the urls 
         return urls;
     }
 
-    // Function to handle processing a API request and returning a response
     async processRequest(req, res){
-        //load config
         let config = await this.configInfo.getConfig()
-        
-        // Setup empty response object
+
         let response = structuredClone(this.response);
 
-        // Start tracking time to parse block
         let debugTimer = this.util.startTimer();
 
-        // Define some data placeholders
         let total = null;
         let data  = null;
 
-        // Define basic request config object 
         let cfg = {
             coin: null, // COIN type (BTC, LTC, DOGE)
             type: null, // Request type (html, api, explorer)
@@ -462,7 +425,7 @@ class XChainExplorer {
                         offsetArgs: []  // Parameterized offset args
                     }
                 },
-                // Offset Information (used by explorer for paging)
+                // Offset used by explorer for paging (action: first/last/next/prev)
                 offset: {
                     action: null, // Action (first, last, next, prev)
                     start:  null, // start value (action_index, etc)
@@ -471,31 +434,26 @@ class XChainExplorer {
             },
         };
 
-        // Clean up path to remove any leading and trailing slashes and split the url path up into its various parts
         let urlPath = String(req.path).substring(1).replace(/\/$/,'').split('/');
 
-        // Convert any 'null' string value to an actual null value (so isNull evaluates it properly)
         urlPath.forEach(function(value, idx){
             if(String(value).toLowerCase()=='null')
                 urlPath[idx] = null;
         });
 
-        // Determine the COIN using the first part of the URL path (BTC, LTC, DOGE, etc)
         let coin = String(urlPath[0]).toUpperCase();
         if(!this.util.isNull(config['COIN_SUPPORTED'][coin]))
             cfg.coin = coin;
 
-        // Determine what TYPE of request this is using the second part of the URL path
         let type = String(urlPath[1]).toLowerCase();
         cfg.type = (['api','explorer'].includes(type) && urlPath.length>2) ? type : 'html';
 
-        // Setup alias to req.path which we can easily tweak as needed
         let requestPath = req.path;
 
-        // Set flag to indicate if this is a request for a COIN that is supported, but not available in this explorer
+        // validDataRequest is false when the coin is supported but not yet configured in this instance
         let validDataRequest = (!this.util.isNull(config['COIN_SUPPORTED'][coin]) && !this.util.isNull(config['COIN_AVAILABLE'][coin])) ? true : false;
 
-        // Force data all /{COIN}/api/status requests to valid so we return the explorer config
+        // Force /{COIN}/api/status valid so we always return explorer config for that coin
         if(String(urlPath[1]).toLowerCase()=='api' && String(urlPath[2]).toLowerCase()=='status')
             validDataRequest = true;
 
@@ -510,20 +468,15 @@ class XChainExplorer {
             let info       = this.urls[cfg.type][url];
             let searchType = false;
 
-            // Handle html page matches
             if(cfg.type=='html'){
-                // Handle exact page matches
                 if(String(requestPath).toLowerCase()==String(url).toLowerCase())
                     match = true;
-                // Handle COIN match
                 if(parts.length==1 && urlPath.length==1 && parts[0]=='{COIN}' && !this.util.isNull(cfg.coin))
                     match = true;
-                // Handle COIN action matches
                 if(parts.length > 1 && parts[1]==String(urlPath[1]).toLowerCase())
                     match = true;
             }
 
-            // Handle market matches
             if(!match && !this.util.isNull(parts[2]) && parts[2].includes('market') && String(urlPath[2]).toLowerCase().includes('market')){
                 if(!this.util.isNull(urlPath[3]))
                     searchType = 'token';
@@ -541,7 +494,6 @@ class XChainExplorer {
                         }
                     }
                 }
-                // Pass forward the addional search criteria
                 if(match){
                     cfg.data.search2 = urlPath[4];
                     cfg.data.search3 = urlPath[6];
@@ -557,10 +509,8 @@ class XChainExplorer {
             } else if(!match && parts.length==urlPath.length && parts[1]==String(urlPath[1]).toLowerCase() &&
                 parts[2]==String(urlPath[2]).toLowerCase() &&
                 (this.util.isNull(parts[4]) || String(parts[4]).startsWith('{') || String(parts[4]).toLowerCase()==String(urlPath[4]).toLowerCase())){
-                // Handle exact explorer matches without any search type
                 if(cfg.type=='explorer' && urlPath.length==3)
                     match = true;
-                // Handle setting search type
                 if(!match){
                     let infoType = typeof info[1];
                     let search = String(urlPath[4]).toLowerCase();
@@ -573,7 +523,6 @@ class XChainExplorer {
                 }
             }   
 
-            // Update config object with request info
             if(match){
                 if(cfg.type=='html')
                     cfg.file = info;
@@ -581,7 +530,6 @@ class XChainExplorer {
                     cfg.data.method = info[0];
                     cfg.data.search = urlPath[3];
                     cfg.data.type   = searchType;
-                    // Set additional offset information used in explorer paging
                     if(cfg.type=='explorer'){
                         let q      = (req.query) ? req.query : false;
                         let offset = (q && !this.util.isNull(q.offset)) ? q.offset : false;
@@ -594,21 +542,16 @@ class XChainExplorer {
             }
         }
 
-        // If we have a method defined to get some data, retrieve the requested data from the database
         if(!this.util.isNull(cfg.data.method) && validDataRequest){
             [data, total] = await this.db.getData(cfg);
 
-            // Placeholder for the JSON response object
             let json = {};
 
-            // If we have a total then we are dealing with results, so get only the results we want to return
             if(this.util.isNumeric(total)){
                 if(cfg.type=='api'){
-                    // Return total number of records found
                     json.total = total;
 
-                    // Handle pushing some data to the top level of the JSON response
-                    // Note: we do this so we don't pass these fields in the data array since they are all the same values
+                    // Hoist shared fields out of the data array to avoid repeating identical values per row
                     if(cfg.data.method=='getHolders'){
                         let info = data[0];
                         json.tick       = info.tick;
@@ -617,9 +560,8 @@ class XChainExplorer {
                         json.coin_price = info.coin_price;
                     }
                 }
-                // Return total number of records found in format that datatables expects (https://datatables.net/manual/server-side#Returned-data)
+                // DataTables server-side format (https://datatables.net/manual/server-side#Returned-data)
                 if(cfg.type=='explorer'){
-                    // If a total number of records was passed in the request, use it as total
                     if(cfg.data.query.total)
                         total = cfg.data.query.total
                     json.recordsTotal    = total;
@@ -627,11 +569,9 @@ class XChainExplorer {
                 }
                 json.data  = this.getPagingDataResults(cfg, data, total);
             } else {
-                // Merge the data into the JSON response object
                 json = data;
             }
 
-            // Special case JSON customizations based on method called
             if(cfg.data.method=='getBalances')
                 json.address = cfg.data.search;
             if(cfg.data.method=='getSearch'){
@@ -639,25 +579,21 @@ class XChainExplorer {
                 json = Object.assign({}, json, data);
             }
 
-            // Sort the json data and object properties alphabetically (OCD much?)
             if(cfg.type=='api' && !this.util.isNull(json)){
                 json = this.util.ksort(json);
                 for(let idx in json.data)
                     json.data[idx] = this.util.ksort(json.data[idx]);
             }
 
-            // Store the response JSON in the response object
             response.json = json;
         }
 
-        // If we don't have a file or method at this point, default to a 404
         if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method)){
             cfg.file = '404.html';
             cfg.type = 'html';
             response.code = 404;
         }
 
-        // If this is not a valid data request, return a '503 - Service Unavailable' response
         if(['api','explorer'].includes(cfg.type) && !this.util.isNull(cfg.data.method) && !validDataRequest){
             response.code = 503;
             response.json = {
@@ -679,52 +615,38 @@ class XChainExplorer {
             };
         }
 
-        /**********************************************************
-         * HTML page handler
-         *********************************************************/
         if(cfg.type=='html'){
-            // Define base path to html directory
             let htmlDirectory   = path.join(__dirname, 'content/html/')
 
-            // Load HTML template
             let templateFile    = path.join(htmlDirectory, 'template.html');
             let templateExists  = await this.util.fileExists(templateFile);
             let templateContent = (templateExists) ? await this.util.fileGetContents(templateFile) : 'Error loading template file!';
 
-            // Load HTML content
             let htmlFile    = path.join(htmlDirectory, cfg.file);
             let htmlExists  = await this.util.fileExists(htmlFile);
             let htmlContent = (htmlExists) ? await this.util.fileGetContents(htmlFile) : 'Error loading html file!';
 
-            // Swap Content into template
             let pageContent = templateContent;
             pageContent     = pageContent.replace('{CONTENT}',htmlContent);
 
-            // Store HTML response
             response.html = pageContent;
         }
 
-        // Log the total processing time for this request (in milliseconds)
         response.time = this.util.getTimer(debugTimer);
 
-        // Pass forward the total runtime info in a readable string in the JSON response
         if(response.json)
             response.json.runtime = this.util.getTimerString(response.time);
 
-        // Set any custom headers
         response.head = structuredClone(this.headers);
 
         if(process.env.DEBUG && !this.util.isNull(response.time))
             response.head['XChain-Runtime-Ms'] = response.time;
 
-        // Return any custom headers in response
         if(!this.util.isNull(response.head))
             res.set(response.head);
 
-        // Return HTTP status Code
         res.status(response.code);
 
-        // Return the actual response
         if(!this.util.isNull(response.json)){
             res.type('json').send(this.util.jsonStringify(response.json));
         } else if(!this.util.isNull(response.html)){
@@ -733,13 +655,11 @@ class XChainExplorer {
             res.send('response of last resort...');
         }
 
-        // Log any requests which took longer than 400 milliseconds to return a response
         if(response.time > 400){
             slowRequests++;
             console.warn('SLOW_REQUEST', req.path, response.time + 'ms');
         }
 
-        // DEBUG INFO (only log when DEBUG env var is set)
         if(process.env.DEBUG){
             console.log('--- REQUEST CONFIG ---');
             console.dir(cfg, {
@@ -749,7 +669,6 @@ class XChainExplorer {
         }
     }
 
-    // Handle looping through database results and only returning the records the user cares about using paging and limit
     getPagingDataResults(config, data, total){
         let cfg    = config;
         let type   = cfg.type;
@@ -767,15 +686,13 @@ class XChainExplorer {
         limit  = Math.max(1, Math.min(Number(limit), max));
         length = Math.max(1, Number(length));
 
-        // Update the data object to be the search results data
         if(method=='getSearch')
             data = data.data;
 
-        // For API requests, SQL OFFSET already handled pagination; return all rows
+        // SQL OFFSET already handled pagination for API requests; return all rows
         if(cfg.type=='api'){
             start = 0;
         }
-        // Set limit based on given length and start params
         if(cfg.type=='explorer'){
             // Limit results to 100 max (except in special cases where we can not use an offset)
             if(length > 100 && !['getHolders','getBalances','getCredits','getDebits'].includes(cfg.data.method))
@@ -797,19 +714,16 @@ class XChainExplorer {
             // Keep track of display count separate from actual count
             count = cnt;
 
-            // Tweak count since we reverse results in some cases
             if(['prev','last'].includes(action))
                 count = this.util.bcadd(start,this.util.bcsub(data.length, this.util.bcsub(idx, 1)),0);
 
-            // Stash the reverse count since latest is first in most cases
+            // Reverse-count: total minus (count-1), used because latest is first in most cases
             count_reverse = this.util.bcsub(total,this.util.bcsub(count, 1),0);
 
-            // Display only the results we care about showing
             if((cnt > start && cnt <= limit) || offset){
                 let info   = data[idx-1];
-                // For API requests, pass fields in the correct place
                 if(type=='api'){
-                    // Only pass address and amount for holders (token data is already passed at the top level)
+                    // Holders: hoist token-level fields to top; pass only address+amount per row
                     if(method=='getHolders'){
                         info = {
                             'address': info.address,
@@ -817,14 +731,12 @@ class XChainExplorer {
                         };
                     }
                 }
-                // For Explorer requests, pass array of fields in specific order
                 if(type=='explorer'){
                     let status = (info.status=='valid') ? 1 : 0; // 1=valid, 2=invalid
                     let percent = 0;                             // Percentage of total supply
                     let value   = 0;                             // Estimated value
                     let amount  = 0;                             // Amount formatted to correct decimal precision
 
-                    // Handle building out locks info into nice string
                     let locks = false;
                     if(['getIssues','getTokens','getProjectTokens'].includes(method)){
                         let arr = [
@@ -839,7 +751,6 @@ class XChainExplorer {
                         locks = arr.join('|');
                     }
 
-                    // Handle building out action count info into a nice string (reduces data sent back and forth)
                     let actions = false;
                     if(method=='getBlocks'){
                         let arr = [
@@ -873,9 +784,7 @@ class XChainExplorer {
                         actions = arr.join('|');
                     }
 
-                    // Handle calculating amounts, percentages of supply, and estimated value
                     if(['getBalances','getHolders'].includes(method)){
-                        // Force amount to display in coin decimal precision
                         amount  = String(this.util.bcformat(info.amount, info.decimals));
                         percent = String(this.util.bcmul(this.util.bcdiv(info.amount,info.supply, 8), 100, 8));
                         value   = String(this.util.bcmul(info.amount, info.coin_price, 8));
@@ -999,23 +908,17 @@ class XChainExplorer {
                     }
                 }
 
-                // Add data to the response array
                 show.push(info);
 
             }
         }
 
-        // Reverse the results if action is previous or last
         if(['prev','last'].includes(action))
             show = show.reverse();
 
-        // Return the data we want to show
         return show;
     }
 
-    /**********************************************************
-     * ICON request handler
-     *********************************************************/
     async processIconRequest(req, res){
         const dirPath  = path.resolve(path.join(__dirname, 'content/icons'));
         const filePath = path.resolve(path.join(dirPath, req.path.replace(/^\/icon/, '')));
@@ -1061,10 +964,8 @@ class XChainExplorer {
         let raw  = null;
         let file = null;
         try {
-            // Gated file first: ciphertext is served exactly as before
             let rows = await this.db.getGatedFileRaw(config, actionIndex);
             if(rows && rows.length > 0) raw = rows[0].raw_data;
-            // Fall through to the non-gated FILE bytes (decoder DB)
             if(!raw)
                 file = await this.db.getFileRaw(config, actionIndex);
         } catch (e) {
@@ -1077,7 +978,6 @@ class XChainExplorer {
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         if(raw){
-            // Gated ciphertext: opaque bytes
             res.set('Content-Type', 'application/octet-stream');
             return res.send(raw);
         }
@@ -1417,13 +1317,6 @@ class XChainExplorer {
         }
     }
 
-    /**********************************************************
-     * RELAY request handler
-     *
-     * Notes :
-     * - All content can be delivered via https/ssl (doesn't break browser SSL lock)
-     * - Most .json files do not pass Access-Control-Allow-Origin header (xhr refuses to make request)
-     *********************************************************/
     // SSRF guard helper: classify a resolved IP literal as a private, loopback,
     // link-local or cloud-metadata address that the /relay endpoint must refuse
     // to connect to. IPv4-mapped IPv6 (::ffff:a.b.c.d) is unwrapped first so a
@@ -1459,18 +1352,14 @@ class XChainExplorer {
     }
 
     async processRelayRequest(req, res){
-        // Only proceed if we were passed a URL
         if(!this.util.isNull(req.query.url)){
             try {
-                // Parse and validate the URL
                 const parsed = new URL(req.query.url);
 
-                // Only allow http and https protocols
                 if(!['http:', 'https:'].includes(parsed.protocol))
                     return res.status(400).json({ error: 'Invalid protocol', code: 'RELAY_INVALID_PROTOCOL' });
 
-                // Block private/loopback/metadata IP ranges to prevent SSRF
-                // Note: Node's URL parser wraps IPv6 in brackets (e.g. [::1]), so strip them for matching
+                // Node's URL parser wraps IPv6 in brackets (e.g. [::1]); strip them for matching
                 const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
                 const blocked = [
                     /^localhost$/i,
@@ -1490,16 +1379,13 @@ class XChainExplorer {
                     return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
 
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
-                // The literal-hostname blocklist above only catches IPs written
-                // directly in the URL. A normal domain whose DNS A/AAAA record
-                // points at a private/metadata address (or rebinds between checks)
-                // would sail past it, so also validate the address axios actually
-                // connects to via a custom lookup; no separate re-resolution, so
-                // no TOCTOU window.
+                // The literal-hostname blocklist only catches IPs in the URL; a domain whose
+                // DNS record points at a private address (or rebinds) would sail past it.
+                // _ssrfSafeLookup validates the address axios actually connects to, closing
+                // the TOCTOU window between a separate re-resolution check and the connection.
                 const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
                                lookup: this._ssrfSafeLookup.bind(this) };
 
-                // Handle JSON files (also accept arweave.net gateway URLs without a .json extension)
                 const isArweave = /^arweave\.net$/i.test(parsed.hostname);
                 if(ext=='json' || isArweave){
                     let response = await axios.get(parsed.href, opts);
@@ -1509,7 +1395,6 @@ class XChainExplorer {
                     }
                 }
 
-                // Handle PNG images
                 if(ext=='png'){
                     let response    = await axios.get(parsed.href, { ...opts, responseType: 'arraybuffer' });
                     let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
@@ -1520,7 +1405,6 @@ class XChainExplorer {
                 return res.status(400).json({ error: 'Invalid or unreachable URL', code: 'RELAY_FETCH_FAILED' });
             }
         }
-        // Return `503 - Service Unavailable` error message as last resort
         res.status(503).json({ error: 'service not available', code: 'SERVICE_UNAVAILABLE' });
     }
 

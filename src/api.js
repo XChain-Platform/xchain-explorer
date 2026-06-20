@@ -18,7 +18,6 @@
  * 
  ********************************************************************/
 
-// Load required libraries
 const dotenv         = require('dotenv');
 const http           = require('http');
 const https          = require('https');
@@ -33,7 +32,6 @@ const WebSocketServer = require('./ws/WebSocketServer.js');
 const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 
-// Parse in .env config data
 dotenv.config();
 
 //xchain-hub endpoints (multi-instance with fallback)
@@ -42,15 +40,11 @@ const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
-// Setup the basic API functionality
 async function startApi(){
-    // Parse in the explorer config information
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
 
-    // Create the app
     const app = express();
 
-    // Use Helmet to increase security
     app.use(helmet({
         contentSecurityPolicy: {
             directives: {
@@ -79,10 +73,8 @@ async function startApi(){
         },
     }));
 
-    // Allow JSON requests (with explicit body size limit)
     app.use(express.json({ limit: '10kb' }));
 
-    // Allow CORS from any origin (public read-only explorer)
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
 
     // Rate limiting: requests per minute per IP (image requests are excluded;
@@ -99,19 +91,6 @@ async function startApi(){
     // Trust only the first proxy hop (prevents X-Forwarded-For spoofing)
     app.set('trust proxy', 1);
 
-    // Redirect HTTP to HTTPS
-    // app.use((req, res, next) => {
-    //  if(req.secure){
-    //      // Request is already HTTPS, continue to the next middleware/route handler
-    //      next();
-    //  } else {
-    //      // Remove HTTP port from host
-    //      let hostname = String(req.headers.host).replace(':' + config.API.port.http, '');
-    //      let url = 'https://' + hostname + ':' + config.API.port.https + req.url;
-    //      res.redirect(url);
-    //  }
-    // });
-
     const jsonRpcController = {
         // Function to check if xchain-explorer is up
         async ping() {
@@ -119,13 +98,11 @@ async function startApi(){
         }
     }
 
-    // HTTP server for redirection
     const httpServer = http.createServer(app);
     httpServer.listen(EXPLORER_API_PORT_HTTP, () => {
         console.log('HTTP  server listening on port', EXPLORER_API_PORT_HTTP);
     });
 
-    // HTTPS server for serving out requests in a secure manner.
     // Skipped when SSL files are absent (HTTP-only dev/regtest mode).
     let httpsServer = null;
     if (config.API.ssl) {
@@ -135,7 +112,6 @@ async function startApi(){
         });
     }
 
-    // Start up the explorer instance
     const explorer = new XChainExplorer(app, configInfo);
     await explorer.init()
 
@@ -150,7 +126,7 @@ async function startApi(){
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 
-    // Allow JSON-RPC requests (registered last so explorer routes take priority)
+    // Registered last so explorer routes take priority
     app.use(jsonRouter({methods: jsonRpcController}))
 
     // WebSocket support (feature-flagged via WS_ENABLED env var)
@@ -162,7 +138,6 @@ async function startApi(){
         const WS_MAX_PER_IP    = parseInt(process.env.WS_MAX_CONNECTIONS_PER_IP) || 5;
         const WS_MAX_BACKPRESSURE = parseInt(process.env.WS_MAX_BACKPRESSURE) || 65536;
 
-        // Create the WebSocket server first (ChannelManager lives inside it)
         const WS_MAX_SUBS = parseInt(process.env.WS_MAX_SUBSCRIPTIONS) || 25;
         const wsServer = new WebSocketServer({
             explorer:         explorer,
@@ -173,14 +148,12 @@ async function startApi(){
             maxSubscriptions: WS_MAX_SUBS
         });
 
-        // Create the change detector with reference to the channel manager
         const changeDetector = new ChangeDetector({
             db:             explorer.db,
             channelManager: wsServer.channelManager,
             pollInterval:   WS_POLL_INTERVAL
         });
 
-        // Create the broadcaster and link to WS server + change detector
         const broadcaster = new Broadcaster({
             wsServer:        wsServer,
             changeDetector:  changeDetector,
@@ -188,10 +161,8 @@ async function startApi(){
         });
         wsServer.broadcaster = broadcaster;
 
-        // Attach WebSocket upgrade handler to HTTP (and HTTPS when running)
         wsServer.attach(httpsServer ? [httpServer, httpsServer] : [httpServer]);
 
-        // Determine which coins have configured database pools and start polling
         const availableCoins = Object.keys(explorer.db.pools || {});
         if (availableCoins.length > 0) {
             changeDetector.start(availableCoins);
@@ -199,7 +170,6 @@ async function startApi(){
     }
 }
 
-// Start up the explorer services
 startApi().catch(err => {
     console.error('Fatal startup error:', err);
     process.exit(1);

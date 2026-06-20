@@ -59,7 +59,6 @@ class ChangeDetector extends EventEmitter {
         this.running = false;
     }
 
-    // Start the polling loop
     start(coins) {
         if (this.running) return;
         this.running = true;
@@ -79,7 +78,6 @@ class ChangeDetector extends EventEmitter {
         console.log('ChangeDetector started: polling every', this.pollInterval, 'ms for', coins.join(', '));
     }
 
-    // Stop the polling loop
     stop() {
         this.running = false;
         if (this.timer) {
@@ -88,7 +86,6 @@ class ChangeDetector extends EventEmitter {
         }
     }
 
-    // Single poll cycle
     async _poll() {
         if (!this.running) return;
 
@@ -145,7 +142,6 @@ class ChangeDetector extends EventEmitter {
         state.seenHashes = current;
     }
 
-    // Check a single coin for changes
     async _checkCoin(coin) {
         const config = { coin };
         const prev   = this.state[coin];
@@ -161,7 +157,6 @@ class ChangeDetector extends EventEmitter {
             return;
         }
 
-        // New blocks
         if (currentBlockIndex > prev.blockIndex) {
             const newBlocks = await this.db.getBlocksSince(config, prev.blockIndex, this.fetchLimit);
             if (newBlocks && newBlocks.length > 0) {
@@ -172,21 +167,13 @@ class ChangeDetector extends EventEmitter {
             prev.blockIndex = currentBlockIndex;
         }
 
-        // New actions
         if (currentActionIndex > prev.actionIndex) {
             const newActions = await this.db.getActionsSince(config, prev.actionIndex, this.fetchLimit);
             if (newActions && newActions.length > 0) {
                 for (const action of newActions) {
-                    // Emit the raw action event
                     this.emit('action', coin, action);
-
-                    // Emit lifecycle events
                     await this._emitLifecycleEvents(coin, config, action);
-
-                    // Emit entity updates for subscribed entities
                     await this._emitEntityUpdates(coin, config, action);
-
-                    // Emit attestation events (dedicated `attestation` channel)
                     await this._emitAttestationEvents(coin, config, action);
                 }
             }
@@ -194,7 +181,6 @@ class ChangeDetector extends EventEmitter {
         }
     }
 
-    // Map an indexed action to lifecycle events
     async _emitLifecycleEvents(coin, config, action) {
         const actionType = action.action;
         if (!actionType) return;
@@ -223,7 +209,6 @@ class ChangeDetector extends EventEmitter {
                         lifecycleEvent.data.settlement_type = settlement.settlement_type;
                     }
 
-                    // If coinpay settlement, also emit COINPAY_REQUIRED
                     if (settlement && settlement.settlement_type === 'coinpay') {
                         const obligation = await this.db.getCoinpayObligation(config, action.action_index);
                         if (obligation) {
@@ -250,11 +235,9 @@ class ChangeDetector extends EventEmitter {
         }
     }
 
-    // Emit entity updates when subscribed entities are affected by a new action
     async _emitEntityUpdates(coin, config, action) {
         if (!this.channelManager) return;
 
-        // Check if any subscribed addresses are involved
         const subscribedAddresses = this.channelManager.getSubscribedAddresses(coin);
         if (subscribedAddresses.size > 0) {
             const involvedAddresses = new Set();
@@ -279,10 +262,8 @@ class ChangeDetector extends EventEmitter {
             }
         }
 
-        // Check subscribed tokens: only if the action involves a tick field
-        // The action data from getActionsSince doesn't include tick directly,
-        // so we check if any token subscribers exist and emit updates for affected tokens
-        // This is a lightweight check; full tick resolution would require joining more tables
+        // getActionsSince doesn't include tick directly; this is a lightweight action-type
+        // check for token subscribers (full tick resolution would require joining more tables)
         const subscribedTicks = this.channelManager.getSubscribedTicks(coin);
         if (subscribedTicks.size > 0 && ['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND'].includes(action.action)) {
             for (const tick of subscribedTicks) {
@@ -306,7 +287,6 @@ class ChangeDetector extends EventEmitter {
             }
         }
 
-        // Check subscribed dispensers
         const subscribedDispensers = this.channelManager.getSubscribedDispensers(coin);
         if (subscribedDispensers.size > 0 && ['DISPENSE', 'DISPENSER', 'DISPENSER_CLOSE', 'DISPENSER_EXPIRE'].includes(action.action)) {
             for (const dispenserIdx of subscribedDispensers) {
@@ -325,7 +305,6 @@ class ChangeDetector extends EventEmitter {
             }
         }
 
-        // Check subscribed markets
         const subscribedMarkets = this.channelManager.getSubscribedMarkets(coin);
         if (subscribedMarkets.length > 0 && ['ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE', 'SWAP', 'SWAP_MATCH'].includes(action.action)) {
             for (const market of subscribedMarkets) {
@@ -377,7 +356,6 @@ class ChangeDetector extends EventEmitter {
         }
     }
 
-    // Get current state (for WELCOME message)
     getState(coin) {
         return this.state[coin] || { blockIndex: 0, actionIndex: 0 };
     }

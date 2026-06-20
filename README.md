@@ -4,33 +4,34 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.13.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.15.2-blue" alt="Version">
   <img src="https://img.shields.io/badge/tests-1%2C285%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
-  <img src="https://img.shields.io/badge/license-Dankest%20Community-orange" alt="License">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20boundary%20%7C%20security%20%7C%20chaos%20%7C%20mutation%20%7C%20smoke%20%7C%20perf%20%7C%20regression-brightgreen" alt="Coverage">
+  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20boundary%20%7C%20security%20%7C%20fuzz%20%7C%20chaos%20%7C%20mutation%20%7C%20smoke%20%7C%20performance%20%7C%20regression-brightgreen" alt="Coverage">
 </p>
 
 Query and presentation layer for the XChain Platform. Reads from the Indexer database and exposes 60+ REST API endpoints, a JSON-RPC 2.0 interface, and a Bootstrap-based web block explorer, all from a single Node.js/Express process. The explorer never writes to any database.
 
 ## Features
 
-- **60+ REST endpoints**: tokens, balances, transactions, market data, DEX state, addresses, blocks, files, messages
-- **Three interfaces**: REST API, JSON-RPC 2.0, and a web block explorer served from the same process
+- **60+ REST endpoints**: tokens, balances, transactions, market data, DEX state, addresses, blocks, files, staking, attestations, contracts, messages
+- **Four interfaces**: REST API, JSON-RPC 2.0, WebSocket real-time push, and a web block explorer served from the same process
 - **Multi-chain support**: Bitcoin, Litecoin, and Dogecoin on mainnet, testnet, and regtest (9 networks)
 - **Read-only by default**: only writes to the Indexer database when the optional icon downloader is enabled
+- **WebSocket API**: real-time push of blocks, actions, and lifecycle events with per-channel subscriptions and catch-up replay
 - **Config discovery**: fetches configuration from xchain-hub and refreshes every 60 seconds
 - **SSL/TLS support**: serves both HTTP and HTTPS with configurable certificates
 - **Rate limiting**: configurable request rate limiting (default 500 req/min)
 - **Security hardened**: Helmet CSP, CORS, SSRF-protected relay, parameterized SQL, directory traversal prevention
 - **DataTables integration**: server-side pagination endpoints for the web UI
 - **Highcharts integration**: candlestick, market depth, and line charts
-- **Icon service**: token icons with automatic fallback
+- **Icon service**: token icons with automatic fallback and optional background downloader
 - **BigNumber precision**: arbitrary-precision arithmetic for all amounts and prices
-- **1,285 tests**: unit, integration, e2e, boundary, security, chaos, mutation, smoke, performance, regression
+- **1,285 tests**: unit, integration, e2e, boundary, security, fuzz, chaos, mutation, smoke, performance, regression
 
 ## Documentation
 
@@ -197,14 +198,3 @@ with a commercial license available for proprietary use.
 You may use, modify, and distribute this material under the terms of the License.
 See [LICENSE](./LICENSE.md) and [NOTICE](./NOTICE.md) for full terms.
 See the [licensing overview](https://docs.xchain.io/legal/licensing).
-
-## License
-
-XChain Platform is **open source**, dual-licensed under:
-
-- the **[GNU Affero General Public License v3.0](./LICENSE.md)** (`AGPL-3.0-or-later`), free for everyone, and
-- a **[commercial license](https://docs.xchain.io/legal/commercial-license)** for companies that need to keep modifications private.
-
-See the **[licensing overview](https://docs.xchain.io/legal/licensing)** for which one applies to you. "XChain" is a trademark of Dankest, LLC. See the **[Trademark Policy](https://docs.xchain.io/legal/trademark)**.
-
-Copyright © 2025-2026 Dankest, LLC.

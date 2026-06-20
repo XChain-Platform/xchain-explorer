@@ -41,6 +41,13 @@ const VALID_TYPES = new Set([
     'BROADCAST', 'CALLBACK', 'FILE', 'MESSAGE', 'LIST', 'LINK', 'SLEEP',
     'DEPLOY', 'EXECUTE', 'DEPOSIT', 'WITHDRAW',
     'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST',
+    // Federation / cross-chain / oracle action types (real decoded actions
+    // dispatched in xchain-indexer actions.js; they broadcast on the global
+    // `actions` channel, so a client must be able to narrow to them too).
+    // NOTE: CONTROLLER is intentionally absent: it is a field on ISSUE/ADDRESS
+    // (data['CONTROLLER']), not an `action` type, so it never appears as an
+    // actionData.action value and whitelisting it would silently match nothing.
+    'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly)
     'COINPAY_REQUIRED', 'COINPAY_FULFILLED', 'COINPAY_EXPIRED',
     'ORDER_COMPLETED', 'ORDER_EXPIRED',

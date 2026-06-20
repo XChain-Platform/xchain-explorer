@@ -200,6 +200,21 @@ describe('ChannelManager', function () {
             expect(result.error.code).to.equal('INVALID_TYPE');
         });
 
+        it('accepts the federation / cross-chain / oracle action types (PRICE, ANCHOR, XCALL, NODEPROOF)', function () {
+            const client = createClient(1);
+            const result = cm.subscribe(client, ['actions'], { types: ['PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF'] });
+            expect(result.success).to.be.true;
+            const subs = cm.listSubscriptions(client);
+            expect(subs[0].filters.types).to.deep.equal(['PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF']);
+        });
+
+        it('still rejects CONTROLLER (a field on ISSUE/ADDRESS, not an action type)', function () {
+            const client = createClient(1);
+            const result = cm.subscribe(client, ['actions'], { types: ['CONTROLLER'] });
+            expect(result.success).to.be.false;
+            expect(result.error.code).to.equal('INVALID_TYPE');
+        });
+
         it('null filters when omitted', function () {
             const client = createClient(1);
             cm.subscribe(client, ['actions']);

@@ -7039,24 +7039,24 @@ class Database {
         return 0;
     }
 
-    // Raw unconfirmed (mempool) action rows from the decoder DB, with the source
-    // address and tx hash resolved via the DECODER'S OWN index tables (the decoder
-    // keeps separate index_transactions/index_addresses from the indexer DB).
-    // Rows are PRE-VALIDATION: the decoder writes whatever parses out of a mempool
-    // tx; the indexer may still reject it at confirmation time. destination_id is
-    // never populated by the decoder; destinations live inside the decoded action
-    // string (`data`), which callers parse. Same access pattern + safety rules as
-    // getDecoderMempoolCount. Returns [] when the decoder DB isn't reachable.
+    // Raw unconfirmed (mempool) action rows from the decoder DB. As of the
+    // 2026-06-15 mempool-raw-strings migration, mempool_transactions stores the
+    // tx hash and source address as raw string columns (tx_hash, source) rather
+    // than FK ids into the decoder's index tables, so the row reads directly with
+    // no joins. Rows are PRE-VALIDATION: the decoder writes whatever parses out of
+    // a mempool tx; the indexer may still reject it at confirmation time. The
+    // destination is not populated as a column; destinations live inside the
+    // decoded action string (`data`), which callers parse. Same access pattern +
+    // safety rules as getDecoderMempoolCount. Returns [] when the decoder DB isn't
+    // reachable.
     async getDecoderMempoolRows(config, limit) {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return [];
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
         let max = Math.max(1, Math.min(Number(limit) || 200, 500));
         try {
-            let query = 'SELECT t1.hash AS tx_hash, a1.address AS source, m.data AS data_hex ' +
+            let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data_hex ' +
                         'FROM `' + dbName + '`.mempool_transactions m ' +
-                        'LEFT JOIN `' + dbName + '`.index_transactions t1 ON (t1.id=m.tx_hash_id) ' +
-                        'LEFT JOIN `' + dbName + '`.index_addresses   a1 ON (a1.id=m.source_id) ' +
                         'LIMIT ' + max;
             let results = await this.doDecoderQuery(config, query, []);
             return results || [];

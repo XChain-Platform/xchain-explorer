@@ -35,7 +35,7 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 
 ## Documentation
 
-Full explorer documentation is available in the [xchain-documentation](https://github.com/XChain-platform/xchain-documentation/tree/master/explorer) repository:
+Full explorer documentation is available in the [xchain-documentation](https://github.com/XChain-platform/xchain-documentation/tree/master/components/explorer) repository:
 
 | Document | Description |
 |---|---|
@@ -197,4 +197,4 @@ with a commercial license available for proprietary use.
 
 You may use, modify, and distribute this material under the terms of the License.
 See [LICENSE](./LICENSE.md) and [NOTICE](./NOTICE.md) for full terms.
-See the [licensing overview](https://docs.xchain.io/legal/licensing).
+See the [licensing overview](https://docs.xchain.io/legal/LICENSING.html).

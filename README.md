@@ -35,20 +35,20 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 
 ## Documentation
 
-Full explorer documentation is available in the [xchain-documentation](https://github.com/XChain-platform/xchain-documentation/tree/master/components/explorer) repository:
+Full explorer documentation is available in the [xchain-documentation](https://github.com/XChain-Platform/xchain-documentation/tree/master/components/explorer) repository:
 
 | Document | Description |
 |---|---|
-| [README](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/README.md) | Overview, installation, quick start, scripts, dependencies |
-| [Architecture](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/ARCHITECTURE.md) | Data pipeline, internal components, request processing pipeline, source files |
-| [Configuration](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/CONFIGURATION.md) | Environment variables, config.json, hub discovery, SSL/TLS, CORS, rate limiting |
-| [API Reference](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/API.md) | Complete REST API: all 60+ endpoints with paths, parameters, response formats, examples |
-| [Operations](https://github.com/XChain-platform/xchain-documentation/blob/master/components/explorer/OPERATIONS.md) | Running, Docker, SSL setup, security features, relay endpoint, troubleshooting |
+| [README](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/README.md) | Overview, installation, quick start, scripts, dependencies |
+| [Architecture](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/ARCHITECTURE.md) | Data pipeline, internal components, request processing pipeline, source files |
+| [Configuration](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/CONFIGURATION.md) | Environment variables, config.json, hub discovery, SSL/TLS, CORS, rate limiting |
+| [API Reference](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/API.md) | Complete REST API: all 60+ endpoints with paths, parameters, response formats, examples |
+| [Operations](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/OPERATIONS.md) | Running, Docker, SSL setup, security features, relay endpoint, troubleshooting |
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/XChain-platform/xchain-explorer.git
+git clone https://github.com/XChain-Platform/xchain-explorer.git
 cd xchain-explorer
 npm install
 ```

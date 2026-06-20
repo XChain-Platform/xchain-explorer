@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.15.2] - 2026-06-20
+
 ### Changed
 - `src/XChainExplorer.js`, `src/db.js`, `src/stake_weighted_quorum.js` (new) — the checkpoint verify endpoint (`GET /{COIN}/api/checkpoint/{blockIndex}/verify`) now reflects stake-weighted quorum when it is active, and publishes the inputs a client needs to re-derive that verdict locally. Previously the endpoint applied only the count-based `2f+1` quorum and returned `validators` as an array of bare lowercased pubkeys, so on any network where stake-weighting is in effect its `verified` flag diverged from the signed-and-anchored consensus (false-rejecting a stake-heavy minority below the count, and unsafe-accepting a key-count majority that lacked a stake majority), and a client could not have applied the correct rule even if it wanted to, because no weight/source was exposed. The endpoint now: (1) derives `is_weighted` from the checkpoint's `snapshot_block` + `network` on the same flag-day the hub/indexer flip on (new field in the response); (2) returns `validators` as an array of `{ pubkey, weight, source }` objects instead of bare strings (`getCapabilitySnapshotRows` now selects the mirrored `source` column alongside `amount`); and (3) computes `verified` with the source-deduped `3·Σ > 2·S` stake predicate when `is_weighted` is true, keeping the count path below the flag-day. **Response-shape change:** consumers that read `validators` as a `string[]` must now read `v.pubkey` from each object. `stake_weighted_quorum.js` is a consensus-critical local copy of the hub/indexer predicate + activation map. No schema migration (the `source` column is already mirrored).
 

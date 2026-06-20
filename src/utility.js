@@ -254,8 +254,12 @@ class Utility {
         return JSON.stringify(obj, (key, value) => {
             if(typeof value === 'bigint') 
                 return value.toString();
-            if(value && typeof value === 'object' && value.mathjs === 'BigNumber') 
-                return value.value;
+            if(value && typeof value === 'object' && value.mathjs === 'BigNumber')
+                // toJSON().value is Decimal.toString(), which is scientific notation below
+                // ~1e-7 and above ~1e21 (e.g. '3e-8', '1e-18'), breaking client decimal-string
+                // comparison against the wire format. Serialize fixed, matching the indexer's
+                // safeToString guard.
+                return mathjs.format(mathjs.bignumber(value.value), {notation: 'fixed'});
             return value;
         });
     }

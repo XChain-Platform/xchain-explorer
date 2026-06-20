@@ -259,12 +259,13 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     describe('response codes', function () {
 
-        it('returns 400 for a valid coin + valid route where db returns null data', async function () {
+        it('returns 404 for a valid coin + valid route where db returns null data', async function () {
             // MockDB always returns [[], null] so data is [] and total is null
-            // When total is null, processRequest falls into the 400 branch
+            // When total is null, processRequest falls into the not-found branch (404, so the
+            // HTTP status agrees with the NOT_FOUND body code)
             const res = mockRes();
             await explorer.processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
-            expect(res._status).to.equal(400);
+            expect(res._status).to.equal(404);
         });
 
         it('returns 503 for a supported-but-unavailable coin (LTC not in COIN_AVAILABLE)', async function () {
@@ -274,12 +275,12 @@ describe('XChainExplorer.processRequest – routing', function () {
             expect(res._status).to.equal(503);
         });
 
-        it('/BTC/api/status returns 400 even though coin is available (forced valid, but db returns null)', async function () {
-            // validDataRequest is forced true for status, db returns null → 400
+        it('/BTC/api/status returns 404 when coin is available but db returns null (no record)', async function () {
+            // validDataRequest is forced true for status, db returns null → not-found 404
             const res = mockRes();
             await explorer.processRequest(mockReq('/BTC/api/status'), res);
-            // getStatus has no total so data=[] total=null → 400
-            expect(res._status).to.equal(400);
+            // getStatus has no total so data=[] total=null → 404
+            expect(res._status).to.equal(404);
         });
 
         it('returns 404 with html type for an unknown URL', async function () {

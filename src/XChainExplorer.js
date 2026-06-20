@@ -666,9 +666,13 @@ class XChainExplorer {
             };
         }
 
-        // If we have no data and no total, return a '400 - Bad Request' response
+        // No record for a single-resource lookup: return 404 so the HTTP status agrees
+        // with the body's NOT_FOUND code and matches the hand-registered routes elsewhere
+        // in this service (e.g. :1071, :1133). A 400 made consumers that branch on status
+        // (including xchain-sdk) treat "does not exist" as a malformed request. Empty list
+        // queries are unaffected (they return 200 with total:0).
         else if(['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
-            response.code = 400;
+            response.code = 404;
             response.json = {
                 error: 'The requested resource was not found.',
                 code: 'NOT_FOUND'

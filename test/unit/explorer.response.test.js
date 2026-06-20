@@ -302,13 +302,13 @@ describe('XChainExplorer.processRequest – error responses', function () {
         expect(body).to.have.property('error').that.includes('not configured');
     });
 
-    it('returns HTTP 400 when getData returns null data and null total', async function () {
+    it('returns HTTP 404 when getData returns null data and null total', async function () {
         getDataResult  = [null, null];
         const explorer = makeExplorer();
         const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
         const body     = parseBody(res);
 
-        expect(res._status).to.equal(400);
+        expect(res._status).to.equal(404);
         expect(body).to.have.property('error').that.is.a('string');
     });
 

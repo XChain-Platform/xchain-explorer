@@ -819,12 +819,16 @@ function setupCollapsibleHeaders(){
  * Basic Calculator (BC) math functions
  ******************************************************************/
 
-// Handle converting a string number to an integer or float
+// Coerce a value to a full-precision bignumber (matches the SDK/indexer canonical
+// bcnum). Returns a mathjs bignumber (NOT a JS double), so neither this nor the
+// bc* helpers below re-funnel a result through parseFloat (which truncates past
+// ~16 significant digits and emits scientific notation). Non-numeric / NaN /
+// Infinity inputs yield bignumber(0) rather than throwing, mirroring the SDK guard.
 function bcnum(num){
-    if(String(num).indexOf('.')!=-1)
-        return parseFloat(num);
-    else
-        return parseInt(num);
+    let str = String(num).trim();
+    if(str === 'NaN' || str === 'Infinity' || str === '-Infinity' || !isNumeric(num))
+        return math.bignumber(0);
+    return math.bignumber(str);
 }
 
 // Handle returning a number to a given decimal point precision
@@ -833,36 +837,36 @@ function bcformat(num, decimals){
     return math.format(bcnum(num),{notation: 'fixed', precision: d});
 }
 
-// Handle subtracting 2 big numbers
+// Handle subtracting 2 big numbers (returns a fixed-notation string, full precision)
 function bcsub(numA, numB, decimals){
     let a = (!isNull(numA)) ? numA : 0;
     let b = (!isNull(numB)) ? numB : 0;
     let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
-    return bcnum(math.format(math.subtract(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+    return math.format(math.subtract(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d});
 }
 
-// Handle adding 2 big numbers
+// Handle adding 2 big numbers (returns a fixed-notation string, full precision)
 function bcadd(numA, numB, decimals){
     let a = (!isNull(numA)) ? numA : 0;
     let b = (!isNull(numB)) ? numB : 0;
     let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
-    return bcnum(math.format(math.add(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+    return math.format(math.add(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d});
 }
 
-// Handle multiplying 2 big numbers
+// Handle multiplying 2 big numbers (returns a fixed-notation string, full precision)
 function bcmul(numA, numB, decimals){
     let a = (!isNull(numA)) ? numA : 0;
     let b = (!isNull(numB)) ? numB : 0;
     let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
-    return bcnum(math.format(math.multiply(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+    return math.format(math.multiply(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d});
 }
 
-// Handle dividing 2 big numbers
+// Handle dividing 2 big numbers (returns a fixed-notation string, full precision)
 function bcdiv(numA, numB, decimals){
     let a = (!isNull(numA)) ? numA : 0;
     let b = (!isNull(numB)) ? numB : 0;
     let d = (!isNull(decimals)) ? parseInt(decimals) : 0;
-    return bcnum(math.format(math.divide(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d}));
+    return math.format(math.divide(math.bignumber(a),math.bignumber(b)),{notation: 'fixed', precision: d});
 }
 
 // Handle initializing datatables with static data (pre-populated)

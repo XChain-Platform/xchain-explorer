@@ -3510,9 +3510,14 @@ class Database {
         data.controllers = await this.getAddressControllerBindings(config, config.data.search);
         // Surface the immutable index_addresses id (mirrors how getToken surfaces
         // tick_id in info). The SDK address compactor reads info.address_id to rewrite
-        // an address to its smaller ^<id> wire form (see xchain-sdk addressResolver.js);
-        // null when the address has never been indexed.
-        let addressId = await this.getAddressId(config, config.data.search);
+        // an address to its smaller ^<id> wire form (see xchain-sdk addressResolver.js).
+        // F3 (id-determinism): expose it ONLY when the id is in the DETERMINISTIC set
+        // (block_index IS NOT NULL). An out-of-band id (recovery pre-seed, pre-F1a) is not
+        // reproducible across nodes, so the SDK must never compact an address to it; the
+        // indexer's resolveAddressRef rejects such a ^id anyway, this stops the leak at the
+        // source. getCompactableAddressId, NOT getAddressId (the internal string<->id
+        // resolver), so display/lookup paths are unaffected. null => SDK emits the full address.
+        let addressId = await this.getCompactableAddressId(config, config.data.search);
         data.info = {
             address:    config.data.search,
             address_id: (addressId !== null && addressId !== undefined) ? Number(addressId) : null
@@ -3963,7 +3968,12 @@ class Database {
         let args  = [ tickIdRef ? Number(search.substring(1)) : config.data.search ];
         let query = `SELECT
                         t2.tick,
-                        t1.tick_id,
+                        -- F3 (id-determinism): expose tick_id for SDK ^<id> compaction ONLY when it
+                        -- is in the deterministic set (index_tickers.block_index IS NOT NULL). An
+                        -- out-of-band id is not reproducible across nodes, so the SDK must never
+                        -- compact to it (the indexer would reject the ^id). Gates the SDK-facing
+                        -- info.tick_id only; the t1.tick_id lookup/WHERE below is unaffected.
+                        (CASE WHEN t2.block_index IS NOT NULL THEN t1.tick_id ELSE NULL END) AS tick_id,
                         t1.supply,
                         t1.max_supply,
                         t1.max_mint,
@@ -6410,6 +6420,25 @@ class Database {
             id = results[0].id;
         if(id !== null) this._cacheSet(this._addressIdCache, address, id);
         return id;
+    }
+
+    // Resolve an address to its index id ONLY when that id is in the DETERMINISTIC set
+    // (assigned inside a block tx, block_index IS NOT NULL) - the id-space a wire ^<id>
+    // may safely reference. Backs the SDK-facing info.address_id in getAddress (F3
+    // id-determinism). Distinct from getAddressId, which resolves ANY id (incl. out-of-band
+    // recovery pre-seeds) for internal string<->id display/lookup paths that must not change.
+    // Uncached: one call per getAddress request, and a NULL-block id must never be cached as
+    // compactable (it could be upgraded to a deterministic id on a later reindex).
+    async getCompactableAddressId(config, address){
+        let query = `SELECT
+                        id
+                    FROM
+                        index_addresses
+                    WHERE
+                        address=? AND block_index IS NOT NULL
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [address]);
+        return (results && results.length) ? results[0].id : null;
     }
 
     // Get tick id for a given token (cached)

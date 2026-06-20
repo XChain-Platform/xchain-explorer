@@ -222,19 +222,30 @@ describe('Database#getAddress', () => {
     let db;
     beforeEach(() => {
         db = makeDb();
-        // getAddress now appends controller bindings; stub the lookup so these
-        // header-shape assertions don't need a live pool (covered separately).
+        // getAddress appends controller bindings AND surfaces info.address_id (the latter
+        // via getCompactableAddressId -> doQuery, F3). Stub both so these header-shape
+        // assertions don't need a live pool. doQuery -> [] => info.address_id null.
         sinon.stub(db, 'getAddressControllerBindings').resolves([]);
+        sinon.stub(db, 'doQuery').resolves([]);
     });
     afterEach(() => { sinon.restore(); });
 
     it('returns a data object with the expected top-level keys', async () => {
         const config = cfg({ data: { search: 'addr1bc' } });
         const [data] = await db.getAddress(config);
-        // controllers is the Controller_Bound_Tokens.md display surface; with no
-        // binding it resolves to []
-        expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value', 'controllers']);
+        // controllers is the Controller_Bound_Tokens.md display surface ([] with no binding);
+        // info carries the SDK-facing address/address_id (Index_Id_References.md / F3).
+        expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value', 'controllers', 'info']);
         expect(data.controllers).to.deep.equal([]);
+        // F3: no deterministic id resolved (doQuery -> []) => address_id is null, not compacted.
+        expect(data.info).to.deep.equal({ address: 'addr1bc', address_id: null });
+    });
+
+    it('surfaces a deterministic index id under info.address_id when one exists (F3)', async () => {
+        db.doQuery.restore();
+        sinon.stub(db, 'doQuery').resolves([{ id: 99 }]);   // block_index-stamped id
+        const [data] = await db.getAddress(cfg({ data: { search: 'bc1qDet' } }));
+        expect(data.info.address_id).to.equal(99);
     });
 
     it('echoes the search address into data.address', async () => {
@@ -1359,5 +1370,60 @@ describe('Database#getAddressControllerBindings', () => {
         const q = sinon.stub(db, 'doQuery');
         expect(await db.getAddressControllerBindings(cfg(), 'ghost')).to.deep.equal([]);
         expect(q.called).to.be.false;
+    });
+});
+
+// F3 (id-determinism): the explorer must only surface an index id for SDK ^<id>
+// compaction when it is in the DETERMINISTIC set (block_index IS NOT NULL). An
+// out-of-band id (recovery pre-seed, pre-F1a) is not reproducible across nodes; the SDK
+// must never compact to it (the indexer would reject the ^id). This gates the two
+// SDK-facing fields only (getAddress info.address_id, getToken info.tick_id), never the
+// internal getAddressId/getTickId resolvers used for display/lookup.
+describe('Database F3 id-determinism: only deterministic ids are compaction-exposed', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    it('getCompactableAddressId queries the deterministic set and returns the id', async () => {
+        const dq = sinon.stub(db, 'doQuery').resolves([{ id: 42 }]);
+        const id = await db.getCompactableAddressId(cfg(), 'bc1qSrc');
+        expect(id).to.equal(42);
+        const [, queryStr, args] = dq.firstCall.args;
+        expect(queryStr).to.include('block_index IS NOT NULL');
+        expect(args).to.deep.equal(['bc1qSrc']);
+    });
+
+    it('getCompactableAddressId returns null for a non-deterministic / unindexed address', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);   // no row with block_index IS NOT NULL
+        expect(await db.getCompactableAddressId(cfg(), 'bc1qOutOfBand')).to.equal(null);
+    });
+
+    it('getCompactableAddressId is NOT cached (a NULL-block id must never stick as compactable)', async () => {
+        const dq = sinon.stub(db, 'doQuery').resolves([{ id: 7 }]);
+        await db.getCompactableAddressId(cfg(), 'bc1qSrc');
+        await db.getCompactableAddressId(cfg(), 'bc1qSrc');
+        expect(dq.callCount).to.equal(2);   // re-queried, not served from a cache
+    });
+
+    it('getToken gates the SDK-facing tick_id on block_index in the SELECT', async () => {
+        const dq = sinon.stub(db, 'doQuery').resolves(mockResults.tokenRow());
+        await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        const [, queryStr] = dq.firstCall.args;
+        expect(queryStr).to.match(/CASE WHEN t2\.block_index IS NOT NULL THEN t1\.tick_id ELSE NULL END\) AS tick_id/);
+    });
+
+    it('getToken surfaces info.tick_id when the DB returns it (deterministic id)', async () => {
+        const row = Object.assign({}, mockResults.tokenRow()[0], { tick_id: 5 });
+        sinon.stub(db, 'doQuery').resolves([row]);
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        expect(data.info.tick_id).to.equal(5);
+    });
+
+    it('getToken surfaces info.tick_id === null when the DB gated it out (non-deterministic id)', async () => {
+        // The SELECT CASE returns NULL for a block_index-NULL ticker; model that gated output.
+        const row = Object.assign({}, mockResults.tokenRow()[0], { tick_id: null });
+        sinon.stub(db, 'doQuery').resolves([row]);
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        expect(data.info.tick_id).to.equal(null);
     });
 });

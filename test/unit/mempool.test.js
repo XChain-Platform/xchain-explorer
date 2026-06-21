@@ -52,14 +52,18 @@ describe('decoder mempool surface', () => {
             expect(db.doQuery.called).to.equal(false);
         });
 
-        it('queries the decoder DB with joins and clamps the limit', async () => {
+        it('queries the decoder mempool raw-string columns and clamps the limit', async () => {
             const db = mkDb([SEND_ROW]);
             const rows = await db.getDecoderMempoolRows({ coin: 'RBTC' }, 9999);
             expect(rows).to.deep.equal([SEND_ROW]);
             const sql = db.doQuery.firstCall.args[1];
+            // The mempool surface reads the raw-string columns straight from
+            // mempool_transactions; the index_* FK-id joins were dropped when
+            // those columns went away (see "read raw-string columns" fix).
             expect(sql).to.include('`XChain_BTC_Decoder`.mempool_transactions');
-            expect(sql).to.include('index_transactions');
-            expect(sql).to.include('index_addresses');
+            expect(sql).to.include('m.tx_hash');
+            expect(sql).to.include('m.source');
+            expect(sql).to.include('m.data');
             expect(sql).to.include('LIMIT 500');
         });
 

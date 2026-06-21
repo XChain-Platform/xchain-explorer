@@ -7607,10 +7607,14 @@ class Database {
     // The signed checkpoint at the nearest checkpointed height >= `height` (or the
     // latest when height is null), resolving MAX(checkpoint_seq) per height. Carries
     // the Phase 2 committed roots so a client can bind a proof to the signed state_root.
+    // With a height: the nearest signed checkpoint at or above it (ASC). With a null
+    // height (a "latest" balance-proof query): the freshest signed checkpoint (DESC),
+    // not the oldest, so a no-height query binds to current state rather than genesis.
     async getCheckpointAtOrAbove(config, height) {
         let src = this._checkpointSource(config);
         let scFilter   = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
         let heightInner = (height != null) ? ' AND block_index >= ?' : '';
+        let order       = (height != null) ? 'ASC' : 'DESC';
         let q = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
                         sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.state_root, sc.state_root_version,
                         sc.block_merkle_root, sc.block_merkle_version, sc.validator_signatures
@@ -7619,7 +7623,7 @@ class Database {
                        WHERE 1=1${src.filter}${heightInner} GROUP BY block_index) t
                    ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
                  WHERE 1=1${scFilter}
-                 ORDER BY sc.block_index ASC LIMIT 1`;
+                 ORDER BY sc.block_index ${order} LIMIT 1`;
         let params = (height != null)
             ? [...src.filterParams, Number(height), ...src.filterParams]
             : [...src.filterParams, ...src.filterParams];

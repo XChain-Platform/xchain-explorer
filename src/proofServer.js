@@ -34,7 +34,12 @@ const M = require('./merkle.js');
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
 
 class ProofServer {
-    constructor(db) { this.db = db; }
+    constructor(db) {
+        this.db = db;
+        // Advisory staleness bound (blocks) used to flag a proof's checkpoint as `stale`.
+        // The raw chain_tip + lag are always returned; this only sets the convenience flag.
+        this.staleLagBlocks = Number(process.env.SPV_CHECKPOINT_MAX_LAG_BLOCKS) || 100;
+    }
 
     // Descend a key's path through the persistent node store as-of `rootHex`,
     // collecting the 256 siblings (top-down). Mirrors PersistentSMT._descend.
@@ -70,10 +75,10 @@ class ProofServer {
 
     // Shape a checkpoint row for the response: keep the signed fields + parse the
     // validator_signatures JSON so a client can re-verify quorum locally.
-    _shapeCheckpoint(cp) {
+    _shapeCheckpoint(cp, chainTip) {
         let sigs = [];
         try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch (e) { sigs = []; }
-        return {
+        let shaped = {
             chain: cp.chain, network: cp.network, block_index: Number(cp.block_index),
             block_hash: cp.block_hash, ledger_hash: cp.ledger_hash, actions_hash: cp.actions_hash,
             contract_hash: cp.contract_hash, checkpoint_seq: Number(cp.checkpoint_seq),
@@ -82,6 +87,18 @@ class ProofServer {
             block_merkle_root: cp.block_merkle_root, block_merkle_version: cp.block_merkle_version,
             validator_signatures: sigs
         };
+        // Advisory freshness: how far this signed checkpoint trails the indexer's chain
+        // tip. SPV clients must still verify freshness against their own header chain (a
+        // server cannot be trusted to report its own staleness); chain_tip + lag are
+        // diagnostic and `stale` is a convenience flag past SPV_CHECKPOINT_MAX_LAG_BLOCKS.
+        if (chainTip != null && Number.isFinite(Number(chainTip))) {
+            let tip = Number(chainTip);
+            let lag = Math.max(0, tip - Number(cp.block_index));
+            shaped.chain_tip = tip;
+            shaped.lag       = lag;
+            shaped.stale     = lag > this.staleLagBlocks;
+        }
+        return shaped;
     }
 
     // Bind a per-block sub-root set to the signed checkpoint: the indexer's
@@ -113,6 +130,7 @@ class ProofServer {
         const amount = (smt.leaf_value == null)
             ? M.canonicalAmount('0')
             : M.canonicalAmount(await this.db.getNetBalance18(config, address, tick));
+        const tip = await this.db.getMaxBlockIndex(config);
         return {
             proof: {
                 chain, network, height: Number(cp.block_index), address, tick, amount,
@@ -121,7 +139,7 @@ class ProofServer {
                 balances_root: tr.balances_root, stakes_root: tr.stakes_root,
                 state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version
             },
-            checkpoint: this._shapeCheckpoint(cp)
+            checkpoint: this._shapeCheckpoint(cp, tip)
         };
     }
 
@@ -177,7 +195,7 @@ class ProofServer {
                 merkle_proof: { index: mp.index, siblings: mp.siblings },
                 block_merkle_root: cp.block_merkle_root, block_merkle_version: cp.block_merkle_version
             },
-            checkpoint: this._shapeCheckpoint(cp)
+            checkpoint: this._shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
         };
     }
 
@@ -231,7 +249,7 @@ class ProofServer {
                 state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version,
                 capabilities: out
             },
-            checkpoint: this._shapeCheckpoint(cp)
+            checkpoint: this._shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
         };
     }
 

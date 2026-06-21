@@ -3800,3 +3800,28 @@ describe('Database#getCrossChainSettlements', () => {
         expect(query).to.include('b1.block_time as timestamp');
     });
 });
+
+describe('Database.getCheckpointAtOrAbove ordering (SPV latest-default)', () => {
+    let db;
+    beforeEach(() => {
+        db = makeDb();
+        sinon.stub(db, '_checkpointSource').returns({ table: 'state_checkpoints', filter: '', filterParams: [] });
+    });
+    afterEach(() => sinon.restore());
+
+    it('orders DESC (latest checkpoint) when height is null', async () => {
+        let captured;
+        sinon.stub(db, 'doQuery').callsFake(async (config, q) => { captured = q; return []; });
+        await db.getCheckpointAtOrAbove(cfg(), null);
+        expect(captured).to.match(/ORDER BY sc\.block_index DESC LIMIT 1/);
+        expect(captured).to.not.match(/block_index >= \?/);
+    });
+
+    it('orders ASC (nearest at or above) when a height is given', async () => {
+        let captured;
+        sinon.stub(db, 'doQuery').callsFake(async (config, q) => { captured = q; return []; });
+        await db.getCheckpointAtOrAbove(cfg(), 500);
+        expect(captured).to.match(/ORDER BY sc\.block_index ASC LIMIT 1/);
+        expect(captured).to.match(/block_index >= \?/);
+    });
+});

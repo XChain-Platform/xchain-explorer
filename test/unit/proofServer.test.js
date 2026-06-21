@@ -89,7 +89,8 @@ function makeServer(amountA) {
             return { balances_root: balancesRoot, stakes_root: stakesRoot, state_root: stateRoot, block_merkle_root: 'e5'.repeat(32) };
         },
         async getStateNode(config, nodeHash) { return built.nodes.get(nodeHash) || null; },
-        async getNetBalance18(config, address) { return (address === ADDR_A) ? (amountA + '.000000000000000000') : '0'; }
+        async getNetBalance18(config, address) { return (address === ADDR_A) ? (amountA + '.000000000000000000') : '0'; },
+        async getMaxBlockIndex() { return 100; }    // chain tip == checkpoint height (lag 0)
     };
     return { server: new ProofServer(db), balancesRoot, stakesRoot, stateRoot };
 }
@@ -143,6 +144,35 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
         const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, 100);
         assert.strictEqual(r.error, 'CHECKPOINT_PRE_COMMITMENT');
     });
+
+    it('attaches advisory freshness (chain_tip / lag / stale) to the checkpoint', async function () {
+        const { server } = makeServer('5');
+        const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, 100);
+        assert.ok(!r.error);
+        assert.strictEqual(r.checkpoint.chain_tip, 100);    // mock tip == checkpoint height
+        assert.strictEqual(r.checkpoint.lag, 0);
+        assert.strictEqual(r.checkpoint.stale, false);
+    });
+
+    it('flags the checkpoint stale when it trails the chain tip past the bound', async function () {
+        const { server } = makeServer('5');
+        server.staleLagBlocks = 100;
+        server.db.getMaxBlockIndex = async () => 100000;    // checkpoint at 100, tip far ahead
+        const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, 100);
+        assert.ok(!r.error);
+        assert.strictEqual(r.checkpoint.chain_tip, 100000);
+        assert.strictEqual(r.checkpoint.lag, 99900);
+        assert.strictEqual(r.checkpoint.stale, true);
+    });
+
+    it('forwards a null height so the db binds to the latest checkpoint', async function () {
+        const { server } = makeServer('5');
+        let seenHeight = 'unset';
+        const orig = server.db.getCheckpointAtOrAbove.bind(server.db);
+        server.db.getCheckpointAtOrAbove = async (config, height) => { seenHeight = height; return orig(config, height); };
+        await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, null);
+        assert.strictEqual(seenHeight, null, 'a null height must reach getCheckpointAtOrAbove (latest binding)');
+    });
 });
 
 describe('SPV Phase 3: ProofServer.actionProof round-trip', function () {
@@ -183,7 +213,8 @@ describe('SPV Phase 3: ProofServer.actionProof round-trip', function () {
             async getStateTreeRow() {
                 return { balances_root: EMPTY_ROOT, stakes_root: EMPTY_ROOT, state_root: 'd4'.repeat(32), block_merkle_root: BLOCK_MERKLE };
             },
-            async getBlockLeafRows() { return blockRows; }
+            async getBlockLeafRows() { return blockRows; },
+            async getMaxBlockIndex() { return BLOCK; }
         };
         return new ProofServer(db);
     }
@@ -265,7 +296,8 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
                     block_merkle_root: 'e5'.repeat(32), block_merkle_version: 1, validator_signatures: '[]' };
             },
             async getStateTreeRow() { return { balances_root: balancesRoot, stakes_root: stakesRoot, state_root: stateRoot, block_merkle_root: 'e5'.repeat(32) }; },
-            async getStateNode(config, h) { return built.nodes.get(h) || null; }
+            async getStateNode(config, h) { return built.nodes.get(h) || null; },
+            async getMaxBlockIndex() { return S; }
         };
         const indexerConn = { async stakeWeights(cap) { return (cap === CAP) ? { capability: cap, validators: VALS } : { error: 'capability not configured' }; } };
         return { server: new ProofServer(db), stakesRoot, stateRoot, indexerConn };

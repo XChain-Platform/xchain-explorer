@@ -78,6 +78,11 @@ class XChainHubConnector {
         // (initial / post-restart / old hub) requests the full tree.
         this.configs       = null;
         this.lastWatermark = 0;
+        // Endpoint index the cursor was obtained from. A wall-clock since_updated_at
+        // cursor is only valid against the hub that produced it (each hub stamps
+        // updated_at = NOW() at its own apply time of a PBFT-committed config), so on
+        // failover to a different endpoint the cursor must be reset and re-fetched full.
+        this._watermarkEndpointIdx = null;
     }
 
     // Internal: call a JSON-RPC method, trying each endpoint starting from the
@@ -142,6 +147,8 @@ class XChainHubConnector {
     }
 
     async getAllConfig(){
+        let cursorEndpoint = this._watermarkEndpointIdx;
+        let sentCursor     = this.lastWatermark;
         let result = await this._call({
             jsonrpc: '2.0',
             method:  'getallconfigs',
@@ -153,16 +160,37 @@ class XChainHubConnector {
         // _call returns null when every endpoint failed after retries; preserve
         // that signal so config.js can fall back to its last-known-good cache.
         if(result === null) return null;
+
+        // If _call failed over to a different endpoint than the one our cursor came
+        // from, the wall-clock cursor is stale against the new hub (each hub stamps
+        // updated_at = NOW() at its own apply time), so the delta may have skipped rows.
+        // Discard it and re-fetch the full tree from the new endpoint with a reset cursor.
+        // Skip when the first result is a degraded body (handled just below).
+        let degraded = (r) => r && typeof r === 'object' && r.status === 'degraded';
+        if(sentCursor > 0 && this._lastGoodIdx !== cursorEndpoint && !degraded(result)){
+            this.lastWatermark = 0;
+            this.configs       = null;
+            result = await this._call({
+                jsonrpc: '2.0',
+                method:  'getallconfigs',
+                params:  { since_updated_at: 0 },
+                id:      1
+            });
+            if(result === null) return null;
+        }
+
         // A reachable-but-degraded hub can't serve config (its DB is down) and
         // returns a {status:"degraded"} body. Treat it like an unreachable hub
         // for config purposes: return null so config.js falls back to its
         // last-known-good cache, but log the accurate cause so the operator
         // sees "degraded" rather than a misleading "unreachable".
-        if(result && typeof result === 'object' && result.status === 'degraded'){
+        if(degraded(result)){
             console.warn('Hub reachable but DB degraded; cannot fetch config. Falling back to cached config.');
             return null;
         }
         this.configs = this._applyConfigResult(result);
+        // Bind the (possibly advanced) cursor to the endpoint that answered.
+        this._watermarkEndpointIdx = this._lastGoodIdx;
         return this.configs;
     }
 

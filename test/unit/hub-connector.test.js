@@ -411,6 +411,38 @@ describe('XChainHubConnector', function () {
             expect(out.BTC.mainnet.oracle).to.deep.equal({ x: '9' });        // new module folded in
             expect(out.BTC.regtest.m).to.deep.equal({ p: '3' });             // new network folded in
         });
+
+        it('resets the cursor and re-fetches full when it fails over to a different endpoint', async function () {
+            // A wall-clock cursor from hub A is not valid against hub B (each stamps
+            // updated_at at its own apply time), so on failover the connector must discard
+            // the stale-cursor delta and re-fetch the full tree from the new endpoint.
+            const axiosStub = makeAxiosStub();
+            // Poll 1: endpoint A serves a full tree and advances the cursor to 1000.
+            axiosStub.post.withArgs('http://a:1').onFirstCall().resolves({ data: { result: {
+                configs: { BTC: { mainnet: { 'xchain-indexer': { name: 'a' } } } }, seq: 1, watermark: 1000
+            } } });
+            // Poll 2: endpoint A is down; endpoint B serves a different full tree (wm 2000).
+            axiosStub.post.withArgs('http://a:1').onSecondCall().rejects({ code: 'ECONNREFUSED' });
+            axiosStub.post.withArgs('http://b:2').resolves({ data: { result: {
+                configs: { LTC: { testnet: { 'xchain-indexer': { name: 'b' } } } }, seq: 2, watermark: 2000
+            } } });
+            const Connector = loadConnector(axiosStub);
+            let c = new Connector(['http://a:1', 'http://b:2']);
+
+            await c.getAllConfig();
+            expect(c.lastWatermark).to.equal(1000);
+            expect(c._watermarkEndpointIdx).to.equal(0);
+
+            let second = await c.getAllConfig();
+            let resetCall = axiosStub.post.getCalls().find(call =>
+                call.args[0] === 'http://b:2' && call.args[1].params.since_updated_at === 0);
+            expect(resetCall, 'expected a since_updated_at=0 re-fetch against the new endpoint').to.exist;
+            // Full replace from B: A's cached branch is gone (not cross-hub merged).
+            expect(second.LTC.testnet['xchain-indexer']).to.exist;
+            expect(second.BTC).to.be.undefined;
+            expect(c.lastWatermark).to.equal(2000);
+            expect(c._watermarkEndpointIdx).to.equal(1);
+        });
     });
 
 });

@@ -5883,6 +5883,10 @@ class Database {
             }
             // ANCHOR action (DOGE-only; v0 = checkpoint, v1 = checkpoint+archive, v2 = continuation chunk).
             // archive_b64 is intentionally omitted (large; only the recovery assembler needs it).
+            // The four SPV root columns (state_root, state_root_version, block_merkle_root,
+            // block_merkle_version) are NULL for v0/v1/v2 and populated for v3 once the
+            // CHECKPOINT_COMMITMENT flag-day activates; included here so the detail view
+            // matches the getAnchors() list and checkpoint-reader surfaces.
             if(type=='ANCHOR'){
                 query = `SELECT
                             a2.action,
@@ -5903,6 +5907,10 @@ class Database {
                             m.batch_crc32,
                             m.total_chunks,
                             m.chunk_index,
+                            m.state_root,
+                            m.state_root_version,
+                            m.block_merkle_root,
+                            m.block_merkle_version,
                             m.validator_signatures,
                             m.block_index_doge,
                             b1.block_time as timestamp,

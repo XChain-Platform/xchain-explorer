@@ -1172,7 +1172,13 @@ describe('Database#getBalances', () => {
 describe('Database#getHolders', () => {
     const HOLDERS_WHERE = 'm.address_id IS NOT NULL';
     let result;
+    let originalDoQuery;
     before(async () => {
+        // The token-type tick-exists guard runs a doQuery before building the
+        // holders query; stub it to a non-empty result so we reach the query
+        // shape this suite asserts on (no live DB connection in unit tests).
+        originalDoQuery = db.doQuery;
+        db.doQuery = async () => [{ id: 1 }];
         const config = makeActionConfig('getHolders', 'token', {
             sql: {
                 order: 'DESC',
@@ -1185,6 +1191,7 @@ describe('Database#getHolders', () => {
         });
         result = await db.getHolders(config);
     });
+    after(() => { db.doQuery = originalDoQuery; });
 
     it('returns a 3-element array', () => {
         expect(result).to.be.an('array').with.lengthOf(3);

@@ -3910,7 +3910,10 @@ function updateMarketHistory(market, page=1, full=false, count=0){
                 close  = item[1];
                 if(item[1]>high) high = item[1];
                 if(item[1]<low)  low  = item[1];
-                vol = parseFloat(vol) + parseFloat(item[2]);
+                // Accumulate volume via bignumber to avoid IEEE-754 drift on
+                // high-precision token amounts and overflow past MAX_SAFE_INTEGER
+                // for large-supply 0-decimal tokens.
+                vol = bcadd(vol, item[2]);
             } else {
                 // Add data to the arrays
                 if(tstamp){

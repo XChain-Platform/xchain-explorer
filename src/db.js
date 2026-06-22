@@ -3579,6 +3579,18 @@ class Database {
 
     async getHolders(config){
         let sql   = config.data.sql;
+        // Guard: for a token-type query, verify the tick exists before joining
+        // against the full balances table. Without this check, a nonexistent
+        // tick produces a WHERE t3.tick=? that forces a full balances scan (the
+        // LEFT JOIN does not short-circuit) which was reported as a DoS-shaped
+        // hang; returning [] immediately avoids the scan.
+        if(config.data.type === 'token'){
+            let tickCheck = await this.doQuery(config,
+                `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`,
+                [config.data.search]);
+            if(!tickCheck || tickCheck.length === 0)
+                return [[], null, 0];
+        }
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -3812,9 +3824,16 @@ class Database {
             }
             try {
                 let h = await new DecoderConnector(url).health();
-                data.chain_tip[code]        = (h && h.chainTipBlock != null) ? h.chainTipBlock : null;
-                data.chain_lag_blocks[code] = (h && h.blockLag != null) ? Math.max(0, h.blockLag) : null;
-                data.decoder_health[code]   = (h && h.status) ? h.status : 'unreachable';
+                // node_height_stale is set by the decoder when its coin-node RPC
+                // has not refreshed for 2x the normal poll interval, meaning the
+                // cached tip is frozen. In that state chain_tip and chain_lag_blocks
+                // are misleading (lag reads as 0 while the chain may be advancing),
+                // so we null them out and override health to 'node-stale' to make
+                // the outage visible on the /status page.
+                let tipStale = h && (h.node_height_stale === true || h.synced === false);
+                data.chain_tip[code]        = (h && !tipStale && h.chainTipBlock != null) ? h.chainTipBlock : null;
+                data.chain_lag_blocks[code] = (h && !tipStale && h.blockLag != null) ? Math.max(0, h.blockLag) : null;
+                data.decoder_health[code]   = tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable');
             } catch(e){
                 data.decoder_health[code] = 'unreachable';
             }

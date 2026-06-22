@@ -255,13 +255,14 @@ describe('Boundary Integration: Balances and Holders limits', function () {
         expect(res.body.data).to.be.an('array').with.length.greaterThan(0);
     });
 
-    // BOUNDARY FINDING: getHolders for a nonexistent token hangs indefinitely.
-    // The query performs a full table scan of all balances with no tick filter
-    // because the tick ID lookup returns null, causing an unbounded query.
-    // This is a performance/DoS vulnerability documented in the boundary plan.
-    it.skip('getHolders for nonexistent token: KNOWN HANG (performance boundary)', async function () {
+    // Fix verified: getHolders now probes index_tickers before scanning balances,
+    // so an unknown tick short-circuits immediately with an empty result instead
+    // of performing a full balances table scan (the previous DoS-shaped hang).
+    it('getHolders for nonexistent token returns empty data quickly', async function () {
+        this.timeout(5000); // Must complete well under 5s; a hang would time out here
         const res = await request.get('/RBTC/api/holders/DOESNOTEXIST');
         expect(res.status).to.equal(200);
+        expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
 });
 

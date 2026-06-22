@@ -94,7 +94,7 @@ async function startApi(){
     const jsonRpcController = {
         // Function to check if xchain-explorer is up
         async ping() {
-            return { status: "success", slowRequests: XChainExplorer.getSlowRequests() };
+            return { status: "success", slowRequests: XChainExplorer.getSlowRequests(), ...XChainExplorer.getLatencyStats() };
         }
     }
 

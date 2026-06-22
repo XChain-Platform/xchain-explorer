@@ -34,6 +34,15 @@ const ProofServer      = require('./proofServer.js');
 
 let slowRequests = 0;
 
+// Lightweight rolling latency reservoir: last 256 request times (ms). The
+// window is a power-of-two so the modulo reduces to a bitmask on any engine
+// that optimises it. Capped at 256 to keep memory and sort cost negligible
+// even at high request rates; large enough for a meaningful p95 reading.
+const LATENCY_WINDOW = 256;
+const latencyBuf = new Array(LATENCY_WINDOW).fill(0);
+let latencyIdx   = 0;   // Next slot to write (circular)
+let requestCount = 0;   // Total requests ever served (never resets)
+
 class XChainExplorer {
 
     constructor(app, configInfo){
@@ -551,8 +560,10 @@ class XChainExplorer {
                 if(cfg.type=='api'){
                     json.total = total;
 
-                    // Hoist shared fields out of the data array to avoid repeating identical values per row
-                    if(cfg.data.method=='getHolders'){
+                    // Hoist shared fields out of the data array to avoid repeating identical values per row.
+                    // Guard against empty data (e.g. unknown tick): data[0] is undefined when
+                    // getHolders short-circuits for a nonexistent token.
+                    if(cfg.data.method=='getHolders' && data && data.length > 0){
                         let info = data[0];
                         json.tick       = info.tick;
                         json.supply     = info.supply;
@@ -653,6 +664,15 @@ class XChainExplorer {
             res.send(response.html);
         } else {
             res.send('response of last resort...');
+        }
+
+        if(!this.util.isNull(response.time)){
+            // Record this request's latency in the circular buffer so p95 and a
+            // total served count are available from ping(). The buffer size is
+            // fixed (LATENCY_WINDOW) so memory stays constant at steady state.
+            latencyBuf[latencyIdx % LATENCY_WINDOW] = response.time;
+            latencyIdx++;
+            requestCount++;
         }
 
         if(response.time > 400){
@@ -1409,6 +1429,19 @@ class XChainExplorer {
     }
 
     static getSlowRequests() { return slowRequests; }
+
+    // Return p95 latency (ms) and total requests served, derived from the
+    // rolling latency buffer. p95 is computed over whichever is smaller: the
+    // number of requests ever served or the buffer window, so it is meaningful
+    // from the very first request rather than waiting for a full window.
+    static getLatencyStats(){
+        let n = Math.min(requestCount, LATENCY_WINDOW);
+        if(n === 0) return { p95_ms: null, requests_served: 0 };
+        // Sort only the slice that has real data; copy so the buffer is untouched.
+        let slice = latencyBuf.slice(0, n).sort((a, b) => a - b);
+        let p95   = slice[Math.floor(n * 0.95)];
+        return { p95_ms: p95, requests_served: requestCount };
+    }
 }
 
 module.exports = XChainExplorer;

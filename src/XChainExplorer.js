@@ -401,7 +401,9 @@ class XChainExplorer {
         this.app.get('/:coin/api/proof/validator-set', (req, res) => { this.processValidatorSetProofRequest(req, res); });
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
 
-        this.app.get('*', (req, res) => { this.processRequest(req, res); });
+        // Catch-all. Express 5 / path-to-regexp v8 rejects a bare '*' at startup;
+        // '/*path' is the named-wildcard equivalent (matches '/' and any depth).
+        this.app.get('/*path', (req, res) => { this.processRequest(req, res); });
 
         return urls;
     }

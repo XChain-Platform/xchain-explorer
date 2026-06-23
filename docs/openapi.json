@@ -1729,6 +1729,50 @@
         }
       }
     },
+    "/{COIN}/api/order_matches": {
+      "get": {
+        "operationId": "order_matches",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order matches global feed (all fills)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/coinpays/{QUERY}/{TYPE}": {
       "get": {
         "operationId": "coinpays_query_type",
@@ -2359,6 +2403,50 @@
               ]
             },
             "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_matches": {
+      "get": {
+        "operationId": "swap_matches",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap matches global feed (all swap fills)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
           },
           {
             "$ref": "#/components/parameters/page"

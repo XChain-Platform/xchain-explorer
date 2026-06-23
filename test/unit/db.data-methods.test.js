@@ -396,12 +396,38 @@ describe('Database#getMempool', () => {
 
 describe('Database#getNetwork', () => {
     let db;
+
+    // Helper to set up a pool config so the information_schema branch runs.
+    function setupPool(dbObj, coin, dbName) {
+        dbObj.pools = dbObj.pools || {};
+        dbObj.pools[coin] = { config: { database: dbName }, pool: {} };
+    }
+
+    // Build a realistic information_schema rows response for all non-fnv tables.
+    function makeInfoSchemaRows(dbObj, count) {
+        const tables = [...dbObj.actionTables, 'tokens'].filter(t => t !== 'full_node_verifications');
+        return tables.map(t => ({ TABLE_NAME: t, TABLE_ROWS: count }));
+    }
+
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
+    // Shared stub factory: routes queries by content so order doesn't matter.
+    // - information_schema query -> TABLE_NAME/TABLE_ROWS rows
+    // - full_node_verifications COUNT(DISTINCT) -> [{ count: N }]
+    // - anything else (getMaxBlockIndex/getMaxBlockTime/etc.) -> [{ count: N }] or matching shape
+    function makeNetworkStub(dbObj, countVal) {
+        const infoRows = makeInfoSchemaRows(dbObj, countVal);
+        return (config, query) => {
+            if(typeof query === 'string' && query.includes('information_schema'))
+                return Promise.resolve(infoRows);
+            return Promise.resolve([{ count: countVal, max_index: countVal, block_time: countVal }]);
+        };
+    }
+
     it('returns object with totals, network, fee, coin, xchain, finality keys', async () => {
-        // Each table lookup returns [{ count: 5 }]
-        sinon.stub(db, 'doQuery').resolves([{ count: 5 }]);
+        setupPool(db, 'BTC', 'XChain_BTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 5));
 
         const config = cfg();
         const [data] = await db.getNetwork(config);
@@ -409,7 +435,8 @@ describe('Database#getNetwork', () => {
     });
 
     it('populates totals for every actionTable plus tokens', async () => {
-        sinon.stub(db, 'doQuery').resolves([{ count: 3 }]);
+        setupPool(db, 'BTC', 'XChain_BTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 3));
 
         const config  = cfg();
         const [data]  = await db.getNetwork(config);
@@ -420,7 +447,8 @@ describe('Database#getNetwork', () => {
     });
 
     it('sets totals to the count values returned by doQuery', async () => {
-        sinon.stub(db, 'doQuery').resolves([{ count: 7 }]);
+        setupPool(db, 'BTC', 'XChain_BTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 7));
 
         const config = cfg();
         const [data] = await db.getNetwork(config);
@@ -430,6 +458,8 @@ describe('Database#getNetwork', () => {
     });
 
     it('skips a table count when doQuery returns false for it', async () => {
+        // Without a pool config, dbName is null so information_schema is skipped.
+        // The full_node_verifications exact count also returns false, so totals stays empty.
         sinon.stub(db, 'doQuery').resolves(false);
 
         const config = cfg();
@@ -439,7 +469,8 @@ describe('Database#getNetwork', () => {
     });
 
     it('reports the real indexer tip + last-block time as network.block/time', async () => {
-        sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
+        setupPool(db, 'BTC', 'XChain_BTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 1));
         sinon.stub(db, 'getMaxBlockIndex').resolves(800000);
         sinon.stub(db, 'getMaxBlockTime').resolves(1700000000);
 
@@ -452,7 +483,8 @@ describe('Database#getNetwork', () => {
     });
 
     it('resolves coin name + symbol from the per-coin chain config', async () => {
-        sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
+        setupPool(db, 'BTC', 'XChain_BTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 1));
         sinon.stub(db, 'getMaxBlockIndex').resolves(0);
         sinon.stub(db, 'getMaxBlockTime').resolves(0);
 
@@ -462,7 +494,8 @@ describe('Database#getNetwork', () => {
     });
 
     it('does not hardcode Bitcoin: a coin absent from config falls back to its own code', async () => {
-        sinon.stub(db, 'doQuery').resolves([{ count: 1 }]);
+        setupPool(db, 'LTC', 'XChain_LTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 1));
         sinon.stub(db, 'getMaxBlockIndex').resolves(0);
         sinon.stub(db, 'getMaxBlockTime').resolves(0);
 

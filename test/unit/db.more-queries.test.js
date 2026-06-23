@@ -377,7 +377,9 @@ describe('Database#getMarketOrders', () => {
             if(callN === 2) return [{ action_index: 1 }];
             return [];
         });
-        sinon.stub(db, 'getOrderInfo').resolves(mockOrderInfo);
+        // getMarketOrders now uses getOrderInfoBatch (one round-trip) instead of
+        // per-row getOrderInfo calls.
+        sinon.stub(db, 'getOrderInfoBatch').resolves({ 1: mockOrderInfo });
         const config = makeActionConfig('getMarketOrders', null);
         config.data.search2 = 'BTC';
         config.data.search3 = null;

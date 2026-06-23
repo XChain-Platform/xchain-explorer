@@ -3122,8 +3122,12 @@ class Database {
                         LIMIT ` + sql.limit;
             let results = await this.doQuery(config, query, args);
             if(results.length > 0){
+                // Batch-fetch all order info in one round-trip instead of N+1 queries.
+                let action_indexes = results.map(r => Number(r.action_index));
+                let orderMap = await this.getOrderInfoBatch(config, action_indexes);
                 for(let info of results){
-                    let order   = await this.getOrderInfo(config, info.action_index);
+                    let order = orderMap[Number(info.action_index)];
+                    if(!order) continue;
                     let reverse = (order.give_tick==tick2) ? true : false;
                     data.push({
                         type         : (reverse) ? 'buy' : 'sell',
@@ -3137,7 +3141,7 @@ class Database {
             }
         }
         return [data, null, total];
-    } 
+    }
 
     async getMarketHistory(config){
         let data    = [];
@@ -3722,17 +3726,29 @@ class Database {
         };
         let tables = structuredClone(this.actionTables);
         tables.push('tokens');
-        for(let table of tables){
-            // full_node_verifications stores one row per validator pubkey per NODEPROOF
-            // verdict (fan-out); COUNT(*) over-counts by validator set size. Use
-            // COUNT(DISTINCT action_index) to report verdict count instead.
-            let count = (table === 'full_node_verifications')
-                ? `SELECT count(DISTINCT action_index) as count FROM ` + table
-                : `SELECT count(*) as count FROM ` + table;
-            let results = await this.doQuery(config, count);
-            if(results && results.length)
-                data.totals[table] = results[0].count;
+        // One information_schema.TABLES read for approximate row counts on all
+        // tables except full_node_verifications (which fans out per validator and
+        // needs an exact COUNT(DISTINCT action_index) to avoid over-counting).
+        // information_schema.TABLE_ROWS is an optimizer estimate but is fast,
+        // O(1), and accurate enough for the homepage counters.
+        let approxTables = tables.filter(t => t !== 'full_node_verifications');
+        let dbName = this.pools && this.pools[config.coin] && this.pools[config.coin].config
+            ? this.pools[config.coin].config.database
+            : null;
+        if(dbName){
+            let placeholders = approxTables.map(() => '?').join(',');
+            let infoQuery = `SELECT TABLE_NAME, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (` + placeholders + `)`;
+            let infoResults = await this.doQuery(config, infoQuery, [dbName, ...approxTables]);
+            if(infoResults && infoResults.length){
+                for(let row of infoResults)
+                    data.totals[row.TABLE_NAME] = row.TABLE_ROWS;
+            }
         }
+        // Exact count for full_node_verifications (fan-out table; COUNT(*) inflates
+        // the number by validator-set size per verdict row).
+        let fnvResult = await this.doQuery(config, `SELECT count(DISTINCT action_index) as count FROM full_node_verifications`);
+        if(fnvResult && fnvResult.length)
+            data.totals['full_node_verifications'] = fnvResult[0].count;
         return [data];
     }
 
@@ -3830,7 +3846,7 @@ class Database {
                 // are misleading (lag reads as 0 while the chain may be advancing),
                 // so we null them out and override health to 'node-stale' to make
                 // the outage visible on the /status page.
-                let tipStale = h && (h.node_height_stale === true || h.synced === false);
+                let tipStale = h && h.node_height_stale === true;
                 data.chain_tip[code]        = (h && !tipStale && h.chainTipBlock != null) ? h.chainTipBlock : null;
                 data.chain_lag_blocks[code] = (h && !tipStale && h.blockLag != null) ? Math.max(0, h.blockLag) : null;
                 data.decoder_health[code]   = tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable');

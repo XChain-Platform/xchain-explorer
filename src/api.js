@@ -91,10 +91,33 @@ async function startApi(){
     // Trust only the first proxy hop (prevents X-Forwarded-For spoofing)
     app.set('trust proxy', 1);
 
+    // Declared here so the ping closure can reference it after explorer is created.
+    let explorer = null;
+
+    const DB_PROBE_TIMEOUT_MS = 2000;
+
     const jsonRpcController = {
-        // Function to check if xchain-explorer is up
-        async ping() {
-            return { status: "success", slowRequests: XChainExplorer.getSlowRequests(), ...XChainExplorer.getLatencyStats() };
+        // Checks that the explorer is up and can reach at least one DB pool.
+        // Returns status:"degraded" + 503 when all pool probes time out or fail.
+        async ping(params, {res}) {
+            const base = { slowRequests: XChainExplorer.getSlowRequests(), ...XChainExplorer.getLatencyStats() };
+            // Try a SELECT 1 against the first available DB pool. This catches the
+            // case where the process is up but MariaDB is unreachable.
+            try {
+                const db    = explorer && explorer.db;
+                const pools = db && db.pools ? db.pools : {};
+                const coin  = Object.keys(pools)[0];
+                if(coin){
+                    await Promise.race([
+                        db.doQuery({ coin, data: {} }, 'SELECT 1', []),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), DB_PROBE_TIMEOUT_MS))
+                    ]);
+                }
+                return { status: 'success', db: true, ...base };
+            } catch(err) {
+                res.status(503);
+                return { status: 'degraded', db: false, ...base };
+            }
         }
     }
 
@@ -112,7 +135,7 @@ async function startApi(){
         });
     }
 
-    const explorer = new XChainExplorer(app, configInfo);
+    explorer = new XChainExplorer(app, configInfo);
     await explorer.init()
 
     // Schedule periodic refresh so new coin/network entries published by

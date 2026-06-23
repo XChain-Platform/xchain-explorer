@@ -199,8 +199,8 @@ class WebSocketServer {
                 latest_block_index:   latestBlockIndex,
                 latest_action_index:  latestActionIndex,
                 limits: {
-                    max_subscriptions:      25,
-                    max_message_rate:       10,
+                    max_subscriptions:      this.channelManager.maxSubscriptions,
+                    max_message_rate:       this.maxMsgPerSec,
                     max_message_size:       this.maxMessageSize,
                     max_connections_per_ip: this.maxPerIp
                 },
@@ -214,7 +214,8 @@ class WebSocketServer {
                     'ISSUE', 'MINT', 'DESTROY',
                     'BROADCAST', 'CALLBACK', 'FILE', 'MESSAGE', 'LIST', 'LINK', 'SLEEP',
                     'DEPLOY', 'EXECUTE', 'DEPOSIT', 'WITHDRAW',
-                    'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST'
+                    'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST',
+                    'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF'
                 ],
                 features: ['snapshot', 'once', 'fields', 'statuses', 'ticks', 'batch', 'catch_up']
             }

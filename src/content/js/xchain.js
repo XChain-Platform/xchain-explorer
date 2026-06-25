@@ -1783,6 +1783,16 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
+            // Raw stake list (all STAKE actions, any status; getStakes shaper, action_index last)
+            if(action=='stake'){
+                let pubkey  = data[4];
+                let version = data[5];
+                amount      = data[6];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).text('v' + version);
+                $('td', row).eq(6).html(formatAmount(amount));
+                $('td', row).eq(7).html(action_link);
+            }
             // Contract-targeted stake (STAKE v3)
             if(action=='contract_stake'){
                 let pubkey         = data[4];

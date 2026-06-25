@@ -139,6 +139,7 @@ class XChainExplorer {
                 '/{COIN}/deposits'            : 'deposits.html',
                 '/{COIN}/withdrawals'         : 'withdrawals.html',
                 '/{COIN}/validators'          : 'validators.html',
+                '/{COIN}/stakes'              : 'stakes.html',
                 '/{COIN}/contract_stakes'     : 'contract_stakes.html',
                 '/{COIN}/prices'              : 'prices.html',
                 '/{COIN}/controllers'         : 'controllers.html',
@@ -950,8 +951,12 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.contract_index, info.caller, info.method_name, info.gas_used, status, info.action_index];
                     if(['getDeposits','getWithdrawals'].includes(method))
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.contract_index, info.tick, info.amount, status, info.action_index];
-                    // Capability staking list pages
-                    if(['getStakes','getValidators'].includes(method))
+                    // Capability staking list pages. The raw stakes page keeps action_index LAST
+                    // (paging cursor); validators carry activation/deactivation tails for the active-set
+                    // view (small set, single page) and are shaped separately.
+                    if(method=='getStakes')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index];
+                    if(method=='getValidators')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index, info.activation_block, info.deactivation_block];
                     if(method=='getDelegations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, status, info.action_index];

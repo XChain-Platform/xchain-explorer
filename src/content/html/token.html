@@ -42,18 +42,14 @@
                         <th>Owner</th>
                         <td id="owner"></td>
                     </tr>
-                    <tr id="collection-items-row" class="d-none">
-                        <th>Collection&nbsp;Items</th>
-                        <td id="collection-items"></td>
-                    </tr>
                     <tr id="registry-row" class="d-none">
                         <th>Official&nbsp;Tokens</th>
                         <td id="registry-info"></td>
                     </tr>
                     </tbody>
                     </table>
-                    <!-- Project-registry membership banner (protocol/Project_Registry.md)
-                         — shown when this token appears on a project's current
+                    <!-- Project-registry membership banner (protocol/Project_Registry.md).
+                         Shown when this token appears on a project's current
                          owner-attested roster. Always names the attesting project. -->
                     <div id="project-banners" class="d-none p-2 pb-1"></div>
                 </div>
@@ -112,7 +108,7 @@
     </div>
 </div>
 
-<!-- Controller Bindings (protocol/Controller_Bound_Tokens.md) — guard contracts
+<!-- Controller Bindings (protocol/Controller_Bound_Tokens.md): guard contracts
      that gate this token's native actions. Hidden until at least one binding is
      still gating at the chain tip. -->
 <div class="container mt-3" id="token-controllers-card" style="display:none;">
@@ -847,7 +843,7 @@
                     </table>
                 </div>
 
-                <!-- Official Tokens (project roster — protocol/Project_Registry.md) -->
+                <!-- Official Tokens (project roster, protocol/Project_Registry.md) -->
                 <div class="tab-pane fade table-responsive" id="tab-pane-project" role="tabpanel" aria-labelledby="tab-project" tabindex="0">
                     <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-project">
                     <thead>
@@ -965,7 +961,7 @@
                 // Update the page with SEO friendly info
                 tick = (!isNull(o.info) && !isNull(o.info.tick)) ? o.info.tick : XC.query;
                 XC.pageInfo.title       = tick + ' Token Information';
-                XC.pageInfo.description = 'Learn about the ' + tick + ' token on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays XChain Platform information for the ' + tick + ' token including airdrops, callbacks, destroys, dispensers, dispenses, dividends, files, history, issues, links, lists, mints, orders, sends, sleeps, swaps and additional information on this token including artwork like images, audio, video, and custom content associated with this token';
+                XC.pageInfo.description = 'Learn about the ' + tick + ' token on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform information for the ' + tick + ' token including airdrops, callbacks, destroys, dispensers, dispenses, dividends, files, history, issues, links, lists, mints, orders, sends, sleeps, swaps and additional information on this token including artwork like images, audio, video, and custom content associated with this token';
                 XC.pageInfo.canonical   = '/' + XC.coin + '/token/' + tick
                 updatePageInfo();
             } 
@@ -991,20 +987,6 @@
 
         // Setup listeners to load data panel when an action button is clicked
         setupActionListeners();
-
-        // Detect collection parents (tokens with PARENT.* children — see
-        // protocol/NFT_Standard.md#collections) and surface an item count
-        // with a shortcut to the Subtokens tab (the collection view)
-        $.getJSON('/' + XC.coin + '/explorer/tokens/' + XC.query + '/subtoken?start=0&length=1', function(o){
-            if(o && o.recordsTotal > 0){
-                $('#collection-items').html('<a href="#" id="collection-items-link">' + numeral(o.recordsTotal).format('0,0') + ' item' + (o.recordsTotal==1 ? '' : 's') + '</a>');
-                $('#collection-items-row').removeClass('d-none');
-                $('#collection-items-link').click(function(e){
-                    e.preventDefault();
-                    $('#tab-dropdown-token').click();
-                });
-            }
-        });
 
         // Activate the first tab by faking a click
         $('#tab-dropdown-info').click();

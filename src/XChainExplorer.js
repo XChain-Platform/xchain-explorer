@@ -556,7 +556,19 @@ class XChainExplorer {
         }
 
         if(!this.util.isNull(cfg.data.method) && validDataRequest){
-            [data, total] = await this.db.getData(cfg);
+            // Short token/subtoken search terms force a leading-% LIKE filesort over the
+            // whole tokens table (no B-tree path) on every unauthenticated request. Return
+            // an empty result before touching the DB, mirroring getSearch's SEARCH_MIN_LENGTH
+            // guard. nft type is excluded: it uses a fixed predicate with no search term.
+            const TOKEN_SEARCH_MIN_LENGTH = 3;
+            if(cfg.data.method === 'getTokens' &&
+               ['token','subtoken'].includes(cfg.data.type) &&
+               String(cfg.data.search || '').trim().length < TOKEN_SEARCH_MIN_LENGTH){
+                data  = [];
+                total = 0;
+            } else {
+                [data, total] = await this.db.getData(cfg);
+            }
 
             let json = {};
 

@@ -225,6 +225,46 @@ describe('XChainExplorer.processRequest – routing', function () {
     });
 
     // -----------------------------------------------------------------------
+    // 3b. List-all explorer requests (home-page tabs, no QUERY/TYPE)
+    // -----------------------------------------------------------------------
+
+    describe('list-all explorer matching (3-segment, no query/type)', function () {
+
+        // Regression: the home-page tabs request /{COIN}/explorer/{action} with no
+        // QUERY/TYPE, so the path is 3 segments while the route declares 5. The
+        // parts.length==urlPath.length gate (added to stop shadowing) rejected that
+        // pairing, 404ing the request and surfacing a DataTables "Ajax error".
+        it('/BTC/explorer/tokens → method=getTokens, no search type', async function () {
+            const { cfg } = await request(explorer, '/BTC/explorer/tokens');
+            expect(cfg).to.not.be.null;
+            expect(cfg.data.method).to.equal('getTokens');
+            expect(cfg.data.search).to.be.undefined;
+            expect(cfg.data.type).to.equal(false);
+        });
+
+        it('/BTC/explorer/sends → method=getSends (list-all)', async function () {
+            const { cfg } = await request(explorer, '/BTC/explorer/sends');
+            expect(cfg).to.not.be.null;
+            expect(cfg.data.method).to.equal('getSends');
+        });
+
+        it('/BTC/explorer/issues → method=getIssues (list-all)', async function () {
+            const { cfg } = await request(explorer, '/BTC/explorer/issues');
+            expect(cfg).to.not.be.null;
+            expect(cfg.data.method).to.equal('getIssues');
+        });
+
+        // The 3-segment allowance must stay narrow: a 3-segment path whose action
+        // does not name any route still falls through to the 404 branch.
+        it('/BTC/explorer/bogus → no method matched (404 path)', async function () {
+            const res = mockRes();
+            await explorer.processRequest(mockReq('/BTC/explorer/bogus'), res);
+            expect(res._status).to.equal(404);
+        });
+
+    });
+
+    // -----------------------------------------------------------------------
     // 4. Market routes
     // -----------------------------------------------------------------------
 

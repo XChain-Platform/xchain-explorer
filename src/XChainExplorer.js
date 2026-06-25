@@ -534,7 +534,20 @@ class XChainExplorer {
                     if(searchType || infoType=='undefined')
                         match = true;
                 }
-            }   
+            }
+
+            // List-all explorer requests (the home-page tabs) carry no QUERY/TYPE, so the
+            // request path is exactly 3 segments (/{COIN}/explorer/{ACTION}) while the route
+            // declares optional {QUERY}/{TYPE} placeholders and is longer. The length-equality
+            // gate above rejects that pairing, so match it here: action segment lines up and
+            // every remaining route segment is a placeholder. Limited to 3-segment paths, so it
+            // can't swallow a deeper route (the shadowing case the length check guards against).
+            if(!match && cfg.type=='explorer' && urlPath.length==3 &&
+                parts[1]==String(urlPath[1]).toLowerCase() &&
+                parts[2]==String(urlPath[2]).toLowerCase() &&
+                parts.slice(3).every(p => String(p).startsWith('{'))){
+                match = true;
+            }
 
             if(match){
                 if(cfg.type=='html')

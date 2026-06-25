@@ -45,7 +45,18 @@ async function startApi(){
 
     const app = express();
 
+    // HTTPS-only hardening: upgrade-insecure-requests + HSTS. These MUST NOT be sent when the
+    // explorer is reached over plain HTTP (local dev / regtest), or the browser rewrites every
+    // same-origin subresource (icons, assets) to https://<host>:<http-port>, which only speaks
+    // HTTP -> SSL protocol error -> broken images. Enable only when TLS-fronted: prod runs
+    // NODE_ENV=production behind Apache TLS. EXPLORER_FORCE_HTTPS=1/0 overrides explicitly.
+    const HTTPS_HARDENING = (process.env.EXPLORER_FORCE_HTTPS != null)
+        ? ['1','true','yes','on'].includes(String(process.env.EXPLORER_FORCE_HTTPS).toLowerCase())
+        : (process.env.NODE_ENV === 'production');
+
     app.use(helmet({
+        // HSTS only applies to HTTPS; omit it on plain-HTTP deployments. Default keeps Helmet's HSTS.
+        ...(HTTPS_HARDENING ? {} : { strictTransportSecurity: false }),
         contentSecurityPolicy: {
             directives: {
                 // Default: only allow resources from self
@@ -69,6 +80,10 @@ async function startApi(){
                 frameSrc:    ["'self'", "https://www.youtube.com", "https://w.soundcloud.com"],
                 // Block all plugins (Flash, etc.)
                 objectSrc:   ["'none'"],
+                // Only force-upgrade subresources to HTTPS when TLS-fronted (see HTTPS_HARDENING).
+                // null removes Helmet's default directive so http pages keep their http subresource
+                // URLs (relative /icon/... and /images/... requests stay on the page's protocol).
+                upgradeInsecureRequests: HTTPS_HARDENING ? [] : null,
             }
         },
     }));
@@ -149,7 +164,14 @@ async function startApi(){
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 
-    // Registered last so explorer routes take priority
+    // Registered last so explorer routes take priority.
+    // Express 5 / body-parser 2.x leaves req.body undefined when a request carries
+    // no JSON body (a GET, or a POST without application/json), whereas body-parser
+    // 1.x set it to {}. express-json-rpc-router requires req.body to be an object or
+    // it throws ("req.body is required"). Restore the {} default so unmatched requests
+    // that fall through to this root-mounted router get a normal JSON-RPC error
+    // response instead of crashing the request.
+    app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
     app.use(jsonRouter({methods: jsonRpcController}))
 
     // WebSocket support (feature-flagged via WS_ENABLED env var)

@@ -144,6 +144,8 @@ class XChainExplorer {
                 '/{COIN}/controllers'         : 'controllers.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
                 '/{COIN}/anchors'             : 'anchors.html',
+                '/{COIN}/cross_chain_matches' : 'cross_chain_matches.html',
+                '/{COIN}/cross_chain_settlements' : 'cross_chain_settlements.html',
                 '/{COIN}/rewards'             : 'rewards.html',
                 '/{COIN}/delegations'         : 'delegations.html',
                 '/{COIN}/full_node_verifications' : 'full_node_verifications.html',
@@ -365,6 +367,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
                 '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
                 '/{COIN}/explorer/anchors/{QUERY}/{TYPE}'                   : ['getAnchors',      ['block', 'chain', 'network', 'status']],
+                '/{COIN}/explorer/cross_chain_matches/{QUERY}/{TYPE}'       : ['getCrossChainMatches',     ['match', 'block', 'status']],
+                '/{COIN}/explorer/cross_chain_settlements/{QUERY}/{TYPE}'   : ['getCrossChainSettlements', ['match', 'block']],
                 '/{COIN}/explorer/prices/{QUERY}/{TYPE}'                    : ['getPrices',       ['block', 'address', 'source', 'token']],
                 '/{COIN}/explorer/prices'                                   : ['getPrices'],
                 '/{COIN}/explorer/controllers'                              : ['getControllers'],
@@ -989,6 +993,15 @@ class XChainExplorer {
                     // ANCHOR checkpoint list page. action_index stays LAST (paging cursor).
                     if(method=='getAnchors')
                         info = [count_reverse, info.block_index, info.timestamp, info.chain, info.network, info.version, info.checkpoint_seq, info.snapshot_block, info.match_count, status, info.action_index];
+                    // Cross-chain DEX match (hub-mirrored, id-keyed). id is the paging cursor (LAST);
+                    // snapshot_block is the BTC-anchored quorum block. No status coloring (status is a
+                    // word, not 0/1); the render badges it instead.
+                    if(method=='getCrossChainMatches')
+                        info = [count_reverse, info.snapshot_block, info.network, info.match_id, info.a_chain, info.a_tick, info.a_amount, info.b_chain, info.b_tick, info.b_amount, info.status, info.id];
+                    // Cross-chain settlement leg (local action-chain row; no status column). action_index
+                    // is the paging cursor (LAST) and links the local settlement action.
+                    if(method=='getCrossChainSettlements')
+                        info = [count_reverse, info.block_index, info.timestamp, info.match_id, info.local_action_index, info.action_index];
                     if(method=='getSearch'){
                         if(cfg.data.type=='address')
                             info = [count, info.address, null];

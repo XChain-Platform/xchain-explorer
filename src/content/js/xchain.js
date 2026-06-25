@@ -1232,7 +1232,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1953,6 +1953,36 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(numeral(target_height).format(fmtInteger));
                 $('td', row).eq(7).html('<span class="badge text-bg-' + (passed == 1 ? 'success' : 'danger') + '">' + (passed == 1 ? 'Pass' : 'Fail') + '</span>');
                 $('td', row).eq(8).html(action_link);
+            }
+            // Cross-chain DEX match (hub-mirrored; id-keyed, no per-row view link). eq(1) keeps the
+            // generic block link (snapshot_block); eq(2)/eq(3) override network/match_id.
+            if(action=='cross_chain_match'){
+                let network  = data[2];
+                let match_id = data[3];
+                let a_chain  = data[4];
+                let a_tick   = data[5];
+                let a_amount = data[6];
+                let b_chain  = data[7];
+                let b_tick   = data[8];
+                let b_amount = data[9];
+                let mstatus  = data[10];
+                $('td', row).eq(2).text(isNull(network) ? '-' : network);
+                $('td', row).eq(3).html(isNull(match_id) ? '-' : formatHash(match_id));
+                $('td', row).eq(4).text(isNull(a_chain) ? '-' : a_chain);
+                $('td', row).eq(5).html(isNull(a_tick) ? '-' : formatLink('/' + coin + '/token/' + a_tick, a_tick, a_tick));
+                $('td', row).eq(6).html(formatAmount(a_amount));
+                $('td', row).eq(7).text(isNull(b_chain) ? '-' : b_chain);
+                $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink('/' + coin + '/token/' + b_tick, b_tick, b_tick));
+                $('td', row).eq(9).html(formatAmount(b_amount));
+                $('td', row).eq(10).html('<span class="badge text-bg-secondary">' + (mstatus || '-') + '</span>');
+            }
+            // Cross-chain settlement leg (local action-chain row; view links the settlement action)
+            if(action=='cross_chain_settlement'){
+                let match_id           = data[3];
+                let local_action_index = data[4];
+                $('td', row).eq(3).html(isNull(match_id) ? '-' : formatHash(match_id));
+                $('td', row).eq(4).html(isNull(local_action_index) ? '-' : formatLink('/' + coin + '/action/' + local_action_index, local_action_index));
+                $('td', row).eq(5).html(action_link);
             }
         }
     });

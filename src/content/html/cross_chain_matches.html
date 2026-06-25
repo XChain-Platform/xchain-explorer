@@ -1,0 +1,48 @@
+<!-- Cross-Chain Matches (hub-mirrored cross-chain DEX matches) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-arrow-right-arrow-left"></i> Cross-Chain Matches
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-cross_chain_match">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Snapshot Block</th>
+                        <th class="">Network</th>
+                        <th class="">Match</th>
+                        <th class="">A Chain</th>
+                        <th class="token">A Token</th>
+                        <th class="quantity">A Amount</th>
+                        <th class="">B Chain</th>
+                        <th class="token">B Token</th>
+                        <th class="quantity">B Amount</th>
+                        <th class="">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="11" class="loading-data">Loading cross-chain match data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Cross-Chain Matches';
+    XC.pageInfo.description = 'Hub-mirrored cross-chain DEX matches (quorum-signed) on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/cross_chain_matches';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'cross_chain_match', null, null);
+
+});
+</script>

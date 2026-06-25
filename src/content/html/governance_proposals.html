@@ -1,0 +1,46 @@
+<!-- Governance Proposals (hub-owned `governance_proposals`, read from the co-located hub DB) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-landmark"></i> Governance Proposals
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-governance_proposal">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="">Proposal</th>
+                        <th class="">Parameter</th>
+                        <th class="">Current</th>
+                        <th class="">Proposed</th>
+                        <th class="">Status</th>
+                        <th class="time">Voting Ends</th>
+                        <th class="block">Activation</th>
+                        <th class="">Proposer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="9" class="loading-data">Loading governance proposal data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Governance Proposals';
+    XC.pageInfo.description = 'Federation governance parameter proposals on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/governance_proposals';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'governance_proposal', null, null);
+
+});
+</script>

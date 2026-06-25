@@ -156,6 +156,9 @@ class XChainExplorer {
                 '/{COIN}/slash_events'        : 'slash_events.html',
                 '/{COIN}/capability_slash_events' : 'capability_slash_events.html',
                 '/{COIN}/oracle_prices'       : 'oracle_prices.html',
+                '/{COIN}/validator_capabilities' : 'validator_capabilities.html',
+                '/{COIN}/governance_proposals' : 'governance_proposals.html',
+                '/{COIN}/governance_votes'    : 'governance_votes.html',
                 '/{COIN}/attestations'        : 'attestations.html',
                 '/{COIN}/xcalls'              : 'xcalls.html',
                 '/{COIN}/sends'               : 'sends.html',
@@ -261,6 +264,15 @@ class XChainExplorer {
                 // User token/fiat oracle publications (PRICE v1; hub-mirrored oracle_prices, id-keyed)
                 '/{COIN}/api/oracle_prices/{QUERY}/{TYPE}'     : ['getOraclePrices',      ['token', 'address']],
                 '/{COIN}/api/oracle_prices'                    : ['getOraclePrices'],
+                // Hub federation + governance state (read from the mandatory co-located hub DB, id-keyed).
+                // The validator registry itself is already surfaced on-chain via getValidators; these
+                // expose the hub-only capability + governance tables that have no on-chain action.
+                '/{COIN}/api/validator_capabilities/{QUERY}/{TYPE}' : ['getValidatorCapabilities', ['capability', 'pubkey']],
+                '/{COIN}/api/validator_capabilities'              : ['getValidatorCapabilities'],
+                '/{COIN}/api/governance_proposals/{QUERY}/{TYPE}'  : ['getGovernanceProposals',   ['status', 'parameter', 'proposal']],
+                '/{COIN}/api/governance_proposals'                : ['getGovernanceProposals'],
+                '/{COIN}/api/governance_votes/{QUERY}/{TYPE}'      : ['getGovernanceVotes',       ['proposal', 'voter']],
+                '/{COIN}/api/governance_votes'                    : ['getGovernanceVotes'],
                 // Cross-chain coordination mirrors (hub-replicated match + local settlement legs)
                 '/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}'     : ['getCrossChainMatches',     ['match', 'block', 'status']],
                 '/{COIN}/api/cross_chain_matches'                    : ['getCrossChainMatches'],
@@ -364,6 +376,9 @@ class XChainExplorer {
                 '/{COIN}/explorer/collects/{QUERY}/{TYPE}'                  : ['getCollects',     ['block', 'address', 'source']],
                 '/{COIN}/explorer/capability_slash_events/{QUERY}/{TYPE}'   : ['getCapabilitySlashEvents', ['block', 'capability', 'pubkey', 'address']],
                 '/{COIN}/explorer/oracle_prices/{QUERY}/{TYPE}'             : ['getOraclePrices', ['token', 'address']],
+                '/{COIN}/explorer/validator_capabilities/{QUERY}/{TYPE}'    : ['getValidatorCapabilities', ['capability', 'pubkey']],
+                '/{COIN}/explorer/governance_proposals/{QUERY}/{TYPE}'      : ['getGovernanceProposals',   ['status', 'parameter', 'proposal']],
+                '/{COIN}/explorer/governance_votes/{QUERY}/{TYPE}'          : ['getGovernanceVotes',       ['proposal', 'voter']],
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
                 '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
@@ -701,7 +716,10 @@ class XChainExplorer {
             let htmlContent = (htmlExists) ? await this.util.fileGetContents(htmlFile) : 'Error loading html file!';
 
             let pageContent = templateContent;
-            pageContent     = pageContent.replace('{CONTENT}',htmlContent);
+            // Use a replacement FUNCTION, not the raw string: String.replace treats $-sequences
+            // ($&, $', $`, $1) specially in a string replacement, so any page content containing
+            // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.
+            pageContent     = pageContent.replace('{CONTENT}', () => htmlContent);
 
             response.html = pageContent;
         }
@@ -1007,6 +1025,15 @@ class XChainExplorer {
                     // is the paging cursor (LAST) and links the local settlement action.
                     if(method=='getCrossChainSettlements')
                         info = [count_reverse, info.block_index, info.timestamp, info.match_id, info.local_action_index, info.action_index];
+                    // Hub capability + governance rows (read from the co-located hub DB, id-keyed).
+                    // id is the paging cursor (LAST); status/vote are enum words (no 0/1 coloring,
+                    // so these methods sit in the no-color list client-side).
+                    if(method=='getValidatorCapabilities')
+                        info = [count_reverse, info.updated_at, info.signing_pubkey, info.capability, info.qualified, info.self_test_ok, info.enabled, info.qualified_at_block, info.id];
+                    if(method=='getGovernanceProposals')
+                        info = [count_reverse, info.proposal_id, info.parameter, info.current_value, info.proposed_value, info.status, info.voting_end, info.activation_block, info.proposer_pubkey, info.id];
+                    if(method=='getGovernanceVotes')
+                        info = [count_reverse, info.created_at, info.proposal_id, info.voter_pubkey, info.vote, info.id];
                     if(method=='getSearch'){
                         if(cfg.data.type=='address')
                             info = [count, info.address, null];

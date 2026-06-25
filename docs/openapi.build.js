@@ -108,6 +108,14 @@ const ROUTES = [
     ['/{COIN}/api/capability_slash_events', 'getCapabilitySlashEvents', null, 'Staking', 'Capability equivocation slashes (SLASH)'],
     ['/{COIN}/api/oracle_prices/{QUERY}/{TYPE}', 'getOraclePrices', ['token', 'address'], 'Prices', 'User token/fiat oracle prices, filtered'],
     ['/{COIN}/api/oracle_prices', 'getOraclePrices', null, 'Prices', 'User token/fiat oracle prices (PRICE v1, hub-mirrored)'],
+    // ── Governance ────────────────────────────────────────────────────────
+    // Hub-only tables read from the mandatory co-located hub DB (no on-chain action).
+    ['/{COIN}/api/validator_capabilities/{QUERY}/{TYPE}', 'getValidatorCapabilities', ['capability', 'pubkey'], 'Governance', 'Per-validator capability qualification flags, filtered'],
+    ['/{COIN}/api/validator_capabilities', 'getValidatorCapabilities', null, 'Governance', 'Per-validator per-capability qualification flags (hub-owned)'],
+    ['/{COIN}/api/governance_proposals/{QUERY}/{TYPE}', 'getGovernanceProposals', ['status', 'parameter', 'proposal'], 'Governance', 'Federation governance proposals, filtered'],
+    ['/{COIN}/api/governance_proposals', 'getGovernanceProposals', null, 'Governance', 'Federation governance parameter proposals (hub-owned)'],
+    ['/{COIN}/api/governance_votes/{QUERY}/{TYPE}', 'getGovernanceVotes', ['proposal', 'voter'], 'Governance', 'Per-validator governance votes, filtered'],
+    ['/{COIN}/api/governance_votes', 'getGovernanceVotes', null, 'Governance', 'Per-validator governance votes (hub-owned)'],
     // ── Cross-chain ───────────────────────────────────────────────────────
     ['/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}', 'getCrossChainMatches', ['match', 'block', 'status'], 'Cross-chain', 'Cross-chain order matches, filtered'],
     ['/{COIN}/api/cross_chain_matches', 'getCrossChainMatches', null, 'Cross-chain', 'Cross-chain order matches (hub-replicated)'],
@@ -263,7 +271,7 @@ const spec = {
         { name: 'Core' }, { name: 'Tokens' }, { name: 'Action history' }, { name: 'Markets' },
         { name: 'Dispensers' }, { name: 'Contracts' }, { name: 'Staking' }, { name: 'Prices' },
         { name: 'Attestations' }, { name: 'Cross-chain' }, { name: 'Files' }, { name: 'Fees' },
-        { name: 'Checkpoints' }, { name: 'Network' },
+        { name: 'Checkpoints' }, { name: 'Governance' }, { name: 'Network' },
     ],
     paths,
     components: {

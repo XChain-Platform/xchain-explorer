@@ -1059,8 +1059,12 @@ function loadDatatablesData(coin, action, query, type){
     } else if(action=='market-history'){
         endpoint = 'market';
         type     = 'history';
+    } else if(action=='validator_capability'){
+        // action+'s' would give the malformed 'validator_capabilitys'; the hub table
+        // (and its /explorer feed) is 'validator_capabilities'.
+        endpoint = 'validator_capabilities';
     } else {
-        endpoint = action + 's';       
+        endpoint = action + 's';
     }
     // Set the explorer API url
     let url = '/' + coin + '/explorer/' + endpoint;
@@ -1232,7 +1236,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','governance_proposal','governance_vote'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1993,6 +1997,55 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(3).html(isNull(match_id) ? '-' : formatHash(match_id));
                 $('td', row).eq(4).html(isNull(local_action_index) ? '-' : formatLink('/' + coin + '/action/' + local_action_index, local_action_index));
                 $('td', row).eq(5).html(action_link);
+            }
+            // Per-validator per-capability qualification flags (hub-owned; id-keyed). qualified/
+            // self_test_ok/enabled are 0/1 flags rendered as yes/no badges.
+            if(action=='validator_capability'){
+                let updated_at   = data[1];
+                let pubkey       = data[2];
+                let capability   = data[3];
+                let qualified    = data[4];
+                let self_test_ok = data[5];
+                let enabled      = data[6];
+                let qual_block   = data[7];
+                let yesno = (v) => '<span class="badge text-bg-' + (v == 1 ? 'success' : 'secondary') + '">' + (v == 1 ? 'Yes' : 'No') + '</span>';
+                $('td', row).eq(1).html(formatLivestamp(updated_at));
+                $('td', row).eq(2).html(formatHash(pubkey));
+                $('td', row).eq(3).html('<span class="badge text-bg-info">' + (capability || '-') + '</span>');
+                $('td', row).eq(4).html(yesno(qualified));
+                $('td', row).eq(5).html(yesno(self_test_ok));
+                $('td', row).eq(6).html(yesno(enabled));
+                $('td', row).eq(7).html(isNull(qual_block) ? '-' : formatLink('/' + coin + '/block/' + qual_block, numeral(qual_block).format(fmtInteger)));
+            }
+            // Governance parameter proposal (hub-owned; id-keyed). proposal_id links the votes view.
+            if(action=='governance_proposal'){
+                let proposal_id    = data[1];
+                let parameter      = data[2];
+                let current_value  = data[3];
+                let proposed_value = data[4];
+                let pstatus        = data[5];
+                let voting_end     = data[6];
+                let activation     = data[7];
+                let proposer       = data[8];
+                $('td', row).eq(1).html(isNull(proposal_id) ? '-' : formatLink('/' + coin + '/governance_votes/' + proposal_id + '/proposal', proposal_id));
+                $('td', row).eq(2).text(isNull(parameter) ? '-' : parameter);
+                $('td', row).eq(3).text(isNull(current_value) ? '-' : current_value);
+                $('td', row).eq(4).text(isNull(proposed_value) ? '-' : proposed_value);
+                $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + (pstatus || '-') + '</span>');
+                $('td', row).eq(6).html(formatLivestamp(voting_end));
+                $('td', row).eq(7).html(isNull(activation) ? '-' : formatLink('/' + coin + '/block/' + activation, numeral(activation).format(fmtInteger)));
+                $('td', row).eq(8).html(formatHash(proposer));
+            }
+            // Per-validator governance vote (hub-owned; id-keyed). approve=green, reject=red badge.
+            if(action=='governance_vote'){
+                let created_at  = data[1];
+                let proposal_id = data[2];
+                let voter       = data[3];
+                let vote        = data[4];
+                $('td', row).eq(1).html(formatLivestamp(created_at));
+                $('td', row).eq(2).html(isNull(proposal_id) ? '-' : formatLink('/' + coin + '/governance_votes/' + proposal_id + '/proposal', proposal_id));
+                $('td', row).eq(3).html(formatHash(voter));
+                $('td', row).eq(4).html('<span class="badge text-bg-' + (vote == 'approve' ? 'success' : 'danger') + '">' + (vote || '-') + '</span>');
             }
         }
     });

@@ -68,7 +68,7 @@
     </div>
 </div>
 
-<!-- Controller Bindings (protocol/Controller_Bound_Tokens.md) — guard contracts
+<!-- Controller Bindings (protocol/Controller_Bound_Tokens.md): guard contracts
      that gate this address's native actions. Hidden until at least one binding
      is still gating at the chain tip. -->
 <div class="container" id="address-controllers-card" style="display:none;">
@@ -811,13 +811,24 @@
         loadApiData(XC.coin, 'address', XC.query, null, function(o){
             if(o){
                 $('#address').html(o.address);
-                $('#address-type').html(o.type);
-                $('#balance-confirmed').text(o.balances.confirmed);
-                $('#balance-pending').text(o.balances.pending);
-                $('#total-received').text(o.balances.received);
-                $('#utxos-confirmed').text(o.utxos.confirmed);
-                $('#utxos-pending').text(o.utxos.pending);
-                $('#estimated-value').text(o.estimated_value.btc);
+                // Native-coin balance/UTXO figures come from the utxo-tracker. When it is not
+                // reachable the API returns nulls; show "Unavailable" rather than blank or null.
+                let na     = function(v){ return (v===null||v===undefined) ? 'Unavailable' : v; };
+                let fmtAmt = function(v){ return (v===null||v===undefined) ? 'Unavailable' : (numeral(v).format('0,0.00000000') + ' ' + XC.coin); };
+                let fmtInt = function(v){ return (v===null||v===undefined) ? 'Unavailable' : numeral(v).format('0,0'); };
+                $('#address-type').html(na(o.type));
+                $('#balance-confirmed').text(fmtAmt(o.balances.confirmed));
+                $('#balance-pending').text(fmtAmt(o.balances.pending));
+                $('#total-received').text(fmtAmt(o.balances.received));
+                $('#utxos-confirmed').text(fmtInt(o.utxos.confirmed));
+                $('#utxos-pending').text(fmtInt(o.utxos.pending));
+                // Estimated Value: fiat (USD) when the oracle prices this coin, else the native amount.
+                let ev = (o.estimated_value && o.estimated_value.usd != null)
+                    ? ('$' + numeral(o.estimated_value.usd).format('0,0.00'))
+                    : (o.estimated_value && o.estimated_value.btc != null)
+                        ? fmtAmt(o.estimated_value.btc)
+                        : 'Unavailable';
+                $('#estimated-value').text(ev);
 
                 // Controller bindings (protocol/Controller_Bound_Tokens.md):
                 // guard contracts that gate this address's native actions.
@@ -837,7 +848,7 @@
 
                 // Update the page with SEO friendly info
                 XC.pageInfo.title       = XC.query + ' Address Information';
-                XC.pageInfo.description = 'Learn about the address ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network — This page displays XChain platform information for address ' + XC.query + ' including airdrops, token balances, batches, broadcasts, callbacks, credits, debits, escrows, destroys, dispensers, dispenses, dividends, fees, files, history, issues, links, lists, messages, mints, orders, sends, sleeps, swaps, sweeps, and tokens owned.';
+                XC.pageInfo.description = 'Learn about the address ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain platform information for address ' + XC.query + ' including airdrops, token balances, batches, broadcasts, callbacks, credits, debits, escrows, destroys, dispensers, dispenses, dividends, fees, files, history, issues, links, lists, messages, mints, orders, sends, sleeps, swaps, sweeps, and tokens owned.';
                 XC.pageInfo.canonical   = '/' + XC.coin + '/address/' + XC.query;
                 updatePageInfo();
 

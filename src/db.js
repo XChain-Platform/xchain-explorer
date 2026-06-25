@@ -551,6 +551,9 @@ class Database {
         // oracle_prices is the hub-mirrored user-published oracle row table; no action_index, keyed by m.id
         if(method=='getOraclePrices')
             sql = `m.id IS NOT NULL`;
+        // co-located hub capability/governance tables; no action_index, keyed by m.id
+        if(['getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
+            sql = `m.id IS NOT NULL`;
         if(method=='getHistory'){
             if(type=='address')
                 sql += ' AND m.type_id=2 AND m.id=?';
@@ -611,6 +614,16 @@ class Database {
             // oracle_prices is a standalone hub-mirror table; filter on its own columns
             if(type=='token')   sql += ' AND m.tick=?';
             if(type=='address') sql += ' AND m.source_address=?';
+        } else if(method=='getValidatorCapabilities'){
+            if(type=='capability') sql += ' AND m.capability=?';
+            if(type=='pubkey')     sql += ' AND m.signing_pubkey=?';
+        } else if(method=='getGovernanceProposals'){
+            if(type=='status')    sql += ' AND m.status=?';
+            if(type=='parameter') sql += ' AND m.parameter=?';
+            if(type=='proposal')  sql += ' AND m.proposal_id=?';
+        } else if(method=='getGovernanceVotes'){
+            if(type=='proposal') sql += ' AND m.proposal_id=?';
+            if(type=='voter')    sql += ' AND m.voter_pubkey=?';
         } else if(['getCrossChainMatches','getCrossChainSettlements'].includes(method)){
             // standalone mirror tables (no actions/transactions chain); filter on
             // their own columns directly. matches carry snapshot_block (the
@@ -703,6 +716,8 @@ class Database {
             if(method=='getOraclePrices')
                 field = 'm.id';
             if(method=='getFullNodeVerifications')
+                field = 'm.id';
+            if(['getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
                 field = 'm.id';
             if(action=='prev'){
                 sql = ` AND ` + field + ` > ?`;
@@ -3391,22 +3406,43 @@ class Database {
 
     // TODO: pull balance data from the utxo-tracker API instead of placeholder values
     async getAddress(config){
+        const address = config.data.search;
+        // Native-coin balance / UTXO figures come from this coin's xchain-utxo-tracker (the
+        // explorer is DB-only and never talks to a node). When no tracker is configured for the
+        // coin or it is unreachable, the fields stay null and the page shows "Unavailable" rather
+        // than the old hardcoded placeholder values. See getAddressTrackerInfo().
         let data = {
-            address: config.data.search,
-            type: "p2pkh",
-            balances: {
-                confirmed: "1.23456789",
-                pending: "0.00001234",
-                received: "1.23458023"
-            },
-            utxos: {
-                confirmed: 5,
-                pending: 1
-            },
-            estimated_value: {
-                btc: "1.12345678"
-            }
+            address: address,
+            type: null,
+            balances: { confirmed: null, pending: null, received: null },
+            utxos: { confirmed: null, pending: null },
+            estimated_value: { btc: null, usd: null },
+            tracker_available: false
         };
+        let info = await this.getAddressTrackerInfo(config, address);
+        if(info && info.balances && info.utxos){
+            data.type     = info.type || null;
+            data.balances = {
+                confirmed: info.balances.confirmed,
+                pending:   info.balances.pending,
+                received:  info.balances.received
+            };
+            data.utxos = {
+                confirmed: info.utxos.confirmed,
+                pending:   info.utxos.pending
+            };
+            data.tracker_available = true;
+            if(info.mempool_ready !== undefined) data.mempool_ready = info.mempool_ready;
+            // Estimated fiat value of the confirmed balance: confirmed amount * live USD price
+            // (null on testnet/regtest or when the hub oracle has no price for this coin).
+            let price = await this.getCoinPriceUsd(config);
+            data.estimated_value = {
+                btc: data.balances.confirmed,
+                usd: (price != null && data.balances.confirmed != null)
+                    ? this.util.bcmul(String(data.balances.confirmed), String(price), 2)
+                    : null
+            };
+        }
         // Controller bindings still gating this address's native actions
         // (protocol/Controller_Bound_Tokens.md). [] when nothing gates.
         data.controllers = await this.getAddressControllerBindings(config, config.data.search);
@@ -3425,6 +3461,31 @@ class Database {
             address_id: (addressId !== null && addressId !== undefined) ? Number(addressId) : null
         };
         return [data];
+    }
+
+    // Live native-coin balance / UTXO info for an address from this coin's xchain-utxo-tracker.
+    // The explorer is DB-only and never talks to a node, so it asks the tracker's read API. The
+    // base URL is per coin (each tracker instance is single-coin): UTXO_TRACKER_URL_<CODE> (e.g.
+    // UTXO_TRACKER_URL_BTC, UTXO_TRACKER_URL_TBTC), falling back to a generic UTXO_TRACKER_URL.
+    // The tracker's GET /info/<address> response already matches the address-page shape
+    // (type + balances{confirmed,pending,received} + utxos{confirmed,pending}, full-precision
+    // decimal strings). Returns null when no tracker is configured for this coin or it is
+    // unreachable, so getAddress can fall back to an honest "Unavailable" instead of fake values.
+    async getAddressTrackerInfo(config, address){
+        const code = config.coin;
+        const base = process.env['UTXO_TRACKER_URL_' + code] || process.env.UTXO_TRACKER_URL;
+        if(!base || !address) return null;
+        try {
+            const url = base.replace(/\/+$/, '') + '/info/' + encodeURIComponent(address);
+            const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+            if(!res.ok) throw new Error('HTTP ' + res.status);
+            const j = await res.json();
+            if(j && j.balances && j.utxos) return j;
+            throw new Error('malformed /info response');
+        } catch(e){
+            console.warn('getAddressTrackerInfo: tracker unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            return null;
+        }
     }
 
     async getBalances(config){
@@ -7684,6 +7745,22 @@ class Database {
             'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
+    // Resolve a co-located hub-DB federation/governance table for a coin (validators,
+    // validator_capabilities, governance_proposals, governance_votes). Mirrors _matchSource:
+    // the table is DB-qualified to the co-located hub DB (same host+creds as the indexer DB, so
+    // the qualified name runs on the indexer pool) and read directly, never a local replica.
+    // `table` is whitelisted to lowercase identifiers (no injection). Federation data is
+    // platform-global (no per-chain network column), so there is no network filter.
+    _hubSource(config, table){
+        let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
+        if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z_]+$/.test(table))
+            return { table: '`' + src.name + '`.' + table };
+        throw new Error('No co-located hub DB configured for coin ' + config.coin +
+            ': ' + table + ' is served only from the mandatory co-located hub DB ' +
+            '(config database.checkpoint, same host+credentials as the indexer DB). ' +
+            'Configure the checkpoint DB block to serve this coin.');
+    }
+
     // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from
     // the mariadb driver as BigInt, which res.json() cannot serialize; coerce
     // them to Number (chain heights are far below MAX_SAFE_INTEGER).
@@ -9406,6 +9483,72 @@ class Database {
                         LEFT  JOIN index_addresses    sub ON (sub.id=m.submitter_id)
                         LEFT  JOIN index_addresses    dst ON (dst.id=m.destination_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Federation registry (hub-owned `validators` table, read from the co-located hub DB).
+    // One row per federation validator. type in {status, pubkey}. id-keyed (no action chain).
+    // Per-validator per-capability qualification flags (hub-owned `validator_capabilities`,
+    // read from the co-located hub DB). type in {capability, pubkey}. id-keyed.
+    async getValidatorCapabilities(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'validator_capabilities');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.signing_pubkey,
+                        m.capability,
+                        m.qualified,
+                        m.self_test_ok,
+                        m.enabled,
+                        m.qualified_at_block,
+                        m.updated_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Governance parameter proposals (hub-owned `governance_proposals`, read from the
+    // co-located hub DB). type in {status, parameter, proposal}. id-keyed.
+    async getGovernanceProposals(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'governance_proposals');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.proposal_id,
+                        m.proposer_pubkey,
+                        m.parameter,
+                        m.current_value,
+                        m.proposed_value,
+                        m.status,
+                        m.voting_end,
+                        m.activation_block
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Per-validator governance votes (hub-owned `governance_votes`, read from the co-located
+    // hub DB). type in {proposal, voter}. id-keyed.
+    async getGovernanceVotes(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'governance_votes');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.proposal_id,
+                        m.voter_pubkey,
+                        m.vote,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];

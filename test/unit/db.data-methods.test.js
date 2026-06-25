@@ -216,7 +216,9 @@ describe('Database#getAddress', () => {
         const [data] = await db.getAddress(config);
         // controllers is the Controller_Bound_Tokens.md display surface ([] with no binding);
         // info carries the SDK-facing address/address_id (Index_Id_References.md / F3).
-        expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value', 'controllers', 'info']);
+        // tracker_available flags whether this coin's xchain-utxo-tracker answered (false here:
+        // no tracker stubbed, so balances/utxos stay null and the page shows "Unavailable").
+        expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value', 'tracker_available', 'controllers', 'info']);
         expect(data.controllers).to.deep.equal([]);
         // F3: no deterministic id resolved (doQuery -> []) => address_id is null, not compacted.
         expect(data.info).to.deep.equal({ address: 'addr1bc', address_id: null });

@@ -1232,7 +1232,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1907,6 +1907,52 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).text(isNull(fiat) ? '-' : fiat);
                 $('td', row).eq(6).html(numeral(value).format(fmtCurrency));
+            }
+            // Anchor (DOGE state checkpoint). eq(3) overrides the generic source link with the chain.
+            if(action=='anchor'){
+                let chain          = data[3];
+                let network        = data[4];
+                let version        = data[5];
+                let checkpoint_seq = data[6];
+                let snapshot_block = data[7];
+                let match_count    = data[8];
+                $('td', row).eq(3).text(isNull(chain) ? '-' : chain);
+                $('td', row).eq(4).text(isNull(network) ? '-' : network);
+                $('td', row).eq(5).text('v' + version);
+                $('td', row).eq(6).html(numeral(checkpoint_seq).format(fmtInteger));
+                $('td', row).eq(7).html(isNull(snapshot_block) ? '-' : formatLink('/' + coin + '/block/' + snapshot_block, numeral(snapshot_block).format(fmtInteger)));
+                $('td', row).eq(8).html(numeral(match_count).format(fmtInteger));
+                $('td', row).eq(9).html(action_link);
+            }
+            // Validator reward (validator_rewards; id-keyed accrual ledger, no own action_index)
+            if(action=='reward'){
+                let pubkey      = data[4];
+                let reward_type = data[5];
+                amount          = data[6];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + (reward_type || '-') + '</span>');
+                $('td', row).eq(6).html(formatAmount(amount));
+            }
+            // Delegation (DELEGATE v0/v1/v2/v3 signing-key delegation)
+            if(action=='delegation'){
+                let pubkey = data[4];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).html(action_link);
+            }
+            // Full-node verification (NODEPROOF v0 possession-proof verdict). eq(3) overrides the
+            // generic source link with the verified pubkey; eq(7) badges the pass/fail result.
+            if(action=='full_node_verification'){
+                let pubkey         = data[3];
+                let staking_source = data[4];
+                let epoch_height   = data[5];
+                let target_height  = data[6];
+                let passed         = data[8];
+                $('td', row).eq(3).html(formatHash(pubkey));
+                $('td', row).eq(4).html(isNull(staking_source) ? '-' : formatLink('/' + coin + '/address/' + staking_source, staking_source));
+                $('td', row).eq(5).html(numeral(epoch_height).format(fmtInteger));
+                $('td', row).eq(6).html(numeral(target_height).format(fmtInteger));
+                $('td', row).eq(7).html('<span class="badge text-bg-' + (passed == 1 ? 'success' : 'danger') + '">' + (passed == 1 ? 'Pass' : 'Fail') + '</span>');
+                $('td', row).eq(8).html(action_link);
             }
         }
     });

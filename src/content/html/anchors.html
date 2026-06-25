@@ -1,0 +1,47 @@
+<!-- Anchors (DOGE state checkpoints) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-anchor"></i> Anchors
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-anchor">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Chain</th>
+                        <th class="">Network</th>
+                        <th class="">Version</th>
+                        <th class="">Checkpoint Seq</th>
+                        <th class="block">Snapshot Block</th>
+                        <th class="">Matches</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="10" class="loading-data">Loading anchor data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Anchors';
+    XC.pageInfo.description = 'Quorum-signed cross-chain state checkpoints (ANCHOR) on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/anchors';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'anchor', null, null);
+
+});
+</script>

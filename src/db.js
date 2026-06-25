@@ -429,10 +429,14 @@ class Database {
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
             // token/subtoken/nft/roster searches paginate by fetch-and-slice (no action_index offsets),
-            // so the SQL limit must cover start+length rows.
+            // so the SQL limit must cover start+length rows. Cap the offset fed to the
+            // SQL LIMIT: without a bound, an unauthenticated request with a huge `start`
+            // forces MariaDB to scan start+length rows for a single page (query-complexity
+            // DoS). Deep browsing uses the cursor next/prev path, not raw offsets, so a
+            // 100k ceiling is invisible to legitimate use while killing the scan blow-up.
             if(['getBalances', 'getHolders','getSearch','getProjectTokens'].includes(data.method) ||
                 (data.method=='getTokens' && ['token','subtoken','nft'].includes(data.type)))
-                limit = this.util.bcadd(start,length);
+                limit = this.util.bcadd(Math.min(start, 100000), length);
             if(['prev','last'].includes(action))
                 order = 'ASC';
             let [offset1, offset2] = await this.getQueryOffsets(config, offset, limit);

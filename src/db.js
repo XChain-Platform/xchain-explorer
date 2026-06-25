@@ -376,7 +376,20 @@ class Database {
             if(this.util.isNumeric(count))
                 total = count;
         } else {
-            let baseArgs = (args && typeof args === 'object') ? args : [config.data.search];
+            // Align the data-WHERE bind args with their placeholders. getQueryWhereSql only
+            // adds a data-WHERE placeholder when a TYPE (address/token/block/...) is set, so a
+            // pure list-all request (no QUERY and no TYPE) has none. Many action methods still
+            // seed args=[config.data.search] (= [undefined] here); that phantom prepends to the
+            // offset args, shifting `m.action_index < ?` to bind NULL and returning zero rows.
+            // Force [] for pure list-all so only the offset args remain. Typed requests (search
+            // and/or a resource type present) keep the method's args, or the single-search fallback.
+            let baseArgs;
+            if(!config.data.search && !config.data.type)
+                baseArgs = [];
+            else if(args && typeof args === 'object')
+                baseArgs = args;
+            else
+                baseArgs = this.util.isNull(config.data.search) ? [] : [config.data.search];
             let queryArgs = [...baseArgs];
             let offsetArgs = config.data.sql.where.offsetArgs;
             if(offsetArgs && offsetArgs.length)
@@ -2849,9 +2862,13 @@ class Database {
 
     async getTokens(config){
         let sql    = config.data.sql;
-        let search = config.data.search; 
+        let search = config.data.search;
         let type   = config.data.type;
-        let args   = [search];
+        // Default to no bind args: the list-all WHERE ('m.action_index IS NOT NULL') has
+        // no placeholder, so seeding [search] (= [null] with no QUERY/TYPE) prepends a
+        // phantom bind that shifts the offset args (m.id < NULL) and returns zero rows.
+        // token/subtoken set a LIKE pattern below; nft/list-all stay [].
+        let args   = [];
         let order  = 'm.id ' + sql.order;
         if(['token','subtoken'].includes(type)){
             order = 't3.tick ' + sql.order;
@@ -3728,32 +3745,56 @@ class Database {
                 DOGE: parseInt(process.env.XCHAIN_CONFIRMATIONS_DOGE, 10) || 60
             }
         };
+        // Per-action-type record counts for the homepage counters. Exact COUNT(*) per table
+        // (cached per coin, see getActionTotals), replacing the old information_schema.TABLE_ROWS
+        // estimate that drifted by hundreds of rows from the exact counts the list views show.
+        data.totals = await this.getActionTotals(config);
+        return [data];
+    }
+
+    // Exact per-action-table record counts for the homepage counters, cached per coin.
+    // COUNT(*) is exact (information_schema.TABLE_ROWS is only an optimizer estimate and
+    // visibly disagreed with the list views), but scanning the large action tables on every
+    // /api/network call would be wasteful, so the result is cached for EXPLORER_TOTALS_CACHE_MS
+    // (default 60s) per coin. The browser additionally caches the network response for 5 min.
+    async getActionTotals(config){
+        const coin = config.coin;
+        const ttl  = parseInt(process.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;
+        if(!this._totalsCache) this._totalsCache = {};
+        const cached = this._totalsCache[coin];
+        if(cached && (Date.now() - cached.at) < ttl)
+            return cached.totals;
         let tables = structuredClone(this.actionTables);
         tables.push('tokens');
-        // One information_schema.TABLES read for approximate row counts on all
-        // tables except full_node_verifications (which fans out per validator and
-        // needs an exact COUNT(DISTINCT action_index) to avoid over-counting).
-        // information_schema.TABLE_ROWS is an optimizer estimate but is fast,
-        // O(1), and accurate enough for the homepage counters.
-        let approxTables = tables.filter(t => t !== 'full_node_verifications');
-        let dbName = this.pools && this.pools[config.coin] && this.pools[config.coin].config
-            ? this.pools[config.coin].config.database
+        let totals = {};
+        let dbName = this.pools && this.pools[coin] && this.pools[coin].config
+            ? this.pools[coin].config.database
             : null;
-        if(dbName){
-            let placeholders = approxTables.map(() => '?').join(',');
-            let infoQuery = `SELECT TABLE_NAME, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (` + placeholders + `)`;
-            let infoResults = await this.doQuery(config, infoQuery, [dbName, ...approxTables]);
-            if(infoResults && infoResults.length){
-                for(let row of infoResults)
-                    data.totals[row.TABLE_NAME] = row.TABLE_ROWS;
+        // full_node_verifications fans out per validator, so COUNT(*) over-counts; it needs
+        // COUNT(DISTINCT action_index). Every other whitelist table gets an exact COUNT(*).
+        let countTables = tables.filter(t => t !== 'full_node_verifications');
+        if(dbName && countTables.length){
+            // Restrict to tables that actually exist so a not-yet-migrated table can't fail the
+            // whole UNION, then count the survivors in one round trip. Table names come from the
+            // hardcoded actionTables whitelist (never user input), so interpolating them is safe.
+            let placeholders = countTables.map(() => '?').join(',');
+            let existing = await this.doQuery(config,
+                `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (${placeholders})`,
+                [dbName, ...countTables]);
+            let names = (existing || []).map(r => r.TABLE_NAME);
+            if(names.length){
+                let unionSql = names.map(t => `SELECT '${t}' AS t, COUNT(*) AS c FROM \`${t}\``).join(' UNION ALL ');
+                let rows = await this.doQuery(config, unionSql);
+                if(rows && rows.length)
+                    for(let row of rows)
+                        totals[row.t] = Number(row.c);
             }
         }
-        // Exact count for full_node_verifications (fan-out table; COUNT(*) inflates
-        // the number by validator-set size per verdict row).
         let fnvResult = await this.doQuery(config, `SELECT count(DISTINCT action_index) as count FROM full_node_verifications`);
         if(fnvResult && fnvResult.length)
-            data.totals['full_node_verifications'] = fnvResult[0].count;
-        return [data];
+            totals['full_node_verifications'] = Number(fnvResult[0].count);
+        this._totalsCache[coin] = { at: Date.now(), totals };
+        return totals;
     }
 
     async getStatus(config){
@@ -5656,6 +5697,42 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
+            // SLASH action (permissionless equivocation proof -> capability_slash_events). Drives
+            // from `actions` so the wire action always resolves even before the slash event row is
+            // joined; capability_slash_events.slash_action_index points back to this SLASH action.
+            if(type=='SLASH'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            a1.action_index,
+                            a3.address as source,
+                            pk.pubkey as slashed_pubkey,
+                            m.capability,
+                            m.equiv_key,
+                            m.amount,
+                            m.bounty_amount,
+                            m.treasury_amount,
+                            sub.address as submitter,
+                            dst.address as destination,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index
+                        FROM
+                            actions a1
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN capability_slash_events m ON (m.slash_action_index=a1.action_index)
+                            LEFT  JOIN index_pubkeys      pk  ON (pk.id=m.signing_pubkey_id)
+                            LEFT  JOIN index_addresses    sub ON (sub.id=m.submitter_id)
+                            LEFT  JOIN index_addresses    dst ON (dst.id=m.destination_id)
+                        WHERE
+                            a1.action_index=?
+                        LIMIT 1`;
+            }
             // DEPLOY action. The chunk carrier (v4) and the actual deploy (v0-v3) share the
             // DEPLOY action name but live in different tables, so pick the detail query by the
             // format version: v4 → deploy_chunks (one base64 code slice); v0-v3 → contracts
@@ -6384,7 +6461,12 @@ class Database {
             if(results && results.length)
                 q.total = Number(results[0].action_index);
         }
-        args = (type=='block') ? [config.data.search] : [id];
+        // Seed bind args to match the WHERE built by getQueryWhereSql: address/token add
+        // 'm.id=?' (the resolved id), block adds 'b1.block_index=?'. type=recent (the
+        // homepage default) and null add no placeholder, so any seed here is a phantom that
+        // shifts the offset 'action_index < ?' bind (binding 0 -> 'action_index < 0' -> no rows).
+        args = (type=='block') ? [config.data.search]
+             : (['address','token'].includes(type) ? [id] : []);
         // Skip COUNT query when total is passed on the querystring (speeds up explorer pagination)
         if(q && q.total){
             total = q.total;
@@ -8459,6 +8541,101 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of capability UNSTAKE actions (UNSTAKE v0; the `unstakes` table). A capability
+    // unstake begins the global cooldown on a staked signing key; contract-targeted unstakes
+    // (UNSTAKE v1) live in contract_unstakes and have their own list view. Mirrors getStakes
+    // minus the token join. type in {block, address, source}; not in actionTables, so it serves
+    // the newest page ordered by m.action_index DESC.
+    async getUnstakes(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        unstakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.pubkey as signing_pubkey,
+                        m.amount,
+                        m.cooldown_end_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        unstakes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of DELEGATE key-revocation actions (DELEGATE v2/v3; the `stake_key_revocations`
+    // table). A revocation invalidates a stake's signing key as of deactivation_block. Mirrors
+    // getUnstakes. type in {block, address, source}; ordered newest-first by m.action_index.
+    async getStakeKeyRevocations(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        stake_key_revocations m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        a3.pubkey as signing_pubkey,
+                        m.deactivation_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        stake_key_revocations m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     async getValidators(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8822,6 +8999,50 @@ class Database {
                         LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Get list of COLLECT actions (validator reward claims; the `reward_claims` table). Each row
+    // is one on-chain claim of accrued capability-validator rewards by the broadcasting address.
+    // The per-reward-type accrual ledger is validator_rewards (getValidatorRewards); this is the
+    // claim event. type in {block, address, source}; ordered newest-first by m.action_index.
+    async getCollects(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        reward_claims m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        reward_claims m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }

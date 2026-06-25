@@ -143,7 +143,12 @@ class XChainExplorer {
                 '/{COIN}/prices'              : 'prices.html',
                 '/{COIN}/controllers'         : 'controllers.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
+                '/{COIN}/unstakes'            : 'unstakes.html',
+                '/{COIN}/delegation_revocations' : 'delegation_revocations.html',
+                '/{COIN}/collects'            : 'collects.html',
                 '/{COIN}/slash_events'        : 'slash_events.html',
+                '/{COIN}/capability_slash_events' : 'capability_slash_events.html',
+                '/{COIN}/oracle_prices'       : 'oracle_prices.html',
                 '/{COIN}/attestations'        : 'attestations.html',
                 '/{COIN}/xcalls'              : 'xcalls.html',
                 '/{COIN}/sends'               : 'sends.html',
@@ -236,6 +241,19 @@ class XChainExplorer {
                 '/{COIN}/api/contract_delegations'             : ['getContractDelegations'],
                 '/{COIN}/api/slash_events/{QUERY}/{TYPE}'      : ['getSlashEvents',       ['block', 'address', 'contract']],
                 '/{COIN}/api/slash_events'                     : ['getSlashEvents'],
+                // Capability staking lifecycle list views (UNSTAKE v0, DELEGATE v2/v3 revoke, COLLECT)
+                '/{COIN}/api/unstakes/{QUERY}/{TYPE}'          : ['getUnstakes',          ['block', 'address', 'source']],
+                '/{COIN}/api/unstakes'                         : ['getUnstakes'],
+                '/{COIN}/api/delegation_revocations/{QUERY}/{TYPE}' : ['getStakeKeyRevocations', ['block', 'address', 'source']],
+                '/{COIN}/api/delegation_revocations'           : ['getStakeKeyRevocations'],
+                '/{COIN}/api/collects/{QUERY}/{TYPE}'          : ['getCollects',          ['block', 'address', 'source']],
+                '/{COIN}/api/collects'                         : ['getCollects'],
+                // Capability equivocation slashes (SLASH wire action; capability_slash_events, id-keyed)
+                '/{COIN}/api/capability_slash_events/{QUERY}/{TYPE}' : ['getCapabilitySlashEvents', ['block', 'capability', 'pubkey', 'address']],
+                '/{COIN}/api/capability_slash_events'          : ['getCapabilitySlashEvents'],
+                // User token/fiat oracle publications (PRICE v1; hub-mirrored oracle_prices, id-keyed)
+                '/{COIN}/api/oracle_prices/{QUERY}/{TYPE}'     : ['getOraclePrices',      ['token', 'address']],
+                '/{COIN}/api/oracle_prices'                    : ['getOraclePrices'],
                 // Cross-chain coordination mirrors (hub-replicated match + local settlement legs)
                 '/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}'     : ['getCrossChainMatches',     ['match', 'block', 'status']],
                 '/{COIN}/api/cross_chain_matches'                    : ['getCrossChainMatches'],
@@ -334,6 +352,11 @@ class XChainExplorer {
                 '/{COIN}/explorer/contract_stakes/{QUERY}/{TYPE}'           : ['getContractStakes',   ['block', 'address', 'contract']],
                 '/{COIN}/explorer/contract_unstakes/{QUERY}/{TYPE}'         : ['getContractUnstakes', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/slash_events/{QUERY}/{TYPE}'              : ['getSlashEvents',  ['block', 'address', 'contract']],
+                '/{COIN}/explorer/unstakes/{QUERY}/{TYPE}'                  : ['getUnstakes',     ['block', 'address', 'source']],
+                '/{COIN}/explorer/delegation_revocations/{QUERY}/{TYPE}'    : ['getStakeKeyRevocations', ['block', 'address', 'source']],
+                '/{COIN}/explorer/collects/{QUERY}/{TYPE}'                  : ['getCollects',     ['block', 'address', 'source']],
+                '/{COIN}/explorer/capability_slash_events/{QUERY}/{TYPE}'   : ['getCapabilitySlashEvents', ['block', 'capability', 'pubkey', 'address']],
+                '/{COIN}/explorer/oracle_prices/{QUERY}/{TYPE}'             : ['getOraclePrices', ['token', 'address']],
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
                 '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
@@ -401,9 +424,11 @@ class XChainExplorer {
         this.app.get('/:coin/api/proof/validator-set', (req, res) => { this.processValidatorSetProofRequest(req, res); });
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
 
-        // Catch-all. Express 5 / path-to-regexp v8 rejects a bare '*' at startup;
-        // '/*path' is the named-wildcard equivalent (matches '/' and any depth).
-        this.app.get('/*path', (req, res) => { this.processRequest(req, res); });
+        // Catch-all. Express 5 / path-to-regexp v8 rejects a bare '*' at startup.
+        // The wildcard must be braced ('/{*path}') to also match the bare root '/':
+        // unbraced '/*path' requires at least one trailing segment, so '/' fell through
+        // to the JSON-RPC router and returned a -32600 error instead of the coin index.
+        this.app.get('/{*path}', (req, res) => { this.processRequest(req, res); });
 
         return urls;
     }
@@ -935,6 +960,21 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.target_contract_index, info.tick, info.amount, info.cooldown_end_block, status, info.action_index];
                     if(method=='getSlashEvents')
                         info = [count_reverse, info.block_index, info.timestamp, info.slashed_pubkey, info.target_contract_index, info.tick, info.amount, info.destination, info.execution_index];
+                    // Capability staking lifecycle list pages. action_index stays LAST (paging cursor).
+                    if(method=='getCollects')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.amount, status, info.action_index];
+                    if(method=='getUnstakes')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.amount, info.cooldown_end_block, status, info.action_index];
+                    if(method=='getStakeKeyRevocations')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.deactivation_block, status, info.action_index];
+                    // Capability equivocation slashes. No own action_index; id is the paging cursor
+                    // (LAST), slash_action_index links the view to the SLASH wire action.
+                    if(method=='getCapabilitySlashEvents')
+                        info = [count_reverse, info.block_index, info.timestamp, info.slashed_pubkey, info.capability, info.amount, info.submitter, info.slash_action_index, info.id];
+                    // User token/fiat oracle rows (hub-mirrored, cross-chain). id is the paging cursor
+                    // (LAST); block_time + source_chain replace the block/time columns (no local block).
+                    if(method=='getOraclePrices')
+                        info = [count_reverse, info.block_time, info.source_chain, info.source_address, info.tick, info.fiat, info.value, info.id];
                     // Attestation list page
                     if(method=='getAttestations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer];

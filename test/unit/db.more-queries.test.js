@@ -3700,6 +3700,110 @@ describe('Database#getContractDelegations', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getUnstakes (capability UNSTAKE v0)
+// ---------------------------------------------------------------------------
+
+describe('Database#getUnstakes', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getUnstakes(makeActionConfig('getUnstakes'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads "unstakes" with amount + cooldown, ordered by m.action_index', async () => {
+        const db = makeDb();
+        const [query] = await db.getUnstakes(makeActionConfig('getUnstakes'));
+        expect(query).to.include('unstakes m');
+        expect(query).to.include('m.amount');
+        expect(query).to.include('m.cooldown_end_block');
+        expect(query).to.include('ORDER BY m.action_index');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getStakeKeyRevocations (DELEGATE v2/v3 key revoke)
+// ---------------------------------------------------------------------------
+
+describe('Database#getStakeKeyRevocations', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getStakeKeyRevocations(makeActionConfig('getStakeKeyRevocations'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads "stake_key_revocations" with the revoked key + deactivation block', async () => {
+        const db = makeDb();
+        const [query] = await db.getStakeKeyRevocations(makeActionConfig('getStakeKeyRevocations'));
+        expect(query).to.include('stake_key_revocations m');
+        expect(query).to.include('a3.pubkey as signing_pubkey');
+        expect(query).to.include('m.deactivation_block');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getCollects (COLLECT validator reward claim)
+// ---------------------------------------------------------------------------
+
+describe('Database#getCollects', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getCollects(makeActionConfig('getCollects'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads "reward_claims" with the claimed amount', async () => {
+        const db = makeDb();
+        const [query] = await db.getCollects(makeActionConfig('getCollects'));
+        expect(query).to.include('reward_claims m');
+        expect(query).to.include('m.amount');
+        expect(query).to.include('ORDER BY m.action_index');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getCapabilitySlashEvents (SLASH equivocation bond-burn, id-keyed)
+// ---------------------------------------------------------------------------
+
+describe('Database#getCapabilitySlashEvents', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getCapabilitySlashEvents(makeActionConfig('getCapabilitySlashEvents', 'pubkey'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads "capability_slash_events" with slash_action_index, ordered by m.id', async () => {
+        const db = makeDb();
+        const [query] = await db.getCapabilitySlashEvents(makeActionConfig('getCapabilitySlashEvents', 'pubkey'));
+        expect(query).to.include('capability_slash_events m');
+        expect(query).to.include('m.slash_action_index');
+        expect(query).to.include('m.capability');
+        expect(query).to.include('ORDER BY m.id');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// getOraclePrices (user PRICE v1, hub-mirrored, id-keyed)
+// ---------------------------------------------------------------------------
+
+describe('Database#getOraclePrices', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        const result = await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads "oracle_prices" with tick/fiat/value, ordered by m.id', async () => {
+        const db = makeDb();
+        const [query] = await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token'));
+        expect(query).to.include('oracle_prices m');
+        expect(query).to.include('m.tick');
+        expect(query).to.include('m.fiat');
+        expect(query).to.include('m.value');
+        expect(query).to.include('ORDER BY m.id');
+    });
+});
+
+// ---------------------------------------------------------------------------
 // getCrossChainMatches
 // ---------------------------------------------------------------------------
 

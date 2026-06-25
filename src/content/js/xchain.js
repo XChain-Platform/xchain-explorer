@@ -1232,7 +1232,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1854,6 +1854,60 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).html('<span class="badge text-bg-' + cls + '">' + (request_status || '-') + '</span>');
                 $('td', row).eq(8).html(action_link);
             }
+            // Collect (validator reward claim; reward_claims)
+            if(action=='collect'){
+                amount = data[4];
+                $('td', row).eq(4).html(formatAmount(amount));
+                $('td', row).eq(5).html(action_link);
+            }
+            // Capability unstake (UNSTAKE v0; begins the global cooldown on a staked key)
+            if(action=='unstake'){
+                let pubkey       = data[4];
+                amount           = data[5];
+                let cooldown_end = data[6];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(6).html(formatLink('/' + coin + '/block/' + cooldown_end, numeral(cooldown_end).format(fmtInteger)));
+                $('td', row).eq(7).html(action_link);
+            }
+            // Delegate key revocation (DELEGATE v2/v3; stake_key_revocations)
+            if(action=='delegation_revocation'){
+                let pubkey       = data[4];
+                let deactivation = data[5];
+                $('td', row).eq(4).html(formatHash(pubkey));
+                $('td', row).eq(5).html(formatLink('/' + coin + '/block/' + deactivation, numeral(deactivation).format(fmtInteger)));
+                $('td', row).eq(6).html(action_link);
+            }
+            // Capability equivocation slash (SLASH wire action; capability_slash_events). No row
+            // color (no status); the view links to the SLASH action via slash_action_index.
+            if(action=='capability_slash_event'){
+                let pubkey             = data[3];
+                let capability         = data[4];
+                amount                 = data[5];
+                let submitter          = data[6];
+                let slash_action_index = data[7];
+                $('td', row).eq(3).html(formatHash(pubkey));
+                $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + (capability || '-') + '</span>');
+                $('td', row).eq(5).html(formatAmount(amount));
+                $('td', row).eq(6).html(isNull(submitter) ? '-' : formatLink('/' + coin + '/address/' + submitter, submitter));
+                $('td', row).eq(7).html(formatLink('/' + coin + '/action/' + slash_action_index, 'view', null, true));
+            }
+            // User token/fiat oracle row (PRICE v1; hub-mirrored, cross-chain). eq(1)/eq(2) override
+            // the generic block/time columns (no local block on a mirror row).
+            if(action=='oracle_price'){
+                let block_time    = data[1];
+                let source_chain  = data[2];
+                let source_address = data[3];
+                token             = data[4];
+                let fiat          = data[5];
+                value             = data[6];
+                $('td', row).eq(1).html(formatLivestamp(block_time));
+                $('td', row).eq(2).text(isNull(source_chain) ? '-' : source_chain);
+                $('td', row).eq(3).html(isNull(source_address) ? '-' : formatLink('/' + coin + '/address/' + source_address, source_address));
+                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(5).text(isNull(fiat) ? '-' : fiat);
+                $('td', row).eq(6).html(numeral(value).format(fmtCurrency));
+            }
         }
     });
 }
@@ -2007,6 +2061,7 @@ function showActionDetails(){
     if(o.action=='DEPOSIT'){          found = true;  showDepositDetails(o);         }
     if(o.action=='WITHDRAW'){         found = true;  showWithdrawDetails(o);        }
     if(o.action=='XCALL'){            found = true;  showXcallDetails(o);           }
+    if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -2265,6 +2320,18 @@ function showDelegateDetails(data){
 // Display COLLECT action information (validator reward claim)
 function showCollectDetails(data){
     $('#info-collect .collect-amount').html(formatAmount(data.amount));
+}
+
+// Display SLASH action information (capability equivocation bond-burn)
+function showSlashDetails(data){
+    $('#info-slash .slash-pubkey').html(formatHash(data.slashed_pubkey, 24));
+    $('#info-slash .slash-capability').html(isNull(data.capability) ? '-' : '<span class="badge text-bg-secondary">' + data.capability + '</span>');
+    $('#info-slash .slash-equiv-key').text(isNull(data.equiv_key) ? '-' : data.equiv_key);
+    $('#info-slash .slash-amount').html(formatAmount(data.amount));
+    $('#info-slash .slash-bounty').html(formatAmount(data.bounty_amount));
+    $('#info-slash .slash-treasury').html(formatAmount(data.treasury_amount));
+    $('#info-slash .slash-submitter').html(isNull(data.submitter) ? '-' : formatLink('/' + XC.coin + '/address/' + data.submitter, data.submitter));
+    $('#info-slash .slash-destination').html(isNull(data.destination) ? '-' : formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
 }
 
 // Display DEPLOY action information (contract; v1 surfaces staking metadata)

@@ -172,37 +172,76 @@
                             <span id="datatable-header-text"></span>
                         </div>
                         <div class="col-6 text-end   pt-0 pb-1 pe-1 align-middle">
+                            <style>
+                                /* Grouped "More Info" mega-menu: lay the 24 data views out as labelled
+                                   columns instead of one long flat list. Width is capped to the viewport
+                                   and the panel scrolls if a narrow screen can't fit the columns. */
+                                .xc-megamenu{ width:auto; min-width:min(640px,92vw); max-width:92vw; }
+                                .xc-megamenu-grid{
+                                    display:grid;
+                                    grid-template-columns:repeat(3,minmax(170px,1fr));
+                                    gap:.25rem 1rem;
+                                    align-items:start;
+                                }
+                                .xc-megamenu-group .dropdown-header{
+                                    font-size:.7rem; letter-spacing:.04em; padding:.25rem .5rem .15rem;
+                                    opacity:.7; border-bottom:1px solid var(--bs-border-color); margin-bottom:.15rem;
+                                }
+                                .xc-megamenu-group .dropdown-item{ padding:.3rem .5rem; font-size:.9rem; }
+                                .xc-megamenu-group .dropdown-item .fa{ opacity:.75; }
+                                @media (max-width:575px){
+                                    .xc-megamenu-grid{ grid-template-columns:1fr; }
+                                    .xc-megamenu{ min-width:min(280px,92vw); max-height:70vh; overflow:auto; }
+                                }
+                            </style>
                             <div class="dropdown">
                                 <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="fa fa-bars"></i> More Info
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" id="tab-dropdown-address"  ><i class="fa fa-gears"              ></i> Addresses</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"  ><i class="fa fa-parachute-box"      ></i> Airdrops</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-batch"    ><i class="fa fa-layer-group"        ></i> Batches</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-broadcast"><i class="fa fa-bullhorn"           ></i> Broadcasts</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-callback" ><i class="fa fa-recycle"            ></i> Callbacks</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"  ><i class="fa fa-trash"              ></i> Destroys</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"><i class="fa fa-arrows-h"           ></i> Dispensers</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispense" ><i class="fa fa-hand-holding-heart" ></i> Dispenses</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dividend" ><i class="fa fa-sitemap"            ></i> Dividends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign"          ></i> Fees</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-file"     ><i class="fa fa-file"               ></i> Files</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-history"  ><i class="fa fa-clock-o"            ></i> History</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-issue"    ><i class="fa fa-bank"               ></i> Issues</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-link"     ><i class="fa fa-chain"              ></i> Links</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-list"     ><i class="fa fa-list"               ></i> Lists</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-market"   ><i class="fa fa-money-bill-trend-up"></i> Markets</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-message"  ><i class="fa fa-message"            ></i> Messages</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa fa-print"              ></i> Mints</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"               ></i> Orders</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"               ></i> Sends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-snooze"             ></i> Sleeps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa fa-exchange"           ></i> Swaps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-sweep"    ><i class="fa fa-truck"              ></i> Sweeps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-token"    ><i class="fa fa-database"           ></i> Tokens</a></li>
-
-                                </ul>
+                                <div class="dropdown-menu dropdown-menu-end xc-megamenu p-2 shadow">
+                                    <a class="dropdown-item rounded fw-semibold mb-1" id="tab-dropdown-history"><i class="fa fa-clock-o fa-fw me-2"></i>History <span class="opacity-50">(All Activity)</span></a>
+                                    <hr class="dropdown-divider my-1">
+                                    <div class="xc-megamenu-grid">
+                                        <div class="xc-megamenu-group">
+                                            <h6 class="dropdown-header text-uppercase fw-bold">Token Lifecycle</h6>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-token"    ><i class="fa fa-database            fa-fw me-2"></i>Tokens</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-issue"    ><i class="fa fa-bank                fa-fw me-2"></i>Issues</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-mint"     ><i class="fa fa-print               fa-fw me-2"></i>Mints</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-destroy"  ><i class="fa fa-trash               fa-fw me-2"></i>Destroys</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-callback" ><i class="fa fa-recycle             fa-fw me-2"></i>Callbacks</a>
+                                        </div>
+                                        <div class="xc-megamenu-group">
+                                            <h6 class="dropdown-header text-uppercase fw-bold">Transfers</h6>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-send"     ><i class="fa fa-send                fa-fw me-2"></i>Sends</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-sweep"    ><i class="fa fa-truck               fa-fw me-2"></i>Sweeps</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-airdrop"  ><i class="fa fa-parachute-box       fa-fw me-2"></i>Airdrops</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-dividend" ><i class="fa fa-sitemap             fa-fw me-2"></i>Dividends</a>
+                                        </div>
+                                        <div class="xc-megamenu-group">
+                                            <h6 class="dropdown-header text-uppercase fw-bold">Trading</h6>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-market"   ><i class="fa fa-money-bill-trend-up fa-fw me-2"></i>Markets</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-order"    ><i class="fa fa-book                fa-fw me-2"></i>Orders</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-swap"     ><i class="fa fa-exchange            fa-fw me-2"></i>Swaps</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-dispenser"><i class="fa fa-arrows-h            fa-fw me-2"></i>Dispensers</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-dispense" ><i class="fa fa-hand-holding-heart  fa-fw me-2"></i>Dispenses</a>
+                                        </div>
+                                        <div class="xc-megamenu-group">
+                                            <h6 class="dropdown-header text-uppercase fw-bold">Data &amp; Communications</h6>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-broadcast"><i class="fa fa-bullhorn            fa-fw me-2"></i>Broadcasts</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-message"  ><i class="fa fa-message             fa-fw me-2"></i>Messages</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-file"     ><i class="fa fa-file                fa-fw me-2"></i>Files</a>
+                                        </div>
+                                        <div class="xc-megamenu-group">
+                                            <h6 class="dropdown-header text-uppercase fw-bold">Utility</h6>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-address"  ><i class="fa fa-gears               fa-fw me-2"></i>Addresses</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-list"     ><i class="fa fa-list                fa-fw me-2"></i>Lists</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-link"     ><i class="fa fa-chain               fa-fw me-2"></i>Links</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-batch"    ><i class="fa fa-layer-group         fa-fw me-2"></i>Batches</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-sleep"    ><i class="fa fa-snooze              fa-fw me-2"></i>Sleeps</a>
+                                            <a class="dropdown-item rounded" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign           fa-fw me-2"></i>Fees</a>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>                              
                         </div>
                     </div>

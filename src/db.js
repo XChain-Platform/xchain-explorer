@@ -387,6 +387,25 @@ class Database {
     async getData(config){
         let data  = [];
         let total = null;
+
+        // Short-TTL result cache for the holders path (item 5338). getHolders sorts by
+        // ABS(amount) on a VARCHAR column, which is unindexable, so each call to a public,
+        // unauthenticated /api/holders or /explorer/holders route is a full filesort: a cheap
+        // DoS-amplification vector for a popular token. A small per-(coin,tick,page,order) cache
+        // collapses a request burst into one query. TTL is short so holder lists stay fresh; the
+        // map is size-capped (oldest-evicted) so the cache itself cannot grow unbounded.
+        let holdersKey = null;
+        if(config.data.method === 'getHolders'){
+            const sql = config.data.sql || {};
+            holdersKey = [config.coin, config.type, config.data.type, config.data.search,
+                          sql.apiOffset, sql.order, sql.limit].join('|');
+            const ttl = parseInt(process.env.EXPLORER_HOLDERS_CACHE_MS, 10) || 15000;
+            if(!this._holdersCache) this._holdersCache = new Map();
+            const hit = this._holdersCache.get(holdersKey);
+            if(hit && (Date.now() - hit.at) < ttl)
+                return [hit.data, hit.total];
+        }
+
         let [query, args, count] = await this.getQuery(config);
         if(typeof query === 'object'){
             data = query;
@@ -423,6 +442,14 @@ class Database {
                 let rows = await this.doQuery(config, count, baseArgs);
                 total = (rows) ? Number(rows[0].total) : 0;
             }
+        }
+        // Populate the holders cache (item 5338). Cap the map and evict the oldest entry on
+        // overflow so a flood of distinct ticks/pages cannot grow the cache without bound.
+        if(holdersKey !== null){
+            const MAX = parseInt(process.env.EXPLORER_HOLDERS_CACHE_MAX, 10) || 500;
+            if(this._holdersCache.size >= MAX)
+                this._holdersCache.delete(this._holdersCache.keys().next().value);
+            this._holdersCache.set(holdersKey, { at: Date.now(), data, total });
         }
         return [data, total];
     }

@@ -73,6 +73,23 @@ class Database {
             'sweeps'
         ];
 
+        // List views whose backing table name is NOT derivable from the method via
+        // the get->lowercase mangle in getQueryOffsets (e.g. getAnchors -> anchor_actions,
+        // getSlashEvents -> slash_events, the hub-mirrored governance/match tables). The
+        // boundary-discovery query can't run for these, but it doesn't need to: each main
+        // list query already orders by and filters on the correct cursor column
+        // (getQueryOffsetSql picks m.id vs m.action_index per method). We only need to
+        // preserve the inbound client cursor so next/prev advance instead of resetting to
+        // the newest page every time.
+        this.cursorPagedMethods = [
+            'getAnchors','getXcalls','getAttestations',
+            'getContractStakes','getContractUnstakes','getContractDelegations',
+            'getCrossChainSettlements','getCrossChainMatches',
+            'getSlashEvents','getCapabilitySlashEvents','getFullNodeVerifications',
+            'getPriceSnapshots','getOraclePrices',
+            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'
+        ];
+
     }
 
     async init(){
@@ -709,15 +726,13 @@ class Database {
                 field = 'b1.block_index';
             if(method=='getTokens')
                 field = 'm.id';
-            if(method=='getSlashEvents')
-                field = 'm.id';
-            if(method=='getCapabilitySlashEvents')
-                field = 'm.id';
-            if(method=='getOraclePrices')
-                field = 'm.id';
-            if(method=='getFullNodeVerifications')
-                field = 'm.id';
-            if(['getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
+            // id-keyed list views: their main query ORDERs BY m.id (these tables have no
+            // action_index cursor column, or a fan-out where action_index is not unique
+            // per displayed row), so the paging cursor must compare m.id rather than the
+            // default m.action_index. Must stay in lockstep with each method's ORDER BY.
+            if(['getSlashEvents','getCapabilitySlashEvents','getOraclePrices',
+                'getFullNodeVerifications','getPriceSnapshots','getCrossChainMatches',
+                'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
                 field = 'm.id';
             if(action=='prev'){
                 sql = ` AND ` + field + ` > ?`;
@@ -812,8 +827,18 @@ class Database {
             }
         }
         table = String(method).toLowerCase().replace('get','');
-        if(!this.actionTables.includes(table) && !['blocks','tokens','history','files','markets','market'].includes(table))
+        if(!this.actionTables.includes(table) && !['blocks','tokens','history','files','markets','market'].includes(table)){
+            // The boundary-discovery query below keys off this derived table name, which
+            // does not exist for these methods (anchor_actions, slash_events, the hub
+            // governance/match mirrors, etc.), so it cannot run. It is not needed: the
+            // main list query already filters and orders on the right cursor column. For
+            // the known cursor-paged views, pass the inbound client cursor through
+            // unchanged (offset1) so next/prev advance; returning [] here discards it and
+            // resets every page to the newest rows. Unknown methods keep the old no-op.
+            if(this.cursorPagedMethods.includes(method))
+                return [offset1, false];
             return [];
+        }
         if(['first','last'].includes(action)){
             if(action=='first')
                 order = 'DESC';

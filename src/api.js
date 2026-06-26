@@ -137,6 +137,15 @@ async function startApi(){
     }
 
     const httpServer = http.createServer(app);
+    // A listen() that fails (EADDRINUSE when a second instance grabs the port, EACCES
+    // on a privileged port) surfaces as an async 'error' event, not a throw, so a
+    // try/catch can't catch it; without a handler Node crashes with an unhandled-error
+    // stack dump. The HTTP server is the primary serving socket: log one clear line and
+    // exit non-zero so the supervisor (systemd) reports and restarts cleanly.
+    httpServer.on('error', (err) => {
+        console.error('HTTP server failed to listen on port ' + EXPLORER_API_PORT_HTTP + ': ' + err.code + ' (' + err.message + ')');
+        process.exit(1);
+    });
     httpServer.listen(EXPLORER_API_PORT_HTTP, () => {
         console.log('HTTP  server listening on port', EXPLORER_API_PORT_HTTP);
     });
@@ -145,6 +154,14 @@ async function startApi(){
     let httpsServer = null;
     if (config.API.ssl) {
         httpsServer = https.createServer(config.API.ssl, app);
+        // The HTTPS listener is secondary (prod fronts TLS at Apache and ships no SSL
+        // files, so this path is dev/regtest only). A bind failure here must not take the
+        // process down: log a warning and keep serving over HTTP. Same async-'error'
+        // caveat as above, so attach the handler before listen().
+        httpsServer.on('error', (err) => {
+            console.warn('HTTPS server failed to listen on port ' + EXPLORER_API_PORT_HTTPS + ': ' + err.code + ' (' + err.message + '); continuing HTTP-only');
+            httpsServer = null;
+        });
         httpsServer.listen(EXPLORER_API_PORT_HTTPS, () => {
             console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTPS);
         });

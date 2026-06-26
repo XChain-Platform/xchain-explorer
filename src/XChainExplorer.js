@@ -781,6 +781,13 @@ class XChainExplorer {
         let offset = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.start))  ? cfg.data.offset.start  : false;
         let action = (cfg.data && cfg.data.offset && !this.util.isNull(cfg.data.offset.action)) ? cfg.data.offset.action : false;
         let method = cfg.data.method;
+        // Cursor-paged list views (anchor_actions, slash_events, the hub mirrors, etc.) carry
+        // no server-computed boundary on a jump-to-last: their main query already returns the
+        // exact final page (ORDER BY <cursor> ASC LIMIT n), so there is no `offset` to satisfy
+        // the keep test below. The `cnt > start` window test then drops every row (cnt is
+        // 1-based within the single returned page, never exceeding `start`). Keep all rows in
+        // that case, mirroring how the `|| offset` branch keeps a cursor-windowed page.
+        let cursorLast = (action=='last') && (this.db.cursorPagedMethods || []).includes(method);
 
         // Clamp pagination values to safe ranges
         start  = Math.max(0, Number(start));
@@ -821,7 +828,7 @@ class XChainExplorer {
             // Reverse-count: total minus (count-1), used because latest is first in most cases
             count_reverse = this.util.bcsub(total,this.util.bcsub(count, 1),0);
 
-            if((cnt > start && cnt <= limit) || offset){
+            if((cnt > start && cnt <= limit) || offset || cursorLast){
                 let info   = data[idx-1];
                 if(type=='api'){
                     // Holders: hoist token-level fields to top; pass only address+amount per row

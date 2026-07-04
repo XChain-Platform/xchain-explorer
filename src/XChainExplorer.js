@@ -160,6 +160,8 @@ class XChainExplorer {
                 '/{COIN}/governance_proposals' : 'governance_proposals.html',
                 '/{COIN}/governance_votes'    : 'governance_votes.html',
                 '/{COIN}/attestations'        : 'attestations.html',
+                '/{COIN}/polls'               : 'polls.html',
+                '/{COIN}/votes'               : 'votes.html',
                 '/{COIN}/xcalls'              : 'xcalls.html',
                 '/{COIN}/sends'               : 'sends.html',
                 '/{COIN}/sleeps'              : 'sleeps.html',
@@ -285,6 +287,13 @@ class XChainExplorer {
                 // Attestation Endpoints (ATTEST v0 requests + v1 responses from the `attests` table)
                 '/{COIN}/api/attestations/{QUERY}/{TYPE}'      : ['getAttestations',      ['block', 'address', 'contract']],
                 '/{COIN}/api/attestations'                     : ['getAttestations'],
+                // VOTE governance endpoints (polls = VOTE v0, votes = v1 ballots, poll results
+                // = frozen VOTE v2 tally). Poll id IS the creating action_index.
+                '/{COIN}/api/polls/{QUERY}/{TYPE}'            : ['getPolls',            ['block', 'tick', 'status', 'source']],
+                '/{COIN}/api/polls'                          : ['getPolls'],
+                '/{COIN}/api/poll/{QUERY}'                   : ['getPoll',             'poll'],
+                '/{COIN}/api/poll/{QUERY}/results'           : ['getPollResults',      'poll'],
+                '/{COIN}/api/votes/{QUERY}/{TYPE}'           : ['getVotes',            ['address', 'poll', 'block']],
                 // ANCHOR checkpoint list (anchor_actions, read-only)
                 '/{COIN}/api/anchors/{QUERY}/{TYPE}'           : ['getAnchors',           ['block', 'chain', 'network', 'status']],
                 '/{COIN}/api/anchors'                          : ['getAnchors'],
@@ -380,6 +389,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/governance_proposals/{QUERY}/{TYPE}'      : ['getGovernanceProposals',   ['status', 'parameter', 'proposal']],
                 '/{COIN}/explorer/governance_votes/{QUERY}/{TYPE}'          : ['getGovernanceVotes',       ['proposal', 'voter']],
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
+                '/{COIN}/explorer/polls/{QUERY}/{TYPE}'                     : ['getPolls',        ['block', 'tick', 'status', 'source']],
+                '/{COIN}/explorer/votes/{QUERY}/{TYPE}'                     : ['getVotes',        ['address', 'poll', 'block']],
                 '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
                 '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
                 '/{COIN}/explorer/anchors/{QUERY}/{TYPE}'                   : ['getAnchors',      ['block', 'chain', 'network', 'status']],
@@ -1016,6 +1027,15 @@ class XChainExplorer {
                     // Attestation list page
                     if(method=='getAttestations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer];
+                    // VOTE poll list page. poll_status (the lifecycle enum) is a rendered column;
+                    // status (0/1 action validity) + action_index stay LAST for the client's
+                    // generic row-color + paging-cursor extraction (data[len-2]/data[len-1]).
+                    if(method=='getPolls')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.question, info.poll_status, status, info.action_index];
+                    // VOTE ballot list page. One row per (poll, voter, chosen option); the voter
+                    // is the source. action_index stays LAST (paging cursor; links the ballot action).
+                    if(method=='getVotes')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.poll_index, info.choice, info.share, status, info.action_index];
                     // XCALL cross-chain call list page (source request rows). action_index stays
                     // LAST (the datatables client uses it as the paging offset cursor).
                     if(method=='getXcalls')

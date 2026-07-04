@@ -1,0 +1,47 @@
+<!-- VOTE Polls (token-weighted governance; polls table, VOTE v0) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-check-to-slot"></i> Governance Polls
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-poll">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Creator</th>
+                        <th class="">Token</th>
+                        <th class="">Question</th>
+                        <th class="">Status</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="8" class="loading-data">Loading poll data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'VOTE Polls';
+    XC.pageInfo.description = 'Token-weighted governance polls on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. Token holders create and vote on on-chain polls.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/polls';
+    updatePageInfo();
+
+    // Load all `poll` actions
+    loadDatatablesData(XC.coin, 'poll', null, null);
+
+});
+</script>

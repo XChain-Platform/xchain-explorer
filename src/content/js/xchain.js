@@ -1852,6 +1852,29 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).text((version == 0) ? request_status : response_status);
                 $('td', row).eq(8).html(action_link);
             }
+            // VOTE poll (polls table; token-weighted governance, VOTE v0). eq(4) token,
+            // eq(5) question, eq(6) lifecycle-status badge (open/finalized/failed_quorum).
+            if(action=='poll'){
+                token             = data[4];
+                let question      = data[5];
+                let poll_status   = data[6];
+                let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
+                $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(5).text(isNull(question) ? '-' : question);
+                $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
+                $('td', row).eq(7).html(action_link);
+            }
+            // VOTE ballot (votes table; one row per voter choice, VOTE v1). eq(4) links the
+            // poll it voted on, eq(5) the chosen option index, eq(6) the split-mode share.
+            if(action=='vote'){
+                let poll_index = data[4];
+                let choice     = data[5];
+                let share      = data[6];
+                $('td', row).eq(4).html(isNull(poll_index) ? '-' : formatLink('/' + coin + '/action/' + poll_index, poll_index));
+                $('td', row).eq(5).text(isNull(choice) ? '-' : choice);
+                $('td', row).eq(6).text(isNull(share) ? '-' : share);
+                $('td', row).eq(7).html(action_link);
+            }
             // XCALL (cross-chain call, source-chain request row). eq(3) overrides the
             // generic source-address link with the emitting contract.
             if(action=='xcall'){
@@ -2200,6 +2223,7 @@ function showActionDetails(){
     if(o.action=='DEPOSIT'){          found = true;  showDepositDetails(o);         }
     if(o.action=='WITHDRAW'){         found = true;  showWithdrawDetails(o);        }
     if(o.action=='XCALL'){            found = true;  showXcallDetails(o);           }
+    if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
     if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
@@ -2410,6 +2434,67 @@ function showAttestDetails(data){
         $('#info-attest .attest-signatures').html(html);
         if(!isNull(data.callback_execute_action_index))
             $('#info-attest .attest-callback-execute').html(formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
+    }
+}
+
+// Display VOTE action information. One action is exactly one of three kinds
+// (data.vote_kind, set by the explorer): a v0 poll definition, a v1 ballot, or a
+// v3 standing delegation. Show only the matching sub-section; for a poll, also
+// fetch the frozen per-option tally (empty until the poll is finalized).
+function showVoteDetails(data){
+    let kind = data.vote_kind;
+    $('#info-vote .vote-kind').html('<span class="badge text-bg-info">' + (kind || '-') + '</span>');
+    $('#info-vote .vote-poll-fields').toggleClass('d-none', kind != 'poll');
+    $('#info-vote .vote-ballot-fields').toggleClass('d-none', kind != 'ballot');
+    $('#info-vote .vote-delegation-fields').toggleClass('d-none', kind != 'delegation');
+    if(kind=='poll'){
+        let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
+        $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-vote .vote-question').text(isNull(data.question) ? '-' : data.question);
+        let opts = Array.isArray(data.options) ? data.options : [];
+        $('#info-vote .vote-options').html(opts.length ? opts.map((o, i) => i + ': ' + $('<div>').text(o).html()).join('<br>') : '-');
+        $('#info-vote .vote-tally-mode').text(isNull(data.tally_mode) ? '-' : data.tally_mode);
+        $('#info-vote .vote-weight-mode').text(isNull(data.weight_mode) ? '-' : data.weight_mode);
+        $('#info-vote .vote-max-selections').text(isNull(data.max_selections) ? '-' : data.max_selections);
+        $('#info-vote .vote-end-block').html(isNull(data.end_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.end_block, numeral(data.end_block).format('0,0')));
+        $('#info-vote .vote-quorum').text(isNull(data.quorum) ? '-' : data.quorum);
+        $('#info-vote .vote-min-voters').text(isNull(data.min_voters) ? '-' : data.min_voters);
+        $('#info-vote .vote-poll-status').html('<span class="badge text-bg-' + pcls + '">' + (data.poll_status || '-') + '</span>');
+        $('#info-vote .vote-winning-option').text(isNull(data.winning_option) ? '-' : data.winning_option);
+        $('#info-vote .vote-deposit').html(isNull(data.deposit_amount) ? '-' : formatAmount(data.deposit_amount));
+        // Binding poll: v2 finalize fires callback_method on the callback contract.
+        if(!isNull(data.callback_contract_index))
+            $('#info-vote .vote-callback').html(formatLink('/' + XC.coin + '/contract/' + data.callback_contract_index, data.callback_contract_index) + (isNull(data.callback_method) ? '' : '.' + data.callback_method));
+        else
+            $('#info-vote .vote-callback').text('-');
+        // Frozen per-option tally (poll_results). Empty until VOTE v2 finalizes.
+        $.getJSON('/' + XC.coin + '/api/poll/' + data.action_index + '/results', function(res){
+            let rows = (res && res.data) ? res.data : [];
+            if(rows.length){
+                let html = '<table class="table table-sm mb-0"><thead><tr><th>Option</th><th>Weight</th><th>Voters</th></tr></thead><tbody>';
+                rows.forEach(function(r){
+                    let label = opts[r.option_index];
+                    let name  = isNull(label) ? r.option_index : (r.option_index + ': ' + $('<div>').text(label).html());
+                    html += '<tr><td>' + name + '</td><td>' + formatAmount(r.total_weight) + '</td><td>' + numeral(r.voter_count).format('0,0') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                $('#info-vote .vote-results').html(html);
+            } else {
+                $('#info-vote .vote-results').text(data.poll_status=='open' ? 'Voting open (not yet finalized)' : 'No results');
+            }
+        });
+    }
+    if(kind=='ballot'){
+        $('#info-vote .vote-poll-ref').html(isNull(data.poll_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.poll_ref, data.poll_ref));
+        let ballot = Array.isArray(data.ballot) ? data.ballot : [];
+        $('#info-vote .vote-choices').html(ballot.length ? ballot.map(b => 'option ' + b.choice + (isNull(b.share) ? '' : ' (share ' + b.share + ')')).join('<br>') : '-');
+        $('#info-vote .vote-memo').text(isNull(data.memo) ? '-' : data.memo);
+    }
+    if(kind=='delegation'){
+        $('#info-vote .vote-deleg-token').html(isNull(data.delegation_tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.delegation_tick, data.delegation_tick, data.delegation_tick));
+        $('#info-vote .vote-delegator').html(isNull(data.delegator) ? '-' : formatLink('/' + XC.coin + '/address/' + data.delegator, data.delegator));
+        // delegate_to NULL is a CLEAR (revoke) of any standing delegation.
+        $('#info-vote .vote-delegate-to').html(isNull(data.delegate_to) ? '<span class="badge text-bg-secondary">cleared</span>' : formatLink('/' + XC.coin + '/address/' + data.delegate_to, data.delegate_to));
     }
 }
 

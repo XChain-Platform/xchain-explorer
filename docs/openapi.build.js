@@ -116,6 +116,12 @@ const ROUTES = [
     ['/{COIN}/api/governance_proposals', 'getGovernanceProposals', null, 'Governance', 'Federation governance parameter proposals (hub-owned)'],
     ['/{COIN}/api/governance_votes/{QUERY}/{TYPE}', 'getGovernanceVotes', ['proposal', 'voter'], 'Governance', 'Per-validator governance votes, filtered'],
     ['/{COIN}/api/governance_votes', 'getGovernanceVotes', null, 'Governance', 'Per-validator governance votes (hub-owned)'],
+    // VOTE token-weighted governance (polls = v0, ballots = v1, results = frozen v2 tally)
+    ['/{COIN}/api/polls/{QUERY}/{TYPE}', 'getPolls', ['block', 'tick', 'status', 'source'], 'Governance', 'VOTE governance polls, filtered by block/tick/status/creator'],
+    ['/{COIN}/api/polls', 'getPolls', null, 'Governance', 'VOTE governance polls (token-weighted; poll id = the creating action_index)'],
+    ['/{COIN}/api/poll/{QUERY}', 'getPoll', 'poll', 'Governance', 'A single VOTE poll definition + finalization summary'],
+    ['/{COIN}/api/poll/{QUERY}/results', 'getPollResults', 'poll', 'Governance', 'Frozen per-option tally for a poll (empty until finalized)'],
+    ['/{COIN}/api/votes/{QUERY}/{TYPE}', 'getVotes', ['address', 'poll', 'block'], 'Governance', 'VOTE ballots, filtered by voter/poll/block'],
     // ── Cross-chain ───────────────────────────────────────────────────────
     ['/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}', 'getCrossChainMatches', ['match', 'block', 'status'], 'Cross-chain', 'Cross-chain order matches, filtered'],
     ['/{COIN}/api/cross_chain_matches', 'getCrossChainMatches', null, 'Cross-chain', 'Cross-chain order matches (hub-replicated)'],
@@ -183,6 +189,7 @@ const QUERY_DESC = {
     subtoken: 'parent tick (returns its sub-tokens)', nft: 'NFT filter', recent: 'recent rows',
     tx_hash: 'transaction hash', tx_index: 'transaction index',
     call_id: 'cross-chain call id (64-hex)',
+    poll: 'poll id (the creating action_index)', tick: 'a token tick',
 };
 
 function opId(p) {
@@ -211,7 +218,7 @@ function pathParams(p, types) {
 }
 const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'getToken', 'getProject',
     'getContract', 'getContractState', 'getContractBalance', 'getExecution', 'getPublicKey',
-    'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch', 'getXcall']);
+    'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch', 'getXcall', 'getPoll']);
 
 function operation([p, method, types, tag, summary]) {
     const isList = !LIST_METHODS_SINGLE.has(method);

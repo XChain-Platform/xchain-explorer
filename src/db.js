@@ -87,7 +87,8 @@ class Database {
             'getCrossChainSettlements','getCrossChainMatches',
             'getSlashEvents','getCapabilitySlashEvents','getFullNodeVerifications',
             'getPriceSnapshots','getOraclePrices',
-            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'
+            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
+            'getPolls','getVotes'
         ];
 
     }
@@ -668,6 +669,27 @@ class Database {
         } else if(method=='getGovernanceVotes'){
             if(type=='proposal') sql += ' AND m.proposal_id=?';
             if(type=='voter')    sql += ' AND m.voter_pubkey=?';
+        } else if(method=='getPolls'){
+            // polls (VOTE v0) joins the actions/transactions/blocks chain (b1 via t1) like
+            // getAttestations. tick joins index_tickers (pt) on m.tick_id; source is the poll
+            // creator (a2 via t1.source_id); status filters the poll lifecycle enum directly.
+            if(type=='block')  sql += ' AND b1.block_index=?';
+            if(type=='tick')   sql += ' AND pt.tick=?';
+            if(type=='status') sql += ' AND m.poll_status=?';
+            if(type=='source') sql += ' AND a2.address=?';
+        } else if(method=='getPoll'){
+            // single poll keyed by its creating action_index (the poll id)
+            sql += ' AND m.action_index=?';
+        } else if(method=='getPollResults'){
+            // poll_results is keyed by poll_index (the poll's creating action_index); the frozen
+            // per-option tally has no actions chain of its own to filter on.
+            sql += ' AND m.poll_index=?';
+        } else if(method=='getVotes'){
+            // votes (VOTE v1 ballots) joins the actions/transactions/blocks chain; the voter IS
+            // the source that cast the ballot (a2 via t1.source_id), so address filters on a2.
+            if(type=='address') sql += ' AND a2.address=?';
+            if(type=='poll')    sql += ' AND m.poll_index=?';
+            if(type=='block')   sql += ' AND b1.block_index=?';
         } else if(['getCrossChainMatches','getCrossChainSettlements'].includes(method)){
             // standalone mirror tables (no actions/transactions chain); filter on
             // their own columns directly. matches carry snapshot_block (the
@@ -5672,6 +5694,81 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
+            // VOTE action. One action_index lands in exactly one of three tables: v0 -> polls
+            // (poll definition), v1 -> votes (ballot; one row per chosen option), v3 ->
+            // vote_delegations (standing per-token delegation). LEFT JOIN the two single-row
+            // tables here (polls, vote_delegations); the multi-row ballot is fetched below.
+            // vote_kind (set in post-processing) tells the client which shape it received.
+            // Mirrors the STAKE multi-table shape (single query, COALESCE'd status).
+            if(type=='VOTE'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            a1.action_index,
+                            a3.address as source,
+                            -- poll definition (VOTE v0)
+                            pt.tick,
+                            p.tick_id,
+                            p.end_block,
+                            p.options,
+                            p.max_selections,
+                            p.tally_mode,
+                            p.weight_mode,
+                            p.quorum,
+                            p.min_voters,
+                            p.min_vote_balance,
+                            p.decide_threshold,
+                            p.question,
+                            p.poll_status,
+                            p.winning_option,
+                            p.total_weight,
+                            p.total_voters,
+                            p.quorum_met,
+                            p.min_voters_met,
+                            p.fail_reason,
+                            p.decided_early,
+                            p.effective_close_block,
+                            p.finalized_action_index,
+                            p.resolved_block,
+                            p.deposit_amount,
+                            dep.address as deposit_address,
+                            p.deposit_resolved,
+                            p.callback_contract_index,
+                            p.callback_method,
+                            p.callback_params,
+                            p.callback_on,
+                            p.gas_escrow,
+                            p.callback_execute_action_index,
+                            -- delegation (VOTE v3)
+                            vd.tick_id as delegation_tick_id,
+                            dt.tick as delegation_tick,
+                            dgr.address as delegator,
+                            dg.address as delegate_to,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            COALESCE(ps.status, vds.status) as status
+                        FROM
+                            actions a1
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN polls              p   ON (p.action_index=a1.action_index)
+                            LEFT  JOIN index_tickers      pt  ON (pt.id=p.tick_id)
+                            LEFT  JOIN index_addresses    dep ON (dep.id=p.deposit_address_id)
+                            LEFT  JOIN index_statuses     ps  ON (ps.id=p.status_id)
+                            LEFT  JOIN vote_delegations   vd  ON (vd.action_index=a1.action_index)
+                            LEFT  JOIN index_tickers      dt  ON (dt.id=vd.tick_id)
+                            LEFT  JOIN index_addresses    dgr ON (dgr.id=vd.delegator_address_id)
+                            LEFT  JOIN index_addresses    dg  ON (dg.id=vd.delegate_address_id)
+                            LEFT  JOIN index_statuses     vds ON (vds.id=vd.status_id)
+                        WHERE
+                            a1.action_index=?
+                        LIMIT 1`;
+            }
             // STAKE action (v1/v2 capability stake → stakes; v3 contract-targeted → contract_stakes)
             if(type=='STAKE'){
                 query = `SELECT
@@ -6189,6 +6286,40 @@ class Database {
                     data['signatures'] = [];
                 }
                 delete data['validator_signatures'];
+            }
+            // VOTE: disambiguate the three sub-types and shape each. A v0 poll has a
+            // poll_status; a v3 delegation has a delegator; anything else is a v1 ballot,
+            // whose choices share this action_index across multiple votes rows (fetched here).
+            if(type=='VOTE'){
+                if(!this.util.isNull(data['poll_status'])){
+                    data['vote_kind'] = 'poll';
+                    // options is a JSON array of labels; callback_params a JSON array of dev params.
+                    if(data['options']){
+                        try { data['options'] = JSON.parse(data['options']); }
+                        catch(_) { console.warn('getActionData: VOTE options parse failed for action_index=' + action_index + ':', _); data['options'] = []; }
+                    } else {
+                        data['options'] = [];
+                    }
+                    if(data['callback_params']){
+                        try { data['callback_params'] = JSON.parse(data['callback_params']); }
+                        catch(_) { console.warn('getActionData: VOTE callback_params parse failed for action_index=' + action_index + ':', _); }
+                    }
+                } else if(!this.util.isNull(data['delegator'])){
+                    data['vote_kind'] = 'delegation';
+                } else {
+                    data['vote_kind'] = 'ballot';
+                    // A ballot's chosen options share this action_index; gather them in order.
+                    let rows = await this.doQuery(config,
+                        `SELECT poll_index, choice, share, memo FROM votes WHERE action_index=? ORDER BY choice ASC`,
+                        [action_index]);
+                    if(rows && rows.length){
+                        data['poll_ref'] = rows[0].poll_index;
+                        data['memo']     = rows[0].memo;
+                        data['ballot']   = rows.map(r => ({ choice: r.choice, share: r.share }));
+                    } else {
+                        data['ballot'] = [];
+                    }
+                }
             }
             // Expand the inlined JSON columns on PRICE actions into structured arrays so
             // third parties can read the COIN/FIAT pairs and the PBFT signature set (v0).
@@ -9654,6 +9785,216 @@ class Database {
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
                         LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // List VOTE governance polls (polls table, one row per VOTE v0 create-poll action).
+    // Joins the actions/transactions/blocks chain like getAttestations; filter by
+    // block / tick (electorate token) / poll_status / source creator (see the
+    // getQueryWhereSql getPolls branch). tick + source resolve through index tables.
+    async getPolls(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        polls m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        pt.tick,
+                        m.end_block,
+                        m.options,
+                        m.max_selections,
+                        m.tally_mode,
+                        m.weight_mode,
+                        m.quorum,
+                        m.min_voters,
+                        m.question,
+                        m.poll_status,
+                        m.winning_option,
+                        m.total_weight,
+                        m.total_voters,
+                        m.quorum_met,
+                        m.min_voters_met,
+                        m.deposit_amount,
+                        m.callback_contract_index,
+                        m.callback_method,
+                        m.finalized_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        polls m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Single VOTE poll by its creating action_index (the poll id). Returns the full
+    // poll definition + finalization summary (null fields until VOTE v2 finalizes) as a
+    // single object (getXcall pattern), with options/callback_params JSON-parsed. The
+    // per-option breakdown lives in poll_results (getPollResults); ballots in votes.
+    async getPoll(config){
+        let data  = null;
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        pt.tick,
+                        m.tick_id,
+                        m.end_block,
+                        m.options,
+                        m.max_selections,
+                        m.tally_mode,
+                        m.weight_mode,
+                        m.quorum,
+                        m.min_voters,
+                        m.min_vote_balance,
+                        m.decide_threshold,
+                        m.question,
+                        m.poll_status,
+                        m.winning_option,
+                        m.total_weight,
+                        m.total_voters,
+                        m.quorum_met,
+                        m.min_voters_met,
+                        m.fail_reason,
+                        m.decided_early,
+                        m.effective_close_block,
+                        m.finalized_action_index,
+                        m.resolved_block,
+                        m.deposit_amount,
+                        dep.address as deposit_address,
+                        m.deposit_resolved,
+                        m.callback_contract_index,
+                        m.callback_method,
+                        m.callback_params,
+                        m.callback_on,
+                        m.gas_escrow,
+                        m.callback_execute_action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        polls m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    dep ON (dep.id=m.deposit_address_id)
+                        LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + `
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length){
+            let row = results[0];
+            // options is a JSON array of option labels; callback_params a JSON array of
+            // developer params. Parse both, falling back to the raw string on malformed
+            // JSON (mirrors getXcall's params_json / getContract's permissions parse).
+            try { row.options = this.util.isNull(row.options) ? [] : JSON.parse(row.options); }
+            catch(e){ row.options = row.options; }
+            try { row.callback_params = this.util.isNull(row.callback_params) ? null : JSON.parse(row.callback_params); }
+            catch(e){ row.callback_params = row.callback_params; }
+            data = row;
+        }
+        return [data];
+    }
+
+    // Frozen per-option tally for one poll (poll_results, written by VOTE v2 finalize).
+    // Empty until the poll is finalized; ordered by option_index so the caller renders
+    // the poll's options in order. No actions chain (keyed by poll_index directly).
+    async getPollResults(config){
+        let sql   = config.data.sql;
+        let count = `SELECT count(*) as total FROM poll_results m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.poll_index,
+                        m.option_index,
+                        m.total_weight,
+                        m.voter_count,
+                        m.action_index as finalize_action_index,
+                        m.block_index,
+                        s1.status
+                    FROM
+                        poll_results m
+                        LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                    WHERE ` + sql.where.data + `
+                    ORDER BY m.option_index ASC`;
+        return [query, null, count];
+    }
+
+    // List VOTE ballots (votes table, one row per poll+voter+chosen option). Joins the
+    // actions/transactions/blocks chain like getAttestations; the voter IS the source
+    // (a2). Filter by voter address / poll / block (see getQueryWhereSql getVotes branch).
+    async getVotes(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        votes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        m.poll_index,
+                        m.choice,
+                        m.share,
+                        m.memo,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        votes m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)

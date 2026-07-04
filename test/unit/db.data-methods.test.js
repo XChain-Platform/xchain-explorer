@@ -416,13 +416,19 @@ describe('Database#getNetwork', () => {
 
     // Shared stub factory: routes queries by content so order doesn't matter.
     // - information_schema query -> TABLE_NAME/TABLE_ROWS rows
+    // - per-table COUNT(*) UNION (getActionTotals exact counts) -> [{ t, c }] rows
     // - full_node_verifications COUNT(DISTINCT) -> [{ count: N }]
     // - anything else (getMaxBlockIndex/getMaxBlockTime/etc.) -> [{ count: N }] or matching shape
     function makeNetworkStub(dbObj, countVal) {
         const infoRows = makeInfoSchemaRows(dbObj, countVal);
+        const unionRows = [...dbObj.actionTables, 'tokens']
+            .filter(t => t !== 'full_node_verifications')
+            .map(t => ({ t: t, c: countVal }));
         return (config, query) => {
             if(typeof query === 'string' && query.includes('information_schema'))
                 return Promise.resolve(infoRows);
+            if(typeof query === 'string' && query.includes("AS t, COUNT(*) AS c"))
+                return Promise.resolve(unionRows);
             return Promise.resolve([{ count: countVal, max_index: countVal, block_time: countVal }]);
         };
     }

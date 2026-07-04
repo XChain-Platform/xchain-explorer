@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `getConfig('<unknown network>')` again returns the chain identity with an empty address map instead of throwing (contract broken by the canonical coin-registry refactor).
+
 ## [1.15.2] - 2026-06-20
 
 ### Added

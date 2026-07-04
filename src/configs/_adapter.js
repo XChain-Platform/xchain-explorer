@@ -24,6 +24,17 @@
 const coins = require('../coins');
 
 function toExplorerConfig(tick, network){
+    // The canonical registry throws on unknown networks, but the explorer's
+    // getConfig contract has always been to return the chain identity with an
+    // empty address map (callers render "no addresses" rather than 500). The
+    // identity fields are network-independent, so read them from mainnet.
+    if (!coins.NETWORKS.includes(network)) {
+        const m = coins.getCoinConfig(tick, 'mainnet');
+        return {
+            chain: { name: m.displayName, tick: m.tick, site: m.site },
+            address: {},
+        };
+    }
     const c = coins.getCoinConfig(tick, network);
     return {
         chain: {

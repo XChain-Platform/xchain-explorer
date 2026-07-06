@@ -1432,7 +1432,7 @@ function loadDatatablesData(coin, action, query, type){
                 get_coin   = data[7];
                 get_token  = data[8];
                 get_amount = data[9];
-                give_ownership = data[12];
+                give_ownership = data[10];
                 if(give_ownership == 1){
                     $('td', row).eq(4).html(formatLink('/' + give_coin + '/token/' + give_token, give_token, give_token) + ' ' + ownershipBadge());
                 } else {
@@ -1604,8 +1604,8 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 token2  = data[6];
                 amount2 = data[7];
-                give_ownership = data[10];
-                get_ownership  = data[11];
+                give_ownership = data[8];
+                get_ownership  = data[9];
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
@@ -1643,8 +1643,8 @@ function loadDatatablesData(coin, action, query, type){
                 amount  = data[5];
                 token2  = data[6];
                 amount2 = data[7];
-                give_ownership = data[10];
-                get_ownership  = data[11];
+                give_ownership = data[8];
+                get_ownership  = data[9];
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));

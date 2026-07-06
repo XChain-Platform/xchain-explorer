@@ -22,6 +22,10 @@
 
 const { WebSocketServer: WSServer } = require('ws');
 const ChannelManager = require('./ChannelManager.js');
+// BigInt-safe JSON serializer (shared with Broadcaster via serialize.js). _send
+// previously used raw JSON.stringify, which throws on BigInt DB columns; under the
+// swallowing try/catch that silently dropped every message carrying a raw DB row.
+const { safeStringify } = require('./serialize.js');
 
 // Regex to match /{COIN}/api/websocket path
 const WS_PATH_REGEX = /^\/([A-Z]{1,5})\/api\/websocket$/i;
@@ -555,7 +559,7 @@ class WebSocketServer {
     _send(client, msg) {
         if (client.ws.readyState === 1) { // OPEN
             try {
-                client.ws.send(JSON.stringify(msg));
+                client.ws.send(safeStringify(msg));
             } catch (e) {
                 // Connection may have closed between check and send
             }

@@ -29,15 +29,9 @@ const COIN_MAP = {};
     COIN_MAP['R' + chain] = { chain, network: 'regtest' };
 });
 
-// mariadb returns BIGINT columns (action_index, block_index, block_time, etc.) as JS
-// BigInt, which JSON.stringify cannot serialize (it throws "Do not know how to
-// serialize a BigInt"). Every send below is wrapped in a try/catch that swallowed
-// that throw, so EVERY event (NEW_ACTION, NEW_BLOCK, etc.) was silently dropped at the
-// socket boundary. Coerce BigInt to Number (these indices are far below
-// Number.MAX_SAFE_INTEGER) so events actually reach subscribers.
-function safeStringify(msg) {
-    return JSON.stringify(msg, (key, value) => (typeof value === 'bigint' ? Number(value) : value));
-}
+// BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
+// two socket-send paths cannot drift). See serialize.js for the BigInt rationale.
+const { safeStringify } = require('./serialize.js');
 
 class Broadcaster {
 

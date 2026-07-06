@@ -928,7 +928,9 @@ class XChainExplorer {
                     if(method=='getDestroys')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.memo, status, info.action_index];
                     if(method=='getDispensers')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership];
+                        // give_ownership sits BEFORE status/action_index so action_index stays LAST
+                        // and status second-to-last (the client's length-relative extraction + paging cursor).
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, info.give_ownership, status, info.action_index];
                     if(method=='getDispenses')
                         info = [count_reverse, info.block_index, info.timestamp, info.destination, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index];
                     if(method=='getDividends')
@@ -965,13 +967,15 @@ class XChainExplorer {
                     if(method=='getMints')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, status, info.action_index];
                     if(method=='getOrders')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership, info.get_ownership];
+                        // give/get_ownership sit BEFORE status/action_index (invariant: action_index LAST).
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, info.give_ownership, info.get_ownership, status, info.action_index];
                     if(method=='getSends')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.destination, status, info.action_index];
                     if(method=='getSleeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.type, info.tick, info.resume_block, status, info.action_index];
                     if(method=='getSwaps')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, status, info.action_index, info.give_ownership, info.get_ownership];
+                        // give/get_ownership sit BEFORE status/action_index (invariant: action_index LAST).
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, info.give_ownership, info.get_ownership, status, info.action_index];
                     if(method=='getSweeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.orders, info.swaps, info.dispensers, status, info.action_index];
                     // NOTE: decimals sits BEFORE the trailing id; the datatables client

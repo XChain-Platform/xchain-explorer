@@ -286,6 +286,48 @@ describe('XChainExplorer.processRequest – special method responses', function 
 });
 
 // ===========================================================================
+// 3b. Ownership-flag column ordering (action_index MUST stay last)
+// ===========================================================================
+// The client extracts action_index = data[len-1] and status = data[len-2], and
+// pages on data[len-1]. getDispensers/getOrders/getSwaps append give/get_ownership
+// AFTER action_index, which put an ownership flag (0/1) where the cursor should be.
+// These pin the invariant: ownership flags sit BEFORE status/action_index.
+
+describe('XChainExplorer.processRequest – ownership row shape (action_index last)', function () {
+
+    // The datatables (/explorer/) path shapes rows into positional arrays; the
+    // /api/ path returns objects. The client consumes the array form.
+    const dtQuery = { start: 0, length: 10 };
+
+    it('getDispensers: give_ownership sits before status/action_index', async function () {
+        getDataResult  = [[{ ...mockResults.dispenserRows()[0], give_ownership: 1 }], 1];
+        const explorer = makeExplorer();
+        const row      = parseBody(await handle(explorer, '/BTC/explorer/dispensers/addr1/address', dtQuery)).data[0];
+        expect(row[row.length - 1]).to.equal(70, 'action_index is the last element (paging cursor)');
+        expect(row[row.length - 3]).to.equal(1,  'give_ownership sits immediately before status/action_index');
+    });
+
+    it('getOrders: give/get_ownership sit before status/action_index', async function () {
+        getDataResult  = [[{ ...mockResults.orderRows()[0], give_ownership: 1, get_ownership: 1 }], 1];
+        const explorer = makeExplorer();
+        const row      = parseBody(await handle(explorer, '/BTC/explorer/orders/addr1/address', dtQuery)).data[0];
+        expect(row[row.length - 1]).to.equal(60, 'action_index is the last element');
+        expect(row[row.length - 4]).to.equal(1,  'give_ownership before status/action_index');
+        expect(row[row.length - 3]).to.equal(1,  'get_ownership before status/action_index');
+    });
+
+    it('getSwaps: give/get_ownership sit before status/action_index', async function () {
+        getDataResult  = [[{ ...mockResults.orderRows()[0], give_ownership: 1, get_ownership: 1 }], 1];
+        const explorer = makeExplorer();
+        const row      = parseBody(await handle(explorer, '/BTC/explorer/swaps/addr1/address', dtQuery)).data[0];
+        expect(row[row.length - 1]).to.equal(60, 'action_index is the last element');
+        expect(row[row.length - 4]).to.equal(1,  'give_ownership before status/action_index');
+        expect(row[row.length - 3]).to.equal(1,  'get_ownership before status/action_index');
+    });
+
+});
+
+// ===========================================================================
 // 4. Error responses
 // ===========================================================================
 

@@ -1216,7 +1216,22 @@ describe('Database#getContract', () => {
         expect(data.constructor_params).to.equal(null);
     });
 
-    it('serves the extracted abi block (cached with methods by code_hash)', async () => {
+    it('keys the introspection cache by the computed digest, not the stored code_hash', async () => {
+        // Two rows claim the SAME stored code_hash but carry different code: a
+        // corrupted/poisoned row must not seed the cache entry the honest
+        // code's digest resolves to (or read it), in either order.
+        let code = 'module.exports = { alpha: function(xchain){} };';
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) =>
+            q.includes('contract_executions') ? [] : [contractRow({ code, code_hash: 'shared-claimed-hash' })]);
+        let [data] = await db.getContract(baseCfg());
+        expect(data.methods).to.deep.equal(['alpha']);
+        expect(data.code_hash_ok).to.equal(false);
+        code = 'module.exports = { beta: function(xchain){} };';
+        [data] = await db.getContract(baseCfg());
+        expect(data.methods).to.deep.equal(['beta']);
+    });
+
+    it('serves the extracted abi block (cached with methods by computed digest)', async () => {
         const code = `module.exports = {
             abi: { version: 1, methods: { run: { summary: 'Run it', params: [ { name: 'x', type: 'string' } ] } } },
             run: function(xchain){}
@@ -1491,5 +1506,55 @@ describe('Database F3 id-determinism: only deterministic ids are compaction-expo
         sinon.stub(db, 'doQuery').resolves([row]);
         const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
         expect(data.info.tick_id).to.equal(null);
+    });
+});
+
+describe('Database#getContractFullState', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    // doQuery stub serving the aggregate pre-check first, then the row fetch.
+    function stubState(aggregates, rows){
+        return sinon.stub(db, 'doQuery').callsFake(async (c, q) =>
+            q.includes('COUNT(*)') ? [aggregates] : rows);
+    }
+
+    it('loads latest state rows into a null-prototype map with JSON fallback', async () => {
+        stubState({ total_rows: 2, total_bytes: 20 }, [
+            { state_key: 'a',         state_value: '{"x":1}' },
+            { state_key: '__proto__', state_value: 'raw-string' }
+        ]);
+        const state = await db.getContractFullState(cfg(), 900);
+        expect(Object.getPrototypeOf(state)).to.equal(null);
+        expect(state.a).to.deep.equal({ x: 1 });
+        expect(state['__proto__']).to.equal('raw-string');
+    });
+
+    it('refuses state over the default row cap BEFORE fetching rows (STATE_TOO_LARGE)', async () => {
+        const dq = stubState({ total_rows: 10001, total_bytes: 10 }, []);
+        try {
+            await db.getContractFullState(cfg(), 900);
+            throw new Error('should have thrown');
+        } catch(e){
+            expect(e.code).to.equal('STATE_TOO_LARGE');
+        }
+        expect(dq.callCount).to.equal(1);   // only the aggregate gate ran
+    });
+
+    it('refuses state over the byte cap (STATE_TOO_LARGE)', async () => {
+        stubState({ total_rows: 1, total_bytes: 4 * 1024 * 1024 + 1 }, []);
+        try {
+            await db.getContractFullState(cfg(), 900, { maxRows: 10000, maxBytes: 4 * 1024 * 1024 });
+            throw new Error('should have thrown');
+        } catch(e){
+            expect(e.code).to.equal('STATE_TOO_LARGE');
+        }
+    });
+
+    it('caps the row fetch with LIMIT as belt-and-braces', async () => {
+        const dq = stubState({ total_rows: 1, total_bytes: 5 }, [{ state_key: 'k', state_value: '1' }]);
+        await db.getContractFullState(cfg(), 900, { maxRows: 500, maxBytes: 1000 });
+        expect(dq.secondCall.args[1]).to.include('LIMIT 500');
     });
 });

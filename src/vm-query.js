@@ -94,6 +94,14 @@ function maxConcurrent(){
     return parseInt(process.env.EXPLORER_VM_MAX_CONCURRENT, 10) || 4;
 }
 
+// Byte cap on the initial state load (rows are capped by maxStateKeys). The
+// VM's own limits only bound NEW state writes; without this an attacker can
+// point simulations at a contract whose accumulated state is huge and burn
+// SQL + JSON.parse + IPC on every call.
+function maxStateBytes(){
+    return parseInt(process.env.EXPLORER_VM_MAX_STATE_BYTES, 10) || 4 * 1024 * 1024;
+}
+
 // Typed failure the route maps to an HTTP status. keeps VM-internal errors
 // distinguishable from bad requests without string-matching at the route.
 class VmQueryError extends Error {
@@ -177,23 +185,35 @@ async function simulate(db, config, contractIndex, body, chain, network){
 
     if(inFlight >= maxConcurrent())
         throw new VmQueryError('VM_BUSY', 'too many concurrent simulations, retry shortly', 429);
-
-    // Contract source (the simulation runs the exact on-chain code).
-    let rows = await db.doQuery(config, 'SELECT code FROM contracts WHERE action_index=? LIMIT 1', [contractIndex]);
-    if(!rows || !rows.length)
-        throw new VmQueryError('NOT_FOUND', 'contract not found', 404);
-
-    const state       = await db.getContractFullState(config, contractIndex);
-    const blockIndex  = await db.getMaxBlockIndex(config);
-    const blockTime   = await db.getMaxBlockTime(config);
-    // Same synthetic hash derivation the indexer uses for real executions
-    // (sha256 of "index:time"); contracts reading getBlockHash see the same
-    // shape they would on-chain.
-    const blockHash   = crypto.createHash('sha256')
-        .update(String(blockIndex) + ':' + String(blockTime)).digest('hex');
-
+    // Reserve the slot at the gate: the DB loads below await, and a burst
+    // arriving during them must not all pass the check above. Bracketing the
+    // loads also puts the (potentially heavy) state queries under the cap.
     inFlight++;
     try {
+        // Contract source (the simulation runs the exact on-chain code).
+        let rows = await db.doQuery(config, 'SELECT code FROM contracts WHERE action_index=? LIMIT 1', [contractIndex]);
+        if(!rows || !rows.length)
+            throw new VmQueryError('NOT_FOUND', 'contract not found', 404);
+
+        let state;
+        try {
+            state = await db.getContractFullState(config, contractIndex, {
+                maxRows:  VM_OPTIONS.limits.maxStateKeys,
+                maxBytes: maxStateBytes()
+            });
+        } catch(e){
+            if(e && e.code === 'STATE_TOO_LARGE')
+                throw new VmQueryError('STATE_TOO_LARGE', 'contract state exceeds simulation limits', 413);
+            throw e;
+        }
+        const blockIndex  = await db.getMaxBlockIndex(config);
+        const blockTime   = await db.getMaxBlockTime(config);
+        // Same synthetic hash derivation the indexer uses for real executions
+        // (sha256 of "index:time"); contracts reading getBlockHash see the same
+        // shape they would on-chain.
+        const blockHash   = crypto.createHash('sha256')
+            .update(String(blockIndex) + ':' + String(blockTime)).digest('hex');
+
         // Default caller is a synthetic marker (eth_call-from-zero semantics):
         // contracts comparing it to real addresses get false, so permissioned
         // branches behave as "not the admin" unless the user supplies one.

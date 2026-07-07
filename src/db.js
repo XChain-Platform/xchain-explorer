@@ -42,7 +42,8 @@ class Database {
         this._actionDataCache = new Map();
         // AST introspection ({methods, abi} pair) is a pure function of the
         // contract source, and code is immutable once deployed, so cache by
-        // code_hash (two deploys of identical source share one entry).
+        // the sha256 we compute from the code itself (two deploys of identical
+        // source share one entry; the stored code_hash column is unverified).
         this._methodsCache    = new Map();
 
         this.actionTables = [
@@ -8557,14 +8558,20 @@ class Database {
             // Source integrity: the chain carries the source itself, so
             // "verified contract" reduces to hashing what we serve. A mismatch
             // can only mean a corrupted indexer row; surface it, never hide it.
-            row.code_hash_ok = this.util.isNull(row.code) ? false
-                : crypto.createHash('sha256').update(row.code).digest('hex') === row.code_hash;
+            let computedHash = this.util.isNull(row.code) ? null
+                : crypto.createHash('sha256').update(row.code).digest('hex');
+            row.code_hash_ok = computedHash !== null && computedHash === row.code_hash;
 
             // Callable method surface + optional self-declared abi metadata
             // via AST extraction (presentation-only; methods null = shape
             // unrecognized and the UI shows "unknown"; abi null = none
             // declared or malformed, UI falls back to name-only forms).
-            let introspected = this._cacheGet(this._methodsCache, row.code_hash);
+            // Cache key is the digest WE computed, never the stored code_hash:
+            // introspection is a pure function of the code, and a row whose
+            // stored hash mismatches its code must not poison (or read) the
+            // entry of the code that hash really belongs to.
+            let introspected = computedHash === null ? { methods: null, abi: null }
+                : this._cacheGet(this._methodsCache, computedHash);
             if(introspected === undefined){
                 try {
                     let ex = extractMethods(row.code);
@@ -8572,7 +8579,7 @@ class Database {
                 } catch(e){
                     introspected = { methods: null, abi: null };
                 }
-                this._cacheSet(this._methodsCache, row.code_hash, introspected);
+                this._cacheSet(this._methodsCache, computedHash, introspected);
             }
             row.methods = introspected.methods;
             row.abi     = introspected.abi;
@@ -8668,8 +8675,15 @@ class Database {
     // raw-string fallback. Null-prototype object so adversarial keys like
     // '__proto__' round-trip instead of hitting the setter. Used only by the
     // read-only simulation endpoint (vm-query.js), not the datatable route.
-    async getContractFullState(config, contractIndex){
-        let query = `SELECT cs.state_key, cs.state_value
+    //
+    // The endpoint is public and the VM's maxStateKeys only bounds NEW writes,
+    // not the initial load, so the caller passes hard row/byte caps and a
+    // cheap aggregate pre-check refuses oversized state BEFORE the multi-MB
+    // row fetch. Throws code 'STATE_TOO_LARGE' past either cap.
+    async getContractFullState(config, contractIndex, limits){
+        let maxRows  = limits && limits.maxRows  > 0 ? Math.floor(limits.maxRows)  : 10000;
+        let maxBytes = limits && limits.maxBytes > 0 ? Math.floor(limits.maxBytes) : 4 * 1024 * 1024;
+        let gateQuery = `SELECT COUNT(*) as total_rows, COALESCE(SUM(LENGTH(cs.state_value)), 0) as total_bytes
                      FROM contract_state cs
                      INNER JOIN (
                          SELECT MAX(id) as max_id
@@ -8678,6 +8692,25 @@ class Database {
                          GROUP BY state_key
                      ) latest ON (cs.id = latest.max_id)
                      WHERE cs.state_value IS NOT NULL`;
+        let gate = await this.doQuery(config, gateQuery, [contractIndex]);
+        let totalRows  = gate && gate.length ? Number(gate[0].total_rows)  : 0;
+        let totalBytes = gate && gate.length ? Number(gate[0].total_bytes) : 0;
+        if(totalRows > maxRows || totalBytes > maxBytes){
+            let err  = new Error('contract state too large to load for simulation (' + totalRows + ' keys, ' + totalBytes + ' bytes)');
+            err.code = 'STATE_TOO_LARGE';
+            throw err;
+        }
+        // LIMIT is belt-and-braces for rows written between the two queries.
+        let query = `SELECT cs.state_key, cs.state_value
+                     FROM contract_state cs
+                     INNER JOIN (
+                         SELECT MAX(id) as max_id
+                         FROM contract_state
+                         WHERE contract_index = ?
+                         GROUP BY state_key
+                     ) latest ON (cs.id = latest.max_id)
+                     WHERE cs.state_value IS NOT NULL
+                     LIMIT ` + maxRows;
         let results = await this.doQuery(config, query, [contractIndex]);
         let state = Object.create(null);
         for(let row of (results || [])){

@@ -57,8 +57,9 @@ describe('vm-query', () => {
     let envBackup;
     beforeEach(() => {
         envBackup = {
-            enabled: process.env.EXPLORER_VM_QUERY_ENABLED,
-            conc:    process.env.EXPLORER_VM_MAX_CONCURRENT
+            enabled:    process.env.EXPLORER_VM_QUERY_ENABLED,
+            conc:       process.env.EXPLORER_VM_MAX_CONCURRENT,
+            stateBytes: process.env.EXPLORER_VM_MAX_STATE_BYTES
         };
         process.env.EXPLORER_VM_QUERY_ENABLED = 'true';
     });
@@ -67,6 +68,8 @@ describe('vm-query', () => {
         else process.env.EXPLORER_VM_QUERY_ENABLED = envBackup.enabled;
         if(envBackup.conc === undefined) delete process.env.EXPLORER_VM_MAX_CONCURRENT;
         else process.env.EXPLORER_VM_MAX_CONCURRENT = envBackup.conc;
+        if(envBackup.stateBytes === undefined) delete process.env.EXPLORER_VM_MAX_STATE_BYTES;
+        else process.env.EXPLORER_VM_MAX_STATE_BYTES = envBackup.stateBytes;
     });
 
     it('rejects with VM_QUERY_DISABLED (503) when the flag is off', async () => {
@@ -177,6 +180,56 @@ describe('vm-query', () => {
         // Slot freed: the next call goes through.
         const ok = await vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
         expect(ok.success).to.equal(true);
+    });
+
+    it('a burst arriving during the DB loads cannot bypass the concurrency gate', async () => {
+        process.env.EXPLORER_VM_MAX_CONCURRENT = '1';
+        let release;
+        const gate = new Promise(res => { release = res; });
+        // Block in the DB phase, BEFORE the VM runs: the slot must already be
+        // reserved here, or a concurrent burst all passes the gate check.
+        const db = dbStub({ doQuery: async () => { await gate; return [{ code: 'module.exports={}' }]; } });
+        const vmq = loadVmQuery(fakeVmModule());
+        const first = vmq.simulate(db, CFG, 1, { method: 'x' }, 'BTC', 'regtest');
+        await new Promise(res => setImmediate(res));
+        try {
+            await vmq.simulate(db, CFG, 1, { method: 'x' }, 'BTC', 'regtest');
+            throw new Error('should have thrown');
+        } catch(e){
+            expect(e.code).to.equal('VM_BUSY');
+            expect(e.httpStatus).to.equal(429);
+        }
+        release();
+        const r = await first;
+        expect(r.success).to.equal(true);
+    });
+
+    it('maps a STATE_TOO_LARGE state load to 413 and threads the row/byte caps', async () => {
+        let capturedLimits;
+        const vmq = loadVmQuery(fakeVmModule());
+        const db = dbStub({ getContractFullState: async (c, i, limits) => {
+            capturedLimits = limits;
+            const err = new Error('too big'); err.code = 'STATE_TOO_LARGE'; throw err;
+        } });
+        try {
+            await vmq.simulate(db, CFG, 1, { method: 'x' }, 'BTC', 'regtest');
+            throw new Error('should have thrown');
+        } catch(e){
+            expect(e.code).to.equal('STATE_TOO_LARGE');
+            expect(e.httpStatus).to.equal(413);
+        }
+        expect(capturedLimits.maxRows).to.equal(10000);            // VM maxStateKeys
+        expect(capturedLimits.maxBytes).to.equal(4 * 1024 * 1024); // default byte cap
+    });
+
+    it('EXPLORER_VM_MAX_STATE_BYTES overrides the byte cap', async () => {
+        process.env.EXPLORER_VM_MAX_STATE_BYTES = '1024';
+        let capturedLimits;
+        const vmq = loadVmQuery(fakeVmModule());
+        await vmq.simulate(dbStub({
+            getContractFullState: async (c, i, limits) => { capturedLimits = limits; return Object.create(null); }
+        }), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
+        expect(capturedLimits.maxBytes).to.equal(1024);
     });
 
     it('shutdown is a safe no-op when the VM was never used', async () => {

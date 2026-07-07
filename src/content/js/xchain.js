@@ -233,8 +233,8 @@ function setXChainParams(coin){
     // Set query and query type to a valid value based on path
     let type  = String(path[2]).toLowerCase();
     let query = path[path.length-1];
-    if(['block','address','token','action','transaction'].includes(type)){
-        if((['block','action'].includes(type)  && isNumeric(query)) ||
+    if(['block','address','token','action','transaction','contract','execution'].includes(type)){
+        if((['block','action','contract','execution'].includes(type) && isNumeric(query)) ||
            (type=='address' && isCryptoAddress(query)) ||
            (type=='token'   && typeof(query)=='string')){
             XC.type  = type;

@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Mirror staleness surface: `GET /{COIN}/api/hub-mirror/status`, 503 before first bootstrap, `mirror_lag_seconds` annotations, opt-in fail-closed lag gating.
 
 ### Fixed
+- Vendored hub-mirror client re-synced: self-synced mirrors now converge on `cross_chain_matches.anchor_txid` when the hub re-broadcasts its ANCHOR back-fill.
 - `WebSocketServer._send` now uses a shared BigInt-safe stringifier (`src/ws/serialize.js`, also adopted by `Broadcaster`) so catch-up/replay messages carrying BigInt DB columns no longer throw and get silently swallowed at the socket boundary.
 - `getDispensers`/`getOrders`/`getSwaps` place `give`/`get_ownership` before `status`/`action_index`, keeping `action_index` last (the client's paging cursor and length-relative status extraction); the datatables client's fixed-index ownership reads were realigned to match.
 - `getConfig('<unknown network>')` again returns the chain identity with an empty address map instead of throwing (contract broken by the canonical coin-registry refactor).

@@ -40,7 +40,7 @@ class MockDB {
     async getData() { return getDataResult; }
 }
 
-const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const mockExpress  = () => mockApp;
 mockExpress.static = () => {};
 mockExpress.json   = () => {};

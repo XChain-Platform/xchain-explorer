@@ -1157,11 +1157,127 @@ describe('Database#getContract', () => {
     });
 
     it('LEFT JOINs contract_permissions on the contract action_index', async () => {
+        // Capture only the FIRST query: getContract now issues a second
+        // point-read for constructor params after the main select.
         let captured;
-        sinon.stub(db, 'doQuery').callsFake(async (c, query) => { captured = query; return [contractRow()]; });
+        sinon.stub(db, 'doQuery').callsFake(async (c, query) => { if(captured === undefined) captured = query; return [contractRow()]; });
         await db.getContract(baseCfg());
         expect(captured).to.include('LEFT  JOIN contract_permissions cp');
         expect(captured).to.include('cp.contract_index=m.action_index');
+    });
+
+    it('sets code_hash_ok=true when code_hash matches sha256(code)', async () => {
+        const crypto = require('crypto');
+        const code   = 'module.exports = { run: function(xchain){ return 1; } };';
+        const hash   = crypto.createHash('sha256').update(code).digest('hex');
+        sinon.stub(db, 'doQuery').resolves([contractRow({ code, code_hash: hash })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.code_hash_ok).to.equal(true);
+    });
+
+    it('flags a corrupted row with code_hash_ok=false', async () => {
+        sinon.stub(db, 'doQuery').resolves([contractRow({ code: 'module.exports={}', code_hash: 'not-the-real-hash' })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.code_hash_ok).to.equal(false);
+    });
+
+    it('extracts the AST method list into `methods`', async () => {
+        const code = 'module.exports = { transfer: function(xchain){}, balanceOf: (xchain) => 1 };';
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) =>
+            q.includes('contract_executions') ? [] : [contractRow({ code, code_hash: 'h-' + Math.random() })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.methods).to.deep.equal(['balanceOf', 'transfer']);
+    });
+
+    it('returns methods=null when the source shape is unrecognized', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) =>
+            q.includes('contract_executions') ? [] : [contractRow({ code: 'syntax error (', code_hash: 'h-' + Math.random() })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.methods).to.equal(null);
+    });
+
+    it('surfaces constructor params from the contract_executions constructor row', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => {
+            if(q.includes('contract_executions')){
+                expect(q).to.include("method_name='constructor'");
+                expect(a[0]).to.equal(900); // the contract's own action_index
+                return [{ input_params: 'alice|1000' }];
+            }
+            return [contractRow()];
+        });
+        const [data] = await db.getContract(baseCfg());
+        expect(data.constructor_params).to.equal('alice|1000');
+    });
+
+    it('leaves constructor_params null when the deploy had none', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) =>
+            q.includes('contract_executions') ? [{ input_params: '' }] : [contractRow()]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.constructor_params).to.equal(null);
+    });
+
+    it('serves the extracted abi block (cached with methods by code_hash)', async () => {
+        const code = `module.exports = {
+            abi: { version: 1, methods: { run: { summary: 'Run it', params: [ { name: 'x', type: 'string' } ] } } },
+            run: function(xchain){}
+        };`;
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) =>
+            q.includes('contract_executions') ? [] : [contractRow({ code, code_hash: 'h-' + Math.random() })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.abi.version).to.equal(1);
+        expect(data.abi.methods.run.params).to.deep.equal([{ name: 'x', type: 'string' }]);
+        expect(data.methods).to.deep.equal(['run']);
+    });
+
+    it('serves abi=null when the contract declares none', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) =>
+            q.includes('contract_executions') ? [] : [contractRow({ code: 'module.exports = { run: function(x){} };', code_hash: 'h-' + Math.random() })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(data.abi).to.equal(null);
+    });
+
+    it('wallet_url defaults, honors an override, and treats empty as explicit off', async () => {
+        const prev = process.env.EXPLORER_WALLET_URL;
+        try {
+            delete process.env.EXPLORER_WALLET_URL;
+            sinon.stub(db, 'doQuery').resolves([contractRow()]);
+            let [data] = await db.getContract(baseCfg());
+            expect(data.wallet_url).to.equal('https://wallet.xchain.io');
+            sinon.restore();
+
+            process.env.EXPLORER_WALLET_URL = 'https://wallet.example.test';
+            sinon.stub(db, 'doQuery').resolves([contractRow()]);
+            [data] = await db.getContract(baseCfg());
+            expect(data.wallet_url).to.equal('https://wallet.example.test');
+            sinon.restore();
+
+            process.env.EXPLORER_WALLET_URL = '';
+            sinon.stub(db, 'doQuery').resolves([contractRow()]);
+            [data] = await db.getContract(baseCfg());
+            expect(data.wallet_url).to.equal('');
+        } finally {
+            if(prev === undefined) delete process.env.EXPLORER_WALLET_URL;
+            else process.env.EXPLORER_WALLET_URL = prev;
+        }
+    });
+
+    it('mirrors the EXPLORER_VM_QUERY_ENABLED flag into vm_query_enabled', async () => {
+        const prev = process.env.EXPLORER_VM_QUERY_ENABLED;
+        try {
+            process.env.EXPLORER_VM_QUERY_ENABLED = 'true';
+            sinon.stub(db, 'doQuery').resolves([contractRow()]);
+            let [data] = await db.getContract(baseCfg());
+            expect(data.vm_query_enabled).to.equal(true);
+            sinon.restore();
+
+            process.env.EXPLORER_VM_QUERY_ENABLED = 'false';
+            sinon.stub(db, 'doQuery').resolves([contractRow()]);
+            [data] = await db.getContract(baseCfg());
+            expect(data.vm_query_enabled).to.equal(false);
+        } finally {
+            if(prev === undefined) delete process.env.EXPLORER_VM_QUERY_ENABLED;
+            else process.env.EXPLORER_VM_QUERY_ENABLED = prev;
+        }
     });
 });
 

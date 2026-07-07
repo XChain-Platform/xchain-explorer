@@ -25,7 +25,7 @@ const { makeConfig, makeApiConfig, makeExplorerConfig } = require('../fixtures/m
 // ---------------------------------------------------------------------------
 // Minimal Express mock: just enough for XChainExplorer constructor
 // ---------------------------------------------------------------------------
-const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express  = () => mockApp;
 express.static = () => {};
 express.json   = () => {};

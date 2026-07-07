@@ -30,7 +30,7 @@ const { makeApiConfig, makeExplorerConfig } = require('../../fixtures/mock-query
 // ---------------------------------------------------------------------------
 // Minimal Express mock
 // ---------------------------------------------------------------------------
-const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express  = () => mockApp;
 express.static = () => {};
 express.json   = () => {};

@@ -2,6 +2,8 @@
 .env
 *.pem
 node_modules/
+# Vendored xchain-vm staged by bin/vendor-vm.sh or xchain-node's install path
+/xchain-vm/
 src/config.json
 tmp/
 /XChain_Decoder.sql
@@ -10,6 +12,6 @@ tmp/
 /XChain_Indexer.sql.gz
 .stryker-tmp/
 reports/mutation/
-# Coverage output (c8/nyc) — generated, not source
+# Coverage output (c8/nyc): generated, not source
 coverage/
 .nyc_output/

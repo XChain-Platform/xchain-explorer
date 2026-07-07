@@ -8,6 +8,8 @@
     "url": "https://github.com/XChain-platform/xchain-explorer.git"
   },
   "dependencies": {
+    "acorn": "8.16.0",
+    "acorn-walk": "8.3.5",
     "axios": "^1.16.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -19,8 +21,13 @@
     "mathjs": "15.2.0",
     "ws": "^8.21.0"
   },
+  "optionalDependencies": {
+    "xchain-vm": "file:./xchain-vm"
+  },
   "scripts": {
     "api": "node ./src/api.js",
+    "vendor:vm": "bash bin/vendor-vm.sh",
+    "check:vm": "bash bin/vendor-vm.sh check",
     "test": "mocha test/unit/**/*.test.js --timeout 0 --exit --recursive",
     "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha 'test/unit/**/*.test.js' --timeout 0 --recursive --exit",
     "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit",

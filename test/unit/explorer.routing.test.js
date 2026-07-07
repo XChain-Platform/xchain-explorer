@@ -56,6 +56,7 @@ class MockDB {
 const mockApp = {
     use: () => {},
     get: () => {},
+    post: () => {},
     enable: () => {}
 };
 const expressMock = () => mockApp;

@@ -50,7 +50,7 @@ class MockDB {
 // Minimal Express stub: returns the same mockApp every time
 // ---------------------------------------------------------------------------
 
-const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express  = () => mockApp;
 express.static = () => {};
 express.json   = () => {};

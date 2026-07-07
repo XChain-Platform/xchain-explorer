@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Contract page renders the full on-chain source with syntax highlighting, a server-verified hash badge, copy button, extracted method list, and constructor params.
+- Read-only contract simulation endpoint `POST /{COIN}/api/contract/{idx}/call` (sandboxed xchain-vm, default off via `EXPLORER_VM_QUERY_ENABLED`) with a Read Contract UI on the contract page.
+- `getContract` serves the contract's declared `abi` block (fail-closed AST extraction, protocol/Contract_ABI.md) plus a `wallet_url` handoff target (`EXPLORER_WALLET_URL`, empty disables).
+- Write Contract card: per-method forms (ABI-aware named/typed inputs, view/non-view split with the Read card) whose Open in Wallet button deep-links `xchain:{COIN}/execute` into the wallet.
 - Hub connector sends `x-api-key` from `HUB_API_KEY` when set (`getallconfigs` is now in the hub's keyed sensitive-read tier).
 - Self-synced hub-mirror mode (`database.checkpoint.self_sync` + `HUB_API_URL`): the explorer maintains its own local copy of the hub-mirror tables, removing the hard requirement for a co-located hub DB.
 - Validator-capability and governance pages read over hub JSON-RPC with a short TTL cache, falling back to the legacy co-located schema when no hub endpoint is configured.

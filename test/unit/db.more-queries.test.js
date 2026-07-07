@@ -1629,8 +1629,10 @@ describe('Database#getContract', () => {
 
     it('selects m.code and joins the contract_permissions manifest', async () => {
         const db = makeDb();
+        // Capture only the FIRST query: getContract now issues a second
+        // point-read for constructor params after the main select.
         let query;
-        sinon.stub(db, 'doQuery').callsFake(async (c, q) => { query = q; return [contractRow()]; });
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => { if(query === undefined) query = q; return [contractRow()]; });
         const config = makeActionConfig('getContract', 'contract');
         config.data.search = '42';
         await db.getContract(config);
@@ -1641,8 +1643,9 @@ describe('Database#getContract', () => {
 
     it('passes the search value as the query arg', async () => {
         const db = makeDb();
+        // Capture only the FIRST call's args (see above: second ctor read).
         let args;
-        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { args = a; return [contractRow()]; });
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { if(args === undefined) args = a; return [contractRow()]; });
         const config = makeActionConfig('getContract', 'contract');
         config.data.search = '99';
         await db.getContract(config);

@@ -310,3 +310,31 @@ INSERT INTO cross_chain_call_executions (action_index, call_id, execute_action_i
 
 INSERT INTO cross_chain_call_callbacks (action_index, call_id, result_status, block_index) VALUES
 (34, 'cafecafecafecafecafecafecafecafecafecafecafecafecafecafecafecafe', 'ok', 10);
+
+-- ---------------------------------------------------------------------------
+-- Deployed contract (action 40, block 10): backs the contract-page fields
+-- (code / code_hash_ok / methods / constructor_params) and the read-only
+-- simulation endpoint. code_hash is the real sha256 of the code string.
+-- ---------------------------------------------------------------------------
+INSERT INTO index_actions (id, action) VALUES (10, 'DEPLOY');
+
+INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format) VALUES
+(40, 10, 20, 2, 10, 0); -- DEPLOY in block 10
+
+INSERT INTO contracts (action_index, source_id, code, code_hash, api_version, status_id, block_index) VALUES
+(40, 1, 'module.exports = {
+    abi: { version: 1, methods: {
+        greet: { summary: "Read the stored greeting", params: [], view: true },
+        fail: { summary: "Always reverts", params: [] }
+    } },
+    initialize: function(xchain){ xchain.state.set("greeting", xchain.getInputParam(0)); },
+    greet: function(xchain){ return xchain.state.get("greeting") + " @" + xchain.getBlockHeight(); },
+    fail: function(xchain){ xchain.revert("always fails"); }
+};', '22c284e6186c427bfbb65feaaa8e146cae007aa9c58eb9c73b658196f27327db', 1, 1, 10);
+
+INSERT INTO contract_executions (action_index, contract_index, caller_id, method_name, input_params, gas_used, gas_limit, status_id, error_message, emitted_count, block_index) VALUES
+(40, 40, 1, 'constructor', 'howdy', 1200, 50000, 1, NULL, 0, 10);
+
+INSERT INTO contract_state (contract_index, state_key, state_value, block_index, action_index) VALUES
+(40, 'greeting', '"stale"', 10, 40),
+(40, 'greeting', '"howdy"', 10, 40); -- later row wins (MAX(id) per key)

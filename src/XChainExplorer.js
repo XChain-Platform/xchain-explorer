@@ -33,6 +33,8 @@ const eq               = require('./equivocation_header.js');
 const swq              = require('./stake_weighted_quorum.js');
 const ckpt             = require('./checkpoint_commitment_activation.js');
 const ProofServer      = require('./proofServer.js');
+const rateLimit        = require('express-rate-limit');
+const vmQuery          = require('./vm-query.js');
 
 let slowRequests = 0;
 
@@ -478,6 +480,20 @@ class XChainExplorer {
         this.app.get('/:coin/api/proof/action/:actionIndex', (req, res) => { this.processActionProofRequest(req, res); });
         this.app.get('/:coin/api/proof/validator-set', (req, res) => { this.processValidatorSetProofRequest(req, res); });
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
+
+        // Read-only contract simulation (the platform's eth_call): runs a
+        // method in a sandboxed xchain-vm against current state and discards
+        // all effects. Default-off (EXPLORER_VM_QUERY_ENABLED) and rate-limited
+        // far below the global cap because every call burns real CPU in the VM
+        // subprocess.
+        const vmQueryLimiter = rateLimit({
+            windowMs:        60 * 1000,
+            limit:           parseInt(process.env.EXPLORER_VM_QUERY_RATE_LIMIT_RPM, 10) || 20,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            message:         { error: 'Too many simulation requests', code: 'RATE_LIMITED' }
+        });
+        this.app.post('/:coin/api/contract/:contractIndex/call', vmQueryLimiter, (req, res) => { this.processContractCallRequest(req, res); });
 
         // Catch-all. Express 5 / path-to-regexp v8 rejects a bare '*' at startup.
         // The wildcard must be braced ('/{*path}') to also match the bare root '/':
@@ -1519,6 +1535,49 @@ class XChainExplorer {
     async processContractStateProofRequest(req, res){
         return res.status(501).json({ error: 'contract-state proof unsupported in state_root_version 1 (committed EMPTY per spec D1)',
                                       code: 'UNSUPPORTED_VERSION' });
+    }
+
+    // POST /{COIN}/api/contract/{contractIndex}/call  body: {method, params?, caller?}
+    // Read-only simulation of a contract method against current state (see
+    // vm-query.js). Contract-level failures (unknown method, revert, gas) come
+    // back as success:false in a 200 body, exactly as the VM reports them;
+    // request/infra failures map to typed HTTP errors.
+    async processContractCallRequest(req, res){
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            if(!parsed)
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let contractIndex = req.params.contractIndex;
+            if(!/^[0-9]+$/.test(String(contractIndex)))
+                return res.status(400).json({ error: 'Invalid contract index', code: 'INVALID_CONTRACT_INDEX' });
+
+            let config = { coin, data: {} };
+            let result = await vmQuery.simulate(this.db, config, Number(contractIndex), req.body || {}, parsed.coin, parsed.network);
+
+            // Effects live under `simulation` with an explicit disclaimer so no
+            // client can mistake a would-be write for an on-chain one.
+            return res.json({
+                success:     result.success,
+                error:       result.error,
+                gasUsed:     result.gasUsed,
+                returnValue: result.returnValue,
+                logs:        result.logs,
+                simulation: {
+                    note:           'read-only preview; nothing was committed on-chain',
+                    stateChanges:   result.stateChanges,
+                    stateDeletes:   result.stateDeletes,
+                    emittedActions: result.emittedActions
+                }
+            });
+        } catch(e){
+            if(e && e.code && e.httpStatus)
+                return res.status(e.httpStatus).json({ error: e.message, code: e.code });
+            console.error('processContractCallRequest error:', e && e.message);
+            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+        }
     }
 
     // Resolve an explorer coin code (e.g. 'BTC', 'TBTC', 'RDOGE') to its base coin + network

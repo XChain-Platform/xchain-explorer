@@ -11,6 +11,8 @@
                     <tr><th width="175">Contract</th><td class="contract-index">-</td></tr>
                     <tr><th>Deployer</th><td class="contract-source">-</td></tr>
                     <tr><th>Code Hash</th><td class="contract-code-hash text-truncate">-</td></tr>
+                    <tr><th>Methods</th><td class="contract-methods">-</td></tr>
+                    <tr class="contract-ctor-row d-none"><th>Constructor Params</th><td class="contract-ctor-params text-break">-</td></tr>
                     <tr><th>API Version</th><td class="contract-api-version">-</td></tr>
                     <tr><th>Status</th><td class="contract-status">-</td></tr>
                     <tr><th>Staking</th><td class="contract-stakeable">-</td></tr>
@@ -23,7 +25,7 @@
     </div>
 </div>
 
-<!-- Permissions Manifest (protocol/Controller_Bound_Tokens.md) — hidden until
+<!-- Permissions Manifest (protocol/Controller_Bound_Tokens.md): hidden until
      the contract declares a manifest (permissions / max_take_bps). -->
 <div class="container" id="contract-manifest-card" style="display:none;">
     <div class="row">
@@ -38,6 +40,87 @@
                     <tr><th>Max Fee Take</th><td class="contract-max-take">-</td></tr>
                 </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contract Source: the chain carries the deployed JavaScript verbatim, so
+     this renders the exact on-chain code with a server-verified hash badge. -->
+<div class="container" id="contract-code-card" style="display:none;">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#contract-code-body" aria-expanded="true" aria-controls="contract-code-body" id="contract-code-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-lg fa-code"></i> Contract Source
+                        <span class="contract-code-badge"></span>
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="contract-code-body">
+                    <div class="p-2">
+                        <div class="d-flex justify-content-end mb-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="contract-code-copy"><i class="fa fa-copy"></i> Copy</button>
+                        </div>
+                        <pre class="mb-0 border rounded p-2" style="max-height:600px; overflow:auto;"><code class="language-javascript" id="contract-code-text"></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Read Contract: simulate a method against current state via the explorer's
+     sandboxed VM endpoint. Hidden unless the server enables the feature
+     (vm_query_enabled on the contract response). Nothing here writes on-chain. -->
+<div class="container" id="contract-read-card" style="display:none;">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#contract-read-body" aria-expanded="true" aria-controls="contract-read-body" id="contract-read-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-lg fa-book-open"></i> Read Contract
+                        <span class="badge text-bg-light text-muted fw-normal">simulation, nothing is written on-chain</span>
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="contract-read-body">
+                    <div class="p-2">
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label mb-0 small text-muted">Caller address (optional; defaults to a neutral simulated caller)</label>
+                                <input type="text" class="form-control form-control-sm" id="contract-read-caller" placeholder="address to simulate as">
+                            </div>
+                        </div>
+                        <div id="contract-read-methods"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Write Contract: builds an xchain:{COIN}/execute deep link into the user's
+     wallet with the chosen method/params prefilled. The explorer never signs
+     or broadcasts; hidden when the operator sets EXPLORER_WALLET_URL empty. -->
+<div class="container" id="contract-write-card" style="display:none;">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#contract-write-body" aria-expanded="true" aria-controls="contract-write-body" id="contract-write-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-lg fa-edit"></i> Write Contract
+                        <span class="badge text-bg-light text-muted fw-normal">opens your wallet to sign</span>
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="contract-write-body">
+                    <div class="p-2">
+                        <div class="text-muted small mb-2">Method descriptions and parameter names come from metadata declared by the contract author and are not verified against the code. Review the source above before signing anything.</div>
+                        <div id="contract-write-methods"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -84,6 +167,54 @@ $(document).ready(function() {
             $('.contract-index').html(formatLink('/' + XC.coin + '/action/' + o.action_index, o.action_index));
             $('.contract-source').html(isNull(o.source) ? '-' : formatLink('/' + XC.coin + '/address/' + o.source, o.source));
             $('.contract-code-hash').html(formatHash(o.code_hash, 48));
+
+            // Methods list from the server's AST extraction; null means the
+            // export shape was unrecognizable, not that the contract has none.
+            if(Array.isArray(o.methods) && o.methods.length){
+                $('.contract-methods').html(o.methods.map(function(m){
+                    return '<span class="badge text-bg-secondary me-1">' + escapeHtml(m) + '</span>';
+                }).join(''));
+            } else {
+                $('.contract-methods').text(Array.isArray(o.methods) ? 'None' : 'Could not determine methods');
+            }
+
+            // Constructor params are positional pipe-delimited strings; the
+            // protocol has no names or types, so display them by index.
+            if(!isNull(o.constructor_params) && o.constructor_params !== ''){
+                let parts = String(o.constructor_params).split('|');
+                $('.contract-ctor-params').html(parts.map(function(p, i){
+                    return '<span class="text-muted">param ' + (i + 1) + ':</span> ' + escapeHtml(p);
+                }).join('<br>'));
+                $('.contract-ctor-row').removeClass('d-none');
+            }
+
+            // Contract source: text() escapes, highlight.js styles. Server
+            // verifies sha256(code) == code_hash; a mismatch means a corrupted
+            // explorer DB row and is flagged loudly. Large sources start
+            // collapsed to keep the initial paint sane.
+            if(!isNull(o.code)){
+                $('#contract-code-text').text(o.code);
+                if(window.hljs) hljs.highlightElement(document.getElementById('contract-code-text'));
+                $('.contract-code-badge').html(o.code_hash_ok
+                    ? '<span class="badge text-bg-success">Verified</span>'
+                    : '<span class="badge text-bg-danger">Hash mismatch</span>');
+                // Large sources start collapsed for a sane initial paint, but a
+                // stored user preference (xchain.js collapse-header handler
+                // persists per-card state in localStorage) always wins.
+                if(o.code.length > 8192 && localStorage.getItem('contract-code-body-collapsed') === null){
+                    $('#contract-code-body').removeClass('show');
+                    $('#contract-code-header').attr('aria-expanded', 'false')
+                        .find('.collapse-icon').removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                }
+                $('#contract-code-copy').on('click', function(){
+                    navigator.clipboard.writeText(o.code).then(function(){
+                        $('#contract-code-copy').html('<i class="fa fa-check"></i> Copied');
+                        setTimeout(function(){ $('#contract-code-copy').html('<i class="fa fa-copy"></i> Copy'); }, 2000);
+                    });
+                });
+                $('#contract-code-card').show();
+            }
+
             $('.contract-api-version').text(o.api_version);
             $('.contract-status').text(o.status);
             let stakeable = !isNull(o.cooldown_blocks);
@@ -95,7 +226,7 @@ $(document).ready(function() {
             }
             // Permissions manifest (protocol/Controller_Bound_Tokens.md): the
             // declared emission allowlist + per-contract fee cap. Both are null
-            // when the contract has no manifest row — show the card only when at
+            // when the contract has no manifest row; show the card only when at
             // least one is declared (an empty permissions array means "emits
             // nothing", which is meaningful and shown).
             if(Array.isArray(o.permissions) || !isNull(o.max_take_bps)){
@@ -106,12 +237,188 @@ $(document).ready(function() {
                 $('.contract-max-take').text(isNull(o.max_take_bps) ? 'Global cap' : (Number(o.max_take_bps) / 100) + '%');
                 $('#contract-manifest-card').show();
             }
+            // Partition methods into Read/Write cards via the declared abi
+            // view flags (protocol/Contract_ABI.md). Undeclared methods show
+            // in BOTH cards; the abi is author-declared and unverified, so
+            // the split is presentation only, never a safety boundary.
+            let abi = (o.abi && o.abi.methods) ? o.abi : null;
+            let readMethods = [], writeMethods = [];
+            (Array.isArray(o.methods) ? o.methods : []).forEach(function(m){
+                let decl = abi && abi.methods[m];
+                if(decl && decl.view) readMethods.push(m);
+                else if(decl) writeMethods.push(m);
+                else { readMethods.push(m); writeMethods.push(m); }
+            });
+            let methodsKnown = Array.isArray(o.methods);
+            if(o.vm_query_enabled) buildReadContractForms(methodsKnown ? readMethods : null, abi);
+            if(!isNull(o.wallet_url) && o.wallet_url !== '') buildWriteContractForms(methodsKnown ? writeMethods : null, abi, o.wallet_url);
+
             XC.pageInfo.title       = 'Contract ' + XC.query;
             XC.pageInfo.description = 'Smart contract ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
             XC.pageInfo.canonical   = '/' + XC.coin + '/contract/' + XC.query;
             updatePageInfo();
         }
     });
+
+    // Shared form-block builder for the Read and Write cards. When the abi
+    // declares the method, params render as fixed named/typed inputs; else a
+    // dynamic add/remove row list (params are positional strings either way).
+    function methodFormHtml(formClass, name, abiEntry, actionButtonHtml){
+        let title = (name === null)
+            ? '<input type="text" class="form-control form-control-sm d-inline-block w-auto method-name" placeholder="method name">'
+            : '<span class="fw-bold">' + escapeHtml(name) + '</span>';
+        let addBtn = abiEntry ? '' :
+            '<button type="button" class="btn btn-sm btn-outline-secondary ms-2 add-param"><i class="fa fa-plus"></i> param</button>';
+        let summary = (abiEntry && abiEntry.summary)
+            ? '<div class="text-muted small mb-1">' + escapeHtml(abiEntry.summary) + '</div>' : '';
+        let params = '';
+        if(abiEntry && abiEntry.params && abiEntry.params.length){
+            params = abiEntry.params.map(function(p){
+                return '<div class="input-group input-group-sm mb-1">' +
+                        '<span class="input-group-text">' + escapeHtml(p.name) + ' <span class="text-muted ms-1">' + escapeHtml(p.type) + '</span></span>' +
+                        '<input type="text" class="form-control param-value" data-declared="1">' +
+                    '</div>';
+            }).join('');
+        }
+        return '<div class="border rounded p-2 mb-2 ' + formClass + '" data-method="' + escapeHtml(name === null ? '' : name) + '">' +
+                '<div class="d-flex align-items-center mb-1">' + title + addBtn + actionButtonHtml + '</div>' +
+                summary +
+                '<div class="params">' + params + '</div>' +
+                '<div class="result small mt-1"></div>' +
+            '</div>';
+    }
+
+    // Collect a form's param values. Declared (abi) inputs are all-or-nothing:
+    // params are positional on the wire, so a blank in the middle would shift
+    // later values; return null to signal "incomplete". Dynamic rows just drop
+    // empties (the user added each row deliberately).
+    function collectParams(form){
+        let inputs   = form.find('.param-value');
+        let declared = inputs.filter('[data-declared]').length > 0;
+        let values   = inputs.map(function(){ return String($(this).val()); }).get();
+        if(declared) return values.some(function(v){ return v.trim() === ''; }) ? null : values;
+        return values.filter(function(v){ return v !== ''; });
+    }
+
+    function bindParamRowHandlers(container, formClass){
+        container.on('click', '.add-param', function(){
+            $(this).closest('.' + formClass).find('.params').append(
+                '<div class="input-group input-group-sm mb-1">' +
+                    '<span class="input-group-text">param</span>' +
+                    '<input type="text" class="form-control param-value">' +
+                    '<button type="button" class="btn btn-outline-secondary remove-param"><i class="fa fa-times"></i></button>' +
+                '</div>');
+        });
+        container.on('click', '.remove-param', function(){
+            $(this).closest('.input-group').remove();
+        });
+    }
+
+    // Build the Read Contract card: a small form per method and a Run button
+    // that POSTs to the simulation endpoint and renders the VM result inline.
+    function buildReadContractForms(methods, abi){
+        let container = $('#contract-read-methods');
+        let list      = (methods && methods.length) ? methods : [null];
+
+        list.forEach(function(m){
+            let abiEntry = (m !== null && abi) ? abi.methods[m] : null;
+            container.append(methodFormHtml('contract-read-form', m, abiEntry,
+                '<button type="button" class="btn btn-sm btn-primary ms-auto run-method">Run</button>'));
+        });
+        if(methods === null)
+            container.prepend('<div class="text-muted small mb-2">Could not determine this contract\'s methods automatically; enter a method name manually.</div>');
+
+        bindParamRowHandlers(container, 'contract-read-form');
+
+        container.on('click', '.run-method', function(){
+            let form   = $(this).closest('.contract-read-form');
+            let btn    = $(this);
+            let method = form.attr('data-method') || form.find('.method-name').val() || '';
+            let params = collectParams(form);
+            let caller = $('#contract-read-caller').val();
+            let out    = form.find('.result');
+
+            if(params === null){
+                out.html('<div class="text-danger">Fill in every declared parameter (they are positional).</div>');
+                return;
+            }
+            btn.prop('disabled', true).text('Running...');
+            out.html('');
+            $.ajax({
+                method:      'POST',
+                url:         '/' + XC.coin + '/api/contract/' + XC.query + '/call',
+                contentType: 'application/json',
+                data:        JSON.stringify({ method: method, params: params, caller: caller || null })
+            }).done(function(r){
+                let ret = r.returnValue;
+                try { ret = JSON.stringify(JSON.parse(r.returnValue), null, 2); } catch(e){ /* show raw */ }
+                let html = r.success
+                    ? '<div class="text-success">success (gas: ' + Number(r.gasUsed) + ')</div>'
+                    : '<div class="text-danger">' + escapeHtml(r.error || 'failed') + ' (gas: ' + Number(r.gasUsed) + ')</div>';
+                if(r.success && !isNull(ret))
+                    html += '<pre class="border rounded p-1 mb-1" style="max-height:200px; overflow:auto;">' + escapeHtml(ret) + '</pre>';
+                if(r.logs && r.logs.length)
+                    html += '<div class="text-muted">log: ' + r.logs.map(escapeHtml).join('<br>log: ') + '</div>';
+                let sim = r.simulation || {};
+                let effects = (sim.stateChanges || []).length + (sim.stateDeletes || []).length + (sim.emittedActions || []).length;
+                if(effects){
+                    html += '<details class="mt-1"><summary class="text-muted">Would-be effects (' + effects + ', not committed)</summary>' +
+                            '<pre class="border rounded p-1" style="max-height:200px; overflow:auto;">' +
+                            escapeHtml(JSON.stringify({ stateChanges: sim.stateChanges, stateDeletes: sim.stateDeletes, emittedActions: sim.emittedActions }, null, 2)) +
+                            '</pre></details>';
+                }
+                out.html(html);
+            }).fail(function(xhr){
+                let e = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : ('request failed (' + xhr.status + ')');
+                out.html('<div class="text-danger">' + escapeHtml(e) + '</div>');
+            }).always(function(){
+                btn.prop('disabled', false).text('Run');
+            });
+        });
+
+        $('#contract-read-card').show();
+    }
+
+    // Build the Write Contract card: same per-method forms, but the action is
+    // an "Open in Wallet" deep link (xchain:{COIN}/execute, spec:
+    // protocol/XChain_URI_Scheme.md). The explorer only constructs the URL;
+    // signing and broadcast happen entirely in the user's wallet.
+    function buildWriteContractForms(methods, abi, walletUrl){
+        let container = $('#contract-write-methods');
+        let list      = (methods && methods.length) ? methods : [null];
+
+        list.forEach(function(m){
+            let abiEntry = (m !== null && abi) ? abi.methods[m] : null;
+            container.append(methodFormHtml('contract-write-form', m, abiEntry,
+                '<button type="button" class="btn btn-sm btn-primary ms-auto open-wallet"><i class="fa fa-wallet"></i> Open in Wallet</button>'));
+        });
+        if(methods === null)
+            container.prepend('<div class="text-muted small mb-2">Could not determine this contract\'s methods automatically; enter a method name manually.</div>');
+
+        bindParamRowHandlers(container, 'contract-write-form');
+
+        container.on('click', '.open-wallet', function(){
+            let form   = $(this).closest('.contract-write-form');
+            let method = form.attr('data-method') || form.find('.method-name').val() || '';
+            let out    = form.find('.result');
+            out.html('');
+            if(!method){
+                out.html('<div class="text-danger">Enter a method name.</div>');
+                return;
+            }
+            let params = collectParams(form);
+            if(params === null){
+                out.html('<div class="text-danger">Fill in every declared parameter (they are positional).</div>');
+                return;
+            }
+            let uri = 'xchain:' + XC.coin + '/execute?contract=' + encodeURIComponent(XC.query) +
+                      '&method=' + encodeURIComponent(method);
+            if(params.length) uri += '&params=' + encodeURIComponent(params.join('|'));
+            window.open(String(walletUrl).replace(/\/+$/, '') + '/?uri=' + encodeURIComponent(uri), '_blank');
+        });
+
+        $('#contract-write-card').show();
+    }
 
     // Load stakes targeting this contract
     loadDatatablesData(XC.coin, 'contract_stake', XC.query, 'contract');

@@ -1109,3 +1109,41 @@ CREATE TABLE cross_chain_call_callbacks (
 CREATE UNIQUE INDEX call_id      ON cross_chain_call_callbacks (call_id);
 CREATE        INDEX action_index ON cross_chain_call_callbacks (action_index);
 CREATE        INDEX block_index  ON cross_chain_call_callbacks (block_index);
+
+-- ============================================================
+-- Contract execution surfaces for the contract page + read-only
+-- simulation endpoint (auto-generated from xchain-indexer/src/sql/*.sql)
+-- ============================================================
+
+DROP TABLE IF EXISTS contract_state;
+CREATE TABLE contract_state (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    contract_index      BIGINT UNSIGNED NOT NULL,
+    state_key           VARCHAR(256) NOT NULL,
+    state_value         MEDIUMTEXT,
+    block_index         BIGINT UNSIGNED NOT NULL,
+    action_index        BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX idx_latest ON contract_state (contract_index, state_key, id DESC);
+CREATE INDEX idx_block  ON contract_state (block_index);
+
+DROP TABLE IF EXISTS contract_executions;
+CREATE TABLE contract_executions (
+    action_index        BIGINT UNSIGNED NOT NULL,
+    contract_index      BIGINT UNSIGNED,
+    caller_id           BIGINT UNSIGNED NOT NULL,
+    method_name         VARCHAR(250),
+    input_params        TEXT,
+    gas_used            BIGINT UNSIGNED NOT NULL,
+    gas_limit           BIGINT UNSIGNED NOT NULL,
+    status_id           BIGINT UNSIGNED NOT NULL,
+    error_message       TEXT,
+    emitted_count       INT UNSIGNED NOT NULL DEFAULT 0,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON contract_executions (action_index);
+CREATE        INDEX contract_index ON contract_executions (contract_index);
+CREATE        INDEX caller_id      ON contract_executions (caller_id);
+CREATE        INDEX block_index    ON contract_executions (block_index);

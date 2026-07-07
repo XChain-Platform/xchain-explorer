@@ -38,7 +38,7 @@ const swq  = require('../../src/stake_weighted_quorum.js');
 const ckpt = require('../../src/checkpoint_commitment_activation.js');
 
 // ── Load XChainExplorer with heavy deps replaced ────────────────────────────
-const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express = () => mockApp;
 express.static = () => {};
 express.json   = () => {};

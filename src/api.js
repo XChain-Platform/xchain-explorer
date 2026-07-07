@@ -31,6 +31,7 @@ const jsonRouter     = require('express-json-rpc-router')
 const WebSocketServer = require('./ws/WebSocketServer.js');
 const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
+const vmQuery         = require('./vm-query.js');
 
 dotenv.config();
 
@@ -230,6 +231,15 @@ async function startApi(){
             changeDetector.start(availableCoins);
         }
     }
+}
+
+// Tear down the contract-simulation VM's subprocess worker before exit
+// (vm-query.js; no-op when the feature is off or never used). The worker also
+// exits on IPC disconnect, so this is belt-and-suspenders.
+for (const sig of ['SIGTERM', 'SIGINT']) {
+    process.on(sig, () => {
+        vmQuery.shutdown().finally(() => process.exit(0));
+    });
 }
 
 startApi().catch(err => {

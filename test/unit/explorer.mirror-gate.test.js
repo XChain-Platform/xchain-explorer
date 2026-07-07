@@ -21,7 +21,7 @@ const { expect } = require('chai');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
-const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express = () => mockApp;
 express.static = () => {};
 express.json   = () => {};

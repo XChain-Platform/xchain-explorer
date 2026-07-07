@@ -18,8 +18,10 @@
  *
  ********************************************************************/
 
+const crypto  = require('crypto');
 const mariadb = require('mariadb');
 const DecoderConnector = require('./XChainDecoderConnector.js');
+const { extractMethods } = require('./contract-introspect.js');
 
 class Database {
 
@@ -38,6 +40,10 @@ class Database {
         this._addressIdCache  = new Map();
         this._tickIdCache     = new Map();
         this._actionDataCache = new Map();
+        // AST introspection ({methods, abi} pair) is a pure function of the
+        // contract source, and code is immutable once deployed, so cache by
+        // code_hash (two deploys of identical source share one entry).
+        this._methodsCache    = new Map();
 
         this.actionTables = [
             'addresses',
@@ -8547,6 +8553,52 @@ class Database {
             }
             row.permissions  = permissions;
             row.max_take_bps = this.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps);
+
+            // Source integrity: the chain carries the source itself, so
+            // "verified contract" reduces to hashing what we serve. A mismatch
+            // can only mean a corrupted indexer row; surface it, never hide it.
+            row.code_hash_ok = this.util.isNull(row.code) ? false
+                : crypto.createHash('sha256').update(row.code).digest('hex') === row.code_hash;
+
+            // Callable method surface + optional self-declared abi metadata
+            // via AST extraction (presentation-only; methods null = shape
+            // unrecognized and the UI shows "unknown"; abi null = none
+            // declared or malformed, UI falls back to name-only forms).
+            let introspected = this._cacheGet(this._methodsCache, row.code_hash);
+            if(introspected === undefined){
+                try {
+                    let ex = extractMethods(row.code);
+                    introspected = { methods: ex.methods, abi: ex.abi };
+                } catch(e){
+                    introspected = { methods: null, abi: null };
+                }
+                this._cacheSet(this._methodsCache, row.code_hash, introspected);
+            }
+            row.methods = introspected.methods;
+            row.abi     = introspected.abi;
+
+            // Deploy-time constructor arguments: the indexer records the
+            // constructor run in contract_executions under the literal method
+            // name 'constructor', keyed by the DEPLOY's own action_index.
+            try {
+                let ctor = await this.doQuery(config,
+                    `SELECT input_params FROM contract_executions WHERE action_index=? AND method_name='constructor' LIMIT 1`,
+                    [row.action_index]);
+                row.constructor_params = (ctor && ctor.length && !this.util.isNull(ctor[0].input_params)) ? String(ctor[0].input_params) : null;
+            } catch(e){
+                row.constructor_params = null;
+            }
+
+            // Feature discovery for the contract page's Read Contract card:
+            // mirrors the env gate on POST /{COIN}/api/contract/{idx}/call.
+            row.vm_query_enabled = process.env.EXPLORER_VM_QUERY_ENABLED === 'true';
+
+            // Wallet handoff target for the Write Contract card. An explicitly
+            // EMPTY EXPLORER_WALLET_URL disables the card, so only default over
+            // an unset variable, never over ''.
+            row.wallet_url = process.env.EXPLORER_WALLET_URL !== undefined
+                ? process.env.EXPLORER_WALLET_URL : 'https://wallet.xchain.io';
+
             data = row;
         }
         return [data];
@@ -8608,6 +8660,31 @@ class Database {
                     ORDER BY cs.state_key ASC
                     LIMIT ` + sql.limit;
         return [query, args, count];
+    }
+
+    // Load a contract's FULL current state in the shape the VM consumes,
+    // mirroring the indexer's own loader (xchain-indexer/src/db.js
+    // getContractState): latest non-null row per key, values JSON-parsed with
+    // raw-string fallback. Null-prototype object so adversarial keys like
+    // '__proto__' round-trip instead of hitting the setter. Used only by the
+    // read-only simulation endpoint (vm-query.js), not the datatable route.
+    async getContractFullState(config, contractIndex){
+        let query = `SELECT cs.state_key, cs.state_value
+                     FROM contract_state cs
+                     INNER JOIN (
+                         SELECT MAX(id) as max_id
+                         FROM contract_state
+                         WHERE contract_index = ?
+                         GROUP BY state_key
+                     ) latest ON (cs.id = latest.max_id)
+                     WHERE cs.state_value IS NOT NULL`;
+        let results = await this.doQuery(config, query, [contractIndex]);
+        let state = Object.create(null);
+        for(let row of (results || [])){
+            try { state[row.state_key] = JSON.parse(row.state_value); }
+            catch(e){ state[row.state_key] = row.state_value; }
+        }
+        return state;
     }
 
     // Get contract custody balances; custody lives in the standard `balances`

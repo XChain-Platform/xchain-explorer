@@ -174,6 +174,7 @@ const SPECIAL = [
     ['/{COIN}/api/checkpoints', 'Checkpoints', 'Latest quorum-signed state checkpoints for this chain'],
     ['/{COIN}/api/checkpoint/{BLOCK_INDEX}/verify', 'Checkpoints', 'Verify a checkpoint: 2f+1 signatures, canonical string, validator set'],
     ['/{COIN}/api/checkpoints/range', 'Checkpoints', 'Quorum-signed checkpoints in a [from,to] block range (SPV forward-following)'],
+    ['/{COIN}/api/hub-mirror/status', 'Checkpoints', 'Self-synced hub-mirror status: bootstrap state and watermark lag ({enabled:false} in externally-maintained mode)'],
     ['/{COIN}/api/proof/balance/{ADDRESS}/{TICK}', 'Proofs', 'SPV balance inclusion proof for an address/tick against the committed balances_root (height optional)'],
     ['/{COIN}/api/proof/action/{ACTION_INDEX}', 'Proofs', 'SPV inclusion proof for an action against the committed state tree'],
     ['/{COIN}/api/proof/validator-set', 'Proofs', 'SPV proof of the BTC validator set at a snapshot height (stakes_root; BTC-only)'],

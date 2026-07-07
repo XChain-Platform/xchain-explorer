@@ -26,6 +26,8 @@ const axios          = require('axios');
 const util           = require('./utility.js');
 const database       = require('./db.js');
 const IconDownloader = require('./IconDownloader.js');
+const HubOperationalCache = require('./HubOperationalCache.js');
+const HubMirrorSyncManager = require('./HubMirrorSyncManager.js');
 const IndexerConnector = require('./XChainIndexerConnector.js');
 const eq               = require('./equivocation_header.js');
 const swq              = require('./stake_weighted_quorum.js');
@@ -77,6 +79,21 @@ class XChainExplorer {
 
     async init(){
         await this.db.init()
+        // Hub operational-state reads (validator capabilities, governance) over
+        // JSON-RPC with a short TTL cache. Disabled (null connector) when no hub
+        // endpoint is configured; db.js then falls back to the legacy co-located
+        // hub schema read.
+        this.hubOperational = new HubOperationalCache(this);
+        // Self-synced hub-DB mirror (#4138 decoupling): populates the local
+        // checkpoint schema from the hub's snapshot+subscribe feed for every
+        // coin/network whose database.checkpoint block sets self_sync. No-op
+        // when no self_sync flags are configured.
+        this.hubMirrorSync = new HubMirrorSyncManager(this);
+        try {
+            await this.hubMirrorSync.start();
+        } catch (e){
+            console.error('hub-mirror sync failed to start:', e && e.stack ? e.stack : e);
+        }
         // Optional: in-process icon downloader. Opt-in via configInfo.iconDownload.enabled.
         // Requires sql/icons.sql installed in each indexer DB and ImageMagick `convert` on PATH.
         this.iconDownloader = new IconDownloader(this);
@@ -447,6 +464,9 @@ class XChainExplorer {
         // Spec: xchain-documentation/protocol/actions/ANCHOR.md
         this.app.get('/:coin/api/checkpoints', (req, res) => { this.processCheckpointsRequest(req, res); });
         this.app.get('/:coin/api/checkpoint/:blockIndex/verify', (req, res) => { this.processCheckpointVerifyRequest(req, res); });
+        // Self-synced hub-mirror observability (#4138 decoupling): bootstrap +
+        // watermark-lag state per coin, {enabled:false} in externally-maintained mode.
+        this.app.get('/:coin/api/hub-mirror/status', (req, res) => { this.processHubMirrorStatusRequest(req, res); });
 
         // SPV light-client proof endpoints (Phase 3, spec §8.1). Read-only; a client
         // recomputes the proof locally and binds it to a quorum-signed checkpoint's
@@ -634,7 +654,15 @@ class XChainExplorer {
             // an empty result before touching the DB, mirroring getSearch's SEARCH_MIN_LENGTH
             // guard. nft type is excluded: it uses a fixed predicate with no search term.
             const TOKEN_SEARCH_MIN_LENGTH = 3;
-            if(cfg.data.method === 'getTokens' &&
+            // Cross-chain match rows come from the checkpoint mirror; when a
+            // SELF-SYNCED mirror has never bootstrapped, refuse to serve (an
+            // empty mirror must read as an outage, not an empty ledger), and
+            // otherwise annotate lag. Same gate as the checkpoint routes.
+            let mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? this._mirrorGate(cfg.coin) : null;
+            if(mirrorGate && mirrorGate.blocked){
+                data  = [];
+                total = 0;
+            } else if(cfg.data.method === 'getTokens' &&
                ['token','subtoken'].includes(cfg.data.type) &&
                String(cfg.data.search || '').trim().length < TOKEN_SEARCH_MIN_LENGTH){
                 data  = [];
@@ -686,6 +714,15 @@ class XChainExplorer {
             }
 
             response.json = json;
+
+            if(mirrorGate){
+                if(mirrorGate.blocked){
+                    response.code = 503;
+                    response.json = this._mirrorBlockedBody(mirrorGate.blocked);
+                } else if(mirrorGate.annotate){
+                    Object.assign(response.json, mirrorGate.annotate);
+                }
+            }
         }
 
         if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method)){
@@ -1172,6 +1209,54 @@ class XChainExplorer {
         return res.send(file.raw_data);
     }
 
+    // Staleness gate for consensus data served from a SELF-SYNCED checkpoint
+    // mirror (#4138 semantics carried into the decoupled world). Only applies
+    // to coins whose mirror this process runs (HubMirrorSyncManager); the
+    // externally-maintained-schema mode is unaffected. Two tiers, per the
+    // operator decision on this feature: a mirror that has NEVER completed its
+    // REST bootstrap must fail loud (an empty mirror must read as an outage,
+    // not as an empty ledger), while a bootstrapped-but-lagging mirror serves
+    // with a mirror_lag_seconds annotation and warns past MIRROR_MAX_LAG_S,
+    // hard-failing only when MIRROR_LAG_FAIL_CLOSED=1 opts in.
+    _mirrorGate(coin){
+        let mgr = this.hubMirrorSync;
+        if(!mgr || !mgr.managesCoin(coin)) return { blocked: null, annotate: null };
+        let status = mgr.statusForCoin(coin) || {};
+        if(!status.bootstrapDrained)
+            return { blocked: 'MIRROR_NOT_BOOTSTRAPPED', annotate: null };
+        let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
+        let maxLag = parseInt(process.env.MIRROR_MAX_LAG_S, 10) || 0;
+        if(maxLag > 0 && status.mirrorLagSeconds !== null && status.mirrorLagSeconds > maxLag){
+            console.warn('[hub-mirror] ' + coin + ' mirror lag ' + status.mirrorLagSeconds +
+                's exceeds MIRROR_MAX_LAG_S=' + maxLag +
+                (process.env.MIRROR_LAG_FAIL_CLOSED === '1' ? ' (failing closed)' : ' (serving with annotation)'));
+            if(process.env.MIRROR_LAG_FAIL_CLOSED === '1')
+                return { blocked: 'MIRROR_STALE', annotate };
+        }
+        return { blocked: null, annotate };
+    }
+
+    _mirrorBlockedBody(blocked){
+        return {
+            error: blocked === 'MIRROR_NOT_BOOTSTRAPPED'
+                ? 'Hub-mirror has not completed its initial bootstrap; consensus data is unavailable rather than served empty.'
+                : 'Hub-mirror is stale beyond MIRROR_MAX_LAG_S and MIRROR_LAG_FAIL_CLOSED is set.',
+            code: blocked
+        };
+    }
+
+    // GET /{COIN}/api/hub-mirror/status: self-synced mirror observability for
+    // this coin ({enabled:false} when the coin is served from an externally-
+    // maintained schema). Operators use bootstrapDrained/mirrorLagSeconds to
+    // tell "empty because nothing exists" from "empty because never synced".
+    async processHubMirrorStatusRequest(req, res){
+        let coin = String(req.params.coin || '').toUpperCase();
+        if(!this.db.pools || !this.db.pools[coin])
+            return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+        let status = this.hubMirrorSync ? this.hubMirrorSync.statusForCoin(coin) : null;
+        return res.json(status || { enabled: false });
+    }
+
     // GET /{COIN}/api/checkpoints[?limit=N]: latest quorum-signed state checkpoints
     // for this coin's chain, from the hub-mirrored state_checkpoints table.
     async processCheckpointsRequest(req, res){
@@ -1179,9 +1264,12 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
             let limit = Math.min(parseInt(req.query.limit) || 10, 100);
             let rows = await this.db.getCheckpointRows({ coin, data: {} }, null, limit);
-            return res.json({ checkpoints: rows || [], count: (rows || []).length });
+            return res.json({ checkpoints: rows || [], count: (rows || []).length, ...(gate.annotate || {}) });
         } catch (e) {
             console.error('processCheckpointsRequest error:', e);
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
@@ -1197,6 +1285,9 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
             let blockIndex = req.params.blockIndex;
             if(!/^[0-9]+$/.test(String(blockIndex)))
                 return res.status(400).json({ error: 'Invalid block_index', code: 'INVALID_BLOCK_INDEX' });
@@ -1290,6 +1381,11 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            // Balance proofs bind to a quorum-signed checkpoint from the mirror,
+            // so they inherit the same staleness gate as the checkpoint routes.
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -1324,6 +1420,9 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
             let from = req.query.from, to = req.query.to;
             if(!/^[0-9]+$/.test(String(from)) || !/^[0-9]+$/.test(String(to)))
                 return res.status(400).json({ error: 'from and to (integers) are required', code: 'INVALID_RANGE' });

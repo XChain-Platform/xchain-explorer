@@ -1,0 +1,144 @@
+'use strict';
+
+// Copyright © 2025–2026 Dankest, LLC
+// Based on XChain Platform by Dankest, LLC – https://dankest.llc
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of XChain Platform. Licensed under the GNU Affero
+// General Public License v3.0 or later; see LICENSE.md. A commercial
+// license (without AGPL source-disclosure terms) is available -
+// contact legal@dankest.llc.
+
+// Self-synced hub-mirror staleness surface: the two-tier gate (503 while a
+// mirror has never bootstrapped, warn + annotate on lag, opt-in fail-closed),
+// the /hub-mirror/status endpoint, and gating on the checkpoint route.
+
+const proxyquire = require('proxyquire');
+const sinon      = require('sinon');
+const { expect } = require('chai');
+
+const { createConfigInfoStub } = require('../fixtures/mock-config.js');
+const { mockRes }              = require('../fixtures/mock-query-args.js');
+
+const mockApp = { use: () => {}, get: () => {}, enable: () => {} };
+const express = () => mockApp;
+express.static = () => {};
+express.json   = () => {};
+
+class MockDB { constructor() {} async init() {} }
+
+const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+    'express': express,
+    './db.js': MockDB,
+    'fs': { existsSync: () => true, readFileSync: () => 'mock' }
+});
+
+function makeExplorer(mirrorStatus) {
+    const explorer = new XChainExplorer(mockApp, createConfigInfoStub());
+    explorer.db.pools = { BTC: {} };
+    explorer.db.getCheckpointRows = sinon.stub().resolves([{ block_index: 500 }]);
+    if (mirrorStatus !== undefined) {
+        explorer.hubMirrorSync = {
+            managesCoin: (c) => c === 'BTC' && mirrorStatus !== null,
+            statusForCoin: () => mirrorStatus
+        };
+    }
+    return explorer;
+}
+
+function req(params, query) { return { params: params || {}, query: query || {} }; }
+
+const OK_STATUS = {
+    enabled: true, target: { host: 'db1', name: 'XChain_Hub_Mirror' },
+    bootstrapDrained: true, streamWatermark: 1000, mirrorLagSeconds: 5
+};
+
+describe('explorer hub-mirror staleness gate', function () {
+
+    afterEach(function () {
+        sinon.restore();
+        delete process.env.MIRROR_MAX_LAG_S;
+        delete process.env.MIRROR_LAG_FAIL_CLOSED;
+    });
+
+    describe('_mirrorGate()', function () {
+        it('open (no annotation) when no mirror manager runs for the coin', function () {
+            const gate = makeExplorer()._mirrorGate('BTC');
+            expect(gate).to.deep.equal({ blocked: null, annotate: null });
+        });
+
+        it('blocks while the mirror has never bootstrapped', function () {
+            const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false })._mirrorGate('BTC');
+            expect(gate.blocked).to.equal('MIRROR_NOT_BOOTSTRAPPED');
+        });
+
+        it('annotates lag once bootstrapped', function () {
+            const gate = makeExplorer(OK_STATUS)._mirrorGate('BTC');
+            expect(gate.blocked).to.equal(null);
+            expect(gate.annotate).to.deep.equal({ mirror_bootstrapped: true, mirror_lag_seconds: 5 });
+        });
+
+        it('lag past MIRROR_MAX_LAG_S warns but serves by default', function () {
+            process.env.MIRROR_MAX_LAG_S = '60';
+            const warn = sinon.stub(console, 'warn');
+            const gate = makeExplorer({ ...OK_STATUS, mirrorLagSeconds: 120 })._mirrorGate('BTC');
+            expect(gate.blocked).to.equal(null);
+            expect(warn.calledWithMatch(sinon.match(/exceeds MIRROR_MAX_LAG_S/))).to.equal(true);
+        });
+
+        it('lag past MIRROR_MAX_LAG_S blocks under MIRROR_LAG_FAIL_CLOSED=1', function () {
+            process.env.MIRROR_MAX_LAG_S = '60';
+            process.env.MIRROR_LAG_FAIL_CLOSED = '1';
+            sinon.stub(console, 'warn');
+            const gate = makeExplorer({ ...OK_STATUS, mirrorLagSeconds: 120 })._mirrorGate('BTC');
+            expect(gate.blocked).to.equal('MIRROR_STALE');
+        });
+    });
+
+    describe('GET /:coin/api/hub-mirror/status', function () {
+        it('404 on unknown coin', async function () {
+            const res = mockRes();
+            await makeExplorer().processHubMirrorStatusRequest(req({ coin: 'NOPE' }), res);
+            expect(res._status).to.equal(404);
+        });
+
+        it('{enabled:false} for externally-maintained (non-self-sync) coins', async function () {
+            const res = mockRes();
+            await makeExplorer(null).processHubMirrorStatusRequest(req({ coin: 'BTC' }), res);
+            expect(res._body).to.deep.equal({ enabled: false });
+        });
+
+        it('passes the manager status through', async function () {
+            const res = mockRes();
+            await makeExplorer(OK_STATUS).processHubMirrorStatusRequest(req({ coin: 'BTC' }), res);
+            expect(res._body).to.deep.equal(OK_STATUS);
+        });
+    });
+
+    describe('checkpoint route gating', function () {
+        it('503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap', async function () {
+            const res = mockRes();
+            await makeExplorer({ ...OK_STATUS, bootstrapDrained: false })
+                .processCheckpointsRequest(req({ coin: 'BTC' }), res);
+            expect(res._status).to.equal(503);
+            expect(res._body.code).to.equal('MIRROR_NOT_BOOTSTRAPPED');
+        });
+
+        it('serves with mirror annotations once bootstrapped', async function () {
+            const res = mockRes();
+            await makeExplorer(OK_STATUS).processCheckpointsRequest(req({ coin: 'BTC' }), res);
+            expect(res._status).to.equal(200);
+            expect(res._body.mirror_bootstrapped).to.equal(true);
+            expect(res._body.mirror_lag_seconds).to.equal(5);
+            expect(res._body.checkpoints).to.deep.equal([{ block_index: 500 }]);
+        });
+
+        it('unaffected (no annotations) in externally-maintained mode', async function () {
+            const res = mockRes();
+            await makeExplorer(null).processCheckpointsRequest(req({ coin: 'BTC' }), res);
+            expect(res._status).to.equal(200);
+            expect(res._body).to.not.have.property('mirror_bootstrapped');
+        });
+    });
+});

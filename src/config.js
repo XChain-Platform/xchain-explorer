@@ -340,11 +340,14 @@ module.exports = {
                         database: {
                             indexer: info['xchain-indexer'] || info.indexer,
                             decoder: info['xchain-decoder'] || info.decoder,
-                            // Optional hub-mirrored checkpoint source (config.json
-                            // only). Single-server deployments reading synced replica
-                            // DBs point this at the hub DB (e.g. XChain_Hub), since
-                            // xchain-sync deliberately excludes the hub-mirror tables
-                            // (state_checkpoints / capability_snapshots) from
+                            // Checkpoint source schema (config.json only). Either an
+                            // externally-maintained hub schema (e.g. XChain_Hub on a
+                            // single-server deployment) or, with self_sync: true, a
+                            // local mirror this explorer populates itself from the
+                            // hub's /hub-db feed (HubMirrorSyncManager; needs
+                            // HUB_API_URL). Needed because xchain-sync deliberately
+                            // excludes the hub-mirror tables (state_checkpoints /
+                            // capability_snapshots / cross_chain_matches) from
                             // replication. See db.js checkpointDb.
                             checkpoint: info.checkpoint
                         },

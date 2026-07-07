@@ -7792,6 +7792,51 @@
       },
       "x-registered": "express"
     },
+    "/{COIN}/api/hub-mirror/status": {
+      "get": {
+        "operationId": "hub-mirror_status",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Self-synced hub-mirror status: bootstrap state and watermark lag ({enabled:false} in externally-maintained mode)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
     "/{COIN}/api/proof/balance/{ADDRESS}/{TICK}": {
       "get": {
         "operationId": "proof_balance_address_tick",

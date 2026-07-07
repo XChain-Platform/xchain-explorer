@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Self-synced hub-mirror mode (`database.checkpoint.self_sync` + `HUB_API_URL`): the explorer maintains its own local copy of the hub-mirror tables, removing the hard requirement for a co-located hub DB.
+- Validator-capability and governance pages read over hub JSON-RPC with a short TTL cache, falling back to the legacy co-located schema when no hub endpoint is configured.
+- Mirror staleness surface: `GET /{COIN}/api/hub-mirror/status`, 503 before first bootstrap, `mirror_lag_seconds` annotations, opt-in fail-closed lag gating.
+
 ### Fixed
 - `WebSocketServer._send` now uses a shared BigInt-safe stringifier (`src/ws/serialize.js`, also adopted by `Broadcaster`) so catch-up/replay messages carrying BigInt DB columns no longer throw and get silently swallowed at the socket boundary.
 - `getDispensers`/`getOrders`/`getSwaps` place `give`/`get_ownership` before `status`/`action_index`, keeping `action_index` last (the client's paging cursor and length-relative status extraction); the datatables client's fixed-index ownership reads were realigned to match.

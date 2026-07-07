@@ -24,6 +24,7 @@ const DecoderConnector = require('./XChainDecoderConnector.js');
 class Database {
 
     constructor(explorer){
+        this.explorer   = explorer;
         this.configInfo = explorer.configInfo
         this.util   = explorer.util;
 
@@ -261,12 +262,21 @@ class Database {
                             // Record the checkpoint-source DB name for this coin (see
                             // the checkpointDb note above); same same-server/same-creds
                             // rule as decoderDb, read by reusing this indexer pool.
+                            // self_sync marks a mirror schema this explorer populates
+                            // itself via HubMirrorSyncManager (the #4138 decoupling)
+                            // rather than an externally-maintained hub schema; the
+                            // connection details ride along so the mirror writer can
+                            // open its own small pool on the same server.
                             let kcfg = info[net].database.checkpoint;
                             if(kcfg && !this.util.isNull(kcfg.name)){
                                 let kHost = ("db_host" in kcfg) ? kcfg.db_host : kcfg.host;
                                 let kPort = ("db_port" in kcfg) ? kcfg.db_port : kcfg.port;
                                 if(kHost==cfg.db_host && kPort==cfg.db_port && kcfg.user==cfg.user && kcfg.pass==cfg.pass)
-                                    this.checkpointDb[key] = { name: kcfg.name, chain: coin, network: net };
+                                    this.checkpointDb[key] = {
+                                        name: kcfg.name, chain: coin, network: net,
+                                        selfSync: kcfg.self_sync === true || kcfg.self_sync === 'true',
+                                        host: kHost, port: kPort, user: kcfg.user, pass: kcfg.pass
+                                    };
                             }
                         }
                     }
@@ -274,21 +284,25 @@ class Database {
             }
         }
 
-        // Mandatory co-located hub DB invariant (#4138). The hub-mirrored tables
+        // Mandatory co-located mirror invariant (#4138). The hub-mirrored tables
         // (state_checkpoints, capability_snapshots, cross_chain_matches) are NEVER
-        // replicated by xchain-sync, so a serving coin with no co-located hub DB has
-        // only a stale/empty bootstrap copy. Fail loud at startup rather than letting
-        // a thin replica silently serve empty hub-mirror data with no alarm.
+        // replicated by xchain-sync, so a serving coin with no checkpoint schema
+        // (self-synced via HubMirrorSyncManager, or externally maintained) has
+        // only a stale/empty bootstrap copy. Fail loud at startup rather than
+        // letting a thin replica silently serve empty hub-mirror data with no alarm.
         this._assertCheckpointDbForServingCoins();
     }
 
     // Startup assertion: every coin/network this explorer serves (has an indexer
-    // pool for) MUST have a co-located hub DB configured (database.checkpoint,
-    // same host+credentials as the indexer DB). Without it the hub-mirrored tables
-    // cannot be served correctly, because xchain-sync never replicates them. A
-    // missing entry is a fatal misconfiguration: throw a clear, named error so a
-    // mis-provisioned thin replica fails to start instead of silently serving
-    // empty state_checkpoints / capability_snapshots / cross_chain_matches (#4138).
+    // pool for) MUST have a checkpoint schema configured (database.checkpoint,
+    // same host+credentials as the indexer DB): either a self-synced mirror
+    // (database.checkpoint.self_sync + HUB_API_URL, populated by
+    // HubMirrorSyncManager) or an externally-maintained hub schema. Without one
+    // the hub-mirrored tables cannot be served, because xchain-sync never
+    // replicates them. A missing entry is a fatal misconfiguration: throw a
+    // clear, named error so a mis-provisioned thin replica fails to start
+    // instead of silently serving empty state_checkpoints /
+    // capability_snapshots / cross_chain_matches (#4138).
     // Opt-out: ALLOW_NO_COLOCATED_HUB_DB=1 downgrades the fatal error to a warning,
     // for deployments that intentionally do not expose the hub-mirrored endpoints.
     _assertCheckpointDbForServingCoins(){
@@ -297,13 +311,14 @@ class Database {
             if(!this.checkpointDb[key]) missing.push(key);
         }
         if(missing.length){
-            let msg = 'Mandatory co-located hub DB missing for serving coin(s): ' + missing.join(', ') +
+            let msg = 'Checkpoint schema missing for serving coin(s): ' + missing.join(', ') +
                 '. The hub-mirrored tables (state_checkpoints, capability_snapshots, ' +
                 'cross_chain_matches) are never replicated by xchain-sync and must be served ' +
-                'from a co-located hub DB on the same server. Add a database.checkpoint block ' +
-                '(same host + credentials as the indexer DB) for each serving coin/network. ' +
-                'Set ALLOW_NO_COLOCATED_HUB_DB=1 to start anyway (hub-mirrored endpoints will ' +
-                'fail loud per request instead).';
+                'from a local schema on the same server: add a database.checkpoint block ' +
+                '(same host + credentials as the indexer DB) for each serving coin/network, ' +
+                'either self-synced (self_sync: true + HUB_API_URL) or pointing at an ' +
+                'externally-maintained hub schema. Set ALLOW_NO_COLOCATED_HUB_DB=1 to start ' +
+                'anyway (hub-mirrored endpoints will fail loud per request instead).';
             if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
                 console.warn('[explorer] WARNING: ' + msg);
                 return;
@@ -7880,17 +7895,20 @@ class Database {
     // (state_checkpoints, capability_snapshots) are pushed/retracted by the hub
     // out-of-band with block apply, so xchain-sync EXCLUDES them from every
     // snapshot and stream. A serving node therefore MUST read them from the
-    // mandatory co-located hub DB (the same-server `checkpoint` config block,
+    // same-server `checkpoint` schema (config database.checkpoint,
     // database-qualified + chain/network-filtered; the hub table carries every
-    // chain). There is deliberately NO local-mirror fallback: a thin replica
-    // without a co-located hub DB has only a stale/empty bootstrap copy of these
-    // tables, and silently serving that would publish wrong consensus-relevant
-    // data with no alarm (#4138). When the hub DB is absent or its configured
-    // name is not a safe identifier we FAIL LOUD by throwing, surfacing the
-    // misconfiguration to the route (HTTP 500 + log) instead of serving stale
-    // rows. dbName is config-derived, not client input, but database identifiers
-    // can't be bound; restrict to a safe identifier charset before use (same rule
-    // as the decoderDb readers above).
+    // chain): either an externally-maintained hub schema or a self-synced mirror
+    // kept live by HubMirrorSyncManager over the hub's /hub-db feed. There is
+    // deliberately NO fallback to the replicated indexer DB: a thin replica has
+    // only a stale/empty bootstrap copy of these tables, and silently serving
+    // that would publish wrong consensus-relevant data with no alarm (#4138; a
+    // never-bootstrapped self-sync mirror is likewise gated by the mirror-status
+    // check in the routes). When the checkpoint schema is absent or its
+    // configured name is not a safe identifier we FAIL LOUD by throwing,
+    // surfacing the misconfiguration to the route (HTTP 500 + log) instead of
+    // serving stale rows. dbName is config-derived, not client input, but
+    // database identifiers can't be bound; restrict to a safe identifier charset
+    // before use (same rule as the decoderDb readers above).
     _checkpointSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
@@ -7908,14 +7926,19 @@ class Database {
     // cross_chain_matches is hub-mirrored (hub_db_sync), so xchain-sync EXCLUDES it from
     // every snapshot and per-block stream: a thin replica's local copy is a stale bootstrap
     // dump the live stream never refreshes. A serving node therefore MUST read matches from
-    // the mandatory co-located hub DB (the same DB that already backs state_checkpoints/
-    // capability_snapshots) so the endpoint serves live, retraction-aware rows. There is
-    // deliberately NO local-mirror fallback (#4138): when the hub DB is absent or its name
-    // is not a safe identifier we FAIL LOUD by throwing rather than silently serving the
-    // stale local mirror. The hub table carries every chain AND network, so a network filter
-    // is required. dbName is config-derived, not client input, but database identifiers can't
-    // be bound; restrict to a safe identifier charset before use (same rule as
-    // _checkpointSource / the decoderDb readers).
+    // the same-server checkpoint schema (the one that already backs state_checkpoints/
+    // capability_snapshots): externally maintained, or self-synced live from the hub's
+    // /hub-db feed by HubMirrorSyncManager, so the endpoint serves retraction-aware rows.
+    // There is deliberately NO fallback to the replicated indexer DB (#4138): when the
+    // checkpoint schema is absent or its name is not a safe identifier we FAIL LOUD by
+    // throwing rather than silently serving the stale local copy. The hub table carries
+    // every chain AND network, so a network filter is required. dbName is config-derived,
+    // not client input, but database identifiers can't be bound; restrict to a safe
+    // identifier charset before use (same rule as _checkpointSource / the decoderDb readers).
+    // Self-sync note: batch_root/anchor_txid are backfilled hub-side by UPDATE after
+    // anchor publication and the feed has no update event, so on a self-synced mirror
+    // those two audit columns can read NULL; all settlement-relevant columns arrive
+    // on the insert.
     _matchSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
@@ -7928,12 +7951,50 @@ class Database {
             'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
-    // Resolve a co-located hub-DB federation/governance table for a coin (validators,
-    // validator_capabilities, governance_proposals, governance_votes). Mirrors _matchSource:
-    // the table is DB-qualified to the co-located hub DB (same host+creds as the indexer DB, so
-    // the qualified name runs on the indexer pool) and read directly, never a local replica.
-    // `table` is whitelisted to lowercase identifiers (no injection). Federation data is
-    // platform-global (no per-chain network column), so there is no network filter.
+    // Apply the generic id-keyed datatable paging semantics to RPC-sourced rows in
+    // JS, mirroring what getQueryOffsetSql + ORDER BY m.id + LIMIT do in SQL for the
+    // id-keyed list methods: action 'prev' keeps id > start (and < stop), 'last'
+    // keeps id <= start, 'next'/default keeps id < start (and > stop). total is the
+    // filtered count BEFORE the cursor window (matching the SQL count query, which
+    // uses where.data but not where.offset). Rows arrive server-filtered and capped
+    // hub-side (500), so totals saturate there; these are small operational datasets.
+    _pageHubOperationalRows(config, rows){
+        let filtered = rows.slice();
+        let total    = filtered.length;
+        let offset = config.data.offset || {};
+        let action = !this.util.isNull(offset.action) ? offset.action : false;
+        let start  = (!this.util.isNull(offset.start) && this.util.isNumeric(offset.start)) ? Number(offset.start) : false;
+        let stop   = (!this.util.isNull(offset.stop)  && this.util.isNumeric(offset.stop))  ? Number(offset.stop)  : false;
+        if(action && start !== false){
+            if(action=='prev')
+                filtered = filtered.filter(r => Number(r.id) > start && (stop === false || Number(r.id) < stop));
+            else if(action=='last')
+                filtered = filtered.filter(r => Number(r.id) <= start);
+            else
+                filtered = filtered.filter(r => Number(r.id) < start && (stop === false || Number(r.id) > stop));
+        }
+        let order = (config.data.sql && config.data.sql.order === 'ASC') ? 'ASC' : 'DESC';
+        filtered.sort((a, b) => order === 'ASC' ? Number(a.id) - Number(b.id) : Number(b.id) - Number(a.id));
+        let limit = (config.data.sql && this.util.isNumeric(config.data.sql.limit)) ? Number(config.data.sql.limit) : 100;
+        let from  = (config.type == 'api' && config.data.sql && Number(config.data.sql.apiOffset) > 0)
+            ? Number(config.data.sql.apiOffset) : 0;
+        return [filtered.slice(from, from + limit), null, total];
+    }
+
+    // Resolve a co-located hub-DB federation/governance table for a coin
+    // (validator_capabilities, governance_proposals, governance_votes). Mirrors
+    // _matchSource: the table is DB-qualified to the co-located hub DB (same
+    // host+creds as the indexer DB, so the qualified name runs on the indexer pool)
+    // and read directly, never a local replica. `table` is whitelisted to lowercase
+    // identifiers (no injection). Federation data is platform-global (no per-chain
+    // network column), so there is no network filter.
+    //
+    // LEGACY FALLBACK: the primary transport for these hub-LOCAL operational tables
+    // is now the hub JSON-RPC read path (explorer.hubOperational, HubOperationalCache);
+    // this direct-schema read remains only for deployments with no hub endpoint
+    // configured (NO_HUB=1 standalone with a co-located hub schema, e.g. the
+    // single-server production install). New deployments should set HUB_API_URL
+    // instead of provisioning a co-located hub schema.
     _hubSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z_]+$/.test(table))
@@ -9671,11 +9732,20 @@ class Database {
         return [query, null, count];
     }
 
-    // Federation registry (hub-owned `validators` table, read from the co-located hub DB).
-    // One row per federation validator. type in {status, pubkey}. id-keyed (no action chain).
-    // Per-validator per-capability qualification flags (hub-owned `validator_capabilities`,
-    // read from the co-located hub DB). type in {capability, pubkey}. id-keyed.
+    // Per-validator per-capability qualification flags. type in {capability, pubkey}.
+    // id-keyed. Primary transport: hub JSON-RPC via HubOperationalCache (these are
+    // hub-LOCAL operational rows, not consensus mirror data); falls back to the
+    // legacy co-located hub schema read when no hub endpoint is configured.
     async getValidatorCapabilities(config){
+        let ops = this.explorer.hubOperational;
+        if(ops && ops.enabled()){
+            let rows = await ops.getValidatorCapabilities({
+                capability:     config.data.type=='capability' ? config.data.search : undefined,
+                signing_pubkey: config.data.type=='pubkey'     ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+            // fall through to the legacy schema read when the hub is unreachable
+        }
         let sql = config.data.sql;
         let src = this._hubSource(config, 'validator_capabilities');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
@@ -9695,9 +9765,19 @@ class Database {
         return [query, null, count];
     }
 
-    // Governance parameter proposals (hub-owned `governance_proposals`, read from the
-    // co-located hub DB). type in {status, parameter, proposal}. id-keyed.
+    // Governance parameter proposals. type in {status, parameter, proposal}. id-keyed.
+    // Primary transport: hub JSON-RPC via HubOperationalCache; legacy co-located hub
+    // schema read only when no hub endpoint is configured.
     async getGovernanceProposals(config){
+        let ops = this.explorer.hubOperational;
+        if(ops && ops.enabled()){
+            let rows = await ops.getGovernanceProposals({
+                status:      config.data.type=='status'    ? config.data.search : undefined,
+                parameter:   config.data.type=='parameter' ? config.data.search : undefined,
+                proposal_id: config.data.type=='proposal'  ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+        }
         let sql = config.data.sql;
         let src = this._hubSource(config, 'governance_proposals');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
@@ -9718,9 +9798,18 @@ class Database {
         return [query, null, count];
     }
 
-    // Per-validator governance votes (hub-owned `governance_votes`, read from the co-located
-    // hub DB). type in {proposal, voter}. id-keyed.
+    // Per-validator governance votes. type in {proposal, voter}. id-keyed.
+    // Primary transport: hub JSON-RPC via HubOperationalCache; legacy co-located hub
+    // schema read only when no hub endpoint is configured.
     async getGovernanceVotes(config){
+        let ops = this.explorer.hubOperational;
+        if(ops && ops.enabled()){
+            let rows = await ops.getGovernanceVotes({
+                proposal_id:  config.data.type=='proposal' ? config.data.search : undefined,
+                voter_pubkey: config.data.type=='voter'    ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+        }
         let sql = config.data.sql;
         let src = this._hubSource(config, 'governance_votes');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;

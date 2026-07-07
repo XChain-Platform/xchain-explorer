@@ -4213,6 +4213,11 @@ class Database {
             // Controller bindings still gating this token's native actions
             // (protocol/Controller_Bound_Tokens.md). [] when nothing gates.
             data.controllers = await this.getTokenControllerBindings(config, data.info.tick);
+            // Open governance polls over this token (VOTE v0, poll_status='open').
+            // Drives the token page's Active Governance card: voter apathy is the
+            // attack surface (a poll nobody sees is a poll nobody out-votes), so
+            // open polls surface on the token itself, binding polls flagged.
+            data.open_polls = await this.getTokenOpenPolls(config, data.info.tick);
         }
         return [data];
     }
@@ -10055,6 +10060,32 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // Open (not yet finalized) polls governed by one token, soonest close first.
+    // Backs getToken's open_polls (the token page's Active Governance card).
+    // Capped small because it rides the token point-read; full poll history
+    // stays on getPolls (the tick/status-filterable list).
+    async getTokenOpenPolls(config, tick){
+        let query = `SELECT
+                        m.action_index,
+                        m.question,
+                        m.end_block,
+                        m.quorum,
+                        m.min_voters,
+                        m.weight_mode,
+                        m.callback_contract_index,
+                        m.callback_method
+                    FROM
+                        polls m
+                        INNER JOIN index_tickers pt ON (pt.id=m.tick_id)
+                    WHERE
+                        pt.tick=?
+                        AND m.poll_status='open'
+                    ORDER BY m.end_block ASC
+                    LIMIT 25`;
+        let rows = await this.doQuery(config, query, [tick]);
+        return rows || [];
     }
 
     // Single VOTE poll by its creating action_index (the poll id). Returns the full

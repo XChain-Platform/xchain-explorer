@@ -1853,16 +1853,22 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(8).html(action_link);
             }
             // VOTE poll (polls table; token-weighted governance, VOTE v0). eq(4) token,
-            // eq(5) question, eq(6) lifecycle-status badge (open/finalized/failed_quorum).
+            // eq(5) question, eq(6) lifecycle-status badge (open/finalized/failed_quorum),
+            // eq(7) close block, eq(8) binding badge (a non-null callback contract means
+            // the poll result fires a contract method, i.e. it can move real value).
             if(action=='poll'){
                 token             = data[4];
                 let question      = data[5];
                 let poll_status   = data[6];
+                let end_block     = data[7];
+                let binding       = data[8];
                 let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
                 $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).text(isNull(question) ? '-' : question);
                 $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
-                $('td', row).eq(7).html(action_link);
+                $('td', row).eq(7).html(isNull(end_block) ? '-' : formatLink('/' + coin + '/block/' + end_block, numeral(end_block).format(fmtInteger)));
+                $('td', row).eq(8).html(isNull(binding) ? '-' : formatLink('/' + coin + '/contract/' + binding, '<span class="badge text-bg-danger">Binding</span>', 'Binding poll: finalization calls contract ' + binding));
+                $('td', row).eq(9).html(action_link);
             }
             // VOTE ballot (votes table; one row per voter choice, VOTE v1). eq(4) links the
             // poll it voted on, eq(5) the chosen option index, eq(6) the split-mode share.
@@ -3480,6 +3486,32 @@ function renderControllerBindings(controllers, bodyId, cardId){
     $('#' + cardId).show();
 }
 
+// Render a token's open governance polls (VOTE v0, poll_status='open') into the
+// token page's Active Governance card, revealing it when at least one poll is
+// open. Voter apathy is the classic governance attack surface, so open polls
+// (binding ones especially: their result fires a contract method) are surfaced
+// on the token itself rather than only on the global /polls list.
+// `polls` is getToken's open_polls array; bodyId/cardId are element ids.
+function renderOpenPolls(polls, bodyId, cardId){
+    if(!polls || !polls.length)
+        return;
+    let html = '';
+    polls.forEach(function(p){
+        let question = isNull(p.question) ? '-' : escapeHtml(String(p.question));
+        let closes   = formatLink('/' + XC.coin + '/block/' + Number(p.end_block), numeral(p.end_block).format('0,0'));
+        let binding  = isNull(p.callback_contract_index)
+            ? '<span class="badge text-bg-secondary">Advisory</span>'
+            : formatLink('/' + XC.coin + '/contract/' + Number(p.callback_contract_index),
+                '<span class="badge text-bg-danger">Binding</span>',
+                'Binding poll: finalization calls contract ' + Number(p.callback_contract_index));
+        let view     = formatLink('/' + XC.coin + '/action/' + Number(p.action_index), 'view', null, true);
+        html += '<tr><td>' + formatLink('/' + XC.coin + '/action/' + Number(p.action_index), Number(p.action_index))
+             +  '</td><td>' + question + '</td><td>' + closes + '</td><td>' + binding + '</td><td>' + view + '</td></tr>';
+    });
+    $('#' + bodyId).html(html);
+    $('#' + cardId).show();
+}
+
 // Handle displaying token details
 function showTokenInfo(){
     // Setup short alias to token info object
@@ -3528,6 +3560,9 @@ function showTokenInfo(){
     // Controller bindings (protocol/Controller_Bound_Tokens.md): guard contracts
     // that gate this token's native actions. Hidden until at least one is gating.
     renderControllerBindings(o.controllers, 'token-controllers-body', 'token-controllers-card');
+
+    // Open governance polls over this token. Hidden until at least one is open.
+    renderOpenPolls(o.open_polls, 'token-governance-body', 'token-governance-card');
 
     $('#supply').text(formatAmount(o.supply.current));
     $('#max-supply').text(formatAmount(o.supply.max));

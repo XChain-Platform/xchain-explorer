@@ -6,6 +6,12 @@
             <div class="card table-responsive">
                 <div class="card-title mb-0 p-1 fw-bold">
                     <i class="fa fa-lg fa-check-to-slot"></i> Governance Polls
+                    <!-- Open/All toggle: server-side poll_status filter via
+                         /explorer/polls/open/status (?status=open reloads the page) -->
+                    <span class="float-end" id="poll-status-toggle">
+                        <a class="badge text-bg-secondary border me-1" id="poll-filter-open">Open</a>
+                        <a class="badge text-bg-secondary border" id="poll-filter-all">All</a>
+                    </span>
                 </div>
                 <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-poll">
                 <thead>
@@ -17,12 +23,14 @@
                         <th class="">Token</th>
                         <th class="">Question</th>
                         <th class="">Status</th>
+                        <th class="">Closes</th>
+                        <th class="">Binding</th>
                         <th class="view"></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="8" class="loading-data">Loading poll data...</td>
+                        <td colspan="10" class="loading-data">Loading poll data...</td>
                     </tr>
                 </tbody>
                 </table>
@@ -40,8 +48,18 @@ $(document).ready(function() {
     XC.pageInfo.canonical   = '/' + XC.coin + '/polls';
     updatePageInfo();
 
-    // Load all `poll` actions
-    loadDatatablesData(XC.coin, 'poll', null, null);
+    // ?status=open narrows the list to polls still accepting ballots (the
+    // governance-visibility view); default shows the full history.
+    let openOnly = new URLSearchParams(window.location.search).get('status') == 'open';
+    $('#poll-filter-open').attr('href', '/' + XC.coin + '/polls?status=open');
+    $('#poll-filter-all').attr('href', '/' + XC.coin + '/polls');
+    $(openOnly ? '#poll-filter-open' : '#poll-filter-all').removeClass('text-bg-secondary').addClass('text-bg-success');
+
+    // Load `poll` actions (optionally filtered to the open lifecycle status)
+    if(openOnly)
+        loadDatatablesData(XC.coin, 'poll', 'open', 'status');
+    else
+        loadDatatablesData(XC.coin, 'poll', null, null);
 
 });
 </script>

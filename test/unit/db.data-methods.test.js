@@ -682,10 +682,23 @@ describe('Database#getToken', () => {
         // projects/registry are the Project_Registry.md display surfaces; with
         // no baseCoin map (un-inited db) they resolve to []/null. controllers is
         // the Controller_Bound_Tokens.md surface (→ [] with no pool/tick id).
-        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry', 'controllers']);
+        // open_polls is the token page's Active Governance surface (VOTE.md).
+        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry', 'controllers', 'open_polls']);
         expect(data.projects).to.deep.equal([]);
         expect(data.registry).to.equal(null);
         expect(data.controllers).to.deep.equal([]);
+    });
+
+    it('getTokenOpenPolls selects only open polls for the tick, soonest close first', async () => {
+        const dq = sinon.stub(db, 'doQuery').resolves([]);
+        const rows = await db.getTokenOpenPolls(cfg({ data: {} }), 'XCHAIN');
+        const [, queryStr, args] = dq.firstCall.args;
+        expect(queryStr).to.include("m.poll_status='open'");
+        expect(queryStr).to.include('pt.tick=?');
+        expect(queryStr).to.include('ORDER BY m.end_block ASC');
+        expect(queryStr).to.include('m.callback_contract_index');
+        expect(args).to.deep.equal(['XCHAIN']);
+        expect(rows).to.deep.equal([]);
     });
 
     it('maps lock_max_supply="1" to locks.max_supply === true', async () => {

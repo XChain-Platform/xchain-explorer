@@ -135,6 +135,34 @@
     </div>
 </div>
 
+<!-- Active Governance (VOTE polls, protocol/actions/VOTE.md): open polls over
+     this token. Hidden until at least one poll is open; binding polls (result
+     fires a contract method) are flagged so holders see value-moving votes. -->
+<div class="container mt-3" id="token-governance-card" style="display:none;">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-check-to-slot"></i> Active Governance: Open Polls
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0">
+                <thead>
+                    <tr class="info">
+                        <th>Poll</th>
+                        <th>Question</th>
+                        <th>Closes</th>
+                        <th>Type</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody id="token-governance-body">
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container mt-3">
     <div class="row">
         <div class="col-xs-12">

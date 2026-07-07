@@ -1084,11 +1084,13 @@ class XChainExplorer {
                     // Attestation list page
                     if(method=='getAttestations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer];
-                    // VOTE poll list page. poll_status (the lifecycle enum) is a rendered column;
-                    // status (0/1 action validity) + action_index stay LAST for the client's
-                    // generic row-color + paging-cursor extraction (data[len-2]/data[len-1]).
+                    // VOTE poll list page. poll_status (lifecycle enum), end_block (close
+                    // height) and callback_contract_index (non-null = binding poll: the
+                    // result fires a contract method) are rendered columns; status (0/1
+                    // action validity) + action_index stay LAST for the client's generic
+                    // row-color + paging-cursor extraction (data[len-2]/data[len-1]).
                     if(method=='getPolls')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.question, info.poll_status, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.question, info.poll_status, info.end_block, info.callback_contract_index, status, info.action_index];
                     // VOTE ballot list page. One row per (poll, voter, chosen option); the voter
                     // is the source. action_index stays LAST (paging cursor; links the ballot action).
                     if(method=='getVotes')

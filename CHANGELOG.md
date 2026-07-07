@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Armed the three BTC-anchored activation copies (checkpoint commitment, EQUIV header, stake-weighted quorum) at BTC 961000, in lockstep with the indexer/hub twins.
 - Contract page renders the full on-chain source with syntax highlighting, a server-verified hash badge, copy button, extracted method list, and constructor params.
 - Read-only contract simulation endpoint `POST /{COIN}/api/contract/{idx}/call` (sandboxed xchain-vm, default off via `EXPLORER_VM_QUERY_ENABLED`) with a Read Contract UI on the contract page.
 - `getContract` serves the contract's declared `abi` block (fail-closed AST extraction, protocol/Contract_ABI.md) plus a `wallet_url` handoff target (`EXPLORER_WALLET_URL`, empty disables).

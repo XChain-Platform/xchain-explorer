@@ -102,11 +102,18 @@ class XChainHubConnector {
             // Reset each pass so lastFailures reflects the final attempt's
             // outcome rather than accumulating duplicates across retries.
             this.lastFailures = [];
+            // Attach the hub API key when configured: getallconfigs is in the
+            // hub's sensitive-read tier (its response carries DB credentials)
+            // and 401s without it once HUB_API_KEY is set hub-side. Read
+            // methods that don't need it ignore it, so sending unconditionally
+            // is safe (same pattern as xchain-node's HubConnector).
+            let headers = {};
+            if(process.env.HUB_API_KEY) headers['x-api-key'] = process.env.HUB_API_KEY;
             for(let i = 0; i < this.urls.length; i++){
                 let idx = (this._lastGoodIdx + i) % this.urls.length;
                 let url = this.urls[idx];
                 try {
-                    let response = await axios.post(url, data, { timeout });
+                    let response = await axios.post(url, data, { timeout, headers });
                     if(response.data && response.data.result !== undefined){
                         this._lastGoodIdx = idx;
                         return response.data.result;

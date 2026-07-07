@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Hub connector sends `x-api-key` from `HUB_API_KEY` when set (`getallconfigs` is now in the hub's keyed sensitive-read tier).
 - Self-synced hub-mirror mode (`database.checkpoint.self_sync` + `HUB_API_URL`): the explorer maintains its own local copy of the hub-mirror tables, removing the hard requirement for a co-located hub DB.
 - Validator-capability and governance pages read over hub JSON-RPC with a short TTL cache, falling back to the legacy co-located schema when no hub endpoint is configured.
 - Mirror staleness surface: `GET /{COIN}/api/hub-mirror/status`, 503 before first bootstrap, `mirror_lag_seconds` annotations, opt-in fail-closed lag gating.

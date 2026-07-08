@@ -19,6 +19,7 @@
 // BigNumber values) and assert their safety invariants hold for EVERY input.
 
 const { expect } = require('chai');
+const mathjs = require('mathjs');
 const Utility = require('../../src/utility');
 const {
   ITERATIONS,
@@ -92,12 +93,16 @@ describe('Fuzz: Utility input sanitization', function () {
 
   it(`jsonStringify unwraps BigInt and BigNumber to their value across ${ITERATIONS} values`, function () {
     for (let i = 0; i < ITERATIONS; i++) {
-      // A BigNumber-shaped node must serialize to its .value string, not the
-      // wrapper object (guards the replacer's `value.mathjs === 'BigNumber'` branch).
+      // A BigNumber-shaped node must serialize to its numeric value, not the wrapper
+      // object (guards the replacer's `value.mathjs === 'BigNumber'` branch). jsonStringify
+      // canonicalizes via mathjs.format(..., {notation:'fixed'}), which strips numerically
+      // insignificant trailing zeros, so compare by NUMERIC value (a raw-integer fractional
+      // part like ".69255520" is equal to its canonical ".6925552"), not exact string.
       const dec = (randInt(2) ? '-' : '') + randInt(1e9) + '.' + randInt(1e8);
       const bn = { mathjs: 'BigNumber', value: dec };
-      expect(JSON.parse(u.jsonStringify(bn)), `BigNumber not unwrapped for ${dec}`).to.equal(dec);
-      expect(JSON.parse(u.jsonStringify({ amount: bn })).amount).to.equal(dec);
+      const bnEq = (out) => mathjs.bignumber(out).equals(mathjs.bignumber(dec));
+      expect(bnEq(JSON.parse(u.jsonStringify(bn))), `BigNumber not unwrapped for ${dec}`).to.equal(true);
+      expect(bnEq(JSON.parse(u.jsonStringify({ amount: bn })).amount), `BigNumber not unwrapped (nested) for ${dec}`).to.equal(true);
 
       // A BigInt must serialize to its decimal string form (guards the bigint branch).
       const big = BigInt(randInt(1e9)) * 1000000000n + BigInt(randInt(1e9));

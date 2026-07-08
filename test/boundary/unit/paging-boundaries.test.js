@@ -144,11 +144,17 @@ describe('Boundary: getPagingDataResults (API mode)', function () {
         expect(result.length).to.equal(5);
     });
 
-    it('page beyond data returns empty array', function () {
+    it('a high page does not re-slice: API mode ignores page (SQL OFFSET already paged)', function () {
+        // In API mode getPagingDataResults forces start=0 because the SQL query already
+        // applied LIMIT/OFFSET; the function only re-applies `limit` for formatting and
+        // never re-pages by `page`. So a page-beyond-data emptiness is produced by SQL
+        // returning zero rows, NOT by this function. Feeding it 5 rows with limit=5 keeps
+        // all 5. (Page-beyond-data emptiness is covered in the Explorer-mode block via
+        // start beyond data.)
         const rows = generateRows(5);
         const cfg = makeApiConfig('getSends', null, null, { query: { limit: 5, page: 100 } });
         const result = explorer.getPagingDataResults(cfg, rows, 5);
-        expect(result).to.be.an('array').with.length(0);
+        expect(result).to.be.an('array').with.length(5);
     });
 
     it('page=1 with limit=MAX_SAFE for getSends does not crash', function () {
@@ -171,12 +177,17 @@ describe('Boundary: getPagingDataResults (API mode)', function () {
         expect(result[0].action_index).to.equal(10); // first row (DESC order)
     });
 
-    it('limit=1 page=2 returns second row only', function () {
+    it('limit=1 page=2: API mode applies limit but not page (SQL OFFSET selects the page)', function () {
+        // API mode forces start=0, so `page` is not honored here: limit=1 keeps the first
+        // row of whatever page the SQL query already returned. In a real request SQL OFFSET
+        // would have returned page 2's row as data[0]; the test passes an unpaged 10-row
+        // array, so the first row (action_index 10) is kept. Page-honoring slicing is
+        // covered by the Explorer-mode block (start-based).
         const rows = generateRows(10);
         const cfg = makeApiConfig('getSends', null, null, { query: { limit: 1, page: 2 } });
         const result = explorer.getPagingDataResults(cfg, rows, 10);
         expect(result).to.have.length(1);
-        expect(result[0].action_index).to.equal(9);
+        expect(result[0].action_index).to.equal(10);
     });
 
     it('limit=NaN string falls back to default', function () {

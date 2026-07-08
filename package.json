@@ -30,7 +30,7 @@
     "check:vm": "bash bin/vendor-vm.sh check",
     "test": "mocha test/unit/**/*.test.js --timeout 0 --exit --recursive",
     "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha 'test/unit/**/*.test.js' --timeout 0 --recursive --exit",
-    "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit && npm run ci:security",
+    "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit && npm run ci:security && npm run test:boundary:unit",
     "ci:security": "mocha 'test/security/**/*.test.js' --timeout 5000 --exit --recursive",
     "test:ws": "mocha test/unit/ws/*.test.js --timeout 0 --exit",
     "test:utility": "mocha test/unit/utility.test.js --timeout 0",

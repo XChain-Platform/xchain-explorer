@@ -153,7 +153,7 @@ const ROUTES = [
     ['/{COIN}/api/pubkey/{QUERY}', 'getPublicKey', 'address', 'Core', 'Known public key for an address'],
     ['/{COIN}/api/project/{QUERY}', 'getProject', 'token', 'Tokens', 'Project registry roster (official tokens of a project tick)'],
     ['/{COIN}/api/token/{QUERY}', 'getToken', 'token', 'Tokens', 'Token detail (supply, info, NFT/registry surfaces)'],
-    ['/{COIN}/api/tokens/{QUERY}/{TYPE}', 'getTokens', ['block', 'address', 'token', 'subtoken', 'nft'], 'Tokens', 'Token search (type nft = unique tokens only)'],
+    ['/{COIN}/api/tokens/{QUERY}/{TYPE}', 'getTokens', ['block', 'address', 'token', 'subtoken'], 'Tokens', 'Token search'],
     ['/{COIN}/api/transaction/{QUERY}/{TYPE}', 'getTransaction', ['tx_hash', 'tx_index'], 'Core', 'Transaction lookup'],
     // ── Markets ───────────────────────────────────────────────────────────
     ['/{COIN}/api/markets', 'getMarkets', null, 'Markets', 'All trading pairs'],
@@ -187,7 +187,7 @@ const QUERY_DESC = {
     execution: 'execution action index', action_index: 'action index', match: 'cross-chain match id',
     pair: 'COIN/FIAT pair (e.g. BTC/USD)', round: 'oracle round id', status: 'lifecycle status',
     chain: 'target chain (e.g. BTC, LTC, DOGE)', network: 'target network (mainnet, testnet, regtest)',
-    subtoken: 'parent tick (returns its sub-tokens)', nft: 'NFT filter', recent: 'recent rows',
+    subtoken: 'parent tick (returns its sub-tokens)', recent: 'recent rows',
     tx_hash: 'transaction hash', tx_index: 'transaction index',
     call_id: 'cross-chain call id (64-hex)',
     poll: 'poll id (the creating action_index)', tick: 'a token tick',

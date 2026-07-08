@@ -1098,32 +1098,6 @@ describe('Database#getTokens (token type wildcard)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getTokens with nft type (fixed NFT-pattern predicate, no search arg)
-// ---------------------------------------------------------------------------
-
-describe('Database#getTokens (nft type)', () => {
-    let result;
-    before(async () => {
-        const config = makeActionConfig('getTokens', 'nft');
-        result = await db.getTokens(config);
-    });
-
-    it('returns a 3-element array', () => {
-        expect(result).to.be.an('array').with.lengthOf(3);
-    });
-
-    it('takes no bind args (the NFT filter is a fixed predicate)', () => {
-        const [, args] = result;
-        expect(args).to.be.an('array').with.lengthOf(0);
-    });
-
-    it('keeps the default m.id ordering (newest first)', () => {
-        const [query] = result;
-        expect(query).to.include('ORDER BY m.id');
-    });
-});
-
-// ---------------------------------------------------------------------------
 // getBalances
 // ---------------------------------------------------------------------------
 

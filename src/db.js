@@ -591,14 +591,14 @@ class Database {
                 limit = max;
             if(action=='last')
                 limit = (config.data.query.total - config.data.query.start);
-            // token/subtoken/nft/roster searches paginate by fetch-and-slice (no action_index offsets),
+            // token/subtoken/roster searches paginate by fetch-and-slice (no action_index offsets),
             // so the SQL limit must cover start+length rows. Cap the offset fed to the
             // SQL LIMIT: without a bound, an unauthenticated request with a huge `start`
             // forces MariaDB to scan start+length rows for a single page (query-complexity
             // DoS). Deep browsing uses the cursor next/prev path, not raw offsets, so a
             // 100k ceiling is invisible to legitimate use while killing the scan blow-up.
             if(['getBalances', 'getHolders','getSearch','getProjectTokens'].includes(data.method) ||
-                (data.method=='getTokens' && ['token','subtoken','nft'].includes(data.type)))
+                (data.method=='getTokens' && ['token','subtoken'].includes(data.type)))
                 limit = this.util.bcadd(Math.min(start, 100000), length);
             if(['prev','last'].includes(action))
                 order = 'ASC';
@@ -738,10 +738,6 @@ class Database {
             }
         } else if(method=='getTokens' && ['token','subtoken'].includes(type)){
             sql += ' AND t3.tick LIKE ?';
-        // NFT-pattern tokens (NFT_Standard.md#classification-rule-for-clients):
-        // indivisible + permanently capped. Fixed predicate, no bind arg.
-        } else if(method=='getTokens' && type=='nft'){
-            sql += ' AND m.decimals=0 AND m.lock_max_supply=1';
         } else if(method=='getSlashEvents'){
             // slash_events has no actions/transactions chain; join directly via m.block_index
             // and resolve type=address through the staker's pubkey (signing_pubkey_id).
@@ -939,8 +935,8 @@ class Database {
         let order  = 'DESC';
         if(['getBalances','getHolders','getTransaction','getSearch','getMarkets','getMarket'].includes(method))
             return [];
-        // token/subtoken/nft searches paginate by fetch-and-slice (no action_index offsets)
-        if(method=='getTokens' && ['token','subtoken','nft'].includes(type))
+        // token/subtoken searches paginate by fetch-and-slice (no action_index offsets)
+        if(method=='getTokens' && ['token','subtoken'].includes(type))
             return [];
         if(['address','token','block'].includes(type)){
             if(type=='address')
@@ -3072,7 +3068,7 @@ class Database {
         // Default to no bind args: the list-all WHERE ('m.action_index IS NOT NULL') has
         // no placeholder, so seeding [search] (= [null] with no QUERY/TYPE) prepends a
         // phantom bind that shifts the offset args (m.id < NULL) and returns zero rows.
-        // token/subtoken set a LIKE pattern below; nft/list-all stay [].
+        // token/subtoken set a LIKE pattern below; list-all stays [].
         let args   = [];
         let order  = 'm.id ' + sql.order;
         if(['token','subtoken'].includes(type)){
@@ -3082,10 +3078,6 @@ class Database {
             if(type=='subtoken')
                 args = [this.util.escapeLike(config.data.search) + '.%'];
         }
-        // NFT-pattern filter is a fixed predicate (decimals=0 + lock_max_supply=1)
-        // with no search placeholder; keep the default m.id ordering (newest first)
-        if(type=='nft')
-            args = [];
         let count = `SELECT
                         count(*) as total
                     FROM

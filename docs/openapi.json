@@ -6932,7 +6932,7 @@
         "tags": [
           "Tokens"
         ],
-        "summary": "Token search (type nft = unique tokens only)",
+        "summary": "Token search",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -6944,7 +6944,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; subtoken = parent tick (returns its sub-tokens); nft = NFT filter"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; subtoken = parent tick (returns its sub-tokens)"
           },
           {
             "name": "TYPE",
@@ -6956,8 +6956,7 @@
                 "block",
                 "address",
                 "token",
-                "subtoken",
-                "nft"
+                "subtoken"
               ]
             },
             "description": "How to interpret {QUERY}"

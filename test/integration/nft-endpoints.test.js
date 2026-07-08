@@ -119,46 +119,15 @@ after(async function () {
 });
 
 // ===========================================================================
-// NFT-pattern token filter
+// nft search type removed with the NFT UI; the classifier is client-side only
+// (sdk.nft.isNft via content/js/xchain.js), so the server rejects type=nft
 // ===========================================================================
 
-describe('NFT token filter (type=nft)', function () {
+describe('NFT token filter (type=nft) is not a supported type', function () {
 
-    // NOTE: mocha runs every file's root before() hook up front, so fixtures
-    // from sibling integration files (e.g. PROJECTX, itself NFT-pattern) share
-    // this DB. Assert subset + predicate, never exact totals.
-    it('GET /RBTC/api/tokens/null/nft returns only NFT-pattern tokens', async function () {
+    it('GET /RBTC/api/tokens/null/nft is rejected', async function () {
         const res = await request.get('/RBTC/api/tokens/null/nft');
-        expect(res.status).to.equal(200);
-        expect(res.body.total).to.be.at.least(4);
-        const ticks = res.body.data.map(r => r.tick);
-        for (const tick of ['PEPEEDITION', 'PEPESET', 'PEPESET.ONE', 'PEPEUNIQUE'])
-            expect(ticks).to.include(tick);
-        for (const row of res.body.data) {
-            expect(Number(row.decimals)).to.equal(0);
-            expect(Number(row.lock_max_supply)).to.equal(1);
-        }
-    });
-
-    it('GET /RBTC/explorer/tokens/null/nft returns datatable rows with decimals before the trailing id', async function () {
-        const res = await request.get('/RBTC/explorer/tokens/null/nft?start=0&length=10&action=first');
-        expect(res.status).to.equal(200);
-        expect(res.body.recordsTotal).to.be.at.least(4);
-        expect(res.body.data.length).to.be.at.least(4);
-        for (const row of res.body.data) {
-            // [count, block, time, tick, supply, max_supply, max_mint, locks, decimals, id]
-            expect(row).to.have.length(10);
-            expect(Number(row[8])).to.equal(0);            // decimals
-            expect(String(row[7]).split('|')[0]).to.equal('1'); // lock_max_supply
-        }
-    });
-
-    it('does not classify a divisible locked token or an unlocked 0-decimals token as NFT', async function () {
-        // Baseline TOKENONE: decimals 8 + lock_max_supply 1 → excluded
-        const res = await request.get('/RBTC/api/tokens/null/nft');
-        const ticks = res.body.data.map(r => r.tick);
-        expect(ticks).to.not.include('TOKENONE');
-        expect(ticks).to.not.include('XCHAIN');
+        expect(res.status).to.equal(404);
     });
 
 });
@@ -221,22 +190,6 @@ describe('Raw FILE endpoint', function () {
         const res = await request.get('/RBTC/api/file/not-a-number/raw');
         expect(res.status).to.equal(400);
         expect(res.body).to.have.property('error');
-    });
-
-});
-
-// ===========================================================================
-// NFT gallery HTML page
-// ===========================================================================
-
-describe('NFT gallery page', function () {
-
-    it('GET /RBTC/nfts serves the NFTs HTML page', async function () {
-        const res = await request.get('/RBTC/nfts');
-        expect(res.status).to.equal(200);
-        expect(res.headers['content-type']).to.include('html');
-        expect(res.text).to.include('datatable-token');
-        expect(res.text).to.include('NFTs');
     });
 
 });

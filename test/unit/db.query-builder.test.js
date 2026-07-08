@@ -254,13 +254,6 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL AND t3.tick LIKE ?');
     });
 
-    it('type=nft on getTokens: appends the fixed NFT-pattern predicate (no placeholder)', async () => {
-        // NFT_Standard.md#classification-rule-for-clients: DECIMALS=0 + LOCK_MAX_SUPPLY=1
-        const sql = await db.getQueryWhereSql(cfg('getTokens', 'nft'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND m.decimals=0 AND m.lock_max_supply=1');
-        expect(sql).to.not.include('?');
-    });
-
     // --- getMarket tick clause (always) ------------------------------------
 
     it('getMarket: appends tick OR-pair clause', async () => {

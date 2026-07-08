@@ -343,7 +343,7 @@ class XChainExplorer {
                 // Project registry: current roster of a project tick (protocol/Project_Registry.md)
                 '/{COIN}/api/project/{QUERY}'                  : ['getProject',          'token'],
                 '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
-                '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken', 'nft']],
+                '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken']],
                 '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],
                 // Market Endpoints
                 '/{COIN}/api/markets'                                  : ['getMarkets'],
@@ -424,7 +424,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'                     : ['getSwaps',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'                    : ['getSweeps',       ['block', 'address']],
-                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'                    : ['getTokens',       ['block', 'address', 'token', 'subtoken', 'nft']]
+                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'                    : ['getTokens',       ['block', 'address', 'token', 'subtoken']]
             }
         };
 
@@ -674,7 +674,7 @@ class XChainExplorer {
             // Short token/subtoken search terms force a leading-% LIKE filesort over the
             // whole tokens table (no B-tree path) on every unauthenticated request. Return
             // an empty result before touching the DB, mirroring getSearch's SEARCH_MIN_LENGTH
-            // guard. nft type is excluded: it uses a fixed predicate with no search term.
+            // guard.
             const TOKEN_SEARCH_MIN_LENGTH = 3;
             // Cross-chain match rows come from the checkpoint mirror; when a
             // SELF-SYNCED mirror has never bootstrapped, refuse to serve (an

@@ -48,9 +48,10 @@ const fsp     = require('fs/promises');
 const os      = require('os');
 const path    = require('path');
 const dns     = require('dns');
+const netmod  = require('net');
 const { exec } = require('child_process');
 const { promisify } = require('util');
-const { makeSafeLookup } = require('./ssrf-guard');
+const { makeSafeLookup, isPrivateAddress } = require('./ssrf-guard');
 const execAsync = promisify(exec);
 
 const { resolveDescriptionToSource, selectIconUrlFromCip25Json } = require('./IconResolver');
@@ -384,7 +385,25 @@ class IconDownloader {
         }
     }
 
+    // SSRF: the dns.lookup shim (SAFE_LOOKUP) only fires for DNS-name hosts; Node's
+    // net.connect skips a custom `lookup` when the host is an IP literal, so a URL
+    // like http://169.254.169.254/x.json or http://127.0.0.1:6379/x.png would bypass
+    // the shim and connect straight to an internal/metadata address. Check literal
+    // hosts against the canonical classifier before connecting (and again on each
+    // redirect hop, since a Location: can also point at a literal IP).
+    _rejectPrivateLiteral(rawUrl){
+        let host;
+        try { host = new URL(rawUrl).hostname.replace(/^\[|\]$/g, ''); }
+        catch(_){ return; } // malformed URL: axios/URL will reject it downstream
+        if(netmod.isIP(host) && isPrivateAddress(host)){
+            const e = new Error('Destination is a non-permitted address');
+            e.code = 'RELAY_DENIED';
+            throw e;
+        }
+    }
+
     async _httpFetch(url){
+        this._rejectPrivateLiteral(url);
         let resp;
         try {
             resp = await axios.get(url, {
@@ -398,8 +417,10 @@ class IconDownloader {
                 // connect to private/internal/metadata addresses. The lookup
                 // shim validates the address axios is about to connect to and,
                 // because follow-redirects reuses these options, re-validates
-                // every redirect hop, not just the initial URL.
+                // every DNS-name redirect hop. beforeRedirect additionally
+                // re-checks a literal-IP redirect target (which the shim skips).
                 lookup:           SAFE_LOOKUP,
+                beforeRedirect:   (options) => { this._rejectPrivateLiteral(options.href || (options.protocol + '//' + options.hostname)); },
                 headers: { 'User-Agent': 'xchain-icon-downloader/1.0' },
                 validateStatus: s => s >= 200 && s < 300,
             });

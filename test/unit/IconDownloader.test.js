@@ -2030,4 +2030,52 @@ describe('IconDownloader', function () {
             expect(d._writeIcon.callCount).to.equal(1);
         });
     });
+
+    // -----------------------------------------------------------------------
+    // Stress-sweep SSRF-1: literal-IP URLs bypass the dns.lookup shim (Node skips
+    // a custom `lookup` for IP-literal hosts), so _httpFetch must reject a private
+    // literal before connecting. Icon URLs come from on-chain token descriptions
+    // (fully attacker-controlled).
+    // -----------------------------------------------------------------------
+    describe('_httpFetch SSRF literal-IP guard', function () {
+        function downloader(stubs) {
+            return new (loadIconDownloader(stubs))(makeExplorer());
+        }
+
+        const privateLiterals = [
+            'http://169.254.169.254/latest/meta-data/iam/security-credentials/x.json',
+            'http://127.0.0.1:6379/x.png',
+            'http://10.0.0.5/x.png',
+            'http://[fd00:ec2::254]/x.json',
+            'http://100.64.0.1/x.png',
+        ];
+        for (const url of privateLiterals) {
+            it(`refuses a private literal-IP URL without calling axios (${url})`, async function () {
+                const stubs = makeStubs();
+                const d = downloader(stubs);
+                let threw = null;
+                try { await d._httpFetch(url); } catch (e) { threw = e; }
+                expect(threw, 'expected _httpFetch to reject').to.be.an('error');
+                expect(threw.code).to.equal('RELAY_DENIED');
+                expect(stubs.axiosStub.get.called, 'axios must not be called for a private literal').to.be.false;
+            });
+        }
+
+        it('allows a public DNS-name URL through with the lookup shim + beforeRedirect wired', async function () {
+            const stubs = makeStubs();
+            const d = downloader(stubs);
+            await d._httpFetch('https://example.com/icon.png');
+            expect(stubs.axiosStub.get.calledOnce).to.be.true;
+            const opts = stubs.axiosStub.get.firstCall.args[1];
+            expect(opts.lookup).to.be.a('function');       // guards DNS-name hosts + redirects
+            expect(opts.beforeRedirect).to.be.a('function'); // guards literal-IP redirect hops
+        });
+
+        it('allows a PUBLIC IP literal through (only private literals are blocked)', async function () {
+            const stubs = makeStubs();
+            const d = downloader(stubs);
+            await d._httpFetch('http://93.184.216.34/icon.png');
+            expect(stubs.axiosStub.get.calledOnce).to.be.true;
+        });
+    });
 });

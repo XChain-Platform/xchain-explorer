@@ -22,6 +22,7 @@ const express        = require('express');
 const fs             = require('fs');
 const path           = require('path');
 const dns            = require('dns');
+const net            = require('net');
 const axios          = require('axios');
 const util           = require('./utility.js');
 const ssrfGuard      = require('./ssrf-guard.js');
@@ -500,9 +501,24 @@ class XChainExplorer {
         // The wildcard must be braced ('/{*path}') to also match the bare root '/':
         // unbraced '/*path' requires at least one trailing segment, so '/' fell through
         // to the JSON-RPC router and returned a -32600 error instead of the coin index.
-        this.app.get('/{*path}', (req, res) => { this.processRequest(req, res); });
+        this.app.get('/{*path}', (req, res) => { this.processRequest(req, res).catch(err => this._sendUnhandled(err, req, res)); });
 
         return urls;
+    }
+
+    // Last-resort handler for a rejected processRequest promise. The catch-all
+    // route handler is fire-and-forget, so without this a throw anywhere in
+    // processRequest OUTSIDE its narrow db.getData try/catch (e.g. a hostile
+    // ?total= reaching bcsub, or a jsonStringify throw at the send sink) would
+    // surface as an unhandled rejection and terminate the process (Node default
+    // --unhandled-rejections=throw), a single-request DoS. Degrade to a 500
+    // instead. Kept minimal so it cannot itself throw.
+    _sendUnhandled(err, req, res){
+        try {
+            console.error('processRequest unhandled error for', req && req.path, '-', (err && err.message) ? err.message : err);
+            if(res && !res.headersSent)
+                res.status(500).type('json').send('{"error":"An unexpected error occurred while serving this request.","code":"INTERNAL_ERROR"}');
+        } catch(_){ /* nothing more we can safely do */ }
     }
 
     async processRequest(req, res){
@@ -724,8 +740,14 @@ class XChainExplorer {
                 }
                 // DataTables server-side format (https://datatables.net/manual/server-side#Returned-data)
                 if(cfg.type=='explorer'){
-                    if(cfg.data.query.total)
-                        total = cfg.data.query.total
+                    // DataTables sends back the server's own recordsTotal as ?total= to
+                    // avoid a re-count on paging. Validate it: total flows into
+                    // getPagingDataResults -> bcsub (mathjs), so an unvalidated non-numeric
+                    // override (e.g. ?total=abc) threw a DecimalError outside any try/catch
+                    // and crashed the process. Ignore a non-numeric override and keep the
+                    // real DB count. Mirrors the isInteger/Number guards on start/limit/length.
+                    if(cfg.data.query.total && this.util.isNumeric(cfg.data.query.total))
+                        total = Number(cfg.data.query.total)
                     json.recordsTotal    = total;
                     json.recordsFiltered = total;
                 }
@@ -1486,6 +1508,14 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            // Action proofs bind to a quorum-signed checkpoint read from the mirror,
+            // so they inherit the same staleness gate as the balance-proof/checkpoint
+            // routes: on a never-bootstrapped or stale self-synced mirror they must 503
+            // rather than answer an authoritative "not checkpointed" (409) off an
+            // empty/frozen mirror.
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -1519,6 +1549,13 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            // Validator-set proofs bind to the BTC checkpoint at the snapshot height,
+            // read from the mirror, so they inherit the same staleness gate as the
+            // balance-proof/checkpoint routes (503 on an unbootstrapped/stale mirror
+            // instead of an authoritative "not yet checkpointed" 409 off a frozen mirror).
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -1705,6 +1742,14 @@ class XChainExplorer {
 
                 // Node's URL parser wraps IPv6 in brackets (e.g. [::1]); strip them for matching
                 const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+                // Literal-IP hosts never reach the dns.lookup shim below (Node's
+                // net.connect skips a custom `lookup` for IP literals), so a private
+                // literal would otherwise sail past the shim entirely. Check literals
+                // here against the canonical range classifier, which covers IPv6 ULA
+                // (fc00::/7 incl. fd00:ec2::254), CGNAT (100.64/10), and the full
+                // link-local range that the drifted inline list below missed.
+                if(net.isIP(hostname) && this._isPrivateAddress(hostname))
+                    return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
                 const blocked = [
                     /^localhost$/i,
                     /^127\./,

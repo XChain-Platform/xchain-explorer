@@ -141,4 +141,37 @@ describe('explorer hub-mirror staleness gate', function () {
             expect(res._body).to.not.have.property('mirror_bootstrapped');
         });
     });
+
+    // Stress-sweep: the SPV proof routes bind to the same mirror-maintained
+    // state_checkpoints as the balance-proof/checkpoint routes, so they must inherit
+    // the staleness gate too. Before this fix they answered off a frozen/empty mirror
+    // (authoritative 409) while their siblings correctly 503'd - an inconsistent
+    // staleness posture on consensus SPV endpoints.
+    describe('proof route gating', function () {
+        it('action-proof: 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap', async function () {
+            const res = mockRes();
+            await makeExplorer({ ...OK_STATUS, bootstrapDrained: false })
+                .processActionProofRequest(req({ coin: 'BTC', actionIndex: '1' }), res);
+            expect(res._status).to.equal(503);
+            expect(res._body.code).to.equal('MIRROR_NOT_BOOTSTRAPPED');
+        });
+
+        it('validator-set-proof: 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap', async function () {
+            const res = mockRes();
+            await makeExplorer({ ...OK_STATUS, bootstrapDrained: false })
+                .processValidatorSetProofRequest(req({ coin: 'BTC' }, { height: '100' }), res);
+            expect(res._status).to.equal(503);
+            expect(res._body.code).to.equal('MIRROR_NOT_BOOTSTRAPPED');
+        });
+
+        it('action-proof: gate stays open (no 503) in externally-maintained mode', async function () {
+            const res = mockRes();
+            const explorer = makeExplorer(null);
+            // proofServer must not be reached via the gate; stub it so if the gate is
+            // (correctly) open, the handler proceeds and we do not 503 on the gate.
+            explorer.parseCoinCode = () => null; // short-circuits with 404 AFTER the open gate
+            await explorer.processActionProofRequest(req({ coin: 'BTC', actionIndex: '1' }), res);
+            expect(res._status).to.not.equal(503);
+        });
+    });
 });

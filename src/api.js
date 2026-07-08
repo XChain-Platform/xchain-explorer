@@ -208,7 +208,12 @@ async function startApi(){
             pingInterval:     WS_PING_INTERVAL,
             idleTimeout:      WS_IDLE_TIMEOUT,
             maxPerIp:         WS_MAX_PER_IP,
-            maxSubscriptions: WS_MAX_SUBS
+            maxSubscriptions: WS_MAX_SUBS,
+            // Mirror the HTTP side's `trust proxy: 1` (line ~108) so the WS per-IP cap
+            // keys on the real client address, not a spoofable X-Forwarded-For token.
+            // The upgrade is handled on the raw HTTP server, where Express trust-proxy
+            // does not apply, so the hop count must be passed through explicitly.
+            trustProxyHops:   parseInt(process.env.WS_TRUST_PROXY_HOPS, 10) || 1
         });
 
         const changeDetector = new ChangeDetector({
@@ -232,6 +237,18 @@ async function startApi(){
         }
     }
 }
+
+// Last-resort backstop against a single request killing the whole process.
+// The route handlers are fire-and-forget (`(req,res) => this.processX(...)`), so a
+// throw in an async handler outside its own try/catch surfaces here as an unhandled
+// rejection; under Node's default (--unhandled-rejections=throw) that terminates the
+// process, i.e. an unauthenticated crash-loop DoS. The catch-all route already
+// degrades its own rejections to a 500; this covers every other handler. The explorer
+// is read-only and holds no per-request shared mutable state, so logging and staying
+// alive is the correct availability posture (the error is still logged for triage).
+process.on('unhandledRejection', (reason) => {
+    console.error('UNHANDLED_REJECTION (process kept alive):', (reason && reason.stack) ? reason.stack : reason);
+});
 
 // Tear down the contract-simulation VM's subprocess worker before exit
 // (vm-query.js; no-op when the feature is off or never used). The worker also

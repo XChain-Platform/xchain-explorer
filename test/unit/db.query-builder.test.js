@@ -533,3 +533,38 @@ describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', 
         expect(sql).to.include('m.target_contract_index=?');
     });
 });
+
+// ---------------------------------------------------------------------------
+// getQuery() API OFFSET cap (stress-sweep: deep-offset scan DoS)
+// ---------------------------------------------------------------------------
+describe('getQuery() API OFFSET cap', function () {
+    // A synchronous stub query-builder so getQuery does not hit the DB. getQuery
+    // sets config.data.sql.apiOffset BEFORE invoking this[data.method].
+    function makeDbWithProbe() {
+        const db = makeDb();
+        db.probeMethod = () => ['SELECT 1', [], 0];
+        return db;
+    }
+
+    it('caps apiOffset at 100000 for a huge page (query-complexity DoS guard)', async function () {
+        const db = makeDbWithProbe();
+        const config = cfg('probeMethod', 'api', { query: { page: '999999', limit: '100' } });
+        await db.getQuery(config);
+        expect(config.data.sql.apiOffset).to.equal(100000);
+    });
+
+    it('leaves a normal page offset uncapped', async function () {
+        const db = makeDbWithProbe();
+        const config = cfg('probeMethod', 'api', { query: { page: '3', limit: '20' } });
+        await db.getQuery(config);
+        expect(config.data.sql.apiOffset).to.equal(40); // (3 - 1) * 20
+    });
+
+    it('never produces a negative or NaN offset for a bogus page', async function () {
+        const db = makeDbWithProbe();
+        const config = cfg('probeMethod', 'api', { query: { page: '-5', limit: '20' } });
+        await db.getQuery(config);
+        // page clamps to >=1, so offset is 0
+        expect(config.data.sql.apiOffset).to.equal(0);
+    });
+});

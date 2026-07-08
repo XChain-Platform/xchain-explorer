@@ -216,6 +216,27 @@ describe('XChainExplorer.processRequest – Explorer response shape', function (
         expect(body.recordsFiltered).to.equal(overrideTotal);
     });
 
+    // Stress-sweep regression: a non-numeric ?total= override previously flowed
+    // straight into getPagingDataResults -> bcsub (mathjs), throwing a DecimalError
+    // outside any try/catch. On the fire-and-forget catch-all handler that became an
+    // unhandled rejection that terminated the process (unauthenticated crash-loop DoS).
+    // The override must now be ignored when non-numeric, keeping the real DB count.
+    it('ignores a non-numeric ?total= override instead of crashing (DoS regression)', async function () {
+        const rows     = mockResults.sendRows();
+        getDataResult  = [rows, rows.length];
+        const explorer = makeExplorer();
+        const res      = await handle(
+            explorer,
+            '/BTC/explorer/sends/addr1/address',
+            { start: 0, length: 10, total: 'abc' }
+        );
+        const body = parseBody(res);
+
+        expect(res._status).to.equal(200);
+        expect(body.recordsTotal).to.equal(rows.length);
+        expect(body.recordsTotal).to.be.a('number');
+    });
+
 });
 
 // ===========================================================================
@@ -482,6 +503,34 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
 
         expect(res._body).to.be.a('string');
+    });
+
+    // Stress-sweep regression: a DB row (or /relay body) carrying an object merely
+    // SHAPED like a serialized mathjs BigNumber but holding a non-numeric value made
+    // jsonStringify's replacer throw a DecimalError at the send sink, outside any
+    // try/catch -> unhandled rejection -> process crash. It must now serialize the
+    // hostile value gracefully rather than throw.
+    it('serializes a hostile BigNumber-shaped value without crashing (DoS regression)', async function () {
+        const rows = [{ action_index: 1, evil: { mathjs: 'BigNumber', value: 'not-a-number' } }];
+        getDataResult  = [rows, rows.length];
+        const explorer = makeExplorer();
+        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+
+        expect(res._status).to.equal(200);
+        expect(res._body).to.be.a('string');
+        // The malformed value falls back to its string form instead of throwing.
+        expect(() => JSON.parse(res._body)).to.not.throw();
+        expect(res._body).to.include('not-a-number');
+    });
+
+    // The catch-all route handler is fire-and-forget, so processRequest's rejection is
+    // routed to _sendUnhandled, which must degrade to a 500 instead of crashing.
+    it('_sendUnhandled emits a 500 for an unexpected processRequest error', function () {
+        const explorer = makeExplorer();
+        const res      = mockRes();
+        explorer._sendUnhandled(new Error('boom'), { path: '/BTC/api/sends' }, res);
+        expect(res._status).to.equal(500);
+        expect(res._body).to.be.a('string').and.include('INTERNAL_ERROR');
     });
 
 });

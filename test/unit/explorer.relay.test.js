@@ -205,6 +205,34 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._body).to.deep.equal({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
     });
 
+    // Ranges the old hand-rolled inline blocklist missed (only /^fc00:/, no CGNAT,
+    // partial link-local): the canonical isPrivateAddress + net.isIP literal check
+    // must now cover them so an IPv6/CGNAT literal cannot bypass the guard. A private
+    // literal never reaches axios (the shim is skipped for IP literals), so a hit here
+    // proves the pre-connect canonical check fired.
+    const ssrfLiteralGaps = [
+        ['fd00:ec2::254 (AWS IMDS over IPv6, ULA)', 'http://[fd00:ec2::254]/latest/meta-data/x.json'],
+        ['fdff:: (rest of fc00::/7 ULA)',           'http://[fdff::1]/token.json'],
+        ['100.64.0.1 (CGNAT 100.64/10)',            'http://100.64.0.1/token.json'],
+        ['fe9a:: (link-local fe80::/10 mid-range)', 'http://[fe9a::1]/token.json'],
+    ];
+    for (const [label, url] of ssrfLiteralGaps) {
+        it(`returns 403 for ${label}`, async function () {
+            // axios stub that would "succeed" if the guard failed to block: proves the
+            // 403 comes from the guard, not a fetch error.
+            const axiosStub = { get: sinon.stub().resolves({ data: { leaked: true } }) };
+            const explorer = makeExplorer(axiosStub);
+            const req = makeRelayReq(url);
+            const res = mockRes();
+
+            await explorer.processRelayRequest(req, res);
+
+            expect(res._status).to.equal(403);
+            expect(res._body).to.deep.equal({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
+            expect(axiosStub.get.called, 'axios must not be called for a private literal').to.be.false;
+        });
+    }
+
     // -----------------------------------------------------------------------
     // Network error → 400
     // -----------------------------------------------------------------------

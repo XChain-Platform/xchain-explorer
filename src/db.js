@@ -575,7 +575,14 @@ class Database {
             // Use SQL OFFSET for pagination instead of fetching all preceding pages
             let page  = (q && q.page  && this.util.isInteger(Number(q.page)))  ? q.page  : 1;
             page = Math.max(1, Number(page));
-            config.data.sql.apiOffset = (page - 1) * limit;
+            // Cap the API OFFSET the same way the explorer fetch-and-slice path caps
+            // `start` (see the 100k ceiling in the explorer branch below). An uncapped
+            // OFFSET lets an unauthenticated request with a huge `page` force MariaDB to
+            // join/order/skip a full-table row set for a single zero-row page
+            // (query-complexity DoS); the list routes are multi-table joins. Deep
+            // browsing uses the cursor next/prev path, so a 100k ceiling is invisible
+            // to legitimate use while killing the scan blow-up.
+            config.data.sql.apiOffset = Math.min((page - 1) * limit, 100000);
         }
         if(config.type=='explorer'){
             let offset = (q.offset) ? q.offset : false;

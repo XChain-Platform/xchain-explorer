@@ -340,6 +340,15 @@ class ChannelManager {
         return key;
     }
 
+    // Public: the channel key for a `subscribed` entry (as returned by subscribe()).
+    // Used by the WS server to tell freshly-added subscriptions apart from ones the
+    // client already held, so a re-subscribe does not re-trigger the snapshot DB fan-out.
+    // A `sub` carries {channel, address?/tick?/tick1?/tick2?/action_index?}, which is
+    // exactly the entityKey shape _buildChannelKey reads.
+    channelKeyForSub(coin, sub) {
+        return this._buildChannelKey(coin, sub.channel, sub);
+    }
+
     // Parse a channel key back into components
     _parseChannelKey(channelKey) {
         const parts   = channelKey.split(':');

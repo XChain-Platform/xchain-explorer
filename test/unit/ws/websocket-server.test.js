@@ -1,0 +1,124 @@
+/*********************************************************************
+ *
+ * Copyright © 2025–2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ * Stress-sweep unit tests for src/ws/WebSocketServer.js:
+ *   - ws-1: per-IP cap key must not trust a spoofable X-Forwarded-For token
+ *   - ws-2: snapshot-on-subscribe must not re-fire for already-subscribed entities
+ */
+
+'use strict';
+
+const { expect } = require('chai');
+const sinon      = require('sinon');
+const WebSocketServer = require('../../../src/ws/WebSocketServer.js');
+
+function makeServer(opts = {}) {
+    return new WebSocketServer({ explorer: { db: {} }, broadcaster: null, ...opts });
+}
+
+function makeReq(headers, remoteAddress) {
+    return { headers: headers || {}, socket: { remoteAddress: remoteAddress || '203.0.113.9' } };
+}
+
+// A client shaped like _onConnection builds, with a closed ws so _send is a no-op.
+function makeClient(coin) {
+    return {
+        id: 1, coin: coin || 'BTC', chain: 'BTC', network: 'mainnet',
+        ws: { readyState: 0, send: () => {} },
+        subscriptions: new Set(),
+        snapshotInProgress: false,
+        catchUpInProgress: false
+    };
+}
+
+describe('WebSocketServer#_clientIp (ws-1: XFF spoof)', function () {
+
+    it('ignores X-Forwarded-For entirely with 0 trusted hops (uses TCP peer)', function () {
+        const s = makeServer({ trustProxyHops: 0 });
+        const ip = s._clientIp(makeReq({ 'x-forwarded-for': 'attacker-spoof' }, '198.51.100.7'));
+        expect(ip).to.equal('198.51.100.7');
+    });
+
+    it('never keys on the leftmost (client-supplied) XFF token', function () {
+        const s = makeServer({ trustProxyHops: 1 });
+        // Real proxy APPENDS the observed peer to the right; the leftmost is spoofed.
+        const ip = s._clientIp(makeReq({ 'x-forwarded-for': 'spoof-uuid-1, 198.51.100.7' }));
+        expect(ip).to.equal('198.51.100.7');
+        expect(ip).to.not.equal('spoof-uuid-1');
+    });
+
+    it('a unique spoofed leftmost token per request resolves to the SAME real IP', function () {
+        const s = makeServer({ trustProxyHops: 1 });
+        const a = s._clientIp(makeReq({ 'x-forwarded-for': 'uuid-a, 198.51.100.7' }));
+        const b = s._clientIp(makeReq({ 'x-forwarded-for': 'uuid-b, 198.51.100.7' }));
+        // The bypass was that these keyed to different buckets; now they collapse.
+        expect(a).to.equal(b);
+    });
+
+    it('falls back to the TCP peer when XFF is absent', function () {
+        const s = makeServer({ trustProxyHops: 1 });
+        expect(s._clientIp(makeReq({}, '203.0.113.42'))).to.equal('203.0.113.42');
+    });
+
+    it('takes the Nth-from-right entry for trustProxyHops=2', function () {
+        const s = makeServer({ trustProxyHops: 2 });
+        const ip = s._clientIp(makeReq({ 'x-forwarded-for': 'spoof, 198.51.100.7, 10.0.0.1' }));
+        expect(ip).to.equal('198.51.100.7');
+    });
+});
+
+describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', function () {
+
+    afterEach(() => sinon.restore());
+
+    async function tick() { await new Promise((r) => setImmediate(r)); }
+
+    it('snapshots only NEWLY-subscribed entities, not a re-subscribe of the same set', async function () {
+        const s = makeServer();
+        const snap = sinon.stub(s, '_sendSnapshots').resolves();
+        const client = makeClient('BTC');
+        const msg = { channels: ['address'], params: { snapshot: true, addresses: ['addr1', 'addr2'] } };
+
+        s._handleSubscribe(client, msg);
+        expect(snap.callCount).to.equal(1);
+        expect(snap.firstCall.args[1]).to.have.lengthOf(2); // both fresh
+        await tick(); // let the in-progress guard clear
+
+        // Re-send the identical batch: every entity is already subscribed, so there is
+        // nothing fresh to snapshot -> _sendSnapshots must NOT run again.
+        s._handleSubscribe(client, { ...msg });
+        expect(snap.callCount).to.equal(1);
+        await tick();
+
+        // Adding one NEW address snapshots only that one.
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['addr1', 'addr3'] } });
+        expect(snap.callCount).to.equal(2);
+        expect(snap.secondCall.args[1]).to.have.lengthOf(1);
+        expect(snap.secondCall.args[1][0].address).to.equal('addr3');
+    });
+
+    it('does not start a second snapshot fan-out while one is in progress', async function () {
+        const s = makeServer();
+        // A snapshot that never resolves within the test keeps the guard set.
+        const snap = sinon.stub(s, '_sendSnapshots').returns(new Promise(() => {}));
+        const client = makeClient('BTC');
+
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        expect(snap.callCount).to.equal(1);
+        expect(client.snapshotInProgress).to.equal(true);
+
+        // New entity, but a fan-out is still running -> skipped by the guard.
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+        expect(snap.callCount).to.equal(1);
+    });
+});

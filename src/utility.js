@@ -202,12 +202,26 @@ class Utility {
         return JSON.stringify(obj, (key, value) => {
             if(typeof value === 'bigint') 
                 return value.toString();
-            if(value && typeof value === 'object' && value.mathjs === 'BigNumber')
+            if(value && typeof value === 'object' && value.mathjs === 'BigNumber'){
                 // toJSON().value is Decimal.toString(), which is scientific notation below
                 // ~1e-7 and above ~1e21 (e.g. '3e-8', '1e-18'), breaking client decimal-string
                 // comparison against the wire format. Serialize fixed, matching the indexer's
                 // safeToString guard.
-                return mathjs.format(mathjs.bignumber(value.value), {notation: 'fixed'});
+                //
+                // Guard the conversion: this replacer runs over DB-sourced rows and (via
+                // /relay) over external JSON, so a hostile object merely SHAPED like a
+                // serialized BigNumber (`{mathjs:'BigNumber', value:'not-a-number'}`) would
+                // otherwise make mathjs.bignumber() throw a DecimalError mid-serialize. On the
+                // catch-all API path that throw becomes an unhandled rejection (the send()
+                // argument is evaluated outside any try/catch), so it must NOT propagate here.
+                // Fall back to the raw value string so a malformed value serializes rather than
+                // crashes the response.
+                try {
+                    return mathjs.format(mathjs.bignumber(value.value), {notation: 'fixed'});
+                } catch(e){
+                    return (value.value === undefined || value.value === null) ? null : String(value.value);
+                }
+            }
             return value;
         });
     }

@@ -40,6 +40,14 @@ class WebSocketServer {
         this.pingInterval    = options.pingInterval    || 30000;
         this.idleTimeout     = options.idleTimeout     || 300000;
         this.maxPerIp        = options.maxPerIp        || 5;
+        // Number of trusted proxy hops in front of the server, mirroring the HTTP
+        // side's Express `trust proxy` setting. The WS upgrade is handled on the raw
+        // HTTP server (Express trust-proxy does NOT apply here), so the per-IP cap key
+        // must resolve the client address the same way: with 0 trusted hops, ignore
+        // X-Forwarded-For entirely (use the TCP peer); with N, take the entry N from the
+        // right (the address the outermost trusted proxy observed). Never trust the
+        // leftmost/client-supplied XFF token.
+        this.trustProxyHops  = Number.isInteger(options.trustProxyHops) ? options.trustProxyHops : 0;
         this.maxMessageSize  = options.maxMessageSize  || 1024;
         this.maxMsgPerSec    = options.maxMsgPerSec    || 10;
         this.catchUpMaxDepth = options.catchUpMaxDepth || 1000;
@@ -107,6 +115,23 @@ class WebSocketServer {
         return this.clients;
     }
 
+    // Resolve the client IP used to key the per-IP connection cap. The leftmost
+    // X-Forwarded-For token is fully client-supplied (real proxies APPEND the observed
+    // peer to the right), so keying on it let an attacker send a unique XFF per upgrade
+    // and open unbounded connections. With trustProxyHops=N>0, take the entry N from the
+    // right (the address the outermost trusted proxy inserted); otherwise, and whenever
+    // XFF is absent or malformed, fall back to the unspoofable TCP peer address.
+    _clientIp(req) {
+        const hops = this.trustProxyHops;
+        const xff  = req.headers['x-forwarded-for'];
+        if (hops > 0 && xff) {
+            const parts = String(xff).split(',').map(s => s.trim()).filter(Boolean);
+            const idx   = parts.length - hops;
+            if (idx >= 0 && parts[idx]) return parts[idx];
+        }
+        return req.socket.remoteAddress;
+    }
+
     // Handle HTTP upgrade request: validate path and coin before upgrading
     _handleUpgrade(req, socket, head) {
         const match = WS_PATH_REGEX.exec(req.url);
@@ -125,9 +150,7 @@ class WebSocketServer {
         }
 
         // Per-IP connection limit
-        const ip = req.headers['x-forwarded-for']
-            ? req.headers['x-forwarded-for'].split(',')[0].trim()
-            : req.socket.remoteAddress;
+        const ip = this._clientIp(req);
         const currentCount = this.ipCounts.get(ip) || 0;
         if (currentCount >= this.maxPerIp) {
             socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
@@ -157,6 +180,7 @@ class WebSocketServer {
             msgCount:         0,
             msgWindowStart:   Date.now(),
             catchUpInProgress: false,
+            snapshotInProgress: false,
             backpressureSkips: 0
         };
 
@@ -294,6 +318,10 @@ class WebSocketServer {
             return;
         }
 
+        // Snapshot the keys the client already holds BEFORE subscribing, so a snapshot
+        // request only fires for entities newly added by THIS call (see below).
+        const prevKeys = new Set(client.subscriptions);
+
         const result = this.channelManager.subscribe(client, channels, params);
 
         if (!result.success) {
@@ -331,9 +359,21 @@ class WebSocketServer {
 
         this._log('subscribe', client.id, { channels: channels.join(','), count: result.subscribed.length });
 
-        // Handle snapshot requests
-        if (params.snapshot) {
-            this._sendSnapshots(client, result.subscribed);
+        // Handle snapshot requests. Only snapshot entities NEWLY subscribed on this
+        // call: ChannelManager.subscribe returns already-active entities in
+        // result.subscribed too (idempotent add), so without this filter a client could
+        // re-send the same batch at the message-rate limit and re-trigger the full
+        // per-entity snapshot DB fan-out every message (~50 queries/batch). A per-client
+        // in-progress guard (like catch-up) bounds concurrent fan-outs to one batch.
+        if (params.snapshot && !client.snapshotInProgress) {
+            const fresh = result.subscribed.filter(sub =>
+                !prevKeys.has(this.channelManager.channelKeyForSub(client.coin, sub)));
+            if (fresh.length) {
+                client.snapshotInProgress = true;
+                Promise.resolve(this._sendSnapshots(client, fresh))
+                    .catch(() => {})
+                    .finally(() => { client.snapshotInProgress = false; });
+            }
         }
 
         // Handle catch-up requests

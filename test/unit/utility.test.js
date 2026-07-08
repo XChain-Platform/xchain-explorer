@@ -517,6 +517,27 @@ describe('Utility', function () {
             expect(result.items[0].val).to.equal('999');
         });
 
+        // Stress-sweep regression: an object merely SHAPED like a serialized BigNumber
+        // but carrying a non-numeric value must not make the replacer throw (that throw
+        // crashed the response at the send sink). It falls back to the raw value string.
+        it('does not throw on a hostile BigNumber-shaped object with a non-numeric value', function () {
+            const obj = { icon: { mathjs: 'BigNumber', value: 'not-a-number' } };
+            let out;
+            expect(() => { out = u.jsonStringify(obj); }).to.not.throw();
+            const result = JSON.parse(out);
+            expect(result.icon).to.equal('not-a-number');
+        });
+
+        it('does not throw on a BigNumber-shaped object with a null/missing value', function () {
+            // mathjs coerces null->0, undefined typically throws; either way the
+            // guard must produce valid JSON without propagating a throw.
+            let a, b;
+            expect(() => { a = u.jsonStringify({ a: { mathjs: 'BigNumber', value: null } }); }).to.not.throw();
+            expect(() => { b = u.jsonStringify({ b: { mathjs: 'BigNumber' } }); }).to.not.throw();
+            expect(() => JSON.parse(a)).to.not.throw();
+            expect(() => JSON.parse(b)).to.not.throw();
+        });
+
     });
 
     // -----------------------------------------------------------------------

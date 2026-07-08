@@ -24,6 +24,7 @@ const path           = require('path');
 const dns            = require('dns');
 const axios          = require('axios');
 const util           = require('./utility.js');
+const ssrfGuard      = require('./ssrf-guard.js');
 const database       = require('./db.js');
 const IconDownloader = require('./IconDownloader.js');
 const HubOperationalCache = require('./HubOperationalCache.js');
@@ -1647,16 +1648,12 @@ class XChainExplorer {
     }
 
     // SSRF guard helper: classify a resolved IP literal as a private, loopback,
-    // link-local or cloud-metadata address that the /relay endpoint must refuse
-    // to connect to. IPv4-mapped IPv6 (::ffff:a.b.c.d) is unwrapped first so a
-    // mapped private v4 can't slip through.
+    // link-local, CGNAT, unique-local or cloud-metadata address that the /relay
+    // endpoint must refuse to connect to. Delegates to the canonical classifier
+    // in ssrf-guard.js so the /relay and IconDownloader egress paths share one
+    // range list instead of drifting apart.
     _isPrivateAddress(ip){
-        let addr = String(ip).replace(/^\[|\]$/g, '').replace(/^::ffff:/i, '');
-        return [
-            /^127\./, /^0\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[01])\./,
-            /^192\.168\./, /^169\.254\./,
-            /^::1$/, /^fc00:/i, /^fd[0-9a-f]{2}:/i, /^fe80:/i,
-        ].some(r => r.test(addr));
+        return ssrfGuard.isPrivateAddress(ip);
     }
 
     // SSRF guard: a dns.lookup-compatible shim handed to axios so the address it

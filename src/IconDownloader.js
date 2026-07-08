@@ -47,11 +47,17 @@ const fs      = require('fs');
 const fsp     = require('fs/promises');
 const os      = require('os');
 const path    = require('path');
+const dns     = require('dns');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const { makeSafeLookup } = require('./ssrf-guard');
 const execAsync = promisify(exec);
 
 const { resolveDescriptionToSource, selectIconUrlFromCip25Json } = require('./IconResolver');
+
+// Shared SSRF lookup shim: rejects fetches whose hostname resolves to a
+// private/internal/metadata address. Built once at module load.
+const SAFE_LOOKUP = makeSafeLookup(dns);
 
 const DEFAULTS = {
     enabled:         false,
@@ -386,6 +392,14 @@ class IconDownloader {
                 timeout:          this.cfg.fetchTimeoutMs,
                 maxContentLength: this.cfg.maxBytes,
                 maxRedirects:     3,
+                // SSRF guard: icon source URLs come from on-chain token
+                // descriptions (fully attacker-controlled: anyone can ISSUE a
+                // token with any description), so this fetch must refuse to
+                // connect to private/internal/metadata addresses. The lookup
+                // shim validates the address axios is about to connect to and,
+                // because follow-redirects reuses these options, re-validates
+                // every redirect hop, not just the initial URL.
+                lookup:           SAFE_LOOKUP,
                 headers: { 'User-Agent': 'xchain-icon-downloader/1.0' },
                 validateStatus: s => s >= 200 && s < 300,
             });

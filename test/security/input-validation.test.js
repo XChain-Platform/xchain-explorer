@@ -127,7 +127,7 @@ describe('Security: Input Validation: Special characters', function () {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
-                search: '' OR 1=1 --',
+                search: "' OR 1=1 --",
                 type: 'address'
             }
         });

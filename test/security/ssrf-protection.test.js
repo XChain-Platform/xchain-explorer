@@ -100,14 +100,14 @@ describe('Security: SSRF: Protocol validation', function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('ftp://evil.com/data.json'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.deep.equal({ error: 'Invalid protocol' });
+        expect(res._body).to.include({ error: 'Invalid protocol' });
     });
 
     it('blocks file:// protocol', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('file:///etc/passwd'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.deep.equal({ error: 'Invalid protocol' });
+        expect(res._body).to.include({ error: 'Invalid protocol' });
     });
 
     it('blocks javascript: protocol', async function () {
@@ -155,7 +155,7 @@ describe('Security: SSRF: Private IP blocklist', function () {
             const res = mockRes();
             await explorer.processRelayRequest(makeRelayReq(`http://${host}/test.json`), res);
             expect(res._status).to.equal(403);
-            expect(res._body).to.deep.equal({ error: 'Destination not permitted' });
+            expect(res._body).to.include({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
         });
     }
 
@@ -267,7 +267,7 @@ describe('Security: SSRF: Error response safety', function () {
 
         await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
         expect(res._status).to.equal(400);
-        expect(res._body).to.deep.equal({ error: 'Invalid or unreachable URL' });
+        expect(res._body).to.include({ error: 'Invalid or unreachable URL', code: 'RELAY_FETCH_FAILED' });
         expect(res._body.error).to.not.include('ECONNREFUSED');
     });
 
@@ -344,6 +344,105 @@ describe('Security: SSRF: DNS resolution bypass', function () {
             expect(err).to.not.exist;
             expect(address).to.equal('93.184.216.34');
             expect(family).to.equal(4);
+            done();
+        });
+    });
+});
+
+// ===========================================================================
+// Canonical ssrf-guard module: the range list shared by /relay AND the
+// IconDownloader. Covers the ranges added when the two drifted copies were
+// unified (CGNAT 100.64/10, unspecified ::, complete ULA/link-local).
+// ===========================================================================
+
+describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function () {
+    const { isPrivateAddress, makeSafeLookup } = require('../../src/ssrf-guard.js');
+
+    it('blocks carrier-grade NAT 100.64/10 (RFC 6598) but not adjacent public space', function () {
+        for (const ip of ['100.64.0.1', '100.100.5.5', '100.127.255.255'])
+            expect(isPrivateAddress(ip), ip).to.be.true;
+        // 100.0/10 boundaries: 100.63.x and 100.128.x are public.
+        for (const ip of ['100.63.255.255', '100.128.0.1'])
+            expect(isPrivateAddress(ip), ip).to.be.false;
+    });
+
+    it('blocks the unspecified address :: and 0.0.0.0', function () {
+        expect(isPrivateAddress('::')).to.be.true;
+        expect(isPrivateAddress('0.0.0.0')).to.be.true;
+    });
+
+    it('blocks the complete ULA fc00::/7 and link-local fe80::/10 ranges', function () {
+        for (const ip of ['fc00::1', 'fcff::1', 'fd00::1', 'fdff::1'])
+            expect(isPrivateAddress(ip), ip).to.be.true;
+        for (const ip of ['fe80::1', 'febf::1'])
+            expect(isPrivateAddress(ip), ip).to.be.true;
+    });
+
+    it('strips an IPv6 zone id before classifying', function () {
+        expect(isPrivateAddress('fe80::1%eth0')).to.be.true;
+    });
+
+    it('leaves ordinary public addresses alone', function () {
+        for (const ip of ['8.8.8.8', '1.1.1.1', '93.184.216.34', '172.32.0.1', '2606:4700::1111'])
+            expect(isPrivateAddress(ip), ip).to.be.false;
+    });
+
+    it('makeSafeLookup rejects a hostname resolving to a private address', function (done) {
+        const dnsStub = { lookup: (h, o, cb) => { if (typeof o === 'function') { cb = o; } cb(null, '10.0.0.5', 4); } };
+        makeSafeLookup(dnsStub)('internal.attacker.example', {}, (err) => {
+            expect(err).to.be.an('error');
+            expect(err.code).to.equal('RELAY_DENIED');
+            done();
+        });
+    });
+
+    it('makeSafeLookup passes a public address through unchanged', function (done) {
+        const dnsStub = { lookup: (h, o, cb) => { if (typeof o === 'function') { cb = o; } cb(null, '93.184.216.34', 4); } };
+        makeSafeLookup(dnsStub)('example.com', {}, (err, address, family) => {
+            expect(err).to.not.exist;
+            expect(address).to.equal('93.184.216.34');
+            expect(family).to.equal(4);
+            done();
+        });
+    });
+});
+
+// ===========================================================================
+// IconDownloader egress: fetches URLs derived from on-chain token descriptions
+// (attacker-controlled), so it MUST carry the SSRF lookup guard on its axios
+// request or a token description of http://169.254.169.254/x.json turns the
+// explorer into an SSRF proxy.
+// ===========================================================================
+
+describe('Security: SSRF: IconDownloader fetch guard', function () {
+    it('wires the SSRF lookup shim into its axios request options', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
+        const IconDownloader = proxyquire('../../src/IconDownloader.js', {
+            axios: axiosStub,
+            './IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+        });
+        const dl = new IconDownloader({ util: {} });
+        await dl._httpFetch('https://example.com/icon.png');
+        const opts = axiosStub.get.firstCall.args[1];
+        expect(opts.lookup, 'IconDownloader fetch must set a lookup guard').to.be.a('function');
+    });
+
+    it('the wired lookup rejects a private resolution (RELAY_DENIED)', function (done) {
+        const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
+        const dnsStub   = { lookup: (h, o, cb) => { if (typeof o === 'function') { cb = o; } cb(null, '169.254.169.254', 4); } };
+        const IconDownloader = proxyquire('../../src/IconDownloader.js', {
+            axios: axiosStub,
+            dns:   dnsStub,
+            './IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+        });
+        const dl = new IconDownloader({ util: {} });
+        dl._httpFetch('https://metadata.attacker.example/x.png').then(() => {
+            // force the request so the lookup runs
+        }).catch(() => {});
+        const opts = axiosStub.get.firstCall.args[1];
+        opts.lookup('metadata.attacker.example', {}, (err) => {
+            expect(err).to.be.an('error');
+            expect(err.code).to.equal('RELAY_DENIED');
             done();
         });
     });

@@ -79,21 +79,26 @@ describe('Database#doQuery', () => {
         expect(result).to.deep.equal(fakeRows);
     });
 
-    it('returns false when a SQL error is thrown', async () => {
+    it('throws DbQueryError when a SQL error is thrown (M-4: outage != empty)', async () => {
         const fakeConn = {
             query:   sinon.stub().rejects(new Error('Table not found')),
             release: sinon.stub().resolves()
         };
         setupMockPool('BTC', fakeConn);
 
-        const result = await db.doQuery(cfg(), 'SELECT bad', []);
-        expect(result).to.equal(false);
+        let err = null;
+        try { await db.doQuery(cfg(), 'SELECT bad', []); } catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.name).to.equal('DbQueryError');
+        expect(err.code).to.equal('DB_ERROR');
     });
 
-    it('returns false when no pool exists for the coin', async () => {
+    it('throws DbQueryError when no pool exists for the coin (M-4)', async () => {
         db.pools = {};
-        const result = await db.doQuery(cfg(), 'SELECT 1', []);
-        expect(result).to.equal(false);
+        let err = null;
+        try { await db.doQuery(cfg(), 'SELECT 1', []); } catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.name).to.equal('DbQueryError');
     });
 
     it('always calls release() after a successful query', async () => {
@@ -114,7 +119,8 @@ describe('Database#doQuery', () => {
         };
         setupMockPool('BTC', fakeConn);
 
-        await db.doQuery(cfg(), 'SELECT 1', []);
+        // doQuery now rethrows the failure (M-4); release() must still run via finally.
+        try { await db.doQuery(cfg(), 'SELECT 1', []); } catch (e) { /* expected */ }
         expect(fakeConn.release.calledOnce).to.be.true;
     });
 

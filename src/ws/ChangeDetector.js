@@ -146,6 +146,15 @@ class ChangeDetector extends EventEmitter {
         const config = { coin };
         const prev   = this.state[coin];
 
+        // Invalidate the db-layer id/action LRU caches when this poll observes a
+        // reorg (M-3). The indexer reassigns ^id / action_index on a reorg, so a
+        // cached entry keyed by an index can otherwise serve a different entity's
+        // detail/history until natural eviction. This is the tip-poll loop the
+        // caches piggyback on; a failed read throws and is caught by _poll, which
+        // leaves the last-seen tip unchanged so no spurious invalidation occurs.
+        if (typeof this.db.checkReorgAndInvalidate === 'function')
+            await this.db.checkReorgAndInvalidate(config);
+
         const currentBlockIndex  = await this.db.getMaxBlockIndex(config) || 0;
         const currentActionIndex = await this.db.getMaxActionIndex(config) || 0;
 

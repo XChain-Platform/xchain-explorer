@@ -514,6 +514,11 @@ class XChainExplorer {
 
         let total = null;
         let data  = null;
+        // Set when a data read genuinely FAILED (db.js now throws a DbQueryError
+        // on outage/rejected query instead of swallowing it into an empty set,
+        // M-4). Suppresses the empty-result assembly and the NOT_FOUND fallback
+        // so the response stays a 5xx rather than a misleading empty 200 / 404.
+        let dbError = false;
 
         let cfg = {
             coin: null, // COIN type (BTC, LTC, DOGE)
@@ -685,9 +690,21 @@ class XChainExplorer {
                 data  = [];
                 total = 0;
             } else {
-                [data, total] = await this.db.getData(cfg);
+                try {
+                    [data, total] = await this.db.getData(cfg);
+                } catch(e){
+                    // A read that genuinely failed (DB outage / rejected query)
+                    // throws (db.js DbQueryError, M-4); answer 5xx instead of a
+                    // misleading empty 200. A successful empty SELECT does not
+                    // throw and still returns 200 with total:0.
+                    console.error('processRequest: data query failed for', req.path, '-', (e && e.message ? e.message : e));
+                    dbError       = true;
+                    response.code = 500;
+                    response.json = { error: 'A database error occurred while serving this request.', code: 'DB_ERROR' };
+                }
             }
 
+            if(!dbError){
             let json = {};
 
             if(this.util.isNumeric(total)){
@@ -740,6 +757,7 @@ class XChainExplorer {
                     Object.assign(response.json, mirrorGate.annotate);
                 }
             }
+            }
         }
 
         if(this.util.isNull(cfg.file) && this.util.isNull(cfg.data.method)){
@@ -761,7 +779,7 @@ class XChainExplorer {
         // in this service (e.g. :1071, :1133). A 400 made consumers that branch on status
         // (including xchain-sdk) treat "does not exist" as a malformed request. Empty list
         // queries are unaffected (they return 200 with total:0).
-        else if(['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
+        else if(!dbError && ['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
             response.code = 404;
             response.json = {
                 error: 'The requested resource was not found.',

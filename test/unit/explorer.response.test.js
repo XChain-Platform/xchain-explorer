@@ -362,6 +362,37 @@ describe('XChainExplorer.processRequest – error responses', function () {
         expect(res._status).to.equal(404);
     });
 
+    // M-4: a genuine DB failure must surface as a 5xx, not a misleading empty
+    // 200 (or a NOT_FOUND 404). db.js's doQuery now throws a DbQueryError on a
+    // failed read; getData propagates it and processRequest maps it to 500.
+    it('returns HTTP 500 DB_ERROR when getData throws (DB outage != empty result)', async function () {
+        const explorer = makeExplorer();
+        const err      = new Error('SQL query failed: Connection lost');
+        err.name       = 'DbQueryError';
+        err.code       = 'DB_ERROR';
+        sinon.stub(explorer.db, 'getData').rejects(err);
+
+        const res  = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const body = parseBody(res);
+
+        expect(res._status).to.equal(500);
+        expect(body).to.have.property('code', 'DB_ERROR');
+        // Must NOT be downgraded to a NOT_FOUND 404 by the empty-result fallback.
+        expect(body).to.not.have.property('total');
+    });
+
+    it('a genuinely empty result still returns HTTP 200 with total 0 (not a 5xx)', async function () {
+        // The M-4 fix must not turn empty SELECTs into errors: only FAILED reads
+        // throw. getData resolving [[], 0] is a successful empty page.
+        getDataResult  = [[], 0];
+        const explorer = makeExplorer();
+        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const body     = parseBody(res);
+
+        expect(res._status).to.equal(200);
+        expect(body).to.have.property('total', 0);
+    });
+
 });
 
 // ===========================================================================

@@ -23,6 +23,21 @@ const mariadb = require('mariadb');
 const DecoderConnector = require('./XChainDecoderConnector.js');
 const { extractMethods } = require('./contract-introspect.js');
 
+// Raised by doQuery when the underlying query genuinely FAILED (connection
+// unavailable after retries, or the DB rejected the statement), as opposed to
+// succeeding with an empty result set. The request layer maps it to a 5xx so a
+// transient DB outage reads as an outage, not as "no data" (M-4): before this,
+// doQuery swallowed the error into `false` and callers rendered it as an empty
+// result (e.g. an address showing a zero balance during an outage).
+class DbQueryError extends Error {
+    constructor(message, cause){
+        super(message);
+        this.name = 'DbQueryError';
+        this.code = 'DB_ERROR';
+        if(cause) this.cause = cause;
+    }
+}
+
 class Database {
 
     constructor(explorer){
@@ -40,6 +55,16 @@ class Database {
         this._addressIdCache  = new Map();
         this._tickIdCache     = new Map();
         this._actionDataCache = new Map();
+        // Per-coin reorg generation counter mixed into the id/action cache keys
+        // (M-3). The indexer reassigns ^id / action_index values on a reorg, so
+        // a pre-reorg cache entry keyed by an index can resolve to a DIFFERENT
+        // entity afterward. bumpReorgGeneration() increments the counter on a
+        // detected reorg, which changes every future key for that coin and lets
+        // the stale entries age out via normal LRU eviction (no full flush, no
+        // per-request DB check). _lastTip tracks the last-seen tip per coin so
+        // checkReorgAndInvalidate can spot a rewind on the tip-poll loop.
+        this._reorgGen = {};
+        this._lastTip  = {};
         // AST introspection ({methods, abi} pair) is a pure function of the
         // contract source, and code is immutable once deployed, so cache by
         // the sha256 we compute from the code itself (two deploys of identical
@@ -121,6 +146,64 @@ class Database {
         if(cache.has(key)) cache.delete(key);
         else if(cache.size >= maxSize) cache.delete(cache.keys().next().value);
         cache.set(key, value);
+    }
+
+    // Build an id/action cache key scoped to the coin AND its current reorg
+    // generation (M-3). Coin-scoping also stops a bare address/tick key from
+    // colliding across coins on a multi-coin explorer; the generation prefix is
+    // what makes a reorg invalidation cheap (see bumpReorgGeneration).
+    _cacheKey(coin, key){
+        return coin + ':' + (this._reorgGen[coin] || 0) + ':' + key;
+    }
+
+    // Invalidate this coin's id/action LRU entries after a reorg by advancing its
+    // generation counter. Nothing is deleted eagerly: the old-generation keys are
+    // simply unreachable and evicted by normal LRU pressure. Called from the
+    // ChangeDetector tip-poll loop via checkReorgAndInvalidate.
+    bumpReorgGeneration(coin){
+        this._reorgGen[coin] = (this._reorgGen[coin] || 0) + 1;
+    }
+
+    // Detect a reorg cheaply on the ChangeDetector poll loop and invalidate the
+    // id/action caches for the coin when one is seen (M-3). We can't observe the
+    // indexer's internal reorg events without a new interface, but a reorg is
+    // visible in the already-polled blocks table: the block at a previously-seen
+    // height either vanishes (the tip rewound) or its hash changes (same height,
+    // a different block). Either way the ^id / action_index space below that
+    // height may have been reassigned, so we bump the generation. A failed read
+    // throws (see doQuery) and is caught by the caller's poll guard, so a
+    // transient DB blip does NOT spuriously invalidate: _lastTip is only advanced
+    // after a clean read, and the missing-block check is skipped when the probe
+    // itself fails. Piggybacks on the tip query the poll loop already needs.
+    async checkReorgAndInvalidate(config){
+        const coin = config.coin;
+        const tip  = await this.doQuery(config,
+            'SELECT block_index, block_hash FROM blocks ORDER BY block_index DESC LIMIT 1', []);
+        // Empty chain (no blocks yet): nothing to compare, nothing to invalidate.
+        if(!tip || !tip.length || tip[0].block_index === null) return false;
+        const curIndex = Number(tip[0].block_index);
+        const curHash  = tip[0].block_hash;
+        const prev     = this._lastTip[coin];
+        let reorg = false;
+        if(prev){
+            if(curIndex < prev.index){
+                // Tip height went backwards: the chain was rolled back.
+                reorg = true;
+            } else {
+                // Tip height is unchanged or higher; confirm the block still
+                // present at the previously-seen height carries the same hash.
+                // A differing (or absent) hash means blocks at/below that height
+                // were replaced. doQuery throws on a read failure, so an absent
+                // row here is a genuine "block is gone", not a swallowed error.
+                const at = await this.doQuery(config,
+                    'SELECT block_hash FROM blocks WHERE block_index=? LIMIT 1', [prev.index]);
+                const atHash = (at && at.length) ? at[0].block_hash : null;
+                if(atHash === null || atHash !== prev.hash) reorg = true;
+            }
+        }
+        if(reorg) this.bumpReorgGeneration(coin);
+        this._lastTip[coin] = { index: curIndex, hash: curHash };
+        return reorg;
     }
 
     /******************************************************************
@@ -542,13 +625,22 @@ class Database {
         return this.doQuery(config, query, args, dedicated || null);
     }
 
+    // Runs a read and returns the rows. A GENUINE failure (no pool, connection
+    // unavailable after retries, or a rejected statement) THROWS a DbQueryError
+    // rather than returning a falsy value (M-4). A swallowed-into-false failure
+    // is indistinguishable at the call site from a successful empty SELECT, so a
+    // transient outage used to render as "no data" (an address showing zero
+    // balance). The request layer catches DbQueryError and answers 5xx; a
+    // successful query still returns its (possibly empty) array, so a genuinely
+    // empty result stays 200. A null query is an explicit no-op and returns false
+    // (not a failure). Callers that must tolerate an outage (the /status health
+    // read, the WS poll loops, decoder-tip reads) wrap their own calls.
     async doQuery(config, query, args, poolOverride = null){
-        let result = false;
-        if(this.util.isNull(query)) return result;
+        if(this.util.isNull(query)) return false;
         let pool = poolOverride || ((this.pools[config.coin]) ? this.pools[config.coin].pool : null);
         if(!pool){
             console.log('Unable to get database connection pool');
-            return result;
+            throw new DbQueryError('No database connection pool for ' + (config && config.coin));
         }
         let db = null,
             retryCount = 0,
@@ -565,15 +657,17 @@ class Database {
                     await this.util.sleep(1000);
                 } else {
                     console.log('Failed to get database connection after ' + maxRetrys + ' attempts');
-                    return result;
+                    throw new DbQueryError('Database connection unavailable after ' + maxRetrys + ' retries', e);
                 }
             }
         }
+        let result = false;
         try {
             result = await db.query(query, args);
         } catch (error){
             if(process.env.DEBUG) console.log('SQL Query Error:', error);
             else console.error('SQL query failed:', error.message, error.stack);
+            throw new DbQueryError('SQL query failed: ' + (error && error.message), error);
         } finally {
             db.release();
         }
@@ -3989,18 +4083,31 @@ class Database {
         let available = coinConfigs['COIN_AVAILABLE'] || {};
         for (let coin of Object.keys(available)) {
             if (this.pools && this.pools[coin] && this.pools[coin].pool) {
-                // Indexer position per coin: highest block index processed and its
-                // block_time.
-                data.last_block[coin]      = await this.getMaxBlockIndex({ coin, data: {} });
-                data.last_block_time[coin] = await this.getMaxBlockTime({ coin, data: {} });
-                // Decoder tip (decoder's highest processed block) and the gap to the
-                // indexer. decoder_tip can be null when the decoder DB is
-                // unreachable/unknown; decoder_lag_blocks is then null too. Clamp to
-                // >= 0: the indexer reads from the decoder so it can never lead the
-                // decoder's tip.
-                let decoderTip = await this.getDecoderTip({ coin, data: {} });
-                data.decoder_tip[coin]        = decoderTip;
-                data.decoder_lag_blocks[coin] = (decoderTip === null) ? null : Math.max(0, decoderTip - data.last_block[coin]);
+                // /status is a health endpoint: a DB read now throws on failure
+                // (M-4), but here we must still return the rest of the report
+                // rather than 500 the whole thing, so a failed per-coin read
+                // degrades to null for that coin (the outage is exactly what an
+                // operator is checking status to see). Other endpoints let the
+                // throw bubble to a 5xx.
+                try {
+                    // Indexer position per coin: highest block index processed and its
+                    // block_time.
+                    data.last_block[coin]      = await this.getMaxBlockIndex({ coin, data: {} });
+                    data.last_block_time[coin] = await this.getMaxBlockTime({ coin, data: {} });
+                    // Decoder tip (decoder's highest processed block) and the gap to the
+                    // indexer. decoder_tip can be null when the decoder DB is
+                    // unreachable/unknown; decoder_lag_blocks is then null too. Clamp to
+                    // >= 0: the indexer reads from the decoder so it can never lead the
+                    // decoder's tip.
+                    let decoderTip = await this.getDecoderTip({ coin, data: {} });
+                    data.decoder_tip[coin]        = decoderTip;
+                    data.decoder_lag_blocks[coin] = (decoderTip === null) ? null : Math.max(0, decoderTip - data.last_block[coin]);
+                } catch (e) {
+                    data.last_block[coin]         = null;
+                    data.last_block_time[coin]    = null;
+                    data.decoder_tip[coin]        = null;
+                    data.decoder_lag_blocks[coin] = null;
+                }
             }
         }
         // Chain->decoder visibility: the slice the DB-derived fields above can't
@@ -4317,11 +4424,11 @@ class Database {
      *****************************************************************/
 
     async getActionData(config, action_index){
-        // Check LRU cache first (action data is immutable once confirmed on-chain).
-        // Key MUST include config.coin: action_index is per-coin, and a multi-coin
-        // explorer instance shares this one cache, so a bare-index key returns one
-        // coin's action for the same index on another coin.
-        let cached = this._cacheGet(this._actionDataCache, config.coin + ':' + action_index);
+        // Check LRU cache first. Action data is immutable once confirmed, but a
+        // reorg can reassign action_index, so the key carries coin + reorg
+        // generation (action_index is per-coin, and a reorg bumps the generation
+        // to invalidate; see _cacheKey / bumpReorgGeneration).
+        let cached = this._cacheGet(this._actionDataCache, this._cacheKey(config.coin, action_index));
         if(cached !== undefined) return structuredClone(cached);
         let coinConfigs = await this.configInfo.getConfig()
         let data = {
@@ -6562,8 +6669,8 @@ class Database {
             data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
             // data.related = await this.getRelatedActions(config, action_index);;
         }
-        // Store in LRU cache for future lookups (per-coin key, see getActionData entry)
-        this._cacheSet(this._actionDataCache, config.coin + ':' + action_index, structuredClone(data));
+        // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry)
+        this._cacheSet(this._actionDataCache, this._cacheKey(config.coin, action_index), structuredClone(data));
         return data;
     }
 
@@ -6602,7 +6709,8 @@ class Database {
     }
 
     async getAddressId(config, address){
-        let cached = this._cacheGet(this._addressIdCache, address);
+        let key    = this._cacheKey(config.coin, address);
+        let cached = this._cacheGet(this._addressIdCache, key);
         if(cached !== undefined) return cached;
         let id    = null;
         let args  = [address];
@@ -6616,7 +6724,7 @@ class Database {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
-        if(id !== null) this._cacheSet(this._addressIdCache, address, id);
+        if(id !== null) this._cacheSet(this._addressIdCache, key, id);
         return id;
     }
 
@@ -6645,7 +6753,8 @@ class Database {
         let str = String(tick);
         if(str.charAt(0) === '^' && this.util.isNumeric(str.substring(1)))
             return Number(str.substring(1));
-        let cached = this._cacheGet(this._tickIdCache, tick);
+        let key    = this._cacheKey(config.coin, tick);
+        let cached = this._cacheGet(this._tickIdCache, key);
         if(cached !== undefined) return cached;
         let id    = null;
         let args  = [tick];
@@ -6659,7 +6768,7 @@ class Database {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
-        if(id !== null) this._cacheSet(this._tickIdCache, tick, id);
+        if(id !== null) this._cacheSet(this._tickIdCache, key, id);
         return id;
     }
     async getActionType(config, action_index){
@@ -10466,4 +10575,5 @@ class Database {
 
 }
 
-module.exports = Database
+module.exports = Database;
+module.exports.DbQueryError = DbQueryError;

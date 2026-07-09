@@ -152,8 +152,14 @@ class ChangeDetector extends EventEmitter {
         // detail/history until natural eviction. This is the tip-poll loop the
         // caches piggyback on; a failed read throws and is caught by _poll, which
         // leaves the last-seen tip unchanged so no spurious invalidation occurs.
+        // The returned flag also drives the cursor rewind below: a reorg can roll
+        // the indexer tip BACKWARD, and our cursors are a high-water mark, so without
+        // a rewind the strictly-greater comparisons would stop emitting until the
+        // chain re-climbed past the pre-reorg tip (feed stall while the new tip sits
+        // lower; replaced tail otherwise skipped).
+        let reorged = false;
         if (typeof this.db.checkReorgAndInvalidate === 'function')
-            await this.db.checkReorgAndInvalidate(config);
+            reorged = await this.db.checkReorgAndInvalidate(config);
 
         const currentBlockIndex  = await this.db.getMaxBlockIndex(config) || 0;
         const currentActionIndex = await this.db.getMaxActionIndex(config) || 0;
@@ -166,6 +172,16 @@ class ChangeDetector extends EventEmitter {
             return;
         }
 
+        // On a reorg, clamp each cursor down to the (possibly lower) new tip so the
+        // feed resumes at the correct height instead of waiting for the chain to
+        // re-pass the old high-water mark. Same-height replacements are covered by
+        // the cache invalidation above + the authoritative REST reads; this loop is
+        // a best-effort live feed, not a reorg replay.
+        if (reorged) {
+            if (prev.blockIndex  > currentBlockIndex)  prev.blockIndex  = currentBlockIndex;
+            if (prev.actionIndex > currentActionIndex) prev.actionIndex = currentActionIndex;
+        }
+
         if (currentBlockIndex > prev.blockIndex) {
             const newBlocks = await this.db.getBlocksSince(config, prev.blockIndex, this.fetchLimit);
             if (newBlocks && newBlocks.length > 0) {
@@ -173,7 +189,12 @@ class ChangeDetector extends EventEmitter {
                     this.emit('block', coin, block);
                 }
             }
-            prev.blockIndex = currentBlockIndex;
+            // Advance by what was actually fetched, NOT to the observed tip:
+            // getBlocksSince returns the LOWEST `fetchLimit` rows (block_index ASC),
+            // so a burst larger than fetchLimit must drain over successive polls.
+            // Jumping straight to currentBlockIndex would permanently skip every
+            // block past the first fetchLimit seen in one interval.
+            prev.blockIndex = this._nextCursor(newBlocks, 'block_index', currentBlockIndex);
         }
 
         if (currentActionIndex > prev.actionIndex) {
@@ -186,8 +207,25 @@ class ChangeDetector extends EventEmitter {
                     await this._emitAttestationEvents(coin, config, action);
                 }
             }
-            prev.actionIndex = currentActionIndex;
+            // Same drain semantics as blocks (getActionsSince is action_index ASC,
+            // capped at fetchLimit): advance to the last emitted action, not the tip.
+            prev.actionIndex = this._nextCursor(newActions, 'action_index', currentActionIndex);
         }
+    }
+
+    // Next poll cursor after a capped `*Since` fetch. The queries return the lowest
+    // `fetchLimit` rows above the cursor (ORDER BY <idx> ASC LIMIT fetchLimit), so
+    // when a fetch fills the cap and its last row is still below the observed tip
+    // there is a backlog: continue from the last fetched row next poll rather than
+    // jumping to the tip (which would drop the un-fetched remainder). An empty fetch
+    // (rows filtered out despite a higher tip) advances to the tip so the same empty
+    // range is not re-polled forever.
+    _nextCursor(rows, indexKey, currentMax) {
+        if (!rows || rows.length === 0) return currentMax;
+        const last = Number(rows[rows.length - 1][indexKey]);
+        if (rows.length >= this.fetchLimit && Number.isFinite(last) && last < currentMax)
+            return last;
+        return currentMax;
     }
 
     async _emitLifecycleEvents(coin, config, action) {

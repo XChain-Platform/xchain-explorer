@@ -46,6 +46,9 @@ function mk(over) {
     return new ChangeDetector({ db, channelManager, pollInterval: 5000, fetchLimit: 100 });
 }
 
+// Inclusive integer range [a..b].
+function range(a, b) { let r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
+
 describe('ChangeDetector', function () {
 
     afterEach(() => sinon.restore());
@@ -164,6 +167,94 @@ describe('ChangeDetector', function () {
             det.on('action', () => count++);
             await det._checkCoin('BTC');
             expect(count).to.equal(0);
+        });
+
+        // Regression: a burst larger than fetchLimit used to advance the cursor
+        // straight to the observed tip after a capped fetch, permanently skipping
+        // every action past the first fetchLimit in that interval.
+        it('drains an action burst larger than fetchLimit across polls without skipping any', async function () {
+            let det = mk();  // fetchLimit 100
+            det.state.BTC = { blockIndex: 0, actionIndex: 5, initialized: true };
+            det.db.getMaxBlockIndex.resolves(0);
+            det.db.getMaxActionIndex.resolves(255);   // 250 new actions, > fetchLimit
+            det.db.getActionsSince.callsFake(async (cfg, since, limit) => {
+                let rows = [];
+                for (let i = since + 1; i <= Math.min(since + limit, 255); i++)
+                    rows.push({ action: 'SEND', action_index: i });
+                return rows;
+            });
+            let seen = [];
+            det.on('action', (c, a) => seen.push(a.action_index));
+
+            await det._checkCoin('BTC');
+            expect(det.state.BTC.actionIndex).to.equal(105);   // last fetched, NOT the tip 255
+            await det._checkCoin('BTC');
+            expect(det.state.BTC.actionIndex).to.equal(205);
+            await det._checkCoin('BTC');
+            expect(det.state.BTC.actionIndex).to.equal(255);   // fully drained
+            expect(seen).to.deep.equal(range(6, 255));          // every action emitted once, none skipped
+        });
+
+        it('drains a block burst larger than fetchLimit across polls', async function () {
+            let det = mk();
+            det.state.BTC = { blockIndex: 0, actionIndex: 0, initialized: true };
+            det.db.getMaxBlockIndex.resolves(150);
+            det.db.getBlocksSince.callsFake(async (cfg, since, limit) => {
+                let rows = [];
+                for (let i = since + 1; i <= Math.min(since + limit, 150); i++) rows.push({ block_index: i });
+                return rows;
+            });
+            let seen = [];
+            det.on('block', (c, b) => seen.push(b.block_index));
+            await det._checkCoin('BTC');
+            expect(det.state.BTC.blockIndex).to.equal(100);   // capped at fetchLimit, not tip 150
+            await det._checkCoin('BTC');
+            expect(det.state.BTC.blockIndex).to.equal(150);
+            expect(seen).to.deep.equal(range(1, 150));
+        });
+
+        // Regression: the reorg flag was computed but discarded, so a reorg that
+        // lowered the tip left the cursor above it and the feed stalled (or skipped
+        // the replaced tail) until the chain re-passed the old high-water mark.
+        it('rewinds the cursor to the new tip on a reorg that lowers the height', async function () {
+            let det = mk();
+            det.db.checkReorgAndInvalidate = sinon.stub().resolves(true);
+            det.state.BTC = { blockIndex: 100, actionIndex: 100, initialized: true };
+            det.db.getMaxBlockIndex.resolves(95);
+            det.db.getMaxActionIndex.resolves(95);
+            let count = 0;
+            det.on('block', () => count++);
+            det.on('action', () => count++);
+
+            await det._checkCoin('BTC');
+            expect(det.state.BTC.blockIndex).to.equal(95);    // clamped down, not stuck at 100
+            expect(det.state.BTC.actionIndex).to.equal(95);
+            expect(count).to.equal(0);
+
+            // A single new block/action above the new tip now emits immediately,
+            // instead of waiting for the chain to climb back above 100.
+            det.db.checkReorgAndInvalidate.resolves(false);
+            det.db.getMaxBlockIndex.resolves(96);
+            det.db.getMaxActionIndex.resolves(96);
+            det.db.getBlocksSince.resolves([{ block_index: 96 }]);
+            det.db.getActionsSince.resolves([{ action: 'SEND', action_index: 96 }]);
+            await det._checkCoin('BTC');
+            expect(count).to.equal(2);
+        });
+
+        it('does not lower the cursor on a reorg whose new tip is higher', async function () {
+            let det = mk();
+            det.db.checkReorgAndInvalidate = sinon.stub().resolves(true);
+            det.state.BTC = { blockIndex: 10, actionIndex: 10, initialized: true };
+            det.db.getMaxBlockIndex.resolves(12);
+            det.db.getMaxActionIndex.resolves(12);
+            det.db.getBlocksSince.resolves([{ block_index: 11 }, { block_index: 12 }]);
+            det.db.getActionsSince.resolves([{ action: 'SEND', action_index: 11 }, { action: 'SEND', action_index: 12 }]);
+            let blocks = 0;
+            det.on('block', () => blocks++);
+            await det._checkCoin('BTC');
+            expect(det.state.BTC.blockIndex).to.equal(12);
+            expect(blocks).to.equal(2);
         });
     });
 

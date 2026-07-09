@@ -37,7 +37,7 @@
     "test:db": "mocha test/unit/db.*.test.js --timeout 0 --exit",
     "test:explorer": "mocha test/unit/explorer.*.test.js --timeout 0 --exit",
     "test:config": "mocha test/unit/config.test.js test/unit/hub-connector.test.js --timeout 0 --exit",
-    "test:integration": "mocha test/integration/**/*.test.js --timeout 30000 --exit --recursive",
+    "test:integration": "bash bin/run-integration.sh",
     "test:e2e": "mocha test/e2e/**/*.test.js --timeout 30000 --exit --recursive",
     "test:integration:up": "docker compose -f test/integration/fixtures/docker-compose.test.yml up -d --wait",
     "test:integration:down": "docker compose -f test/integration/fixtures/docker-compose.test.yml down -v",

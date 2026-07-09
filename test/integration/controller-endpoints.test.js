@@ -157,7 +157,7 @@ describe('Token API (/api/token/{tick}): controllers[]', function () {
     it('carries the shared binding shape', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
         const c = res.body.controllers.find(x => x.action_class === 'transfer');
-        expect(c).to.have.keys(['action_class', 'contract_index', 'cooldown_blocks', 'is_unbind', 'bind_block']);
+        expect(c).to.have.keys(['action_class', 'contract_index', 'cooldown_blocks', 'is_unbind', 'bind_block', 'bound_by']);
     });
 
     it('returns an empty controllers array for a token with no bindings', async function () {

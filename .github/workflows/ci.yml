@@ -55,3 +55,41 @@ jobs:
 
       - name: Run performance suite
         run: npm run test:performance
+
+  # Dedicated integration job with a real MariaDB (same reasoning + fixture creds
+  # as the perf job above: the reusable ci job cannot inject a services container).
+  # bin/run-integration.sh runs each integration file in its own process because
+  # the files use root-level before/after hooks that otherwise cross-corrupt in a
+  # single mocha run. nft-endpoints creates a colocated decoder DB, so the root
+  # user (which has CREATE DATABASE) is used, matching the fixture.
+  integration:
+    # Only spend the integration runtime once the unit gate is green.
+    needs: ci
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: testpass
+          MARIADB_DATABASE: XChain_BTC_Regtest_Indexer
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=2s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration suite
+        run: npm run test:integration

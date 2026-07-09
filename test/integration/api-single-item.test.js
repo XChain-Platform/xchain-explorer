@@ -121,7 +121,7 @@ describe('Single-Item API Endpoints', function () {
 
         // Top-level sections (projects/registry are the Project_Registry.md
         // display surfaces added 2026-06)
-        expect(res.body).to.have.all.keys(['callback', 'info', 'lists', 'locks', 'market', 'mints', 'projects', 'registry', 'runtime', 'supply']);
+        expect(res.body).to.have.all.keys(['callback', 'controllers', 'info', 'lists', 'locks', 'market', 'mints', 'open_polls', 'projects', 'registry', 'runtime', 'supply']);
 
         // info section
         expect(res.body.info).to.be.an('object');
@@ -227,16 +227,16 @@ describe('Single-Item API Endpoints', function () {
     // Error cases
     // -----------------------------------------------------------------------
 
-    it('nonexistent block returns 400', async function () {
+    it('nonexistent block returns 404', async function () {
         const res = await request.get('/RBTC/api/block/999999');
-        expect(res.status).to.equal(400);
+        expect(res.status).to.equal(404);
         expect(res.body).to.be.an('object');
         expect(res.body.error).to.be.a('string');
     });
 
-    it('nonexistent token returns 400', async function () {
+    it('nonexistent token returns 404', async function () {
         const res = await request.get('/RBTC/api/token/DOESNOTEXIST');
-        expect(res.status).to.equal(400);
+        expect(res.status).to.equal(404);
         expect(res.body).to.be.an('object');
         expect(res.body.error).to.be.a('string');
     });

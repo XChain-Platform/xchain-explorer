@@ -74,11 +74,13 @@ describe('Response Format', function () {
     // 2. Custom headers are present
     // -----------------------------------------------------------------------
 
-    it('XChain-Explorer-Version header is present', async function () {
+    it('does NOT leak the explorer version in a response header', async function () {
+        // Deliberate: the build version is never surfaced in a header (info-leak
+        // prevention), enforced by the unit suite. Per-request identity/latency is
+        // exposed only in the body's `runtime` field, verified below and elsewhere.
         const res = await request.get('/RBTC/api/sends/5/block');
 
-        expect(res.headers).to.have.property('xchain-explorer-version');
-        expect(res.headers['xchain-explorer-version']).to.be.a('string').and.have.length.greaterThan(0);
+        expect(res.headers).to.not.have.property('xchain-explorer-version');
     });
 
     it('Access-Control-Allow-Origin header is *', async function () {
@@ -87,12 +89,13 @@ describe('Response Format', function () {
         expect(res.headers).to.have.property('access-control-allow-origin', '*');
     });
 
-    it('XChain-Runtime-Ms header is present and numeric', async function () {
+    it('does NOT set XChain-Runtime-Ms header unless DEBUG is enabled; runtime rides the body', async function () {
+        // XChain-Runtime-Ms is a DEBUG-only header; without DEBUG it is absent. The
+        // always-on per-request latency is the body `runtime` field instead.
         const res = await request.get('/RBTC/api/sends/5/block');
 
-        expect(res.headers).to.have.property('xchain-runtime-ms');
-        const ms = Number(res.headers['xchain-runtime-ms']);
-        expect(ms).to.be.a('number').and.to.be.at.least(0);
+        expect(res.headers).to.not.have.property('xchain-runtime-ms');
+        expect(res.body).to.have.property('runtime');
     });
 
     // -----------------------------------------------------------------------

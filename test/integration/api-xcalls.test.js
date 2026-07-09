@@ -91,8 +91,13 @@ describe('API XCALL Endpoints', function () {
         expect(res.body.callback_delivery.callback_result_status).to.equal('ok');
     });
 
-    it('GET /RBTC/api/xcall/{unknown}: returns no call (null/empty) without error', async function () {
-        const res = await request.get('/RBTC/api/xcall/' + 'f'.repeat(64)).expect(200);
-        expect(res.body == null || res.body.call_id === undefined).to.equal(true);
+    it('GET /RBTC/api/xcall/{unknown}: returns 404 NOT_FOUND for an unknown call_id', async function () {
+        // A single-resource lookup that resolves to nothing returns 404 (the
+        // service-wide policy: HTTP status agrees with the NOT_FOUND body code;
+        // a prior 400 made SDK consumers treat "does not exist" as malformed).
+        const res = await request.get('/RBTC/api/xcall/' + 'f'.repeat(64));
+        expect(res.status).to.equal(404);
+        expect(res.body).to.be.an('object');
+        expect(res.body.code).to.equal('NOT_FOUND');
     });
 });

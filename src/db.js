@@ -3084,6 +3084,14 @@ class Database {
                 args = ['%' + this.util.escapeLike(config.data.search) + '%'];
             if(type=='subtoken')
                 args = [this.util.escapeLike(config.data.search) + '.%'];
+        } else if(['block','address'].includes(type)){
+            // type=block/address falls into the generic getQueryWhereSql filter
+            // (b1.block_index=? / a2.address=?), so the search value (block height or
+            // owner address) MUST be bound as the data-WHERE arg. Leaving args=[] left
+            // that placeholder unbound (500 "Parameter at position 1 is not set"). Other
+            // action methods reach the same arg via the executor's [config.data.search]
+            // fallback; getTokens returns an explicit args array, so it must set it here.
+            args = [config.data.search];
         }
         let count = `SELECT
                         count(*) as total
@@ -7856,7 +7864,7 @@ class Database {
     // Reduce an append-only controller event log (token_controllers /
     // address_controllers) to the array of bindings that are still gating at the
     // chain tip. keyColumn is tick_id / address_id. Returns the shared shape:
-    // [{ action_class, contract_index, cooldown_blocks, is_unbind, bind_block }].
+    // [{ action_class, contract_index, cooldown_blocks, is_unbind, bind_block, bound_by }].
     async _resolveControllerBindings(config, table, keyColumn, keyValue){
         if(this.util.isNull(keyValue)) return [];
         // token_controllers carries bound_by_id (the token owner who signed the event);
@@ -8667,6 +8675,10 @@ class Database {
             }
             row.permissions  = permissions;
             row.max_take_bps = this.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps);
+            // action_index is the contract identity; return it numeric like the other
+            // action-index surfaces (e.g. project roster_action_index) rather than the
+            // driver's raw BIGINT string, so consumers don't have to coerce per field.
+            row.action_index = this.util.isNull(row.action_index) ? null : Number(row.action_index);
 
             // Source integrity: the chain carries the source itself, so
             // "verified contract" reduces to hashing what we serve. A mismatch

@@ -114,9 +114,9 @@ describe('Project API (/api/project/{tick})', function () {
         expect(res.body.roster_action_index).to.not.equal(78);
     });
 
-    it('returns 400 for a token with no roster', async function () {
+    it('returns 404 for a token with no roster', async function () {
         const res = await request.get('/RBTC/api/project/TOKENTHREE');
-        expect(res.status).to.equal(400);
+        expect(res.status).to.equal(404);
     });
 
 });

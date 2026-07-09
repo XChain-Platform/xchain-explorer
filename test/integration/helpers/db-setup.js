@@ -41,13 +41,50 @@ function getPool() {
     return pool;
 }
 
-// Run a SQL file against the test database
+// Split a SQL script into statements, honoring `DELIMITER` directives. The node
+// mariadb driver has no client-side DELIMITER handling (that is a CLI-only
+// directive), so a fixture that defines a stored procedure with `DELIMITER //`
+// cannot be sent as one multi-statement query: the procedure body's internal
+// `;` would be mis-split. This walks the script line by line, tracking the active
+// delimiter, and returns each statement so runSqlFile can send them one at a
+// time. Adequate for our fixtures (no `;` or delimiter tokens inside string
+// literals); it is not a general-purpose SQL parser.
+function splitSqlStatements(sql) {
+    const out = [];
+    let delim = ';';
+    let buf = '';
+    const flush = (d) => {
+        for (const part of buf.split(d)) {
+            if (part.trim()) out.push(part.trim());
+        }
+        buf = '';
+    };
+    for (const line of sql.split('\n')) {
+        const m = line.match(/^\s*DELIMITER\s+(\S+)\s*$/i);
+        if (m) { flush(delim); delim = m[1]; continue; }
+        buf += line + '\n';
+    }
+    flush(delim);
+    return out;
+}
+
+// Run a SQL file against the test database. A bare name (no separator) is a
+// fixture under test/integration/fixtures/; a name containing a separator is a
+// path relative to test/integration/ (perf seeds live in ../performance/helpers).
 async function runSqlFile(filename) {
-    const filePath = path.join(__dirname, '..', 'fixtures', filename);
+    const filePath = filename.includes('/')
+        ? path.join(__dirname, '..', filename)
+        : path.join(__dirname, '..', 'fixtures', filename);
     const sql = fs.readFileSync(filePath, 'utf8');
     const conn = await getPool().getConnection();
     try {
-        await conn.query(sql);
+        if (/^\s*DELIMITER\s/mi.test(sql)) {
+            for (const stmt of splitSqlStatements(sql)) {
+                await conn.query(stmt);
+            }
+        } else {
+            await conn.query(sql);
+        }
     } finally {
         conn.release();
     }

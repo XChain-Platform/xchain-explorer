@@ -156,16 +156,16 @@ BEGIN
     -- Insert 100 sends (action_ids where MOD 4 = 0, plus extras)
     SET i = 1;
     WHILE i <= 100 DO
-        INSERT INTO sends (action_index, source_id, destination_id, tick_id, coin_id, amount, memo_id, status_id) VALUES
-            (i * 2, ((i - 1) MOD 20) + 1, ((i) MOD 20) + 1, ((i - 1) MOD 10) + 1, 1, CONCAT(i * 1000, '.00000000'), 1, 1);
+        INSERT INTO sends (action_index, tick_id, destination_id, amount, memo_id, status_id) VALUES
+            (i * 2, ((i - 1) MOD 10) + 1, ((i) MOD 20) + 1, CONCAT(i * 1000, '.00000000'), 1, 1);
         SET i = i + 1;
     END WHILE;
 
     -- Insert 10 tokens
     SET i = 1;
     WHILE i <= 10 DO
-        INSERT INTO tokens (tick_id, max_supply, max_mint, decimals, description, lock_max_supply, lock_mint, lock_mint_supply, lock_max_mint, lock_description, lock_sleep, lock_callback, coin_price, action_index, status_id) VALUES
-            (i, '21000000.00000000', '1000.00000000', 8, CONCAT('Performance test token ', i), 0, 0, 0, 0, 0, 0, 0, '0.00000000', i, 1);
+        INSERT INTO tokens (tick_id, max_supply, max_mint, decimals, description, lock_max_supply, lock_mint, lock_mint_supply, lock_max_mint, lock_description, lock_sleep, lock_callback, coin_price, action_index) VALUES
+            (i, '21000000.00000000', '1000.00000000', 8, CONCAT('Performance test token ', i), 0, 0, 0, 0, 0, 0, 0, '0.00000000', i);
         SET i = i + 1;
     END WHILE;
 
@@ -175,8 +175,8 @@ BEGIN
         BEGIN
             DECLARE j INT DEFAULT 1;
             WHILE j <= 10 DO
-                INSERT INTO balances (address_id, tick_id, amount, amount_decimal) VALUES
-                    (i, j, CONCAT(((i * j) * 100), '.00000000'), (i * j) * 100);
+                INSERT INTO balances (address_id, tick_id, amount) VALUES
+                    (i, j, CONCAT(((i * j) * 100), '.00000000'));
                 SET j = j + 1;
             END WHILE;
         END;
@@ -205,8 +205,8 @@ BEGIN
     -- Insert 50 broadcasts
     SET i = 1;
     WHILE i <= 50 DO
-        INSERT INTO broadcasts (action_index, message, value, memo_id, status_id) VALUES
-            (i + 50, CONCAT('Broadcast message number ', i), 0, 1, 1);
+        INSERT INTO broadcasts (action_index, message, memo_id, status_id) VALUES
+            (i + 50, CONCAT('Broadcast message number ', i), 1, 1);
         SET i = i + 1;
     END WHILE;
 

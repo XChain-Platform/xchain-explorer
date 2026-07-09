@@ -27,15 +27,15 @@ const { bootServer, stopServer, getServerUrl } = require('./helpers/perf-setup')
 const LATENCY_THRESHOLD_MS = 500;
 
 const ENDPOINTS = [
-    { name: 'token list',          path: '/RBTC/api/tokens' },
+    { name: 'token list',          path: '/RBTC/explorer/tokens' },
     { name: 'token detail',        path: '/RBTC/api/token/XCHAIN' },
     { name: 'sends by block',      path: '/RBTC/api/sends/50/block' },
-    { name: 'address balances',    path: '/RBTC/api/balances/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa/address' },
+    { name: 'address balances',    path: '/RBTC/api/balances/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa' },
     { name: 'block detail',        path: '/RBTC/api/block/50' },
-    { name: 'blocks list',         path: '/RBTC/api/blocks' },
-    { name: 'broadcasts',          path: '/RBTC/api/broadcasts' },
-    { name: 'issues list',         path: '/RBTC/api/issues' },
-    { name: 'orders list',         path: '/RBTC/api/orders' },
+    { name: 'blocks list',         path: '/RBTC/explorer/blocks' },
+    { name: 'broadcasts',          path: '/RBTC/explorer/broadcasts' },
+    { name: 'issues list',         path: '/RBTC/explorer/issues' },
+    { name: 'orders list',         path: '/RBTC/explorer/orders' },
     { name: 'history (address)',   path: '/RBTC/api/history/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa/address' },
     { name: 'network status',      path: '/RBTC/api/network' },
 ];
@@ -101,7 +101,7 @@ describe('Performance baseline: single-request latency', function () {
 
     it('multiple sequential requests show consistent latency (no degradation)', async function () {
         this.timeout(30000);
-        const url = getServerUrl() + '/RBTC/api/tokens';
+        const url = getServerUrl() + '/RBTC/explorer/tokens';
         const times = [];
 
         for (let i = 0; i < 20; i++) {

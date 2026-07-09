@@ -54,7 +54,7 @@ describe('Memory stability: heap usage under load', function () {
 
         // Warm up: let JIT settle and caches fill
         await runAutocannon({
-            url:         getServerUrl() + '/RBTC/api/tokens',
+            url:         getServerUrl() + '/RBTC/explorer/tokens',
             connections: 5,
             duration:    3,
         });
@@ -63,7 +63,7 @@ describe('Memory stability: heap usage under load', function () {
         const heapBefore = heapMB();
 
         await runAutocannon({
-            url:         getServerUrl() + '/RBTC/api/tokens',
+            url:         getServerUrl() + '/RBTC/explorer/tokens',
             connections: 10,
             duration:    15,
         });
@@ -106,7 +106,7 @@ describe('Memory stability: heap usage under load', function () {
         // Hit many different addresses/tokens to exercise cache
         const base = getServerUrl();
         await runAutocannon({
-            url:         base + '/RBTC/api/tokens',
+            url:         base + '/RBTC/explorer/tokens',
             connections: 10,
             duration:    5,
         });

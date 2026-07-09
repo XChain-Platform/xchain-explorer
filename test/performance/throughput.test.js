@@ -28,7 +28,7 @@ const CONNECTIONS = 10; // concurrent connections
 const SCENARIOS = [
     {
         name: 'GET /tokens',
-        path: '/RBTC/api/tokens',
+        path: '/RBTC/explorer/tokens',
         minRps: 20,
         maxErrorRate: 0.05
     },
@@ -40,25 +40,25 @@ const SCENARIOS = [
     },
     {
         name: 'GET /blocks',
-        path: '/RBTC/api/blocks',
+        path: '/RBTC/explorer/blocks',
         minRps: 10,
         maxErrorRate: 0.05
     },
     {
         name: 'GET /balances (by address)',
-        path: '/RBTC/api/balances/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa/address',
+        path: '/RBTC/api/balances/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa',
         minRps: 20,
         maxErrorRate: 0.05
     },
     {
         name: 'GET /broadcasts',
-        path: '/RBTC/api/broadcasts',
+        path: '/RBTC/explorer/broadcasts',
         minRps: 20,
         maxErrorRate: 0.05
     },
     {
         name: 'GET /orders',
-        path: '/RBTC/api/orders',
+        path: '/RBTC/explorer/orders',
         minRps: 10,
         maxErrorRate: 0.05
     },
@@ -108,7 +108,7 @@ describe('Throughput: sustained RPS under load', function () {
         this.timeout(30000);
 
         const result = await runAutocannon({
-            url:         getServerUrl() + '/RBTC/api/tokens',
+            url:         getServerUrl() + '/RBTC/explorer/tokens',
             connections: CONNECTIONS,
             duration:    DURATION,
             pipelining:  5,

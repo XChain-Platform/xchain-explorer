@@ -36,6 +36,13 @@ let cachedSetup = null;
 async function bootServer() {
     if (cachedSetup) return cachedSetup;
 
+    // The perf fixture config declares only indexer + decoder DBs (no checkpoint
+    // schema), so db.js's mandatory co-located hub-mirror invariant (#4138) would
+    // fatal at explorer.init(). None of the perf endpoints touch the hub-mirrored
+    // tables (they are pure indexer-DB reads), so take the sanctioned bypass: start
+    // anyway and let any hub-mirrored endpoint fail loud per request instead.
+    process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';
+
     const app = express();
     app.use(express.json());
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));

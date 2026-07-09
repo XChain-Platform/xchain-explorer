@@ -56,7 +56,7 @@ describe('Pool exhaustion: concurrent requests beyond pool limit', function () {
 
     it('handles 30 simultaneous requests with < 10% errors (pool limit = 25)', async function () {
         this.timeout(30000);
-        const url      = getServerUrl() + '/RBTC/api/tokens';
+        const url      = getServerUrl() + '/RBTC/explorer/tokens';
         const promises = Array.from({ length: 30 }, () => httpGet(url));
         const results  = await Promise.all(promises);
 
@@ -81,7 +81,7 @@ describe('Pool exhaustion: concurrent requests beyond pool limit', function () {
 
     it('recovers to normal latency after pool saturation burst', async function () {
         this.timeout(30000);
-        const url = getServerUrl() + '/RBTC/api/tokens';
+        const url = getServerUrl() + '/RBTC/explorer/tokens';
 
         // Burst: saturate the pool
         const burst = Array.from({ length: 40 }, () => httpGet(url));
@@ -98,11 +98,11 @@ describe('Pool exhaustion: concurrent requests beyond pool limit', function () {
         this.timeout(30000);
         const base = getServerUrl();
         const endpoints = [
-            '/RBTC/api/tokens',
+            '/RBTC/explorer/tokens',
             '/RBTC/api/sends/50/block',
-            '/RBTC/api/blocks',
-            '/RBTC/api/broadcasts',
-            '/RBTC/api/issues',
+            '/RBTC/explorer/blocks',
+            '/RBTC/explorer/broadcasts',
+            '/RBTC/explorer/issues',
         ];
 
         // 5 requests to each endpoint simultaneously (25 total)

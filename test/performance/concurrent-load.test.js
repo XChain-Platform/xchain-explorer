@@ -32,7 +32,7 @@ const RAMP_LEVELS = [
     { connections: 100, p99ThresholdMs: 5000 },
 ];
 
-const TARGET_PATH = '/RBTC/api/tokens';
+const TARGET_PATH = '/RBTC/explorer/tokens';
 
 describe('Concurrent load: ramping connections', function () {
 

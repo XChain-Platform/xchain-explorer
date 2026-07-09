@@ -16,3 +16,42 @@ jobs:
     # Override the Node version for a repo if ever needed:
     # with:
     #   node-version: "20"
+
+  # Dedicated perf job with a real MariaDB. A caller cannot inject a `services:`
+  # container into the reusable (workflow_call) `ci` job above, so the perf suite
+  # (which boots the explorer against MariaDB on 3307) runs here instead. Same
+  # rationale as the hub perf job. testpass / port 3307 match the committed
+  # test/integration/fixtures/docker-compose.test.yml the suite was built against,
+  # so there is no new credential literal. The perf setup takes the sanctioned
+  # ALLOW_NO_COLOCATED_HUB_DB bypass itself (no checkpoint schema in the fixture).
+  perf:
+    # Only spend the perf runtime once the unit gate is green.
+    needs: ci
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: testpass
+          MARIADB_DATABASE: XChain_BTC_Regtest_Indexer
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=2s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run performance suite
+        run: npm run test:performance

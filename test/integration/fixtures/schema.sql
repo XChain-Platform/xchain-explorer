@@ -75,8 +75,9 @@ CREATE UNIQUE INDEX status on index_statuses (status);
 
 DROP TABLE IF EXISTS index_tickers;
 CREATE TABLE index_tickers (
-    id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    tick TEXT NOT NULL
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tick        TEXT NOT NULL,
+    block_index BIGINT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE UNIQUE INDEX tick on index_tickers (tick(200));
@@ -100,13 +101,15 @@ CREATE TABLE blocks (
     block_time       BIGINT UNSIGNED,
     ledger_hash_id   BIGINT UNSIGNED,  -- id of record in index_transactions table (sha256 hash of credits/debits/escrow/balances data)
     actions_hash_id  BIGINT UNSIGNED,  -- id of record in index_transactions table (sha256 hash of actions data)
-    contract_hash_id BIGINT UNSIGNED   -- id of record in index_transactions table (sha256 hash of VM contract-state data)
+    contract_hash_id BIGINT UNSIGNED,  -- id of record in index_transactions table (sha256 hash of VM contract-state data)
+    state_hash_id    BIGINT UNSIGNED   -- id of record in index_transactions table (sha256 of in-place mutations + backdated credits; replication-integrity only, see stateHash.js)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE INDEX block_index      ON blocks (block_index);
 CREATE INDEX ledger_hash_id   ON blocks (ledger_hash_id);
 CREATE INDEX actions_hash_id  ON blocks (actions_hash_id);
 CREATE INDEX contract_hash_id ON blocks (contract_hash_id);
+CREATE INDEX state_hash_id    ON blocks (state_hash_id);
 
 -- Table used to track individual transactions
 
@@ -115,7 +118,9 @@ CREATE TABLE transactions (
   tx_index    BIGINT UNSIGNED NOT NULL,
   block_index BIGINT UNSIGNED NOT NULL,
   tx_hash_id  BIGINT UNSIGNED NOT NULL, -- id of record in index_transactions table
-  source_id   BIGINT UNSIGNED           -- id of record in the index_addresses
+  source_id   BIGINT UNSIGNED,          -- id of record in the index_addresses
+  fee         BIGINT,                   -- miners fee in satoshis (copied from decoder)
+  data        MEDIUMTEXT                -- decoded action string (copied from decoder)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX tx_index    on transactions (tx_index);
@@ -475,11 +480,21 @@ CREATE        INDEX status_id        ON dividends (status_id);
 
 DROP TABLE IF EXISTS fees;
 CREATE TABLE fees (
-    action_index   BIGINT UNSIGNED NOT NULL, -- Unique action index
-    tick_id        BIGINT UNSIGNED,          -- id of record in index_tickers (default = GAS)
-    amount         VARCHAR(250),              -- Amount of TICK
-    method         BIGINT UNSIGNED NOT NULL, -- FEE Payment Method (1=Destroy, 2=Donate)
-    destination_id BIGINT UNSIGNED           -- id of record in index_addresses table
+    action_index        BIGINT UNSIGNED NOT NULL,
+    tick_id             BIGINT UNSIGNED,                    -- FK to index_tickers (kept for future flexibility)
+    amount              VARCHAR(250),                       -- Legacy: amount of TICK
+    method              BIGINT UNSIGNED NOT NULL,           -- Legacy: FEE Payment Method (1=Destroy, 2=Donate)
+    destination_id      BIGINT UNSIGNED,                    -- FK to index_addresses
+    gas_cost            BIGINT UNSIGNED DEFAULT 0,          -- raw gas units (unified)
+    gas_price           VARCHAR(250) DEFAULT '0',           -- GAS_PRICE at time of action (unified)
+    xchain_amount       VARCHAR(250) DEFAULT '0',           -- gas * GAS_PRICE (unified)
+    payment_mode        TINYINT UNSIGNED NOT NULL DEFAULT 2,-- 1=native_coin, 2=xchain_balance
+    native_coin_amount  VARCHAR(250),                       -- null for XCHAIN balance payments (Track B)
+    native_coin         VARCHAR(10),                        -- 'BTC', 'LTC', 'DOGE', or null (Track B)
+    oracle_round        BIGINT UNSIGNED,                    -- price_snapshot round used, or null (Track B)
+    fee_preference      TINYINT UNSIGNED NOT NULL DEFAULT 2,-- 1=burn, 2=protocol, 3=community, 4=buyback
+    status_id           BIGINT UNSIGNED,
+    fee_version         TINYINT UNSIGNED NOT NULL DEFAULT 1 -- 1=legacy, 2=unified gas
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index   ON fees (action_index);
@@ -656,7 +671,8 @@ CREATE TABLE orders (
     allow_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
     block_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
     memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
-    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table (status of open order tx)
+    status_id        BIGINT UNSIGNED,          -- id of record in index_statuses table (status of open order tx)
+    payout_legs      TEXT                      -- programmable policy: JSON [{to,bps}] royalty/fee split of seller proceeds, applied at match (NULL = none)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index   ON orders (action_index);
@@ -795,7 +811,8 @@ CREATE TABLE swaps (
     allow_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
     block_list       BIGINT UNSIGNED,          -- action_index of a list from the lists table
     memo_id          BIGINT UNSIGNED,          -- id of record in index_memos table
-    status_id        BIGINT UNSIGNED           -- id of record in index_statuses table (status of open swap tx)
+    status_id        BIGINT UNSIGNED,          -- id of record in index_statuses table (status of open swap tx)
+    payout_legs      TEXT                      -- programmable policy: JSON [{to,bps}] royalty/fee split of seller proceeds, applied at match (NULL = none)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index   ON swaps (action_index);
@@ -1149,3 +1166,179 @@ CREATE UNIQUE INDEX action_index   ON contract_executions (action_index);
 CREATE        INDEX contract_index ON contract_executions (contract_index);
 CREATE        INDEX caller_id      ON contract_executions (caller_id);
 CREATE        INDEX block_index    ON contract_executions (block_index);
+
+-- ============================================================
+-- Action tables required by getBlocks' per-block UNION count
+-- (this.actionTables). Mirror the xchain-indexer source-of-truth
+-- (src/sql/*.sql). The perf seed does not populate them, so they
+-- count 0 per block; they must exist or the blocks query fails.
+-- ============================================================
+
+DROP TABLE IF EXISTS anchor_actions;
+CREATE TABLE anchor_actions (
+    action_index         BIGINT UNSIGNED NOT NULL,        -- FK to actions (the ANCHOR action that wrote this row)
+    version              TINYINT UNSIGNED NOT NULL,       -- 0=checkpoint, 1=checkpoint+archive, 2=continuation
+    chain                VARCHAR(10),                     -- checkpointed chain (v0/v1)
+    network              VARCHAR(20),                     -- checkpointed network (v0/v1)
+    block_index          BIGINT UNSIGNED,                 -- checkpointed height on `chain` (v0/v1)
+    block_hash           VARCHAR(64),                     -- chain block hash at block_index
+    ledger_hash          VARCHAR(64),                     -- indexer blocks.ledger_hash at block_index
+    actions_hash         VARCHAR(64),                     -- indexer blocks.actions_hash
+    contract_hash        VARCHAR(64),                     -- indexer blocks.contract_hash
+    checkpoint_seq       BIGINT UNSIGNED,                 -- monotonic per (chain, network); replay guard
+    snapshot_block       BIGINT UNSIGNED,                 -- BTC block selecting the oracle_publish set
+    state_root           CHAR(64),                        -- SPV light-client state_root carried by ANCHOR v3; NULL for v0/v1/v2
+    state_root_version   TINYINT UNSIGNED,                -- merkle.js STATE_ROOT_VERSION (v3 only)
+    block_merkle_root    CHAR(64),                        -- SPV per-block content Merkle root carried by ANCHOR v3; NULL otherwise
+    block_merkle_version TINYINT UNSIGNED,                -- merkle.js BLOCK_MERKLE_VERSION (v3 only)
+    match_batch_seq      BIGINT UNSIGNED,                 -- archive batch id (v1/v2)
+    match_count          INT UNSIGNED,                    -- match records in the batch (v1)
+    batch_crc32          VARCHAR(8),                      -- CRC32 of the UNCOMPRESSED archive JSON (v1)
+    total_chunks         INT UNSIGNED,                    -- chunks in the batch (v1/v2)
+    chunk_index          INT UNSIGNED,                    -- 1-based continuation index (v2 only; v1 carries chunk 0)
+    archive_b64          MEDIUMTEXT,                      -- base64url gzip archive chunk (v1 chunk 0 / v2 continuation)
+    validator_signatures MEDIUMTEXT,                      -- JSON [{pubkey,sig}] over the canonical (v0/v1)
+    status_id            BIGINT UNSIGNED,                 -- FK to index_statuses
+    block_index_doge     BIGINT UNSIGNED NOT NULL,        -- DOGE block the ANCHOR action landed in (rollback anchor)
+    PRIMARY KEY (action_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX idx_anchor_batch      ON anchor_actions (match_batch_seq, version, chunk_index);
+CREATE INDEX idx_anchor_checkpoint ON anchor_actions (chain, network, checkpoint_seq);
+
+DROP TABLE IF EXISTS coinpays;
+CREATE TABLE coinpays (
+    action_index            BIGINT UNSIGNED NOT NULL, -- Unique action index of this COINPAY action
+    obligation_action_index BIGINT UNSIGNED NOT NULL, -- FK to coinpay_obligations (ORDER_MATCH action_index)
+    coin_amount             VARCHAR(250) NOT NULL,    -- Native coin amount actually paid
+    txid                    VARCHAR(64) NOT NULL,     -- Blockchain transaction ID of the payment
+    vout                    INT UNSIGNED NOT NULL,    -- Output index in the payment transaction
+    status_id               BIGINT UNSIGNED,          -- id of record in index_statuses table (valid/invalid)
+    block_index             BIGINT UNSIGNED NOT NULL  -- Block height when COINPAY was processed
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index            ON coinpays (action_index);
+CREATE        INDEX obligation_action_index ON coinpays (obligation_action_index);
+CREATE        INDEX status_id               ON coinpays (status_id);
+
+DROP TABLE IF EXISTS coinpay_expires;
+CREATE TABLE coinpay_expires (
+    action_index            BIGINT UNSIGNED NOT NULL, -- Unique action index of this COINPAY_EXPIRE action
+    obligation_action_index BIGINT UNSIGNED NOT NULL, -- FK to coinpay_obligations (ORDER_MATCH action_index)
+    status_id               BIGINT UNSIGNED           -- id of record in index_statuses table (valid/invalid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index            ON coinpay_expires (action_index);
+CREATE        INDEX obligation_action_index ON coinpay_expires (obligation_action_index);
+CREATE        INDEX status_id               ON coinpay_expires (status_id);
+
+DROP TABLE IF EXISTS coinpay_obligations;
+CREATE TABLE coinpay_obligations (
+    action_index     BIGINT UNSIGNED NOT NULL, -- ORDER_MATCH action_index that created this obligation
+    payer_address_id BIGINT UNSIGNED NOT NULL, -- id of record in index_addresses table (coin-offering party)
+    payee_address_id BIGINT UNSIGNED NOT NULL, -- id of record in index_addresses table (token-selling party GET_ADDRESS)
+    coin_id          BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table (BTC/LTC/DOGE)
+    coin_amount      VARCHAR(250) NOT NULL,    -- Native coin amount owed
+    expiration       BIGINT UNSIGNED NOT NULL, -- Unix timestamp at which obligation expires
+    block_index      BIGINT UNSIGNED NOT NULL  -- Block height when obligation was created
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index     ON coinpay_obligations (action_index);
+CREATE        INDEX payer_address_id ON coinpay_obligations (payer_address_id);
+CREATE        INDEX payee_address_id ON coinpay_obligations (payee_address_id);
+CREATE        INDEX coin_id          ON coinpay_obligations (coin_id);
+
+DROP TABLE IF EXISTS full_node_verifications;
+CREATE TABLE full_node_verifications (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    action_index        BIGINT UNSIGNED NOT NULL,    -- FK to actions (the NODEPROOF verdict that recorded this)
+    challenge_id        CHAR(64) NOT NULL,           -- derived id of the challenge epoch
+    epoch_height        BIGINT UNSIGNED NOT NULL,    -- challenge epoch block (multiple of CHALLENGE_INTERVAL_BLOCKS)
+    target_height       BIGINT UNSIGNED NOT NULL,    -- buried block the possession query targeted (epoch - CONFIRM_DEPTH)
+    signing_pubkey_id   BIGINT UNSIGNED NOT NULL,    -- FK to index_pubkeys (the verified full node)
+    source_id           BIGINT UNSIGNED NOT NULL,    -- FK to index_addresses (staking source; per-source dedup for the equal split)
+    passed              TINYINT(1) NOT NULL DEFAULT 1,
+    block_index         BIGINT UNSIGNED NOT NULL     -- verdict's block (reward-window key + reorg-rollback key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX uq_epoch_pubkey ON full_node_verifications (epoch_height, signing_pubkey_id);
+CREATE        INDEX pubkey_block    ON full_node_verifications (signing_pubkey_id, block_index);
+CREATE        INDEX source_id       ON full_node_verifications (source_id);
+CREATE        INDEX block_index     ON full_node_verifications (block_index);
+CREATE        INDEX action_index    ON full_node_verifications (action_index);
+CREATE        INDEX challenge_id    ON full_node_verifications (challenge_id);
+
+DROP TABLE IF EXISTS prices;
+CREATE TABLE prices (
+    action_index        BIGINT UNSIGNED NOT NULL,         -- FK to actions table
+    version             TINYINT UNSIGNED NOT NULL,        -- 0=validator snapshot, 1=user oracle
+    source_id           BIGINT UNSIGNED NOT NULL,         -- FK to index_addresses (tx source)
+    round_number        BIGINT UNSIGNED,                  -- BTC block height of round
+    round_timestamp     BIGINT UNSIGNED,                  -- block_time of triggering BTC block
+    pair_count          SMALLINT UNSIGNED,                -- number of COIN/FIAT pairs
+    pairs_json          TEXT,                             -- JSON array [{pair, price}, ...]
+    sig_count           SMALLINT UNSIGNED,                -- number of PBFT signatures
+    sigs_json           TEXT,                             -- JSON array [{pubkey, sig}, ...]
+    coin_id             BIGINT UNSIGNED,                  -- FK to index_coins (which chain's token)
+    tick_id             BIGINT UNSIGNED,                  -- FK to index_tickers (token name)
+    fiat_id             BIGINT UNSIGNED,                  -- FK to index_fiats (currency code)
+    value               VARCHAR(250),                     -- price as decimal string
+    fee                 VARCHAR(250),                     -- oracle usage fee as decimal
+    memo_id             BIGINT UNSIGNED,                  -- FK to index_memos
+    validation_status   VARCHAR(20) NOT NULL DEFAULT 'pending',  -- valid/invalid/pending (PBFT signature validation result for v0)
+    status_id           BIGINT UNSIGNED                   -- FK to index_statuses (action status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON prices (action_index);
+CREATE        INDEX version           ON prices (version);
+CREATE        INDEX source_id         ON prices (source_id);
+CREATE        INDEX round_number      ON prices (round_number);
+CREATE        INDEX tick_id           ON prices (tick_id);
+CREATE        INDEX fiat_id           ON prices (fiat_id);
+CREATE        INDEX validation_status ON prices (validation_status);
+
+-- Governance polls (VOTE v0). getToken surfaces open polls for a tick via
+-- getTokenOpenPolls; mirror the xchain-indexer source-of-truth (src/sql/polls.sql).
+DROP TABLE IF EXISTS polls;
+CREATE TABLE polls (
+    action_index            BIGINT UNSIGNED NOT NULL,   -- FK to actions (the VOTE v0 that created the poll); also the poll id
+    block_index             BIGINT UNSIGNED NOT NULL,   -- creation block (rollback key)
+    tick_id                 BIGINT UNSIGNED,            -- FK to index_tickers: electorate + weight token
+    end_block               BIGINT UNSIGNED,            -- latest close block (voting accepted while cast_block <= end_block)
+    options                 MEDIUMTEXT,                 -- JSON array of option labels, index-addressed by ballots
+    max_selections          SMALLINT UNSIGNED,          -- max distinct options one ballot may list (1 = single-choice)
+    tally_mode              ENUM('approval','split'),   -- approval = full weight per option; split = weight divided by per-option shares
+    weight_mode             ENUM('balance','stake','flat','quadratic','time_weighted'), -- balance = close holdings; flat = one-address-one-vote; quadratic = sqrt(close); time_weighted = windowed avg; stake reserved
+    quorum                  VARCHAR(60),                -- optional weight gate: min (counted weight / close supply) fraction, e.g. '0.2'
+    min_voters              BIGINT UNSIGNED,            -- optional participation gate: min distinct qualifying voters
+    min_vote_balance        VARCHAR(60),                -- dust floor: a voter counts toward min_voters only if close balance >= this
+    decide_threshold        VARCHAR(60),                -- optional early-decide arm: fraction of supply an option must reach (Phase 2)
+    question                MEDIUMTEXT,                 -- inline question text or a FILE reference
+    poll_status             ENUM('open','finalized','failed_quorum') NOT NULL DEFAULT 'open', -- poll state (distinct from status_id)
+    winning_option          SMALLINT UNSIGNED,          -- option index with highest weight (lowest index on tie); null if no winner
+    total_weight            VARCHAR(60),                -- total counted weight at close
+    total_voters            BIGINT UNSIGNED,            -- distinct qualifying voters at close
+    quorum_met              TINYINT UNSIGNED,           -- 1 if weight quorum satisfied
+    min_voters_met          TINYINT UNSIGNED,           -- 1 if participation gate satisfied
+    fail_reason             ENUM('quorum','min_voters','both'), -- why a poll terminated failed_quorum (null when passed)
+    decided_early           TINYINT UNSIGNED,           -- 1 if closed by decide_threshold before end_block
+    effective_close_block   BIGINT UNSIGNED,            -- block weights were measured at (end_block, or early-decide crossing block)
+    finalized_action_index  BIGINT UNSIGNED,            -- action_index of the VOTE v2 that finalized this poll
+    resolved_block          BIGINT UNSIGNED,            -- block finalization went terminal; reorg-rollback reset key
+    deposit_amount          VARCHAR(60),                -- XCHAIN amount escrowed at creation (null/0 = none)
+    deposit_address_id      BIGINT UNSIGNED,            -- FK to index_addresses: the creator who paid the deposit (refund target)
+    deposit_resolved        ENUM('refunded','forfeited'), -- set by v2 finalization once the deposit is released
+    callback_contract_index BIGINT UNSIGNED,            -- FK to contracts: the contract v2 invokes on finalization
+    callback_method         VARCHAR(64),                -- method name on that contract
+    callback_params         MEDIUMTEXT,                 -- JSON array of developer params echoed to the callback
+    callback_on             ENUM('pass','always'),      -- pass = only on a finalized win; always = every finalization
+    gas_escrow              VARCHAR(60),                -- XCHAIN escrowed at v0 to back the callback EXECUTE (refunded at finalize)
+    callback_execute_action_index BIGINT UNSIGNED,      -- action_index of the EXECUTE v2 injected (set when fired)
+    status_id               BIGINT UNSIGNED             -- FK to index_statuses (validation status of the create action)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index ON polls (action_index);
+CREATE        INDEX tick_id      ON polls (tick_id);
+CREATE        INDEX end_block    ON polls (end_block);
+CREATE        INDEX poll_status  ON polls (poll_status, end_block);
+CREATE        INDEX block_index  ON polls (block_index);

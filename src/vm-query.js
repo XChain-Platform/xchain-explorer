@@ -85,6 +85,12 @@ let XChainVM    = null;   // resolved module (or null until first use)
 let vmLoadError = null;   // sticky load failure so we don't re-require per request
 let vmInstance  = null;   // lazy singleton; one subprocess worker for all requests
 let inFlight    = 0;
+// Per-client-IP in-flight slot counts. The global cap alone is starvable: with
+// maxCpuTimeMs=3000 and default 4 slots, ~4 distinct IPs each pacing one call
+// per ~3s (well inside the 20rpm per-IP request limit, which counts requests,
+// not HELD slots) hold the whole pool and 429 everyone else. Capping slots per
+// IP restores fairness.
+const inFlightByIp = new Map();
 
 function isEnabled(){
     return process.env.EXPLORER_VM_QUERY_ENABLED === 'true';
@@ -92,6 +98,14 @@ function isEnabled(){
 
 function maxConcurrent(){
     return parseInt(process.env.EXPLORER_VM_MAX_CONCURRENT, 10) || 4;
+}
+
+// Per-IP share of the global slot pool (default: half the pool, minimum 1) so
+// no small set of clients can monopolize every simulation slot.
+function maxConcurrentPerIp(){
+    const v = parseInt(process.env.EXPLORER_VM_MAX_CONCURRENT_PER_IP, 10);
+    if(v > 0) return v;
+    return Math.max(1, Math.floor(maxConcurrent() / 2));
 }
 
 // Byte cap on the initial state load (rows are capped by maxStateKeys). The
@@ -175,8 +189,10 @@ function validateRequest(body){
  * @param {object} body    {method, params?, caller?}
  * @param {string} chain   Base chain name (BTC/LTC/DOGE) for the contract address
  * @param {string} network mainnet | testnet | regtest
+ * @param {string} [clientIp] Requester IP for per-IP slot fairness (optional;
+ *                            when omitted only the global cap applies)
  */
-async function simulate(db, config, contractIndex, body, chain, network){
+async function simulate(db, config, contractIndex, body, chain, network, clientIp){
     if(!isEnabled())
         throw new VmQueryError('VM_QUERY_DISABLED', 'contract simulation is disabled on this explorer', 503);
 
@@ -185,10 +201,14 @@ async function simulate(db, config, contractIndex, body, chain, network){
 
     if(inFlight >= maxConcurrent())
         throw new VmQueryError('VM_BUSY', 'too many concurrent simulations, retry shortly', 429);
+    const ipKey = clientIp ? String(clientIp) : null;
+    if(ipKey && (inFlightByIp.get(ipKey) || 0) >= maxConcurrentPerIp())
+        throw new VmQueryError('VM_BUSY', 'too many concurrent simulations from this client, retry shortly', 429);
     // Reserve the slot at the gate: the DB loads below await, and a burst
     // arriving during them must not all pass the check above. Bracketing the
     // loads also puts the (potentially heavy) state queries under the cap.
     inFlight++;
+    if(ipKey) inFlightByIp.set(ipKey, (inFlightByIp.get(ipKey) || 0) + 1);
     try {
         // Contract source (the simulation runs the exact on-chain code).
         let rows = await db.doQuery(config, 'SELECT code FROM contracts WHERE action_index=? LIMIT 1', [contractIndex]);
@@ -242,6 +262,11 @@ async function simulate(db, config, contractIndex, body, chain, network){
         });
     } finally {
         inFlight--;
+        if(ipKey){
+            const held = inFlightByIp.get(ipKey) || 1;
+            if(held <= 1) inFlightByIp.delete(ipKey);
+            else inFlightByIp.set(ipKey, held - 1);
+        }
     }
 }
 

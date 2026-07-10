@@ -1452,6 +1452,201 @@
                             </table>
                         </div>
 
+                        <div class="d-none" id="info-coinpay">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Obligation</th>
+                                <td class="coinpay-obligation"></td>
+                            </tr>
+                            <tr>
+                                <th>Coin Amount</th>
+                                <td class="coinpay-coin-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Payment Txid</th>
+                                <td class="coinpay-txid"></td>
+                            </tr>
+                            <tr>
+                                <th>Vout</th>
+                                <td class="coinpay-vout"></td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td class="coinpay-status"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-none" id="info-coinpay-expire">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Obligation</th>
+                                <td class="coinpay-expire-obligation"></td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td class="coinpay-expire-status"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-none" id="info-anchor">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Version</th>
+                                <td class="anchor-version"></td>
+                            </tr>
+                            <tr>
+                                <th>Chain</th>
+                                <td class="anchor-chain"></td>
+                            </tr>
+                            <tr>
+                                <th>Network</th>
+                                <td class="anchor-network"></td>
+                            </tr>
+                            <tr>
+                                <th>Checkpoint Seq</th>
+                                <td class="anchor-checkpoint-seq"></td>
+                            </tr>
+                            <tr>
+                                <th>Snapshot Block</th>
+                                <td class="anchor-snapshot-block"></td>
+                            </tr>
+                            <tr>
+                                <th>Block Hash</th>
+                                <td class="anchor-block-hash"></td>
+                            </tr>
+                            <tr>
+                                <th>Ledger Hash</th>
+                                <td class="anchor-ledger-hash"></td>
+                            </tr>
+                            <tr>
+                                <th>Actions Hash</th>
+                                <td class="anchor-actions-hash"></td>
+                            </tr>
+                            <tr>
+                                <th>Contract Hash</th>
+                                <td class="anchor-contract-hash"></td>
+                            </tr>
+                            <tr>
+                                <th>Match Batch</th>
+                                <td class="anchor-match-batch"></td>
+                            </tr>
+                            <tr>
+                                <th>Match Count</th>
+                                <td class="anchor-match-count"></td>
+                            </tr>
+                            <tr>
+                                <th>Chunk</th>
+                                <td class="anchor-chunk"></td>
+                            </tr>
+                            <tr>
+                                <th>DOGE Block</th>
+                                <td class="anchor-doge-block"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                            <!-- SPV commitment roots (v3, post-CHECKPOINT_COMMITMENT flag-day) -->
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0 anchor-roots-row d-none" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">State Root</th>
+                                <td class="anchor-state-root"></td>
+                            </tr>
+                            <tr>
+                                <th>Block Merkle Root</th>
+                                <td class="anchor-block-merkle-root"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-none" id="info-price">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Version</th>
+                                <td class="price-version"></td>
+                            </tr>
+                            <tr>
+                                <th>Coin</th>
+                                <td class="price-coin"></td>
+                            </tr>
+                            <tr>
+                                <th>Token</th>
+                                <td class="price-ticker"></td>
+                            </tr>
+                            <tr>
+                                <th>Fiat</th>
+                                <td class="price-fiat"></td>
+                            </tr>
+                            <tr>
+                                <th>Value</th>
+                                <td class="price-value"></td>
+                            </tr>
+                            <tr>
+                                <th>Round</th>
+                                <td class="price-round"></td>
+                            </tr>
+                            <tr>
+                                <th>Round Timestamp</th>
+                                <td class="price-round-timestamp"></td>
+                            </tr>
+                            <tr>
+                                <th>Pairs</th>
+                                <td class="price-pairs"></td>
+                            </tr>
+                            <tr>
+                                <th>Signatures</th>
+                                <td class="price-sig-count"></td>
+                            </tr>
+                            <tr>
+                                <th>Validation Status</th>
+                                <td class="price-validation-status"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-none" id="info-nodeproof">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <th width="155">Challenge</th>
+                                <td class="nodeproof-challenge"></td>
+                            </tr>
+                            <tr>
+                                <th>Epoch Height</th>
+                                <td class="nodeproof-epoch-height"></td>
+                            </tr>
+                            <tr>
+                                <th>Target Height</th>
+                                <td class="nodeproof-target-height"></td>
+                            </tr>
+                            <tr>
+                                <th>Verified Nodes</th>
+                                <td class="nodeproof-verified-count"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0 nodeproof-verifications" width="100%">
+                            <thead>
+                            <tr class="info">
+                                <th>Signing Pubkey</th>
+                                <th>Staking Source</th>
+                                <th>Result</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
                     </div>
                 </div>
 

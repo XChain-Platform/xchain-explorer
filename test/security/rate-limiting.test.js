@@ -34,6 +34,33 @@ const apiSource = fs.readFileSync(
     'utf8'
 );
 
+// ---------------------------------------------------------------------------
+// Read XChainExplorer.js source for route-limiter verification
+// ---------------------------------------------------------------------------
+
+const explorerSource = fs.readFileSync(
+    path.join(__dirname, '../../src/XChainExplorer.js'),
+    'utf8'
+);
+
+// ===========================================================================
+// Route-specific limiters on compute-bound public endpoints
+// ===========================================================================
+
+describe('Security: Rate Limiting: compute-bound route limiters', function () {
+
+    it('the VM-call route carries its dedicated limiter', function () {
+        expect(explorerSource).to.match(/contract\/:contractIndex\/call',\s*vmQueryLimiter/);
+    });
+
+    it('the merkle action-proof route carries its dedicated limiter', function () {
+        // Proof recompute hashes every leaf in the target block per request;
+        // without a route limiter it runs at the platform-wide 500rpm default.
+        expect(explorerSource).to.match(/proof\/action\/:actionIndex',\s*actionProofLimiter/);
+        expect(explorerSource).to.include('EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM');
+    });
+});
+
 // ===========================================================================
 // Body size limit
 // ===========================================================================

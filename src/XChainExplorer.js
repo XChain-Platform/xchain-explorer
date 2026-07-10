@@ -477,9 +477,19 @@ class XChainExplorer {
         // committed state_root (never trusting this server's word). The balance proof
         // + checkpoint range are live; action / validator-set / contract-state are
         // reserved (501) pending their design dependencies (see the handlers).
+        // Merkle-proof recompute is CPU-bound per request (hashes every leaf in
+        // the target block), so cap it per-IP well below the platform-wide
+        // 500rpm default, mirroring the VM-call limiter's design.
+        const actionProofLimiter = rateLimit({
+            windowMs:        60 * 1000,
+            limit:           parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 60,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
+        });
         this.app.get('/:coin/api/proof/balance/:address/:tick', (req, res) => { this.processBalanceProofRequest(req, res); });
         this.app.get('/:coin/api/checkpoints/range', (req, res) => { this.processCheckpointsRangeRequest(req, res); });
-        this.app.get('/:coin/api/proof/action/:actionIndex', (req, res) => { this.processActionProofRequest(req, res); });
+        this.app.get('/:coin/api/proof/action/:actionIndex', actionProofLimiter, (req, res) => { this.processActionProofRequest(req, res); });
         this.app.get('/:coin/api/proof/validator-set', (req, res) => { this.processValidatorSetProofRequest(req, res); });
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
 
@@ -1356,26 +1366,10 @@ class XChainExplorer {
                 return res.status(404).json({ error: 'No checkpoint at this height', code: 'CHECKPOINT_NOT_FOUND' });
             let cp = rows[0];
 
-            // Canonical signing string, byte-identical to the hub engine + ANCHOR verifier.
-            // At/above the EQUIV flag-day (gated on the BTC snapshot_block + network) the v0
-            // canonical is wrapped in the uniform header (TAG=XCHECKPOINT, v0 ROUND_ID, VIEW=0).
-            let canonRaw = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
-                             cp.ledger_hash, cp.actions_hash, cp.contract_hash,
-                             String(cp.checkpoint_seq), String(cp.snapshot_block)].join('|');
-            // SPV Phase 2 (spec §6.1): post CHECKPOINT_COMMITMENT flag-day the signed string
-            // additively commits the light-client roots + version bytes from the checkpoint row.
-            // Appended to the RAW string BEFORE the EQUIV wrap; byte-identical to hub/SDK/anchor.
-            // Append only when the roots are present (legacy/null-root rows keep their original
-            // rootless canonical; the hub never signs a rootless checkpoint post-flag-day).
-            if(ckpt.isCheckpointCommitmentActive(cp.snapshot_block, cp.network) &&
-               cp.state_root != null && cp.block_merkle_root != null &&
-               cp.state_root_version != null && cp.block_merkle_version != null)
-                canonRaw += '|' + [String(cp.state_root).toLowerCase(), String(cp.state_root_version),
-                                   String(cp.block_merkle_root).toLowerCase(), String(cp.block_merkle_version)].join('|');
-            let canonical = eq.isEquivHeaderActive(cp.snapshot_block, cp.network)
-                ? eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT,
-                    cp.chain + '|' + cp.network + '|' + cp.block_index + '|' + cp.checkpoint_seq, 0, canonRaw)
-                : canonRaw;
+            // Canonical signing string, byte-identical to the hub engine + ANCHOR
+            // verifier + SDK (canonicalCheckpointString below the class; exported so
+            // the unit suite cross-checks it against the SDK builder byte-for-byte).
+            let canonical = canonicalCheckpointString(cp);
 
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
             let qualified  = new Set(validators.map(v => String(v.signing_pubkey).toLowerCase()));
@@ -1395,8 +1389,12 @@ class XChainExplorer {
                 let pk  = String(s && s.pubkey || '').toLowerCase();
                 let sig = String(s && s.sig || '');
                 if(!pk || seen.has(pk) || !qualified.has(pk)) continue;
-                seen.add(pk);
-                if(this.util.ed25519Verify(canonical, sig, pk)){ validSigs++; validSigners.push(pk); }
+                // Only mark a pubkey "seen" once its signature actually verifies
+                // (matching the SDK's hardened verifyCheckpoint): marking on first
+                // encounter would let a garbage-then-valid pair of entries for the
+                // same qualified validator suppress the real signature (order-
+                // dependent quorum under-count), failing a quorate checkpoint closed.
+                if(this.util.ed25519Verify(canonical, sig, pk)){ seen.add(pk); validSigs++; validSigners.push(pk); }
             }
 
             // Per-validator { pubkey, weight, source } so a client can re-derive the
@@ -1613,7 +1611,7 @@ class XChainExplorer {
                 return res.status(400).json({ error: 'Invalid contract index', code: 'INVALID_CONTRACT_INDEX' });
 
             let config = { coin, data: {} };
-            let result = await vmQuery.simulate(this.db, config, Number(contractIndex), req.body || {}, parsed.coin, parsed.network);
+            let result = await vmQuery.simulate(this.db, config, Number(contractIndex), req.body || {}, parsed.coin, parsed.network, req.ip);
 
             // Effects live under `simulation` with an explicit disclaimer so no
             // client can mistake a would-be write for an on-chain one.
@@ -1813,4 +1811,35 @@ class XChainExplorer {
     }
 }
 
+// The explorer's copy of the XCHECKPOINT canonical signing string, byte-identical
+// to the hub's StateCheckpointEngine.canonicalCheckpoint, the indexer's ANCHOR verifier,
+// xchain-sdk/src/checkpoint.js canonicalCheckpoint, xchain-sync/src/checkpoint.js
+// canonicalCheckpoint, xchain-indexer/src/recovery.js's _wrapperCanonical (rebuilds the
+// same base from parsed ANCHOR bytes), and xchain-hub/src/StateAnchorPublisher.js's
+// _archiveCanonical (nests _rawCanonicalCheckpoint). Six independent sibling copies;
+// all must change in lockstep with this one.
+// At/above the EQUIV flag-day (gated on the BTC snapshot_block + network) the v0
+// canonical is wrapped in the uniform header (TAG=XCHECKPOINT, v0 ROUND_ID, VIEW=0).
+// SPV Phase 2 (spec §6.1): post CHECKPOINT_COMMITMENT flag-day the signed string
+// additively commits the light-client roots + version bytes from the checkpoint row,
+// appended to the RAW string BEFORE the EQUIV wrap. Append only when the roots are
+// present (legacy/null-root rows keep their original rootless canonical; the hub
+// never signs a rootless checkpoint post-flag-day). Exported for the byte-parity
+// cross-check against the SDK builder in explorer.checkpoints.test.js.
+function canonicalCheckpointString(cp){
+    let canonRaw = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
+                     cp.ledger_hash, cp.actions_hash, cp.contract_hash,
+                     String(cp.checkpoint_seq), String(cp.snapshot_block)].join('|');
+    if(ckpt.isCheckpointCommitmentActive(cp.snapshot_block, cp.network) &&
+       cp.state_root != null && cp.block_merkle_root != null &&
+       cp.state_root_version != null && cp.block_merkle_version != null)
+        canonRaw += '|' + [String(cp.state_root).toLowerCase(), String(cp.state_root_version),
+                           String(cp.block_merkle_root).toLowerCase(), String(cp.block_merkle_version)].join('|');
+    return eq.isEquivHeaderActive(cp.snapshot_block, cp.network)
+        ? eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT,
+            cp.chain + '|' + cp.network + '|' + cp.block_index + '|' + cp.checkpoint_seq, 0, canonRaw)
+        : canonRaw;
+}
+
 module.exports = XChainExplorer;
+module.exports.canonicalCheckpointString = canonicalCheckpointString;

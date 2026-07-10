@@ -77,7 +77,11 @@ class ProofServer {
     // validator_signatures JSON so a client can re-verify quorum locally.
     _shapeCheckpoint(cp, chainTip) {
         let sigs = [];
-        try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch (e) { sigs = []; }
+        try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch (e) {
+            console.warn('[proofServer] malformed validator_signatures for checkpoint_seq ' +
+                          cp.checkpoint_seq + '; shaping response with empty signature set:', e.message);
+            sigs = [];
+        }
         let shaped = {
             chain: cp.chain, network: cp.network, block_index: Number(cp.block_index),
             block_hash: cp.block_hash, ledger_hash: cp.ledger_hash, actions_hash: cp.actions_hash,

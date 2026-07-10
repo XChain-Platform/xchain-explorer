@@ -34,6 +34,18 @@ function localExplorerSet() {
     const names = [...new Set([...src.matchAll(/type\s*==\s*["']([A-Z_]+)["']/g)].map(x => x[1]))];
     return names.filter(n => n !== 'UNKNOWN').sort(); // UNKNOWN is the catch-all render, not an action
 }
+// The two CLIENT halves of the render seam. getActionData returning rich data is
+// useless if xchain.js has no dispatch branch or action.html no info-* panel:
+// the page falls through to '#additionalInfoNotAvailable' and renders blank.
+function renderDispatchSet() {
+    const src = decomment(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'content', 'js', 'xchain.js'), 'utf8'));
+    return [...new Set([...src.matchAll(/o\.action\s*==\s*["']([A-Z_]+)["']/g)].map(x => x[1]))].sort();
+}
+function panelIdSet() {
+    const html = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'content', 'html', 'action.html'), 'utf8');
+    return [...new Set([...html.matchAll(/id="info-([a-z0-9-]+)"/g)].map(x => x[1]))].sort();
+}
+const panelSlug = (action) => action.replace(/_/g, '-').toLowerCase();
 
 describe('ACTION manifest conformance: explorer explorerRender set @regression', function () {
     it('getActionData branches exactly equal the manifest explorerRender slice', function () {
@@ -46,6 +58,35 @@ describe('ACTION manifest conformance: explorer explorerRender set @regression',
             'MISSING (in manifest, no render branch -> blank public page): ' + JSON.stringify(missing) +
             '. EXTRA (rendered, not in manifest): ' + JSON.stringify(extra) +
             '. Edit xchain-documentation/protocol/action-manifest.json + re-vendor, or add the getActionData branch.');
+    });
+
+    it('every explorerRender action has a showActionDetails dispatch branch in xchain.js', function () {
+        const expected = manifestSlice('explorerRender');
+        const dispatch = renderDispatchSet();
+        const missing  = expected.filter(a => !dispatch.includes(a));
+        assert.deepStrictEqual(missing, [],
+            'action(s) marked explorerRender have a getActionData branch but NO client render ' +
+            'dispatch (showActionDetails in src/content/js/xchain.js), so their detail pages fall ' +
+            'through to "No additional information is available": ' + JSON.stringify(missing));
+    });
+
+    it('every explorerRender action has a matching info-* panel in action.html', function () {
+        const expected = manifestSlice('explorerRender');
+        const panels   = panelIdSet();
+        const missing  = expected.filter(a => !panels.includes(panelSlug(a)));
+        assert.deepStrictEqual(missing, [],
+            'action(s) marked explorerRender have no #info-<slug> panel in ' +
+            'src/content/html/action.html, so showActionDetails un-hides a nonexistent element ' +
+            'and the page stays blank: ' + JSON.stringify(missing));
+    });
+
+    it('every render-dispatch branch has a matching info-* panel (no dangling dispatch)', function () {
+        const dispatch = renderDispatchSet();
+        const panels   = panelIdSet();
+        const missing  = dispatch.filter(a => !panels.includes(panelSlug(a)));
+        assert.deepStrictEqual(missing, [],
+            'showActionDetails dispatches these actions but action.html has no matching ' +
+            '#info-<slug> panel to un-hide: ' + JSON.stringify(missing));
     });
 
     describe('byte-identity to canonical manifest', function () {

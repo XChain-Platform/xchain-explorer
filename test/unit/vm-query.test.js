@@ -204,6 +204,66 @@ describe('vm-query', () => {
         expect(r.success).to.equal(true);
     });
 
+    it('caps concurrent slots PER IP so paced clients cannot hold the whole pool', async () => {
+        process.env.EXPLORER_VM_MAX_CONCURRENT = '4';
+        process.env.EXPLORER_VM_MAX_CONCURRENT_PER_IP = '1';
+        let release;
+        const gate = new Promise(res => { release = res; });
+        const vmq = loadVmQuery(fakeVmModule(async () => { await gate; return {
+            success: true, error: null, gasUsed: 1, returnValue: null,
+            stateChanges: [], stateDeletes: [], emittedActions: [], logs: []
+        }; }));
+        try {
+            const first = vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest', '10.0.0.1');
+            await new Promise(res => setImmediate(res));
+            // Same IP: per-IP cap (1) trips even though 3 global slots are free.
+            try {
+                await vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest', '10.0.0.1');
+                throw new Error('should have thrown');
+            } catch(e){
+                expect(e.code).to.equal('VM_BUSY');
+                expect(e.httpStatus).to.equal(429);
+            }
+            // A different IP still gets a slot.
+            const otherIp = vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest', '10.0.0.2');
+            await new Promise(res => setImmediate(res));
+            release();
+            await first;
+            await otherIp;
+            // Slot released: the same IP goes through again.
+            const again = await vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest', '10.0.0.1');
+            expect(again.success).to.equal(true);
+        } finally {
+            delete process.env.EXPLORER_VM_MAX_CONCURRENT_PER_IP;
+        }
+    });
+
+    it('per-IP cap defaults to half the global pool (min 1) and skips when no IP is supplied', async () => {
+        process.env.EXPLORER_VM_MAX_CONCURRENT = '4';   // default per-IP share = 2
+        let release;
+        const gate = new Promise(res => { release = res; });
+        const vmq = loadVmQuery(fakeVmModule(async () => { await gate; return {
+            success: true, error: null, gasUsed: 1, returnValue: null,
+            stateChanges: [], stateDeletes: [], emittedActions: [], logs: []
+        }; }));
+        const a1 = vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest', '10.0.0.9');
+        const a2 = vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest', '10.0.0.9');
+        await new Promise(res => setImmediate(res));
+        try {
+            await vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest', '10.0.0.9');
+            throw new Error('should have thrown');
+        } catch(e){
+            expect(e.code).to.equal('VM_BUSY');
+        }
+        // Legacy/no-IP callers are bounded only by the global cap (one slot left).
+        const noIp = vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
+        await new Promise(res => setImmediate(res));
+        release();
+        await a1; await a2;
+        const r = await noIp;
+        expect(r.success).to.equal(true);
+    });
+
     it('maps a STATE_TOO_LARGE state load to 413 and threads the row/byte caps', async () => {
         let capturedLimits;
         const vmq = loadVmQuery(fakeVmModule());

@@ -227,6 +227,30 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.verified).to.equal(false);
     });
 
+    it('a garbage-then-valid duplicate for one qualified signer still verifies (seen marked after verify)', async function () {
+        // validator_signatures is untrusted transport data: an invalid entry for
+        // PK('b') ordered BEFORE its genuine one must not suppress the real
+        // signature. Marking "seen" on first encounter (pre-2026-07-09 behavior)
+        // under-counted valid_sigs to 1 (< quorum 2) and false-rejected a quorate
+        // checkpoint the SDK's hardened verifyCheckpoint accepts.
+        const BAD = '0'.repeat(128), GOOD = '1'.repeat(128);
+        const explorer = makeExplorer();
+        explorer.util.ed25519Verify.callsFake((canonical, sig) => sig !== BAD);
+        const cpRow = { ...CP, validator_signatures: JSON.stringify([
+            { pubkey: PK('b'), sig: BAD },     // garbage entry first
+            { pubkey: PK('a'), sig: GOOD },
+            { pubkey: PK('b'), sig: GOOD }     // the genuine signature
+        ]) };
+        explorer.db.getCheckpointRows.resolves([cpRow]);
+        explorer.db.getCapabilitySnapshotRows.resolves(
+            ['a', 'b'].map(c => snapRow(PK(c), 'src_' + c)));   // quorum = 2 of 2
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.quorum).to.equal(2);
+        expect(res._body.valid_sigs).to.equal(2);              // b counted once, not dropped
+        expect(res._body.verified).to.equal(true);
+    });
+
     it('reports snapshot_available=false (and unverified) when the oracle_publish set is not mirrored here', async function () {
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves([{ ...CP }]);
@@ -273,4 +297,65 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._status).to.equal(500);
         expect(res._body).to.include({ code: 'SERVER_ERROR' });
     });
+});
+
+
+// ===========================================================================
+// Canonical-string byte-parity vs the SDK builder (4th-copy drift guard)
+// ===========================================================================
+// The XCHECKPOINT canonical is independently reconstructed in FOUR places (hub
+// engine, SDK checkpoint.js, indexer anchor.js, and the explorer's
+// canonicalCheckpointString). The cross-service parity suite compares only
+// hub==SDK==indexer; this block covers the explorer's copy against the SDK so
+// a drift (root-suffix ordering, EQUIV wrap gating) cannot ship with every
+// suite green. Skips when the sibling xchain-sdk checkout is absent, matching
+// the repo's other skip-if-absent conformance tests.
+describe('explorer canonicalCheckpointString == SDK canonicalCheckpoint @regression', function () {
+    const fs   = require('fs');
+    const path = require('path');
+    const SDK_CHECKPOINT = process.env.XCHAIN_SDK_DIR
+        ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'checkpoint.js')
+        : path.join(__dirname, '..', '..', '..', 'xchain-sdk', 'src', 'checkpoint.js');
+    before(function () { if (!fs.existsSync(SDK_CHECKPOINT)) this.skip(); });
+
+    // Real flag-day gates on BOTH sides: the file-global beforeEach stubs the
+    // explorer's eq/swq modules, but the SDK uses its own copies, so an
+    // asymmetric stub would fake a mismatch. Drop the stubs for these tests.
+    beforeEach(function () {
+        if (eq.isEquivHeaderActive.restore)  eq.isEquivHeaderActive.restore();
+        if (swq.isStakeWeightedQuorumActive.restore) swq.isStakeWeightedQuorumActive.restore();
+    });
+
+    const ROWS = {
+        'legacy mainnet row (pre flag-days, no roots)': {
+            ...CP, network: 'mainnet', snapshot_block: 100,
+            state_root: null, block_merkle_root: null,
+            state_root_version: null, block_merkle_version: null
+        },
+        'regtest row without roots (rootless canonical)': {
+            ...CP, network: 'regtest', snapshot_block: 100,
+            state_root: null, block_merkle_root: null,
+            state_root_version: null, block_merkle_version: null
+        },
+        'regtest row with SPV roots (post CHECKPOINT_COMMITMENT shape)': {
+            ...CP, network: 'regtest', snapshot_block: 100,
+            state_root: 'AB'.repeat(32), state_root_version: 1,
+            block_merkle_root: 'CD'.repeat(32), block_merkle_version: 1
+        },
+        'high-snapshot mainnet row with roots (post-flag-day shape)': {
+            ...CP, network: 'mainnet', snapshot_block: 2000000,
+            state_root: 'ab'.repeat(32), state_root_version: 1,
+            block_merkle_root: 'cd'.repeat(32), block_merkle_version: 1
+        }
+    };
+
+    for (const [name, row] of Object.entries(ROWS)) {
+        it('byte-identical for a ' + name, function () {
+            const sdk = require(SDK_CHECKPOINT);
+            expect(typeof XChainExplorer.canonicalCheckpointString).to.equal('function');
+            expect(XChainExplorer.canonicalCheckpointString({ ...row }))
+                .to.equal(sdk.canonicalCheckpoint({ ...row }),
+                    'explorer 4th canonical copy drifted from the SDK builder for: ' + name);
+        });
+    }
 });

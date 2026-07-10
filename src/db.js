@@ -8577,6 +8577,24 @@ class Database {
         return null;
     }
 
+    // Parent-dispenser lookup for DISPENSE lifecycle enrichment. The event's own
+    // action_index is the dispense; SDK consumers correlate a dispense to its
+    // dispenser via data.dispenser_action_index (xchain-sdk XChainSDK DISPENSE
+    // handler), so the ChangeDetector attaches this value to the event.
+    async getDispenseDispenserIndex(config, actionIndex) {
+        let query = `SELECT
+                        dispenser_action_index
+                    FROM
+                        dispenses
+                    WHERE
+                        action_index=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length && results[0].dispenser_action_index != null)
+            return results[0].dispenser_action_index;
+        return null;
+    }
+
     async getContracts(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -8838,7 +8856,18 @@ class Database {
                      LIMIT ` + maxRows;
         let results = await this.doQuery(config, query, [contractIndex]);
         let state = Object.create(null);
+        let loadedBytes = 0;
         for(let row of (results || [])){
+            // Re-verify the byte budget against the rows actually fetched: the
+            // aggregate gate above and this SELECT are two separate queries, so
+            // state written between them can push the real payload past the cap
+            // the gate approved (TOCTOU). LIMIT bounds row count; this bounds bytes.
+            loadedBytes += row.state_value == null ? 0 : Buffer.byteLength(String(row.state_value));
+            if(loadedBytes > maxBytes){
+                let err  = new Error('contract state exceeded simulation byte budget while loading (>' + maxBytes + ' bytes)');
+                err.code = 'STATE_TOO_LARGE';
+                throw err;
+            }
             try { state[row.state_key] = JSON.parse(row.state_value); }
             catch(e){ state[row.state_key] = row.state_value; }
         }

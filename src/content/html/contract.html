@@ -411,6 +411,19 @@ $(document).ready(function() {
                 out.html('<div class="text-danger">Fill in every declared parameter (they are positional).</div>');
                 return;
             }
+            // Reject the wire delimiters, mirroring the read/simulate path
+            // (vm-query.js validateRequest): params are joined with '|' below,
+            // so a '|' inside any value would displace every later positional
+            // param by one slot in the wallet's split('|') parse; ';' in the
+            // method would break the encoded action the same way.
+            if(method.indexOf('|') !== -1 || method.indexOf(';') !== -1){
+                out.html('<div class="text-danger">Method must not contain the | or ; wire delimiters.</div>');
+                return;
+            }
+            if(params.some(function(v){ return v.indexOf('|') !== -1; })){
+                out.html('<div class="text-danger">Parameters must not contain the | wire delimiter (it separates positional values).</div>');
+                return;
+            }
             let uri = 'xchain:' + XC.coin + '/execute?contract=' + encodeURIComponent(XC.query) +
                       '&method=' + encodeURIComponent(method);
             if(params.length) uri += '&params=' + encodeURIComponent(params.join('|'));

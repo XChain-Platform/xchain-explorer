@@ -1576,4 +1576,21 @@ describe('Database#getContractFullState', () => {
         await db.getContractFullState(cfg(), 900, { maxRows: 500, maxBytes: 1000 });
         expect(dq.secondCall.args[1]).to.include('LIMIT 500');
     });
+
+    it('re-verifies the byte cap against the FETCHED rows (gate/fetch TOCTOU)', async () => {
+        // The aggregate gate approved a small payload, but rows written between
+        // the two queries push the actually-fetched set past maxBytes: the
+        // loader must throw STATE_TOO_LARGE rather than hand the VM an
+        // oversized state object.
+        stubState({ total_rows: 2, total_bytes: 10 }, [
+            { state_key: 'a', state_value: 'x'.repeat(600) },
+            { state_key: 'b', state_value: 'y'.repeat(600) }
+        ]);
+        try {
+            await db.getContractFullState(cfg(), 900, { maxRows: 500, maxBytes: 1000 });
+            throw new Error('should have thrown');
+        } catch(e){
+            expect(e.code).to.equal('STATE_TOO_LARGE');
+        }
+    });
 });

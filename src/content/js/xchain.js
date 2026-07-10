@@ -2232,6 +2232,11 @@ function showActionDetails(){
     if(o.action=='XCALL'){            found = true;  showXcallDetails(o);           }
     if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
     if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
+    if(o.action=='COINPAY'){          found = true;  showCoinpayDetails(o);         }
+    if(o.action=='COINPAY_EXPIRE'){   found = true;  showCoinpayExpireDetails(o);   }
+    if(o.action=='ANCHOR'){           found = true;  showAnchorDetails(o);          }
+    if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
+    if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -2884,6 +2889,75 @@ function showSweepDetails(data){
     $('#info-sweep .sweep-dispensers').html(data.dispensers);
     $('#info-sweep .sweep-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     $('#info-sweep .sweep-memo').text(data.memo);
+}
+
+// Display COINPAY action information (native-coin settlement payment for an obligation)
+function showCoinpayDetails(data){
+    $('#info-coinpay .coinpay-obligation').html(isNull(data.obligation_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.obligation_action_index, numeral(data.obligation_action_index).format('0,0')));
+    $('#info-coinpay .coinpay-coin-amount').html(isNull(data.coin_amount) ? '-' : formatAmount(data.coin_amount));
+    $('#info-coinpay .coinpay-txid').html(isNull(data.txid) ? '-' : formatHash(data.txid, 32));
+    $('#info-coinpay .coinpay-vout').text(isNull(data.vout) ? '-' : data.vout);
+    $('#info-coinpay .coinpay-status').text(isNull(data.status) ? '-' : data.status);
+}
+
+// Display COINPAY_EXPIRE action information (obligation settlement window lapsed)
+function showCoinpayExpireDetails(data){
+    $('#info-coinpay-expire .coinpay-expire-obligation').html(isNull(data.obligation_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.obligation_action_index, numeral(data.obligation_action_index).format('0,0')));
+    $('#info-coinpay-expire .coinpay-expire-status').text(isNull(data.status) ? '-' : data.status);
+}
+
+// Display ANCHOR action information (DOGE checkpoint: v0 checkpoint, v1 +archive, v2 continuation chunk)
+function showAnchorDetails(data){
+    $('#info-anchor .anchor-version').text(isNull(data.version) ? '-' : ('v' + data.version));
+    $('#info-anchor .anchor-chain').text(isNull(data.chain) ? '-' : data.chain);
+    $('#info-anchor .anchor-network').text(isNull(data.network) ? '-' : data.network);
+    $('#info-anchor .anchor-checkpoint-seq').text(isNull(data.checkpoint_seq) ? '-' : numeral(data.checkpoint_seq).format('0,0'));
+    $('#info-anchor .anchor-snapshot-block').html(isNull(data.snapshot_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.snapshot_block, numeral(data.snapshot_block).format('0,0')));
+    $('#info-anchor .anchor-block-hash').html(isNull(data.block_hash) ? '-' : formatHash(data.block_hash, 32));
+    $('#info-anchor .anchor-ledger-hash').html(isNull(data.ledger_hash) ? '-' : formatHash(data.ledger_hash, 32));
+    $('#info-anchor .anchor-actions-hash').html(isNull(data.actions_hash) ? '-' : formatHash(data.actions_hash, 32));
+    $('#info-anchor .anchor-contract-hash').html(isNull(data.contract_hash) ? '-' : formatHash(data.contract_hash, 32));
+    $('#info-anchor .anchor-match-batch').text(isNull(data.match_batch_seq) ? '-' : numeral(data.match_batch_seq).format('0,0'));
+    $('#info-anchor .anchor-match-count').text(isNull(data.match_count) ? '-' : numeral(data.match_count).format('0,0'));
+    $('#info-anchor .anchor-chunk').text(isNull(data.chunk_index) ? '-' : (data.chunk_index + ' of ' + data.total_chunks));
+    $('#info-anchor .anchor-doge-block').text(isNull(data.block_index_doge) ? '-' : numeral(data.block_index_doge).format('0,0'));
+    // SPV commitment roots (NULL pre-CHECKPOINT_COMMITMENT flag-day; populated for v3).
+    let hasRoots = !isNull(data.state_root) || !isNull(data.block_merkle_root);
+    $('#info-anchor .anchor-roots-row').toggleClass('d-none', !hasRoots);
+    if(hasRoots){
+        $('#info-anchor .anchor-state-root').html(isNull(data.state_root) ? '-' : formatHash(data.state_root, 32));
+        $('#info-anchor .anchor-block-merkle-root').html(isNull(data.block_merkle_root) ? '-' : formatHash(data.block_merkle_root, 32));
+    }
+}
+
+// Display PRICE action information (v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)
+function showPriceDetails(data){
+    $('#info-price .price-version').html(Number(data.version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
+    $('#info-price .price-coin').text(isNull(data.coin) ? '-' : data.coin);
+    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
+    $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
+    $('#info-price .price-round').text(isNull(data.round_number) ? '-' : numeral(data.round_number).format('0,0'));
+    $('#info-price .price-round-timestamp').text(isNull(data.round_timestamp) ? '-' : data.round_timestamp);
+    $('#info-price .price-pairs').text(isNull(data.pairs_json) ? (isNull(data.pair_count) ? '-' : data.pair_count) : String(data.pairs_json));
+    $('#info-price .price-sig-count').text(isNull(data.sig_count) ? '-' : numeral(data.sig_count).format('0,0'));
+    $('#info-price .price-validation-status').text(isNull(data.validation_status) ? '-' : data.validation_status);
+}
+
+// Display NODEPROOF action information (full-node possession-proof verdict + per-validator PASS list)
+function showNodeproofDetails(data){
+    $('#info-nodeproof .nodeproof-challenge').html(isNull(data.challenge_id) ? '-' : formatHash(data.challenge_id, 32));
+    $('#info-nodeproof .nodeproof-epoch-height').html(isNull(data.epoch_height) ? '-' : formatLink('/' + XC.coin + '/block/' + data.epoch_height, numeral(data.epoch_height).format('0,0')));
+    $('#info-nodeproof .nodeproof-target-height').html(isNull(data.target_height) ? '-' : formatLink('/' + XC.coin + '/block/' + data.target_height, numeral(data.target_height).format('0,0')));
+    let verifs = Array.isArray(data.verifications) ? data.verifications : [];
+    $('#info-nodeproof .nodeproof-verified-count').text(verifs.length);
+    let rows = '';
+    for(let v of verifs){
+        let badge = '<span class="badge text-bg-' + (v.passed==1 ? 'success' : 'danger') + '">' + (v.passed==1 ? 'Pass' : 'Fail') + '</span>';
+        let src   = isNull(v.staking_source) ? '-' : formatLink('/' + XC.coin + '/address/' + v.staking_source, v.staking_source);
+        rows += '<tr><td>' + formatHash(v.signing_pubkey, 32) + '</td><td>' + src + '</td><td>' + badge + '</td></tr>';
+    }
+    $('#info-nodeproof .nodeproof-verifications tbody').html(rows || '<tr><td colspan="3">-</td></tr>');
 }
 
 // Display FEE details

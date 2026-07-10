@@ -407,11 +407,17 @@ function formatLink(url=null, text=null, icon=false, btn=false){
 
 // Return a truncated hex string (hash / pubkey / request_id) with a hover title
 // showing the full value. Keeps long 64/128-hex identifiers readable in tables.
+// The value is normally opaque hex, but callers pass on-chain hash-shaped fields
+// that are only hex on VALID rows: an INVALID-status ANCHOR (any address can
+// broadcast a malformed ANCHOR-format DOGE tx) persists its raw BLOCK_HASH etc.
+// verbatim, and this string reaches jQuery .html(). Escape both the truncated
+// body and the title attribute (a no-op on real hex) so a poisoned field can
+// never break out of the attribute or inject an element.
 function formatHash(hash, len=16){
     if(isNull(hash)) return '';
     let str = String(hash);
-    if(str.length <= len) return str;
-    return '<span title="' + str + '">' + str.substring(0, len) + '…</span>';
+    if(str.length <= len) return escapeHtml(str);
+    return '<span title="' + escapeHtml(str) + '">' + escapeHtml(str.substring(0, len)) + '…</span>';
 }
 
 // Return a nicely formatted amount with token links
@@ -2939,7 +2945,7 @@ function showPriceDetails(data){
     $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
     $('#info-price .price-round').text(isNull(data.round_number) ? '-' : numeral(data.round_number).format('0,0'));
     $('#info-price .price-round-timestamp').text(isNull(data.round_timestamp) ? '-' : data.round_timestamp);
-    $('#info-price .price-pairs').text(isNull(data.pairs_json) ? (isNull(data.pair_count) ? '-' : data.pair_count) : String(data.pairs_json));
+    $('#info-price .price-pairs').text(isNull(data.pairs) ? (isNull(data.pair_count) ? '-' : data.pair_count) : JSON.stringify(data.pairs));
     $('#info-price .price-sig-count').text(isNull(data.sig_count) ? '-' : numeral(data.sig_count).format('0,0'));
     $('#info-price .price-validation-status').text(isNull(data.validation_status) ? '-' : data.validation_status);
 }

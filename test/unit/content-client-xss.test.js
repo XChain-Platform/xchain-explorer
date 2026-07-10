@@ -71,7 +71,9 @@ function loadClientFns() {
         extractFn('stripHtml'),
         extractFn('highlightSearchTerm'),
         extractFn('buildSandboxedContentDoc'),
-        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm, buildSandboxedContentDoc: buildSandboxedContentDoc })',
+        extractFn('isNull'),
+        extractFn('formatHash'),
+        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm, buildSandboxedContentDoc: buildSandboxedContentDoc, formatHash: formatHash })',
     ].join('\n');
     const fns = vm.runInContext(program, context);
     return { fns, dom };
@@ -102,10 +104,10 @@ const PAYLOADS = {
 };
 
 describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', function () {
-    let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc;
+    let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash;
 
     before(function () {
-        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc } } = loadClientFns());
+        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash } } = loadClientFns());
     });
 
     describe('escapeHtml()', function () {
@@ -217,6 +219,42 @@ describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', func
             expect(m, 'customContentViewer must declare a sandbox').to.not.equal(null);
             expect(m[1]).to.contain('allow-scripts');
             expect(m[1]).to.not.contain('allow-same-origin'); // would re-grant explorer-origin access
+        });
+    });
+
+    describe('formatHash() stored-XSS (hash-shaped fields on invalid-status rows)', function () {
+        // showAnchorDetails() renders anchor block_hash/ledger_hash/actions_hash/
+        // contract_hash/state_root/block_merkle_root via formatHash into jQuery
+        // .html(). Those are 64-hex on VALID anchors, but an INVALID-status ANCHOR
+        // (anyone can broadcast a malformed ANCHOR-format DOGE tx) persists its raw
+        // BLOCK_HASH verbatim (VARCHAR(64), lowercased but HTML metachars survive).
+        it('neutralizes an attribute-breakout payload in the long (truncated) branch', function () {
+            // 30 chars > default len 16, so it takes the <span title="..."> branch.
+            const payload = '"><img src=x onerror=alert(1)>';
+            const out = formatHash(payload, 16);
+            const { tags, hasHandler } = inspect(out);
+            expect(tags, 'only the wrapping span may survive').to.deep.equal(['span']);
+            expect(hasHandler, 'no on* handler may reach the DOM').to.equal(false);
+            expect(out).to.not.match(/<img\b/i);
+        });
+
+        it('neutralizes a payload in the short (untruncated) branch', function () {
+            const payload = '<svg onload=alert(1)>';   // 21 chars; use a larger len to hit the short branch
+            const out = formatHash(payload, 64);
+            const { tags, hasHandler } = inspect(out);
+            expect(tags).to.deep.equal([]);
+            expect(hasHandler).to.equal(false);
+        });
+
+        it('leaves a real 64-hex hash intact (escaping is a no-op on hex)', function () {
+            const hex = 'a'.repeat(64);
+            const out = formatHash(hex, 16);
+            expect(out).to.equal('<span title="' + hex + '">' + 'a'.repeat(16) + '…</span>');
+        });
+
+        it('returns empty string for null/undefined (no "null" leak)', function () {
+            expect(formatHash(null)).to.equal('');
+            expect(formatHash(undefined)).to.equal('');
         });
     });
 });

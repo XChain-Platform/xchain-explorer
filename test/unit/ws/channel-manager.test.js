@@ -328,6 +328,23 @@ describe('ChannelManager', function () {
             const list = cm.listSubscriptions(client);
             expect(list).to.deep.equal([]);
         });
+
+        // Regression: subscribe() echoes action_index as a NUMBER (see the
+        // 'subscribes to dispenser channel' test above), but listSubscriptions()
+        // used to reconstruct it from the channel key via string split, returning
+        // a STRING. A client reconciling the two frames with === or a Map key
+        // would silently report the subscription as missing.
+        it('returns action_index as a number for dispenser subscriptions, matching subscribe()', function () {
+            const client = createClient(1);
+            const subscribeResult = cm.subscribe(client, ['dispenser'], { action_index: 45678 });
+            expect(subscribeResult.subscribed[0].action_index).to.equal(45678);
+            expect(subscribeResult.subscribed[0].action_index).to.be.a('number');
+
+            const list = cm.listSubscriptions(client);
+            const entry = list.find(s => s.channel === 'dispenser');
+            expect(entry.action_index).to.equal(45678);
+            expect(entry.action_index).to.be.a('number');
+        });
     });
 
     // -----------------------------------------------------------------

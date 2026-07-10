@@ -359,7 +359,7 @@ class ChannelManager {
         if (channel === 'address' && parts.length > 2)   entityKey = { address: parts.slice(2).join(':') };
         if (channel === 'token' && parts.length > 2)      entityKey = { tick: parts[2] };
         if (channel === 'market' && parts.length > 3)     entityKey = { tick1: parts[2], tick2: parts[3] };
-        if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: parts[2] };
+        if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: Number(parts[2]) };
 
         return { coin, channel, entityKey };
     }
@@ -428,3 +428,4 @@ class ChannelManager {
 }
 
 module.exports = ChannelManager;
+module.exports.VALID_TYPES = VALID_TYPES;

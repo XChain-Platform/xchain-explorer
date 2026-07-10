@@ -234,18 +234,10 @@ class WebSocketServer {
                     max_connections_per_ip: this.maxPerIp
                 },
                 channels: ['blocks', 'actions', 'mempool', 'network', 'attestation', 'address', 'token', 'market', 'dispenser'],
-                types: [
-                    'ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE',
-                    'COINPAY', 'COINPAY_EXPIRE',
-                    'SWAP', 'SWAP_MATCH', 'SWAP_EXPIRE',
-                    'DISPENSER', 'DISPENSE', 'DISPENSER_CLOSE', 'DISPENSER_EXPIRE',
-                    'SEND', 'SWEEP', 'AIRDROP', 'DIVIDEND',
-                    'ISSUE', 'MINT', 'DESTROY',
-                    'BROADCAST', 'CALLBACK', 'FILE', 'MESSAGE', 'LIST', 'LINK', 'SLEEP',
-                    'DEPLOY', 'EXECUTE', 'DEPOSIT', 'WITHDRAW',
-                    'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST',
-                    'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF'
-                ],
+                // Derived from ChannelManager.VALID_TYPES (the single authority that
+                // actually validates params.types) so this self-description cannot
+                // silently under-advertise a filterable type again.
+                types: [...ChannelManager.VALID_TYPES],
                 features: ['snapshot', 'once', 'fields', 'statuses', 'ticks', 'batch', 'catch_up']
             }
         };

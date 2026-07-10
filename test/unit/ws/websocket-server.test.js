@@ -122,3 +122,24 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(snap.callCount).to.equal(1);
     });
 });
+
+describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance)', function () {
+
+    afterEach(() => sinon.restore());
+
+    it('advertises exactly the set of types ChannelManager.VALID_TYPES accepts', async function () {
+        const ChannelManager = require('../../../src/ws/ChannelManager.js');
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        await s._sendWelcome(client);
+
+        expect(client.ws.send.callCount).to.equal(1);
+        const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
+        expect(welcome.type).to.equal('WELCOME');
+        // Set-equality: no extras, no omissions (this is the regression guard --
+        // WELCOME's types list previously under-advertised the ten lifecycle
+        // event types, e.g. ORDER_COMPLETED, DISPENSER_CANCELLED).
+        expect(new Set(welcome.data.types)).to.deep.equal(ChannelManager.VALID_TYPES);
+    });
+});

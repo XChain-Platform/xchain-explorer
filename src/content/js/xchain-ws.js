@@ -21,6 +21,13 @@
  *
  ********************************************************************/
 
+// WS event-envelope schema version this bundled browser client understands.
+// This file is a plain, un-bundled browser script (served via express.static,
+// no require()), so it cannot import src/ws/schema-version.js's WS_SCHEMA_VERSION
+// directly; keep this literal in sync with that constant by hand. A conformance
+// test (test/unit/ws/schema-version-client.test.js) fails the build if they drift.
+var CLIENT_WS_SCHEMA_VERSION = 1;
+
 var XChainWS = {
 
     // State
@@ -166,10 +173,10 @@ var XChainWS = {
         // schema_version (distinct from the build version). If the server
         // speaks a NEWER envelope schema than this client knows, payload
         // shapes may have changed; warn once instead of silently mis-parsing.
-        if (msg.schema_version !== undefined && msg.schema_version > 1 && !this._schemaWarned) {
+        if (msg.schema_version !== undefined && msg.schema_version > CLIENT_WS_SCHEMA_VERSION && !this._schemaWarned) {
             this._schemaWarned = true;
             console.warn('[XChainWS] Server WS schema_version ' + msg.schema_version +
-                ' is newer than this client understands (1); event payload shapes may have changed.');
+                ' is newer than this client understands (' + CLIENT_WS_SCHEMA_VERSION + '); event payload shapes may have changed.');
         }
 
         // Handle system messages

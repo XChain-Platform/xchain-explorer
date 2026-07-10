@@ -95,7 +95,7 @@ class Broadcaster {
     }
 
     // Handle new block from ChangeDetector
-    _onBlock(coin, block) {
+    async _onBlock(coin, block) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -116,7 +116,17 @@ class Broadcaster {
         // Broadcast to 'blocks' channel subscribers
         this._broadcastToChannel(coin, 'blocks', event, null);
 
-        // Also push NETWORK_STATS to 'network' subscribers
+        // Also push NETWORK_STATS to 'network' subscribers. total_actions must
+        // report the CUMULATIVE max action index (matching the snapshot built
+        // in WebSocketServer._sendSnapshots and the documented contract), not
+        // the per-block action count, or a subscriber that seeds a counter
+        // from the snapshot sees it collapse on the next live frame.
+        let totalActions = block.action_count || 0;
+        try {
+            totalActions = (await this.wsServer.explorer.db.getMaxActionIndex({ coin })) || 0;
+        } catch (e) {
+            // Non-fatal: fall back to the per-block count rather than drop the frame
+        }
         const stats = {
             type:      'NETWORK_STATS',
             chain:     info.chain,
@@ -124,7 +134,7 @@ class Broadcaster {
             timestamp: Date.now(),
             data: {
                 block_height:  block.block_index,
-                total_actions: block.action_count || 0
+                total_actions: totalActions
             }
         };
         this._broadcastToChannel(coin, 'network', stats, null);
@@ -282,10 +292,16 @@ class Broadcaster {
             if (subscribers.size === 0) channelManager.subscriptions.delete(key);
             if (client) {
                 client.subscriptions.delete(key);
+                // Emit the bare channel name with the entity id as a sibling field,
+                // matching SUBSCRIBED/SUBSCRIPTION_LIST, instead of the internal
+                // coin-prefixed channel key (e.g. "BTC:address:1abc...") -- a client
+                // that tracks subscriptions by the bare name could never match this
+                // frame and would leak the bookkeeping entry as still-live.
+                const parsed = channelManager._parseChannelKey(key);
                 this._send(client, {
                     type:      'UNSUBSCRIBED',
                     timestamp: Date.now(),
-                    data:      { channel: key, reason: 'once' }
+                    data:      Object.assign({ channel: parsed.channel }, parsed.entityKey, { reason: 'once' })
                 });
             }
         }
@@ -349,10 +365,16 @@ class Broadcaster {
         return addrs;
     }
 
-    // Send a message to a specific client
+    // Send a message to a specific client. Stamps schema_version like the other
+    // two send sinks (WebSocketServer._send and _broadcastToChannelKey's
+    // per-subscriber send) so the "every outbound frame is stamped" invariant
+    // in ws/schema-version.js holds for this sink too (e.g. the UNSUBSCRIBED
+    // frame emitted on a once:true subscription).
     _send(client, msg) {
         if (client.ws.readyState === 1) {
             try {
+                if (msg && typeof msg === 'object' && msg.schema_version === undefined)
+                    msg.schema_version = WS_SCHEMA_VERSION;
                 client.ws.send(safeStringify(msg));
             } catch (e) {
                 // ignore

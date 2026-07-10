@@ -30,6 +30,7 @@ function mk(over) {
         getBlocksSince:              sinon.stub().resolves([]),
         getActionsSince:             sinon.stub().resolves([]),
         getOrderMatchSettlement:     sinon.stub().resolves(null),
+        getDispenseDispenserIndex:   sinon.stub().resolves(null),
         getCoinpayObligation:        sinon.stub().resolves(null),
         getAddressBalances:          sinon.stub().resolves([]),
         getTokenInfo:                sinon.stub().resolves(null),
@@ -296,6 +297,28 @@ describe('ChangeDetector', function () {
             expect(types).to.include('COINPAY_REQUIRED');
             expect(types).to.include('ORDER_MATCH');
             expect(evs.find(e => e.type === 'ORDER_MATCH').data.settlement_type).to.equal('coinpay');
+        });
+
+        it('enriches DISPENSE with the parent dispenser_action_index the SDK reads', async function () {
+            let det = mk();
+            det.db.getDispenseDispenserIndex.resolves(42);
+            let evs = [];
+            det.on('lifecycle_event', (c, e) => evs.push(e));
+            await det._emitLifecycleEvents('BTC', { coin: 'BTC' }, { action: 'DISPENSE', action_index: 7 });
+            expect(evs).to.have.length(1);
+            expect(evs[0].type).to.equal('DISPENSE');
+            expect(evs[0].data.dispenser_action_index).to.equal(42);
+            expect(det.db.getDispenseDispenserIndex.calledOnceWith({ coin: 'BTC' }, 7)).to.equal(true);
+        });
+
+        it('DISPENSE enrichment failure still emits the base event with a null parent index', async function () {
+            let det = mk();
+            det.db.getDispenseDispenserIndex.rejects(new Error('db'));
+            let evs = [];
+            det.on('lifecycle_event', (c, e) => evs.push(e));
+            await det._emitLifecycleEvents('BTC', {}, { action: 'DISPENSE', action_index: 7 });
+            expect(evs.map(e => e.type)).to.include('DISPENSE');
+            expect(evs[0].data.dispenser_action_index).to.equal(null);
         });
 
         it('ORDER_MATCH enrichment failure still emits the base event', async function () {

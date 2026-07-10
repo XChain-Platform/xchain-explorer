@@ -97,6 +97,26 @@ describe('Broadcaster', function () {
             expect(msg.data.block_index).to.equal(100);
         });
 
+        it('stamps every outbound frame with the envelope schema_version', function () {
+            const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema-version.js');
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['blocks']);
+            changeDetector.emit('block', 'BTC', { block_index: 100, block_hash: 'abc', block_time: 1, tx_count: 0, action_count: 0 });
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.schema_version).to.equal(WS_SCHEMA_VERSION);
+        });
+
+        it('the schema_version stamp survives a fields projection', function () {
+            const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema-version.js');
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['blocks'], { fields: ['block_index'] });
+            changeDetector.emit('block', 'BTC', { block_index: 100, block_hash: 'abc', block_time: 1, tx_count: 0, action_count: 0 });
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.schema_version).to.equal(WS_SCHEMA_VERSION);
+        });
+
         it('also broadcasts NETWORK_STATS to network subscribers', function () {
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);

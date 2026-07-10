@@ -278,6 +278,20 @@ class ChangeDetector extends EventEmitter {
                 }
             }
 
+            // Enrich DISPENSE with its parent dispenser's action_index: the base
+            // payload's action_index is the dispense itself, but SDK consumers
+            // correlate on data.dispenser_action_index (xchain-sdk XChainSDK
+            // DISPENSE handler). Mirrors the ORDER_MATCH enrichment above.
+            if (actionType === 'DISPENSE') {
+                try {
+                    lifecycleEvent.data.dispenser_action_index =
+                        await this.db.getDispenseDispenserIndex(config, action.action_index);
+                } catch (e) {
+                    // Non-fatal: emit the base event with a null parent index
+                    lifecycleEvent.data.dispenser_action_index = null;
+                }
+            }
+
             this.emit('lifecycle_event', coin, lifecycleEvent);
         }
     }

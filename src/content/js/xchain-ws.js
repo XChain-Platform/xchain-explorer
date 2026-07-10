@@ -162,6 +162,16 @@ var XChainWS = {
             }
         }
 
+        // Envelope schema gate: the server stamps every frame with
+        // schema_version (distinct from the build version). If the server
+        // speaks a NEWER envelope schema than this client knows, payload
+        // shapes may have changed; warn once instead of silently mis-parsing.
+        if (msg.schema_version !== undefined && msg.schema_version > 1 && !this._schemaWarned) {
+            this._schemaWarned = true;
+            console.warn('[XChainWS] Server WS schema_version ' + msg.schema_version +
+                ' is newer than this client understands (1); event payload shapes may have changed.');
+        }
+
         // Handle system messages
         if (msg.type === 'WELCOME') {
             this.serverInfo = msg.data;

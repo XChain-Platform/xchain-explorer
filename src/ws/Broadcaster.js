@@ -32,6 +32,7 @@ const COIN_MAP = {};
 // BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
 // two socket-send paths cannot drift). See serialize.js for the BigInt rationale.
 const { safeStringify } = require('./serialize.js');
+const { WS_SCHEMA_VERSION } = require('./schema-version.js');
 
 class Broadcaster {
 
@@ -255,9 +256,12 @@ class Broadcaster {
             // Apply fields projection
             const msg = filter.fields ? this._applyFieldsProjection(event, filter.fields) : event;
 
-            // Send
+            // Send (stamped with the envelope schema version AFTER projection,
+            // so the marker survives a fields filter; see ws/schema-version.js)
             if (client.ws.readyState === 1) {
                 try {
+                    if (msg && typeof msg === 'object' && msg.schema_version === undefined)
+                        msg.schema_version = WS_SCHEMA_VERSION;
                     client.ws.send(safeStringify(msg));
                 } catch (e) {
                     // Connection error

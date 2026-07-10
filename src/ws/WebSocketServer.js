@@ -26,6 +26,7 @@ const ChannelManager = require('./ChannelManager.js');
 // previously used raw JSON.stringify, which throws on BigInt DB columns; under the
 // swallowing try/catch that silently dropped every message carrying a raw DB row.
 const { safeStringify } = require('./serialize.js');
+const { WS_SCHEMA_VERSION } = require('./schema-version.js');
 
 // Regex to match /{COIN}/api/websocket path
 const WS_PATH_REGEX = /^\/([A-Z]{1,5})\/api\/websocket$/i;
@@ -595,10 +596,14 @@ class WebSocketServer {
         console.log(parts.join(' '));
     }
 
-    // Send JSON message to a client
+    // Send JSON message to a client. Every frame is stamped with the envelope
+    // schema version (see ws/schema-version.js) so subscribers can gate their
+    // parsing on payload-shape changes.
     _send(client, msg) {
         if (client.ws.readyState === 1) { // OPEN
             try {
+                if (msg && typeof msg === 'object' && msg.schema_version === undefined)
+                    msg.schema_version = WS_SCHEMA_VERSION;
                 client.ws.send(safeStringify(msg));
             } catch (e) {
                 // Connection may have closed between check and send

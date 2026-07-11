@@ -117,7 +117,7 @@ describe('Broadcaster', function () {
             expect(msg.schema_version).to.equal(WS_SCHEMA_VERSION);
         });
 
-        it('also broadcasts NETWORK_STATS to network subscribers', function () {
+        it('also broadcasts NETWORK_STATS to network subscribers', async function () {
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);
             wsServer.channelManager.subscribe(client, ['network']);
@@ -125,10 +125,94 @@ describe('Broadcaster', function () {
             changeDetector.emit('block', 'BTC', {
                 block_index: 100, block_hash: 'abc', block_time: 1234, tx_count: 5, action_count: 2
             });
+            await broadcaster._statsTails.get('BTC');
 
             expect(client.ws.send.calledOnce).to.be.true;
             const msg = JSON.parse(client.ws.send.firstCall.args[0]);
             expect(msg.type).to.equal('NETWORK_STATS');
+        });
+
+        it('NETWORK_STATS frames stay in block order when DB reads resolve out of order (catch-up burst)', async function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['network']);
+
+            // First read is slow, second is fast: without per-coin serialization
+            // the frame for block 101 would overtake the frame for block 100.
+            let calls = 0;
+            wsServer.explorer = { db: { getMaxActionIndex: () => {
+                calls++;
+                return calls === 1
+                    ? new Promise(res => setTimeout(() => res(500), 20))
+                    : Promise.resolve(510);
+            } } };
+
+            changeDetector.emit('block', 'BTC', { block_index: 100, action_count: 1 });
+            changeDetector.emit('block', 'BTC', { block_index: 101, action_count: 1 });
+            await broadcaster._statsTails.get('BTC');
+
+            // Block 100 was superseded by 101 before its turn on the chain, so
+            // exactly one stats frame goes out, for the newest height.
+            const stats = client.ws.send.getCalls()
+                .map(c => JSON.parse(c.args[0]))
+                .filter(m => m.type === 'NETWORK_STATS');
+            expect(stats).to.have.length(1);
+            expect(stats[0].data.block_height).to.equal(101);
+        });
+
+        it('sequential blocks each emit a NETWORK_STATS frame in ascending height order', async function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['network']);
+            wsServer.explorer = { db: { getMaxActionIndex: sinon.stub().resolves(7) } };
+
+            changeDetector.emit('block', 'BTC', { block_index: 100, action_count: 1 });
+            await broadcaster._statsTails.get('BTC');
+            changeDetector.emit('block', 'BTC', { block_index: 101, action_count: 1 });
+            await broadcaster._statsTails.get('BTC');
+
+            const stats = client.ws.send.getCalls()
+                .map(c => JSON.parse(c.args[0]))
+                .filter(m => m.type === 'NETWORK_STATS');
+            expect(stats.map(m => m.data.block_height)).to.deep.equal([100, 101]);
+        });
+
+        it('a catch-up burst collapses to a single getMaxActionIndex read (newest height only)', async function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['network']);
+            const getMax = sinon.stub().resolves(999);
+            wsServer.explorer = { db: { getMaxActionIndex: getMax } };
+
+            for (let i = 1; i <= 50; i++)
+                changeDetector.emit('block', 'BTC', { block_index: 100 + i, action_count: 1 });
+            await broadcaster._statsTails.get('BTC');
+
+            expect(getMax.callCount).to.equal(1);
+            const stats = client.ws.send.getCalls()
+                .map(c => JSON.parse(c.args[0]))
+                .filter(m => m.type === 'NETWORK_STATS');
+            expect(stats).to.have.length(1);
+            expect(stats[0].data.block_height).to.equal(150);
+        });
+
+        it('a rejected stats emission does not poison the chain for later blocks', async function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['network']);
+            wsServer.explorer = { db: { getMaxActionIndex: sinon.stub().rejects(new Error('db down')) } };
+
+            changeDetector.emit('block', 'BTC', { block_index: 100, action_count: 3 });
+            await broadcaster._statsTails.get('BTC');
+            changeDetector.emit('block', 'BTC', { block_index: 101, action_count: 4 });
+            await broadcaster._statsTails.get('BTC');
+
+            // DB failing falls back to the per-block count; both frames still emit.
+            const stats = client.ws.send.getCalls()
+                .map(c => JSON.parse(c.args[0]))
+                .filter(m => m.type === 'NETWORK_STATS');
+            expect(stats.map(m => m.data.block_height)).to.deep.equal([100, 101]);
+            expect(stats.map(m => m.data.total_actions)).to.deep.equal([3, 4]);
         });
 
         it('does not send to clients on different coin', function () {
@@ -161,6 +245,25 @@ describe('Broadcaster', function () {
             const msg = JSON.parse(client.ws.send.firstCall.args[0]);
             expect(msg.type).to.equal('NEW_ACTION');
             expect(msg.data.action).to.equal('SEND');
+        });
+
+        it('omits the destination field from NEW_ACTION (honesty contract)', function () {
+            // api-contracts finding: the block-derived actions feed never selects
+            // a destination column, so the field was always null while the
+            // catch-up replay path already omits it. The live event shape must not
+            // advertise destination routing it cannot honor - even when the raw
+            // action carries one, the emitted event omits the key.
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['actions']);
+
+            changeDetector.emit('action', 'BTC', {
+                action_index: 502, action: 'SEND', source: '1abc', destination: '1xyz', status: 'valid'
+            });
+
+            expect(client.ws.send.called).to.be.true;
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.data).to.not.have.property('destination');
         });
 
         it('types filter passes matching action', function () {

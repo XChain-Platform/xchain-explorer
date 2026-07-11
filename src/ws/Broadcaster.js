@@ -41,6 +41,17 @@ class Broadcaster {
         this.changeDetector  = options.changeDetector;
         this.maxBackpressure = options.maxBackpressure || 65536;
 
+        // NETWORK_STATS ordering state. ChangeDetector emits 'block' synchronously
+        // per block, but the stats frame needs an async DB read (getMaxActionIndex),
+        // so a catch-up burst (up to fetchLimit blocks in one poll tick) would issue
+        // concurrent reads whose completion order is not the dispatch order - a
+        // subscriber could see block_height move backwards. Serialize the frames
+        // per coin (_statsTails) and skip heights already superseded by a newer
+        // queued block (_newestBlock), which also collapses a burst into a single
+        // DB read for the newest height.
+        this._statsTails  = new Map(); // coin -> promise tail
+        this._newestBlock = new Map(); // coin -> highest block_index seen
+
         // Wire up ChangeDetector events
         this.changeDetector.on('block',           (coin, block)  => this._onBlock(coin, block));
         this.changeDetector.on('action',          (coin, action) => this._onAction(coin, action));
@@ -94,8 +105,11 @@ class Broadcaster {
         this._broadcastToChannel(coin, 'mempool', event, row);
     }
 
-    // Handle new block from ChangeDetector
-    async _onBlock(coin, block) {
+    // Handle new block from ChangeDetector. NEW_BLOCK is broadcast synchronously
+    // (in ChangeDetector emit order); the NETWORK_STATS frame is queued on the
+    // per-coin serial chain (see constructor) so its async DB read cannot reorder
+    // frames during a catch-up burst.
+    _onBlock(coin, block) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -116,11 +130,24 @@ class Broadcaster {
         // Broadcast to 'blocks' channel subscribers
         this._broadcastToChannel(coin, 'blocks', event, null);
 
-        // Also push NETWORK_STATS to 'network' subscribers. total_actions must
-        // report the CUMULATIVE max action index (matching the snapshot built
-        // in WebSocketServer._sendSnapshots and the documented contract), not
-        // the per-block action count, or a subscriber that seeds a counter
-        // from the snapshot sees it collapse on the next live frame.
+        // Queue the NETWORK_STATS frame on the per-coin serial chain. The final
+        // catch keeps a failed emission from poisoning the chain for later blocks.
+        if ((this._newestBlock.get(coin) || 0) < block.block_index)
+            this._newestBlock.set(coin, block.block_index);
+        const tail = this._statsTails.get(coin) || Promise.resolve();
+        this._statsTails.set(coin, tail.then(() => this._emitNetworkStats(coin, info, block)).catch(() => {}));
+    }
+
+    // Push NETWORK_STATS to 'network' subscribers. total_actions must report
+    // the CUMULATIVE max action index (matching the snapshot built in
+    // WebSocketServer._sendSnapshots and the documented contract), not the
+    // per-block action count, or a subscriber that seeds a counter from the
+    // snapshot sees it collapse on the next live frame. Runs only on the
+    // per-coin serial chain; a height superseded by a newer queued block is
+    // skipped (its frame would be stale on arrival, and skipping collapses a
+    // burst into one DB read).
+    async _emitNetworkStats(coin, info, block) {
+        if ((this._newestBlock.get(coin) || 0) > block.block_index) return;
         let totalActions = block.action_count || 0;
         try {
             totalActions = (await this.wsServer.explorer.db.getMaxActionIndex({ coin })) || 0;
@@ -156,7 +183,14 @@ class Broadcaster {
                 tx_hash:      action.tx_hash      || null,
                 block_index:  action.block_index   || null,
                 source:       action.source        || null,
-                destination:  action.destination   || null,
+                // 'destination' is intentionally omitted from the NEW_ACTION
+                // contract: the block-derived actions feed (getActionsSince)
+                // never selects a destination column, so it was always null here
+                // while the catch-up replay path already omits it. Emitting an
+                // always-null field advertises destination routing we cannot
+                // honor; drop it so live and replay shapes match and clients do
+                // not rely on it. (Address-channel routing below still reads the
+                // raw action.destination directly, inert while it stays null.)
                 status:       action.status        || null
             }
         };

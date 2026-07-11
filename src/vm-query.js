@@ -57,6 +57,18 @@ const GAS_SCHEDULE = {
     VM_GUARD_GAS_CEILING:  200000,
 };
 
+// Protocol contract code-size cap. Single-sourced (by value) from the canonical
+// definition in xchain-documentation/protocol/constants.js (MAX_CODE_SIZE), the
+// same value the on-chain VM isolate and indexer DEPLOY enforce. The read-only
+// query isolate MUST use this cap or it would reject contract code the chain
+// itself indexed, silently breaking contract-query previews on a canonical bump.
+// Parity against the canonical constant is asserted in test/unit/vm-query.test.js.
+const MAX_CODE_SIZE        = 65536;
+// State-value size cap for the query isolate, mirroring the VM's own isolate
+// limit (xchain-vm/src/index.js maxStateValueSize). Named alongside MAX_CODE_SIZE
+// so neither cap re-enters the codebase as a bare drift-prone literal.
+const MAX_STATE_VALUE_SIZE = 65536;
+
 // Deliberately far below the indexer's consensus config (1M gas / 30s): this
 // is a public, unauthenticated endpoint and a simulation that cannot finish
 // inside these bounds is not worth serving.
@@ -69,8 +81,8 @@ const VM_OPTIONS = {
         maxMemory:         8,
         maxEmissions:      20,
         maxStateKeys:      10000,
-        maxStateValueSize: 65536,
-        maxCodeSize:       65536
+        maxStateValueSize: MAX_STATE_VALUE_SIZE,
+        maxCodeSize:       MAX_CODE_SIZE
     }
 };
 
@@ -279,4 +291,4 @@ async function shutdown(){
     }
 }
 
-module.exports = { isEnabled, simulate, shutdown, VmQueryError };
+module.exports = { isEnabled, simulate, shutdown, VmQueryError, MAX_CODE_SIZE, MAX_STATE_VALUE_SIZE };

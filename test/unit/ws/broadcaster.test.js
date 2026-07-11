@@ -446,6 +446,58 @@ describe('Broadcaster', function () {
             expect(msg.type).to.equal('COINPAY_REQUIRED');
             expect(msg.data.payer_address).to.equal('1buyer');
         });
+
+        it('routes DISPENSE to the dispenser channel keyed on the parent dispenser', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            // SDK onDispenser subscribes to the dispenser channel keyed on the
+            // dispenser's opening action_index.
+            wsServer.channelManager.subscribe(client, ['dispenser'], { action_index: 777 });
+
+            changeDetector.emit('lifecycle_event', 'BTC', {
+                type: 'DISPENSE',
+                action: 'DISPENSE',
+                channel: 'dispenser',
+                data: { action_index: 900, dispenser_action_index: 777, status: 'valid' }
+            });
+
+            expect(client.ws.send.called).to.be.true;
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.type).to.equal('DISPENSE');
+            expect(msg.data.dispenser_action_index).to.equal(777);
+        });
+
+        it('routes DISPENSER_CLOSED / DISPENSER_EXPIRED to the dispenser channel', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['dispenser'], { action_index: 55 });
+
+            changeDetector.emit('lifecycle_event', 'BTC', {
+                type: 'DISPENSER_CLOSED',
+                action: 'DISPENSER_CLOSE',
+                channel: 'dispenser',
+                data: { action_index: 910, dispenser_action_index: 55, status: 'valid' }
+            });
+
+            expect(client.ws.send.called).to.be.true;
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.type).to.equal('DISPENSER_CLOSED');
+        });
+
+        it('does not deliver a dispenser lifecycle event to a non-matching dispenser subscriber', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['dispenser'], { action_index: 111 });
+
+            changeDetector.emit('lifecycle_event', 'BTC', {
+                type: 'DISPENSE',
+                action: 'DISPENSE',
+                channel: 'dispenser',
+                data: { action_index: 900, dispenser_action_index: 222, status: 'valid' }
+            });
+
+            expect(client.ws.send.called).to.be.false;
+        });
     });
 
     // -----------------------------------------------------------------

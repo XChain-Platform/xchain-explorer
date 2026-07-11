@@ -417,6 +417,15 @@ class WebSocketServer {
 
     // Handle catch-up replay of missed events
     async _handleCatchUp(client, sinceActionIndex, filter, requestId) {
+        // Reject a non-integer / negative since_action_index BEFORE the depth gate.
+        // Number('abc')/Number({}) is NaN and `NaN > depth` is always false, so an
+        // unguarded value silently bypasses CATCH_UP_TOO_OLD and reaches the SQL bind
+        // param as NaN/Infinity. Anchor with the same non-negative-integer guard the
+        // REST checkpoint-range handler uses (XChainExplorer.js) and reply INVALID_PARAMS.
+        if (!/^[0-9]+$/.test(String(sinceActionIndex))) {
+            this._sendError(client, 'INVALID_PARAMS', 'since_action_index must be a non-negative integer', requestId);
+            return;
+        }
         sinceActionIndex = Number(sinceActionIndex);
 
         // Check if catch-up already in progress

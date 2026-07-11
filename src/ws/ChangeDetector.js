@@ -308,6 +308,26 @@ class ChangeDetector extends EventEmitter {
                 }
             }
 
+            // Route dispenser lifecycle events (DISPENSE / DISPENSER_CLOSED /
+            // DISPENSER_EXPIRED) to the dedicated `dispenser` entity channel that
+            // the SDK's onDispenser() subscribes to, keyed on the parent
+            // dispenser's action_index. Without this they only reached the
+            // `actions`/`address` channels, so the SDK's typed dispenser handlers
+            // were dead (mirrors the `attestation` channel pattern below).
+            if (actionType === 'DISPENSE' || actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
+                if (actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
+                    const table = actionType === 'DISPENSER_CLOSE' ? 'dispenser_closes' : 'dispenser_expires';
+                    try {
+                        lifecycleEvent.data.dispenser_action_index =
+                            await this.db.getDispenserLifecycleDispenserIndex(config, table, action.action_index);
+                    } catch (e) {
+                        // Non-fatal: emit the base event with a null parent index
+                        lifecycleEvent.data.dispenser_action_index = null;
+                    }
+                }
+                lifecycleEvent.channel = 'dispenser';
+            }
+
             this.emit('lifecycle_event', coin, lifecycleEvent);
         }
     }

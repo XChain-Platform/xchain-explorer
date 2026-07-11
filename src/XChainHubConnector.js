@@ -195,6 +195,19 @@ class XChainHubConnector {
             console.warn('Hub reachable but DB degraded; cannot fetch config. Falling back to cached config.');
             return null;
         }
+        // A config-DB read failure is signaled by the hub as an HTTP-200 { error: ... }
+        // *result* (not a JSON-RPC error), so _call resolves rather than throwing. Without
+        // this guard the envelope falls through _applyConfigResult's else branch and is
+        // returned as if it were the bare config map, so config.js wipes every coin to zero
+        // AND refreshes its staleness timestamp on a failed fetch. Treat it like an
+        // unreachable/degraded hub (mirrors the indexer's _unwrapHubConfigResponse ok:false
+        // path): return null so config.js keeps last-known-good config with an honest
+        // staleness signal. Scoped to the exact envelope shape (a bare `error` string, no
+        // `configs`) so a legitimate config tree can never match.
+        if(result && typeof result === 'object' && typeof result.error === 'string' && !result.configs){
+            console.warn('Hub reachable but reported a config-DB read error; cannot fetch config. Falling back to cached config.');
+            return null;
+        }
         this.configs = this._applyConfigResult(result);
         // Bind the (possibly advanced) cursor to the endpoint that answered.
         this._watermarkEndpointIdx = this._lastGoodIdx;

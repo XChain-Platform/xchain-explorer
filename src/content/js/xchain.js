@@ -2426,14 +2426,21 @@ function showFileDetails(data){
 // Display ATTEST action information (v0 request / v1 response; `attests` table)
 function showAttestDetails(data){
     let isResponse = (Number(data.version) === 1);
-    $('#info-attest .attest-type').html(isResponse ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' : '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+    // ATTEST v2 is the system-synthesized expire: it writes no attests row, so the
+    // explorer resolves only baseline fields + version. Badge it as an Expire and
+    // show neither the request nor the response sub-panels (their fields are absent).
+    let isExpire   = (Number(data.version) === 2);
+    $('#info-attest .attest-type').html(
+        isResponse ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' :
+        isExpire   ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
+                     '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
     $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
     $('#info-attest .attest-provider').text(data.provider_id);
     if(!isNull(data.contract_index))
         $('#info-attest .attest-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
     // Request-side fields
-    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse);
-    if(!isResponse){
+    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire);
+    if(!isResponse && !isExpire){
         $('#info-attest .attest-fee-payer').html(isNull(data.fee_payer) ? '-' : formatLink('/' + XC.coin + '/address/' + data.fee_payer, data.fee_payer));
         $('#info-attest .attest-callback').text(data.callback_method);
         $('#info-attest .attest-redundancy').text(data.redundancy);
@@ -2640,7 +2647,15 @@ function showXcallDetails(data){
         return '<span class="badge text-bg-' + cls + '">' + (s || '-') + '</span>';
     };
     $('#info-xcall .xcall-call-id').html(formatHash(data.call_id, 32));
-    $('#info-xcall .xcall-version').html(Number(data.version) === 2 ? '<span class="badge text-bg-secondary">Expire (v2)</span>' : '<span class="badge text-bg-primary">Request (v0)</span>');
+    // Version badge: v0 = the cross-chain call request, v1 = the result-delivery
+    // marker (its data lives in cross_chain_call_callbacks, surfaced as
+    // callback_delivery below), v2 = the expire. v1 previously fell through to a
+    // blank 'Request (v0)' page.
+    let xcallV = Number(data.version);
+    $('#info-xcall .xcall-version').html(
+        xcallV === 2 ? '<span class="badge text-bg-secondary">Expire (v2)</span>' :
+        xcallV === 1 ? '<span class="badge text-bg-info">Result delivery (v1)</span>' :
+                       '<span class="badge text-bg-primary">Request (v0)</span>');
     $('#info-xcall .xcall-contract').html(isNull(data.contract_index) ? '-' : formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
     $('#info-xcall .xcall-target-chain').text(isNull(data.target_chain) ? '-' : data.target_chain);
     $('#info-xcall .xcall-target-contract').text(isNull(data.target_contract_index) ? '-' : data.target_contract_index);

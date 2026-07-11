@@ -225,8 +225,16 @@ class Broadcaster {
 
         // If the lifecycle event names a dedicated channel (e.g. 'attestation'),
         // also broadcast there so clients can subscribe to just that stream.
+        // Entity channels (dispenser) are keyed per-entity, so route to the
+        // specific entity's channel key rather than the bare channel (which has
+        // no subscribers): a dispenser subscription is coin:dispenser:<index>.
         if (lifecycleEvent.channel) {
-            this._broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent);
+            const entityId = this._lifecycleChannelEntityId(lifecycleEvent);
+            if (entityId !== null && entityId !== undefined) {
+                this._broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent, entityId);
+            } else {
+                this._broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent);
+            }
         }
 
         // Broadcast to relevant address channels
@@ -234,6 +242,20 @@ class Broadcaster {
         for (const addr of addresses) {
             this._broadcastToChannel(coin, 'address', event, lifecycleEvent, addr);
         }
+    }
+
+    // Resolve the per-entity id a lifecycle event should route to when its
+    // `channel` is an entity channel. Global lifecycle channels (e.g.
+    // 'attestation') return null so the caller falls back to the bare channel.
+    // The dispenser channel is keyed on the parent dispenser's action_index,
+    // which the ChangeDetector enriches onto data.dispenser_action_index for the
+    // DISPENSE / DISPENSER_CLOSED / DISPENSER_EXPIRED events.
+    _lifecycleChannelEntityId(lifecycleEvent) {
+        if (lifecycleEvent.channel === 'dispenser') {
+            const idx = lifecycleEvent.data && lifecycleEvent.data.dispenser_action_index;
+            return (idx === null || idx === undefined) ? null : idx;
+        }
+        return null;
     }
 
     // Handle entity update events (ADDRESS_UPDATE, TOKEN_UPDATE, MARKET_UPDATE, DISPENSER_UPDATE)

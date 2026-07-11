@@ -297,3 +297,41 @@ describe('vm-query', () => {
         await vmq.shutdown();
     });
 });
+
+// Protocol size-cap drift guard for the explorer's read-only query isolate.
+// The query VM must enforce the SAME contract code-size cap as the on-chain VM
+// and indexer DEPLOY, or it would reject code the chain accepted (breaking
+// contract-query previews) with no failing test to catch the drift. The
+// canonical source of record is xchain-documentation/protocol/constants.js
+// (MAX_CODE_SIZE); we also cross-check the vendored xchain-vm isolate export.
+// When the sibling xchain-documentation repo is not checked out (standalone
+// deploy), skip the canonical assertion rather than fail, matching the
+// ConsensusPrimitiveConformance cross-repo guard convention.
+describe('vm-query protocol size-cap parity @regression', () => {
+    const fs   = require('fs');
+    const path = require('path');
+    // Load the module WITHOUT stubbing xchain-vm so we read its real exports.
+    const vmq  = require('../../src/vm-query.js');
+
+    const DOCS_DIR   = process.env.XCHAIN_DOCS_DIR ||
+        path.join(__dirname, '..', '..', '..', 'xchain-documentation');
+    const CONST_PATH = path.join(DOCS_DIR, 'protocol', 'constants.js');
+
+    it('explorer query-VM MAX_CODE_SIZE === canonical protocol constant', function(){
+        if(!fs.existsSync(CONST_PATH)) this.skip();
+        const protocol = require(CONST_PATH);
+        expect(vmq.MAX_CODE_SIZE).to.equal(protocol.MAX_CODE_SIZE);
+    });
+
+    it('explorer query-VM MAX_CODE_SIZE === vendored xchain-vm isolate cap', function(){
+        let vm;
+        try { vm = require('xchain-vm'); } catch(e){ this.skip(); return; }
+        if(vm == null || typeof vm.MAX_CODE_SIZE !== 'number') this.skip();
+        expect(vmq.MAX_CODE_SIZE).to.equal(vm.MAX_CODE_SIZE);
+    });
+
+    it('the caps the isolate actually receives are the named constants (no bare literal reintroduced)', () => {
+        expect(vmq.MAX_CODE_SIZE).to.equal(65536);
+        expect(vmq.MAX_STATE_VALUE_SIZE).to.equal(65536);
+    });
+});

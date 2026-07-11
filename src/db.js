@@ -3207,7 +3207,7 @@ class Database {
                         tick1_ask         : (reverse) ? row.tick1_ask         : row.tick2_ask,
                         tick1_24hr_price  : (reverse) ? row.tick1_24hr_price  : row.tick2_24hr_price,
                         tick1_24hr_high   : (reverse) ? row.tick1_24hr_high   : row.tick2_24hr_high,
-                        tick1_24hr_lo     : (reverse) ? row.tick1_24hr_low    : row.tick2_24hr_low,
+                        tick1_24hr_low    : (reverse) ? row.tick1_24hr_low    : row.tick2_24hr_low,
                         tick1_24hr_change : (reverse) ? row.tick1_24hr_change : row.tick2_24hr_change,
                         tick1_24hr_volume : (reverse) ? row.tick1_24hr_volume : row.tick2_24hr_volume,
                         tick2             : (reverse) ? row.tick2             : row.tick1,
@@ -5823,8 +5823,8 @@ class Database {
                         FROM
                             attests m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
@@ -5966,8 +5966,8 @@ class Database {
                             COALESCE(us.status, cus.status) as status
                         FROM
                             actions a1
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -6169,8 +6169,8 @@ class Database {
                         FROM
                             contract_executions m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                             LEFT  JOIN index_addresses    a3 ON (a3.id=m.caller_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -6308,8 +6308,8 @@ class Database {
                         FROM
                             xcalls m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -6404,6 +6404,43 @@ class Database {
                 if(results && results.length)
                     data = Object.assign({}, data, results[0]);
             }
+            // De-blank guard. A known action whose dedicated branch matched no row
+            // (a system-synthesized transaction-less / row-less variant such as an
+            // XCALL v1 result-marker or an ATTEST v2 expire), or a mirror-injected
+            // type with no dedicated branch at all (XEXEC / CROSS_SETTLE), would
+            // otherwise fall through with all-NULL data and render a page emptier
+            // than the UNKNOWN fallback. Populate the baseline action name / block /
+            // timestamp / source from the actions + blocks tables so every
+            // addressable action shows at least those. Transaction-less-safe:
+            // block is joined via actions.block_index (set for every action) and
+            // transactions is LEFT joined (NULL tx_index yields NULL tx fields, not
+            // a dropped row) - the same shape COINPAY_EXPIRE / ORDER_MATCH use. The
+            // ledger effects (credits / debits / escrows) still attach by
+            // action_index below regardless of this branch.
+            if(!results || !results.length){
+                let genericQuery = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            a1.action_index,
+                            a3.address as source,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index
+                        FROM
+                            actions                       a1
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        WHERE
+                            a1.action_index=?
+                        LIMIT 1`;
+                let gres = await this.doQuery(config, genericQuery, [action_index]);
+                if(gres && gres.length)
+                    data = Object.assign({}, data, gres[0]);
+            }
             // Create an state object with current state info
             if(['ORDER','SWAP','DISPENSER'].includes(type)){
                 data['state'] = {
@@ -6430,6 +6467,16 @@ class Database {
                     data['signatures'] = [];
                 }
                 delete data['validator_signatures'];
+                // ATTEST v2 (expire) is system-synthesized and writes no attests row
+                // (it only flips the original v0 request's status), so the attests
+                // branch returned nothing and the de-blank fallback populated only
+                // baseline fields, leaving version NULL. Tag the version from the
+                // action format so the client badges it 'Expire (v2)' instead of
+                // mislabeling it 'Request (v0)'. The correlated v0 request's fields
+                // are not resolvable here (the indexer stores no link from the
+                // expire action to the request), so only baseline data + version show.
+                if(this.util.isNull(data['version']) && !this.util.isNull(data['action_format']))
+                    data['version'] = data['action_format'];
             }
             // VOTE: disambiguate the three sub-types and shape each. A v0 poll has a
             // poll_status; a v3 delegation has a delegator; anything else is a v1 ballot,
@@ -6495,6 +6542,27 @@ class Database {
                     `SELECT result_status as callback_result_status, block_index as callback_block_index
                      FROM cross_chain_call_callbacks WHERE call_id=? LIMIT 1`, [data['call_id']]);
                 data['callback_delivery'] = (cb && cb.length) ? cb[0] : null;
+            }
+            // XCALL v1 (result-delivery marker): the indexer mints this action with
+            // NO xcalls row (versions 0=request/2=expire live in xcalls; v1's data
+            // lives only in cross_chain_call_callbacks), so the XCALL branch returned
+            // nothing and the de-blank fallback populated baseline fields with a NULL
+            // call_id. Resolve the delivered result by this action's own action_index
+            // and tag it version 1 so the client renders a 'Result delivery (v1)'
+            // shape instead of a blank 'Request (v0)' page.
+            if(type=='XCALL' && this.util.isNull(data['call_id'])){
+                let cbv1 = await this.doQuery(config,
+                    `SELECT call_id, result_status, block_index as callback_block_index
+                     FROM cross_chain_call_callbacks WHERE action_index=? LIMIT 1`, [action_index]);
+                if(cbv1 && cbv1.length){
+                    data['version']  = 1;
+                    data['call_id']  = cbv1[0].call_id;
+                    data['result_status'] = cbv1[0].result_status;
+                    data['callback_delivery'] = {
+                        callback_result_status: cbv1[0].result_status,
+                        callback_block_index:   cbv1[0].callback_block_index
+                    };
+                }
             }
             // EXECUTE: attach the actions this contract call emitted (emit.execute / emit.send /
             // internal SLASH etc.), ordered by emission position. Children link by action_index
@@ -6671,6 +6739,17 @@ class Database {
                 results = await this.doQuery(config, query, args);
                 if(results && results.length)
                     data.escrows = results;
+            }
+            // UNSTAKE v2 (cooldown-completion): the synthetic completion action
+            // writes only the return credit - no unstakes / contract_unstakes row -
+            // so amount / signing_pubkey / cooldown_end_block come back NULL. Surface
+            // the returned credit as the amount (and its tick) so the detail page
+            // shows the value returned instead of an empty '-'. v0/v1 UNSTAKEs keep
+            // their own amount and are unaffected (this only fires when amount is NULL).
+            if(type=='UNSTAKE' && this.util.isNull(data['amount']) && Array.isArray(data.credits) && data.credits.length){
+                data['amount'] = data.credits[0].amount;
+                if(this.util.isNull(data['tick']))
+                    data['tick'] = data.credits[0].tick;
             }
             let fee = await this.getActionFeeData(config, action_index);
             if(fee)
@@ -8621,6 +8700,27 @@ class Database {
                         dispenser_action_index
                     FROM
                         dispenses
+                    WHERE
+                        action_index=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length && results[0].dispenser_action_index != null)
+            return results[0].dispenser_action_index;
+        return null;
+    }
+
+    // Resolve the parent dispenser's opening action_index for a DISPENSER_CLOSE
+    // or DISPENSER_EXPIRE lifecycle action, so those events can be routed to the
+    // per-dispenser websocket channel (coin:dispenser:<dispenser_action_index>)
+    // the SDK's onDispenser() subscribes to. `table` is dispenser_closes or
+    // dispenser_expires, both of which map action_index -> dispenser_action_index.
+    async getDispenserLifecycleDispenserIndex(config, table, actionIndex) {
+        const allowed = { dispenser_closes: true, dispenser_expires: true };
+        if (!allowed[table]) return null;
+        let query = `SELECT
+                        dispenser_action_index
+                    FROM
+                        ${table}
                     WHERE
                         action_index=?
                     LIMIT 1`;

@@ -220,6 +220,18 @@ describe('XChainHubConnector', function () {
             expect(result).to.be.null;
         });
 
+        it('returns null (not the {error} envelope) when the hub reports a config-DB read error', async function () {
+            // getallconfigs signals a config-DB read failure as an HTTP-200 { error: ... }
+            // *result*; config.js must fall back to cache and leave its staleness timestamp
+            // unrefreshed rather than iterate the one-key error object down to zero coins.
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.resolves({ data: { result: { error: 'there was an error trying to get all configs' } } });
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            const result = await connector.getAllConfig();
+            expect(result).to.be.null;
+        });
+
         it('unwraps a { configs, seq } response to the bare map and records lastSeq', async function () {
             const configs   = { bitcoin: { mainnet: { indexer: {} } } };
             const axiosStub  = makeAxiosStub();

@@ -934,6 +934,11 @@ class XChainExplorer {
             // Limit results to 100 max (except in special cases where we can not use an offset)
             if(length > 100 && !['getHolders','getBalances','getCredits','getDebits'].includes(cfg.data.method))
                 length = 100;
+            // Even the offset-exempt methods carry an explicit finite ceiling so one
+            // query parameter cannot drive an unbounded DB scan + response serialization;
+            // the app-layer invariant no longer rests solely on db.js's own clamp.
+            else if(length > 10000)
+                length = 10000;
             limit = this.util.bcadd(start, length);
         }
 

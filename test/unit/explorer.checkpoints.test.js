@@ -117,6 +117,12 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
         expect(explorer.db.getCheckpointRows.secondCall.args[2]).to.equal(100); // clamped
     });
 
+    it('clamps a negative ?limit to 1 instead of passing it to the SQL LIMIT', async function () {
+        const explorer = makeExplorer();
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '-5' }), mockRes());
+        expect(explorer.db.getCheckpointRows.firstCall.args[2]).to.equal(1);   // two-sided clamp
+    });
+
     it('returns null-safe { checkpoints: [], count: 0 } when the query yields nothing', async function () {
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves(null);

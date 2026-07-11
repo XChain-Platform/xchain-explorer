@@ -1355,7 +1355,7 @@ class XChainExplorer {
             let gate = this._mirrorGate(coin);
             if(gate.blocked)
                 return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
-            let limit = Math.min(parseInt(req.query.limit) || 10, 100);
+            let limit = Math.max(1, Math.min(parseInt(req.query.limit) || 10, 100));
             let rows = await this.db.getCheckpointRows({ coin, data: {} }, null, limit);
             return res.json({ checkpoints: rows || [], count: (rows || []).length, ...(gate.annotate || {}) });
         } catch (e) {

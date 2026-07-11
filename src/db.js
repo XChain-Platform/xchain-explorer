@@ -590,6 +590,7 @@ class Database {
             let length = (q.length) ? q.length : 10;
             let action = (q.action) ? q.action : false;
             start  = Math.max(0, Number(start));
+            if(!Number.isFinite(Number(length))) length = 10;
             length = Math.max(1, Math.min(Number(length), max));
             if(['getHolders','getBalances'].includes(data.method) && ['prev','last'].includes(action))
                 config.data.query.action = config.data.offset.action = action = 'next';
@@ -8657,6 +8658,10 @@ class Database {
     }
 
     async getCoinpayObligation(config, orderMatchActionIndex) {
+        // NOTE: obligation_action_index and order_match_action_index are the SAME
+        // column (co.action_index = the ORDER_MATCH action_index that created this
+        // obligation). There is no separate obligation identifier; obligation_action_index
+        // is a wire-contract alias of the ORDER_MATCH index, kept for compatibility.
         let query = `SELECT
                         co.action_index as obligation_action_index,
                         co.action_index as order_match_action_index,

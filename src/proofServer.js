@@ -131,9 +131,13 @@ class ProofServer {
         const smt    = await this._prove(config, tr.balances_root, keyBuf);
         const sub    = M.stateRootProof({ balances_root: tr.balances_root, stakes_root: tr.stakes_root }, 'balances_root');
         // Authoritative amount (never the balances cache). Non-inclusion => "0".
+        // Height-bounded to cp.block_index (the SAME row getStateTreeRow committed
+        // the leaf from), NOT the current tip: the SDK verifier requires
+        // amountLeaf(amount) to preimage the checkpoint-height leaf, so a tip-net
+        // balance would false-reject any address that moved after the checkpoint.
         const amount = (smt.leaf_value == null)
             ? M.canonicalAmount('0')
-            : M.canonicalAmount(await this.db.getNetBalance18(config, address, tick));
+            : M.canonicalAmount(await this.db.getNetBalance18AtHeight(config, address, tick, cp.block_index));
         const tip = await this.db.getMaxBlockIndex(config);
         return {
             proof: {

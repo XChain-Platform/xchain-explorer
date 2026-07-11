@@ -8376,6 +8376,33 @@ class Database {
         return (rows && rows.length) ? String(rows[0].net) : '0';
     }
 
+    // Height-bounded net-spendable balance: the SAME query shape/arithmetic as
+    // getNetBalance18 (DECIMAL(60,18) SUM(credits)-SUM(debits), returned as a
+    // canonical string), but each side is bounded to actions committed at or
+    // before blockIndex. credits/debits carry no block_index of their own, so we
+    // bind height through actions.action_index (the canonical "at height" join,
+    // same as stateHash.js's tick-touch query), matching the state at the moment
+    // the indexer computed the checkpoint-height balances leaf. A balance proof
+    // must serve the amount committed at cp.block_index, NOT the current tip, or
+    // the SDK's amountLeaf(amount) check false-rejects with LEAF_AMOUNT_MISMATCH.
+    async getNetBalance18AtHeight(config, address, tick, blockIndex) {
+        let rows = await this.doQuery(config,
+            `SELECT CAST(
+                (SELECT COALESCE(SUM(CAST(c.amount AS DECIMAL(60,18))),0) FROM credits c
+                    INNER JOIN index_addresses a  ON a.id=c.address_id
+                    INNER JOIN index_tickers   t  ON t.id=c.tick_id
+                    INNER JOIN actions         ac ON ac.action_index=c.action_index
+                    WHERE a.address=? AND t.tick=? AND ac.block_index<=?)
+              - (SELECT COALESCE(SUM(CAST(d.amount AS DECIMAL(60,18))),0) FROM debits d
+                    INNER JOIN index_addresses a  ON a.id=d.address_id
+                    INNER JOIN index_tickers   t  ON t.id=d.tick_id
+                    INNER JOIN actions         ac ON ac.action_index=d.action_index
+                    WHERE a.address=? AND t.tick=? AND ac.block_index<=?)
+             AS DECIMAL(60,18)) AS net`,
+            [address, tick, Number(blockIndex), address, tick, Number(blockIndex)]);
+        return (rows && rows.length) ? String(rows[0].net) : '0';
+    }
+
     // The action's own block_index (its consensus block, a.block_index), used to
     // resolve which block's block_merkle_root an action proof binds to. Null if the
     // action does not exist on this server.

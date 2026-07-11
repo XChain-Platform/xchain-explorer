@@ -107,6 +107,23 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(snap.secondCall.args[1][0].address).to.equal('addr3');
     });
 
+    it('SUBSCRIBED active_filters does not echo a statuses filter (honesty contract)', function () {
+        // api-contracts finding: the actions feed cannot honor a status filter,
+        // so confirming one back in SUBSCRIBED would let a client rely on a no-op.
+        // A client may still send `statuses` (it is stored + works for events that
+        // carry a status), but the confirmation must not advertise it.
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleSubscribe(client, { channels: ['actions'], params: { statuses: ['valid'] } });
+
+        const subscribed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .find((m) => m.type === 'SUBSCRIBED');
+        expect(subscribed, 'a SUBSCRIBED frame was sent').to.exist;
+        expect(subscribed.data.active_filters).to.not.have.property('statuses');
+    });
+
     it('does not start a second snapshot fan-out while one is in progress', async function () {
         const s = makeServer();
         // A snapshot that never resolves within the test keeps the guard set.
@@ -141,5 +158,18 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         // WELCOME's types list previously under-advertised the ten lifecycle
         // event types, e.g. ORDER_COMPLETED, DISPENSER_CANCELLED).
         expect(new Set(welcome.data.types)).to.deep.equal(ChannelManager.VALID_TYPES);
+    });
+
+    it('does NOT advertise a "statuses" feature (actions feed cannot honor it)', async function () {
+        // Honesty contract (api-contracts finding): the block-derived actions
+        // feed never populates a per-action status, so a statuses filter on the
+        // actions channel is a silent no-op. WELCOME must not list it.
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        await s._sendWelcome(client);
+
+        const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
+        expect(welcome.data.features).to.not.include('statuses');
     });
 });

@@ -200,10 +200,26 @@ class ChangeDetector extends EventEmitter {
         if (currentActionIndex > prev.actionIndex) {
             const newActions = await this.db.getActionsSince(config, prev.actionIndex, this.fetchLimit);
             if (newActions && newActions.length > 0) {
+                // Per-poll entity-read cache (grouped by type). _emitEntityUpdates used to
+                // re-issue getAddressBalances / getTokenInfo / getDispenserInfo / getMarketInfo
+                // for every subscribed entity ON EVERY action, fanning a poll out to
+                // (new actions) x (subscribed entities) serial single-row reads. Each of those
+                // reads returns the CURRENT committed aggregate state, which does not change
+                // across a single poll (no writes happen mid-loop, and the action rows are
+                // already committed), so the same entity read repeated within a poll always
+                // yields the same value. Caching it once per distinct entity per poll therefore
+                // emits byte-identical events while collapsing the read count to at most one per
+                // distinct subscribed entity per poll, independent of the action count.
+                const entityCache = {
+                    addr:      new Map(),
+                    token:     new Map(),
+                    dispenser: new Map(),
+                    market:    new Map()
+                };
                 for (const action of newActions) {
                     this.emit('action', coin, action);
                     await this._emitLifecycleEvents(coin, config, action);
-                    await this._emitEntityUpdates(coin, config, action);
+                    await this._emitEntityUpdates(coin, config, action, entityCache);
                     await this._emitAttestationEvents(coin, config, action);
                 }
             }
@@ -296,8 +312,23 @@ class ChangeDetector extends EventEmitter {
         }
     }
 
-    async _emitEntityUpdates(coin, config, action) {
+    // Read an entity's enrichment info at most once per poll. `map` is one of the
+    // per-poll caches built in _checkCoin; a cache miss runs `loader` and stores its
+    // result (including null), a hit returns the stored value without a DB round-trip.
+    // A loader that throws is NOT cached and propagates to the caller's try/catch, so
+    // the per-entity non-fatal skip behaviour is unchanged. When no cache is supplied
+    // (e.g. a direct/legacy call) the loader always runs, preserving old behaviour.
+    async _entityRead(map, key, loader) {
+        if (!map) return await loader();
+        if (map.has(key)) return map.get(key);
+        const value = await loader();
+        map.set(key, value);
+        return value;
+    }
+
+    async _emitEntityUpdates(coin, config, action, entityCache) {
         if (!this.channelManager) return;
+        const cache = entityCache || null;
 
         const subscribedAddresses = this.channelManager.getSubscribedAddresses(coin);
         if (subscribedAddresses.size > 0) {
@@ -307,7 +338,7 @@ class ChangeDetector extends EventEmitter {
 
             for (const addr of involvedAddresses) {
                 try {
-                    const balances = await this.db.getAddressBalances(config, addr);
+                    const balances = await this._entityRead(cache && cache.addr, addr, () => this.db.getAddressBalances(config, addr));
                     this.emit('entity_update', coin, {
                         type:    'ADDRESS_UPDATE',
                         channel: 'address',
@@ -329,7 +360,7 @@ class ChangeDetector extends EventEmitter {
         if (subscribedTicks.size > 0 && ['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND'].includes(action.action)) {
             for (const tick of subscribedTicks) {
                 try {
-                    const tokenInfo = await this.db.getTokenInfo(config, tick);
+                    const tokenInfo = await this._entityRead(cache && cache.token, tick, () => this.db.getTokenInfo(config, tick));
                     if (tokenInfo) {
                         this.emit('entity_update', coin, {
                             type:    'TOKEN_UPDATE',
@@ -352,7 +383,7 @@ class ChangeDetector extends EventEmitter {
         if (subscribedDispensers.size > 0 && ['DISPENSE', 'DISPENSER', 'DISPENSER_CLOSE', 'DISPENSER_EXPIRE'].includes(action.action)) {
             for (const dispenserIdx of subscribedDispensers) {
                 try {
-                    const dispenserInfo = await this.db.getDispenserInfo(config, dispenserIdx);
+                    const dispenserInfo = await this._entityRead(cache && cache.dispenser, dispenserIdx, () => this.db.getDispenserInfo(config, dispenserIdx));
                     if (dispenserInfo) {
                         this.emit('entity_update', coin, {
                             type:    'DISPENSER_UPDATE',
@@ -370,7 +401,7 @@ class ChangeDetector extends EventEmitter {
         if (subscribedMarkets.length > 0 && ['ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE', 'SWAP', 'SWAP_MATCH'].includes(action.action)) {
             for (const market of subscribedMarkets) {
                 try {
-                    const marketInfo = await this.db.getMarketInfo(config, market.tick1, market.tick2);
+                    const marketInfo = await this._entityRead(cache && cache.market, market.tick1 + '\u0000' + market.tick2, () => this.db.getMarketInfo(config, market.tick1, market.tick2));
                     if (marketInfo) {
                         this.emit('entity_update', coin, {
                             type:    'MARKET_UPDATE',

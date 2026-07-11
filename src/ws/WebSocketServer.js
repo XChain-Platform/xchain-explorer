@@ -238,7 +238,15 @@ class WebSocketServer {
                 // actually validates params.types) so this self-description cannot
                 // silently under-advertise a filterable type again.
                 types: [...ChannelManager.VALID_TYPES],
-                features: ['snapshot', 'once', 'fields', 'statuses', 'ticks', 'batch', 'catch_up']
+                // 'statuses' is intentionally NOT advertised: the block-derived
+                // actions feed (getActionsSince) never populates a per-action
+                // status, so a statuses filter on the actions channel is a silent
+                // no-op. Rather than imply a filter we can't honor there (the
+                // per-type status joins are deferred), we drop it from the
+                // advertised contract so clients cannot rely on it. The filter
+                // mechanism still runs for events that do carry a status (e.g.
+                // lifecycle/COINPAY frames); it is simply not advertised.
+                features: ['snapshot', 'once', 'fields', 'ticks', 'batch', 'catch_up']
             }
         };
 
@@ -331,8 +339,11 @@ class WebSocketServer {
                 data: {
                     channel: sub.channel,
                     active_filters: {
+                        // 'statuses' is deliberately not echoed here: the actions
+                        // feed cannot honor a status filter (status is null on
+                        // block-derived actions), so confirming it back would let a
+                        // client rely on a no-op. See the WELCOME features note.
                         types:    result.filter.types    ? [...result.filter.types]    : null,
-                        statuses: result.filter.statuses ? [...result.filter.statuses] : null,
                         ticks:    result.filter.ticks    ? [...result.filter.ticks]    : null,
                         fields:   result.filter.fields   ? [...result.filter.fields]   : null,
                         once:     result.filter.once

@@ -42,10 +42,34 @@ class XChainIndexerConnector {
     constructor(url){
         this.url     = url;
         this.timeout = Number(process.env.INDEXER_API_TIMEOUT_MS) || 5000;
+        // Optional API key for the indexer's fail-closed federation-read gate
+        // (getstakeweightsbycapability is a FEDERATION_READ method). When the peer
+        // indexer has INDEXER_API_KEY set, this must be presented or the gated call
+        // gets a 401; plumbing it here lets a hardened indexer serve the explorer's
+        // validator-set proof without INDEXER_ALLOW_UNAUTHENTICATED=true. Unset
+        // keeps behavior byte-identical for open-gate/regtest indexers. Never logged.
+        this.apiKey  = process.env.EXPLORER_INDEXER_API_KEY || '';
     }
 
     async _call(method, params){
-        let response = await axios.post(this.url, { jsonrpc: '2.0', method, params, id: 1 }, { timeout: this.timeout });
+        const config = { timeout: this.timeout };
+        if(this.apiKey) config.headers = { 'x-api-key': this.apiKey };
+        let response;
+        try {
+            response = await axios.post(this.url, { jsonrpc: '2.0', method, params, id: 1 }, config);
+        } catch(err){
+            // Distinguish an indexer auth rejection (gate enabled, no/wrong key)
+            // from a transport outage so the caller can surface a clean
+            // configuration error rather than a generic "unavailable". The thrown
+            // error carries no header/key material.
+            const status = err && err.response && err.response.status;
+            if(status === 401 || status === 403){
+                const e = new Error('indexer authentication required');
+                e.code = 'INDEXER_AUTH_REQUIRED';
+                throw e;
+            }
+            throw err;
+        }
         if(response.data && response.data.error)
             throw new Error(response.data.error.message || 'indexer error');
         return (response.data && response.data.result !== undefined) ? response.data.result : null;

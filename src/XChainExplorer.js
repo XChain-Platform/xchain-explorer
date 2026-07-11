@@ -476,10 +476,11 @@ class XChainExplorer {
         // recomputes the proof locally and binds it to a quorum-signed checkpoint's
         // committed state_root (never trusting this server's word). The balance proof
         // + checkpoint range are live; action / validator-set / contract-state are
-        // reserved (501) pending their design dependencies (see the handlers).
-        // Merkle-proof recompute is CPU-bound per request (hashes every leaf in
-        // the target block), so cap it per-IP well below the platform-wide
-        // 500rpm default, mirroring the VM-call limiter's design.
+        // balance + action + validator-set proofs and the checkpoint range are
+        // live; contract-state is reserved (501) pending its design dependency
+        // (see the handler). Merkle-proof recompute is CPU-bound per request
+        // (hashes every leaf in the target block), so cap it per-IP well below
+        // the platform-wide 500rpm default, mirroring the VM-call limiter's design.
         const actionProofLimiter = rateLimit({
             windowMs:        60 * 1000,
             limit:           parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 60,
@@ -487,10 +488,23 @@ class XChainExplorer {
             legacyHeaders:   false,
             message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
         });
+        // The validator-set proof is the heaviest proof endpoint: its handler
+        // fans out over every capability and calls _prove once per validator (up
+        // to VALIDATOR_QUERY_LIMIT), each a 256-deep SMT descent issuing a
+        // sequential DB read per non-empty level, plus a per-capability indexer
+        // RPC. Worst case is ~2000 sequential SMT descents per request, so it
+        // gets its own tighter cap, below the action-proof limiter's.
+        const validatorSetProofLimiter = rateLimit({
+            windowMs:        60 * 1000,
+            limit:           parseInt(process.env.EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM, 10) || 30,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
+        });
         this.app.get('/:coin/api/proof/balance/:address/:tick', (req, res) => { this.processBalanceProofRequest(req, res); });
         this.app.get('/:coin/api/checkpoints/range', (req, res) => { this.processCheckpointsRangeRequest(req, res); });
         this.app.get('/:coin/api/proof/action/:actionIndex', actionProofLimiter, (req, res) => { this.processActionProofRequest(req, res); });
-        this.app.get('/:coin/api/proof/validator-set', (req, res) => { this.processValidatorSetProofRequest(req, res); });
+        this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { this.processValidatorSetProofRequest(req, res); });
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
 
         // Read-only contract simulation (the platform's eth_call): runs a
@@ -1574,6 +1588,7 @@ class XChainExplorer {
                             CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             INDEXER_UNAVAILABLE: [502, 'Indexer API unavailable for the stake set'],
+                            INDEXER_AUTH_REQUIRED: [503, 'Indexer requires authentication for the stake set; set EXPLORER_INDEXER_API_KEY on the explorer'],
                             PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
                 let m = map[result.error] || [500, 'Server error'];
                 return res.status(m[0]).json({ error: m[1], code: result.error });

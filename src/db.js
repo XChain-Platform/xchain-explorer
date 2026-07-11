@@ -6348,12 +6348,15 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
-            // ANCHOR action (DOGE-only; v0 = checkpoint, v1 = checkpoint+archive, v2 = continuation chunk).
+            // ANCHOR action (DOGE-only; v0 = checkpoint, v1 = checkpoint+archive,
+            // v2 = continuation chunk, v3 = checkpoint+SPV roots once the
+            // CHECKPOINT_COMMITMENT flag-day activates, v4 = v0+publisher attestation
+            // (rootless), v5 = v3+publisher attestation (root-bearing; mainnet-preferred)).
             // archive_b64 is intentionally omitted (large; only the recovery assembler needs it).
             // The four SPV root columns (state_root, state_root_version, block_merkle_root,
-            // block_merkle_version) are NULL for v0/v1/v2 and populated for v3 once the
-            // CHECKPOINT_COMMITMENT flag-day activates; included here so the detail view
-            // matches the getAnchors() list and checkpoint-reader surfaces.
+            // block_merkle_version) are NULL for v0/v1/v2/v4 and populated for v3 and v5;
+            // selected unconditionally here so the detail view matches the getAnchors()
+            // list and checkpoint-reader surfaces.
             if(type=='ANCHOR'){
                 query = `SELECT
                             a2.action,
@@ -6911,18 +6914,50 @@ class Database {
         return [data, total];
     }
 
+    // Batch-load getActionData for a set of action indexes (Fix B / #3841). Resolves the
+    // DISTINCT action_index set concurrently through the existing getActionData path (bounded
+    // by BATCH_CONCURRENCY so the connection pool is not exhausted), returning a Map keyed by
+    // the numeric action_index. Because each entry is produced by the unmodified getActionData,
+    // every payload is byte-for-byte identical to the per-row path it replaces; the only change
+    // is that the page's lookups now overlap instead of running strictly serially, and the LRU
+    // _actionDataCache is warmed exactly as before. Callers must read results by action_index
+    // (never rely on ordering). Failures propagate unchanged (same as the old per-row await).
+    async getActionDataBatch(config, actionIndexes){
+        const BATCH_CONCURRENCY = Number(this.config && this.config.BATCH_CONCURRENCY) || 8;
+        // Distinct, insertion-order-preserving set of indexes to fetch.
+        let distinct = [];
+        let seen = new Set();
+        for(let idx of actionIndexes){
+            let key = Number(idx);
+            if(!seen.has(key)){ seen.add(key); distinct.push(idx); }
+        }
+        let out = new Map();
+        let cursor = 0;
+        const worker = async () => {
+            while(cursor < distinct.length){
+                let i = cursor++;
+                let idx = distinct[i];
+                out.set(Number(idx), await this.getActionData(config, idx));
+            }
+        };
+        let workers = [];
+        let poolSize = Math.min(BATCH_CONCURRENCY, distinct.length);
+        for(let w = 0; w < poolSize; w++) workers.push(worker());
+        await Promise.all(workers);
+        return out;
+    }
+
     async getActionSummaryData(config, actions){
         // --- Performance note (Fix B / #3841) ---
-        // This loop issues one getActionData() call per row, which is a serial N+1 pattern.
-        // The LRU _actionDataCache helps on repeated page views but not on first loads.
-        //
-        // Batched-fetch follow-up (post-launch): group the action_index set by action type
-        // (the `action` column is already returned by the getHistoryData main query), issue
-        // one per-type JOIN query for the whole page, and stitch results into the same
-        // detailFields shape below. This would collapse ~100 round-trips to ~30 (one per
-        // distinct action type on the page). Tracked as #3841.
+        // The page's action rows are enriched via getActionDataBatch(), which resolves the
+        // distinct action_index set through getActionData with bounded concurrency instead of
+        // one strictly-serial await per row. Payloads are byte-identical to the old per-row
+        // path (same getActionData); only the round-trips now overlap, so first-load latency
+        // no longer scales linearly with the serial round-trip count. Tracked as #3841.
         const t0 = Date.now();
         // --- End Fix B ---
+        // Pre-resolve every row's action data once, keyed by action_index.
+        let actionData = await this.getActionDataBatch(config, actions.map((a) => a.action_index));
         // Minimal field set for history list items; full info is available per-action.
         let detailFields = [
             'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
@@ -6943,7 +6978,7 @@ class Database {
             'balances', 'ownerships', 'orders', 'swaps', 'dispensers'                                                      // Sweeps
         ];
         for(let data of actions){
-            let info = await this.getActionData(config, data.action_index);
+            let info = actionData.get(Number(data.action_index));
             data.status = info.status;
             let details = false;
             for(let name of detailFields){
@@ -6969,11 +7004,11 @@ class Database {
             }
             data.details = details;
         }
-        // Slow-page observability (Fix B): warn when first-load latency is high so
-        // the batched-fetch follow-up (#3841) can be prioritised against real data.
+        // Slow-page observability (Fix B): warn when first-load latency is still high after
+        // the batched concurrent fetch (#3841), so any residual slow path stays visible.
         const elapsed = Date.now() - t0;
         if(elapsed > 500)
-            console.warn('getActionSummaryData: slow page (' + elapsed + 'ms, ' + actions.length + ' actions) -- N+1 serial getActionData; see #3841 for batched fix');
+            console.warn('getActionSummaryData: slow page (' + elapsed + 'ms, ' + actions.length + ' actions) -- batched getActionData fetch still slow; see #3841');
         return actions;
     }
 

@@ -226,7 +226,7 @@ class ProofServer {
         for (const cap of caps) {
             let res;
             try { res = await indexerConn.stakeWeights(cap, Number(cp.block_index)); }
-            catch (e) { return { error: 'INDEXER_UNAVAILABLE' }; }
+            catch (e) { return { error: (e && e.code === 'INDEXER_AUTH_REQUIRED') ? 'INDEXER_AUTH_REQUIRED' : 'INDEXER_UNAVAILABLE' }; }
             if (!res || res.error) continue;                                 // capability not configured here -> skip
             const validators = res.validators || [];
             const seen = new Map();                                          // source -> weight (source-deduped)

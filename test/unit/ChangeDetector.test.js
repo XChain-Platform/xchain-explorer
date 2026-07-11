@@ -406,6 +406,81 @@ describe('ChangeDetector', function () {
     });
 
     // -----------------------------------------------------------------
+    // Per-poll entity-read batching (#3841 / a983778b): the enrichment reads
+    // are cached once per distinct entity per poll, but the SAME per-action
+    // events are still emitted.
+    // -----------------------------------------------------------------
+
+    describe('per-poll entity-read batching', function () {
+        function seedPoll(det, actions) {
+            det.state['BTC'] = { blockIndex: 0, actionIndex: 0, initialized: true };
+            det.db.getMaxBlockIndex.resolves(0);
+            det.db.getMaxActionIndex.resolves(actions.length);
+            det.db.getActionsSince.resolves(actions);
+        }
+
+        it('reads getTokenInfo once per distinct tick per poll but emits one TOKEN_UPDATE per action', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedTicks.returns(new Set(['GOLD']));
+            det.db.getTokenInfo.resolves({ supply: '100', holders: 5 });
+            const actions = [
+                { action: 'MINT', action_index: 1 },
+                { action: 'MINT', action_index: 2 },
+                { action: 'MINT', action_index: 3 }
+            ];
+            seedPoll(det, actions);
+            let evs = [];
+            det.on('entity_update', (c, e) => { if (e.type === 'TOKEN_UPDATE') evs.push(e); });
+
+            await det._checkCoin('BTC');
+
+            // One DB read for GOLD across the whole poll (was one per action).
+            expect(det.db.getTokenInfo.callCount).to.equal(1);
+            // But still one TOKEN_UPDATE per action, each carrying its own last_action_index.
+            expect(evs.map((e) => e.data.last_action_index)).to.deep.equal([1, 2, 3]);
+            expect(evs.every((e) => e.data.tick === 'GOLD' && e.data.supply === '100')).to.equal(true);
+        });
+
+        it('reads getAddressBalances once per distinct address per poll but emits one ADDRESS_UPDATE per action', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedAddresses.returns(new Set(['addrA']));
+            det.db.getAddressBalances.resolves([{ tick: 'X', amount: '1' }]);
+            const actions = [
+                { source: 'addrA', action: 'SEND', action_index: 10 },
+                { source: 'addrA', action: 'SEND', action_index: 11 }
+            ];
+            seedPoll(det, actions);
+            let evs = [];
+            det.on('entity_update', (c, e) => { if (e.type === 'ADDRESS_UPDATE') evs.push(e); });
+
+            await det._checkCoin('BTC');
+
+            expect(det.db.getAddressBalances.callCount).to.equal(1);
+            expect(evs.map((e) => e.data.last_action_index)).to.deep.equal([10, 11]);
+            expect(evs.every((e) => e.data.address === 'addrA')).to.equal(true);
+        });
+
+        it('re-reads an entity on the NEXT poll (cache is per-poll, not persistent)', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedTicks.returns(new Set(['GOLD']));
+            det.db.getTokenInfo.resolves({ supply: '100', holders: 5 });
+
+            det.state['BTC'] = { blockIndex: 0, actionIndex: 0, initialized: true };
+            det.db.getMaxBlockIndex.resolves(0);
+            det.db.getMaxActionIndex.onFirstCall().resolves(1).onSecondCall().resolves(2);
+            det.db.getActionsSince
+                .onFirstCall().resolves([{ action: 'MINT', action_index: 1 }])
+                .onSecondCall().resolves([{ action: 'MINT', action_index: 2 }]);
+
+            await det._checkCoin('BTC');
+            await det._checkCoin('BTC');
+
+            // One read per poll -> two reads across two polls (no stale cross-poll cache).
+            expect(det.db.getTokenInfo.callCount).to.equal(2);
+        });
+    });
+
+    // -----------------------------------------------------------------
     // _emitAttestationEvents()
     // -----------------------------------------------------------------
 

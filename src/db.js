@@ -6319,6 +6319,69 @@ class Database {
                             m.action_index=?
                         LIMIT 1`;
             }
+            // XEXEC action (mirror-injected cross-chain call execution; the rollback anchor
+            // the indexer mints when a quorum-signed cross_chain_calls dispatch is applied on
+            // this chain). Transaction-less: no wire tx, so block joins via actions.block_index
+            // and transactions is LEFT joined. The execution outcome (result_status / gas /
+            // return payload) and the injected EXECUTE it drove live in cross_chain_call_executions,
+            // keyed by this action's own action_index. call_id links back to the source dispatch.
+            if(type=='XEXEC'){
+                query = `SELECT
+                            a4.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.call_id,
+                            m.execute_action_index,
+                            m.result_status,
+                            m.return_payload_b64,
+                            m.gas_used,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index
+                        FROM
+                            cross_chain_call_executions m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
+            // CROSS_SETTLE action (mirror-injected cross-chain DEX settlement leg; the internal
+            // action the indexer mints when it releases a local ORDER/SWAP against a signed
+            // cross_chain_matches row). Transaction-less, same join shape as XEXEC. Both leg
+            // references (a_chain/a_action_index, b_chain/b_action_index) and the local offer
+            // released (local_action_index) are captured at settle time in cross_chain_settlements,
+            // keyed by this action's own action_index; match_id ties it to the settled match.
+            if(type=='CROSS_SETTLE'){
+                query = `SELECT
+                            a4.action,
+                            a1.action_format,
+                            m.action_index,
+                            m.match_id,
+                            m.local_action_index,
+                            m.a_chain,
+                            m.a_action_index,
+                            m.b_chain,
+                            m.b_action_index,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index
+                        FROM
+                            cross_chain_settlements m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        WHERE
+                            m.action_index=?
+                        LIMIT 1`;
+            }
             // NODEPROOF action (full-node possession-proof verdict v0). The verdict is a
             // single quorum-signed action that writes one full_node_verifications row per
             // PASS pubkey, all sharing this action_index; so challenge_id/epoch_height/
@@ -6407,9 +6470,10 @@ class Database {
             }
             // De-blank guard. A known action whose dedicated branch matched no row
             // (a system-synthesized transaction-less / row-less variant such as an
-            // XCALL v1 result-marker or an ATTEST v2 expire), or a mirror-injected
-            // type with no dedicated branch at all (XEXEC / CROSS_SETTLE), would
-            // otherwise fall through with all-NULL data and render a page emptier
+            // XCALL v1 result-marker or an ATTEST v2 expire, or a mirror-injected
+            // XEXEC / CROSS_SETTLE whose domain row was reorg-dropped after the
+            // action was minted) would otherwise fall through with all-NULL data
+            // and render a page emptier
             // than the UNKNOWN fallback. Populate the baseline action name / block /
             // timestamp / source from the actions + blocks tables so every
             // addressable action shows at least those. Transaction-less-safe:

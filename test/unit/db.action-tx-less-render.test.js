@@ -17,8 +17,9 @@
  * The indexer mints actions with no transaction (tx_index NULL) and, for some
  * variants, no domain-table row at all. These tests exercise the getActionData
  * control flow that keeps their public action pages from rendering blank:
- *   - the de-blank fallback (branchless XEXEC / CROSS_SETTLE, and row-less
- *     variants) surfaces baseline action / block / timestamp
+ *   - the de-blank fallback (row-less variants, e.g. an XEXEC / CROSS_SETTLE
+ *     whose domain row was reorg-dropped) surfaces baseline action / block /
+ *     timestamp; the dedicated XEXEC / CROSS_SETTLE branches render the rich row
  *   - XCALL v1 result-markers resolve their callback by action_index + tag v1
  *   - ATTEST v2 expire tags its version from the action format (Expire badge)
  *   - UNSTAKE v2 cooldown-completion surfaces the returned credit as the amount
@@ -107,6 +108,48 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         const data = await db.getActionData(cfg(), 43);
         expect(data.action).to.equal('CROSS_SETTLE');
         expect(data.block_index).to.equal(701);
+    });
+
+    it('XEXEC renders its cross_chain_call_executions row (call_id / result / gas / execute action)', async function() {
+        const db = makeDb();
+        db.doQuery = async function(config, sql, args) {
+            const q = String(sql);
+            if(q.includes('a2.action') && q.includes('actions a1') && !q.includes('block_index'))
+                return [{ action: 'XEXEC' }];
+            if(q.includes('cross_chain_call_executions m'))
+                return [{ action: 'XEXEC', action_format: 0, action_index: 44, call_id: 'abc123',
+                          execute_action_index: 45, result_status: 'ok', return_payload_b64: 'Zm9v',
+                          gas_used: '12000', block_index: 710, timestamp: 1700000200, tx_hash: null, tx_index: null }];
+            return [];
+        };
+        const data = await db.getActionData(cfg(), 44);
+        expect(data.action).to.equal('XEXEC');
+        expect(data.call_id).to.equal('abc123');
+        expect(data.execute_action_index).to.equal(45);
+        expect(data.result_status).to.equal('ok');
+        expect(data.gas_used).to.equal('12000');
+        expect(data.block_index).to.equal(710);
+    });
+
+    it('CROSS_SETTLE renders its cross_chain_settlements row (match_id / local offer / both legs)', async function() {
+        const db = makeDb();
+        db.doQuery = async function(config, sql, args) {
+            const q = String(sql);
+            if(q.includes('a2.action') && q.includes('actions a1') && !q.includes('block_index'))
+                return [{ action: 'CROSS_SETTLE' }];
+            if(q.includes('cross_chain_settlements m'))
+                return [{ action: 'CROSS_SETTLE', action_format: 0, action_index: 46, match_id: 'm-99',
+                          local_action_index: 47, a_chain: 'btc', a_action_index: 48, b_chain: 'doge',
+                          b_action_index: 49, block_index: 720, timestamp: 1700000300, tx_hash: null, tx_index: null }];
+            return [];
+        };
+        const data = await db.getActionData(cfg(), 46);
+        expect(data.action).to.equal('CROSS_SETTLE');
+        expect(data.match_id).to.equal('m-99');
+        expect(data.local_action_index).to.equal(47);
+        expect(data.a_chain).to.equal('btc');
+        expect(data.b_action_index).to.equal(49);
+        expect(data.block_index).to.equal(720);
     });
 
     it('XCALL v1 result-marker resolves the callback by action_index and tags version 1', async function() {

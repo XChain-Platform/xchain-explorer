@@ -2236,6 +2236,8 @@ function showActionDetails(){
     if(o.action=='DEPOSIT'){          found = true;  showDepositDetails(o);         }
     if(o.action=='WITHDRAW'){         found = true;  showWithdrawDetails(o);        }
     if(o.action=='XCALL'){            found = true;  showXcallDetails(o);           }
+    if(o.action=='XEXEC'){            found = true;  showXexecDetails(o);           }
+    if(o.action=='CROSS_SETTLE'){     found = true;  showCrossSettleDetails(o);     }
     if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
     if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
     if(o.action=='COINPAY'){          found = true;  showCoinpayDetails(o);         }
@@ -2682,6 +2684,29 @@ function showXcallDetails(data){
         $('#info-xcall .xcall-callback-result').text(isNull(cb.callback_result_status) ? '-' : cb.callback_result_status);
         $('#info-xcall .xcall-callback-action').html(isNull(data.callback_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.callback_action_index, data.callback_action_index));
     }
+}
+
+// Display XEXEC action information (mirror-injected cross-chain call execution:
+// the outcome of running a quorum-signed cross-chain dispatch on this chain).
+function showXexecDetails(data){
+    $('#info-xexec .xexec-call-id').html(isNull(data.call_id) ? '-' : formatHash(data.call_id, 32));
+    $('#info-xexec .xexec-execute-action').html(isNull(data.execute_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.execute_action_index, data.execute_action_index));
+    $('#info-xexec .xexec-result-status').text(isNull(data.result_status) ? '-' : data.result_status);
+    $('#info-xexec .xexec-gas-used').text(isNull(data.gas_used) ? '-' : numeral(data.gas_used).format('0,0'));
+    $('#info-xexec .xexec-return-payload').html(isNull(data.return_payload_b64) ? '-' : formatHash(data.return_payload_b64, 32));
+    $('#info-xexec .xexec-block').html(isNull(data.block_index) ? '-' : formatLink('/' + XC.coin + '/block/' + data.block_index, numeral(data.block_index).format('0,0')));
+}
+
+// Display CROSS_SETTLE action information (mirror-injected cross-chain DEX
+// settlement leg: the release of a local ORDER/SWAP against a signed match).
+function showCrossSettleDetails(data){
+    $('#info-cross-settle .cross-settle-match-id').html(isNull(data.match_id) ? '-' : formatHash(data.match_id, 32));
+    $('#info-cross-settle .cross-settle-local-action').html(isNull(data.local_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.local_action_index, data.local_action_index));
+    $('#info-cross-settle .cross-settle-a-chain').text(isNull(data.a_chain) ? '-' : data.a_chain);
+    $('#info-cross-settle .cross-settle-a-action').text(isNull(data.a_action_index) ? '-' : data.a_action_index);
+    $('#info-cross-settle .cross-settle-b-chain').text(isNull(data.b_chain) ? '-' : data.b_chain);
+    $('#info-cross-settle .cross-settle-b-action').text(isNull(data.b_action_index) ? '-' : data.b_action_index);
+    $('#info-cross-settle .cross-settle-block').html(isNull(data.block_index) ? '-' : formatLink('/' + XC.coin + '/block/' + data.block_index, numeral(data.block_index).format('0,0')));
 }
 
 // Display ISSUE action information

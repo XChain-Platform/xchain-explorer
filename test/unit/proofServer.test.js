@@ -28,7 +28,17 @@ const M      = require('../../src/merkle.js');
 const ProofServer = require('../../src/proofServer.js');
 // The REAL SDK light-client verifier (its own merkle twin), so the regression
 // below asserts cross-service acceptance exactly as a deployed light client would.
-const { verifyBalanceProof } = require('../../../xchain-sdk/src/light.js');
+// Resolved lazily and skip-if-absent (XCHAIN_SDK_DIR override, else the sibling
+// checkout), matching the repo's other cross-repo conformance tests: the CI
+// runner checks out only xchain-explorer.
+const fs   = require('fs');
+const path = require('path');
+const SDK_LIGHT = process.env.XCHAIN_SDK_DIR
+    ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'light.js')
+    : path.join(__dirname, '..', '..', '..', 'xchain-sdk', 'src', 'light.js');
+const verifyBalanceProof = fs.existsSync(SDK_LIGHT)
+    ? require(SDK_LIGHT).verifyBalanceProof
+    : null;
 
 // Minimal in-memory persistent SMT (the update half of stateCommitment.PersistentSMT)
 // so the test can materialize the exact node store the proof walk reads.
@@ -189,6 +199,8 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
 // verifier. Before the fix (proofServer called the unbounded getNetBalance18) the
 // tip amount fails amountLeaf()==leaf and the SDK returns LEAF_AMOUNT_MISMATCH.
 describe('SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-verified)', function () {
+
+    before(function () { if (!verifyBalanceProof) this.skip(); });
 
     const CP_HEIGHT = 100;
     // Per-block ledger for (ADDR_A, TICK): +5 at block 50 (<= checkpoint),

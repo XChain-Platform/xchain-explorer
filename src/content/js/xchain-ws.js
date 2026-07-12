@@ -26,7 +26,7 @@
 // no require()), so it cannot import src/ws/schema-version.js's WS_SCHEMA_VERSION
 // directly; keep this literal in sync with that constant by hand. A conformance
 // test (test/unit/ws/schema-version-client.test.js) fails the build if they drift.
-var CLIENT_WS_SCHEMA_VERSION = 1;
+var CLIENT_WS_SCHEMA_VERSION = 2;
 
 var XChainWS = {
 
@@ -188,7 +188,10 @@ var XChainWS = {
                 '| block:', msg.data.latest_block_index,
                 '| action:', msg.data.latest_action_index);
             if (this.lastActionIndex === 0 && msg.data.latest_action_index) {
-                this.lastActionIndex = msg.data.latest_action_index;
+                // WS schema v2 emits BIGINT fields as decimal strings; coerce so
+                // lastActionIndex stays numeric (matching the Number() paths above)
+                // and the `idx > this.lastActionIndex` comparisons don't go string-wise.
+                this.lastActionIndex = Number(msg.data.latest_action_index);
             }
         }
 

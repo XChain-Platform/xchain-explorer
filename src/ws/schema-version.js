@@ -22,10 +22,15 @@
  * lifecycle events, entity updates, catch-up frames, ...) is renamed,
  * retyped, or restructured in a way an existing consumer could
  * mis-parse. Additive optional fields do NOT require a bump.
+ *
+ * v2 (BIGINT-as-string): BigInt-backed fields (action_index, block_index,
+ * block_time, ...) now serialize as decimal STRINGS on WS, matching the REST
+ * API (utility.jsonStringify), where they were previously emitted as numbers.
+ * Breaking for WS consumers that assumed a numeric type; see ws/serialize.js.
  ********************************************************************/
 
 'use strict';
 
-const WS_SCHEMA_VERSION = 1;
+const WS_SCHEMA_VERSION = 2;
 
 module.exports = { WS_SCHEMA_VERSION };

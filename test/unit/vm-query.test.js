@@ -18,7 +18,9 @@
 // integration suite, which skips itself when isolated-vm is unavailable.
 
 const { expect } = require('chai');
-const proxyquire = require('proxyquire').noPreserveCache();
+// noCallThru: the whole point of the stub is hosts WITHOUT a loadable
+// xchain-vm; call-through would try (and fail) to require the real module.
+const proxyquire = require('proxyquire').noPreserveCache().noCallThru();
 
 // Fresh module instance per test: vm-query keeps sticky module-level state
 // (loaded module, singleton instance, in-flight counter) by design.

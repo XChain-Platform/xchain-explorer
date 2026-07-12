@@ -93,8 +93,18 @@ const MAX_METHOD_BYTES = 64;
 const MAX_PARAMS       = 32;
 const MAX_PARAM_BYTES  = 1024;
 
-let XChainVM    = null;   // resolved module (or null until first use)
+// Resolve xchain-vm eagerly (guarded): a host whose isolated-vm never built
+// (wrong Node major, standalone checkout without the vendored copy) records a
+// sticky load error and every call short-circuits on it. Eager rather than
+// on-first-use so the unit suite's proxyquire stub of 'xchain-vm' actually
+// intercepts the require (proxyquire only sees requires made during module load).
+let XChainVM    = null;   // resolved module (or null when unavailable)
 let vmLoadError = null;   // sticky load failure so we don't re-require per request
+try {
+    XChainVM = require('xchain-vm');
+} catch(e){
+    vmLoadError = e;
+}
 let vmInstance  = null;   // lazy singleton; one subprocess worker for all requests
 let inFlight    = 0;
 // Per-client-IP in-flight slot counts. The global cap alone is starvable: with
@@ -138,20 +148,7 @@ class VmQueryError extends Error {
     }
 }
 
-// Load xchain-vm exactly once. A host whose isolated-vm never built (wrong
-// Node major, standalone checkout without the vendored copy) fails here and
-// every later call short-circuits on the sticky error.
-function loadVm(){
-    if(XChainVM || vmLoadError) return;
-    try {
-        XChainVM = require('xchain-vm');
-    } catch(e){
-        vmLoadError = e;
-    }
-}
-
 function getVm(){
-    loadVm();
     if(!XChainVM)
         throw new VmQueryError('VM_MODULE_UNAVAILABLE', 'xchain-vm is not available on this host (isolated-vm requires Node 22)', 503);
     if(!vmInstance)

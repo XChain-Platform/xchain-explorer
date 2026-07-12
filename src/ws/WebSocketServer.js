@@ -233,7 +233,10 @@ class WebSocketServer {
                     max_message_size:       this.maxMessageSize,
                     max_connections_per_ip: this.maxPerIp
                 },
-                channels: ['blocks', 'actions', 'mempool', 'network', 'attestation', 'address', 'token', 'market', 'dispenser'],
+                // Derived from ChannelManager.VALID_CHANNELS (the single authority
+                // that actually validates params.channel) so this self-description
+                // cannot silently under-advertise a subscribable channel again.
+                channels: [...ChannelManager.VALID_CHANNELS],
                 // Derived from ChannelManager.VALID_TYPES (the single authority that
                 // actually validates params.types) so this self-description cannot
                 // silently under-advertise a filterable type again.
@@ -477,14 +480,14 @@ class WebSocketServer {
                     }
                 };
 
-                // Apply same filter pipeline as live events
-                if (filter.types) {
-                    const actionType = action.action || event.type;
-                    if (!filter.types.has(actionType) && !filter.types.has(event.type)) continue;
-                }
-                if (filter.statuses && action.status && !filter.statuses.has(action.status)) continue;
+                // Apply the same filter pipeline (types/statuses/ticks) and fields
+                // projection the live Broadcaster path applies, so a reconnecting
+                // client can't see a wider or unprojected shape during catch-up
+                // than it would on the live channel.
+                if (!this.broadcaster._passesFilter(filter, event, action)) continue;
+                const msg = filter.fields ? this.broadcaster._applyFieldsProjection(event, filter.fields) : event;
 
-                this._send(client, event);
+                this._send(client, msg);
                 eventsReplayed++;
             }
 
@@ -496,6 +499,8 @@ class WebSocketServer {
             // Send CATCH_UP_COMPLETE
             const complete = {
                 type:      'CATCH_UP_COMPLETE',
+                chain:     info.chain,
+                network:   info.network,
                 timestamp: Date.now(),
                 data: {
                     events_replayed:    eventsReplayed,

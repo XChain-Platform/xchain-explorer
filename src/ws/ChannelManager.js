@@ -429,3 +429,4 @@ class ChannelManager {
 
 module.exports = ChannelManager;
 module.exports.VALID_TYPES = VALID_TYPES;
+module.exports.VALID_CHANNELS = ALL_CHANNELS;

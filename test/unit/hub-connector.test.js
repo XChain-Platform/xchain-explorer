@@ -255,6 +255,54 @@ describe('XChainHubConnector', function () {
             expect(connector.lastSeq).to.equal(0);
         });
 
+        it('sends the cursor one second behind the stored watermark (same-second row skip fix)', async function () {
+            // hub-consumer-config-staleness finding: the hub reads its watermark
+            // BEFORE reading config rows, with a strict `since_updated_at > cursor`
+            // filter, so a row committed in the watermark's epoch-second is never
+            // re-delivered once our cursor advances past it. Sending lastWatermark-1
+            // re-fetches that boundary second every poll; mergeConfigDelta's
+            // upsert-only merge makes the overlap a harmless no-op re-apply.
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.resolves({ data: { result: { configs: {}, seq: 1, watermark: 1000 } } });
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            connector.lastWatermark = 1000;
+
+            await connector.getAllConfig();
+
+            const [, payload] = axiosStub.post.firstCall.args;
+            expect(payload.params.since_updated_at).to.equal(999);
+        });
+
+        it('still sends since_updated_at=0 for the initial fetch (no lookback when watermark is 0)', async function () {
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.resolves({ data: { result: { configs: {}, seq: 1, watermark: 1000 } } });
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+
+            await connector.getAllConfig();
+
+            const [, payload] = axiosStub.post.firstCall.args;
+            expect(payload.params.since_updated_at).to.equal(0);
+        });
+
+        it('re-merging the same boundary-second row on the next poll does not lose or duplicate it', async function () {
+            const axiosStub = makeAxiosStub();
+            const XChainHubConnector = loadConnector(axiosStub);
+            const connector = new XChainHubConnector('localhost', 3000);
+            connector.lastWatermark = 1000;
+            connector.configs       = { bitcoin: { mainnet: { indexer: { a: 1 } } } };
+
+            // Same row (indexer.a) re-delivered because it falls inside the
+            // one-second lookback window; merge must be idempotent.
+            axiosStub.post.resolves({
+                data: { result: { configs: { bitcoin: { mainnet: { indexer: { a: 1, b: 2 } } } }, seq: 2, watermark: 1000 } }
+            });
+
+            const result = await connector.getAllConfig();
+            expect(result.bitcoin.mainnet.indexer).to.deep.equal({ a: 1, b: 2 });
+        });
+
     });
 
     // -----------------------------------------------------------------------

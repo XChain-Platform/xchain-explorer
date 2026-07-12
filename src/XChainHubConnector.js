@@ -24,8 +24,11 @@ const axios = require('axios');
 
 // Fold a getallconfigs delta (only the rows that changed since our cursor) into
 // the cached nested config map, mutating and returning `base`. The hub's configs
-// table is upsert-only (rows are never deleted), so applying successive deltas
-// reconstructs exactly the tree a full fetch would have produced.
+// table is upsert-only (rows are never deleted), so merging is lossless (nothing
+// already applied is ever lost) - but NOT complete on its own: getAllConfig()
+// deliberately sends the cursor one second behind the stored watermark, so a
+// row committed in the watermark's epoch-second can be re-delivered here and
+// harmlessly re-merged instead of being skipped forever.
 function mergeConfigDelta(base, delta){
     for(let coin in delta){
         if(!base[coin]) base[coin] = {};
@@ -156,12 +159,19 @@ class XChainHubConnector {
     async getAllConfig(){
         let cursorEndpoint = this._watermarkEndpointIdx;
         let sentCursor     = this.lastWatermark;
+        // The hub reads its watermark BEFORE it reads the config rows, so a row
+        // committed after that read but stamped in the SAME epoch-second as the
+        // returned watermark would fall outside a strict `since_updated_at > cursor`
+        // boundary forever (the cursor already advanced past it). Send the cursor
+        // one second behind the stored watermark so that boundary second is always
+        // re-fetched; mergeConfigDelta's upsert-only merge makes re-receiving it a
+        // harmless no-op. 0 still means "send me the full tree" (initial fetch,
+        // post-restart, or a hub too old to report a watermark).
+        let deltaCursor = this.lastWatermark > 0 ? this.lastWatermark - 1 : 0;
         let result = await this._call({
             jsonrpc: '2.0',
             method:  'getallconfigs',
-            // Echo the high-water mark so the hub returns only rows changed since
-            // our last poll; 0 requests the full tree (initial fetch / old hub).
-            params:  { since_updated_at: this.lastWatermark },
+            params:  { since_updated_at: deltaCursor },
             id:      1
         });
         // _call returns null when every endpoint failed after retries; preserve
@@ -222,8 +232,10 @@ class XChainHubConnector {
     // watermark); those are always the full tree, so we REPLACE. Callers
     // (config.js) see the same full-map shape regardless of hub version. seq is 0
     // against an old hub, which the caller treats as "no committed change seen".
-    // The configs table is upsert-only (no row deletes), so merging successive
-    // deltas reconstructs exactly what a full fetch would have returned.
+    // The configs table is upsert-only (no row deletes), so merging is lossless,
+    // but only COMPLETE because getAllConfig() sends the cursor one second behind
+    // the stored watermark (see the deltaCursor comment there); this.lastWatermark
+    // itself is still set to the hub's true watermark below.
     _applyConfigResult(result){
         let payload, seq, watermark;
         if(result && typeof result === 'object' && result.configs && typeof result.configs === 'object' && ('seq' in result)){

@@ -45,6 +45,7 @@ var XChainWS = {
     intentionalClose:     false,
     serverInfo:           null,
     catchingUp:           false,
+    _schemaWarned:        false,
     handlers:             {},
 
     // Connect to the WebSocket server for a given coin
@@ -140,6 +141,7 @@ var XChainWS = {
     _onOpen: function() {
         console.log('[XChainWS] Connected to', this.url);
         this.reconnectAttempts = 0;
+        this._schemaWarned = false;
         this._setStatus('connected');
         this._startPing();
         this._resubscribe();

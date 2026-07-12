@@ -32,7 +32,6 @@
  *   - getCoinpayObligation, getOrderMatchSettlement
  *   - getPublicKey, getTransactionData
  *   - getActionFeeData
- *   - getRelatedActions
  *   - getHistoryData (basic)
  *   - getActionSummaryData (basic pass-through)
  *
@@ -756,35 +755,6 @@ describe('Database#getActionFeeData', () => {
         expect(captured).to.include('fees f1');
         expect(captured).to.include('actions');
         expect(captured).to.include('transactions');
-    });
-});
-
-// ---------------------------------------------------------------------------
-// getRelatedActions
-// ---------------------------------------------------------------------------
-
-describe('Database#getRelatedActions', () => {
-    let db;
-    beforeEach(() => { db = makeDb(); });
-    afterEach(() => { sinon.restore(); });
-
-    it('returns an empty array for any action_index', async () => {
-        sinon.stub(db, 'getActionType').resolves('SEND');
-        const result = await db.getRelatedActions(cfg(), 100);
-        expect(result).to.be.an('array').with.lengthOf(0);
-    });
-
-    it('returns an empty array when action type is null', async () => {
-        sinon.stub(db, 'getActionType').resolves(null);
-        const result = await db.getRelatedActions(cfg(), 9999);
-        expect(result).to.be.an('array').with.lengthOf(0);
-    });
-
-    it('does not throw for ORDER type', async () => {
-        sinon.stub(db, 'getActionType').resolves('ORDER');
-        let threw = false;
-        try { await db.getRelatedActions(cfg(), 1); } catch(e) { threw = true; }
-        expect(threw).to.be.false;
     });
 });
 

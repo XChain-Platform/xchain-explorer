@@ -36,4 +36,22 @@ describe('xchain-ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
         expect(clientVersion).to.equal(WS_SCHEMA_VERSION);
     });
 
+    it('resets _schemaWarned in _onOpen and declares it in the state block (SDK parity)', function () {
+        // api-contracts finding: _schemaWarned was an undeclared expando that was
+        // never reset on reconnect, so a page that reconnected to an
+        // upgraded server stayed silent after the first warning. The SDK client
+        // (xchain-sdk/src/websocket.js) resets the flag in its 'open' handler;
+        // this client must do the same.
+        const clientPath = path.join(__dirname, '../../../src/content/js/xchain-ws.js');
+        const source      = fs.readFileSync(clientPath, 'utf8');
+
+        const stateBlockMatch = source.match(/var\s+XChainWS\s*=\s*\{([\s\S]*?)_onOpen:/);
+        expect(stateBlockMatch, 'could not locate XChainWS state block').to.not.equal(null);
+        expect(stateBlockMatch[1]).to.match(/_schemaWarned\s*:\s*false\s*,/);
+
+        const onOpenMatch = source.match(/_onOpen:\s*function\s*\([^)]*\)\s*\{([\s\S]*?)\n\s*\},/);
+        expect(onOpenMatch, 'could not locate _onOpen handler').to.not.equal(null);
+        expect(onOpenMatch[1]).to.match(/this\._schemaWarned\s*=\s*false\s*;/);
+    });
+
 });

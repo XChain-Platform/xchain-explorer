@@ -29,9 +29,25 @@ function decomment(src) {
 function manifestSlice(flag) {
     return Object.entries(MANIFEST.actions).filter(([, v]) => v[flag]).map(([k]) => k).sort();
 }
+// Slice out just the getActionData method body so the uppercase-type== scrape
+// measures the render surface it claims to. db.js has many other (lowercase)
+// type== comparisons and any future uppercase type== in a different helper would
+// otherwise be miscounted as a render branch (making this exact-equality guard
+// pass or fail for the wrong reason). getActionData is a single 4-space-indented
+// method with no sibling method declared inside it, so the next 4-space method
+// declaration marks its end.
+function getActionDataBody(src) {
+    const marker = 'async getActionData(';
+    const start = src.indexOf(marker);
+    if (start < 0) throw new Error('getActionData not found in src/db.js');
+    const rest = src.slice(start + marker.length);
+    const next = rest.match(/\n {4}(?:async\s+)?[A-Za-z_$][\w$]*\s*\(/);
+    return next ? rest.slice(0, next.index) : rest;
+}
 function localExplorerSet() {
     const src = decomment(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'db.js'), 'utf8'));
-    const names = [...new Set([...src.matchAll(/type\s*==\s*["']([A-Z_]+)["']/g)].map(x => x[1]))];
+    const body = getActionDataBody(src);
+    const names = [...new Set([...body.matchAll(/type\s*==\s*["']([A-Z_]+)["']/g)].map(x => x[1]))];
     return names.filter(n => n !== 'UNKNOWN').sort(); // UNKNOWN is the catch-all render, not an action
 }
 // The two CLIENT halves of the render seam. getActionData returning rich data is
@@ -92,7 +108,7 @@ describe('ACTION manifest conformance: explorer explorerRender set @regression',
     describe('byte-identity to canonical manifest', function () {
         const DOCS = process.env.XCHAIN_DOCS_DIR || path.join(__dirname, '..', '..', '..', 'xchain-documentation');
         const CANON = path.join(DOCS, 'protocol', 'action-manifest.json');
-        before(function () { if (!fs.existsSync(CANON)) this.skip(); });
+        before(function () { if (!fs.existsSync(CANON)) { if (process.env.XCHAIN_REQUIRE_SIBLINGS === '1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but canonical action-manifest.json not found at ' + CANON); this.skip(); } });
         it('vendored test/fixtures/action-manifest.json is byte-identical to canonical', function () {
             assert.strictEqual(fs.readFileSync(VENDORED, 'utf8'), fs.readFileSync(CANON, 'utf8'),
                 'vendored action-manifest.json drifted from canonical; edit ' +

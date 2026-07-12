@@ -2464,16 +2464,29 @@ function showAttestDetails(data){
     }
 }
 
-// Display VOTE action information. One action is exactly one of three kinds
-// (data.vote_kind, set by the explorer): a v0 poll definition, a v1 ballot, or a
-// v3 standing delegation. Show only the matching sub-section; for a poll, also
-// fetch the frozen per-option tally (empty until the poll is finalized).
+// Display VOTE action information. One action is exactly one of four kinds
+// (data.vote_kind, set by the explorer): a v0 poll definition, a v1 ballot, a
+// v3 standing delegation, or a v2 system-synthesized poll finalization. Show
+// only the matching sub-section; for a poll, also fetch the frozen per-option
+// tally (empty until the poll is finalized).
 function showVoteDetails(data){
     let kind = data.vote_kind;
     $('#info-vote .vote-kind').html('<span class="badge text-bg-info">' + (kind || '-') + '</span>');
     $('#info-vote .vote-poll-fields').toggleClass('d-none', kind != 'poll');
     $('#info-vote .vote-ballot-fields').toggleClass('d-none', kind != 'ballot');
     $('#info-vote .vote-delegation-fields').toggleClass('d-none', kind != 'delegation');
+    $('#info-vote .vote-finalize-fields').toggleClass('d-none', kind != 'finalize');
+    if(kind=='finalize'){
+        // v2 finalization: link the finalized poll (poll id IS its creating action_index),
+        // show the frozen terminal status and winning option.
+        $('#info-vote .vote-finalize-poll').html(isNull(data.poll_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.poll_ref, data.poll_ref));
+        let fst = data.poll_status;
+        let fcls = (fst=='finalized') ? 'success' : (fst=='failed_quorum') ? 'danger' : 'secondary';
+        $('#info-vote .vote-finalize-status').html(isNull(fst) ? '-' : '<span class="badge text-bg-' + fcls + '">' + fst + '</span>');
+        let fopts = Array.isArray(data.options) ? data.options : [];
+        let wo = data.winning_option;
+        $('#info-vote .vote-finalize-winning').text(isNull(wo) ? '-' : (wo + (fopts[wo] != null ? ': ' + fopts[wo] : '')));
+    }
     if(kind=='poll'){
         let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
         $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));

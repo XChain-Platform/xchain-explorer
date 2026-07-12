@@ -315,6 +315,7 @@ class XChainExplorer {
                 '/{COIN}/api/poll/{QUERY}'                   : ['getPoll',             'poll'],
                 '/{COIN}/api/poll/{QUERY}/results'           : ['getPollResults',      'poll'],
                 '/{COIN}/api/votes/{QUERY}/{TYPE}'           : ['getVotes',            ['address', 'poll', 'block']],
+                '/{COIN}/api/votes'                          : ['getVotes'],
                 // ANCHOR checkpoint list (anchor_actions, read-only)
                 '/{COIN}/api/anchors/{QUERY}/{TYPE}'           : ['getAnchors',           ['block', 'chain', 'network', 'status']],
                 '/{COIN}/api/anchors'                          : ['getAnchors'],
@@ -1687,12 +1688,32 @@ class XChainExplorer {
                 return res.status(501).json({ error: 'native fee pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
             if(this.util.isNull(req.query.action))
                 return res.status(400).json({ error: 'action is required', code: 'MISSING_PARAMETER' });
+            // Validate the proxied query params before forwarding to the indexer.
+            // Express yields arrays for repeated keys (?action=A&action=B) and none of
+            // these are type/charset/length-checked on this hop, so an arbitrary-shape or
+            // unbounded value would reach the indexer's feequote endpoint. Mirror the
+            // sibling proof routes in this file, which anchor every query param before use.
+            let action        = req.query.action;
+            let params        = req.query.params;   // pipe-delimited string; the indexer splits it
+            let source        = req.query.source;
+            let feeOutputSats = req.query.feeOutputSats;
+            if(Array.isArray(action) || Array.isArray(params) || Array.isArray(source) || Array.isArray(feeOutputSats))
+                return res.status(400).json({ error: 'repeated query parameters are not allowed', code: 'INVALID_PARAMETER' });
+            action = String(action);
+            if(!/^[A-Z0-9_]{1,32}$/.test(action))
+                return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
+            if(!this.util.isNull(feeOutputSats) && !/^[0-9]+$/.test(String(feeOutputSats)))
+                return res.status(400).json({ error: 'invalid feeOutputSats', code: 'INVALID_PARAMETER' });
+            params = this.util.isNull(params) ? undefined : String(params);
+            source = this.util.isNull(source) ? undefined : String(source);
+            if((params && params.length > 8192) || (source && source.length > 4096))
+                return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             let connector = new IndexerConnector(url);
             let result = await connector.feequote({
-                action:        req.query.action,
-                params:        req.query.params,   // pipe-delimited string; the indexer splits it
-                source:        req.query.source,
-                feeOutputSats: req.query.feeOutputSats
+                action:        action,
+                params:        params,
+                source:        source,
+                feeOutputSats: this.util.isNull(feeOutputSats) ? undefined : String(feeOutputSats)
             });
             return res.json(result);
         } catch(e){

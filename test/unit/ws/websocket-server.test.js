@@ -172,4 +172,73 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
         expect(welcome.data.features).to.not.include('statuses');
     });
+
+    it('advertises exactly the set of channels ChannelManager.VALID_CHANNELS accepts', async function () {
+        // api-contracts finding: the `channels` list was a hardcoded literal that
+        // could silently drift from what ChannelManager actually validates
+        // (unlike `types`, which is already derived). Set-equality regression guard.
+        const ChannelManager = require('../../../src/ws/ChannelManager.js');
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        await s._sendWelcome(client);
+
+        const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
+        expect(new Set(welcome.data.channels)).to.deep.equal(ChannelManager.VALID_CHANNELS);
+    });
+});
+
+describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', function () {
+
+    afterEach(() => sinon.restore());
+
+    function makeBroadcaster() {
+        // Real filter/projection logic borrowed from Broadcaster.js so the test
+        // exercises the actual shared pipeline, not a stand-in.
+        const { EventEmitter } = require('events');
+        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        return new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() });
+    }
+
+    it('drops replayed actions that fail filter.ticks (parity with the live Broadcaster path)', async function () {
+        const broadcaster = makeBroadcaster();
+        const db = {
+            getMaxActionIndex: sinon.stub().resolves(3),
+            getActionsSince: sinon.stub().resolves([
+                { action_index: 1, action: 'SEND', tick: 'PEPE', tx_hash: 'a', block_index: 1, source: 's', status: null },
+                { action_index: 2, action: 'SEND', tick: 'DOGE', tx_hash: 'b', block_index: 1, source: 's', status: null }
+            ])
+        };
+        const s = makeServer({ explorer: { db }, broadcaster });
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+        const filter = { ticks: new Set(['PEPE']) };
+
+        await s._handleCatchUp(client, 0, filter, 'req-1');
+
+        const replayed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .filter((m) => m.type === 'NEW_ACTION');
+        expect(replayed).to.have.lengthOf(1);
+        expect(replayed[0].data.action_index).to.equal(1);
+    });
+
+    it('applies fields projection to replayed events (parity with the live Broadcaster path)', async function () {
+        const broadcaster = makeBroadcaster();
+        const db = {
+            getMaxActionIndex: sinon.stub().resolves(1),
+            getActionsSince: sinon.stub().resolves([
+                { action_index: 1, action: 'SEND', tx_hash: 'a', block_index: 1, source: 's', status: null }
+            ])
+        };
+        const s = makeServer({ explorer: { db }, broadcaster });
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+        const filter = { fields: ['action_index'] };
+
+        await s._handleCatchUp(client, 0, filter, 'req-1');
+
+        const replayed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .find((m) => m.type === 'NEW_ACTION');
+        expect(replayed.data).to.deep.equal({ action_index: 1 });
+    });
 });

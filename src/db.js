@@ -6562,6 +6562,28 @@ class Database {
                     }
                 } else if(!this.util.isNull(data['delegator'])){
                     data['vote_kind'] = 'delegation';
+                } else if(!this.util.isNull(data['action_format']) && Number(data['action_format'])==2){
+                    // VOTE v2 (poll finalization) is system-synthesized and writes NO
+                    // row of its own in polls/votes/vote_delegations keyed by its own
+                    // action_index (it flips the v0 poll's summary and writes poll_results).
+                    // The three row-shape probes above all miss it, so without this it fell
+                    // into the ballot else-branch and the action page badged it a blank
+                    // 'ballot'. Resolve the finalized poll by this action's index and tag it
+                    // 'finalize' (mirrors the row-less ATTEST v2 / XCALL v1 de-blanking).
+                    data['vote_kind'] = 'finalize';
+                    let prow = await this.doQuery(config,
+                        `SELECT action_index AS poll_ref, poll_status, winning_option, options
+                           FROM polls WHERE finalized_action_index=? LIMIT 1`,
+                        [action_index]);
+                    if(prow && prow.length){
+                        data['poll_ref']       = prow[0].poll_ref;
+                        data['poll_status']    = prow[0].poll_status;
+                        data['winning_option'] = prow[0].winning_option;
+                        if(prow[0].options){
+                            try { data['options'] = JSON.parse(prow[0].options); }
+                            catch(_) { console.warn('getActionData: VOTE finalize options parse failed for action_index=' + action_index + ':', _); data['options'] = []; }
+                        }
+                    }
                 } else {
                     data['vote_kind'] = 'ballot';
                     // A ballot's chosen options share this action_index; gather them in order.
@@ -6821,7 +6843,6 @@ class Database {
                 data.fee = fee;
             let txData = await this.getTransactionData(config, data.tx_hash);
             data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
-            // data.related = await this.getRelatedActions(config, action_index);;
         }
         // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry)
         this._cacheSet(this._actionDataCache, this._cacheKey(config.coin, action_index), structuredClone(data));
@@ -6939,27 +6960,6 @@ class Database {
         if(results && results.length)
             type = results[0].action;
         return type;
-    }
-
-    // Get actions related to a given action_index
-    // TODO: Circle back through and get related actions working
-    async getRelatedActions(config, action_index){
-        let type  = await this.getActionType(config, action_index);
-        let query = null;
-        if(type=='ORDER'){
-            query = `
-                SELECT action_index FROM order_edits   WHERE order_action_index=? UNION
-                SELECT action_index FROM order_cancels WHERE order_
-
-            `;
-        }
-
-
-        let actions = [];
-        if(type){
-
-        }
-        return actions;
     }
 
     // Supports search types: 'block', 'address', 'token', 'recent'.

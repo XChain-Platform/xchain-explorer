@@ -122,6 +122,7 @@ const ROUTES = [
     ['/{COIN}/api/poll/{QUERY}', 'getPoll', 'poll', 'Governance', 'A single VOTE poll definition + finalization summary'],
     ['/{COIN}/api/poll/{QUERY}/results', 'getPollResults', 'poll', 'Governance', 'Frozen per-option tally for a poll (empty until finalized)'],
     ['/{COIN}/api/votes/{QUERY}/{TYPE}', 'getVotes', ['address', 'poll', 'block'], 'Governance', 'VOTE ballots, filtered by voter/poll/block'],
+    ['/{COIN}/api/votes', 'getVotes', null, 'Governance', 'VOTE ballots (v1; one row per voter per poll)'],
     // ── Cross-chain ───────────────────────────────────────────────────────
     ['/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}', 'getCrossChainMatches', ['match', 'block', 'status'], 'Cross-chain', 'Cross-chain order matches, filtered'],
     ['/{COIN}/api/cross_chain_matches', 'getCrossChainMatches', null, 'Cross-chain', 'Cross-chain order matches (hub-replicated)'],

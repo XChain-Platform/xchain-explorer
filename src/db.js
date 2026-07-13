@@ -8313,14 +8313,20 @@ class Database {
     }
 
     // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from
-    // the mariadb driver as BigInt, which res.json() cannot serialize; coerce
-    // them to Number (chain heights are far below MAX_SAFE_INTEGER).
+    // the mariadb driver as BigInt, which res.json() cannot serialize. Coerce to
+    // STRING, not Number: every other serialized index on this server's REST and
+    // WS surface is a decimal string (utility.jsonStringify and ws/serialize.js
+    // both stringify BigInt), so a numeric checkpoint block_index would be the one
+    // endpoint where `100 !== "100"` against a WS NEW_BLOCK index. String also
+    // keeps the wire type precision-safe past 2^53. Consensus-safe: the canonical
+    // signing string String()s these fields (canonicalCheckpointString) and the
+    // flag-day gates parseInt them, so the verified bytes are unchanged.
     _normalizeCheckpointRows(rows){
         return (rows || []).map(r => ({
             ...r,
-            block_index:    Number(r.block_index),
-            checkpoint_seq: Number(r.checkpoint_seq),
-            snapshot_block: Number(r.snapshot_block)
+            block_index:    String(r.block_index),
+            checkpoint_seq: String(r.checkpoint_seq),
+            snapshot_block: String(r.snapshot_block)
         }));
     }
 

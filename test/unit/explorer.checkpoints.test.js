@@ -364,4 +364,19 @@ describe('explorer canonicalCheckpointString == SDK canonicalCheckpoint @regress
                     'explorer 4th canonical copy drifted from the SDK builder for: ' + name);
         });
     }
+
+    // The verify route builds the canonical from the row _normalizeCheckpointRows
+    // returns, whose indices are now decimal strings rather than Numbers (#2019).
+    // The canonical String()s every index and the flag-day gates parseInt them, so
+    // the signed bytes must be identical under either typing. Pin that: it is what
+    // makes the wire-type change consensus-neutral.
+    for (const [name, row] of Object.entries(ROWS)) {
+        it('index typing is consensus-neutral (string == number) for a ' + name, function () {
+            const asNumbers = { ...row, block_index: 100, checkpoint_seq: 3, snapshot_block: Number(row.snapshot_block) };
+            const asStrings = { ...row, block_index: '100', checkpoint_seq: '3', snapshot_block: String(row.snapshot_block) };
+            expect(XChainExplorer.canonicalCheckpointString(asStrings))
+                .to.equal(XChainExplorer.canonicalCheckpointString(asNumbers),
+                    'string-typed indices changed the signed canonical bytes for: ' + name);
+        });
+    }
 });

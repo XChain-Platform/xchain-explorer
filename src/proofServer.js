@@ -82,11 +82,14 @@ class ProofServer {
                           cp.checkpoint_seq + '; shaping response with empty signature set:', e.message);
             sigs = [];
         }
+        // Indices are emitted as decimal STRINGS, matching every other index on the
+        // explorer's REST/WS surface (jsonStringify + ws/serialize.js stringify BigInt).
+        // The canonical signing string String()s them, so verification bytes are unchanged.
         let shaped = {
-            chain: cp.chain, network: cp.network, block_index: Number(cp.block_index),
+            chain: cp.chain, network: cp.network, block_index: String(cp.block_index),
             block_hash: cp.block_hash, ledger_hash: cp.ledger_hash, actions_hash: cp.actions_hash,
-            contract_hash: cp.contract_hash, checkpoint_seq: Number(cp.checkpoint_seq),
-            snapshot_block: Number(cp.snapshot_block),
+            contract_hash: cp.contract_hash, checkpoint_seq: String(cp.checkpoint_seq),
+            snapshot_block: String(cp.snapshot_block),
             state_root: cp.state_root, state_root_version: cp.state_root_version,
             block_merkle_root: cp.block_merkle_root, block_merkle_version: cp.block_merkle_version,
             validator_signatures: sigs

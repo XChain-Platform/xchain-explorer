@@ -3904,3 +3904,42 @@ describe('Database.getCheckpointAtOrAbove ordering (SPV latest-default)', () => 
         expect(captured).to.match(/block_index >= \?/);
     });
 });
+
+// The checkpoint routes are the ONLY REST surface that shapes BigInt indices by
+// hand (the catch-all path goes through utility.jsonStringify, which stringifies
+// BigInt; so does ws/serialize.js). They emitted JSON numbers, so the same field
+// name was a string on /block and a number on /checkpoints, breaking strict
+// equality against a WS NEW_BLOCK index. Pin the string wire type here so the
+// hand-shaped path cannot drift back ().
+describe('Database._normalizeCheckpointRows emits BigInt indices as strings @regression', () => {
+    const db = makeDb();
+
+    it('coerces block_index/checkpoint_seq/snapshot_block to decimal strings', () => {
+        const [row] = db._normalizeCheckpointRows([{
+            chain: 'BTC', network: 'mainnet', block_hash: 'ff'.repeat(32),
+            block_index: 100n, checkpoint_seq: 7n, snapshot_block: 2000000n
+        }]);
+        expect(row.block_index).to.equal('100');
+        expect(row.checkpoint_seq).to.equal('7');
+        expect(row.snapshot_block).to.equal('2000000');
+    });
+
+    it('preserves precision past 2^53 (the reason Number() was wrong)', () => {
+        const [row] = db._normalizeCheckpointRows([{ block_index: 9007199254740993n, checkpoint_seq: 1n, snapshot_block: 1n }]);
+        expect(row.block_index).to.equal('9007199254740993');
+    });
+
+    it('leaves non-index fields untouched', () => {
+        const [row] = db._normalizeCheckpointRows([{
+            block_index: 1n, checkpoint_seq: 1n, snapshot_block: 1n,
+            state_root: 'ab'.repeat(32), validator_signatures: '[]'
+        }]);
+        expect(row.state_root).to.equal('ab'.repeat(32));
+        expect(row.validator_signatures).to.equal('[]');
+    });
+
+    it('empty/null rows → empty array', () => {
+        expect(db._normalizeCheckpointRows(null)).to.deep.equal([]);
+        expect(db._normalizeCheckpointRows([])).to.deep.equal([]);
+    });
+});

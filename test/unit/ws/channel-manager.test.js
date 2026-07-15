@@ -395,3 +395,22 @@ describe('ChannelManager', function () {
         });
     });
 });
+
+describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts, )', function () {
+    // Every lifecycle name the types filter accepts must be one the producer
+    // actually emits: LIFECYCLE_MAP values plus the inline COINPAY_REQUIRED
+    // enrichment in ChangeDetector. A phantom name is advertised in WELCOME
+    // and accepted by subscribe() yet silently matches zero events.
+    it('every lifecycle entry in VALID_TYPES is actually emitted by ChangeDetector', function () {
+        const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
+        const emitted = new Set(
+            Object.values(ChangeDetector.LIFECYCLE_MAP).flat().concat(['COINPAY_REQUIRED'])
+        );
+        // Lifecycle names = VALID_TYPES entries that are not plain indexed
+        // action types; identified as names ending in a lifecycle suffix.
+        const lifecycle = [...ChannelManager.VALID_TYPES].filter((t) =>
+            /(_COMPLETED|_EXPIRED|_CLOSED|_CANCELLED|_FULFILLED|_REQUIRED)$/.test(t));
+        const phantoms = lifecycle.filter((t) => !emitted.has(t));
+        expect(phantoms, `VALID_TYPES advertises unemitted lifecycle types: ${phantoms.join(', ')}`).to.deep.equal([]);
+    });
+});

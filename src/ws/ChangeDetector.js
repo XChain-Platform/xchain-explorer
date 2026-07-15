@@ -474,3 +474,7 @@ class ChangeDetector extends EventEmitter {
 }
 
 module.exports = ChangeDetector;
+// Exposed for the ChannelManager VALID_TYPES conformance test: every
+// lifecycle name the types filter accepts must be one this map (or the
+// inline COINPAY_REQUIRED enrichment) actually emits.
+module.exports.LIFECYCLE_MAP = LIFECYCLE_MAP;

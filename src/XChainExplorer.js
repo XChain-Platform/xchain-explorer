@@ -1403,7 +1403,11 @@ class XChainExplorer {
 
             let sigs = [];
             let sigsParseFailed = false;
-            try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ console.error('processCheckpointVerifyRequest: validator_signatures parse failed for ' + cp.chain + '/' + cp.block_index + ':', e); sigs = []; sigsParseFailed = true; }
+            // getCheckpointRows now normalizes validator_signatures to a parsed
+            // array (api-contracts wire-type unification); keep the string
+            // branch for defense in depth against an unnormalized row.
+            if (Array.isArray(cp.validator_signatures)) sigs = cp.validator_signatures;
+            else { try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ console.error('processCheckpointVerifyRequest: validator_signatures parse failed for ' + cp.chain + '/' + cp.block_index + ':', e); sigs = []; sigsParseFailed = true; } }
             let validSigs = 0, seen = new Set(), validSigners = [];
             for(let s of sigs){
                 let pk  = String(s && s.pubkey || '').toLowerCase();

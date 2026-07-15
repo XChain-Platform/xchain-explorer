@@ -2742,6 +2742,7 @@ function showIssueDetails(data){
     $('#info-issue .issue-mint-start-block').text(formatAmount(data.mint_start_block));
     $('#info-issue .issue-mint-stop-block').text(formatAmount(data.mint_stop_block));
     $('#info-issue .issue-lock-max-supply').text(data.lock_max_supply);
+    $('#info-issue .issue-lock-max-mint').text(data.lock_max_mint);
     $('#info-issue .issue-lock-mint').text(data.lock_mint);
     $('#info-issue .issue-lock-mint-supply').text(data.lock_mint_supply);
     $('#info-issue .issue-lock-description').text(data.lock_description);

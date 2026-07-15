@@ -8326,8 +8326,24 @@ class Database {
             ...r,
             block_index:    String(r.block_index),
             checkpoint_seq: String(r.checkpoint_seq),
-            snapshot_block: String(r.snapshot_block)
+            snapshot_block: String(r.snapshot_block),
+            // One wire type across the checkpoint REST family: a parsed array,
+            // matching proofServer._shapeCheckpoint. The DB column is a JSON
+            // string; leaving it raw here made /checkpoints and /verify emit a
+            // STRING while /checkpoints/range emitted an ARRAY for the same
+            // logical field (api-contracts drift). Malformed JSON degrades to
+            // [] like the SDK's own defensive coercion.
+            validator_signatures: this._parseSignaturesArray(r.validator_signatures)
         }));
+    }
+
+    _parseSignaturesArray(v){
+        if (Array.isArray(v)) return v;
+        if (typeof v !== 'string' || !v.length) return [];
+        try {
+            let parsed = JSON.parse(v);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
     }
 
     // Quorum-signed state checkpoints (hub-mirrored state_checkpoints table).

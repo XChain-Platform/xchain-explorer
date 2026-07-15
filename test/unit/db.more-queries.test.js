@@ -3929,13 +3929,24 @@ describe('Database._normalizeCheckpointRows emits BigInt indices as strings @reg
         expect(row.block_index).to.equal('9007199254740993');
     });
 
-    it('leaves non-index fields untouched', () => {
+    it('leaves non-index fields untouched (validator_signatures excepted: parsed to array)', () => {
         const [row] = db._normalizeCheckpointRows([{
             block_index: 1n, checkpoint_seq: 1n, snapshot_block: 1n,
             state_root: 'ab'.repeat(32), validator_signatures: '[]'
         }]);
         expect(row.state_root).to.equal('ab'.repeat(32));
-        expect(row.validator_signatures).to.equal('[]');
+        expect(row.validator_signatures).to.deep.equal([]);
+    });
+
+    it('validator_signatures: one wire type (array) across the checkpoint REST family ()', () => {
+        const sigs = [{ pubkey: 'aa', sig: 'bb' }];
+        const mk = (v) => db._normalizeCheckpointRows([{
+            block_index: 1n, checkpoint_seq: 1n, snapshot_block: 1n, validator_signatures: v
+        }])[0].validator_signatures;
+        expect(mk(JSON.stringify(sigs))).to.deep.equal(sigs);   // DB JSON string -> array
+        expect(mk(sigs)).to.deep.equal(sigs);                   // already-parsed passthrough
+        expect(mk('not json')).to.deep.equal([]);               // malformed degrades to []
+        expect(mk(null)).to.deep.equal([]);                     // absent degrades to []
     });
 
     it('empty/null rows → empty array', () => {

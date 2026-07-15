@@ -48,11 +48,16 @@ const VALID_TYPES = new Set([
     // (data['CONTROLLER']), not an `action` type, so it never appears as an
     // actionData.action value and whitelisting it would silently match nothing.
     'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF',
-    // Lifecycle event types (emitted by ChangeDetector, not indexed directly)
+    // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
+    // Only names the producer actually emits belong here (LIFECYCLE_MAP in
+    // ChangeDetector.js plus its inline COINPAY_REQUIRED enrichment): the
+    // WELCOME envelope advertises this set verbatim, so a phantom name would
+    // be accepted by subscribe() yet silently match zero events - same
+    // anti-pattern as the CONTROLLER note above.
     'COINPAY_REQUIRED', 'COINPAY_FULFILLED', 'COINPAY_EXPIRED',
-    'ORDER_COMPLETED', 'ORDER_EXPIRED',
-    'SWAP_COMPLETED', 'SWAP_EXPIRED',
-    'DISPENSER_CLOSED', 'DISPENSER_EXPIRED', 'DISPENSER_CANCELLED'
+    'ORDER_EXPIRED',
+    'SWAP_EXPIRED',
+    'DISPENSER_CLOSED', 'DISPENSER_EXPIRED'
 ]);
 
 class ChannelManager {

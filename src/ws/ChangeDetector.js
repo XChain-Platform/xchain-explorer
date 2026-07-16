@@ -385,10 +385,16 @@ class ChangeDetector extends EventEmitter {
                         this.emit('entity_update', coin, {
                             type:    'TOKEN_UPDATE',
                             channel: 'token',
+                            // Spread the full getTokenInfo projection (already loaded
+                            // above) so the live frame is a superset of the SNAPSHOT
+                            // frame, which spreads the same loader. Hand-picking
+                            // supply/holders here made replace-model consumers lose
+                            // decimals/description as silent undefined; the sibling
+                            // address/market/dispenser channels already keep the two
+                            // frame shapes aligned (item #2234).
                             data: {
+                                ...tokenInfo,
                                 tick:              tick,
-                                supply:            tokenInfo.supply,
-                                holders:           tokenInfo.holders,
                                 last_action_index: action.action_index
                             }
                         });

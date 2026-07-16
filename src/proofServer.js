@@ -29,7 +29,8 @@
 
 'use strict';
 
-const M = require('./merkle.js');
+const M   = require('./merkle.js');
+const swq = require('./stake_weighted_quorum.js');
 
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
 
@@ -240,9 +241,16 @@ class ProofServer {
             catch (e) { return { error: (e && e.code === 'INDEXER_AUTH_REQUIRED') ? 'INDEXER_AUTH_REQUIRED' : 'INDEXER_UNAVAILABLE' }; }
             if (!res || res.error) continue;                                 // capability not configured here -> skip
             const validators = res.validators || [];
-            const seen = new Map();                                          // source -> weight (source-deduped)
-            for (const v of validators) if (!seen.has(v.source)) seen.set(v.source, String(v.weight));
-            const total = M.sumCanonicalAmounts(Array.from(seen.values()));
+            // Source-deduped total from the SINGLE shared predicate module.
+            // A hand-rolled dedupe here once collapsed a blank-source snapshot
+            // (schema NOT NULL DEFAULT '') into ONE bucket, committing a
+            // __total__ leaf equal to one validator's weight - the authoring
+            // half of a 1-of-N quorum collapse. totalStake throws on
+            // blank/missing source, negative weight, and truncated snapshots;
+            // never author a total leaf from a snapshot that cannot quorum.
+            let total;
+            try { total = M.canonicalAmount(String(swq.totalStake(validators))); }
+            catch (e) { return { error: 'STAKE_SNAPSHOT_MALFORMED:' + cap + ':' + ((e && e.message) || '') }; }
             const proven = [];
             for (const v of validators) {
                 const smt = await this._prove(config, tr.stakes_root, M.stakeKey(String(v.pubkey), cap));

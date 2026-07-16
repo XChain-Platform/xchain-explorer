@@ -363,6 +363,24 @@ describe('ChangeDetector', function () {
             expect(evs[0].data.tick).to.equal('GOLD');
         });
 
+        it('TOKEN_UPDATE carries the full getTokenInfo projection plus last_action_index (snapshot/live frame parity)', async function () {
+            // The token SNAPSHOT frame spreads getTokenInfo verbatim
+            // (WebSocketServer._sendSnapshots case 'token'), so the live frame
+            // must be a superset of the same projection or replace-model
+            // consumers lose decimals/description as silent undefined (#2234).
+            let det = mk();
+            det.channelManager.getSubscribedTicks.returns(new Set(['GOLD']));
+            const tokenInfo = { tick: 'GOLD', supply: '100', decimals: 8, description: 'au', holders: 5 };
+            det.db.getTokenInfo.resolves(tokenInfo);
+            let evs = [];
+            det.on('entity_update', (c, e) => evs.push(e));
+            await det._emitEntityUpdates('BTC', {}, { action: 'MINT', action_index: 4 });
+            for (const key of Object.keys(tokenInfo)) {
+                expect(evs[0].data[key], `live frame must carry snapshot field "${key}"`).to.deep.equal(tokenInfo[key]);
+            }
+            expect(evs[0].data.last_action_index).to.equal(4);
+        });
+
         it('emits DISPENSER_UPDATE for a subscribed dispenser on a dispense action', async function () {
             let det = mk();
             det.channelManager.getSubscribedDispensers.returns(new Set([7]));

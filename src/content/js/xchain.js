@@ -1014,6 +1014,57 @@ function getActionDetails(action, info){
             html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
         html += ' until block ' + formatAmount(info.resume_block);
     }
+    // Compact summaries for the staking / contract families (#2266). Field names
+    // mirror each type's show*Details() renderer.
+    if(action=='DESTROY')
+        html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
+    if(action=='STAKE'){
+        html = formatAmount(info.amount);
+        html += isNull(info.target_contract_index)
+            ? ' capability stake'
+            : ' on contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index);
+    }
+    if(action=='UNSTAKE'){
+        html = formatAmount(info.amount);
+        html += isNull(info.target_contract_index)
+            ? ' capability unstake'
+            : ' from contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index);
+        if(!isNull(info.cooldown_end_block))
+            html += ', cooldown until block ' + formatAmount(info.cooldown_end_block);
+    }
+    if(action=='DELEGATE'){
+        html = isNull(info.target_contract_index)
+            ? 'Capability delegation'
+            : 'Delegate to contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index);
+    }
+    if(action=='COLLECT')
+        html = 'Claim ' + formatAmount(info.amount) + ' validator reward';
+    if(action=='SLASH')
+        html = 'Slash ' + formatAmount(info.amount) + (isNull(info.capability) ? '' : ' (' + escapeHtml(String(info.capability)) + ')');
+    if(action=='DEPLOY'){
+        html = 'Contract ' + formatLink('/' + coin + '/contract/' + info.action_index, info.action_index);
+        if(!isNull(info.cooldown_blocks)) html += ' (stakeable)';
+    }
+    if(action=='EXECUTE'){
+        html = 'Call ' + escapeHtml(String(info.method_name || '')) + ' on contract ';
+        html += formatLink('/' + coin + '/contract/' + info.contract_index, info.contract_index);
+    }
+    if(action=='DEPOSIT' || action=='WITHDRAW'){
+        html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
+        html += (action=='DEPOSIT' ? ' into contract ' : ' out of contract ');
+        html += formatLink('/' + coin + '/contract/' + info.contract_index, info.contract_index);
+    }
+    if(action=='VOTE')
+        html = 'Vote' + (isNull(info.vote_kind) ? '' : ': ' + escapeHtml(String(info.vote_kind)));
+    // Never render a blank Details cell: any type without an explicit summary
+    // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, ANCHOR, PRICE, NODEPROOF,
+    // ATTEST, COINPAY, ... and any FUTURE type) falls back to a humanized
+    // action name, so a new action type can no longer silently summarize as
+    // empty while being fully supported everywhere else (#2266).
+    if(html === ''){
+        let words = String(action).toLowerCase().split('_');
+        html = words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');
+    }
     return html;
 }
 

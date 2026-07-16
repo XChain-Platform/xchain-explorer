@@ -23,6 +23,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `getDispensers`/`getOrders`/`getSwaps` place `give`/`get_ownership` before `status`/`action_index`, keeping `action_index` last (the client's paging cursor and length-relative status extraction); the datatables client's fixed-index ownership reads were realigned to match.
 - `getConfig('<unknown network>')` again returns the chain identity with an empty address map instead of throwing (contract broken by the canonical coin-registry refactor).
 
+## [1.15.4] - 2026-07-16
+
+### Fixed
+- proofServer routes checkpoint authoring through the shared stake-weighted quorum predicate, fixing the authoring-side 1-of-N collapse ().
+- WS TOKEN_UPDATE now spreads full tokenInfo plus last_action_index so its shape matches SNAPSHOT ().
+- getActionDetails renders compact summaries for DESTROY/STAKE/UNSTAKE/DELEGATE/COLLECT/SLASH/DEPLOY/EXECUTE/DEPOSIT/WITHDRAW/VOTE with a humanized-name fallback so no action type renders blank ().
+
+
 ## [1.15.2] - 2026-06-20
 
 ### Added

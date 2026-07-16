@@ -6415,10 +6415,11 @@ class Database {
             // ANCHOR action (DOGE-only; v0 = checkpoint, v1 = checkpoint+archive,
             // v2 = continuation chunk, v3 = checkpoint+SPV roots once the
             // CHECKPOINT_COMMITMENT flag-day activates, v4 = v0+publisher attestation
-            // (rootless), v5 = v3+publisher attestation (root-bearing; mainnet-preferred)).
+            // (rootless), v5 = v3+publisher attestation (root-bearing; mainnet-preferred),
+            // v6 = v1+publisher attestation once the ARCHIVE_REWARD flag-day activates).
             // archive_b64 is intentionally omitted (large; only the recovery assembler needs it).
             // The four SPV root columns (state_root, state_root_version, block_merkle_root,
-            // block_merkle_version) are NULL for v0/v1/v2/v4 and populated for v3 and v5;
+            // block_merkle_version) are NULL for v0/v1/v2/v4/v6 and populated for v3 and v5;
             // selected unconditionally here so the detail view matches the getAnchors()
             // list and checkpoint-reader surfaces.
             if(type=='ANCHOR'){

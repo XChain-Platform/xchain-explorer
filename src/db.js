@@ -494,20 +494,33 @@ class Database {
         let data  = [];
         let total = null;
 
-        // Short-TTL result cache for the holders path (item 5338). getHolders sorts by
-        // ABS(amount) on a VARCHAR column, which is unindexable, so each call to a public,
-        // unauthenticated /api/holders or /explorer/holders route is a full filesort: a cheap
-        // DoS-amplification vector for a popular token. A small per-(coin,tick,page,order) cache
-        // collapses a request burst into one query. TTL is short so holder lists stay fresh; the
-        // map is size-capped (oldest-evicted) so the cache itself cannot grow unbounded.
-        let holdersKey = null;
-        if(config.data.method === 'getHolders'){
-            const sql = config.data.sql || {};
-            holdersKey = [config.coin, config.type, config.data.type, config.data.search,
-                          sql.apiOffset, sql.order, sql.limit].join('|');
-            const ttl = parseInt(process.env.EXPLORER_HOLDERS_CACHE_MS, 10) || 15000;
-            if(!this._holdersCache) this._holdersCache = new Map();
-            const hit = this._holdersCache.get(holdersKey);
+        // Short-TTL result cache for the unauthenticated filesort-heavy list paths
+        // (items 5338, ). getHolders sorts by ABS(amount) on a VARCHAR column,
+        // getBalances sorts by tick across a balances/tokens join, and getTokens is a
+        // multi-table join whose token/subtoken search is a leading-% LIKE: none of
+        // these have an index-only path, so each call to the public /api or /explorer
+        // route is a full filesort and a cheap DoS-amplification vector. A small
+        // per-request-shape cache collapses a request burst into one query. TTL is
+        // short so lists stay fresh; each map is size-capped (oldest-evicted) so the
+        // cache itself cannot grow unbounded. The key is built from the raw request
+        // inputs (search, type, and every pagination/order query param) BEFORE
+        // getQuery derives the SQL, so distinct pages/orders never collide.
+        const RESULT_CACHES = {
+            getHolders:  ['_holdersCache',  'EXPLORER_HOLDERS_CACHE'],
+            getTokens:   ['_tokensCache',   'EXPLORER_TOKENS_CACHE'],
+            getBalances: ['_balancesCache', 'EXPLORER_BALANCES_CACHE']
+        };
+        let cacheName = null;
+        let cacheKey  = null;
+        if(RESULT_CACHES[config.data.method]){
+            let envPrefix;
+            [cacheName, envPrefix] = RESULT_CACHES[config.data.method];
+            const q = config.data.query || {};
+            cacheKey = [config.coin, config.type, config.data.type, config.data.search,
+                        q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
+            const ttl = parseInt(process.env[envPrefix + '_MS'], 10) || 15000;
+            if(!this[cacheName]) this[cacheName] = new Map();
+            const hit = this[cacheName].get(cacheKey);
             if(hit && (Date.now() - hit.at) < ttl)
                 return [hit.data, hit.total];
         }
@@ -549,13 +562,15 @@ class Database {
                 total = (rows) ? Number(rows[0].total) : 0;
             }
         }
-        // Populate the holders cache (item 5338). Cap the map and evict the oldest entry on
-        // overflow so a flood of distinct ticks/pages cannot grow the cache without bound.
-        if(holdersKey !== null){
-            const MAX = parseInt(process.env.EXPLORER_HOLDERS_CACHE_MAX, 10) || 500;
-            if(this._holdersCache.size >= MAX)
-                this._holdersCache.delete(this._holdersCache.keys().next().value);
-            this._holdersCache.set(holdersKey, { at: Date.now(), data, total });
+        // Populate the result cache (items 5338, ). Cap each map and evict the
+        // oldest entry on overflow so a flood of distinct ticks/addresses/pages cannot
+        // grow the cache without bound.
+        if(cacheKey !== null){
+            const envPrefix = RESULT_CACHES[config.data.method][1];
+            const MAX = parseInt(process.env[envPrefix + '_MAX'], 10) || 500;
+            if(this[cacheName].size >= MAX)
+                this[cacheName].delete(this[cacheName].keys().next().value);
+            this[cacheName].set(cacheKey, { at: Date.now(), data, total });
         }
         return [data, total];
     }

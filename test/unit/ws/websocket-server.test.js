@@ -242,3 +242,71 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
         expect(replayed.data).to.deep.equal({ action_index: 1 });
     });
 });
+
+describe('WebSocketServer#_onMessage rate limiter (: sliding decay, not tumbling window)', function () {
+
+    afterEach(() => sinon.restore());
+
+    // Client shaped like _onConnection builds, with the rate-limit fields.
+    function makeRateClient() {
+        return {
+            ...makeClient('BTC'),
+            lastActivity:  Date.now(),
+            msgCount:      0,
+            msgLastRefill: Date.now()
+        };
+    }
+
+    // Feed one valid ping frame through _onMessage; returns true if it was
+    // rate-limited (RATE_LIMITED error sent) and false if it went through.
+    function sendPing(s, client) {
+        const before = s._sendError.callCount;
+        s._onMessage(client, Buffer.from(JSON.stringify({ action: 'ping' })));
+        return s._sendError.callCount > before &&
+               s._sendError.lastCall.args[1] === 'RATE_LIMITED';
+    }
+
+    function setup(maxMsgPerSec) {
+        const clock = sinon.useFakeTimers({ now: 1000000, toFake: ['Date'] });
+        const s = makeServer({ maxMsgPerSec });
+        sinon.stub(s, '_send');
+        sinon.spy(s, '_sendError');
+        const client = makeRateClient();
+        return { clock, s, client };
+    }
+
+    it('allows up to the limit and blocks the next message within the same second', function () {
+        const { s, client } = setup(10);
+        for (let i = 0; i < 10; i++) expect(sendPing(s, client)).to.equal(false);
+        expect(sendPing(s, client)).to.equal(true);
+    });
+
+    it('a burst straddling the old 1s boundary cannot double the rate (tumbling-window exploit)', function () {
+        const { clock, s, client } = setup(10);
+        // Old exploit: 10 msgs at t=999ms, then 10 more at t=1001ms all passed
+        // because the window reset. With decay, only ~0 credit refills in 2ms.
+        clock.tick(999);
+        for (let i = 0; i < 10; i++) expect(sendPing(s, client)).to.equal(false);
+        clock.tick(2);
+        expect(sendPing(s, client)).to.equal(true);
+    });
+
+    it('refills credit gradually in proportion to elapsed time', function () {
+        const { clock, s, client } = setup(10);
+        for (let i = 0; i < 10; i++) sendPing(s, client);
+        expect(sendPing(s, client)).to.equal(true);   // saturated
+        clock.tick(500);                               // refills 5 credits
+        for (let i = 0; i < 4; i++) expect(sendPing(s, client)).to.equal(false);
+        // 5th within the half-second exceeds the drained allowance again
+        // (one credit was consumed by the rejected message above).
+        expect(sendPing(s, client)).to.equal(true);
+    });
+
+    it('fully idle for >= 1s restores the full allowance and never goes negative', function () {
+        const { clock, s, client } = setup(10);
+        for (let i = 0; i < 10; i++) sendPing(s, client);
+        clock.tick(60000); // long idle: count clamps at 0, not a huge negative credit
+        for (let i = 0; i < 10; i++) expect(sendPing(s, client)).to.equal(false);
+        expect(sendPing(s, client)).to.equal(true);
+    });
+});

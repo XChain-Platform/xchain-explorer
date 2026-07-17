@@ -179,7 +179,7 @@ class WebSocketServer {
             lastActivity:     Date.now(),
             alive:            true,
             msgCount:         0,
-            msgWindowStart:   Date.now(),
+            msgLastRefill:    Date.now(),
             catchUpInProgress: false,
             snapshotInProgress: false,
             backpressureSkips: 0
@@ -260,11 +260,15 @@ class WebSocketServer {
     _onMessage(client, data) {
         client.lastActivity = Date.now();
 
-        // Rate limiting: sliding 1-second window
-        const now = Date.now();
-        if (now - client.msgWindowStart > 1000) {
-            client.msgCount      = 0;
-            client.msgWindowStart = now;
+        // Rate limiting: sliding window via continuous decay (leaky bucket).
+        // The count drains at maxMsgPerSec per second instead of resetting on a
+        // 1s boundary, so a burst straddling a window edge cannot double the
+        // effective rate the way the old tumbling reset allowed.
+        const now     = Date.now();
+        const elapsed = now - client.msgLastRefill;
+        if (elapsed > 0) {
+            client.msgCount = Math.max(0, client.msgCount - (elapsed / 1000) * this.maxMsgPerSec);
+            client.msgLastRefill = now;
         }
         client.msgCount++;
         if (client.msgCount > this.maxMsgPerSec) {

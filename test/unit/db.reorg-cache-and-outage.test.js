@@ -107,8 +107,8 @@ describe('M-3 reorg cache invalidation', function () {
         // Route doQuery by SQL: the tip query vs the previous-height hash probe.
         function stubTip(db, tipRow, atRow) {
             return sinon.stub(db, 'doQuery').callsFake(async (config, query) => {
-                if (query.includes('ORDER BY block_index DESC')) return tipRow;
-                if (query.includes('WHERE block_index=?'))       return atRow;
+                if (query.includes('ORDER BY b1.block_index DESC')) return tipRow;
+                if (query.includes('WHERE b1.block_index=?'))       return atRow;
                 return [];
             });
         }

@@ -177,12 +177,20 @@ class Database {
     // itself fails. Piggybacks on the tip query the poll loop already needs.
     async checkReorgAndInvalidate(config){
         const coin = config.coin;
+        // The blocks table stores no chain block hash; its identity columns are
+        // *_hash_id references into index_transactions (ledger_hash_id is the
+        // per-block ledger-state hash the indexer recomputes when a height is
+        // replaced). Resolve it through the join and use it as the block's
+        // identity for reorg detection.
         const tip  = await this.doQuery(config,
-            'SELECT block_index, block_hash FROM blocks ORDER BY block_index DESC LIMIT 1', []);
+            `SELECT b1.block_index, t1.hash AS block_hash
+             FROM blocks b1
+             LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+             ORDER BY b1.block_index DESC LIMIT 1`, []);
         // Empty chain (no blocks yet): nothing to compare, nothing to invalidate.
         if(!tip || !tip.length || tip[0].block_index === null) return false;
         const curIndex = Number(tip[0].block_index);
-        const curHash  = tip[0].block_hash;
+        const curHash  = (tip[0].block_hash === undefined) ? null : tip[0].block_hash;
         const prev     = this._lastTip[coin];
         let reorg = false;
         if(prev){
@@ -196,9 +204,21 @@ class Database {
                 // were replaced. doQuery throws on a read failure, so an absent
                 // row here is a genuine "block is gone", not a swallowed error.
                 const at = await this.doQuery(config,
-                    'SELECT block_hash FROM blocks WHERE block_index=? LIMIT 1', [prev.index]);
-                const atHash = (at && at.length) ? at[0].block_hash : null;
-                if(atHash === null || atHash !== prev.hash) reorg = true;
+                    `SELECT t1.hash AS block_hash
+                     FROM blocks b1
+                     LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+                     WHERE b1.block_index=? LIMIT 1`, [prev.index]);
+                if(!at || !at.length){
+                    // The row at the previously-seen height is gone entirely.
+                    reorg = true;
+                } else if(prev.hash !== null){
+                    // Compare hashes only when the prior poll actually saw one;
+                    // a NULL ledger_hash_id (hashing disabled or not yet
+                    // computed) carries no identity to compare, and treating it
+                    // as a mismatch would bump the generation on every poll.
+                    const atHash = (at[0].block_hash === undefined) ? null : at[0].block_hash;
+                    if(atHash !== prev.hash) reorg = true;
+                }
             }
         }
         if(reorg) this.bumpReorgGeneration(coin);
@@ -516,7 +536,11 @@ class Database {
             let envPrefix;
             [cacheName, envPrefix] = RESULT_CACHES[config.data.method];
             const q = config.data.query || {};
-            cacheKey = [config.coin, config.type, config.data.type, config.data.search,
+            // Include the per-coin reorg generation (M-3) so a detected reorg
+            // makes every pre-reorg result-cache entry unreachable instead of
+            // serving reassigned-id rows until the TTL expires.
+            cacheKey = [config.coin, this._reorgGen[config.coin] || 0,
+                        config.type, config.data.type, config.data.search,
                         q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
             const ttl = parseInt(process.env[envPrefix + '_MS'], 10) || 15000;
             if(!this[cacheName]) this[cacheName] = new Map();

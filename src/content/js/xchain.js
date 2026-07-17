@@ -2336,11 +2336,22 @@ function showBatchDetails(data){
 
 // Display BROADCAST action information
 function showBroadcastDetails(data){
-    let percent = (isNumeric(data.fee)) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.fee, 100, 2) + '%</span>') : '';
+    // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
+    // NOT data.fee: the reserved data.fee slot is overwritten with the protocol-fee
+    // record when one exists, so reading it here rendered '[object Object]' (#2479).
+    let percent = (isNumeric(data.broadcast_fee)) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.broadcast_fee, 100, 2) + '%</span>') : '';
     $('#info-broadcast .broadcast-message').text(data.message);
     $('#info-broadcast .broadcast-value').text(formatAmount(data.value));
-    $('#info-broadcast .broadcast-fee').html(data.fee + percent);
+    $('#info-broadcast .broadcast-fee').html(data.broadcast_fee + percent);
     $('#info-broadcast .broadcast-memo').text(data.memo);
+    // BROADCAST v3 references an earlier broadcast (its only meaningful payload);
+    // link it and reveal the row, hidden for v0-v2 which have no reference (#2483).
+    if(data.broadcast_action_index != null){
+        $('#info-broadcast .broadcast-reference').html(formatLink('/' + XC.coin + '/action/' + data.broadcast_action_index, data.broadcast_action_index));
+        $('#info-broadcast .broadcast-reference-row').removeClass('d-none');
+    } else {
+        $('#info-broadcast .broadcast-reference-row').addClass('d-none');
+    }
 }
 
 // Display CALLBACK action information

@@ -1364,3 +1364,122 @@ CREATE        INDEX tick_id      ON polls (tick_id);
 CREATE        INDEX end_block    ON polls (end_block);
 CREATE        INDEX poll_status  ON polls (poll_status, end_block);
 CREATE        INDEX block_index  ON polls (block_index);
+
+-- ============================================================
+-- Staking / attestation / VM custody tables for the
+-- attestation-, staking-, and vm-endpoints integration tests
+-- (; mirrored from xchain-indexer/src/sql/*.sql)
+-- ============================================================
+
+DROP TABLE IF EXISTS index_pubkeys;
+CREATE TABLE index_pubkeys (
+    id      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    pubkey  CHAR(64) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX pubkey ON index_pubkeys (pubkey);
+
+DROP TABLE IF EXISTS stakes;
+CREATE TABLE stakes (
+    action_index        BIGINT UNSIGNED NOT NULL,        -- FK to actions table (each STAKE action gets its own row)
+    source_id           BIGINT UNSIGNED NOT NULL,        -- FK to index_addresses (staking address)
+    version             TINYINT UNSIGNED NOT NULL DEFAULT 1,  -- STAKE format: 1=new stake, 2=top-up of existing stake
+    signing_pubkey_id   BIGINT UNSIGNED NOT NULL,        -- FK to index_pubkeys (Ed25519 hot key)
+    amount              VARCHAR(250) NOT NULL,           -- XCHAIN added by this action
+    status_id           BIGINT UNSIGNED,
+    block_index         BIGINT UNSIGNED NOT NULL,
+    activation_block    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    deactivation_block  BIGINT UNSIGNED
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON stakes (action_index);
+CREATE        INDEX source_id          ON stakes (source_id);
+CREATE        INDEX signing_pubkey_id  ON stakes (signing_pubkey_id);
+
+DROP TABLE IF EXISTS delegations;
+CREATE TABLE delegations (
+    action_index        BIGINT UNSIGNED NOT NULL,
+    source_id           BIGINT UNSIGNED NOT NULL,        -- staking address
+    signing_pubkey_id   BIGINT UNSIGNED NOT NULL,        -- FK to index_pubkeys
+    status_id           BIGINT UNSIGNED,                 -- active/revoked
+    block_index         BIGINT UNSIGNED NOT NULL,
+    activation_block    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    deactivation_block  BIGINT UNSIGNED
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON delegations (action_index);
+CREATE        INDEX source_id          ON delegations (source_id);
+
+DROP TABLE IF EXISTS validator_rewards;
+CREATE TABLE validator_rewards (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id           BIGINT UNSIGNED NOT NULL,        -- staking address
+    signing_pubkey_id   BIGINT UNSIGNED NOT NULL,        -- FK to index_pubkeys
+    reward_type         VARCHAR(20) NOT NULL,            -- 'oracle_base', 'attest_fee', 'anchor_<chain>', ...
+    round_reference     BIGINT UNSIGNED,                 -- round number or attestation ref
+    amount              VARCHAR(250) NOT NULL,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX reward_unique     ON validator_rewards (source_id, signing_pubkey_id, reward_type, round_reference);
+CREATE        INDEX source_id         ON validator_rewards (source_id);
+
+DROP TABLE IF EXISTS attests;
+CREATE TABLE attests (
+    action_index                  BIGINT UNSIGNED NOT NULL,   -- FK to actions (the ATTEST action that wrote this row)
+    version                       TINYINT UNSIGNED NOT NULL,  -- 0=request, 1=response
+    request_id                    CHAR(64) NOT NULL,          -- correlation key across v0/v1
+    provider_id                   VARCHAR(32) NOT NULL,       -- e.g. 'http_get'
+    contract_index                BIGINT UNSIGNED,            -- FK to contracts (which contract emitted the request)
+    fee_payer_id                  BIGINT UNSIGNED,            -- FK to index_addresses
+    payload                       MEDIUMTEXT,                 -- inlined request payload
+    callback_method               VARCHAR(64),
+    callback_params_json          TEXT,
+    redundancy                    TINYINT UNSIGNED,
+    deadline_block                BIGINT UNSIGNED,
+    gas_escrow                    VARCHAR(60),
+    fee_tick_id                   BIGINT UNSIGNED,
+    fee_amount                    VARCHAR(60),
+    request_status                ENUM('pending','fulfilled','expired','errored','rejected'),
+    resolved_block                BIGINT UNSIGNED,
+    responsible_set_json          MEDIUMTEXT,
+    response_hash                 CHAR(64),
+    response_payload              MEDIUMTEXT,
+    response_status               ENUM('ok','timeout','no_quorum','provider_error','expired'),
+    meta                          VARCHAR(256),
+    validator_signatures          MEDIUMTEXT,                 -- JSON array of verified federation sigs
+    callback_execute_action_index BIGINT UNSIGNED,
+    status_id                     BIGINT UNSIGNED,
+    block_index                   BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index      ON attests (action_index);
+CREATE        INDEX request_id_version ON attests (request_id, version);
+
+DROP TABLE IF EXISTS deposits;
+CREATE TABLE deposits (
+    action_index        BIGINT UNSIGNED NOT NULL,
+    contract_index      BIGINT UNSIGNED,
+    source_id           BIGINT UNSIGNED NOT NULL,
+    tick_id             BIGINT UNSIGNED,
+    amount              VARCHAR(250) NOT NULL,
+    status_id           BIGINT UNSIGNED,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON deposits (action_index);
+CREATE        INDEX contract_index ON deposits (contract_index);
+
+DROP TABLE IF EXISTS withdrawals;
+CREATE TABLE withdrawals (
+    action_index        BIGINT UNSIGNED NOT NULL,
+    contract_index      BIGINT UNSIGNED,
+    source_id           BIGINT UNSIGNED NOT NULL,
+    tick_id             BIGINT UNSIGNED,
+    amount              VARCHAR(250) NOT NULL,
+    status_id           BIGINT UNSIGNED,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index   ON withdrawals (action_index);
+CREATE        INDEX contract_index ON withdrawals (contract_index);

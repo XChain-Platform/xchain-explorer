@@ -1,0 +1,419 @@
+/*********************************************************************
+ *
+ * Copyright © 2025-2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC - https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ * Real-schema conformance canary .
+ *
+ * Why this tier exists:  (a SELECT of a non-existent blocks.block_hash
+ * column) silently killed the live WebSocket feed for 9 days because every
+ * unit test stubbed doQuery and the integration tier runs against a fixture
+ * SNAPSHOT of the schema, so no automated test ever executed the explorer's
+ * real SQL against the REAL indexer DDL. This suite closes that class of gap
+ * systemically, not just for the one bug:
+ *
+ *   1. Loads the indexer's REAL DDL (xchain-indexer/src/sql/*.sql, plus its
+ *      dated migrations) verbatim into a real MariaDB.
+ *   2. Executes every db.js read path reachable from the API route table
+ *      (pulled live from XChainExplorer.urls, so new endpoints are covered
+ *      automatically) and fails on any schema error (unknown column /
+ *      missing table / SQL syntax).
+ *   3. Drives the ChangeDetector poll loop end-to-end and asserts the WS
+ *      feed emits a block + action event for a freshly inserted block
+ *      (the exact surface  killed).
+ *   4. Guards the integration fixture snapshot against drift from the real
+ *      DDL (per-table column-name parity), so the existing integration tier
+ *      keeps testing the schema production actually has.
+ *
+ * Requires the integration MariaDB fixture (127.0.0.1:3307):
+ *   npm run test:integration:up
+ * In CI this runs in a dedicated job with a mariadb service container plus a
+ * sibling checkout of xchain-indexer (same pattern as the drift-guards job).
+ * The decoder-DB checks run only when a sibling xchain-decoder checkout is
+ * present (always true in the platform monorepo).
+ */
+
+'use strict';
+
+const fs      = require('fs');
+const path    = require('path');
+const express = require('express');
+const mariadb = require('mariadb');
+const { expect } = require('chai');
+
+const XChainExplorer = require('../../src/XChainExplorer.js');
+const ChangeDetector = require('../../src/ws/ChangeDetector.js');
+const { makeConfig } = require('../fixtures/mock-query-args.js');
+
+const DB_HOST = process.env.CONFORMANCE_DB_HOST || '127.0.0.1';
+const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || 3307);
+const DB_USER = process.env.CONFORMANCE_DB_USER || 'root';
+const DB_PASS = process.env.CONFORMANCE_DB_PASS || 'testpass';
+
+const INDEXER_DB = 'XChain_Conformance_Indexer';
+const DECODER_DB = 'XChain_Conformance_Decoder';
+const FIXTURE_DB = 'XChain_Conformance_Fixture';
+
+const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql');
+const DECODER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-decoder', 'src', 'sql');
+const FIXTURE_SCHEMA  = path.join(__dirname, '..', 'integration', 'fixtures', 'schema.sql');
+
+// A MariaDB error that means the SQL disagrees with the schema. This is the
+// drift class the canary exists for; anything matching it is a hard failure.
+// (doQuery wraps the driver error, so match on the propagated message text.)
+const SCHEMA_ERROR = /Unknown column|doesn't exist|Unknown table|in 'field list'|in 'where clause'|in 'on clause'|in 'order clause'|your SQL syntax/i;
+
+function isSchemaError(err) {
+    for (let e = err; e; e = e.cause) {
+        if (e.message && SCHEMA_ERROR.test(e.message)) return true;
+    }
+    return false;
+}
+
+// Strip `-- ...` end-of-line comments and split a DDL script into statements.
+// The indexer/decoder DDL uses no DELIMITER blocks and no string literals
+// containing `;` or `--`, so plain splitting is sufficient (asserted by the
+// suite passing; a future procedure would fail loudly here, not silently).
+function splitStatements(sql) {
+    const stripped = sql.split('\n')
+        .map(line => {
+            const i = line.indexOf('--');
+            return i === -1 ? line : line.slice(0, i);
+        })
+        .join('\n');
+    return stripped.split(';').map(s => s.trim()).filter(s => s.length > 0);
+}
+
+function ddlFiles(dir) {
+    return fs.readdirSync(dir)
+        .filter(f => f.endsWith('.sql'))
+        .sort()
+        .map(f => path.join(dir, f));
+}
+
+function migrationFiles(dir) {
+    const mig = path.join(dir, 'migrations');
+    if (!fs.existsSync(mig)) return [];
+    return fs.readdirSync(mig)
+        .filter(f => f.endsWith('.sql'))
+        .sort()                            // dated filenames: lexical = chronological
+        .map(f => path.join(mig, f));
+}
+
+describe(' real-schema conformance canary (real DDL on real MariaDB)', function () {
+
+    this.timeout(120000);
+
+    const hasIndexerDdl = fs.existsSync(INDEXER_SQL_DIR);
+    const hasDecoderDdl = fs.existsSync(DECODER_SQL_DIR);
+
+    let adminPool = null;
+    let explorer  = null;
+    let db        = null;
+
+    async function adminQuery(sql) {
+        const conn = await adminPool.getConnection();
+        try { return await conn.query(sql); }
+        finally { conn.release(); }
+    }
+
+    // Load a DDL script list into a freshly created database. Statement
+    // failures are fatal: the canary must run against the exact real schema.
+    async function loadSchema(dbName, files) {
+        await adminQuery('DROP DATABASE IF EXISTS `' + dbName + '`');
+        await adminQuery('CREATE DATABASE `' + dbName + '`');
+        const conn = await adminPool.getConnection();
+        try {
+            await conn.query('USE `' + dbName + '`');
+            for (const file of files) {
+                for (const stmt of splitStatements(fs.readFileSync(file, 'utf8'))) {
+                    try {
+                        await conn.query(stmt);
+                    } catch (e) {
+                        throw new Error('DDL load failed in ' + path.basename(file) + ': ' +
+                                        e.message + '\nstatement: ' + stmt.slice(0, 200));
+                    }
+                }
+            }
+        } finally {
+            conn.release();
+        }
+    }
+
+    // configInfo stub shaped like src/config.js output, pointing BTC/regtest
+    // (key RBTC) at the conformance schemas. Same shape the integration
+    // harness uses; distinct DB names so the tiers never clobber each other.
+    function createConfigInfo() {
+        const coinConfig = require('../../src/configs/BTC.js').getConfig('regtest');
+        const listeners  = [];
+        const dbCreds    = { db_host: DB_HOST, db_port: DB_PORT, user: DB_USER, pass: DB_PASS };
+        const config = {
+            COIN_NETWORKS:  { BTC: 'Bitcoin', LTC: 'Litecoin', DOGE: 'Dogecoin' },
+            COIN_PREFIXES:  { mainnet: '', testnet: 'T', regtest: 'R' },
+            COIN_SUPPORTED: { RBTC: 'BTC (regtest)' },
+            COIN_AVAILABLE: { RBTC: 'BTC (regtest)' },
+            DISPENSER_LIST_DELAY: 3600,
+            API: {
+                host: '127.0.0.1', user: false, pass: false,
+                ssl: { key: 'mock', cert: 'mock', ca: 'mock' },
+                port: { http: 0, https: 0 }
+            },
+            BTC: {
+                chain: coinConfig.chain,
+                regtest: {
+                    database: {
+                        indexer: Object.assign({ name: INDEXER_DB }, dbCreds),
+                        decoder: hasDecoderDdl ? Object.assign({ name: DECODER_DB }, dbCreds) : undefined
+                    },
+                    address: coinConfig.address
+                }
+            }
+        };
+        return {
+            getConfig: async () => config,
+            onConfigChanged: (cb) => listeners.push(cb),
+            triggerConfigChanged: () => listeners.forEach(cb => cb())
+        };
+    }
+
+    before(async function () {
+        // Only skip when this checkout is the standalone explorer repo without
+        // the sibling indexer DDL (CI provides it via a sibling checkout).
+        if (!hasIndexerDdl) this.skip();
+
+        adminPool = mariadb.createPool({
+            host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
+            connectionLimit: 4, connectTimeout: 4000
+        });
+        try {
+            await adminQuery('SELECT 1');
+        } catch (e) {
+            throw new Error('Conformance canary needs the test MariaDB on ' + DB_HOST + ':' + DB_PORT +
+                ' (start it with `npm run test:integration:up`): ' + e.message);
+        }
+
+        // 1. Real indexer DDL + its dated migrations, loaded VERBATIM.
+        await loadSchema(INDEXER_DB, ddlFiles(INDEXER_SQL_DIR).concat(migrationFiles(INDEXER_SQL_DIR)));
+
+        // 2. Real decoder DDL (mempool feed source) when the sibling exists.
+        if (hasDecoderDdl) {
+            await loadSchema(DECODER_DB, ddlFiles(DECODER_SQL_DIR).concat(migrationFiles(DECODER_SQL_DIR)));
+        }
+
+        // 3. Boot the real explorer (routes + Database with real pools).
+        //    No checkpoint schema in this rig: take the sanctioned bypass so
+        //    hub-mirrored endpoints fail per-request instead of at boot.
+        process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';
+        const app = express();
+        app.use(express.json());
+        explorer = new XChainExplorer(app, createConfigInfo());
+        await explorer.init();
+        db = explorer.db;
+    });
+
+    after(async function () {
+        if (db && db.pools) {
+            for (const key in db.pools) {
+                const p = db.pools[key] && db.pools[key].pool;
+                if (p && typeof p.end === 'function') { try { await p.end(); } catch (e) { /* teardown */ } }
+            }
+            for (const key in (db.decoderPools || {})) {
+                const p = db.decoderPools[key];
+                if (p && typeof p.end === 'function') { try { await p.end(); } catch (e) { /* teardown */ } }
+            }
+        }
+        if (adminPool) {
+            try {
+                await adminQuery('DROP DATABASE IF EXISTS `' + INDEXER_DB + '`');
+                await adminQuery('DROP DATABASE IF EXISTS `' + DECODER_DB + '`');
+                await adminQuery('DROP DATABASE IF EXISTS `' + FIXTURE_DB + '`');
+            } catch (e) { /* teardown */ }
+            await adminPool.end();
+        }
+    });
+
+    /******************************************************************
+     * 1. Every API-route read path executes against the real schema
+     *****************************************************************/
+
+    it('runs every routed db.getData read path without a schema error', async function () {
+        // Pull the method list from the LIVE route table so a new endpoint is
+        // covered the moment it is routed, with no test edit.
+        const methods = new Set();
+        for (const url in explorer.urls.api) {
+            const info = explorer.urls.api[url];
+            const name = Array.isArray(info) ? info[0] : info;
+            if (typeof name === 'string' && typeof db[name] === 'function') methods.add(name);
+        }
+        expect(methods.size).to.be.at.least(40, 'route table unexpectedly small; canary coverage collapsed');
+
+        const schemaFailures = [];
+        const tolerated      = [];
+        let executed = 0;
+        for (const method of methods) {
+            const cfg = makeConfig({ coin: 'RBTC', data: { method } });
+            try {
+                await db.getData(cfg);
+                executed++;
+            } catch (e) {
+                if (isSchemaError(e)) {
+                    schemaFailures.push(method + ': ' + e.message);
+                } else {
+                    // Non-schema throws (e.g. hub-mirrored reads with no
+                    // checkpoint schema configured in this rig) are expected
+                    // for a handful of methods and are not schema drift.
+                    tolerated.push(method + ': ' + e.message.split('\n')[0]);
+                }
+            }
+        }
+        if (tolerated.length) console.log('conformance: tolerated non-schema errors:\n  ' + tolerated.join('\n  '));
+        expect(schemaFailures, 'queries disagreeing with the REAL schema:\n' + schemaFailures.join('\n'))
+            .to.deep.equal([]);
+        // Guard against a vacuous pass (e.g. every method throwing tolerated
+        // config errors would otherwise still be green).
+        expect(executed).to.be.at.least(40, 'too few read paths actually executed SQL');
+    });
+
+    it('runs the single-item detail reads without a schema error', async function () {
+        // Point reads the list loop above does not reach (non-getData paths).
+        const failures = [];
+        const probes = [
+            ['getMaxBlockIndex',   () => db.getMaxBlockIndex({ coin: 'RBTC' })],
+            ['getMaxActionIndex',  () => db.getMaxActionIndex({ coin: 'RBTC' })],
+            ['getBlocksSince',     () => db.getBlocksSince({ coin: 'RBTC' }, 0, 10)],
+            ['getActionsSince',    () => db.getActionsSince({ coin: 'RBTC' }, 0, 10)],
+            ['checkReorg',         () => db.checkReorgAndInvalidate({ coin: 'RBTC' })],
+            ['getActionData',      () => db.getActionData(makeConfig({ coin: 'RBTC' }), 1)],
+            ['getAddressId',       () => db.getAddressId(makeConfig({ coin: 'RBTC' }), 'bcrt1qconformance')],
+            ['getTickId',          () => db.getTickId(makeConfig({ coin: 'RBTC' }), 'XCHAIN')],
+            ['getActionType',      () => db.getActionType(makeConfig({ coin: 'RBTC' }), 1)],
+            ['getAddressBalances', () => db.getAddressBalances(makeConfig({ coin: 'RBTC' }), 'bcrt1qconformance')],
+            ['getTokenInfo',       () => db.getTokenInfo(makeConfig({ coin: 'RBTC' }), 'XCHAIN')]
+        ];
+        for (const [name, fn] of probes) {
+            try { await fn(); }
+            catch (e) {
+                if (isSchemaError(e)) failures.push(name + ': ' + e.message);
+            }
+        }
+        expect(failures, failures.join('\n')).to.deep.equal([]);
+    });
+
+    /******************************************************************
+     * 2. ChangeDetector WS-feed smoke: a fresh block must emit events
+     *****************************************************************/
+
+    it('emits WS block + action events for a freshly indexed block ( class)', async function () {
+        const conn = await adminPool.getConnection();
+        async function insertId(sql, args) {
+            const res = await conn.query(sql, args);
+            return Number(res.insertId);
+        }
+        try {
+            await conn.query('USE `' + INDEXER_DB + '`');
+
+            const detector = new ChangeDetector({ db, pollInterval: 3600000, fetchLimit: 100 });
+            const events = { block: [], action: [] };
+            detector.on('block',  (coin, b) => events.block.push(b));
+            detector.on('action', (coin, a) => events.action.push(a));
+            detector.state = { RBTC: { blockIndex: 0, actionIndex: 0, initialized: false } };
+            detector.mempoolState = { RBTC: { seenHashes: new Set(), initialized: false } };
+
+            // First poll seeds cursors from the (empty) real schema. Any bad
+            // column in the tip poll throws HERE, exactly like production.
+            await detector._checkCoin('RBTC');
+
+            // Index one block with one SEND action, real-schema column names.
+            const ledgerHashId = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['conformance-ledger-1']);
+            const txHashId     = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['conformance-tx-1']);
+            const addressId    = await insertId('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qconformance']);
+            const tickId       = await insertId('INSERT INTO index_tickers (tick) VALUES (?)', ['CONFTICK']);
+            const statusId     = await insertId('INSERT INTO index_statuses (status) VALUES (?)', ['valid']);
+            const actionId     = await insertId('INSERT INTO index_actions (action) VALUES (?)', ['SEND']);
+            await conn.query('INSERT INTO blocks (block_index, block_time, ledger_hash_id) VALUES (?, ?, ?)',
+                [101, 1700000000, ledgerHashId]);
+            await conn.query('INSERT INTO transactions (tx_index, block_index, tx_hash_id, source_id, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
+                [1, 101, txHashId, addressId, 1000, 'SEND|0|CONFTICK|1|bcrt1qconformance|']);
+            await conn.query('INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format, source_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [1, 101, 1, 0, actionId, 0, addressId]);
+            await conn.query('INSERT INTO sends (action_index, tick_id, destination_id, amount, status_id) VALUES (?, ?, ?, ?, ?)',
+                [1, tickId, addressId, '1', statusId]);
+
+            // Second poll must see the block and the action. This exercises
+            // checkReorgAndInvalidate, getMax*, get*Since AND the lifecycle /
+            // entity / attestation emit queries against the real DDL; a
+            // schema error in any of them throws and fails the test.
+            await detector._checkCoin('RBTC');
+
+            expect(events.block.length, 'NEW_BLOCK feed emitted nothing for a fresh block').to.be.at.least(1);
+            expect(Number(events.block[0].block_index)).to.equal(101);
+            expect(events.action.length, 'NEW_ACTION feed emitted nothing for a fresh action').to.be.at.least(1);
+            expect(events.action[0].action).to.equal('SEND');
+            expect(events.action[0].source).to.equal('bcrt1qconformance');
+        } finally {
+            conn.release();
+        }
+    });
+
+    it('reads the decoder mempool feed against the real decoder DDL', async function () {
+        if (!hasDecoderDdl) this.skip();
+        const conn = await adminPool.getConnection();
+        try {
+            await conn.query('USE `' + DECODER_DB + '`');
+            await conn.query('INSERT INTO mempool_transactions (tx_hash, source, destination, amount, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
+                ['conf-mempool-tx-1', 'bcrt1qconformance', 'bcrt1qconformance', 0, 500, Buffer.from('SEND|0|CONFTICK|1|bcrt1qconformance|').toString('hex')]);
+        } finally {
+            conn.release();
+        }
+        // getDecoderMempoolRows swallows query errors into a console.warn and
+        // returns [] (WS polls must tolerate outages), which would mask schema
+        // drift; asserting the seeded row actually comes back un-masks it.
+        const rows = await db.getDecoderMempoolRows({ coin: 'RBTC' }, 10);
+        expect(rows.length, 'decoder mempool query returned nothing for a seeded row (schema drift or pool wiring)').to.equal(1);
+        expect(rows[0].tx_hash).to.equal('conf-mempool-tx-1');
+    });
+
+    /******************************************************************
+     * 3. Integration fixture snapshot must not drift from the real DDL
+     *****************************************************************/
+
+    it('integration fixture schema.sql matches the real indexer DDL (column parity)', async function () {
+        if (!fs.existsSync(FIXTURE_SCHEMA)) this.skip();
+        await loadSchema(FIXTURE_DB, [FIXTURE_SCHEMA]);
+
+        async function columnsByTable(schema) {
+            const rows = await adminQuery(
+                "SELECT TABLE_NAME t, COLUMN_NAME c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='" + schema + "'");
+            const map = {};
+            for (const r of rows) {
+                (map[r.t] = map[r.t] || []).push(r.c);
+            }
+            for (const t in map) map[t].sort();
+            return map;
+        }
+        const real    = await columnsByTable(INDEXER_DB);
+        const fixture = await columnsByTable(FIXTURE_DB);
+
+        const drift = [];
+        for (const table in fixture) {
+            if (!real[table]) {
+                drift.push(table + ': in fixture but not in real DDL');
+                continue;
+            }
+            const missing = real[table].filter(c => !fixture[table].includes(c));
+            const extra   = fixture[table].filter(c => !real[table].includes(c));
+            if (missing.length) drift.push(table + ': fixture missing columns ' + missing.join(', '));
+            if (extra.length)   drift.push(table + ': fixture has phantom columns ' + extra.join(', '));
+        }
+        expect(drift, 'integration fixture drifted from the real indexer DDL:\n' + drift.join('\n'))
+            .to.deep.equal([]);
+    });
+});

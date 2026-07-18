@@ -1,4 +1,4 @@
---********************************************************************
+-- ********************************************************************
 --
 -- Copyright © 2025-2026 Dankest, LLC
 -- Based on XChain Platform by Dankest, LLC - https://dankest.llc
@@ -10,7 +10,7 @@
 -- license (without AGPL source-disclosure terms) is available -
 -- contact legal@dankest.llc.
 --
---********************************************************************
+-- ********************************************************************
 
 -- XChain Explorer Performance Test - Seed Data
 -- Self-contained: truncates all data tables and inserts a large dataset

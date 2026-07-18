@@ -1,4 +1,4 @@
---********************************************************************
+-- ********************************************************************
 --
 -- Copyright © 2025-2026 Dankest, LLC
 -- Based on XChain Platform by Dankest, LLC - https://dankest.llc
@@ -10,7 +10,7 @@
 -- license (without AGPL source-disclosure terms) is available -
 -- contact legal@dankest.llc.
 --
---********************************************************************
+-- ********************************************************************
 
 -- Chaos Engineering seed data
 -- Minimal dataset sufficient for API health checks and query correctness verification

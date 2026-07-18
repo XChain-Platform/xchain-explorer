@@ -744,6 +744,9 @@ class Database {
             sql = `cs.id IS NOT NULL`;
         if(['getMarket','getMarkets'].includes(method))
             sql = `m.id IS NOT NULL`;
+        // validator_rewards is the per-round accrual ledger; no action_index, keyed by m.id
+        if(method=='getValidatorRewards')
+            sql = `m.id IS NOT NULL`;
         // slash_events has no action_index; its PK is m.id
         if(method=='getSlashEvents')
             sql = `m.id IS NOT NULL`;
@@ -9828,7 +9831,7 @@ class Database {
                         m.action_index,
                         a1.action_format,
                         a2.address as source,
-                        a3.address as signing_pubkey,
+                        a3.pubkey as signing_pubkey,
                         m.activation_block,
                         m.deactivation_block,
                         b1.block_index,
@@ -9865,7 +9868,7 @@ class Database {
         let query = `SELECT
                         m.id,
                         a2.address as source,
-                        a3.address as signing_pubkey,
+                        a3.pubkey as signing_pubkey,
                         m.reward_type,
                         m.round_reference,
                         m.amount,

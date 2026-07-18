@@ -1,4 +1,4 @@
---********************************************************************
+-- ********************************************************************
 --
 -- Copyright © 2025-2026 Dankest, LLC
 -- Based on XChain Platform by Dankest, LLC - https://dankest.llc
@@ -10,7 +10,7 @@
 -- license (without AGPL source-disclosure terms) is available -
 -- contact legal@dankest.llc.
 --
---********************************************************************
+-- ********************************************************************
 
 -- XChain Explorer Integration Test Schema
 -- Auto-generated from xchain-indexer/src/sql/*.sql
@@ -641,6 +641,7 @@ CREATE        INDEX status_id    ON list_items_invalid (status_id);
 DROP TABLE IF EXISTS messages;
 CREATE TABLE messages (
     action_index        BIGINT UNSIGNED NOT NULL, -- Unique action index
+    coin                VARCHAR(4),               -- Destination coin network (BTC, LTC, DOGE)
     destination_id      BIGINT UNSIGNED,          -- id of record in index_addresses table
     encryption_method   VARCHAR(1),               -- Encryption Method (1=ECDH, 2=AES)
     encryption_key      MEDIUMTEXT,               -- Public key to be used to exchange messages
@@ -756,6 +757,7 @@ CREATE TABLE order_matches (
     get_coin_id       BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
     get_tick_id       BIGINT UNSIGNED NOT NULL, -- id of record in index_coins table
     get_amount        VARCHAR(250),             -- Amount of GET_TICK
+    settlement_type   ENUM('instant','coinpay') DEFAULT 'instant', -- Settlement type (instant for token-token, coinpay for native coin pairs)
     status_id         BIGINT UNSIGNED           -- id of record in index_statuses table (valid / invalid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
@@ -1154,6 +1156,9 @@ CREATE TABLE contract_state (
     id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     contract_index      BIGINT UNSIGNED NOT NULL,
     state_key           VARCHAR(256) NOT NULL,
+    -- Binary-collation shadow of state_key (see xchain-indexer contract_state.sql)
+    state_key_bin       VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_bin
+                        GENERATED ALWAYS AS (state_key) VIRTUAL,
     state_value         MEDIUMTEXT,
     block_index         BIGINT UNSIGNED NOT NULL,
     action_index        BIGINT UNSIGNED NOT NULL
@@ -1349,6 +1354,8 @@ CREATE TABLE polls (
     callback_on             ENUM('pass','always'),      -- pass = only on a finalized win; always = every finalization
     gas_escrow              VARCHAR(60),                -- XCHAIN escrowed at v0 to back the callback EXECUTE (refunded at finalize)
     callback_execute_action_index BIGINT UNSIGNED,      -- action_index of the EXECUTE v2 injected (set when fired)
+    callback_delay_blocks   BIGINT UNSIGNED,            -- v0 CALLBACK_DELAY_BLOCKS timelock (null/0 = fire at finalize)
+    callback_due_block      BIGINT UNSIGNED,            -- block the deferred callback fires (resolved_block + delay, null = immediate)
     status_id               BIGINT UNSIGNED             -- FK to index_statuses (validation status of the create action)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 

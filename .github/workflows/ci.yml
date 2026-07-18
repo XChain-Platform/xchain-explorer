@@ -94,6 +94,57 @@ jobs:
       - name: Run integration suite
         run: npm run test:integration
 
+  # Real-schema conformance canary : loads the REAL indexer (and
+  # decoder, when present) DDL into a real MariaDB and executes every routed
+  # db.js read path plus the ChangeDetector WS poll loop against it. This is
+  # the always-on systemic catch for the  schema-drift class (a SELECT
+  # of a non-existent column shipping green because unit tests stub the DB
+  # and the integration tier runs on a fixture snapshot). Needs the sibling
+  # xchain-indexer checkout (same deploy-key pattern as drift-guards below);
+  # runs from the explorer checkout so relative ../xchain-indexer resolves
+  # like the platform monorepo layout.
+  conformance:
+    needs: ci
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: testpass
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=2s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: xchain-explorer
+
+      - name: Check out the real indexer DDL (xchain-indexer)
+        uses: actions/checkout@v4
+        with:
+          repository: XChain-Platform/xchain-indexer
+          ssh-key: ${{ secrets.XCHAIN_INDEXER_DEPLOY_KEY }}
+          path: xchain-indexer
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: xchain-explorer/package-lock.json
+
+      - name: Install dependencies
+        working-directory: xchain-explorer
+        run: npm ci
+
+      - name: Run schema-conformance canary
+        working-directory: xchain-explorer
+        run: npm run test:conformance
+
   # Cross-repo drift guards (SD-1 / ): this repo vendors the canonical
   # coin registry from xchain-hub, and per-repo CI cannot see sibling repos, so
   # a drifted vendored copy previously shipped green (the byte-identity checks

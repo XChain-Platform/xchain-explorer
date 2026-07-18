@@ -1,4 +1,4 @@
---********************************************************************
+-- ********************************************************************
 --
 -- Copyright © 2025-2026 Dankest, LLC
 -- Based on XChain Platform by Dankest, LLC - https://dankest.llc
@@ -10,7 +10,7 @@
 -- license (without AGPL source-disclosure terms) is available -
 -- contact legal@dankest.llc.
 --
---********************************************************************
+-- ********************************************************************
 
 -- XChain Explorer E2E Test — Supplemental Seed Data
 -- Layers on top of seed-baseline.sql (IDs start at 200+ to avoid conflicts)

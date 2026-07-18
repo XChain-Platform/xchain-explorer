@@ -7760,22 +7760,36 @@ class Database {
     // getDecoderTip (DB-qualified query on the indexer pool; only works when the
     // decoder DB shares the indexer's server/credentials). Returns 0 when the
     // decoder DB isn't reachable so callers always get a usable number.
+    // Cached per coin for MEMPOOL_COUNT_CACHE_MS (default 15s, same pattern as
+    // getFeeEstimate's _feeCache): the count backs the unauthenticated coin
+    // homepage / network stats, and an uncached COUNT(*) on a busy mempool table
+    // is a full-scan the public read path can be made to repeat on every hit
+    // . A stale prior value is served when the query fails mid-flight.
     async getDecoderMempoolCount(config) {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return 0;
         // dbName is config-derived, not client input, but database identifiers
         // can't be bound; restrict to a safe identifier charset before use.
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return 0;
+        const ttl = parseInt(process.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
+        const now = Date.now();
+        this._mempoolCountCache = this._mempoolCountCache || {};
+        const hit = this._mempoolCountCache[config.coin];
+        if(hit && (now - hit.t) < ttl) return hit.v;
         try {
             let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions';
             let results = await this.doDecoderQuery(config, query, []);
-            if (results && results.length && results[0].count !== null)
-                return Number(results[0].count);
+            if (results && results.length && results[0].count !== null){
+                const v = Number(results[0].count);
+                this._mempoolCountCache[config.coin] = { t: now, v };
+                return v;
+            }
         } catch(e){
-            // Decoder DB unreachable, missing table, or no cross-DB grant: report 0.
+            // Decoder DB unreachable, missing table, or no cross-DB grant: serve the
+            // last good count if we have one, else report 0.
             console.warn('getDecoderMempoolCount: mempool count unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
         }
-        return 0;
+        return (hit && hit.v) || 0;
     }
 
     // Raw unconfirmed (mempool) action rows from the decoder DB. As of the

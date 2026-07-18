@@ -550,6 +550,55 @@ describe('Database#getDecoderMempoolCount', () => {
         sinon.stub(db, 'doQuery').rejects(new Error('no grant'));
         expect(await db.getDecoderMempoolCount(cfg())).to.equal(0);
     });
+
+    it('caches the count per coin for the TTL : second call does not re-query', async () => {
+        db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
+        const q = sinon.stub(db, 'doQuery').resolves([{ count: 7 }]);
+        expect(await db.getDecoderMempoolCount(cfg())).to.equal(7);
+        expect(await db.getDecoderMempoolCount(cfg())).to.equal(7);
+        expect(q.callCount).to.equal(1);
+    });
+
+    it('re-queries once the TTL expires', async () => {
+        db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
+        process.env.MEMPOOL_COUNT_CACHE_MS = '1';
+        try {
+            const q = sinon.stub(db, 'doQuery');
+            q.onFirstCall().resolves([{ count: 7 }]);
+            q.onSecondCall().resolves([{ count: 9 }]);
+            expect(await db.getDecoderMempoolCount(cfg())).to.equal(7);
+            await new Promise(r => setTimeout(r, 5));
+            expect(await db.getDecoderMempoolCount(cfg())).to.equal(9);
+            expect(q.callCount).to.equal(2);
+        } finally {
+            delete process.env.MEMPOOL_COUNT_CACHE_MS;
+        }
+    });
+
+    it('does not share a cached count across coins', async () => {
+        db.decoderDb = { BTC: 'XChain_BTC_Decoder', LTC: 'XChain_LTC_Decoder' };
+        const q = sinon.stub(db, 'doQuery');
+        q.onFirstCall().resolves([{ count: 3 }]);
+        q.onSecondCall().resolves([{ count: 8 }]);
+        expect(await db.getDecoderMempoolCount(cfg())).to.equal(3);
+        expect(await db.getDecoderMempoolCount(cfg({ coin: 'LTC' }))).to.equal(8);
+        expect(q.callCount).to.equal(2);
+    });
+
+    it('serves the last good count when a refresh query throws', async () => {
+        db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
+        process.env.MEMPOOL_COUNT_CACHE_MS = '1';
+        try {
+            const q = sinon.stub(db, 'doQuery');
+            q.onFirstCall().resolves([{ count: 11 }]);
+            q.onSecondCall().rejects(new Error('no grant'));
+            expect(await db.getDecoderMempoolCount(cfg())).to.equal(11);
+            await new Promise(r => setTimeout(r, 5));
+            expect(await db.getDecoderMempoolCount(cfg())).to.equal(11);
+        } finally {
+            delete process.env.MEMPOOL_COUNT_CACHE_MS;
+        }
+    });
 });
 
 describe('Database#getFeeEstimate', () => {

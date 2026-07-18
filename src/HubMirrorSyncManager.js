@@ -41,6 +41,7 @@
 
 const HubDbSync     = require('./hub_db_sync.js');
 const HubMirrorPool = require('./hub-mirror-pool.js');
+const { ensureMirrorColumns } = require('./hub-mirror-migrate.js');
 const path          = require('path');
 
 class HubMirrorSyncManager {
@@ -97,6 +98,12 @@ class HubMirrorSyncManager {
                 // column cache; see the 2026-06-17 cold-start regression).
                 await inst.pool.ensureDatabase();
                 await HubDbSync.ensureTables(inst.pool, path.join(__dirname, 'sql', 'hub-mirror'));
+                // ensureTables never ALTERs an existing table, so a schema
+                // created before the price_snapshots retraction columns landed
+                // needs this additive drift reconciler . Runs before
+                // the client starts so its per-table column cache sees the
+                // migrated shape.
+                await ensureMirrorColumns(inst.pool);
                 inst.sync = new HubDbSync(inst.pool, { coin: t.chain });
                 // start() rejects when the hub is unreachable at boot; the client
                 // keeps reconnecting/re-bootstrapping on its own after that, and the

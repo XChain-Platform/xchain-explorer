@@ -44,13 +44,18 @@ function load({ env = {} } = {}) {
     }
     FakeSync.ensureTables = sinon.stub().callsFake(async () => { order.push('ensureTables'); });
 
+    //  drift reconciler: must run after ensureTables (tables exist) and
+    // before syncStart (the client's column cache must see the migrated shape).
+    const ensureMirrorColumns = sinon.stub().callsFake(async () => { order.push('ensureMirrorColumns'); return []; });
+
     const saved = process.env.HUB_API_URL;
     if (env.HUB_API_URL !== undefined) process.env.HUB_API_URL = env.HUB_API_URL;
     else delete process.env.HUB_API_URL;
 
     const HubMirrorSyncManager = proxyquire('../../src/HubMirrorSyncManager.js', {
         './hub_db_sync.js':    FakeSync,
-        './hub-mirror-pool.js': FakePool
+        './hub-mirror-pool.js': FakePool,
+        './hub-mirror-migrate.js': { ensureMirrorColumns }
     });
 
     const restoreEnv = () => {
@@ -101,7 +106,7 @@ describe('HubMirrorSyncManager', function () {
         try {
             const mgr = new HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
             await mgr.start();
-            expect(order).to.deep.equal(['ensureDatabase', 'ensureTables', 'syncStart']);
+            expect(order).to.deep.equal(['ensureDatabase', 'ensureTables', 'ensureMirrorColumns', 'syncStart']);
             expect(FakeSync.ensureTables.firstCall.args[1]).to.match(/sql[\\/]hub-mirror$/);
             expect(mgr.instances.size).to.equal(1);
         } finally { restoreEnv(); }

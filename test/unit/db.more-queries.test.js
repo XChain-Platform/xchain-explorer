@@ -3880,6 +3880,114 @@ describe('Database#getCrossChainSettlements', () => {
     });
 });
 
+// ---------------------------------------------------------------------------
+// Hub operational-state pages (p2p_peers/consensus_state/configs/telemetry_pings)
+// Served ONLY from the mandatory co-located hub DB (#4138), same as the governance
+// / cross-chain mirrors. These structural tests configure that hub DB so the query
+// builds; the "no hub DB -> fail loud" behavior gets one shared assertion below.
+// ---------------------------------------------------------------------------
+
+const HUB_OPS = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+
+describe('Database#getPeers', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const result = await db.getPeers(makeActionConfig('getPeers', 'validator'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads the hub-qualified "p2p_peers" with addr/validator_id/is_seed, ordered by m.id', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const [query, , count] = await db.getPeers(makeActionConfig('getPeers', 'validator'));
+        expect(query).to.include('`XChain_Hub`.p2p_peers m');
+        expect(query).to.include('m.addr');
+        expect(query).to.include('m.validator_id');
+        expect(query).to.include('m.is_seed');
+        expect(query).to.include('ORDER BY m.id');
+        expect(count).to.include('`XChain_Hub`.p2p_peers m');
+    });
+
+    it('no checkpoint hub DB -> fails loud (no local-mirror fallback, #4138)', async () => {
+        const db = makeDb();
+        let err = null;
+        try { await db.getPeers(makeActionConfig('getPeers')); }
+        catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.message).to.match(/co-located hub DB/i);
+    });
+});
+
+describe('Database#getConsensusState', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const result = await db.getConsensusState(makeActionConfig('getConsensusState', 'key'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads the hub-qualified "consensus_state" with key_name/value, ordered by m.id', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const [query] = await db.getConsensusState(makeActionConfig('getConsensusState', 'key'));
+        expect(query).to.include('`XChain_Hub`.consensus_state m');
+        expect(query).to.include('m.key_name');
+        expect(query).to.include('m.value');
+        expect(query).to.include('ORDER BY m.id');
+    });
+});
+
+describe('Database#getConfigs', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const result = await db.getConfigs(makeActionConfig('getConfigs', 'coin'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads the hub-qualified "configs" with coin/network/module/param, ordered by m.id', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const [query] = await db.getConfigs(makeActionConfig('getConfigs', 'module'));
+        expect(query).to.include('`XChain_Hub`.configs m');
+        expect(query).to.include('m.coin');
+        expect(query).to.include('m.network');
+        expect(query).to.include('m.module');
+        expect(query).to.include('m.param_name');
+        expect(query).to.include('m.param_value');
+        expect(query).to.include('ORDER BY m.id');
+    });
+});
+
+describe('Database#getTelemetryPings', () => {
+    it('returns a 3-element array', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const result = await db.getTelemetryPings(makeActionConfig('getTelemetryPings', 'event'));
+        expect(result).to.be.an('array').with.lengthOf(3);
+    });
+
+    it('query reads the hub-qualified "telemetry_pings" with the software fingerprint, ordered by m.id', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const [query] = await db.getTelemetryPings(makeActionConfig('getTelemetryPings', 'event'));
+        expect(query).to.include('`XChain_Hub`.telemetry_pings m');
+        expect(query).to.include('m.install_id');
+        expect(query).to.include('m.node_version');
+        expect(query).to.include('m.os_platform');
+        expect(query).to.include('m.event');
+        expect(query).to.include('ORDER BY m.id');
+    });
+
+    it('never selects the ip_hash column (privacy: the keyed IP hash stays hub-internal)', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB_OPS };
+        const [query] = await db.getTelemetryPings(makeActionConfig('getTelemetryPings'));
+        expect(query).to.not.include('ip_hash');
+    });
+});
+
 describe('Database.getCheckpointAtOrAbove ordering (SPV latest-default)', () => {
     let db;
     beforeEach(() => {

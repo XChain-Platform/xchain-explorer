@@ -1121,6 +1121,10 @@ function loadDatatablesData(coin, action, query, type){
         // action+'s' would give the malformed 'validator_capabilitys'; the hub table
         // (and its /explorer feed) is 'validator_capabilities'.
         endpoint = 'validator_capabilities';
+    } else if(action=='consensus_state'){
+        // consensus_state is a mass noun (no plural 's'); its /explorer feed keeps the
+        // singular table name.
+        endpoint = 'consensus_state';
     } else {
         endpoint = action + 's';
     }
@@ -1294,7 +1298,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','governance_proposal','governance_vote'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -2133,6 +2137,60 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(2).html(isNull(proposal_id) ? '-' : formatLink('/' + coin + '/governance_votes/' + proposal_id + '/proposal', proposal_id));
                 $('td', row).eq(3).html(formatHash(voter));
                 $('td', row).eq(4).html('<span class="badge text-bg-' + (vote == 'approve' ? 'success' : 'danger') + '">' + (vote || '-') + '</span>');
+            }
+            // Hub P2P peer roster (hub-owned; id-keyed). is_seed rendered as a badge.
+            if(action=='peer'){
+                let last_seen    = data[1];
+                let addr         = data[2];
+                let validator_id = data[3];
+                let is_seed      = data[4];
+                $('td', row).eq(1).html(isNull(last_seen) ? '-' : formatLivestamp(last_seen));
+                $('td', row).eq(2).text(isNull(addr) ? '-' : addr);
+                $('td', row).eq(3).html(isNull(validator_id) ? '-' : formatHash(validator_id));
+                $('td', row).eq(4).html(is_seed == 1
+                    ? '<span class="badge text-bg-primary">Seed</span>'
+                    : '<span class="badge text-bg-secondary">Peer</span>');
+            }
+            // Hub consensus key/value state (hub-owned; id-keyed).
+            if(action=='consensus_state'){
+                let updated_at = data[1];
+                let key_name   = data[2];
+                let value      = data[3];
+                $('td', row).eq(1).html(isNull(updated_at) ? '-' : formatLivestamp(updated_at));
+                $('td', row).eq(2).html('<span class="badge text-bg-info">' + (isNull(key_name) ? '-' : key_name) + '</span>');
+                $('td', row).eq(3).html(isNull(value) ? '-' : '<code>' + escapeHtml(String(value)) + '</code>');
+            }
+            // Hub config-oracle parameter store (hub-owned; id-keyed).
+            if(action=='config'){
+                let updated_at  = data[1];
+                let coin_col    = data[2];
+                let network_col = data[3];
+                let module_col  = data[4];
+                let param_name  = data[5];
+                let param_value = data[6];
+                $('td', row).eq(1).html(isNull(updated_at) ? '-' : formatLivestamp(updated_at));
+                $('td', row).eq(2).text(isNull(coin_col) ? '-' : coin_col);
+                $('td', row).eq(3).text(isNull(network_col) ? '-' : network_col);
+                $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + (isNull(module_col) ? '-' : module_col) + '</span>');
+                $('td', row).eq(5).text(isNull(param_name) ? '-' : param_name);
+                $('td', row).eq(6).html(isNull(param_value) ? '-' : '<code>' + escapeHtml(String(param_value)) + '</code>');
+            }
+            // Anonymous xchain-node telemetry ping (hub-owned; id-keyed).
+            if(action=='telemetry_ping'){
+                let created_at   = data[1];
+                let event        = data[2];
+                let node_version = data[3];
+                let os_platform  = data[4];
+                let arch         = data[5];
+                let country      = data[6];
+                let region       = data[7];
+                $('td', row).eq(1).html(isNull(created_at) ? '-' : formatLivestamp(created_at));
+                $('td', row).eq(2).html('<span class="badge text-bg-info">' + (isNull(event) ? '-' : event) + '</span>');
+                $('td', row).eq(3).text(isNull(node_version) ? '-' : node_version);
+                $('td', row).eq(4).text(isNull(os_platform) ? '-' : os_platform);
+                $('td', row).eq(5).text(isNull(arch) ? '-' : arch);
+                let loc = [country, region].filter(v => !isNull(v) && v !== '').join(' / ');
+                $('td', row).eq(6).text(loc || '-');
             }
         }
     });

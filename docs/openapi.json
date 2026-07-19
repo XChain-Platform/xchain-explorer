@@ -5235,6 +5235,445 @@
         }
       }
     },
+    "/{COIN}/api/peers/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "peers_query_type",
+        "tags": [
+          "Network"
+        ],
+        "summary": "P2P peer roster, filtered by validator",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): validator = validator id (peer)"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "validator"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/peers": {
+      "get": {
+        "operationId": "peers",
+        "tags": [
+          "Network"
+        ],
+        "summary": "P2P peer roster the hub gossips with (hub-owned)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/consensus_state/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "consensus_state_query_type",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Hub consensus key/value state, filtered by key",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): key = consensus state key name"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "key"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/consensus_state": {
+      "get": {
+        "operationId": "consensus_state",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Hub consensus key/value state (hub-owned)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/configs/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "configs_query_type",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Hub config-oracle parameters, filtered by coin/module",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): coin = coin symbol (e.g. BTC, LTC, DOGE); module = service module name"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "coin",
+                "module"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/configs": {
+      "get": {
+        "operationId": "configs",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Hub config-oracle parameter store (hub-owned)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/telemetry_pings/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "telemetry_pings_query_type",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Anonymous node telemetry pings, filtered by event/install/country",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): event = telemetry event (install, update, start, heartbeat); install = anonymous install UUID; country = ISO-3166 country code"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "event",
+                "install",
+                "country"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/telemetry_pings": {
+      "get": {
+        "operationId": "telemetry_pings",
+        "tags": [
+          "Network"
+        ],
+        "summary": "Anonymous xchain-node telemetry pings (hub-owned)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/polls/{QUERY}/{TYPE}": {
       "get": {
         "operationId": "polls_query_type",

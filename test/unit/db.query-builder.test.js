@@ -532,6 +532,53 @@ describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', 
         const sql = await db.getQueryWhereSql(cfg('getContractDelegations', 'contract'));
         expect(sql).to.include('m.target_contract_index=?');
     });
+
+    // Hub operational tables (p2p_peers/consensus_state/configs/telemetry_pings): id-keyed,
+    // base is m.id IS NOT NULL, each with its own column filters.
+    it('getPeers with no type: base is m.id IS NOT NULL', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getPeers', null));
+        expect(sql).to.equal('m.id IS NOT NULL');
+    });
+
+    it('getPeers type=validator filters m.validator_id', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getPeers', 'validator'));
+        expect(sql).to.include('m.validator_id=?');
+    });
+
+    it('getConsensusState with no type: base is m.id IS NOT NULL', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getConsensusState', null));
+        expect(sql).to.equal('m.id IS NOT NULL');
+    });
+
+    it('getConsensusState type=key filters m.key_name', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getConsensusState', 'key'));
+        expect(sql).to.include('m.key_name=?');
+    });
+
+    it('getConfigs type=coin filters m.coin', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getConfigs', 'coin'));
+        expect(sql).to.include('m.coin=?');
+    });
+
+    it('getConfigs type=module filters m.module', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getConfigs', 'module'));
+        expect(sql).to.include('m.module=?');
+    });
+
+    it('getTelemetryPings type=event filters m.event', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getTelemetryPings', 'event'));
+        expect(sql).to.include('m.event=?');
+    });
+
+    it('getTelemetryPings type=install filters m.install_id', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getTelemetryPings', 'install'));
+        expect(sql).to.include('m.install_id=?');
+    });
+
+    it('getTelemetryPings type=country filters m.country', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getTelemetryPings', 'country'));
+        expect(sql).to.include('m.country=?');
+    });
 });
 
 // ---------------------------------------------------------------------------

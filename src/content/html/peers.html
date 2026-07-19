@@ -1,0 +1,42 @@
+<!-- P2P Peers (hub-owned `p2p_peers`, read from the co-located hub DB) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-network-wired"></i> P2P Peers
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-peer">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="time">Last Seen</th>
+                        <th class="">Address</th>
+                        <th class="">Validator</th>
+                        <th class="">Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" class="loading-data">Loading peer data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'P2P Peers';
+    XC.pageInfo.description = 'Peer-to-peer validator network roster the XChain hub gossips with on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/peers';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'peer', null, null);
+
+});
+</script>

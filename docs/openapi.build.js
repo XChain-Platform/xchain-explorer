@@ -116,6 +116,16 @@ const ROUTES = [
     ['/{COIN}/api/governance_proposals', 'getGovernanceProposals', null, 'Governance', 'Federation governance parameter proposals (hub-owned)'],
     ['/{COIN}/api/governance_votes/{QUERY}/{TYPE}', 'getGovernanceVotes', ['proposal', 'voter'], 'Governance', 'Per-validator governance votes, filtered'],
     ['/{COIN}/api/governance_votes', 'getGovernanceVotes', null, 'Governance', 'Per-validator governance votes (hub-owned)'],
+    // ── Network / operational ─────────────────────────────────────────────
+    // Hub-local operational tables read from the mandatory co-located hub DB (no on-chain action, no hub RPC surface).
+    ['/{COIN}/api/peers/{QUERY}/{TYPE}', 'getPeers', ['validator'], 'Network', 'P2P peer roster, filtered by validator'],
+    ['/{COIN}/api/peers', 'getPeers', null, 'Network', 'P2P peer roster the hub gossips with (hub-owned)'],
+    ['/{COIN}/api/consensus_state/{QUERY}/{TYPE}', 'getConsensusState', ['key'], 'Network', 'Hub consensus key/value state, filtered by key'],
+    ['/{COIN}/api/consensus_state', 'getConsensusState', null, 'Network', 'Hub consensus key/value state (hub-owned)'],
+    ['/{COIN}/api/configs/{QUERY}/{TYPE}', 'getConfigs', ['coin', 'module'], 'Network', 'Hub config-oracle parameters, filtered by coin/module'],
+    ['/{COIN}/api/configs', 'getConfigs', null, 'Network', 'Hub config-oracle parameter store (hub-owned)'],
+    ['/{COIN}/api/telemetry_pings/{QUERY}/{TYPE}', 'getTelemetryPings', ['event', 'install', 'country'], 'Network', 'Anonymous node telemetry pings, filtered by event/install/country'],
+    ['/{COIN}/api/telemetry_pings', 'getTelemetryPings', null, 'Network', 'Anonymous xchain-node telemetry pings (hub-owned)'],
     // VOTE token-weighted governance (polls = v0, ballots = v1, results = frozen v2 tally)
     ['/{COIN}/api/polls/{QUERY}/{TYPE}', 'getPolls', ['block', 'tick', 'status', 'source'], 'Governance', 'VOTE governance polls, filtered by block/tick/status/creator'],
     ['/{COIN}/api/polls', 'getPolls', null, 'Governance', 'VOTE governance polls (token-weighted; poll id = the creating action_index)'],
@@ -192,6 +202,10 @@ const QUERY_DESC = {
     tx_hash: 'transaction hash', tx_index: 'transaction index',
     call_id: 'cross-chain call id (64-hex)',
     poll: 'poll id (the creating action_index)', tick: 'a token tick',
+    validator: 'validator id (peer)', key: 'consensus state key name',
+    coin: 'coin symbol (e.g. BTC, LTC, DOGE)', module: 'service module name',
+    event: 'telemetry event (install, update, start, heartbeat)',
+    install: 'anonymous install UUID', country: 'ISO-3166 country code',
 };
 
 function opId(p) {

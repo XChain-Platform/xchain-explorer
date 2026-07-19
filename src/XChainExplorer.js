@@ -180,6 +180,10 @@ class XChainExplorer {
                 '/{COIN}/validator_capabilities' : 'validator_capabilities.html',
                 '/{COIN}/governance_proposals' : 'governance_proposals.html',
                 '/{COIN}/governance_votes'    : 'governance_votes.html',
+                '/{COIN}/peers'              : 'peers.html',
+                '/{COIN}/consensus_state'    : 'consensus_state.html',
+                '/{COIN}/configs'            : 'configs.html',
+                '/{COIN}/telemetry_pings'    : 'telemetry_pings.html',
                 '/{COIN}/attestations'        : 'attestations.html',
                 '/{COIN}/polls'               : 'polls.html',
                 '/{COIN}/votes'               : 'votes.html',
@@ -296,6 +300,17 @@ class XChainExplorer {
                 '/{COIN}/api/governance_proposals'                : ['getGovernanceProposals'],
                 '/{COIN}/api/governance_votes/{QUERY}/{TYPE}'      : ['getGovernanceVotes',       ['proposal', 'voter']],
                 '/{COIN}/api/governance_votes'                    : ['getGovernanceVotes'],
+                // Hub operational state (p2p peers, consensus key/value, config oracle, node
+                // telemetry). Hub-local, no on-chain action and no hub RPC surface, so served
+                // only from the mandatory co-located hub DB (id-keyed).
+                '/{COIN}/api/peers/{QUERY}/{TYPE}'                 : ['getPeers',                ['validator']],
+                '/{COIN}/api/peers'                               : ['getPeers'],
+                '/{COIN}/api/consensus_state/{QUERY}/{TYPE}'       : ['getConsensusState',       ['key']],
+                '/{COIN}/api/consensus_state'                     : ['getConsensusState'],
+                '/{COIN}/api/configs/{QUERY}/{TYPE}'               : ['getConfigs',              ['coin', 'module']],
+                '/{COIN}/api/configs'                             : ['getConfigs'],
+                '/{COIN}/api/telemetry_pings/{QUERY}/{TYPE}'       : ['getTelemetryPings',       ['event', 'install', 'country']],
+                '/{COIN}/api/telemetry_pings'                     : ['getTelemetryPings'],
                 // Cross-chain coordination mirrors (hub-replicated match + local settlement legs)
                 '/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}'     : ['getCrossChainMatches',     ['match', 'block', 'status']],
                 '/{COIN}/api/cross_chain_matches'                    : ['getCrossChainMatches'],
@@ -410,6 +425,10 @@ class XChainExplorer {
                 '/{COIN}/explorer/validator_capabilities/{QUERY}/{TYPE}'    : ['getValidatorCapabilities', ['capability', 'pubkey']],
                 '/{COIN}/explorer/governance_proposals/{QUERY}/{TYPE}'      : ['getGovernanceProposals',   ['status', 'parameter', 'proposal']],
                 '/{COIN}/explorer/governance_votes/{QUERY}/{TYPE}'          : ['getGovernanceVotes',       ['proposal', 'voter']],
+                '/{COIN}/explorer/peers/{QUERY}/{TYPE}'                     : ['getPeers',                 ['validator']],
+                '/{COIN}/explorer/consensus_state/{QUERY}/{TYPE}'           : ['getConsensusState',        ['key']],
+                '/{COIN}/explorer/configs/{QUERY}/{TYPE}'                   : ['getConfigs',               ['coin', 'module']],
+                '/{COIN}/explorer/telemetry_pings/{QUERY}/{TYPE}'           : ['getTelemetryPings',        ['event', 'install', 'country']],
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/polls/{QUERY}/{TYPE}'                     : ['getPolls',        ['block', 'tick', 'status', 'source']],
                 '/{COIN}/explorer/votes/{QUERY}/{TYPE}'                     : ['getVotes',        ['address', 'poll', 'block']],
@@ -1191,6 +1210,17 @@ class XChainExplorer {
                         info = [count_reverse, info.proposal_id, info.parameter, info.current_value, info.proposed_value, info.status, info.voting_end, info.activation_block, info.proposer_pubkey, info.id];
                     if(method=='getGovernanceVotes')
                         info = [count_reverse, info.created_at, info.proposal_id, info.voter_pubkey, info.vote, info.id];
+                    // Hub operational rows (read from the co-located hub DB, id-keyed). id is the
+                    // paging cursor (LAST); these have no 0/1 status column, so they sit in the
+                    // client-side no-color list.
+                    if(method=='getPeers')
+                        info = [count_reverse, info.last_seen_at, info.addr, info.validator_id, info.is_seed, info.id];
+                    if(method=='getConsensusState')
+                        info = [count_reverse, info.updated_at, info.key_name, info.value, info.id];
+                    if(method=='getConfigs')
+                        info = [count_reverse, info.updated_at, info.coin, info.network, info.module, info.param_name, info.param_value, info.id];
+                    if(method=='getTelemetryPings')
+                        info = [count_reverse, info.created_at, info.event, info.node_version, info.os_platform, info.arch, info.country, info.region, info.id];
                     if(method=='getSearch'){
                         if(cfg.data.type=='address')
                             info = [count, info.address, null];

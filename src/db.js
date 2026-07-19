@@ -121,6 +121,7 @@ class Database {
             'getSlashEvents','getCapabilitySlashEvents','getFullNodeVerifications',
             'getPriceSnapshots','getOraclePrices',
             'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
+            'getPeers','getConsensusState','getConfigs','getTelemetryPings',
             'getPolls','getVotes'
         ];
 
@@ -765,6 +766,9 @@ class Database {
         // co-located hub capability/governance tables; no action_index, keyed by m.id
         if(['getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
             sql = `m.id IS NOT NULL`;
+        // co-located hub operational tables (p2p_peers/consensus_state/configs/telemetry_pings); keyed by m.id
+        if(['getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
+            sql = `m.id IS NOT NULL`;
         if(method=='getHistory'){
             if(type=='address')
                 sql += ' AND m.type_id=2 AND m.id=?';
@@ -831,6 +835,23 @@ class Database {
         } else if(method=='getGovernanceVotes'){
             if(type=='proposal') sql += ' AND m.proposal_id=?';
             if(type=='voter')    sql += ' AND m.voter_pubkey=?';
+        } else if(method=='getPeers'){
+            // p2p_peers is a hub-local operational table; filter on its own columns.
+            if(type=='validator') sql += ' AND m.validator_id=?';
+        } else if(method=='getConsensusState'){
+            // consensus_state is a key/value table; filter by key_name.
+            if(type=='key') sql += ' AND m.key_name=?';
+        } else if(method=='getConfigs'){
+            // configs is the hub config oracle store (coin/network/module/param);
+            // filter by coin or module.
+            if(type=='coin')   sql += ' AND m.coin=?';
+            if(type=='module') sql += ' AND m.module=?';
+        } else if(method=='getTelemetryPings'){
+            // telemetry_pings is anonymous xchain-node telemetry; filter by event
+            // type, anonymous install UUID, or country.
+            if(type=='event')   sql += ' AND m.event=?';
+            if(type=='install') sql += ' AND m.install_id=?';
+            if(type=='country') sql += ' AND m.country=?';
         } else if(method=='getPolls'){
             // polls (VOTE v0) joins the actions/transactions/blocks chain (b1 via t1) like
             // getAttestations. tick joins index_tickers (pt) on m.tick_id; source is the poll
@@ -943,7 +964,8 @@ class Database {
             // default m.action_index. Must stay in lockstep with each method's ORDER BY.
             if(['getSlashEvents','getCapabilitySlashEvents','getOraclePrices',
                 'getFullNodeVerifications','getPriceSnapshots','getCrossChainMatches',
-                'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
+                'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
+                'getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
                 field = 'm.id';
             if(action=='prev'){
                 sql = ` AND ` + field + ` > ?`;
@@ -8362,7 +8384,7 @@ class Database {
     // instead of provisioning a co-located hub schema.
     _hubSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
-        if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z_]+$/.test(table))
+        if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
             return { table: '`' + src.name + '`.' + table };
         throw new Error('No co-located hub DB configured for coin ' + config.coin +
             ': ' + table + ' is served only from the mandatory co-located hub DB ' +
@@ -10393,6 +10415,97 @@ class Database {
                         m.proposal_id,
                         m.voter_pubkey,
                         m.vote,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // ── Hub operational-state pages (p2p_peers / consensus_state / configs /
+    // telemetry_pings). These are hub-LOCAL operational tables with no on-chain
+    // action and, unlike validator_capabilities/governance_*, no hub JSON-RPC read
+    // surface, so they are served ONLY from the mandatory co-located hub DB via
+    // _hubSource (same host+creds as the indexer pool; #4138). Each is id-keyed
+    // (no action_index), so the paging cursor compares m.id (see getQueryOffsetSql).
+
+    // P2P peer roster the hub gossips with. type in {validator}. id-keyed.
+    async getPeers(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'p2p_peers');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.addr,
+                        m.validator_id,
+                        m.last_seen_at,
+                        m.is_seed,
+                        m.updated_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Hub consensus key/value state. type in {key}. id-keyed.
+    async getConsensusState(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'consensus_state');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.key_name,
+                        m.value,
+                        m.updated_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Hub config-oracle parameter store (per coin/network/module). type in {coin, module}.
+    // id-keyed.
+    async getConfigs(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'configs');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.coin,
+                        m.network,
+                        m.module,
+                        m.param_name,
+                        m.param_value,
+                        m.updated_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Anonymous xchain-node telemetry pings. type in {event, install, country}. id-keyed.
+    // Privacy: ip_hash (a keyed HMAC of the source IP) is deliberately NOT selected;
+    // only the anonymous install UUID + coarse country/region + software fingerprint
+    // are surfaced.
+    async getTelemetryPings(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'telemetry_pings');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.install_id,
+                        m.country,
+                        m.region,
+                        m.node_version,
+                        m.os_platform,
+                        m.os_release,
+                        m.arch,
+                        m.docker_version,
+                        m.event,
                         m.created_at
                     FROM ${src.table} m
                     WHERE ` + sql.where.data + sql.where.offset + `

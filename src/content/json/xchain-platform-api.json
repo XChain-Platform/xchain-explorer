@@ -2955,16 +2955,51 @@
                     },
                     "last_block": {
                         "type": "object",
-                        "description": "Most recent block index processed by the indexer, keyed by coin ticker (e.g. RBTC: 850)",
+                        "description": "Most recent block index processed by the indexer, keyed by coin ticker (e.g. RBTC: 850). Value is null for a coin whose per-coin DB read failed (the outage this health endpoint exists to surface).",
                         "additionalProperties": {
-                            "type": "integer"
+                            "type": ["integer", "null"]
                         }
                     },
                     "last_block_time": {
                         "type": "object",
-                        "description": "Unix block_time of the most recent block processed by the indexer, keyed by coin ticker. Compare against the chain tip to detect indexer lag.",
+                        "description": "Unix block_time of the most recent block processed by the indexer, keyed by coin ticker. Compare against the chain tip to detect indexer lag. Value is null for a coin whose per-coin DB read failed.",
                         "additionalProperties": {
-                            "type": "integer"
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "decoder_tip": {
+                        "type": "object",
+                        "description": "Decoder's highest processed block index, keyed by coin ticker. null when the decoder tip is unavailable.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "decoder_lag_blocks": {
+                        "type": "object",
+                        "description": "decoder_tip minus last_block (how far the indexer trails the decoder), keyed by coin ticker. null when the decoder tip is unavailable.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "chain_tip": {
+                        "type": "object",
+                        "description": "Coin node's chain tip as the decoder reports it, keyed by coin ticker. null when the decoder health call is unavailable.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "chain_lag_blocks": {
+                        "type": "object",
+                        "description": "Decoder's self-reported gap to the chain tip, keyed by coin ticker. null when the decoder health call is unavailable.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "decoder_health": {
+                        "type": "object",
+                        "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+                        "additionalProperties": {
+                            "type": "string"
                         }
                     },
                     "supported": {

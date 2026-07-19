@@ -48,19 +48,18 @@ describe('Boundary: isInteger()', function () {
         expect(util.isInteger(-1)).to.be.true;
     });
 
-    it('rejects Number.MAX_SAFE_INTEGER (exceeds 32-bit range)', function () {
-        // isInteger uses value === (value|0) which truncates to 32-bit signed
-        // MAX_SAFE_INTEGER (2^53 - 1) exceeds 32-bit -> rejected
-        expect(util.isInteger(Number.MAX_SAFE_INTEGER)).to.be.false;
+    it('accepts Number.MAX_SAFE_INTEGER (isInteger has no 32-bit ceiling)', function () {
+        // isInteger uses Number.isInteger(+value), which has no 32-bit cap.
+        // Any callers that need a 32-bit or pagination-sized ceiling must
+        // enforce it themselves (see call-site assertions below).
+        expect(util.isInteger(Number.MAX_SAFE_INTEGER)).to.be.true;
     });
 
-    it('rejects Number.MIN_SAFE_INTEGER (exceeds 32-bit range)', function () {
-        expect(util.isInteger(Number.MIN_SAFE_INTEGER)).to.be.false;
+    it('accepts Number.MIN_SAFE_INTEGER (isInteger has no 32-bit floor)', function () {
+        expect(util.isInteger(Number.MIN_SAFE_INTEGER)).to.be.true;
     });
 
     it('accepts -2147483648 (32-bit int min)', function () {
-        // isInteger uses value === (value|0), and bitwise OR truncates to 32-bit
-        // So values outside 32-bit range will FAIL even though they are integers
         expect(util.isInteger(-2147483648)).to.be.true;
     });
 
@@ -68,15 +67,16 @@ describe('Boundary: isInteger()', function () {
         expect(util.isInteger(2147483647)).to.be.true;
     });
 
-    // --- Values that should FAIL ---
+    // --- Values above/below the old (defective) 32-bit range now PASS ---
 
-    it('rejects 2147483648 (exceeds 32-bit signed range)', function () {
-        // (2147483648 | 0) wraps to -2147483648, so !== 2147483648
-        expect(util.isInteger(2147483648)).to.be.false;
+    it('accepts 2147483648 (above old 32-bit ceiling; no longer truncated)', function () {
+        // Number.isInteger(+value) does not truncate through int32, so this
+        // large-but-safe integer is correctly recognized as an integer.
+        expect(util.isInteger(2147483648)).to.be.true;
     });
 
-    it('rejects -2147483649 (below 32-bit signed range)', function () {
-        expect(util.isInteger(-2147483649)).to.be.false;
+    it('accepts -2147483649 (below old 32-bit floor; no longer truncated)', function () {
+        expect(util.isInteger(-2147483649)).to.be.true;
     });
 
     it('rejects 0.5 (float)', function () {
@@ -95,18 +95,24 @@ describe('Boundary: isInteger()', function () {
         expect(util.isInteger(-Infinity)).to.be.false;
     });
 
-    it('rejects null', function () {
-        expect(util.isInteger(null)).to.be.false;
+    it('isInteger(null) is true (+null coerces to 0), but callers never reach it for null', function () {
+        // +null === 0, and Number.isInteger(0) is true. Pagination callers
+        // guard with `q.limit && ...` (truthy check) before calling isInteger,
+        // so a null query param short-circuits to the default before this
+        // function is ever invoked; see call-site assertions below.
+        expect(util.isInteger(null)).to.be.true;
     });
 
     it('rejects undefined', function () {
         expect(util.isInteger(undefined)).to.be.false;
     });
 
-    it('rejects empty string (Number("") === 0 but "" is not an integer)', function () {
-        // Number('') === 0, and isInteger(0) is true, but the caller checks
-        // q.limit && ... which short-circuits on empty string
-        expect(util.isInteger(Number(''))).to.be.true; // Number('') = 0, and 0 IS an integer
+    it('isInteger(Number("")) is true, but callers never reach it for empty string', function () {
+        // Number('') === 0, and isInteger(0) is true. Pagination callers guard
+        // with `q.limit && ...` (truthy check) before calling isInteger, so an
+        // empty-string query param short-circuits to the default before this
+        // function is ever invoked; see call-site assertions below.
+        expect(util.isInteger(Number(''))).to.be.true;
     });
 
     it('rejects string "abc"', function () {
@@ -135,12 +141,12 @@ describe('Boundary: isInteger()', function () {
         expect(util.isInteger(Number('999999999'))).to.be.true;
     });
 
-    it('Number("9999999999") fails isInteger (exceeds 32-bit)', function () {
-        expect(util.isInteger(Number('9999999999'))).to.be.false;
+    it('Number("9999999999") passes isInteger (large numeric strings now accepted)', function () {
+        expect(util.isInteger(Number('9999999999'))).to.be.true;
     });
 
-    it('Number("1e10") fails isInteger (exceeds 32-bit via scientific notation)', function () {
-        expect(util.isInteger(Number('1e10'))).to.be.false;
+    it('Number("1e10") passes isInteger (10000000000 is a valid safe integer)', function () {
+        expect(util.isInteger(Number('1e10'))).to.be.true;
     });
 });
 

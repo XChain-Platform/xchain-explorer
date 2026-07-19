@@ -1042,8 +1042,15 @@ function getActionDetails(action, info){
     if(action=='SLASH')
         html = 'Slash ' + formatAmount(info.amount) + (isNull(info.capability) ? '' : ' (' + escapeHtml(String(info.capability)) + ')');
     if(action=='DEPLOY'){
-        html = 'Contract ' + formatLink('/' + coin + '/contract/' + info.action_index, info.action_index);
-        if(!isNull(info.cooldown_blocks)) html += ' (stakeable)';
+        // DEPLOY v4 (action_format 4) is a chunk carrier, not a contract: no /contract/ link.
+        if(Number(info.action_format) === 4){
+            let idx = isNull(info.chunk_index) ? '?' : (Number(info.chunk_index) + 1);
+            let total = isNull(info.total_chunks) ? '?' : info.total_chunks;
+            html = 'Contract code chunk ' + idx + ' of ' + total;
+        } else {
+            html = 'Contract ' + formatLink('/' + coin + '/contract/' + info.action_index, info.action_index);
+            if(!isNull(info.cooldown_blocks)) html += ' (stakeable)';
+        }
     }
     if(action=='EXECUTE'){
         html = 'Call ' + escapeHtml(String(info.method_name || '')) + ' on contract ';
@@ -2449,13 +2456,24 @@ function showDispenserDetails(data){
     $('#info-dispenser .dispenser-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
     $('#info-dispenser .dispenser-get-amount').html(formatAmount(data.get_amount));
     $('#info-dispenser .dispenser-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    // Fiat/oracle-priced dispensers: fiat_amount is the operative price (Get Amount is not),
+    // ignored when oracle_address is set. Only show these rows when the dispenser is
+    // fiat/oracle-priced so plain crypto-priced dispensers are unchanged.
+    let isFiatDispenser = (!isNull(data.fiat_code) || !isNull(data.fiat_amount) || !isNull(data.oracle_address));
+    $('#info-dispenser .dispenser-fiat-row').toggleClass('d-none', !isFiatDispenser);
+    if(isFiatDispenser){
+        $('#info-dispenser .dispenser-fiat-code').text(isNull(data.fiat_code) ? '-' : data.fiat_code);
+        $('#info-dispenser .dispenser-fiat-amount').text(isNull(data.fiat_amount) ? '-' : data.fiat_amount);
+        $('#info-dispenser .dispenser-oracle-address').html(isNull(data.oracle_address) ? '-' : formatLink('/' + data.get_coin + '/address/' + data.oracle_address, data.oracle_address));
+    }
     if(data.expiration)
         $('#info-dispenser .dispenser-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-dispenser .dispenser-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
     $('#info-dispenser .dispenser-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-dispenser .dispenser-memo').text(data.memo);
     // Dispenser Status Details
-    $('#info-dispenser .dispenser-state-get-remaining').html(formatAmount(data.state.get_remaining));
+    // getActionData deletes state.get_remaining for DISPENSER (only give_remaining is
+    // meaningful), so the data layer never carries the field; do not read it here.
     $('#info-dispenser .dispenser-state-give-remaining').html(formatAmount(data.state.give_remaining));
     if(data.state.expiration)
         $('#info-dispenser .dispenser-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
@@ -2564,10 +2582,16 @@ function showAttestDetails(data){
     $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire);
     if(!isResponse && !isExpire){
         $('#info-attest .attest-fee-payer').html(isNull(data.fee_payer) ? '-' : formatLink('/' + XC.coin + '/address/' + data.fee_payer, data.fee_payer));
+        // Request-side economics the requester escrowed and paid (fee_amount+fee_tick, gas_escrow).
+        $('#info-attest .attest-fee').html(isNull(data.fee_amount) ? '-' : formatLink('/' + XC.coin + '/token/' + data.fee_tick, data.fee_tick, formatAmount(data.fee_amount) + ' ' + data.fee_tick));
+        $('#info-attest .attest-gas-escrow').html(isNull(data.gas_escrow) ? '-' : formatAmount(data.gas_escrow));
         $('#info-attest .attest-callback').text(data.callback_method);
         $('#info-attest .attest-redundancy').text(data.redundancy);
         $('#info-attest .attest-deadline').html(isNull(data.deadline_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deadline_block, numeral(data.deadline_block).format('0,0')));
         $('#info-attest .attest-request-status').text(data.request_status);
+        let attestParams = isNull(data.callback_params) ? data.callback_params_json : data.callback_params;
+        $('#info-attest .attest-payload').text(isNull(data.payload) ? '-' : String(data.payload));
+        $('#info-attest .attest-callback-params').text(isNull(attestParams) ? '-' : (typeof attestParams === 'string' ? attestParams : JSON.stringify(attestParams)));
     }
     // Response-side fields
     $('#info-attest .attest-response-fields').toggleClass('d-none', !isResponse);
@@ -2690,7 +2714,16 @@ function showUnstakeDetails(data){
 // Display DELEGATE action information (capability v0/v2 or contract-targeted v1/v3)
 function showDelegateDetails(data){
     let isContract = !isNull(data.target_contract_index);
-    $('#info-delegate .delegate-pubkey').html(formatHash(data.signing_pubkey, 24));
+    // Stake-key revoke variant: the indexer writes only a stake_key_revocations row (no
+    // delegations/contract_delegations row), so signing_pubkey COALESCEs to NULL and the
+    // pubkey/deactivation arrive under the revoked_pubkey/revocation_deactivation_block aliases.
+    let isRevoke = isNull(data.signing_pubkey) && !isNull(data.revoked_pubkey);
+    let pubkey = isNull(data.signing_pubkey) ? data.revoked_pubkey : data.signing_pubkey;
+    let deactivation = isNull(data.deactivation_block) ? data.revocation_deactivation_block : data.deactivation_block;
+    $('#info-delegate .delegate-pubkey').html(isNull(pubkey) ? '-' : formatHash(pubkey, 24));
+    $('#info-delegate .delegate-revoke-row').toggleClass('d-none', !isRevoke);
+    if(isRevoke)
+        $('#info-delegate .delegate-revoked').html('<span class="badge text-bg-warning text-dark">Stake-key revocation</span>');
     $('#info-delegate .delegate-contract-row').toggleClass('d-none', !isContract);
     if(isContract){
         $('#info-delegate .delegate-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
@@ -2698,7 +2731,7 @@ function showDelegateDetails(data){
     }
     if(!isNull(data.activation_block))
         $('#info-delegate .delegate-activation').html(formatLink('/' + XC.coin + '/block/' + data.activation_block, numeral(data.activation_block).format('0,0')));
-    $('#info-delegate .delegate-deactivation').html(isNull(data.deactivation_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deactivation_block, numeral(data.deactivation_block).format('0,0')));
+    $('#info-delegate .delegate-deactivation').html(isNull(deactivation) ? '-' : formatLink('/' + XC.coin + '/block/' + deactivation, numeral(deactivation).format('0,0')));
 }
 
 // Display COLLECT action information (validator reward claim)
@@ -2720,8 +2753,20 @@ function showSlashDetails(data){
 
 // Display DEPLOY action information (contract; v1 surfaces staking metadata)
 function showDeployDetails(data){
-    $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + data.action_index, data.action_index));
+    // DEPLOY v4 (action_format 4) is a chunk carrier: one base64 code slice in deploy_chunks,
+    // NOT a contract. It has no contract row, api_version, cooldown or slash_destination, so
+    // rendering the contract shape would produce a dead /contract/ link and blank fields.
+    let isChunk = (Number(data.action_format) === 4);
+    $('#info-deploy .deploy-contract-row').toggleClass('d-none', isChunk);
+    $('#info-deploy .deploy-chunk-row').toggleClass('d-none', !isChunk);
     $('#info-deploy .deploy-code-hash').html(formatHash(data.code_hash, 32));
+    if(isChunk){
+        let idx = isNull(data.chunk_index) ? '?' : (Number(data.chunk_index) + 1);
+        let total = isNull(data.total_chunks) ? '?' : data.total_chunks;
+        $('#info-deploy .deploy-chunk').text('Code chunk ' + idx + ' of ' + total);
+        return;
+    }
+    $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + data.action_index, data.action_index));
     $('#info-deploy .deploy-api-version').text(data.api_version);
     let stakeable = !isNull(data.cooldown_blocks);
     $('#info-deploy .deploy-stakeable').html(stakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
@@ -2978,6 +3023,7 @@ function showOrderMatchDetails(data){
     $('#info-order-match .order-match-get-coin').text(data.get_coin);
     $('#info-order-match .order-match-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick,  data.get_tick));
     $('#info-order-match .order-match-get-amount').text(data.get_amount);
+    $('#info-order-match .order-match-settlement-type').text(isNull(data.settlement_type) ? '-' : data.settlement_type);
 }
 
 // Display SEND action information

@@ -114,7 +114,9 @@ describe('ChannelManager', function () {
             const client = createClient(1);
             const result = cm.subscribe(client, ['dispenser'], { action_index: 12345 });
             expect(result.success).to.be.true;
-            expect(result.subscribed[0].action_index).to.equal(12345);
+            // action_index is normalized to a canonical decimal STRING at subscription so
+            // SUBSCRIBED/SUBSCRIPTION_LIST/UNSUBSCRIBED all agree (v2 BIGINT-as-string).
+            expect(result.subscribed[0].action_index).to.equal('12345');
         });
 
         it('rejects address channel without address param', function () {
@@ -179,11 +181,13 @@ describe('ChannelManager', function () {
             expect(subs[0].filters.types).to.deep.equal(['SEND', 'ORDER_MATCH']);
         });
 
-        it('stores statuses filter', function () {
+        it('omits statuses from the subscription list (no-op filter, matching SUBSCRIBED)', function () {
             const client = createClient(1);
             cm.subscribe(client, ['actions'], { statuses: ['pending_coinpay'] });
             const subs = cm.listSubscriptions(client);
-            expect(subs[0].filters.statuses).to.deep.equal(['pending_coinpay']);
+            // statuses is deliberately not surfaced: the actions feed cannot honor it, so
+            // SUBSCRIPTION_LIST must not re-advertise a filter SUBSCRIBED already disowns.
+            expect(subs[0].filters.statuses).to.be.undefined;
         });
 
         it('stores once flag', function () {
@@ -220,7 +224,8 @@ describe('ChannelManager', function () {
             cm.subscribe(client, ['actions']);
             const subs = cm.listSubscriptions(client);
             expect(subs[0].filters.types).to.be.null;
-            expect(subs[0].filters.statuses).to.be.null;
+            // statuses is not surfaced in the subscription list at all (see above).
+            expect(subs[0].filters.statuses).to.be.undefined;
         });
     });
 
@@ -329,21 +334,21 @@ describe('ChannelManager', function () {
             expect(list).to.deep.equal([]);
         });
 
-        // Regression: subscribe() echoes action_index as a NUMBER (see the
-        // 'subscribes to dispenser channel' test above), but listSubscriptions()
-        // used to reconstruct it from the channel key via string split, returning
-        // a STRING. A client reconciling the two frames with === or a Map key
-        // would silently report the subscription as missing.
-        it('returns action_index as a number for dispenser subscriptions, matching subscribe()', function () {
+        // Regression: subscribe() and listSubscriptions() must echo action_index in the
+        // SAME representation, else a client reconciling the two frames with === or a Map
+        // key silently reports the subscription as missing. Both are normalized to the
+        // canonical decimal STRING (v2 BIGINT-as-string), including for a numeric-input
+        // client, so the value also survives above 2^53 without precision loss.
+        it('returns action_index as a string for dispenser subscriptions, matching subscribe()', function () {
             const client = createClient(1);
             const subscribeResult = cm.subscribe(client, ['dispenser'], { action_index: 45678 });
-            expect(subscribeResult.subscribed[0].action_index).to.equal(45678);
-            expect(subscribeResult.subscribed[0].action_index).to.be.a('number');
+            expect(subscribeResult.subscribed[0].action_index).to.equal('45678');
+            expect(subscribeResult.subscribed[0].action_index).to.be.a('string');
 
             const list = cm.listSubscriptions(client);
             const entry = list.find(s => s.channel === 'dispenser');
-            expect(entry.action_index).to.equal(45678);
-            expect(entry.action_index).to.be.a('number');
+            expect(entry.action_index).to.equal('45678');
+            expect(entry.action_index).to.be.a('string');
         });
     });
 

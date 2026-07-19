@@ -276,6 +276,18 @@
                                 <th>Get Address</th>
                                 <td class="dispenser-get-address"></td>
                             </tr>
+                            <tr class="dispenser-fiat-row d-none">
+                                <th>Fiat Code</th>
+                                <td class="dispenser-fiat-code"></td>
+                            </tr>
+                            <tr class="dispenser-fiat-row d-none">
+                                <th>Fiat Amount</th>
+                                <td class="dispenser-fiat-amount"></td>
+                            </tr>
+                            <tr class="dispenser-fiat-row d-none">
+                                <th>Oracle Address</th>
+                                <td class="dispenser-oracle-address"></td>
+                            </tr>
                             <tr>
                                 <th>Expiration</th>
                                 <td class="dispenser-expiration"></td>
@@ -547,10 +559,14 @@
                             </tbody>
                             <tbody class="attest-request-fields">
                             <tr><th>Fee Payer</th><td class="attest-fee-payer"></td></tr>
+                            <tr><th>Fee</th><td class="attest-fee"></td></tr>
+                            <tr><th>Gas Escrow</th><td class="attest-gas-escrow"></td></tr>
                             <tr><th>Callback Method</th><td class="attest-callback"></td></tr>
                             <tr><th>Redundancy</th><td class="attest-redundancy"></td></tr>
                             <tr><th>Deadline Block</th><td class="attest-deadline"></td></tr>
                             <tr><th>Request Status</th><td class="attest-request-status"></td></tr>
+                            <tr><th>Payload</th><td class="attest-payload text-break"></td></tr>
+                            <tr><th>Callback Params</th><td class="attest-callback-params text-break"></td></tr>
                             </tbody>
                             <tbody class="attest-response-fields">
                             <tr><th>Response Status</th><td class="attest-response-status"></td></tr>
@@ -636,6 +652,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <tbody>
                             <tr><th width="175">Signing Pubkey</th><td class="delegate-pubkey"></td></tr>
+                            <tr class="delegate-revoke-row d-none"><th>Variant</th><td class="delegate-revoked"></td></tr>
                             <tr class="delegate-contract-row"><th>Contract</th><td class="delegate-contract"></td></tr>
                             <tr class="delegate-contract-row"><th>Token</th><td class="delegate-tick"></td></tr>
                             <tr><th>Activation Block</th><td class="delegate-activation"></td></tr>
@@ -673,12 +690,13 @@
                         <div class="d-none" id="info-deploy">
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <tbody>
-                            <tr><th width="175">Contract</th><td class="deploy-contract"></td></tr>
-                            <tr><th>Code Hash</th><td class="deploy-code-hash"></td></tr>
-                            <tr><th>API Version</th><td class="deploy-api-version"></td></tr>
-                            <tr><th>Staking</th><td class="deploy-stakeable"></td></tr>
+                            <tr class="deploy-contract-row"><th width="175">Contract</th><td class="deploy-contract"></td></tr>
+                            <tr><th width="175">Code Hash</th><td class="deploy-code-hash"></td></tr>
+                            <tr class="deploy-contract-row"><th>API Version</th><td class="deploy-api-version"></td></tr>
+                            <tr class="deploy-contract-row"><th>Staking</th><td class="deploy-stakeable"></td></tr>
                             <tr class="deploy-staking-row"><th>Cooldown</th><td class="deploy-cooldown"></td></tr>
                             <tr class="deploy-staking-row"><th>Slash Destination</th><td class="deploy-slash"></td></tr>
+                            <tr class="deploy-chunk-row d-none"><th>Chunk</th><td class="deploy-chunk"></td></tr>
                             </tbody>
                             </table>
                         </div>
@@ -1224,6 +1242,10 @@
                             <tr>
                                 <th>Get Amount</th>
                                 <td class="order-match-get-amount"></td>
+                            </tr>
+                            <tr>
+                                <th>Settlement Type</th>
+                                <td class="order-match-settlement-type"></td>
                             </tr>
                             </tbody>
                             </table>

@@ -190,7 +190,7 @@ class Utility {
     }
 
     isInteger(value){
-        return value === +value && value === (value|0);
+        return Number.isInteger(+value);
     }
 
     isNull(value){

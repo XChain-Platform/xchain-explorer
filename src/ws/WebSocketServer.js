@@ -340,21 +340,26 @@ class WebSocketServer {
 
         // Send SUBSCRIBED confirmation for each entity subscribed
         for (const sub of result.subscribed) {
+            // 'statuses' is deliberately not echoed: the actions feed cannot honor a status
+            // filter (status is null on block-derived actions), so confirming it back would
+            // let a client rely on a no-op. See the WELCOME features note and the matching
+            // omission in ChannelManager.getSubscriptionList (SUBSCRIPTION_LIST).
+            const activeFilters = {
+                types:    result.filter.types    ? [...result.filter.types]    : null,
+                ticks:    result.filter.ticks    ? [...result.filter.ticks]    : null,
+                fields:   result.filter.fields   ? [...result.filter.fields]   : null,
+                once:     result.filter.once
+            };
             const confirmation = {
                 type:      'SUBSCRIBED',
                 timestamp: Date.now(),
                 data: {
                     channel: sub.channel,
-                    active_filters: {
-                        // 'statuses' is deliberately not echoed here: the actions
-                        // feed cannot honor a status filter (status is null on
-                        // block-derived actions), so confirming it back would let a
-                        // client rely on a no-op. See the WELCOME features note.
-                        types:    result.filter.types    ? [...result.filter.types]    : null,
-                        ticks:    result.filter.ticks    ? [...result.filter.ticks]    : null,
-                        fields:   result.filter.fields   ? [...result.filter.fields]   : null,
-                        once:     result.filter.once
-                    }
+                    // `filters` is the canonical key, shared with SUBSCRIPTION_LIST so a
+                    // client reads one key path across both frames. `active_filters` is a
+                    // deprecated alias kept for existing consumers.
+                    filters:        activeFilters,
+                    active_filters: activeFilters
                 }
             };
             // Copy entity identifiers into the data
@@ -495,10 +500,13 @@ class WebSocketServer {
                 eventsReplayed++;
             }
 
-            // Determine latest action index from replayed events
+            // Determine latest action index from replayed events. Emit as a decimal STRING
+            // to match the v2 wire contract (ws/schema-version.js:26-29): every other
+            // action_index on WS v2 serializes as a string, and Number() here would both
+            // break that type contract and lose precision above 2^53.
             const latestIdx = actions.length > 0
-                ? Number(actions[actions.length - 1].action_index)
-                : sinceActionIndex;
+                ? String(actions[actions.length - 1].action_index)
+                : (sinceActionIndex == null ? sinceActionIndex : String(sinceActionIndex));
 
             // Send CATCH_UP_COMPLETE
             const complete = {

@@ -194,10 +194,11 @@ class ChannelManager {
             // Add entity identifiers
             if (parsed.entityKey) Object.assign(entry, parsed.entityKey);
 
-            // Add filter info
+            // Add filter info. 'statuses' is deliberately omitted to match the SUBSCRIBED
+            // confirmation (WebSocketServer._handleSubscribe): the actions feed cannot honor
+            // a status filter, so re-advertising it here would let a client rely on a no-op.
             entry.filters = {
                 types:    filter.types    ? [...filter.types]    : null,
-                statuses: filter.statuses ? [...filter.statuses] : null,
                 ticks:    filter.ticks    ? [...filter.ticks]    : null,
                 fields:   filter.fields   ? [...filter.fields]   : null,
                 once:     filter.once
@@ -364,7 +365,11 @@ class ChannelManager {
         if (channel === 'address' && parts.length > 2)   entityKey = { address: parts.slice(2).join(':') };
         if (channel === 'token' && parts.length > 2)      entityKey = { tick: parts[2] };
         if (channel === 'market' && parts.length > 3)     entityKey = { tick1: parts[2], tick2: parts[3] };
-        if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: Number(parts[2]) };
+        // Keep the dispenser action_index as the canonical decimal STRING carried in the
+        // channel key. Number() here diverged SUBSCRIPTION_LIST/UNSUBSCRIBED (number) from
+        // SUBSCRIBED (client value) and lost precision above 2^53; the v2 wire contract is
+        // BIGINT-as-string (ws/schema-version.js:26-29).
+        if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: parts[2] };
 
         return { coin, channel, entityKey };
     }
@@ -411,10 +416,13 @@ class ChannelManager {
                 break;
 
             case 'dispenser':
+                // Normalize action_index to a canonical decimal STRING at the point of
+                // subscription so SUBSCRIBED, SUBSCRIPTION_LIST and UNSUBSCRIBED all carry
+                // the same representation (a client may send it as a number or a string).
                 if (params.action_indexes && Array.isArray(params.action_indexes)) {
-                    for (const idx of params.action_indexes) keys.push({ action_index: idx });
+                    for (const idx of params.action_indexes) keys.push({ action_index: String(idx) });
                 } else if (params.action_index !== undefined) {
-                    keys.push({ action_index: params.action_index });
+                    keys.push({ action_index: String(params.action_index) });
                 } else {
                     return { error: { code: 'INVALID_CHANNEL', message: 'dispenser channel requires action_index or action_indexes param' } };
                 }

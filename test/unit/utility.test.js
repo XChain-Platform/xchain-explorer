@@ -129,10 +129,13 @@ describe('Utility', function () {
         it('returns true for a negative integer', function () { expect(u.isInteger(-3)).to.be.true; });
 
         it('returns false for a float',  function () { expect(u.isInteger(1.5)).to.be.false; });
-        it('returns false for a string', function () { expect(u.isInteger('4')).to.be.false; });
+        // Canonical parity (review 2393): isInteger now matches the indexer's
+        // Number.isInteger(+value) exactly, so numeric strings and coercible
+        // primitives count as integers, same as on the consensus side.
+        it('returns true for a numeric string (canonical parity)', function () { expect(u.isInteger('4')).to.be.true; });
         it('returns false for NaN',      function () { expect(u.isInteger(NaN)).to.be.false; });
-        it('returns false for null',     function () { expect(u.isInteger(null)).to.be.false; });
-        it('returns false for boolean true', function () { expect(u.isInteger(true)).to.be.false; });
+        it('returns true for null (+null === 0, canonical parity)', function () { expect(u.isInteger(null)).to.be.true; });
+        it('returns true for boolean true (+true === 1, canonical parity)', function () { expect(u.isInteger(true)).to.be.true; });
 
     });
 

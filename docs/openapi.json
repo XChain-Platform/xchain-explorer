@@ -8131,6 +8131,51 @@
       },
       "x-registered": "express"
     },
+    "/{COIN}/api/preflight": {
+      "get": {
+        "operationId": "preflight",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Validity-first pre-flight of an action against the current tip (would it be accepted); proxied from the indexer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
     "/{COIN}/api/checkpoints": {
       "get": {
         "operationId": "checkpoints",

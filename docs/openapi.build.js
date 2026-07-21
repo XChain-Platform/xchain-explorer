@@ -182,6 +182,7 @@ const SPECIAL = [
     ['/{COIN}/api/file/{ACTION_INDEX}/raw', 'Files', 'Raw FILE bytes (gated: ciphertext as octet-stream; non-gated: inline for safe media types)'],
     ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)'],
     ['/{COIN}/api/feeschedule', 'Fees', 'Fee schedule + oracle prices (proxied from the indexer)'],
+    ['/{COIN}/api/preflight', 'Core', 'Validity-first pre-flight of an action against the current tip (would it be accepted); proxied from the indexer'],
     ['/{COIN}/api/checkpoints', 'Checkpoints', 'Latest quorum-signed state checkpoints for this chain'],
     ['/{COIN}/api/checkpoint/{BLOCK_INDEX}/verify', 'Checkpoints', 'Verify a checkpoint: 2f+1 signatures, canonical string, validator set'],
     ['/{COIN}/api/checkpoints/range', 'Checkpoints', 'Quorum-signed checkpoints in a [from,to] block range (SPV forward-following)'],

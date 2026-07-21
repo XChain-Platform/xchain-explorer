@@ -80,6 +80,12 @@ class XChainIndexerConnector {
         return this._call('feequote', { action, params, source, feeOutputSats });
     }
 
+    // Validity-first pre-flight for a single action : would the indexer accept it?
+    // Decoupled from native-fee support. See xchain-indexer Actions.computePreflight.
+    async preflight({ action, params, source }){
+        return this._call('preflight', { action, params, source });
+    }
+
     // Fee schedule + current oracle prices. See xchain-indexer Actions.getFeeSchedule.
     async feeschedule(){
         return this._call('feeschedule', {});

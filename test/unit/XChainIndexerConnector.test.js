@@ -136,5 +136,13 @@ describe('XChainIndexerConnector', function () {
             expect(r).to.deep.equal({ schedule: [] });
             expect(call.calledWith('feeschedule', {})).to.be.true;
         });
+
+        it('preflight delegates to _call with the preflight method + args ', async function () {
+            let c = new XChainIndexerConnector('http://x:1');
+            let call = sinon.stub(c, '_call').resolves({ supported: true, valid: true });
+            let r = await c.preflight({ action: 'SEND', params: '0|JDOG|1|addr', source: 'me' });
+            expect(r).to.deep.equal({ supported: true, valid: true });
+            expect(call.calledWith('preflight', { action: 'SEND', params: '0|JDOG|1|addr', source: 'me' })).to.be.true;
+        });
     });
 });

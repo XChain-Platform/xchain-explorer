@@ -478,6 +478,7 @@ class XChainExplorer {
         // stays single-sourced there. Registered before the wildcard so the matcher hits these
         // first. See xchain-documentation/concepts/GAS.md (client pre-validation).
         this.app.get('/:coin/api/feequote',    (req, res) => { this.processFeeQuoteRequest(req, res); });
+        this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
         this.app.get('/:coin/api/feeschedule', (req, res) => { this.processFeeScheduleRequest(req, res); });
 
         // Quorum-signed state checkpoints (the light-client verification surface).
@@ -1753,6 +1754,43 @@ class XChainExplorer {
         } catch(e){
             console.error('processFeeQuoteRequest error:', e.message || e);
             return res.status(502).json({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR' });
+        }
+    }
+
+    // Public validity-first pre-flight : "would the indexer accept this action?"
+    // Thin proxy to the indexer's `preflight` JSON-RPC (the height-keyed verdict memo lives
+    // indexer-side). Same input-validation shape as processFeeQuoteRequest: reject repeated
+    // params, charset-check the action, cap param/source lengths.
+    // GET /{COIN}/api/preflight?action=SEND&params=0|JDOG|1|addr&source=...
+    async processPreflightRequest(req, res){
+        try {
+            let config = await this.configInfo.getConfig();
+            let parsed = this.parseCoinCode(req.params.coin, config);
+            if(!parsed)
+                return res.status(404).json({ error: 'unknown coin', code: 'UNKNOWN_COIN' });
+            let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
+            if(!url)
+                return res.status(501).json({ error: 'pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
+            if(this.util.isNull(req.query.action))
+                return res.status(400).json({ error: 'action is required', code: 'MISSING_PARAMETER' });
+            let action = req.query.action;
+            let params = req.query.params;   // pipe-delimited string; the indexer splits it
+            let source = req.query.source;
+            if(Array.isArray(action) || Array.isArray(params) || Array.isArray(source))
+                return res.status(400).json({ error: 'repeated query parameters are not allowed', code: 'INVALID_PARAMETER' });
+            action = String(action);
+            if(!/^[A-Z0-9_]{1,32}$/.test(action))
+                return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
+            params = this.util.isNull(params) ? undefined : String(params);
+            source = this.util.isNull(source) ? undefined : String(source);
+            if((params && params.length > 8192) || (source && source.length > 4096))
+                return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
+            let connector = new IndexerConnector(url);
+            let result = await connector.preflight({ action, params, source });
+            return res.json(result);
+        } catch(e){
+            console.error('processPreflightRequest error:', e.message || e);
+            return res.status(502).json({ error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR' });
         }
     }
 

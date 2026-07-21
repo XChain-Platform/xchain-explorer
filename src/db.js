@@ -4495,6 +4495,23 @@ class Database {
      * Commonly used functions 
      *****************************************************************/
 
+    // Extract the revoke target of a DELEGATE v2/v3 from the transaction's decoded
+    // action string . Returns { pubkey } for v2 (capability revoke) and
+    // { pubkey, target, tick } for v3 (contract-targeted revoke), or null when the
+    // wire is absent/unparseable. Locates the `DELEGATE|<fmt>|...` segment so it works
+    // for a standalone DELEGATE and one nested in a BATCH (`VERSION|CMD;CMD`); the
+    // 64-hex signing pubkey is a fixed-width token, so the match is unambiguous.
+    _parseDelegateRevokeWire(wire, fmt){
+        if(this.util.isNull(wire)) return null;
+        let str = String(wire);
+        if(Number(fmt)===3){
+            let m = str.match(/DELEGATE\|3\|([0-9a-fA-F]{64})\|([0-9]+)\|([^;|]+)/);
+            return m ? { pubkey: m[1], target: m[2], tick: m[3] } : null;
+        }
+        let m = str.match(/DELEGATE\|2\|([0-9a-fA-F]{64})/);
+        return m ? { pubkey: m[1] } : null;
+    }
+
     async getActionData(config, action_index){
         // Check LRU cache first. Action data is immutable once confirmed, but a
         // reorg can reassign action_index, so the key carries coin + reorg
@@ -6065,6 +6082,7 @@ class Database {
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
                             t1.tx_index,
+                            t1.data as wire_data,
                             COALESCE(ds.status, cds.status) as status,
                             pk3.pubkey as revoked_pubkey,
                             skr.deactivation_block as revocation_deactivation_block
@@ -6746,6 +6764,59 @@ class Database {
                      WHERE m.action_index=?
                      ORDER BY m.id ASC`, [action_index]);
                 data['verifications'] = (verifs && verifs.length) ? verifs : [];
+            }
+            // DELEGATE revoke de-blank . The v2 capability-revoke and v3
+            // contract-revoke variants deactivate the PARENT delegation row and, at/after
+            // the DELEGATE_REVOKE_NO_REINSERT flag-day (BTC 969500 / 2026-10-01), write NO
+            // row of their own keyed by the revoking action's action_index (v3 never did).
+            // The main query's `delegations` / `contract_delegations` joins are on
+            // a1.action_index, so they return nothing and the page renders blank. Resolve
+            // the revoke target from the transaction's decoded wire (signing_pubkey, plus
+            // target_contract_index + tick for v3), then look up the parent row by
+            // (source, signing_pubkey[, target_contract_index, tick]) to surface its
+            // activation/deactivation window + status. Rotates (signing_pubkey already set
+            // via pk1/pk2) and stake-key revokes (revoked_pubkey set via
+            // stake_key_revocations) are left untouched. Backward compatible: below the
+            // flag-day a v2 revoke still carries its own delegations row so this no-ops.
+            if(type=='DELEGATE'){
+                let fmt = Number(data['action_format']);
+                if((fmt===2 || fmt===3) && this.util.isNull(data['signing_pubkey']) && this.util.isNull(data['revoked_pubkey'])){
+                    let seg = this._parseDelegateRevokeWire(data['wire_data'], fmt);
+                    if(seg && seg.pubkey){
+                        data['signing_pubkey'] = seg.pubkey;
+                        let prow;
+                        if(fmt===3){
+                            data['target_contract_index'] = seg.target;
+                            data['tick'] = seg.tick;
+                            prow = await this.doQuery(config,
+                                `SELECT cd.activation_block, cd.deactivation_block, cds.status
+                                   FROM contract_delegations cd
+                                   INNER JOIN index_addresses a  ON (a.id=cd.source_id)
+                                   INNER JOIN index_pubkeys   pk ON (pk.id=cd.signing_pubkey_id)
+                                   INNER JOIN index_tickers   tk ON (tk.id=cd.tick_id)
+                                   LEFT  JOIN index_statuses  cds ON (cds.id=cd.status_id)
+                                  WHERE a.address=? AND pk.pubkey=? AND cd.target_contract_index=? AND tk.tick=?
+                                  ORDER BY cd.action_index DESC LIMIT 1`,
+                                [data['source'], seg.pubkey.toLowerCase(), Number(seg.target), seg.tick]);
+                        } else {
+                            prow = await this.doQuery(config,
+                                `SELECT d.activation_block, d.deactivation_block, ds.status
+                                   FROM delegations d
+                                   INNER JOIN index_addresses a  ON (a.id=d.source_id)
+                                   INNER JOIN index_pubkeys   pk ON (pk.id=d.signing_pubkey_id)
+                                   LEFT  JOIN index_statuses  ds ON (ds.id=d.status_id)
+                                  WHERE a.address=? AND pk.pubkey=?
+                                  ORDER BY d.action_index DESC LIMIT 1`,
+                                [data['source'], seg.pubkey.toLowerCase()]);
+                        }
+                        if(prow && prow.length){
+                            data['activation_block']   = prow[0].activation_block;
+                            data['deactivation_block'] = prow[0].deactivation_block;
+                            if(this.util.isNull(data['status'])) data['status'] = prow[0].status;
+                        }
+                    }
+                }
+                delete data['wire_data'];
             }
             if(query2){
                 // Set correct arguments for the query

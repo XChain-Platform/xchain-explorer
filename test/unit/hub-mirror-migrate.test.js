@@ -42,6 +42,28 @@ function fakeDb({ tables = ['price_snapshots'], columns = [], indexes = [] } = {
     };
 }
 
+// Mock exposing SHOW INDEX Column_name rows for the capability_snapshots
+// uq_cap_snap widen ; uqCols is the live column set of uq_cap_snap.
+function fakeCapDb(uqCols) {
+    const executed = [];
+    return {
+        executed,
+        doQuery(sql, params) {
+            if (/^SHOW TABLES LIKE/i.test(sql))
+                return Promise.resolve(params[0] === 'capability_snapshots' ? [{ t: params[0] }] : []);
+            if (/^SHOW COLUMNS/i.test(sql))
+                return Promise.resolve(['id', 'snapshot_block', 'capability', 'signing_pubkey', 'amount', 'source'].map((c) => ({ Field: c })));
+            if (/^SHOW INDEX/i.test(sql))
+                return Promise.resolve([{ Key_name: 'PRIMARY', Column_name: 'id' }].concat(
+                    uqCols.map((c) => ({ Key_name: 'uq_cap_snap', Column_name: c }))));
+            executed.push(sql);
+            return Promise.resolve();
+        }
+    };
+}
+
+const UQ_CAP_ADD = 'ALTER TABLE `capability_snapshots` ADD UNIQUE KEY uq_cap_snap (snapshot_block, capability, signing_pubkey, source)';
+
 const LEGACY_COLUMNS = [
     'id', 'round_number', 'coin_pair', 'price', 'reference_block', 'reference_chain',
     'block_timestamp', 'validator_count', 'consensus_round', 'consensus_proof',
@@ -100,6 +122,32 @@ describe('hub-mirror-migrate ', function () {
         const applied = await ensureMirrorColumns(db, noLog);
         expect(applied).to.have.lengthOf(0);
         expect(db.executed).to.have.lengthOf(0);
+    });
+
+    it('widens a legacy 3-column uq_cap_snap to include source ', async function () {
+        const db = fakeCapDb(['snapshot_block', 'capability', 'signing_pubkey']);
+        const applied = await ensureMirrorColumns(db, noLog);
+        // Drop then re-add the wider key (separate ALTERs so the re-add cannot race).
+        expect(db.executed).to.deep.equal([
+            'ALTER TABLE `capability_snapshots` DROP INDEX `uq_cap_snap`',
+            UQ_CAP_ADD
+        ]);
+        expect(applied).to.include(UQ_CAP_ADD);
+    });
+
+    it('is a no-op when uq_cap_snap already includes source', async function () {
+        const db = fakeCapDb(['snapshot_block', 'capability', 'signing_pubkey', 'source']);
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(applied).to.have.lengthOf(0);
+        expect(db.executed).to.have.lengthOf(0);
+    });
+
+    it('capability_snapshots widen matches the SQL twin uq_cap_snap', function () {
+        const twin = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', 'capability_snapshots.sql'), 'utf8');
+        // The widen target column set must be exactly the twin's uq_cap_snap key.
+        expect(twin).to.match(/uq_cap_snap\s*\(snapshot_block,\s*capability,\s*signing_pubkey,\s*source\)/);
+        expect(MIRROR_MIGRATIONS.capability_snapshots.widenIndexes[0].requiredColumn).to.equal('source');
     });
 
     it('migration definitions stay in lockstep with the SQL twin file', function () {

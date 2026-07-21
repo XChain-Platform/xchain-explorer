@@ -56,6 +56,20 @@ const MIRROR_MIGRATIONS = {
         indexes: [
             { name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }
         ]
+    },
+    // : uq_cap_snap gained `source` (a key delegated by two sources now keeps
+    // both (source, pubkey) rows). The add-if-name-missing logic above cannot widen
+    // an existing same-named index, so capability_snapshots uses widenIndexes: if the
+    // live uq_cap_snap does not already cover `source`, drop and re-add it with the
+    // 4-column key. Widening an already-enforced UNIQUE key is monotonically safe (it
+    // can only relax the constraint), so no row dedup is needed.
+    capability_snapshots: {
+        columns: [],
+        indexes: [],
+        widenIndexes: [
+            { name: 'uq_cap_snap', requiredColumn: 'source',
+              addDdl: 'ADD UNIQUE KEY uq_cap_snap (snapshot_block, capability, signing_pubkey, source)' }
+        ]
     }
 };
 
@@ -91,13 +105,33 @@ async function ensureMirrorColumns(dbConn, log) {
                 if (!haveIdx.has(idx.name.toLowerCase())) clauses.push(idx.ddl);
             }
         }
-        if (clauses.length === 0) continue;
+        if (clauses.length > 0) {
+            // One ALTER per table so MariaDB rebuilds it at most once.
+            const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
+            log('[hub-mirror] migrating ' + table + ': ' + clauses.join('; '));
+            await dbConn.doQuery(sql);
+            applied.push(sql);
+        }
 
-        // One ALTER per table so MariaDB rebuilds it at most once.
-        const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
-        log('[hub-mirror] migrating ' + table + ': ' + clauses.join('; '));
-        await dbConn.doQuery(sql);
-        applied.push(sql);
+        // Widen an existing UNIQUE key whose column set changed . Probe the
+        // live index columns; if the required column is absent, drop and re-add the
+        // wider key. Separate DROP then ADD so the re-add never races the drop. Only
+        // ever widens (adds a column), so an already-unique table cannot collide and
+        // no row dedup is needed. Idempotent: a no-op once the key already covers it.
+        if (spec.widenIndexes && spec.widenIndexes.length) {
+            const idxRows = await dbConn.doQuery('SHOW INDEX FROM `' + table + '`');
+            for (const w of spec.widenIndexes) {
+                const cols = (idxRows || [])
+                    .filter((r) => String(r.Key_name).toLowerCase() === w.name.toLowerCase())
+                    .map((r) => String(r.Column_name).toLowerCase());
+                if (cols.length === 0) continue;                                     // index absent: indexes/ensureTables owns it
+                if (cols.includes(String(w.requiredColumn).toLowerCase())) continue; // already widened
+                log('[hub-mirror] widening ' + table + '.' + w.name + ' to include ' + w.requiredColumn);
+                await dbConn.doQuery('ALTER TABLE `' + table + '` DROP INDEX `' + w.name + '`');
+                await dbConn.doQuery('ALTER TABLE `' + table + '` ' + w.addDdl);
+                applied.push('ALTER TABLE `' + table + '` ' + w.addDdl);
+            }
+        }
     }
     return applied;
 }

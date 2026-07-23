@@ -373,7 +373,16 @@ class Broadcaster {
             }
         }
 
-        // Statuses filter
+        // Statuses filter. : this is currently a no-op for every event this
+        // server produces (action.status is always the literal SQL NULL from db.js
+        // getActionsSince, so `status` below is always falsy and the `has()` check
+        // never runs). Left evaluating rather than short-circuited: proving it dead
+        // requires tracing every _passesFilter caller (live actions/lifecycle/ATTEST
+        // path and the catch-up replay path in WebSocketServer._handleCatchUp) plus
+        // every producer in ChangeDetector.js, which is not a change safe to make
+        // as a drive-by; WebSocketServer._handleSubscribe now echoes
+        // `ignored_filters: ['statuses']` so a client sending it can observe the
+        // no-op without relying on this evaluation being removed.
         if (filter.statuses) {
             const status = (actionData && actionData.status) || (event.data && event.data.status);
             if (status && !filter.statuses.has(status)) return false;

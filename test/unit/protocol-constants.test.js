@@ -48,14 +48,25 @@ describe('protocol/constants', function () {
         );
     });
 
-    it('shapes every activation map as {mainnet>0, testnet:0, regtest:0}', function () {
-        for (const name of ['STAKE_WEIGHTED_QUORUM_ACTIVATION', 'EQUIV_HEADER_ACTIVATION', 'CHECKPOINT_COMMITMENT_ACTIVATION', 'ANCHOR_REWARD_ACTIVATION']) {
+    it('shapes the genesis-testnet activation maps as {mainnet>0, testnet:0, regtest:0}', function () {
+        // CHECKPOINT_COMMITMENT_ACTIVATION is deliberately excluded:  lead
+        // 0e418c8c armed its testnet to 146000 (the SPV root suffix must not be
+        // signed before every chain is past its STATE_COMMITMENT height).
+        for (const name of ['STAKE_WEIGHTED_QUORUM_ACTIVATION', 'EQUIV_HEADER_ACTIVATION', 'ANCHOR_REWARD_ACTIVATION']) {
             const m = C[name];
             assert.ok(m && typeof m === 'object', `${name} must be a map`);
             assert.ok(Number.isInteger(m.mainnet) && m.mainnet > 0, `${name}.mainnet must be armed`);
             assert.strictEqual(m.testnet, 0, `${name}.testnet activates at genesis`);
             assert.strictEqual(m.regtest, 0, `${name}.regtest activates at genesis`);
         }
+    });
+
+    it('CHECKPOINT_COMMITMENT_ACTIVATION arms testnet at 146000, regtest at genesis ( keying-skew fix)', function () {
+        const m = C.CHECKPOINT_COMMITMENT_ACTIVATION;
+        assert.ok(m && typeof m === 'object', 'CHECKPOINT_COMMITMENT_ACTIVATION must be a map');
+        assert.ok(Number.isInteger(m.mainnet) && m.mainnet > 0, 'mainnet must be armed');
+        assert.strictEqual(m.testnet, 146000, 'testnet arms only after every STATE_COMMITMENT testnet threshold');
+        assert.strictEqual(m.regtest, 0, 'regtest activates at genesis');
     });
 
     it('pins the anchor/oracle economic constants', function () {

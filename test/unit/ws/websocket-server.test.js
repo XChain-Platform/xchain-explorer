@@ -124,6 +124,35 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(subscribed.data.active_filters).to.not.have.property('statuses');
     });
 
+    it(': SUBSCRIBED echoes ignored_filters: ["statuses"] when a raw client sends one', function () {
+        // The `statuses` filter is still accepted (non-breaking) but is a no-op on
+        // every event this server produces, so the confirmation must make that
+        // no-op observable instead of silently dropping the client's request.
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleSubscribe(client, { channels: ['actions'], params: { statuses: ['valid'] } });
+
+        const subscribed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .find((m) => m.type === 'SUBSCRIBED');
+        expect(subscribed, 'a SUBSCRIBED frame was sent').to.exist;
+        expect(subscribed.data.ignored_filters).to.deep.equal(['statuses']);
+    });
+
+    it('SUBSCRIBED has no ignored_filters key when no statuses filter was sent', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleSubscribe(client, { channels: ['actions'], params: { types: ['SEND'] } });
+
+        const subscribed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .find((m) => m.type === 'SUBSCRIBED');
+        expect(subscribed, 'a SUBSCRIBED frame was sent').to.exist;
+        expect(subscribed.data).to.not.have.property('ignored_filters');
+    });
+
     it('does not start a second snapshot fan-out while one is in progress', async function () {
         const s = makeServer();
         // A snapshot that never resolves within the test keeps the guard set.

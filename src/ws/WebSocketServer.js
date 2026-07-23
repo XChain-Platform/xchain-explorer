@@ -338,12 +338,21 @@ class WebSocketServer {
             return;
         }
 
+        // : still accept a `statuses` filter (non-breaking: ChannelManager keeps
+        // validating and storing it), but it is a no-op on every event this server
+        // currently produces (action.status is a literal SQL NULL from db.js
+        // getActionsSince, so Broadcaster._passesFilter's status check never fires).
+        // Surface that as `ignored_filters` so a client that sent it can observe the
+        // no-op instead of silently getting nothing. Same params object for the whole
+        // subscribe() call, so this is constant across every confirmation below.
+        const ignoredFilters = params.statuses ? ['statuses'] : null;
+
         // Send SUBSCRIBED confirmation for each entity subscribed
         for (const sub of result.subscribed) {
-            // 'statuses' is deliberately not echoed: the actions feed cannot honor a status
-            // filter (status is null on block-derived actions), so confirming it back would
-            // let a client rely on a no-op. See the WELCOME features note and the matching
-            // omission in ChannelManager.getSubscriptionList (SUBSCRIPTION_LIST).
+            // 'statuses' is deliberately not echoed here as an ACTIVE filter: confirming
+            // it back would let a client rely on a no-op. See the WELCOME features note
+            // and the matching omission in ChannelManager.getSubscriptionList
+            // (SUBSCRIPTION_LIST). It is still surfaced separately via `ignored_filters`.
             const activeFilters = {
                 types:    result.filter.types    ? [...result.filter.types]    : null,
                 ticks:    result.filter.ticks    ? [...result.filter.ticks]    : null,
@@ -362,6 +371,7 @@ class WebSocketServer {
                     active_filters: activeFilters
                 }
             };
+            if (ignoredFilters) confirmation.data.ignored_filters = ignoredFilters;
             // Copy entity identifiers into the data
             if (sub.address)      confirmation.data.address      = sub.address;
             if (sub.tick)         confirmation.data.tick          = sub.tick;

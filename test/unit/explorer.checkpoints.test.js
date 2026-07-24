@@ -322,7 +322,7 @@ describe('explorer canonicalCheckpointString == SDK canonicalCheckpoint @regress
     const SDK_CHECKPOINT = process.env.XCHAIN_SDK_DIR
         ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'checkpoint.js')
         : path.join(__dirname, '..', '..', '..', 'xchain-sdk', 'src', 'checkpoint.js');
-    before(function () { if (!fs.existsSync(SDK_CHECKPOINT)) this.skip(); });
+    before(function () { if (!fs.existsSync(SDK_CHECKPOINT)) { if (process.env.XCHAIN_REQUIRE_SIBLINGS === '1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but xchain-sdk checkpoint not found at ' + SDK_CHECKPOINT); this.skip(); } });
 
     // Real flag-day gates on BOTH sides: the file-global beforeEach stubs the
     // explorer's eq/swq modules, but the SDK uses its own copies, so an

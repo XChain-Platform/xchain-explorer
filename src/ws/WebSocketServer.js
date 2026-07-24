@@ -289,30 +289,41 @@ class WebSocketServer {
             return;
         }
 
-        switch (msg.action) {
-            case 'ping':
-                this._send(client, {
-                    type:      'pong',
-                    timestamp: Date.now(),
-                    data:      {}
-                });
-                break;
+        // Defense-in-depth: the ws surface is unauthenticated, and a synchronous
+        // throw from any action handler escapes to `ws.on('message', ...)` with no
+        // uncaughtException handler installed, terminating the process (a single
+        // frame becomes a crash-loop DoS, #3135). Individual handlers validate
+        // their input, but wrap the whole dispatch so any residual synchronous
+        // throw returns an error frame and is logged, rather than killing the node.
+        try {
+            switch (msg.action) {
+                case 'ping':
+                    this._send(client, {
+                        type:      'pong',
+                        timestamp: Date.now(),
+                        data:      {}
+                    });
+                    break;
 
-            case 'subscribe':
-                this._handleSubscribe(client, msg);
-                break;
+                case 'subscribe':
+                    this._handleSubscribe(client, msg);
+                    break;
 
-            case 'unsubscribe':
-                this._handleUnsubscribe(client, msg);
-                break;
+                case 'unsubscribe':
+                    this._handleUnsubscribe(client, msg);
+                    break;
 
-            case 'list_subscriptions':
-                this._handleListSubscriptions(client, msg);
-                break;
+                case 'list_subscriptions':
+                    this._handleListSubscriptions(client, msg);
+                    break;
 
-            default:
-                this._sendError(client, 'INVALID_ACTION', `Unknown action: ${msg.action}`, msg.id);
-                break;
+                default:
+                    this._sendError(client, 'INVALID_ACTION', `Unknown action: ${msg.action}`, msg.id);
+                    break;
+            }
+        } catch (err) {
+            console.error('[ws] handler threw for action "' + msg.action + '":', err);
+            this._sendError(client, 'INTERNAL_ERROR', 'Internal error handling message', msg.id);
         }
     }
 

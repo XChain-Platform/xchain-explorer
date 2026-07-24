@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- WS subscribe params.fields validated (crash-DoS closed), finality defaults read the vendored coin registry, XCHECKPOINT parity guard escalates under required-siblings, lockfile version sync.
+
 ### Added
 - Armed the three BTC-anchored activation copies (checkpoint commitment, EQUIV header, stake-weighted quorum) at BTC 961000, in lockstep with the indexer/hub twins.
 - Contract page renders the full on-chain source with syntax highlighting, a server-verified hash badge, copy button, extracted method list, and constructor params.

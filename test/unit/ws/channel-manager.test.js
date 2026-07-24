@@ -204,6 +204,30 @@ describe('ChannelManager', function () {
             expect(result.error.code).to.equal('INVALID_TYPE');
         });
 
+        // #3135: a non-iterable `fields` reached `new Set(params.fields)` and threw
+        // a synchronous TypeError out of the ws handler (unauthenticated crash).
+        it('rejects a non-array fields filter instead of throwing (crash-DoS guard)', function () {
+            const client = createClient(1);
+            for (const bad of [1, {}, 'abc', true]) {
+                const result = cm.subscribe(client, ['blocks'], { fields: bad });
+                expect(result.success, 'fields=' + JSON.stringify(bad) + ' must be rejected').to.be.false;
+                expect(result.error.code).to.equal('INVALID_PARAMS');
+            }
+        });
+
+        it('rejects a fields array with non-string members', function () {
+            const client = createClient(1);
+            const result = cm.subscribe(client, ['blocks'], { fields: ['ok', 5] });
+            expect(result.success).to.be.false;
+            expect(result.error.code).to.equal('INVALID_PARAMS');
+        });
+
+        it('accepts a valid string fields array', function () {
+            const client = createClient(1);
+            const result = cm.subscribe(client, ['blocks'], { fields: ['height', 'hash'] });
+            expect(result.success).to.be.true;
+        });
+
         it('accepts the federation / cross-chain / oracle action types (PRICE, ANCHOR, XCALL, NODEPROOF)', function () {
             const client = createClient(1);
             const result = cm.subscribe(client, ['actions'], { types: ['PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF'] });

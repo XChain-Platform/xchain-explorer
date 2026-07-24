@@ -22,6 +22,7 @@ const crypto  = require('crypto');
 const mariadb = require('mariadb');
 const DecoderConnector = require('./XChainDecoderConnector.js');
 const { extractMethods } = require('./contract-introspect.js');
+const coinsRegistry = require('./coins');
 
 // Raised by doQuery when the underlying query genuinely FAILED (connection
 // unavailable after retries, or the DB rejected the statement), as opposed to
@@ -4000,6 +4001,11 @@ class Database {
         // lives in the loaded explorer config under the BASE coin key (BTC/LTC/DOGE).
         let code = config.coin;
         let coinName = String(code), coinTick = String(code);
+        // Network of THIS request, derived from the route-code prefix (T=testnet,
+        // R=regtest, none=mainnet). Used for the finality clamp below so an
+        // override may only raise the depth on mainnet. Defaults to mainnet (the
+        // safe, clamping choice) when config is momentarily unavailable.
+        let reqNetwork = 'mainnet';
         try {
             let full  = await this.configInfo.getConfig();
             let bases = Object.keys(full['COIN_NETWORKS'] || {});            // ['BTC','LTC','DOGE']
@@ -4007,6 +4013,12 @@ class Database {
             let chain = (full[base] && full[base].chain) ? full[base].chain : {};
             if(chain.name) coinName = chain.name;
             if(chain.tick) coinTick = chain.tick;
+            let prefixes = full['COIN_PREFIXES'] || { mainnet: '', testnet: 'T', regtest: 'R' };
+            let upper = String(code).toUpperCase();
+            for(const net in prefixes){
+                const p = prefixes[net];
+                if(p && upper.startsWith(p) && bases.includes(upper.slice(p.length))){ reqNetwork = net; break; }
+            }
         } catch(e){ /* keep code-based fallbacks if config is momentarily unavailable */ }
 
         // Real indexer tip + last-block time for this coin (same source as /status).
@@ -4059,14 +4071,14 @@ class Database {
             },
             // Same-chain finality guidance (display/UX only). The indexer processes
             // actions at the chain tip, so this is a recommended "treat a receipt as
-            // final after N confirmations" value per chain, not a gate. Mirrors the
-            // hub's per-chain cross-chain confirmation thresholds and honors the same
-            // XCHAIN_CONFIRMATIONS_<COIN> overrides so display stays consistent.
-            finality: {
-                BTC:  parseInt(process.env.XCHAIN_CONFIRMATIONS_BTC,  10) || 6,
-                LTC:  parseInt(process.env.XCHAIN_CONFIRMATIONS_LTC,  10) || 12,
-                DOGE: parseInt(process.env.XCHAIN_CONFIRMATIONS_DOGE, 10) || 60
-            }
+            // final after N confirmations" value per chain, not a gate. Sourced from
+            // the vendored coin registry (single source of truth) rather than a
+            // hand-copied literal map, so a re-tune of a coin's `confirmations` in the
+            // bundle can no longer leave the explorer showing a stale depth, and the
+            // registry's mainnet floor clamp (overrides may only RAISE the depth on
+            // mainnet) is honored instead of silently dropped. Still honors the same
+            // XCHAIN_CONFIRMATIONS_<COIN> env overrides (#3212).
+            finality: coinsRegistry.resolveConfirmations(config, reqNetwork)
         };
         // Per-action-type record counts for the homepage counters. Exact COUNT(*) per table
         // (cached per coin, see getActionTotals), replacing the old information_schema.TABLE_ROWS

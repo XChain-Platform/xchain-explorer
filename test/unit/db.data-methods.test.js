@@ -448,6 +448,21 @@ describe('Database#getNetwork', () => {
         expect(data).to.have.keys(['totals', 'network', 'fee', 'coin', 'xchain', 'finality']);
     });
 
+    // #3212: finality is sourced from the vendored coin registry, not a hand-copied
+    // literal map, so it stays in lockstep with the coin bundle's confirmations.
+    it('sources finality from the coin registry (per-coin confirmation defaults)', async () => {
+        setupPool(db, 'BTC', 'XChain_BTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 5));
+
+        const [data] = await db.getNetwork(cfg());
+        const expected = require('../../src/coins').resolveConfirmations({}, 'mainnet');
+        expect(data.finality).to.deep.equal(expected);
+        // Sanity: registry carries the canonical per-coin defaults.
+        expect(data.finality.BTC).to.equal(6);
+        expect(data.finality.LTC).to.equal(12);
+        expect(data.finality.DOGE).to.equal(60);
+    });
+
     it('populates totals for every actionTable plus tokens', async () => {
         setupPool(db, 'BTC', 'XChain_BTC');
         sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 3));

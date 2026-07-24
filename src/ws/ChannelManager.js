@@ -115,12 +115,25 @@ class ChannelManager {
             ticksFilter = new Set(params.ticks);
         }
 
+        // Validate fields filter. Mirrors the types/statuses guard: without it a
+        // non-iterable `fields` (e.g. {"fields":1} or {"fields":{}}) reaches
+        // `new Set(params.fields)` below and throws a synchronous TypeError out of
+        // the ws message handler, which no uncaughtException handler catches -
+        // an unauthenticated single-frame process kill / crash loop (#3135).
+        let fieldsFilter = null;
+        if (params.fields) {
+            if (!Array.isArray(params.fields) || params.fields.some(f => typeof f !== 'string')) {
+                return { success: false, error: { code: 'INVALID_PARAMS', message: 'fields must be an array of strings' } };
+            }
+            fieldsFilter = new Set(params.fields);
+        }
+
         // Build filter object
         const filter = {
             types:              typesFilter,
             statuses:           statusesFilter,
             ticks:              ticksFilter,
-            fields:             params.fields ? new Set(params.fields) : null,
+            fields:             fieldsFilter,
             once:               !!params.once,
             snapshot:           !!params.snapshot,
             since_action_index: params.since_action_index || null

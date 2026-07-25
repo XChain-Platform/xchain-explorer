@@ -906,8 +906,13 @@ class Database {
                     sql += ' AND a2.address=?';
                 }
             }
-            if(type=='block')
-                sql += ' AND b1.block_index=?';
+            if(type=='block'){
+                // coinpay_obligations carries block_index directly and has no
+                // blocks join (b1); every other action query resolves the
+                // block through its actions/blocks joins. Without this branch
+                // the block lane 500s with an unknown-column error (PC-16).
+                sql += (method=='getCoinpayObligations') ? ' AND m.block_index=?' : ' AND b1.block_index=?';
+            }
             if(type=='destination')
                 sql += ' AND a3.address=?';
             if(type=='source')
@@ -2593,11 +2598,13 @@ class Database {
         let query = `SELECT
                         a2.action,
                         m.action_index,
-                        a1.action_format, 
+                        a1.action_format,
                         c1.coin as give_coin,
                         m.give_action_index,
+                        m.give_amount,
                         c2.coin as get_coin,
                         m.get_action_index,
+                        m.get_amount,
                         m.settlement_type,
                         b1.block_index,
                         b1.block_time as timestamp,

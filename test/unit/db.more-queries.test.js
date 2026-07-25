@@ -2013,6 +2013,12 @@ describe('Database#getQueryWhereSql: additional branches', () => {
         expect(sql).to.include('m.block_index=?');
     });
 
+    it('getCoinpayObligations + type=block: filters on m.block_index (no blocks join exists; b1 would 500)', async () => {
+        const sql = await db.getQueryWhereSql(makeConfig({ data: { method: 'getCoinpayObligations', type: 'block' } }));
+        expect(sql).to.include('m.block_index=?');
+        expect(sql).to.not.include('b1.block_index');
+    });
+
     it('getSlashEvents + type=contract: appends AND m.target_contract_index=?', async () => {
         const sql = await db.getQueryWhereSql(makeConfig({ data: { method: 'getSlashEvents', type: 'contract' } }));
         expect(sql).to.include('m.target_contract_index=?');

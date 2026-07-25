@@ -805,6 +805,12 @@ describe('Database#getOrderMatches', () => {
         expect(query).to.include('get_coin');
     });
 
+    it('query exposes the fill amounts (PC-16 auto-pay cap cross-check)', () => {
+        const [query] = result;
+        expect(query).to.include('m.give_amount');
+        expect(query).to.include('m.get_amount');
+    });
+
     it('query exposes settlement_type (instant vs coinpay)', () => {
         const [query] = result;
         expect(query).to.include('m.settlement_type');

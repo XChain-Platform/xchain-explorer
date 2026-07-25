@@ -478,6 +478,7 @@ class XChainExplorer {
         // stays single-sourced there. Registered before the wildcard so the matcher hits these
         // first. See xchain-documentation/concepts/GAS.md (client pre-validation).
         this.app.get('/:coin/api/feequote',    (req, res) => { this.processFeeQuoteRequest(req, res); });
+        this.app.get('/:coin/api/oraclefeequote', (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
         this.app.get('/:coin/api/feeschedule', (req, res) => { this.processFeeScheduleRequest(req, res); });
 
@@ -1754,6 +1755,54 @@ class XChainExplorer {
         } catch(e){
             console.error('processFeeQuoteRequest error:', e.message || e);
             return res.status(502).json({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR' });
+        }
+    }
+
+    // Oracle usage fee quote for a Mode B dispenser (, proxy to the colocated
+    // indexer's `oraclefeequote`). A dispenser naming an ORACLE_ADDRESS must carry a
+    // native-coin output paying the oracle operator; this tells a payer how much.
+    // GET /{COIN}/api/oraclefeequote?oracleAddress=..&giveTick=..&fiatCode=USD&giveEscrow=1000
+    //
+    // Same query-param hardening as processFeeQuoteRequest above: reject repeated keys,
+    // anchor every value, bound the lengths. None of these are type-checked on this hop,
+    // so an arbitrary-shape value would otherwise reach the indexer.
+    async processOracleFeeQuoteRequest(req, res){
+        try {
+            let config = await this.configInfo.getConfig();
+            let parsed = this.parseCoinCode(req.params.coin, config);
+            if(!parsed)
+                return res.status(404).json({ error: 'unknown coin', code: 'UNKNOWN_COIN' });
+            let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
+            if(!url)
+                return res.status(501).json({ error: 'oracle fee quote unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
+
+            let fields = ['oracleAddress','giveCoin','giveTick','fiatCode','getCoin','giveEscrow','blockTime'];
+            let q = {};
+            for(let f of fields){
+                if(Array.isArray(req.query[f]))
+                    return res.status(400).json({ error: 'repeated query parameters are not allowed', code: 'INVALID_PARAMETER' });
+                q[f] = this.util.isNull(req.query[f]) ? undefined : String(req.query[f]);
+                if(q[f] !== undefined && q[f].length > 256)
+                    return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
+            }
+            if(this.util.isNull(q.oracleAddress) || this.util.isNull(q.giveTick) || this.util.isNull(q.fiatCode))
+                return res.status(400).json({ error: 'oracleAddress, giveTick and fiatCode are required', code: 'MISSING_PARAMETER' });
+            if(!/^[A-Z]{3,5}$/.test(q.fiatCode))
+                return res.status(400).json({ error: 'invalid fiatCode', code: 'INVALID_PARAMETER' });
+            for(let f of ['giveCoin','getCoin'])
+                if(q[f] !== undefined && !/^[A-Z]{2,10}$/.test(q[f]))
+                    return res.status(400).json({ error: 'invalid ' + f, code: 'INVALID_PARAMETER' });
+            if(q.giveEscrow !== undefined && !/^[0-9]+(\.[0-9]{1,18})?$/.test(q.giveEscrow))
+                return res.status(400).json({ error: 'invalid giveEscrow', code: 'INVALID_PARAMETER' });
+            if(q.blockTime !== undefined && !/^[0-9]+$/.test(q.blockTime))
+                return res.status(400).json({ error: 'invalid blockTime', code: 'INVALID_PARAMETER' });
+
+            let connector = new IndexerConnector(url);
+            let result = await connector.oraclefeequote(q);
+            return res.json(result);
+        } catch(e){
+            console.error('processOracleFeeQuoteRequest error:', e.message || e);
+            return res.status(502).json({ error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR' });
         }
     }
 

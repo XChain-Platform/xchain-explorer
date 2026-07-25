@@ -8583,6 +8583,52 @@
         }
       },
       "x-registered": "express"
+    },
+    "/{COIN}/api/oraclefeequote": {
+      "get": {
+        "operationId": "oraclefeequote",
+        "tags": [
+          "Fees"
+        ],
+        "summary": "Oracle usage fee quote for a Mode B dispenser (proxied from the indexer)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        },
+        "description": "A dispenser naming an ORACLE_ADDRESS pays the oracle operator up front as a native-coin output, sized from the escrow the action adds. Returns requiredFeeNative / requiredFeeSats / belowDust. Backed by the same computation the indexer validates with, so an output sized from this quote is accepted."
+      },
+      "x-registered": "express"
     }
   },
   "components": {

@@ -246,6 +246,20 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL');
     });
 
+    // --- type='dispenser' (getDispenses only) ------------------------------
+
+    it('type=dispenser on getDispenses: filters on the dispense dispenser_action_index', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getDispenses', 'dispenser'));
+        expect(sql).to.equal('m.action_index IS NOT NULL AND m.dispenser_action_index=?');
+    });
+
+    // Only the dispenses table carries dispenser_action_index; the lane must not
+    // leak onto sibling methods whose SQL has no such column.
+    it('type=dispenser on getDispensers: appends nothing (lane is getDispenses-only)', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getDispensers', 'dispenser'));
+        expect(sql).to.equal('m.action_index IS NOT NULL');
+    });
+
     // --- type='token' ------------------------------------------------------
 
     it('type=token on a standard method: appends AND t3.tick=?', async () => {

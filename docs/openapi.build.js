@@ -36,7 +36,7 @@ const ROUTES = [
     ['/{COIN}/api/dispenser_closes/{QUERY}/{TYPE}', 'getDispenserCloses', ['block', 'address'], 'Dispensers', 'Dispenser closes'],
     ['/{COIN}/api/dispenser_expires/{QUERY}/{TYPE}', 'getDispenserExpires', ['block', 'address'], 'Dispensers', 'Dispenser expirations'],
     ['/{COIN}/api/dispenser_edits/{QUERY}/{TYPE}', 'getDispenserEdits', ['block', 'address'], 'Dispensers', 'Dispenser edits'],
-    ['/{COIN}/api/dispenses/{QUERY}/{TYPE}', 'getDispenses', ['block', 'address', 'source', 'destination', 'token'], 'Dispensers', 'Dispenses (vending events: coin in, tokens out)'],
+    ['/{COIN}/api/dispenses/{QUERY}/{TYPE}', 'getDispenses', ['block', 'address', 'source', 'destination', 'token', 'dispenser'], 'Dispensers', 'Dispenses (vending events: coin in, tokens out)'],
     ['/{COIN}/api/fees/{QUERY}/{TYPE}', 'getFees', ['block', 'address', 'source', 'destination', 'token'], 'Action history', 'Protocol fee payments'],
     ['/{COIN}/api/files/{QUERY}/{TYPE}', 'getFiles', ['block', 'address', 'token'], 'Files', 'FILE actions (on-chain files, incl. token-gated)'],
     ['/{COIN}/api/issues/{QUERY}/{TYPE}', 'getIssues', ['block', 'address', 'token'], 'Tokens', 'ISSUE actions (token issuances)'],

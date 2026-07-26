@@ -985,6 +985,15 @@ class Database {
             // row query uses, because the count query carries no a5.
             if(type=='oracle' && method=='getDispensers')
                 sql += ' AND m.oracle_address_id=(SELECT id FROM index_addresses WHERE address=?)';
+            // getDispenses only: the fills of ONE dispenser, keyed by the
+            // dispenser's own action_index. The address/source lanes answer
+            // "fills on this address", which is a different question whenever
+            // an address hosts more than one dispenser - the normal case,
+            // since dispensers open on their creator's source address. Ticks
+            // cannot separate them either (two dispensers can share a pair,
+            // and a coin-paid fill carries get_tick NULL).
+            if(type=='dispenser' && method=='getDispenses')
+                sql += ' AND m.dispenser_action_index=?';
             if(type=='contract'){
                 if(['getContractStakes','getContractUnstakes','getContractDelegations','getSlashEvents'].includes(method))
                     sql += ' AND m.target_contract_index=?';
@@ -1336,7 +1345,7 @@ class Database {
      * /{COIN}/api/dispenser_closes/{QUERY}/{TYPE}   getDispenserCloses  block, address
      * /{COIN}/api/dispenser_expires/{QUERY}/{TYPE}  getDispenserExpires block, address
      * /{COIN}/api/dispenser_edits/{QUERY}/{TYPE}    getDispenserEdits   block, address
-     * /{COIN}/api/dispenses/{QUERY}/{TYPE}          getDispenses        block, address, token, source, destination
+     * /{COIN}/api/dispenses/{QUERY}/{TYPE}          getDispenses        block, address, token, source, destination, dispenser
      * /{COIN}/api/fees/{QUERY}/{TYPE}               getFees             block, address, token, source, destination
      * /{COIN}/api/files/{QUERY}/{TYPE}              getFiles            block, address, token
      * /{COIN}/api/issues/{QUERY}/{TYPE}             getIssues           block, address, token
@@ -1944,7 +1953,8 @@ class Database {
         let query = `SELECT
                         a4.action,
                         m.action_index,
-                        a1.action_format, 
+                        m.dispenser_action_index,
+                        a1.action_format,
                         a2.address as source,
                         a3.address as destination,
                         c1.coin as give_coin,

@@ -880,7 +880,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; destination = destination address; token = a token tick; dispenser = dispenser"
           },
           {
             "name": "TYPE",
@@ -893,7 +893,8 @@
                 "address",
                 "source",
                 "destination",
-                "token"
+                "token",
+                "dispenser"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -8487,7 +8488,8 @@
           "503": {
             "$ref": "#/components/responses/CoinUnavailable"
           }
-        }
+        },
+        "description": "A dispenser naming an ORACLE_ADDRESS pays the oracle operator up front as a native-coin output, sized from the escrow the action adds. Returns requiredFeeNative / requiredFeeSats / belowDust. Backed by the same computation the indexer validates with, so an output sized from this quote is accepted."
       },
       "x-registered": "express"
     },

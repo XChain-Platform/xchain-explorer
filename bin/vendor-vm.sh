@@ -38,19 +38,27 @@
 
 set -euo pipefail
 
-# Fail closed off-Linux: the npm install below compiles isolated-vm for the HOST
-# platform, so a Mac-side run poisons the vendored tree with Mach-O binaries the
-# Linux runtime cannot load (PROM-029 incident). Run this on devhost instead.
-if [ "$(uname -s)" != "Linux" ]; then
-    echo "vendor-vm: refusing to run on $(uname -s): npm install would build a non-Linux isolated-vm into the vendored tree." >&2
-    echo "vendor-vm: run this script on devhost (Linux), e.g.: ssh devhost 'cd $(pwd) && bin/vendor-vm.sh'" >&2
-    exit 1
-fi
-
 EXPLORER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="${XCHAIN_VM_SOURCE:-$EXPLORER_ROOT/../xchain-vm}"
 DEST="$EXPLORER_ROOT/xchain-vm"
 MODE="${1:-fix}"
+
+# Fail closed off-Linux: the npm install in the WRITE path compiles isolated-vm
+# for the HOST platform, so a Mac-side run poisons the vendored tree with Mach-O
+# binaries the Linux runtime cannot load (PROM-029 incident). Run that on
+# devhost instead.
+#
+# `check` is exempt: it writes nothing, greps CONSENSUS_VERSION out of the frozen
+# export and sha1s src/**, never loading isolated-vm, and the hashing helper below
+# already falls back to `shasum -a 1` because sha1sum is absent on macOS. Kept
+# byte-identical in reasoning to the indexer's copy, which is the twin of this
+# file; see it for why a platform refusal misreported as consensus drift is worse
+# than no guard at all.
+if [ "$MODE" != "check" ] && [ "$(uname -s)" != "Linux" ]; then
+    echo "vendor-vm: refusing to $MODE on $(uname -s): npm install would build a non-Linux isolated-vm into the vendored tree." >&2
+    echo "vendor-vm: run this script on devhost (Linux), e.g.: ssh devhost 'cd $(pwd) && bin/vendor-vm.sh'" >&2
+    exit 1
+fi
 
 # Read CONSENSUS_VERSION straight from the frozen export so the check never needs to
 # load isolated-vm. Empty if the file/const is missing.

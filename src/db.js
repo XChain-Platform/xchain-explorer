@@ -6046,6 +6046,11 @@ class Database {
                             p.callback_params,
                             p.callback_on,
                             p.gas_escrow,
+                            -- PC-42: the finalize -> callback timelock. The indexer has always
+                            -- stored it; without it here no consumer can read whether a
+                            -- binding poll defers its callback, so the wallet could emit a
+                            -- reaction window it was then unable to show back.
+                            p.callback_delay_blocks,
                             p.callback_execute_action_index,
                             -- delegation (VOTE v3)
                             vd.tick_id as delegation_tick_id,
@@ -11033,6 +11038,7 @@ class Database {
                         m.callback_params,
                         m.callback_on,
                         m.gas_escrow,
+                        m.callback_delay_blocks,
                         m.callback_execute_action_index,
                         b1.block_index,
                         b1.block_time as timestamp,

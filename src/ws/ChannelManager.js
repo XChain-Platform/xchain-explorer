@@ -44,6 +44,12 @@ const VALID_TYPES = new Set([
     'BROADCAST', 'CALLBACK', 'FILE', 'MESSAGE', 'LIST', 'LINK', 'SLEEP',
     'DEPLOY', 'EXECUTE', 'DEPOSIT', 'WITHDRAW',
     'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST',
+    // BET is one action name over four formats (create/cancel/place/resolve);
+    // BET_EXPIRE is the system refund pass's minted action. Both are emitted on the
+    // `bet_feed` channel, so both must be filterable: without them a subscriber
+    // passing types:['BET'] was rejected outright with INVALID_TYPE, which failed
+    // the whole subscribe rather than narrowing it.
+    'BET', 'BET_EXPIRE',
     // Federation / cross-chain / oracle action types (real decoded actions
     // dispatched in xchain-indexer actions.js; they broadcast on the global
     // `actions` channel, so a client must be able to narrow to them too).
@@ -60,7 +66,11 @@ const VALID_TYPES = new Set([
     'COINPAY_REQUIRED', 'COINPAY_FULFILLED', 'COINPAY_EXPIRED',
     'ORDER_EXPIRED',
     'SWAP_EXPIRED',
-    'DISPENSER_CLOSED', 'DISPENSER_EXPIRED'
+    'DISPENSER_CLOSED', 'DISPENSER_EXPIRED',
+    // BET_EXPIRED rides LIFECYCLE_MAP; BET_CLOSED is emitted by the ChangeDetector's
+    // second cursor over bet_feeds.closed_block, because the deadline latch is a
+    // direct status write with no action row behind it .
+    'BET_EXPIRED', 'BET_CLOSED'
 ]);
 
 class ChannelManager {

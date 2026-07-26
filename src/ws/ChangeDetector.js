@@ -43,6 +43,12 @@ const LIFECYCLE_MAP = {
     'BET_EXPIRE':      ['BET_EXPIRED']
 };
 
+// Lifecycle events with NO causing action row, emitted by a cursor of their own
+// rather than by LIFECYCLE_MAP. Kept beside the map because the ChannelManager
+// conformance test reconciles both directions of the VALID_TYPES contract, and a
+// name reachable only through a second cursor is invisible to a map-only check.
+const NON_ACTION_LIFECYCLE_TYPES = ['BET_CLOSED'];
+
 class ChangeDetector extends EventEmitter {
 
     constructor(options) {
@@ -71,7 +77,7 @@ class ChangeDetector extends EventEmitter {
 
         for (const coin of coins) {
             if (!this.state[coin]) {
-                this.state[coin] = { blockIndex: 0, actionIndex: 0, initialized: false };
+                this.state[coin] = { blockIndex: 0, actionIndex: 0, closedBlock: 0, initialized: false };
             }
             if (!this.mempoolState[coin]) {
                 this.mempoolState[coin] = { seenHashes: new Set(), initialized: false };
@@ -174,6 +180,11 @@ class ChangeDetector extends EventEmitter {
         if (!prev.initialized) {
             prev.blockIndex  = currentBlockIndex;
             prev.actionIndex = currentActionIndex;
+            // The latch cursor seeds to the tip for the same reason the other two do:
+            // every deadline latch at or below the current tip already happened before
+            // this process started, and replaying them as live pushes would tell every
+            // subscriber that historical markets are closing right now.
+            prev.closedBlock = currentBlockIndex;
             prev.initialized = true;
             return;
         }
@@ -186,6 +197,12 @@ class ChangeDetector extends EventEmitter {
         if (reorged) {
             if (prev.blockIndex  > currentBlockIndex)  prev.blockIndex  = currentBlockIndex;
             if (prev.actionIndex > currentActionIndex) prev.actionIndex = currentActionIndex;
+            // The latch cursor rewinds with them, and here it is more than a stall fix:
+            // rollback.js CLEARS closed_block on a reorg past the latch block, so a feed
+            // that re-latches on the new chain gets a fresh stamp that must be pushed
+            // again. Without the rewind that second latch sits below the high-water mark
+            // and is never emitted (spec §12 E8).
+            if (prev.closedBlock > currentBlockIndex) prev.closedBlock = currentBlockIndex;
         }
 
         if (currentBlockIndex > prev.blockIndex) {
@@ -233,6 +250,128 @@ class ChangeDetector extends EventEmitter {
             // capped at fetchLimit): advance to the last emitted action, not the tip.
             prev.actionIndex = this._nextCursor(newActions, 'action_index', currentActionIndex);
         }
+
+        // Runs after the action loop, mirroring the chain: the latch pass executes
+        // after every user tx in its block (spec §6), so a market page sees the last
+        // bet before it is told betting closed.
+        await this._checkBetLatches(coin, config, currentBlockIndex, prev);
+    }
+
+    // "That table does not exist here", seen through the db layer's wrapper. db.js
+    // rethrows as DbQueryError with its OWN code ('DB_ERROR') and the driver's
+    // SqlError on .cause, so testing the top-level error alone never matches a real
+    // one: the first cut of this check looked right, passed a unit test built from a
+    // hand-made error, and still logged the missing table every poll on the fleet.
+    // Walks the cause chain, which is bounded and short.
+    _isMissingTableError(err) {
+        for (let e = err, depth = 0; e && depth < 5; e = e.cause, depth++) {
+            if (e.code === 'ER_NO_SUCH_TABLE' || Number(e.errno) === 1146) return true;
+        }
+        return false;
+    }
+
+    // Emit BET_CLOSED for every market whose deadline latch was stamped since the last
+    // poll. This is a SECOND cursor, over bet_feeds.closed_block rather than over
+    // `actions`, and it exists because the latch is the one BET transition with no
+    // action row: the end-of-block pass writes the status directly and mints nothing
+    // for the actions cursor to find, so a subscribed market page used to learn that
+    // betting had closed only on its next fetch (, spec §11.1 which lists the
+    // latch among this channel's events).
+    async _checkBetLatches(coin, config, currentBlockIndex, prev) {
+        if (typeof this.db.getBetFeedsClosedSince !== 'function') return;
+        // A coin whose indexer predates the BET tables is not an error condition to
+        // re-discover every 5 seconds; see the ER_NO_SUCH_TABLE branch below.
+        if (prev.betLatchUnsupported) return;
+
+        let since = Number(prev.closedBlock);
+        if (!Number.isFinite(since)) since = 0;
+
+        let rows;
+        try {
+            rows = await this.db.getBetFeedsClosedSince(config, since, this.fetchLimit);
+        } catch (e) {
+            // Observed live on the regtest fleet: the LTC indexer DB had no bet_feeds
+            // table (its build predates P4's migrations), so every poll threw and
+            // filled the log. The BET tables are per-coin-database, so one chain
+            // lacking them says nothing about the others: latch this coin off and
+            // report it once, rather than letting a per-coin schema gap look like a
+            // recurring fault. Any OTHER error still propagates to the poll loop's
+            // handler, where a genuine DB failure belongs.
+            if (this._isMissingTableError(e)) {
+                prev.betLatchUnsupported = true;
+                console.log('ChangeDetector: no bet_feeds table for', coin,
+                            '- BET_CLOSED events disabled for this coin');
+                return;
+            }
+            throw e;
+        }
+
+        if (!rows || rows.length === 0) {
+            // Skip the empty span so it is not re-scanned every interval. Safe against
+            // a block committed between the tip read above and this query: such a block
+            // carries a HIGHER closed_block than the tip we advance to, so it is still
+            // strictly greater than the cursor on the next poll.
+            if (currentBlockIndex > since) prev.closedBlock = currentBlockIndex;
+            return;
+        }
+
+        let emit = rows;
+        let next = Math.max(currentBlockIndex, Number(rows[rows.length - 1].closed_block));
+
+        if (rows.length >= this.fetchLimit) {
+            // A capped fetch can cut a block in half (one pass latches up to
+            // MAX_BET_PASS_ROWS feeds, far more than fetchLimit). Emitting the partial
+            // tail and then advancing past its block would silently drop the rest of
+            // it, so stop on the last COMPLETE block and re-read the remainder next
+            // poll. The cursor is a block height, not a row id, which is exactly why
+            // the generic _nextCursor drain cannot be reused here: resuming mid-block
+            // would re-emit the feeds already sent from that block.
+            const lastBlock = Number(rows[rows.length - 1].closed_block);
+            const complete  = rows.filter((r) => Number(r.closed_block) < lastBlock);
+            if (complete.length > 0) {
+                emit = complete;
+                next = Number(complete[complete.length - 1].closed_block);
+            } else {
+                // The whole fetch is one block, so there is no boundary to stop on.
+                // Emit what we have and move past it rather than looping on the same
+                // block forever: this channel is a best-effort live push and the REST
+                // reads stay authoritative for the remainder.
+                next = lastBlock;
+            }
+        }
+
+        for (const feed of emit) {
+            this.emit('lifecycle_event', coin, {
+                type:    'BET_CLOSED',
+                action:  'BET_CLOSED',
+                channel: 'bet_feed',
+                data: {
+                    // Both keys carry the feed id: action_index because every event on
+                    // this channel identifies its subject that way, feed_action_index
+                    // because that is what the Broadcaster routes on. For the latch they
+                    // are the same number, since the market IS its creating action.
+                    action_index:      feed.action_index,
+                    feed_action_index: feed.action_index,
+                    block_index:       feed.closed_block,
+                    // No causing tx by design, and no format: the latch is not an action.
+                    tx_hash:           null,
+                    action_format:     null,
+                    source:            feed.source || null,
+                    // The TRANSITION this event reports, which is not necessarily the
+                    // feed's status by the time we poll: an oracle can resolve in a
+                    // later block before this fires, and reporting `resolved` on the
+                    // close event would be a lie about what happened at block_index.
+                    // The live status rides alongside for a consumer that wants it.
+                    status:            'closed',
+                    feed_status:       feed.feed_status || null,
+                    // Same flag the REST timeline stamps on its synthesized `closed`
+                    // entry: this transition has no action row behind it.
+                    synthetic:         true
+                }
+            });
+        }
+
+        prev.closedBlock = next;
     }
 
     // Next poll cursor after a capped `*Since` fetch. The queries return the lowest
@@ -505,7 +644,7 @@ class ChangeDetector extends EventEmitter {
     }
 
     getState(coin) {
-        return this.state[coin] || { blockIndex: 0, actionIndex: 0 };
+        return this.state[coin] || { blockIndex: 0, actionIndex: 0, closedBlock: 0 };
     }
 }
 
@@ -514,3 +653,4 @@ module.exports = ChangeDetector;
 // lifecycle name the types filter accepts must be one this map (or the
 // inline COINPAY_REQUIRED enrichment) actually emits.
 module.exports.LIFECYCLE_MAP = LIFECYCLE_MAP;
+module.exports.NON_ACTION_LIFECYCLE_TYPES = NON_ACTION_LIFECYCLE_TYPES;

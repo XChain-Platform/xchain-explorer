@@ -9222,6 +9222,40 @@ class Database {
         return null;
     }
 
+    // Feeds whose `closed` deadline latch was stamped above `sinceBlock`, oldest
+    // first. This is the ws layer's SECOND cursor and it exists because the latch is
+    // the one BET transition with no action row: the end-of-block pass writes
+    // bet_feeds.closed_block directly (spec §6), so the ChangeDetector's actions
+    // cursor has nothing to see and a subscribed market page never learns that
+    // betting closed . closed_block IS the durable record of that write, and
+    // it is also what the reorg reset clears, so a rolled-back-then-re-latched feed
+    // re-emits naturally.
+    // Ordered by closed_block ASC (then action_index) because the caller advances a
+    // block-height high-water mark and must be able to stop on a whole-block boundary.
+    async getBetFeedsClosedSince(config, sinceBlock, limit) {
+        let query = `SELECT
+                        m.action_index,
+                        m.closed_block,
+                        m.deadline,
+                        m.expire_at,
+                        a2.address as source,
+                        pt.tick,
+                        fs.status as feed_status
+                    FROM
+                        bet_feeds m
+                        INNER JOIN actions         a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_tickers   pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN index_statuses  fs ON (fs.id=m.feed_status_id)
+                    WHERE
+                        m.closed_block > ?
+                    ORDER BY m.closed_block ASC, m.action_index ASC
+                    LIMIT ?`;
+        let results = await this.doQuery(config, query, [sinceBlock, limit]);
+        return results || [];
+    }
+
     async getContracts(config){
         let sql   = config.data.sql;
         let count = `SELECT

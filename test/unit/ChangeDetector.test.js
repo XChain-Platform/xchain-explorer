@@ -66,7 +66,7 @@ describe('ChangeDetector', function () {
             det.start(['BTC', 'TBTC']);
 
             expect(det.running).to.be.true;
-            expect(det.state.BTC).to.deep.equal({ blockIndex: 0, actionIndex: 0, initialized: false });
+            expect(det.state.BTC).to.deep.equal({ blockIndex: 0, actionIndex: 0, closedBlock: 0, initialized: false });
             expect(poll.calledOnce).to.be.true;            // immediate poll
             clock.tick(5001);
             expect(poll.callCount).to.equal(2);            // interval poll
@@ -551,7 +551,7 @@ describe('ChangeDetector', function () {
             let det = mk();
             det.state.BTC = { blockIndex: 5, actionIndex: 6, initialized: true };
             expect(det.getState('BTC').blockIndex).to.equal(5);
-            expect(det.getState('NOPE')).to.deep.equal({ blockIndex: 0, actionIndex: 0 });
+            expect(det.getState('NOPE')).to.deep.equal({ blockIndex: 0, actionIndex: 0, closedBlock: 0 });
         });
     });
 });

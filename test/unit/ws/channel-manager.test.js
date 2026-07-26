@@ -430,16 +430,45 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts, )', f
     // actually emits: LIFECYCLE_MAP values plus the inline COINPAY_REQUIRED
     // enrichment in ChangeDetector. A phantom name is advertised in WELCOME
     // and accepted by subscribe() yet silently matches zero events.
-    it('every lifecycle entry in VALID_TYPES is actually emitted by ChangeDetector', function () {
+    // Emitted names come from three places, not one: the action-keyed LIFECYCLE_MAP,
+    // the inline COINPAY_REQUIRED enrichment, and NON_ACTION_LIFECYCLE_TYPES for
+    // events produced by a cursor of their own (BET_CLOSED, whose latch has no action
+    // row). A check that knows only the map reports the third group as phantom.
+    function emittedNames() {
         const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
-        const emitted = new Set(
-            Object.values(ChangeDetector.LIFECYCLE_MAP).flat().concat(['COINPAY_REQUIRED'])
+        return new Set(
+            Object.values(ChangeDetector.LIFECYCLE_MAP).flat()
+                .concat(ChangeDetector.NON_ACTION_LIFECYCLE_TYPES || [])
+                .concat(['COINPAY_REQUIRED'])
         );
+    }
+
+    it('every lifecycle entry in VALID_TYPES is actually emitted by ChangeDetector', function () {
+        const emitted = emittedNames();
         // Lifecycle names = VALID_TYPES entries that are not plain indexed
         // action types; identified as names ending in a lifecycle suffix.
         const lifecycle = [...ChannelManager.VALID_TYPES].filter((t) =>
             /(_COMPLETED|_EXPIRED|_CLOSED|_CANCELLED|_FULFILLED|_REQUIRED)$/.test(t));
         const phantoms = lifecycle.filter((t) => !emitted.has(t));
         expect(phantoms, `VALID_TYPES advertises unemitted lifecycle types: ${phantoms.join(', ')}`).to.deep.equal([]);
+    });
+
+    // The OTHER direction, and the one that was missing. The check above only stops
+    // VALID_TYPES advertising names nothing emits; it says nothing about a name the
+    // producer emits that the filter refuses. That failure is worse than a phantom:
+    // types is validated per entry and one unknown name fails the ENTIRE subscribe
+    // with INVALID_TYPE, so a client narrowing to a real event type gets no channel
+    // at all. Every BET name was in exactly that state (emitted since P7, never
+    // accepted) until .
+    it('every type ChangeDetector emits is accepted by the types filter', function () {
+        const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
+        // Both halves matter: the filter matches on the event type OR the causing
+        // action name (Broadcaster._passesFilter), so the map's keys are filterable
+        // names too.
+        const produced = [...emittedNames(), ...Object.keys(ChangeDetector.LIFECYCLE_MAP)];
+        const rejected = [...new Set(produced)].filter((t) => !ChannelManager.VALID_TYPES.has(t));
+        expect(rejected,
+            `ChangeDetector emits types the subscribe filter rejects: ${rejected.join(', ')}`)
+            .to.deep.equal([]);
     });
 });

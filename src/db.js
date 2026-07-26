@@ -155,6 +155,14 @@ class Database {
         cache.set(key, value);
     }
 
+    // May this action response be memoized? Only when it is genuinely immutable.
+    // A DISPENSER / ORDER / SWAP response carries a live `state` block whose
+    // give_remaining, status, expiration and allow/block lists are derived from
+    // rows written after the action confirmed, so caching one freezes it: the
+    // action LRU has no TTL and is invalidated only by a reorg.
+    _isCacheableAction(data){
+        return this.util.isNull(data && data['state']);
+    }
     // Build an id/action cache key scoped to the coin AND its current reorg
     // generation (M-3). Coin-scoping also stops a bare address/tick key from
     // colliding across coins on a multi-coin explorer; the generation prefix is
@@ -4602,6 +4610,13 @@ class Database {
         // reorg can reassign action_index, so the key carries coin + reorg
         // generation (action_index is per-coin, and a reorg bumps the generation
         // to invalidate; see _cacheKey / bumpReorgGeneration).
+        //
+        // "Immutable once confirmed" does NOT hold for the responses that carry a
+        // live `state` block (DISPENSER, ORDER, SWAP): give_remaining, status,
+        // expiration and the allow/block lists are all recomputed from LATER
+        // dispenses, matches, edits and closes. Those are not written back here -
+        // see the _cacheSet guard at the end of this method - so this lookup only
+        // ever returns a genuinely immutable action.
         let cached = this._cacheGet(this._actionDataCache, this._cacheKey(config.coin, action_index));
         if(cached !== undefined) return structuredClone(cached);
         let coinConfigs = await this.configInfo.getConfig()
@@ -7181,8 +7196,21 @@ class Database {
             let txData = await this.getTransactionData(config, data.tx_hash);
             data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
         }
-        // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry)
-        this._cacheSet(this._actionDataCache, this._cacheKey(config.coin, action_index), structuredClone(data));
+        // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry).
+        //
+        // Skip anything carrying a live `state` block. DISPENSER, ORDER and SWAP
+        // responses derive give_remaining / status / expiration / allow_list /
+        // block_list from rows written AFTER the action confirmed, and the cache
+        // has no TTL and is only invalidated by a reorg, so a cached entry froze
+        // that state for the life of the process. Measured on regtest: a dispenser
+        // drained by four fills and closed by the indexer kept serving
+        // `give_remaining: 200, status: open` until the explorer was restarted,
+        // and restarting alone (no chain change) corrected it to `0, empty`. The
+        // wallet's dispenser detail page reads this endpoint, so a buyer was shown
+        // an open dispenser with a full escrow and could pay one that dispenses
+        // nothing.
+        if(this._isCacheableAction(data))
+            this._cacheSet(this._actionDataCache, this._cacheKey(config.coin, action_index), structuredClone(data));
         return data;
     }
 

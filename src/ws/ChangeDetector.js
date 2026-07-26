@@ -346,6 +346,15 @@ class ChangeDetector extends EventEmitter {
                     // Non-fatal: emit the base event with a null parent index
                     lifecycleEvent.data.feed_action_index = null;
                 }
+                // The discriminator the single BET event type is useless without:
+                // 0 create, 1 cancel, 2 place a bet, 3 resolve. A market page has to
+                // tell "someone staked" from "the market just paid out", and those
+                // arrive under the same `type`. Null only for a system BET_EXPIRE,
+                // which its own event type already identifies.
+                lifecycleEvent.data.action_format =
+                    (action.action_format === undefined || action.action_format === null)
+                        ? null
+                        : Number(action.action_format);
                 lifecycleEvent.channel = 'bet_feed';
             }
 

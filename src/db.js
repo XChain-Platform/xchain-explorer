@@ -8984,9 +8984,15 @@ class Database {
         // but getActionsSince returned [] every poll, so no NEW_ACTION ever fired.
         // Source is taken from actions.source_id (a1): the action's true source,
         // which for VM-emitted actions differs from the EXECUTE caller on transactions.
+        // action_format rides along because one action NAME can carry several
+        // formats whose live meanings are unrelated: a BET v2 is a stake placed and
+        // a BET v3 is the payout decision. Without it a subscriber is told only
+        // "a BET happened" and has to re-fetch to learn which, which defeats the
+        // point of a push channel (ChangeDetector routes BET on it, §11.1).
         let query = `SELECT
                         a1.action_index,
                         a3.action,
+                        a1.action_format,
                         t3.hash as tx_hash,
                         a1.block_index,
                         a4.address as source,

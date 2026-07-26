@@ -255,6 +255,12 @@ class Broadcaster {
             const idx = lifecycleEvent.data && lifecycleEvent.data.dispenser_action_index;
             return (idx === null || idx === undefined) ? null : idx;
         }
+        // bet_feed is keyed on the parent market's action_index, which the
+        // ChangeDetector enriches onto data.feed_action_index for BET / BET_EXPIRED.
+        if (lifecycleEvent.channel === 'bet_feed') {
+            const idx = lifecycleEvent.data && lifecycleEvent.data.feed_action_index;
+            return (idx === null || idx === undefined) ? null : idx;
+        }
         return null;
     }
 

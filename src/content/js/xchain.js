@@ -1950,6 +1950,41 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).text(isNull(share) ? '-' : share);
                 $('td', row).eq(7).html(action_link);
             }
+            // BET market (bet_feeds; BET format 0). eq(5) is the market LABEL, which is
+            // attacker-controlled on-chain text, so it goes in with .text() and never
+            // as markup. The status shown is the STORED feed status.
+            if(action=='bet_feed'){
+                token            = data[4];
+                let label        = data[5];
+                let feed_status  = data[6];
+                let deadline     = data[7];
+                let fcls = (feed_status=='resolved') ? 'success'
+                         : (feed_status=='cancelled' || feed_status=='expired') ? 'danger'
+                         : (feed_status=='resolved_void') ? 'secondary'
+                         : (feed_status=='closed') ? 'warning text-dark' : 'primary';
+                $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(5).text(isNull(label) ? '-' : label);
+                $('td', row).eq(6).html('<span class="badge text-bg-' + fcls + '">' + escapeHtml(String(feed_status || '-')) + '</span>');
+                $('td', row).eq(7).html(isNull(deadline) ? '-' : formatLivestamp(deadline));
+                // The view button targets the MARKET page, not the raw action page.
+                $('td', row).eq(8).html(formatLink('/' + coin + '/bet_feed/' + data[9], '<i class="fa fa-eye"></i>', 'View market'));
+            }
+            // BET wager (bets; BET format 2). eq(4) links the market it was placed on.
+            if(action=='bet'){
+                let feed_index = data[4];
+                let outcome    = data[5];
+                token          = data[6];
+                amount         = data[7];
+                let bet_status = data[8];
+                let bcls = (bet_status=='won') ? 'success' : (bet_status=='lost') ? 'danger'
+                         : (bet_status=='refunded') ? 'secondary' : 'primary';
+                $('td', row).eq(4).html(isNull(feed_index) ? '-' : formatLink('/' + coin + '/bet_feed/' + feed_index, feed_index));
+                $('td', row).eq(5).text(isNull(outcome) ? '-' : outcome);
+                $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(7).html(formatAmount(amount));
+                $('td', row).eq(8).html('<span class="badge text-bg-' + bcls + '">' + escapeHtml(String(bet_status || '-')) + '</span>');
+                $('td', row).eq(9).html(action_link);
+            }
             // XCALL (cross-chain call, source-chain request row). eq(3) overrides the
             // generic source-address link with the emitting contract.
             if(action=='xcall'){
@@ -2361,6 +2396,7 @@ function showActionDetails(){
     if(o.action=='ANCHOR'){           found = true;  showAnchorDetails(o);          }
     if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
     if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
+    if(o.action=='BET'){              found = true;  showBetDetails(o);             }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -2679,6 +2715,95 @@ function showVoteDetails(data){
         $('#info-vote .vote-delegator').html(isNull(data.delegator) ? '-' : formatLink('/' + XC.coin + '/address/' + data.delegator, data.delegator));
         // delegate_to NULL is a CLEAR (revoke) of any standing delegation.
         $('#info-vote .vote-delegate-to').html(isNull(data.delegate_to) ? '<span class="badge text-bg-secondary">cleared</span>' : formatLink('/' + XC.coin + '/address/' + data.delegate_to, data.delegate_to));
+    }
+}
+
+// Display BET action information. One action name over four formats, so branch on
+// bet_kind (set server-side in getActionData): 'feed' = format 0 market creation,
+// 'bet' = format 2 wager, 'cancel'/'resolve' = the row-less formats 1/3 that only
+// flip the parent feed.
+//
+// RENDERING SAFETY (§11.1): LABEL, OUTCOMES and DETAILS are attacker-controlled
+// on-chain bytes. Everything derived from them goes through .text() or the
+// $('<div>').text(x).html() escape, DETAILS is shown strictly as inert data, and no
+// URL found inside it is ever fetched or turned into a link (SSRF-guard stance).
+function showBetDetails(data){
+    let kind = data.bet_kind;
+    let esc  = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+    $('#info-bet .bet-kind').html('<span class="badge text-bg-info">' + esc(kind || '-') + '</span>');
+    $('#info-bet .bet-feed-fields').toggleClass('d-none', kind != 'feed');
+    $('#info-bet .bet-wager-fields').toggleClass('d-none', kind != 'bet');
+    $('#info-bet .bet-action-fields').toggleClass('d-none', kind != 'cancel' && kind != 'resolve');
+
+    // Feed lifecycle badge colouring shared by the feed and cancel/resolve shapes.
+    let statusClass = function(s){
+        if(s=='resolved')                      return 'success';
+        if(s=='cancelled' || s=='expired')     return 'danger';
+        if(s=='resolved_void')                 return 'secondary';
+        if(s=='closed')                        return 'warning text-dark';
+        return 'primary';
+    };
+
+    if(kind=='feed'){
+        $('#info-bet .bet-label').text(isNull(data.label) ? '-' : data.label);
+        let outs = Array.isArray(data.outcome_labels) ? data.outcome_labels : [];
+        $('#info-bet .bet-outcomes').html(outs.length ? outs.map((o, i) => i + ': ' + esc(o)).join('<br>') : '-');
+        $('#info-bet .bet-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        // FEE is the ORACLE's percent cut of the pot, NOT the protocol's market
+        // duration fee. Label it so the two are never confused (§10 naming pin).
+        $('#info-bet .bet-fee').text(isNull(data.fee) ? '-' : data.fee + '% of the pot (oracle fee)');
+        $('#info-bet .bet-deadline').html(isNull(data.deadline) ? '-' : data.deadline + ' - ' + formatLivestamp(data.deadline) + ' (' + moment.unix(data.deadline).utcOffset(0).format() + ' GMT)');
+        $('#info-bet .bet-refund-window').text(isNull(data.refund_window) ? '-' : numeral(data.refund_window).format('0,0') + ' seconds');
+        $('#info-bet .bet-expire-at').html(isNull(data.expire_at) ? '-' : data.expire_at + ' - ' + formatLivestamp(data.expire_at) + ' (' + moment.unix(data.expire_at).utcOffset(0).format() + ' GMT)');
+        $('#info-bet .bet-min-amount').html(isNull(data.min_amount) ? '<span class="text-muted">none</span>' : formatAmount(data.min_amount));
+        $('#info-bet .bet-allow-list').html(isNull(data.allow_list) ? '-' : formatLink('/' + XC.coin + '/action/' + data.allow_list, data.allow_list));
+        $('#info-bet .bet-block-list').html(isNull(data.block_list) ? '-' : formatLink('/' + XC.coin + '/action/' + data.block_list, data.block_list));
+        let fs = data.feed_status;
+        $('#info-bet .bet-feed-status').html(isNull(fs) ? '-' : '<span class="badge text-bg-' + statusClass(fs) + '">' + esc(fs) + '</span>');
+
+        // DETAILS: render as inert, escaped text. Never as markup, and never fetched.
+        if(isNull(data.details)){
+            $('#info-bet .bet-details').text('-');
+        } else if(data.details_json != null){
+            $('#info-bet .bet-details').html('<pre class="mb-0 small">' + esc(JSON.stringify(data.details_json, null, 2)) + '</pre>');
+        } else {
+            $('#info-bet .bet-details').html('<span class="text-muted">unparsed base64 payload</span><pre class="mb-0 small">' + esc(data.details) + '</pre>');
+        }
+
+        // Live per-outcome pools (open bets only, the normative settlement predicate).
+        $.getJSON('/' + XC.coin + '/api/bet_feed/' + data.action_index, function(res){
+            let feed  = (res && res.data) ? (Array.isArray(res.data) ? res.data[0] : res.data) : null;
+            let pools = (feed && Array.isArray(feed.pools)) ? feed.pools : [];
+            if(!pools.length){ $('#info-bet .bet-pools').text('No open bets'); return; }
+            let total = pools.reduce((a, p) => a + Number(p.pool || 0), 0);
+            let html  = '<table class="table table-sm mb-0"><thead><tr><th>Outcome</th><th>Pool</th><th>Bets</th><th>Implied</th></tr></thead><tbody>';
+            pools.forEach(function(p){
+                let label = outs[p.outcome];
+                let name  = (label == null) ? String(p.outcome) : (p.outcome + ': ' + esc(label));
+                // Implied probability from the parimutuel split. Odds are NOT fixed at
+                // bet time; this is the split as it stands right now.
+                let pct   = total > 0 ? ((Number(p.pool || 0) / total) * 100).toFixed(1) + '%' : '-';
+                html += '<tr><td>' + name + '</td><td>' + formatAmount(p.pool) + '</td><td>' + numeral(p.bet_count).format('0,0') + '</td><td>' + pct + '</td></tr>';
+            });
+            html += '</tbody></table><div class="small text-muted mt-1">Parimutuel: the split shown is current, not the odds locked at bet time.</div>';
+            $('#info-bet .bet-pools').html(html);
+        });
+    }
+
+    if(kind=='bet'){
+        $('#info-bet .bet-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
+        $('#info-bet .bet-outcome').text(isNull(data.outcome) ? '-' : data.outcome);
+        $('#info-bet .bet-amount').html(isNull(data.amount) ? '-' : formatAmount(data.amount));
+        let bs   = data.bet_status;
+        let bcls = (bs=='won') ? 'success' : (bs=='lost') ? 'danger' : (bs=='refunded') ? 'secondary' : 'primary';
+        $('#info-bet .bet-status').html(isNull(bs) ? '-' : '<span class="badge text-bg-' + bcls + '">' + esc(bs) + '</span>');
+        $('#info-bet .bet-settled-block').html(isNull(data.settled_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.settled_block, numeral(data.settled_block).format('0,0')));
+    }
+
+    if(kind=='cancel' || kind=='resolve'){
+        $('#info-bet .bet-action-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
+        let fs = data.feed_status;
+        $('#info-bet .bet-action-status').html(isNull(fs) ? '-' : '<span class="badge text-bg-' + statusClass(fs) + '">' + esc(fs) + '</span>');
     }
 }
 

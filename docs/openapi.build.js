@@ -133,6 +133,13 @@ const ROUTES = [
     ['/{COIN}/api/poll/{QUERY}/results', 'getPollResults', 'poll', 'Governance', 'Frozen per-option tally for a poll (empty until finalized)'],
     ['/{COIN}/api/votes/{QUERY}/{TYPE}', 'getVotes', ['address', 'poll', 'block'], 'Governance', 'VOTE ballots, filtered by voter/poll/block'],
     ['/{COIN}/api/votes', 'getVotes', null, 'Governance', 'VOTE ballots (v1; one row per voter per poll)'],
+    // ── Betting (BET) ─────────────────────────────────────────────────────
+    ['/{COIN}/api/bet_feeds/{QUERY}/{TYPE}', 'getBetFeeds', ['block', 'address', 'source', 'token', 'status'], 'Betting', 'BET markets, filtered by block/oracle/wager token/status'],
+    ['/{COIN}/api/bet_feeds', 'getBetFeeds', null, 'Betting', 'BET markets (parimutuel; feed id = the creating action_index)'],
+    ['/{COIN}/api/bet_feed/{QUERY}', 'getBetFeed', 'bet_feed', 'Betting', 'A single BET market: terms, per-outcome pools, and the full status timeline'],
+    ['/{COIN}/api/bets/{QUERY}/{TYPE}', 'getBets', ['block', 'address', 'feed', 'token', 'status'], 'Betting', 'BET wagers, filtered by bettor/market/token/status/block'],
+    ['/{COIN}/api/bets', 'getBets', null, 'Betting', 'BET wagers (one row per placed bet)'],
+    ['/{COIN}/api/oracle/{QUERY}', 'getOracleStats', 'oracle', 'Betting', 'Oracle track record for an address (v0 reputation; per-address, unbonded)'],
     // ── Cross-chain ───────────────────────────────────────────────────────
     ['/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}', 'getCrossChainMatches', ['match', 'block', 'status'], 'Cross-chain', 'Cross-chain order matches, filtered'],
     ['/{COIN}/api/cross_chain_matches', 'getCrossChainMatches', null, 'Cross-chain', 'Cross-chain order matches (hub-replicated)'],
@@ -241,7 +248,10 @@ function pathParams(p, types) {
 }
 const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'getToken', 'getProject',
     'getContract', 'getContractState', 'getContractBalance', 'getExecution', 'getPublicKey',
-    'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch', 'getXcall', 'getPoll']);
+    'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch', 'getXcall', 'getPoll',
+    // BET single-object reads: getBetFeed resolves one market (terms + pools +
+    // timeline) and getOracleStats one aggregate record, so neither paginates.
+    'getBetFeed', 'getOracleStats']);
 
 function operation([p, method, types, tag, summary]) {
     const isList = !LIST_METHODS_SINGLE.has(method);

@@ -484,6 +484,56 @@ describe('Broadcaster', function () {
             expect(msg.type).to.equal('DISPENSER_CLOSED');
         });
 
+        it('routes a placed BET to the bet_feed channel keyed on the parent market', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            // A market page subscribes to one feed by its creating action_index.
+            wsServer.channelManager.subscribe(client, ['bet_feed'], { action_index: 4242 });
+
+            changeDetector.emit('lifecycle_event', 'BTC', {
+                type: 'BET',
+                action: 'BET',
+                channel: 'bet_feed',
+                data: { action_index: 5000, feed_action_index: 4242, action_format: 2, status: 'valid' }
+            });
+
+            expect(client.ws.send.called).to.be.true;
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.type).to.equal('BET');
+            expect(msg.data.feed_action_index).to.equal(4242);
+        });
+
+        it('routes BET_EXPIRED (the system refund pass) to the bet_feed channel', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['bet_feed'], { action_index: 88 });
+
+            changeDetector.emit('lifecycle_event', 'BTC', {
+                type: 'BET_EXPIRED',
+                action: 'BET_EXPIRE',
+                channel: 'bet_feed',
+                data: { action_index: 88, feed_action_index: 88, status: 'valid' }
+            });
+
+            expect(client.ws.send.called).to.be.true;
+            expect(JSON.parse(client.ws.send.firstCall.args[0]).type).to.equal('BET_EXPIRED');
+        });
+
+        it('does not deliver a bet_feed event to a subscriber watching a different market', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['bet_feed'], { action_index: 1 });
+
+            changeDetector.emit('lifecycle_event', 'BTC', {
+                type: 'BET',
+                action: 'BET',
+                channel: 'bet_feed',
+                data: { action_index: 5000, feed_action_index: 2, status: 'valid' }
+            });
+
+            expect(client.ws.send.called).to.be.false;
+        });
+
         it('does not deliver a dispenser lifecycle event to a non-matching dispenser subscriber', function () {
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);

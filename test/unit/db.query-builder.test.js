@@ -593,6 +593,57 @@ describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', 
         const sql = await db.getQueryWhereSql(cfg('getTelemetryPings', 'country'));
         expect(sql).to.include('m.country=?');
     });
+
+    // ----- BET (§11.1) -----------------------------------------------------
+
+    it('getBetFeeds type=status filters the STORED feed status, not a clock recomputation', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getBetFeeds', 'status'));
+        expect(sql).to.include('fs.status=?');
+        // A derived close would have to compare deadline against a clock; if this
+        // ever starts referencing m.deadline the list has stopped agreeing with
+        // the stored latch that E11 (backdating) depends on.
+        expect(sql).to.not.include('m.deadline');
+    });
+
+    it('getBetFeeds type=token filters the wager tick through index_tickers', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getBetFeeds', 'token'));
+        expect(sql).to.include('pt.tick=?');
+    });
+
+    it('getBetFeeds type=source and type=address both filter the oracle address', async () => {
+        expect(await db.getQueryWhereSql(cfg('getBetFeeds', 'source'))).to.include('a2.address=?');
+        expect(await db.getQueryWhereSql(cfg('getBetFeeds', 'address'))).to.include('a2.address=?');
+    });
+
+    it('getBetFeeds type=block filters the creating block', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getBetFeeds', 'block'));
+        expect(sql).to.include('b1.block_index=?');
+    });
+
+    it('getBetFeed keys on the creating action_index (the feed id)', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getBetFeed', null));
+        expect(sql).to.include('m.action_index=?');
+    });
+
+    it('getBets type=feed scopes to one market', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getBets', 'feed'));
+        expect(sql).to.include('m.feed_action_index=?');
+    });
+
+    it('getBets type=address filters the bettor (the tx source)', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getBets', 'address'));
+        expect(sql).to.include('a2.address=?');
+    });
+
+    it('getBets type=status filters the stored bet status', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getBets', 'status'));
+        expect(sql).to.include('bs.status=?');
+    });
+
+    it('getBets type=token and type=block filter tick and block', async () => {
+        expect(await db.getQueryWhereSql(cfg('getBets', 'token'))).to.include('pt.tick=?');
+        expect(await db.getQueryWhereSql(cfg('getBets', 'block'))).to.include('b1.block_index=?');
+    });
 });
 
 // ---------------------------------------------------------------------------

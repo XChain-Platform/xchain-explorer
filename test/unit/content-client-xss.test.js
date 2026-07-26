@@ -103,6 +103,49 @@ const PAYLOADS = {
     mixed:       'hello <b>bold</b> <img src=x onerror=alert(1)> world',
 };
 
+// Render the SHIPPED showBetDetails against the SHIPPED #info-bet markup in a real
+// jsdom + jQuery window. BET's LABEL / OUTCOMES / DETAILS are attacker-controlled
+// on-chain bytes (§11.1), so this is the direct test of the P7 rendering-safety
+// requirement: hostile payloads must come out as inert text, never live elements.
+function renderBetDetails(data) {
+    const ACTION_HTML = fs.readFileSync(
+        path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
+    // Slice the real #info-bet panel out of action.html so the test drives the
+    // shipped selectors; a renamed class here fails rather than silently no-ops.
+    const start = ACTION_HTML.indexOf('<div class="d-none" id="info-bet">');
+    if (start < 0) throw new Error('#info-bet panel not found in action.html');
+    const end = ACTION_HTML.indexOf('<!-- STAKE action -->', start);
+    const panel = ACTION_HTML.slice(start, end);
+
+    const dom = new JSDOM('<!DOCTYPE html><body>' + panel + '</body>',
+        { runScripts: 'outside-only' });
+    const jq = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
+    dom.window.eval(jq);
+
+    // Minimal stubs for the page helpers showBetDetails leans on. formatLink and
+    // formatAmount are NOT under test here; they are given deliberately naive
+    // implementations so that any escaping the assertions observe is showBetDetails'
+    // own doing rather than a helper's.
+    dom.window.XC = { coin: 'BTC' };
+    dom.window.eval(`
+        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatAmount(v){ return String(v); }
+        function formatLivestamp(v){ return String(v); }
+        var moment = function(){ return moment; };
+        moment.unix = function(){ return { utcOffset: function(){ return { format: function(){ return 'ts'; } }; } }; };
+        var numeral = function(){ return { format: function(){ return '0'; } }; };
+    `);
+    dom.window.eval(extractFn('isNull'));
+    dom.window.eval(extractFn('showBetDetails'));
+    // The pools table is fetched over $.getJSON; stub it out so the render is
+    // synchronous and no network is touched (a DETAILS URL must never be fetched).
+    let fetched = [];
+    dom.window.$.getJSON = function(url){ fetched.push(url); return { done: function(){} }; };
+    dom.window.showBetDetails(data);
+    return { dom, html: dom.window.document.body.innerHTML,
+             text: dom.window.document.body.textContent, fetched };
+}
+
 describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', function () {
     let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash;
 
@@ -255,6 +298,90 @@ describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', func
         it('returns empty string for null/undefined (no "null" leak)', function () {
             expect(formatHash(null)).to.equal('');
             expect(formatHash(undefined)).to.equal('');
+        });
+    });
+
+    // §11.1 rendering safety for BET markets ( P7). LABEL, OUTCOMES and
+    // DETAILS arrive from the chain and are fully attacker-controlled.
+    describe('showBetDetails(): hostile market fields render inert', function () {
+
+        function liveElements(dom) {
+            // Only elements the RENDER introduced count; the static panel markup
+            // (table/tbody/tr/th/td/div) is part of the shipped page.
+            // Structural markup the panel or the renderer itself is allowed to emit
+            // (the <br> separator between outcome labels, the pools table, badges).
+            // Anything OUTSIDE this set came from attacker-controlled bytes.
+            const structural = new Set(['table','tbody','tr','th','td','div','span','pre','a','thead','br']);
+            const els = Array.from(dom.window.document.body.querySelectorAll('*'));
+            return {
+                foreign: els.map(e => e.tagName.toLowerCase()).filter(t => !structural.has(t)),
+                hasHandler: els.some(e => Array.from(e.attributes).some(a => /^on/i.test(a.name))),
+            };
+        }
+
+        Object.entries(PAYLOADS).forEach(([name, payload]) => {
+            it('renders a hostile LABEL (' + name + ') as inert text', function () {
+                const { dom, text } = renderBetDetails({
+                    bet_kind: 'feed', action_index: 1, label: payload,
+                    outcome_labels: [], details: null, details_json: null,
+                });
+                const { foreign, hasHandler } = liveElements(dom);
+                expect(foreign, 'no live elements from the label').to.deep.equal([]);
+                expect(hasHandler, 'no inline event handlers').to.equal(false);
+                // The bytes must still be SHOWN (escaped), not silently dropped.
+                expect(text).to.contain(payload.slice(0, 12));
+            });
+
+            it('renders hostile OUTCOMES (' + name + ') as inert text', function () {
+                const { dom } = renderBetDetails({
+                    bet_kind: 'feed', action_index: 1, label: 'ok',
+                    outcome_labels: ['fine', payload], details: null, details_json: null,
+                });
+                const { foreign, hasHandler } = liveElements(dom);
+                expect(foreign).to.deep.equal([]);
+                expect(hasHandler).to.equal(false);
+            });
+
+            it('renders a hostile DETAILS payload (' + name + ') as inert data', function () {
+                const { dom } = renderBetDetails({
+                    bet_kind: 'feed', action_index: 1, label: 'ok', outcome_labels: [],
+                    details: 'base64-ish', details_json: { title: payload, nested: { x: payload } },
+                });
+                const { foreign, hasHandler } = liveElements(dom);
+                expect(foreign, 'DETAILS JSON must never become markup').to.deep.equal([]);
+                expect(hasHandler).to.equal(false);
+            });
+        });
+
+        it('shows undecodable DETAILS as escaped raw bytes, never as markup', function () {
+            const { dom, text } = renderBetDetails({
+                bet_kind: 'feed', action_index: 1, label: 'ok', outcome_labels: [],
+                details: '<img src=x onerror=alert(1)>', details_json: null,
+            });
+            const { foreign, hasHandler } = liveElements(dom);
+            expect(foreign).to.deep.equal([]);
+            expect(hasHandler).to.equal(false);
+            expect(text).to.contain('unparsed base64 payload');
+        });
+
+        it('never fetches a URL found inside DETAILS (SSRF-guard stance)', function () {
+            const { fetched } = renderBetDetails({
+                bet_kind: 'feed', action_index: 42, label: 'ok', outcome_labels: [],
+                details: 'x',
+                details_json: { image: 'http://169.254.169.254/latest/meta-data/', link: 'https://evil.example/x' },
+            });
+            // The only request the market panel may make is its own pools read.
+            expect(fetched).to.deep.equal(['/BTC/api/bet_feed/42']);
+        });
+
+        it('renders a hostile bet status badge inertly on the wager shape', function () {
+            const { dom } = renderBetDetails({
+                bet_kind: 'bet', action_index: 9, feed_ref: 1, outcome: 0,
+                amount: '1.0', bet_status: '<img src=x onerror=alert(1)>', settled_block: null,
+            });
+            const { foreign, hasHandler } = liveElements(dom);
+            expect(foreign).to.deep.equal([]);
+            expect(hasHandler).to.equal(false);
         });
     });
 });

@@ -1,0 +1,180 @@
+<!-- BET market detail page (one bet_feeds row + per-outcome pools + status timeline) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-coins"></i> Market <span id="bet-feed-id"></span>
+                    <span class="float-end" id="bet-feed-status-badge"></span>
+                </div>
+                <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                <tbody>
+                    <tr><th width="175">Market</th><td id="feed-label"></td></tr>
+                    <tr><th>Oracle</th><td id="feed-oracle"></td></tr>
+                    <tr><th>Wager Token</th><td id="feed-token"></td></tr>
+                    <tr><th>Oracle Fee</th><td id="feed-fee"></td></tr>
+                    <tr><th>Betting Closes</th><td id="feed-deadline"></td></tr>
+                    <tr><th>Expires</th><td id="feed-expire"></td></tr>
+                    <tr><th>Minimum Stake</th><td id="feed-min-amount"></td></tr>
+                    <tr><th>Gating</th><td id="feed-gating"></td></tr>
+                    <tr><th>Created</th><td id="feed-created"></td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-chart-pie"></i> Outcome Pools</div>
+                <div id="feed-pools" class="p-2">Loading pools...</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-clock-rotate-left"></i> Status Timeline</div>
+                <div id="feed-timeline" class="p-2">Loading timeline...</div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-file-lines"></i> Market Definition (DETAILS)</div>
+                <div id="feed-details" class="p-2"></div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-dice"></i> Bets on this Market</div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-bet">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Bettor</th>
+                        <th class="">Market</th>
+                        <th class="">Outcome</th>
+                        <th class="">Token</th>
+                        <th class="">Stake</th>
+                        <th class="">Status</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="10" class="loading-data">Loading bet data...</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // LABEL, OUTCOMES and DETAILS are attacker-controlled on-chain bytes. Every
+    // one of them reaches the DOM through .text() or this escape; DETAILS is shown
+    // strictly as inert data and no URL inside it is ever fetched or linked
+    // (§11.1 rendering safety / SSRF-guard stance).
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+
+    let statusClass = function(s){
+        if(s=='resolved')                  return 'success';
+        if(s=='cancelled' || s=='expired') return 'danger';
+        if(s=='resolved_void')             return 'secondary';
+        if(s=='closed')                    return 'warning text-dark';
+        return 'primary';
+    };
+
+    $('#bet-feed-id').text(XC.query);
+
+    $.getJSON('/' + XC.coin + '/api/bet_feed/' + XC.query, function(o){
+        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : null;
+        if(!d){
+            $('#feed-label').text('Market not found');
+            $('#feed-pools').text('-');
+            $('#feed-timeline').text('-');
+            return;
+        }
+
+        XC.pageInfo.title       = 'Betting Market ' + XC.query;
+        XC.pageInfo.description = 'Parimutuel betting market ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+        XC.pageInfo.canonical   = '/' + XC.coin + '/bet_feed/' + XC.query;
+        updatePageInfo();
+
+        $('#bet-feed-status-badge').html('<span class="badge text-bg-' + statusClass(d.feed_status) + '">' + esc(d.feed_status || '-') + '</span>');
+        $('#feed-label').text(isNull(d.label) ? '-' : d.label);
+        $('#feed-oracle').html(isNull(d.source) ? '-' : formatLink('/' + XC.coin + '/oracle/' + d.source, d.source));
+        $('#feed-token').html(isNull(d.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + d.tick, d.tick, d.tick));
+        // The FEE is the ORACLE's percent cut of the pot, a different quantity from
+        // the protocol's market duration fee paid by the creator (§10 naming pin).
+        $('#feed-fee').text(isNull(d.fee) ? '-' : d.fee + '% of the pot (oracle fee)');
+        $('#feed-deadline').html(isNull(d.deadline) ? '-' : d.deadline + ' - ' + formatLivestamp(d.deadline) + ' (' + moment.unix(d.deadline).utcOffset(0).format() + ' GMT)');
+        $('#feed-expire').html(isNull(d.expire_at) ? '-' : d.expire_at + ' - ' + formatLivestamp(d.expire_at) + ' (' + moment.unix(d.expire_at).utcOffset(0).format() + ' GMT)');
+        $('#feed-min-amount').html(isNull(d.min_amount) ? '<span class="text-muted">none</span>' : formatAmount(d.min_amount));
+        let gating = [];
+        if(!isNull(d.allow_list)) gating.push('Allow list: ' + formatLink('/' + XC.coin + '/action/' + d.allow_list, d.allow_list));
+        if(!isNull(d.block_list)) gating.push('Block list: ' + formatLink('/' + XC.coin + '/action/' + d.block_list, d.block_list));
+        $('#feed-gating').html(gating.length ? gating.join('<br>') + '<div class="small text-muted">A blocked address is rejected even if it also appears on the allow list.</div>' : '<span class="text-muted">open to everyone</span>');
+        $('#feed-created').html(formatLink('/' + XC.coin + '/action/' + d.action_index, d.action_index) + (isNull(d.block_index) ? '' : ' in block ' + formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0'))));
+
+        // ---- Outcome pools (open bets only: the normative settlement predicate) ----
+        let outs  = Array.isArray(d.outcome_labels) ? d.outcome_labels : [];
+        let pools = Array.isArray(d.pools) ? d.pools : [];
+        let byOutcome = {};
+        pools.forEach(function(p){ byOutcome[p.outcome] = p; });
+        let total = pools.reduce(function(a, p){ return a + Number(p.pool || 0); }, 0);
+        if(!outs.length){
+            $('#feed-pools').text('-');
+        } else {
+            let html = '<table class="table table-sm mb-0"><thead><tr><th>Outcome</th><th>Pool</th><th>Bets</th><th>Implied</th></tr></thead><tbody>';
+            outs.forEach(function(label, i){
+                let p   = byOutcome[i] || { pool: 0, bet_count: 0 };
+                let pct = total > 0 ? ((Number(p.pool || 0) / total) * 100).toFixed(1) + '%' : '-';
+                html += '<tr><td>' + i + ': ' + esc(label) + '</td><td>' + formatAmount(p.pool || 0) + '</td><td>' + numeral(p.bet_count || 0).format('0,0') + '</td><td>' + pct + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            html += '<div class="small text-muted mt-1">Parimutuel: the split shown is current, not the odds locked at bet time. Payouts are floored, so a very small winning stake can pay nothing.</div>';
+            $('#feed-pools').html(html);
+        }
+
+        // ---- Status timeline ----
+        // The `closed` latch writes no status-history row (it has no causing action),
+        // so the API synthesizes it from the stored closed_block stamp and flags it
+        // `synthetic`. Label it so a reader can tell it from an action-backed row.
+        let tl = Array.isArray(d.timeline) ? d.timeline : [];
+        if(!tl.length){
+            $('#feed-timeline').text('-');
+        } else {
+            let html = '<table class="table table-sm mb-0"><thead><tr><th>Status</th><th>Block</th><th>Action</th></tr></thead><tbody>';
+            tl.forEach(function(r){
+                let act = r.synthetic
+                    ? '<span class="text-muted small">automatic (deadline reached)</span>'
+                    : (isNull(r.action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + r.action_index, r.action_index));
+                html += '<tr><td><span class="badge text-bg-' + statusClass(r.status) + '">' + esc(r.status) + '</span></td>'
+                      + '<td>' + (isNull(r.block_index) ? '-' : formatLink('/' + XC.coin + '/block/' + r.block_index, numeral(r.block_index).format('0,0'))) + '</td>'
+                      + '<td>' + act + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            $('#feed-timeline').html(html);
+        }
+
+        // ---- DETAILS: inert data only ----
+        if(isNull(d.details)){
+            $('#feed-details').html('<span class="text-muted">No market definition was published.</span>');
+        } else if(d.details_json != null){
+            $('#feed-details').html('<pre class="mb-0 small">' + esc(JSON.stringify(d.details_json, null, 2)) + '</pre>'
+                + '<div class="small text-muted mt-1">Published by the oracle and shown as data. Links inside are never followed.</div>');
+        } else {
+            $('#feed-details').html('<div class="small text-muted">Unparsed base64 payload</div><pre class="mb-0 small">' + esc(d.details) + '</pre>');
+        }
+    });
+
+    // Bets placed on this market
+    loadDatatablesData(XC.coin, 'bet', XC.query, 'feed');
+
+});
+</script>

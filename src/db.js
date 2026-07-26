@@ -123,7 +123,12 @@ class Database {
             'getPriceSnapshots','getOraclePrices',
             'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
             'getPeers','getConsensusState','getConfigs','getTelemetryPings',
-            'getPolls','getVotes'
+            'getPolls','getVotes',
+            // BET market/wager lists: getBetFeeds -> bet_feeds and getBets -> bets are
+            // not reachable through the get->lowercase table mangle, so they page on the
+            // preserved client cursor like the poll family. Both ORDER BY m.action_index,
+            // which is getQueryOffsetSql's default cursor field, so no id-keyed entry.
+            'getBetFeeds','getBets'
         ];
 
     }
@@ -873,6 +878,31 @@ class Database {
             // the source that cast the ballot (a2 via t1.source_id), so address filters on a2.
             if(type=='address') sql += ' AND a2.address=?';
             if(type=='poll')    sql += ' AND m.poll_index=?';
+            if(type=='block')   sql += ' AND b1.block_index=?';
+        } else if(method=='getBetFeeds'){
+            // bet_feeds (BET format 0) joins the actions/transactions/blocks chain like
+            // getPolls. tick joins index_tickers (pt) on the wager token; source is the
+            // oracle that created the feed (a2 via t1.source_id); status filters the
+            // STORED feed lifecycle enum through index_statuses (fs), never a clock
+            // recomputation. 'address' is an alias of 'source' here because a feed has
+            // exactly one participating address of its own (the oracle); bettors are
+            // reachable via getBets(feed).
+            if(type=='block')   sql += ' AND b1.block_index=?';
+            if(type=='token')   sql += ' AND pt.tick=?';
+            if(type=='status')  sql += ' AND fs.status=?';
+            if(type=='source')  sql += ' AND a2.address=?';
+            if(type=='address') sql += ' AND a2.address=?';
+        } else if(method=='getBetFeed'){
+            // single market keyed by its creating action_index (the feed id)
+            sql += ' AND m.action_index=?';
+        } else if(method=='getBets'){
+            // bets (BET format 2 ballots-equivalent) joins the actions/transactions/blocks
+            // chain; the bettor IS the source that placed the wager (a2 via t1.source_id).
+            // 'feed' filters to one market, matching getVotes' 'poll'.
+            if(type=='address') sql += ' AND a2.address=?';
+            if(type=='feed')    sql += ' AND m.feed_action_index=?';
+            if(type=='token')   sql += ' AND pt.tick=?';
+            if(type=='status')  sql += ' AND bs.status=?';
             if(type=='block')   sql += ' AND b1.block_index=?';
         } else if(['getCrossChainMatches','getCrossChainSettlements'].includes(method)){
             // standalone mirror tables (no actions/transactions chain); filter on
@@ -6024,6 +6054,63 @@ class Database {
                             a1.action_index=?
                         LIMIT 1`;
             }
+            // BET action. One action name over four formats: 0 create-feed -> bet_feeds,
+            // 2 place-bet -> bets, and 1 cancel / 3 resolve write NO row of their own
+            // (they flip the parent feed and append a bet_feed_statuses row). LEFT JOIN
+            // the two row-owning tables here; the cancel/resolve parent is resolved in
+            // post-processing, which also sets bet_kind so the client knows the shape.
+            // Mirrors the VOTE multi-table + row-less-format handling above.
+            if(type=='BET'){
+                query = `SELECT
+                            a2.action,
+                            a1.action_format,
+                            a1.action_index,
+                            a3.address as source,
+                            -- feed definition (format 0)
+                            f.label,
+                            f.outcomes,
+                            f.fee,
+                            f.deadline,
+                            f.refund_window,
+                            f.expire_at,
+                            f.min_amount,
+                            f.allow_list,
+                            f.block_list,
+                            f.details,
+                            f.closed_block,
+                            f.terminal_block,
+                            ffs.status as feed_status,
+                            -- placed wager (format 2)
+                            bt.feed_action_index,
+                            bt.outcome,
+                            bt.amount,
+                            bt.settled_block,
+                            bbs.status as bet_status,
+                            COALESCE(ft.tick, bt2.tick) as tick,
+                            b1.block_index,
+                            b1.block_time as timestamp,
+                            t2.hash as tx_hash,
+                            t1.tx_index,
+                            COALESCE(fs.status, bs.status) as status
+                        FROM
+                            actions a1
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                            LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN bet_feeds          f  ON (f.action_index=a1.action_index)
+                            LEFT  JOIN index_tickers      ft ON (ft.id=f.tick_id)
+                            LEFT  JOIN index_statuses     fs ON (fs.id=f.status_id)
+                            LEFT  JOIN index_statuses     ffs ON (ffs.id=f.feed_status_id)
+                            LEFT  JOIN bets               bt ON (bt.action_index=a1.action_index)
+                            LEFT  JOIN index_tickers      bt2 ON (bt2.id=bt.tick_id)
+                            LEFT  JOIN index_statuses     bs ON (bs.id=bt.status_id)
+                            LEFT  JOIN index_statuses     bbs ON (bbs.id=bt.bet_status_id)
+                        WHERE
+                            a1.action_index=?
+                        LIMIT 1`;
+            }
             // STAKE action (v1/v2 capability stake → stakes; v3 contract-targeted → contract_stakes)
             if(type=='STAKE'){
                 query = `SELECT
@@ -6713,6 +6800,59 @@ class Database {
                     } else {
                         data['ballot'] = [];
                     }
+                }
+            }
+            // BET: disambiguate the four formats and shape each. A create owns a bet_feeds
+            // row (label present); a place owns a bets row (feed_action_index present);
+            // cancel (1) and resolve (3) own NO row of their own, so resolve their parent
+            // feed through the bet_feed_statuses row they wrote, the same row-less
+            // de-blanking VOTE v2 needs. bet_kind tells the client which shape it received.
+            if(type=='BET'){
+                let fmt = this.util.isNull(data['action_format']) ? null : Number(data['action_format']);
+                if(!this.util.isNull(data['label']) || fmt === 0){
+                    data['bet_kind'] = 'feed';
+                    data['feed_ref'] = data['action_index'];
+                    // OUTCOMES is the canonical comma-joined label list; split for display.
+                    data['outcome_labels'] = this.util.isNull(data['outcomes']) ? [] : String(data['outcomes']).split(',');
+                    // DETAILS is attacker-controlled base64 JSON. Decode for convenience but
+                    // keep the raw, and fall back to null (never the raw string) so a caller
+                    // cannot mistake un-parsed hostile bytes for a parsed object. It is
+                    // rendered strictly as data and no URL inside it is ever fetched.
+                    data['details_json'] = null;
+                    if(!this.util.isNull(data['details'])){
+                        try { data['details_json'] = JSON.parse(Buffer.from(String(data['details']), 'base64').toString('utf8')); }
+                        catch(_){ data['details_json'] = null; }
+                    }
+                } else if(!this.util.isNull(data['feed_action_index'])){
+                    data['bet_kind'] = 'bet';
+                    data['feed_ref'] = data['feed_action_index'];
+                } else {
+                    // Format 1 (cancel) / 3 (resolve): row-less. The status row this action
+                    // wrote names the feed it acted on and the status it drove the feed to.
+                    data['bet_kind'] = (fmt === 1) ? 'cancel' : (fmt === 3 ? 'resolve' : 'unknown');
+                    let srow = await this.doQuery(config,
+                        `SELECT fst.feed_action_index, s.status AS feed_status
+                           FROM bet_feed_statuses fst
+                           LEFT JOIN index_statuses s ON (s.id=fst.status_id)
+                          WHERE fst.action_index=? LIMIT 1`,
+                        [action_index]);
+                    if(srow && srow.length){
+                        data['feed_ref']    = srow[0].feed_action_index;
+                        data['feed_status'] = srow[0].feed_status;
+                    }
+                }
+                // Strip the columns belonging to the OTHER shape so the payload never
+                // carries a half-populated sibling (a null `amount` on a create reads
+                // like a zero-stake bet).
+                if(data['bet_kind'] !== 'bet'){
+                    delete data['outcome']; delete data['amount'];
+                    delete data['settled_block']; delete data['bet_status'];
+                }
+                if(data['bet_kind'] !== 'feed'){
+                    delete data['label']; delete data['outcomes']; delete data['fee'];
+                    delete data['deadline']; delete data['refund_window']; delete data['expire_at'];
+                    delete data['min_amount']; delete data['allow_list']; delete data['block_list'];
+                    delete data['details']; delete data['closed_block']; delete data['terminal_block'];
                 }
             }
             // Expand the inlined JSON columns on PRICE actions into structured arrays so
@@ -9031,6 +9171,28 @@ class Database {
         return null;
     }
 
+    // Resolve the PARENT market for any BET-family action, so a ws lifecycle event can
+    // be routed to the `bet_feed:<feed_index>` entity channel. BET is one action name
+    // over four formats, so the parent is wherever the action landed:
+    //   format 0 (create) -> the feed row itself, whose id IS this action_index
+    //   format 2 (place)  -> bets.feed_action_index
+    //   formats 1/3 + BET_EXPIRE -> bet_feed_statuses.feed_action_index (the status row
+    //   the cancel/resolve/expire wrote). Checked in that order; the first hit wins.
+    // Returns null when nothing matches (a rejected BET writes no child row), which the
+    // caller treats as non-fatal and emits without a parent index.
+    async getBetActionFeedIndex(config, actionIndex) {
+        let feed = await this.doQuery(config,
+            `SELECT action_index FROM bet_feeds WHERE action_index=? LIMIT 1`, [actionIndex]);
+        if (feed && feed.length) return feed[0].action_index;
+        let bet = await this.doQuery(config,
+            `SELECT feed_action_index FROM bets WHERE action_index=? LIMIT 1`, [actionIndex]);
+        if (bet && bet.length && bet[0].feed_action_index != null) return bet[0].feed_action_index;
+        let st = await this.doQuery(config,
+            `SELECT feed_action_index FROM bet_feed_statuses WHERE action_index=? ORDER BY feed_action_index ASC LIMIT 1`, [actionIndex]);
+        if (st && st.length && st[0].feed_action_index != null) return st[0].feed_action_index;
+        return null;
+    }
+
     async getContracts(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -10908,6 +11070,260 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // List BET markets (bet_feeds, one row per BET format 0 create-feed action).
+    // Joins the actions/transactions/blocks chain like getPolls; the feed id IS the
+    // creating action_index. tick joins index_tickers (pt) on m.tick_id (the wager
+    // token); source is the oracle that created the feed (a2 via t1.source_id);
+    // status filters the stored feed lifecycle enum through index_statuses (fs).
+    // feed_status is STORED rather than derived, so the list never recomputes a
+    // close from the wall clock (the §5 backdating property E11 pins).
+    async getBetFeeds(config){
+        let sql   = config.data.sql;
+        let from  = `
+                        bet_feeds m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)`;
+        let count = `SELECT count(*) as total FROM ` + from + ` WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        pt.tick,
+                        m.label,
+                        m.outcomes,
+                        m.fee,
+                        m.deadline,
+                        m.refund_window,
+                        m.expire_at,
+                        m.min_amount,
+                        m.allow_list,
+                        m.block_list,
+                        fs.status as feed_status,
+                        m.closed_block,
+                        m.terminal_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM ` + from + `
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Single BET market by its creating action_index (the feed id), returned as one
+    // object (getPoll pattern) with the per-outcome pools, bet counts and the full
+    // status timeline attached. DETAILS is returned as the RAW base64 exactly as it
+    // landed on the wire plus a decoded `details_json` when it parses; it is never
+    // rendered as markup and no URL inside it is ever fetched (§11.1 rendering
+    // safety, SSRF-guard stance).
+    async getBetFeed(config){
+        let data  = null;
+        let sql   = config.data.sql;
+        let args  = [config.data.search];
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        pt.tick,
+                        m.tick_id,
+                        m.label,
+                        m.outcomes,
+                        m.fee,
+                        m.deadline,
+                        m.refund_window,
+                        m.expire_at,
+                        m.min_amount,
+                        m.allow_list,
+                        m.block_list,
+                        m.details,
+                        fs.status as feed_status,
+                        m.closed_block,
+                        m.terminal_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        bet_feeds m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                    WHERE ` + sql.where.data + `
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length){
+            let row = results[0];
+            // OUTCOMES is stored as the canonical comma-joined label list. Split it
+            // back into an array so the caller renders options in wire order without
+            // re-implementing the join rule. Byte-exact uniqueness was enforced at
+            // parse, so positions are stable and index-addressable.
+            row.outcome_labels = this.util.isNull(row.outcomes) ? [] : String(row.outcomes).split(',');
+            // DETAILS rides the wire as base64 and is ATTACKER-CONTROLLED. Decode it
+            // for convenience but keep the raw alongside, and fall back to null (never
+            // to the raw string) when it is not valid base64 JSON, so a consumer can
+            // never mistake un-parsed hostile bytes for a parsed object.
+            row.details_json = null;
+            if(!this.util.isNull(row.details)){
+                try { row.details_json = JSON.parse(Buffer.from(String(row.details), 'base64').toString('utf8')); }
+                catch(e){ row.details_json = null; }
+            }
+            row.pools    = await this.getBetFeedPools(config, row.action_index);
+            row.timeline = await this.getBetFeedTimeline(config, row.action_index, row.closed_block);
+            data = row;
+        }
+        return [data];
+    }
+
+    // Per-outcome pool totals for one feed. Sums ONLY bet_status='open' rows, which
+    // is the normative settlement pool predicate (§7): a bet that already took a
+    // terminal credit must never be counted again. Returned per outcome index so a
+    // market page can show implied odds without re-deriving the predicate.
+    async getBetFeedPools(config, feedIndex){
+        let query = `SELECT
+                        m.outcome,
+                        count(*) as bet_count,
+                        SUM(CAST(m.amount AS DECIMAL(65,18))) as pool
+                    FROM
+                        bets m
+                        LEFT JOIN index_statuses bs ON (bs.id=m.bet_status_id)
+                    WHERE
+                        m.feed_action_index=?
+                        AND bs.status='open'
+                    GROUP BY m.outcome
+                    ORDER BY m.outcome ASC`;
+        let rows = await this.doQuery(config, query, [feedIndex]);
+        return rows || [];
+    }
+
+    // Status timeline for one feed. bet_feed_statuses is action-scoped, so it carries
+    // create / resolve / resolved_void / cancel / expire but deliberately NOT the
+    // 'closed' latch, which has no causing action (see bet_feed_statuses.sql). The
+    // explorer SYNTHESIZES that entry from the bet_feeds.closed_block stamp, which is
+    // the latch's durable record, and marks it synthetic so a consumer can tell it
+    // apart from an action-backed row.
+    async getBetFeedTimeline(config, feedIndex, closedBlock){
+        let query = `SELECT
+                        m.action_index,
+                        s1.status,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash
+                    FROM
+                        bet_feed_statuses m
+                        LEFT JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        LEFT JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE m.feed_action_index=?
+                    ORDER BY m.action_index ASC`;
+        let rows = await this.doQuery(config, query, [feedIndex]) || [];
+        rows = rows.map(r => Object.assign({}, r, { synthetic: false }));
+        if(!this.util.isNull(closedBlock)){
+            let closed = { action_index: null, status: 'closed', block_index: closedBlock,
+                           timestamp: null, tx_hash: null, synthetic: true };
+            let times  = await this.doQuery(config, `SELECT block_time FROM blocks WHERE block_index=? LIMIT 1`, [closedBlock]);
+            if(times && times.length) closed.timestamp = times[0].block_time;
+            // Order by block, and place the synthetic latch AFTER any action-backed row
+            // in the same block: within a block, user txs process before the latch pass.
+            let at = rows.findIndex(r => r.block_index > closedBlock);
+            if(at === -1) rows.push(closed); else rows.splice(at, 0, closed);
+        }
+        return rows;
+    }
+
+    // List BET wagers (bets table, one row per BET format 2 place-bet action). Joins
+    // the actions/transactions/blocks chain; the bettor IS the source (a2). Filter by
+    // bettor address / feed / tick / block / bet status (see getQueryWhereSql getBets).
+    async getBets(config){
+        let sql   = config.data.sql;
+        let from  = `
+                        bets m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN index_statuses     bs ON (bs.id=m.bet_status_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)`;
+        let count = `SELECT count(*) as total FROM ` + from + ` WHERE ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        a2.address as source,
+                        m.feed_action_index,
+                        m.outcome,
+                        pt.tick,
+                        m.amount,
+                        bs.status as bet_status,
+                        m.settled_block,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM ` + from + `
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Oracle track record for one address (§11.1). This IS the v0 reputation system:
+    // there is no bonding or staking behind it, and the record is PER-ADDRESS, so an
+    // oracle can start fresh at any time. Callers MUST surface that caveat; an empty
+    // history means unknown, not safe. "Resolved on time" is deliberately absent: a
+    // resolve past expire_at is rejected by format 3, so every resolve is in-window
+    // by construction and the distinction would be vacuous.
+    async getOracleStats(config){
+        let args  = [config.data.search];
+        let query = `SELECT
+                        fs.status as feed_status,
+                        count(*)  as feeds
+                    FROM
+                        bet_feeds m
+                        INNER JOIN actions         a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_statuses  fs ON (fs.id=m.feed_status_id)
+                    WHERE a2.address=?
+                    GROUP BY fs.status`;
+        let rows  = await this.doQuery(config, query, args) || [];
+        let counts = { open: 0, closed: 0, resolved: 0, resolved_void: 0, cancelled: 0, expired: 0 };
+        let total  = 0;
+        for(const r of rows){
+            if(r.feed_status in counts) counts[r.feed_status] = Number(r.feeds);
+            total += Number(r.feeds);
+        }
+        // Active = still able to take or settle bets. Kept explicit rather than
+        // derived by the caller so the market list and the oracle page agree.
+        let active = counts.open + counts.closed;
+        return [{ address: config.data.search, total_feeds: total, active_feeds: active,
+                  counts, reputation_caveat: 'Per-address record with no bonding; addresses are free to create, so an empty history means unknown, not safe.' }];
     }
 
     // List XCALL cross-chain call requests (xcalls table, VM-emitted, read-only).

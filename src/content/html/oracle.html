@@ -1,0 +1,95 @@
+<!-- Betting oracle track record (v0 reputation: per-address, unbonded) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-user-tie"></i> Betting Oracle <span id="oracle-address-title"></span>
+                </div>
+                <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                <tbody>
+                    <tr><th width="175">Address</th><td id="oracle-address"></td></tr>
+                    <tr><th>Markets Created</th><td id="oracle-total"></td></tr>
+                    <tr><th>Still Active</th><td id="oracle-active"></td></tr>
+                    <tr><th>Resolved</th><td id="oracle-resolved"></td></tr>
+                    <tr><th>Resolved Void</th><td id="oracle-void"></td></tr>
+                    <tr><th>Cancelled</th><td id="oracle-cancelled"></td></tr>
+                    <tr><th>Expired Unresolved</th><td id="oracle-expired"></td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <!-- The §5 caveat is REQUIRED on this page, not optional decoration: an
+                 empty history means unknown, not safe. -->
+            <div class="alert alert-warning" role="alert">
+                <i class="fa fa-triangle-exclamation"></i>
+                <strong>This record is per-address and is not backed by any stake.</strong>
+                Addresses are free to create, so an oracle with a bad history can simply
+                start again from a new one. An empty or short history means
+                <em>unknown</em>, not <em>safe</em>. There is no bonding, slashing, or
+                deposit behind a betting market: if an oracle never resolves, bettors get
+                their stakes back after the refund window, but nothing else is guaranteed.
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-coins"></i> Markets by this Oracle</div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-bet_feed">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Oracle</th>
+                        <th class="">Token</th>
+                        <th class="">Market</th>
+                        <th class="">Status</th>
+                        <th class="">Closes</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="9" class="loading-data">Loading market data...</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Betting Oracle ' + XC.query;
+    XC.pageInfo.description = 'Track record for betting oracle ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/oracle/' + XC.query;
+    updatePageInfo();
+
+    $('#oracle-address-title').text(XC.query);
+    $('#oracle-address').html(formatLink('/' + XC.coin + '/address/' + XC.query, XC.query));
+
+    $.getJSON('/' + XC.coin + '/api/oracle/' + XC.query, function(o){
+        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : null;
+        let c = (d && d.counts) ? d.counts : {};
+        let n = function(v){ return numeral(v || 0).format('0,0'); };
+        $('#oracle-total').text(d ? n(d.total_feeds) : '0');
+        $('#oracle-active').text(d ? n(d.active_feeds) : '0');
+        $('#oracle-resolved').text(n(c.resolved));
+        $('#oracle-void').text(n(c.resolved_void));
+        $('#oracle-cancelled').text(n(c.cancelled));
+        // An oracle that lets markets expire unresolved is the failure mode a bettor
+        // most needs to see, so it gets its own emphasized row rather than a footnote.
+        $('#oracle-expired').html(Number(c.expired || 0) > 0
+            ? '<span class="badge text-bg-danger">' + n(c.expired) + '</span>'
+            : n(c.expired));
+    });
+
+    // Every market this address has created
+    loadDatatablesData(XC.coin, 'bet_feed', XC.query, 'source');
+
+});
+</script>

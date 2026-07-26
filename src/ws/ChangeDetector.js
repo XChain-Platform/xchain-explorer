@@ -34,7 +34,13 @@ const LIFECYCLE_MAP = {
     'SWAP_EXPIRE':     ['SWAP_EXPIRED'],
     'DISPENSE':        ['DISPENSE'],
     'DISPENSER_CLOSE': ['DISPENSER_CLOSED'],
-    'DISPENSER_EXPIRE':['DISPENSER_EXPIRED']
+    'DISPENSER_EXPIRE':['DISPENSER_EXPIRED'],
+    // BET is ONE action name carrying four formats (create/cancel/place/resolve), so
+    // a single BET event type covers them all and consumers branch on action_format;
+    // BET_EXPIRE is the system refund pass's minted action. Both route to the
+    // `bet_feed` entity channel below, keyed on the PARENT feed's action_index.
+    'BET':             ['BET'],
+    'BET_EXPIRE':      ['BET_EXPIRED']
 };
 
 class ChangeDetector extends EventEmitter {
@@ -326,6 +332,21 @@ class ChangeDetector extends EventEmitter {
                     }
                 }
                 lifecycleEvent.channel = 'dispenser';
+            }
+
+            // Route BET-family events to the `bet_feed` entity channel, keyed on the
+            // PARENT market rather than the action itself, so a market page subscribed
+            // to one feed sees every bet placed on it plus its latch/resolve/cancel/
+            // expire transitions (§11.1). Same shape as the dispenser routing above.
+            if (actionType === 'BET' || actionType === 'BET_EXPIRE') {
+                try {
+                    lifecycleEvent.data.feed_action_index =
+                        await this.db.getBetActionFeedIndex(config, action.action_index);
+                } catch (e) {
+                    // Non-fatal: emit the base event with a null parent index
+                    lifecycleEvent.data.feed_action_index = null;
+                }
+                lifecycleEvent.channel = 'bet_feed';
             }
 
             this.emit('lifecycle_event', coin, lifecycleEvent);

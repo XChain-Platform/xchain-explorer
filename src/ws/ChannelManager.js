@@ -24,7 +24,10 @@
 const GLOBAL_CHANNELS = new Set(['blocks', 'actions', 'mempool', 'network', 'attestation']);
 
 // Valid entity channels (require params)
-const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser']);
+// bet_feed is action_index-keyed exactly like dispenser: one market per feed id,
+// carrying place / latch / resolve / cancel / expire events so a market page and a
+// wallet see live pools (§11.1).
+const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser', 'bet_feed']);
 
 // All valid channels
 const ALL_CHANNELS = new Set([...GLOBAL_CHANNELS, ...ENTITY_CHANNELS]);
@@ -383,6 +386,7 @@ class ChannelManager {
         // SUBSCRIBED (client value) and lost precision above 2^53; the v2 wire contract is
         // BIGINT-as-string (ws/schema-version.js:26-29).
         if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: parts[2] };
+        if (channel === 'bet_feed'  && parts.length > 2)  entityKey = { action_index: parts[2] };
 
         return { coin, channel, entityKey };
     }
@@ -429,15 +433,17 @@ class ChannelManager {
                 break;
 
             case 'dispenser':
+            case 'bet_feed':
                 // Normalize action_index to a canonical decimal STRING at the point of
                 // subscription so SUBSCRIBED, SUBSCRIPTION_LIST and UNSUBSCRIBED all carry
                 // the same representation (a client may send it as a number or a string).
+                // bet_feed shares this shape: the feed id IS its creating action_index.
                 if (params.action_indexes && Array.isArray(params.action_indexes)) {
                     for (const idx of params.action_indexes) keys.push({ action_index: String(idx) });
                 } else if (params.action_index !== undefined) {
                     keys.push({ action_index: String(params.action_index) });
                 } else {
-                    return { error: { code: 'INVALID_CHANNEL', message: 'dispenser channel requires action_index or action_indexes param' } };
+                    return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel requires action_index or action_indexes param` } };
                 }
                 break;
 

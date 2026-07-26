@@ -185,6 +185,10 @@ class XChainExplorer {
                 '/{COIN}/configs'            : 'configs.html',
                 '/{COIN}/telemetry_pings'    : 'telemetry_pings.html',
                 '/{COIN}/attestations'        : 'attestations.html',
+                '/{COIN}/bet_feeds'           : 'bet_feeds.html',
+                '/{COIN}/bets'                : 'bets.html',
+                '/{COIN}/bet_feed/{QUERY}'    : 'bet_feed.html',
+                '/{COIN}/oracle/{QUERY}'      : 'oracle.html',
                 '/{COIN}/polls'               : 'polls.html',
                 '/{COIN}/votes'               : 'votes.html',
                 '/{COIN}/xcalls'              : 'xcalls.html',
@@ -331,6 +335,15 @@ class XChainExplorer {
                 '/{COIN}/api/poll/{QUERY}/results'           : ['getPollResults',      'poll'],
                 '/{COIN}/api/votes/{QUERY}/{TYPE}'           : ['getVotes',            ['address', 'poll', 'block']],
                 '/{COIN}/api/votes'                          : ['getVotes'],
+                // BET endpoints (bet_feeds = format 0 markets, bets = format 2 wagers,
+                // oracle = per-address track record). The feed id IS the creating
+                // action_index, exactly like a poll id.
+                '/{COIN}/api/bet_feeds/{QUERY}/{TYPE}'       : ['getBetFeeds',   ['block', 'address', 'source', 'token', 'status']],
+                '/{COIN}/api/bet_feeds'                      : ['getBetFeeds'],
+                '/{COIN}/api/bet_feed/{QUERY}'               : ['getBetFeed',     'bet_feed'],
+                '/{COIN}/api/bets/{QUERY}/{TYPE}'            : ['getBets',       ['block', 'address', 'feed', 'token', 'status']],
+                '/{COIN}/api/bets'                           : ['getBets'],
+                '/{COIN}/api/oracle/{QUERY}'                 : ['getOracleStats', 'oracle'],
                 // ANCHOR checkpoint list (anchor_actions, read-only)
                 '/{COIN}/api/anchors/{QUERY}/{TYPE}'           : ['getAnchors',           ['block', 'chain', 'network', 'status']],
                 '/{COIN}/api/anchors'                          : ['getAnchors'],
@@ -430,6 +443,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/configs/{QUERY}/{TYPE}'                   : ['getConfigs',               ['coin', 'module']],
                 '/{COIN}/explorer/telemetry_pings/{QUERY}/{TYPE}'           : ['getTelemetryPings',        ['event', 'install', 'country']],
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
+                '/{COIN}/explorer/bet_feeds/{QUERY}/{TYPE}'                 : ['getBetFeeds',     ['block', 'address', 'source', 'token', 'status']],
+                '/{COIN}/explorer/bets/{QUERY}/{TYPE}'                      : ['getBets',         ['block', 'address', 'feed', 'token', 'status']],
                 '/{COIN}/explorer/polls/{QUERY}/{TYPE}'                     : ['getPolls',        ['block', 'tick', 'status', 'source']],
                 '/{COIN}/explorer/votes/{QUERY}/{TYPE}'                     : ['getVotes',        ['address', 'poll', 'block']],
                 '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
@@ -1187,6 +1202,14 @@ class XChainExplorer {
                     // is the source. action_index stays LAST (paging cursor; links the ballot action).
                     if(method=='getVotes')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.poll_index, info.choice, info.share, status, info.action_index];
+                    // BET market list page. The feed id IS action_index, which stays LAST
+                    // (the datatables client uses it as the paging offset cursor). Label is
+                    // attacker-controlled and is escaped client-side before it reaches the DOM.
+                    if(method=='getBetFeeds')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.label, info.feed_status, info.deadline, status, info.action_index];
+                    // BET wager list page. One row per placed bet; the bettor is the source.
+                    if(method=='getBets')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.feed_action_index, info.outcome, info.tick, info.amount, info.bet_status, status, info.action_index];
                     // XCALL cross-chain call list page (source request rows). action_index stays
                     // LAST (the datatables client uses it as the paging offset cursor).
                     if(method=='getXcalls')

@@ -917,6 +917,13 @@ class Database {
                 sql += ' AND a3.address=?';
             if(type=='source')
                 sql += ' AND a2.address=?';
+            // getDispensers only: the oracle lane answers "which dispensers price
+            // against this ORACLE_ADDRESS", which is what an oracle operator needs
+            // before republishing a quote (PC-30) and who pays them the 
+            // usage fee. Resolved by subselect rather than through the a5 join the
+            // row query uses, because the count query carries no a5.
+            if(type=='oracle' && method=='getDispensers')
+                sql += ' AND m.oracle_address_id=(SELECT id FROM index_addresses WHERE address=?)';
             if(type=='contract'){
                 if(['getContractStakes','getContractUnstakes','getContractDelegations','getSlashEvents'].includes(method))
                     sql += ' AND m.target_contract_index=?';
@@ -1016,8 +1023,8 @@ class Database {
         // token/subtoken searches paginate by fetch-and-slice (no action_index offsets)
         if(method=='getTokens' && ['token','subtoken'].includes(type))
             return [];
-        if(['address','token','block'].includes(type)){
-            if(type=='address')
+        if(['address','oracle','token','block'].includes(type)){
+            if(type=='address' || type=='oracle')
                 sql = `SELECT id FROM index_addresses WHERE address=? LIMIT 1`;
             if(type=='token')
                 sql = `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`;
@@ -1046,6 +1053,12 @@ class Database {
                     where = ` AND t1.source_id=?`;
                     whereArgs.push(id);
                 }
+            } else if(type=='oracle'){
+                // Paging boundary for the getDispensers oracle lane. The boundary
+                // query joins only m/a1/b1/t1, so filter on the dispenser row's own
+                // column rather than the a5 address join the row query uses.
+                where = ` AND m.oracle_address_id=?`;
+                whereArgs.push(id);
             } else if(type=='block' && !this.util.isNull(config.data.search)){
                 where = ` AND b1.block_index=?`;
                 whereArgs.push(this.util.sanitizeInt(config.data.search));
@@ -1257,7 +1270,7 @@ class Database {
      * /{COIN}/api/broadcasts/{QUERY}/{TYPE}         getBroadcasts       block, address
      * /{COIN}/api/callbacks/{QUERY}/{TYPE}          getCallbacks        block, address, token
      * /{COIN}/api/destroys/{QUERY}/{TYPE}           getDestroys         block, address, token
-     * /{COIN}/api/dispensers/{QUERY}/{TYPE}         getDispensers       block, address, token, source, destination
+     * /{COIN}/api/dispensers/{QUERY}/{TYPE}         getDispensers       block, address, token, source, destination, oracle
      * /{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}  getDispenserCancels block, address
      * /{COIN}/api/dispenser_closes/{QUERY}/{TYPE}   getDispenserCloses  block, address
      * /{COIN}/api/dispenser_expires/{QUERY}/{TYPE}  getDispenserExpires block, address

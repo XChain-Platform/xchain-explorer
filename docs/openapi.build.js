@@ -31,7 +31,7 @@ const ROUTES = [
     ['/{COIN}/api/callbacks/{QUERY}/{TYPE}', 'getCallbacks', ['block', 'address', 'token'], 'Action history', 'CALLBACK actions'],
     ['/{COIN}/api/destroys/{QUERY}/{TYPE}', 'getDestroys', ['block', 'address', 'token'], 'Action history', 'DESTROY actions (token burns)'],
     ['/{COIN}/api/dividends/{QUERY}/{TYPE}', 'getDividends', ['block', 'address', 'token'], 'Action history', 'DIVIDEND actions'],
-    ['/{COIN}/api/dispensers/{QUERY}/{TYPE}', 'getDispensers', ['block', 'address', 'source', 'destination', 'token'], 'Dispensers', 'DISPENSER actions (vending machines)'],
+    ['/{COIN}/api/dispensers/{QUERY}/{TYPE}', 'getDispensers', ['block', 'address', 'source', 'destination', 'token', 'oracle'], 'Dispensers', 'DISPENSER actions (vending machines)'],
     ['/{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}', 'getDispenserCancels', ['block', 'address'], 'Dispensers', 'Dispenser cancellations'],
     ['/{COIN}/api/dispenser_closes/{QUERY}/{TYPE}', 'getDispenserCloses', ['block', 'address'], 'Dispensers', 'Dispenser closes'],
     ['/{COIN}/api/dispenser_expires/{QUERY}/{TYPE}', 'getDispenserExpires', ['block', 'address'], 'Dispensers', 'Dispenser expirations'],
@@ -182,6 +182,11 @@ const SPECIAL = [
     ['/{COIN}/api/file/{ACTION_INDEX}/raw', 'Files', 'Raw FILE bytes (gated: ciphertext as octet-stream; non-gated: inline for safe media types)'],
     ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)'],
     ['/{COIN}/api/feeschedule', 'Fees', 'Fee schedule + oracle prices (proxied from the indexer)'],
+    // . This entry existed in the generated openapi.json but not here,
+    // so it was hand-written into the output and the next regeneration would
+    // have silently dropped it. Kept in the generator instead.
+    ['/{COIN}/api/oraclefeequote', 'Fees', 'Oracle usage fee quote for a Mode B dispenser (proxied from the indexer)',
+        'A dispenser naming an ORACLE_ADDRESS pays the oracle operator up front as a native-coin output, sized from the escrow the action adds. Returns requiredFeeNative / requiredFeeSats / belowDust. Backed by the same computation the indexer validates with, so an output sized from this quote is accepted.'],
     ['/{COIN}/api/preflight', 'Core', 'Validity-first pre-flight of an action against the current tip (would it be accepted); proxied from the indexer'],
     ['/{COIN}/api/checkpoints', 'Checkpoints', 'Latest quorum-signed state checkpoints for this chain'],
     ['/{COIN}/api/checkpoint/{BLOCK_INDEX}/verify', 'Checkpoints', 'Verify a checkpoint: 2f+1 signatures, canonical string, validator set'],
@@ -196,6 +201,7 @@ const SPECIAL = [
 const QUERY_DESC = {
     block: 'block height', address: 'an XChain address', source: 'source address',
     destination: 'destination address', token: 'a token tick', contract: 'contract action index',
+    oracle: "a dispenser's ORACLE_ADDRESS (PRICE v1 publisher)",
     execution: 'execution action index', action_index: 'action index', match: 'cross-chain match id',
     pair: 'COIN/FIAT pair (e.g. BTC/USD)', round: 'oracle round id', status: 'lifecycle status',
     chain: 'target chain (e.g. BTC, LTC, DOGE)', network: 'target network (mainnet, testnet, regtest)',
@@ -267,8 +273,13 @@ function operation([p, method, types, tag, summary]) {
 
 const paths = {};
 for (const r of ROUTES) paths[r[0]] = operation(r);
-for (const [p, tag, summary] of SPECIAL) {
+for (const [p, tag, summary, description] of SPECIAL) {
     paths[p] = operation([p, 'special_' + opId(p), null, tag, summary]);
+    // Optional 4th element: prose that does not fit a one-line summary. Added
+    // for oraclefeequote, whose entry had been hand-written into the generated
+    // file WITH a description the generator could not express, so regenerating
+    // silently dropped it.
+    if (description) paths[p].get.description = description;
     paths[p]['x-registered'] = 'express';   // direct app.get(), not the urls.api table
 }
 

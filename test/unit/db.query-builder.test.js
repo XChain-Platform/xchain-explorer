@@ -232,6 +232,20 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL AND a3.address=?');
     });
 
+    // --- type='oracle' (getDispensers only) --------------------------------
+
+    it('type=oracle on getDispensers: filters on the dispenser oracle_address_id', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getDispensers', 'oracle'));
+        expect(sql).to.equal('m.action_index IS NOT NULL AND m.oracle_address_id=(SELECT id FROM index_addresses WHERE address=?)');
+    });
+
+    // The a5 oracle-address join exists only on the getDispensers row query, so
+    // the lane must not leak onto sibling methods whose SQL has no such column.
+    it('type=oracle on getDispenses: appends nothing (lane is getDispensers-only)', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getDispenses', 'oracle'));
+        expect(sql).to.equal('m.action_index IS NOT NULL');
+    });
+
     // --- type='token' ------------------------------------------------------
 
     it('type=token on a standard method: appends AND t3.tick=?', async () => {

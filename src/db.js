@@ -237,23 +237,46 @@ class Database {
      * Database Connection Pool Functions
      *****************************************************************/
 
+    // Best-effort close of every DISTINCT pool handle held in the given maps.
+    // Entries are either {config, pool} wrappers (this.pools) or bare pools
+    // (this.decoderPools), and the setup loop deliberately assigns ONE pool
+    // object to several keys when they resolve to the same host/port/user/db, so
+    // handles are deduped by identity: end() must run once per handle, not once
+    // per key. Failures are swallowed because this runs on the way to replacing
+    // the map, and a pool that cannot be closed must not block the rebuild.
+    async _endPools(maps){
+        let seen = new Set();
+        for(let map of maps){
+            if(!map) continue;
+            for(let key in map){
+                let entry = map[key];
+                let pool  = (entry && entry.pool) ? entry.pool : entry;
+                if(!pool || typeof pool.end !== 'function' || seen.has(pool)) continue;
+                seen.add(pool);
+                try { await pool.end(); } catch(e){ /* best-effort */ }
+            }
+        }
+    }
+
     async setupConnectionPools(){
         let coinConfigs = await this.configInfo.getConfig()
 
-        // End previous pools before discarding the map. Without this, any
+        // End previous pools before discarding the maps. Without this, any
         // re-entry to setup (config refresh, manual reload) reassigns
         // this.pools and orphans the prior mariadb.createPool() handles;
         // their kept-alive connections linger until the explorer process
         // exits, and MariaDB hits its max_connections ceiling in minutes
         // once refresh is active.
-        if(this.pools){
-            for(let key in this.pools){
-                let oldPool = this.pools[key] && this.pools[key].pool;
-                if(oldPool && typeof oldPool.end === 'function'){
-                    try { await oldPool.end(); } catch(e){ /* best-effort */ }
-                }
-            }
-        }
+        //
+        // : decoderPools was missed when the guard above was first written,
+        // and it is the DEFAULT shape rather than an edge case, because
+        // xchain-node installs provision per-service DB users and so always take
+        // the dedicated-pool branch below. _rebuildPoolsIfStale() re-enters here
+        // as often as every 10s, so the omission leaked the decoder pool's 3
+        // connections per coin per rebuild: one live regtest explorer had
+        // accumulated 870 of that server's 1000 connections over four days, which
+        // surfaced as OTHER services being unable to connect at all.
+        await this._endPools([this.pools, this.decoderPools]);
 
         this.pools = {};
         // Per-coin decoder database name, used for the colocated-decoder reads

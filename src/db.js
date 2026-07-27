@@ -11844,8 +11844,59 @@ class Database {
         // Active = still able to take or settle bets. Kept explicit rather than
         // derived by the caller so the market list and the oracle page agree.
         let active = counts.open + counts.closed;
+        let fees   = await this.getOracleFeesEarned(config, config.data.search);
         return [{ address: config.data.search, total_feeds: total, active_feeds: active,
-                  counts, reputation_caveat: 'Per-address record with no bonding; addresses are free to create, so an empty history means unknown, not safe.' }];
+                  counts, fees_earned: fees,
+                  reputation_caveat: 'Per-address record with no bonding; addresses are free to create, so an empty history means unknown, not safe.' }];
+    }
+
+    // What an oracle has actually EARNED, per wager token (§11.1's "fees earned").
+    //
+    // The earning event is one ledger row and only one: settlement credits the feed
+    // source a single amount carrying the FEE percent of the pot PLUS the rounding
+    // dust (bet.js, §7), and only on the resolve path - a void, a cancel and an
+    // expiry all pay the oracle nothing. So the sum is over `credits` rows attached
+    // to a BET resolve action.
+    //
+    // The identity test is what makes it exact, and it is not decoration: a WINNING
+    // BETTOR's payout is also a credit inside that same resolve action, so filtering
+    // on the credited address alone would report other people's winnings as this
+    // address's fee income the moment it ever bet on someone else's market. Requiring
+    // the credited address to BE the address that submitted the resolve excludes them,
+    // because format 3 is owner-only and format 2 rejects a bet from the feed source,
+    // so within one resolve the oracle is credited exactly once and never as a bettor.
+    async getOracleFeesEarned(config, address){
+        let query = `SELECT
+                        tk.tick,
+                        count(*) as resolves,
+                        SUM(CAST(c.amount AS DECIMAL(65,18))) as amount
+                    FROM
+                        credits c
+                        INNER JOIN bet_resolves    br ON (br.action_index=c.action_index)
+                        INNER JOIN actions         a1 ON (a1.action_index=br.action_index)
+                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses ra ON (ra.id=t1.source_id)
+                        LEFT  JOIN index_addresses ca ON (ca.id=c.address_id)
+                        LEFT  JOIN index_tickers   tk ON (tk.id=c.tick_id)
+                    WHERE ca.address=? AND ra.address=?
+                    GROUP BY tk.tick
+                    ORDER BY tk.tick ASC`;
+        let rows = await this.doQuery(config, query, [address, address]) || [];
+        // DECIMAL(65,18) sums arrive with an 18-place tail whatever the token's own
+        // DECIMALS, so trim it here rather than in each renderer. Display only: no
+        // consensus path reads this method.
+        return rows.map(r => ({ tick: r.tick, resolves: Number(r.resolves),
+                                amount: this.trimAmountTail(r.amount) }));
+    }
+
+    // Strip the zero tail a DECIMAL sum leaves behind ('0.175000000000000000' ->
+    // '0.175'), leaving a whole number bare ('12.000...' -> '12'). Never touches a
+    // significant digit, and returns non-numeric input unchanged.
+    trimAmountTail(value){
+        if(this.util.isNull(value)) return '0';
+        let s = String(value);
+        if(!/^-?\d+\.\d+$/.test(s)) return s;
+        return s.replace(/0+$/, '').replace(/\.$/, '');
     }
 
     // List XCALL cross-chain call requests (xcalls table, VM-emitted, read-only).

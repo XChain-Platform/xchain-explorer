@@ -16,6 +16,7 @@
                     <tr><th>Resolved Void</th><td id="oracle-void"></td></tr>
                     <tr><th>Cancelled</th><td id="oracle-cancelled"></td></tr>
                     <tr><th>Expired Unresolved</th><td id="oracle-expired"></td></tr>
+                    <tr><th>Fees Earned</th><td id="oracle-fees"></td></tr>
                 </tbody>
                 </table>
             </div>
@@ -86,6 +87,22 @@ $(document).ready(function() {
         $('#oracle-expired').html(Number(c.expired || 0) > 0
             ? '<span class="badge text-bg-danger">' + n(c.expired) + '</span>'
             : n(c.expired));
+
+        // Fees earned, per wager token. The TICK is a user-created token name and so
+        // is attacker-controlled: it reaches the DOM only through .text().
+        let fees = (d && Array.isArray(d.fees_earned)) ? d.fees_earned : [];
+        if(!fees.length){
+            $('#oracle-fees').text('None yet');
+        } else {
+            let $wrap = $('<div>');
+            fees.forEach(function(f){
+                $wrap.append($('<div>').text(String(f.amount) + ' ' + String(f.tick == null ? '' : f.tick)));
+            });
+            // The amount is the oracle's cut PLUS the rounding remainder, which is how
+            // settlement pays it: one credit, not two (§7).
+            $wrap.append($('<div class="text-muted small">').text('Oracle fee plus rounding remainder, paid on settlement only.'));
+            $('#oracle-fees').empty().append($wrap);
+        }
     });
 
     // Every market this address has created

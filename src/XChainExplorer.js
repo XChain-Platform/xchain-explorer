@@ -37,6 +37,7 @@ const ckpt             = require('./checkpoint_commitment_activation.js');
 const ProofServer      = require('./proofServer.js');
 const rateLimit        = require('express-rate-limit');
 const vmQuery          = require('./vm-query.js');
+const fontawesomeKit   = require('./fontawesome-kit.js');
 
 let slowRequests = 0;
 
@@ -475,6 +476,12 @@ class XChainExplorer {
             res.set('Cache-Control', 'public, max-age=3600');
             res.type('application/json').send(this.openapiSpec);
         });
+
+        // The Font Awesome kit is assembled per request from the vendored loader
+        // plus a deploy-time account config, because the kit token is a credential
+        // that must not sit in a public repo . Registered before the /js
+        // static mount so this route, not a file on disk, answers the request.
+        this.app.get('/js/fontawesome-kit.js', (req, res) => { fontawesomeKit.serve(req, res); });
 
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))

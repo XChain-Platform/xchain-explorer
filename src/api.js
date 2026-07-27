@@ -32,6 +32,7 @@ const WebSocketServer = require('./ws/WebSocketServer.js');
 const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
+const fontawesomeKit  = require('./fontawesome-kit.js');
 
 dotenv.config();
 
@@ -40,6 +41,13 @@ const xchainHubConnector = require('./XChainHubConnector');
 const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
+
+// Font Awesome origins are added to the CSP only when a kit is actually
+// configured for this deployment; see src/fontawesome-kit.js .
+const FA_KIT_ENABLED = fontawesomeKit.buildKitConfig(process.env) !== null;
+const FA_CONNECT_SRC = FA_KIT_ENABLED ? ["https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"] : [];
+const FA_STYLE_SRC   = FA_KIT_ENABLED ? ["https://ka-p.fontawesome.com", "https://kit.fontawesome.com"] : [];
+const FA_FONT_SRC    = FA_KIT_ENABLED ? ["https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com"] : [];
 
 async function startApi(){
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
@@ -71,12 +79,14 @@ async function startApi(){
                 // data: URIs are required for QR code generation; https: allows external images in token descriptions
                 imgSrc:      ["'self'", "data:", "https:"],
                 // FontAwesome kit fetches CSS from ka-p.fontawesome.com and kit.fontawesome.com,
-                // and icon data from ka-f.fontawesome.com via XHR/fetch
-                connectSrc:  ["'self'", "wss:", "ws:", "https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
+                // and icon data from ka-f.fontawesome.com via XHR/fetch. The kit is only loaded
+                // when this deployment supplies a kit token , so a deployment running
+                // without one never has to allow those origins at all.
+                connectSrc:  ["'self'", "wss:", "ws:", ...FA_CONNECT_SRC],
                 // FontAwesome dynamically injects CSS from ka-p and kit subdomains
-                styleSrc:    ["'self'", "'unsafe-inline'", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"],
+                styleSrc:    ["'self'", "'unsafe-inline'", ...FA_STYLE_SRC],
                 // FontAwesome kit loads web fonts from ka-f.fontawesome.com
-                fontSrc:     ["'self'", "https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com"],
+                fontSrc:     ["'self'", ...FA_FONT_SRC],
                 // Token descriptions can embed YouTube and SoundCloud players
                 frameSrc:    ["'self'", "https://www.youtube.com", "https://w.soundcloud.com"],
                 // Block all plugins (Flash, etc.)

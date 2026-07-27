@@ -23,6 +23,8 @@ const mariadb = require('mariadb');
 const DecoderConnector = require('./XChainDecoderConnector.js');
 const { extractMethods } = require('./contract-introspect.js');
 const coinsRegistry = require('./coins');
+const poolSizing = require('./poolSizing');
+const listEditResolution = require('./list_edit_resolution_activation');
 
 // Raised by doQuery when the underlying query genuinely FAILED (connection
 // unavailable after retries, or the DB rejected the statement), as opposed to
@@ -341,14 +343,18 @@ class Database {
                                     user:     cfg.user,
                                     password: cfg.pass,
                                     database: cfg.name,
-                                    // Connection options. 10 matches xchain-indexer,
-                                    // xchain-decoder, and xchain-hub; the previous 25
-                                    // pushed total demand past MariaDB's default
-                                    // max_connections=151 once 3+ coins were active.
-                                    connectionLimit:  10,
+                                    // Connection options. The indexer default of 10
+                                    // matches xchain-indexer, xchain-decoder, and
+                                    // xchain-hub; the previous 25 pushed total demand
+                                    // past MariaDB's default max_connections=151 once
+                                    // 3+ coins were active. Sized per dbType via
+                                    // DB_POOL_SIZE_INDEXER (see poolSizing.js), since
+                                    // the indexer and decoder pools carry very
+                                    // different loads.
+                                    connectionLimit:  poolSizing.resolvePoolSize('indexer'),
                                     //connectTimeout: 0,
                                     insertIdAsNumber: true,
-                                    queryTimeout:     parseInt(process.env.DB_QUERY_TIMEOUT) || 30000
+                                    queryTimeout:     poolSizing.resolveQueryTimeout('indexer')
                                 }
                             };
                             // Reuse an existing pool ONLY when it targets the SAME database too.
@@ -397,11 +403,16 @@ class Database {
                                             user:             dcfg.user,
                                             password:         dcfg.pass,
                                             database:         dcfg.name,
-                                            // Small pool: decoder reads are low-volume
-                                            // (status tip, mempool page, raw FILE bytes).
-                                            connectionLimit:  3,
+                                            // Smaller than the indexer pool: decoder
+                                            // reads are low-volume (status tip, mempool
+                                            // page, raw FILE bytes). Tunable on its own
+                                            // via DB_POOL_SIZE_DECODER, because at the
+                                            // old hardcoded 3 a busy mempool/FILE view
+                                            // queued behind three connections with no
+                                            // knob to raise it.
+                                            connectionLimit:  poolSizing.resolvePoolSize('decoder'),
                                             insertIdAsNumber: true,
-                                            queryTimeout:     parseInt(process.env.DB_QUERY_TIMEOUT) || 30000
+                                            queryTimeout:     poolSizing.resolveQueryTimeout('decoder')
                                         });
                                     }
                                 }
@@ -622,6 +633,18 @@ class Database {
             if(count){
                 let rows = await this.doQuery(config, count, baseArgs);
                 total = (rows) ? Number(rows[0].total) : 0;
+            }
+        }
+        // : the dispenser list lane served no escrow at all, so a client
+        // listing dispensers could not say how full any of them was. give_escrow
+        // now comes back with the row and the live remainder is derived here
+        // through the same shared method the per-action detail path uses (one
+        // batched pass for the whole page, not a query per row).
+        if(config.data.method=='getDispensers' && Array.isArray(data) && data.length){
+            let escrow = await this.getDispenserEscrowBatch(config, data.map((r) => r.action_index));
+            for(let row of data){
+                let entry = escrow[String(row.action_index)];
+                row.escrow_remaining = (entry) ? entry.escrow_remaining : null;
             }
         }
         // Populate the result cache (items 5338, ). Cap each map and evict the
@@ -1709,6 +1732,7 @@ class Database {
                         c1.coin as give_coin,
                         t3.tick as give_tick,
                         m.give_amount,
+                        m.give_escrow,
                         m.give_ownership,
                         c2.coin as get_coin,
                         t4.tick as get_tick,
@@ -4615,6 +4639,177 @@ class Database {
         return m ? { pubkey: m[1] } : null;
     }
 
+    // Split a route code ('BTC' / 'TBTC' / 'RDOGE') into its base coin and
+    // network. Prefixed networks are tested first so 'TBTC' is not read as a
+    // mainnet coin literally named 'TBTC'. Returns null when the code names no
+    // configured coin, which callers must treat as "cannot mirror consensus
+    // here" rather than as mainnet.
+    // @param {config}  object  request config carrying the route code in .coin
+    async _resolveCoinNetwork(config){
+        let code = String((config && config.coin) || '').toUpperCase();
+        if(!code) return null;
+        let full     = await this.configInfo.getConfig();
+        let networks = full['COIN_NETWORKS'] || {};
+        let prefixes = full['COIN_PREFIXES'] || { mainnet: '', testnet: 'T', regtest: 'R' };
+        for(let network in prefixes){
+            let p = prefixes[network];
+            if(p && code.startsWith(p)){
+                let base = code.slice(p.length);
+                if(networks[base]) return { coin: base, network };
+            }
+        }
+        return networks[code] ? { coin: code, network: 'mainnet' } : null;
+    }
+
+    // Walk a SET of LIST references up to the CREATE actions that root their edit
+    // chains, one query per hop for the whole set instead of one per list.
+    // Mirrors the indexer's db.getListRootIndex: an edit row carries the index of
+    // the list it edits in lists.list_action_index and a create carries NULL, and
+    // the hop count is bounded so a malformed chain cannot spin. The frontier is
+    // deduped every hop, and a chain that revisits an index it has already stood on
+    // stops there, so a cycle costs one wasted hop rather than looping.
+    // @param {action_indexes}  array  ACTION_INDEXes of LIST creates or edits
+    // @return {object}  map of String(input index) -> root action_index (number)
+    async getListRootIndexes(config, action_indexes){
+        let roots   = {};   // input index -> the index the walk currently stands on
+        let seen    = {};   // input index -> set of indexes already visited
+        let pending = {};   // input indexes whose walk has not terminated
+        for(let action_index of (action_indexes || [])){
+            let n = Number(action_index);
+            if(!Number.isFinite(n)) continue;
+            let key = String(n);
+            if(key in roots) continue;
+            roots[key] = n;
+            seen[key]  = {};
+            pending[key] = true;
+        }
+        for(let hop = 0; hop < 16; hop++){
+            let keys = Object.keys(pending);
+            if(keys.length == 0) break;
+            let frontier = [...new Set(keys.map(key => roots[key]))];
+            let rows = await this.doQuery(config, 'SELECT action_index, list_action_index FROM lists WHERE action_index IN (' +
+                                                  frontier.map(() => '?').join(',') + ')', frontier);
+            let parents = {};
+            for(let row of (rows || [])) parents[String(Number(row['action_index']))] = row['list_action_index'];
+            for(let key of keys){
+                let at = String(roots[key]);
+                // Already stood here on an earlier hop: the chain is cyclic, stop.
+                if(seen[key][at]){ delete pending[key]; continue; }
+                seen[key][at] = true;
+                // No row (dangling reference) or a NULL parent (a create): this is the root.
+                if(!(at in parents) || this.util.isNull(parents[at])){ delete pending[key]; continue; }
+                roots[key] = Number(parents[at]);
+            }
+        }
+        return roots;
+    }
+
+    // Walk a LIST reference up to the CREATE action that roots its edit chain.
+    // @param {action_index}  integer  ACTION_INDEX of any LIST create or edit
+    async getListRootIndex(config, action_index){
+        let roots = await this.getListRootIndexes(config, [action_index]);
+        let key   = String(Number(action_index));
+        return (key in roots) ? roots[key] : action_index;
+    }
+
+    // Resolve a SET of LIST references to the actions whose list_items rows ARE
+    // those lists' CURRENT membership, in a bounded number of queries regardless
+    // of set size. Mirrors the indexer's db.getListHeadIndex per list, including
+    // the ordering (the newest valid action in the chain; action_index is unique
+    // and monotonic, so MAX is the same total order as ORDER BY DESC LIMIT 1) and
+    // the valid-only filter, so the explorer displays the membership the chain
+    // actually enforces. A chain with no valid edits resolves to its own root.
+    // @param {action_indexes}  array  ACTION_INDEXes of LIST creates or edits
+    // @return {object}  map of String(input index) -> head action_index (number)
+    async getListHeadIndexes(config, action_indexes){
+        let roots    = await this.getListRootIndexes(config, action_indexes);
+        let distinct = [...new Set(Object.values(roots))];
+        if(distinct.length == 0) return roots;
+        let query = `SELECT
+                        l.list_action_index AS root,
+                        MAX(l.action_index) AS head
+                    FROM
+                        lists l
+                        INNER JOIN index_statuses s ON (s.id=l.status_id)
+                    WHERE
+                        l.list_action_index IN (` + distinct.map(() => '?').join(',') + `)
+                        AND s.status='valid'
+                    GROUP BY l.list_action_index`;
+        let rows  = await this.doQuery(config, query, distinct);
+        let heads = {};
+        for(let row of (rows || [])) heads[String(Number(row['root']))] = Number(row['head']);
+        let out = {};
+        for(let key in roots){
+            let root = String(roots[key]);
+            out[key] = (root in heads) ? heads[root] : roots[key];
+        }
+        return out;
+    }
+
+    // Resolve a LIST reference to the action whose list_items rows ARE the list's
+    // CURRENT membership: the newest VALID action in its edit chain, or the create
+    // itself when it has no valid edits.
+    // @param {action_index}  integer  ACTION_INDEX of any LIST create or edit
+    async getListHeadIndex(config, action_index){
+        let heads = await this.getListHeadIndexes(config, [action_index]);
+        let key   = String(Number(action_index));
+        return (key in heads) ? heads[key] : action_index;
+    }
+
+    // Is the  list-edit read resolution active for this coin at the CURRENT
+    // TIP? Every display that resolves an edit chain asks this first, because
+    // below the flag day consensus still reads the pinned create's rows and the
+    // explorer must not advertise a rule the chain is not applying yet. An
+    // unresolvable coin/network is treated as inactive (the safe side).
+    async _isListEditResolutionActiveAtTip(config){
+        let resolved = null;
+        try {
+            resolved = await this._resolveCoinNetwork(config);
+        } catch(e){ /* config momentarily unavailable: fall through to inactive */ }
+        if(!resolved) return false;
+        let tip = await this.getMaxBlockIndex(config);
+        return listEditResolution.isListEditResolutionActive(tip, resolved.network, resolved.coin);
+    }
+
+    // Current membership of the list a LIST action belongs to ( display leg).
+    //
+    // A LIST edit writes the resulting membership under the EDIT's own
+    // action_index and never touches the parent's rows, so the create's
+    // list_items are its create-time snapshot forever. Consumers pin a list by
+    // its CREATE index - a bet feed's ALLOW_LIST is exactly that - so the page a
+    // "who may bet on this market" link lands on was showing membership the chain
+    // had already stopped enforcing.
+    //
+    // Gated on the same per-chain flag day as the indexer's read path, evaluated
+    // against the TIP, because below the height consensus still reads the create's
+    // rows and the explorer must not advertise a rule the chain is not applying
+    // yet. An unresolvable coin/network is treated as inactive (the safe side).
+    // @param {action_index}  integer  ACTION_INDEX of the LIST action being viewed
+    // @param {type}          integer  list type (1 = tick, 2 = address)
+    async getListCurrentMembership(config, action_index, type){
+        let active = await this._isListEditResolutionActiveAtTip(config);
+        let state  = { edit_resolution_active: active, membership_action_index: Number(action_index), current_list: null };
+        if(!active) return state;
+        let head = await this.getListHeadIndex(config, action_index);
+        state.membership_action_index = Number(head);
+        let rows = await this.doQuery(config, `SELECT
+                        a1.address,
+                        t1.tick
+                    FROM
+                        list_items l1
+                        LEFT JOIN index_addresses a1 ON (a1.id=l1.item_id)
+                        LEFT JOIN index_tickers   t1 ON (t1.id=l1.item_id)
+                    WHERE
+                        l1.action_index=?`, [head]);
+        let items = [];
+        for(let row of (rows || [])){
+            if(Number(type) == 1) items.push(row.tick);
+            if(Number(type) == 2) items.push(row.address);
+        }
+        state.current_list = items.sort();
+        return state;
+    }
+
     async getActionData(config, action_index){
         // Check LRU cache first. Action data is immutable once confirmed, but a
         // reorg can reassign action_index, so the key carries coin + reorg
@@ -4939,9 +5134,11 @@ class Database {
                             )) AND
                             d1.action_index=?
                         LIMIT 1`;
-                // Get a list of dispenser edits
+                // Get a list of dispenser edits. Escrow is NOT derived from these rows
+                // any more: give_escrow / escrow_remaining come from the shared
+                // getDispenserEscrowBatch , so this lane only carries the
+                // expiration and allow/block-list edits into state.
                 query2 = `SELECT
-                            m.give_escrow,
                             m.expiration,
                             m.allow_list,
                             m.block_list
@@ -4952,16 +5149,6 @@ class Database {
                             m.dispenser_action_index=? AND
                             s.status='valid'
                         ORDER BY action_index ASC`;
-                // Get a list of dispenses
-                query3 = `SELECT
-                            m.give_amount
-                        FROM
-                            dispenses m
-                            INNER JOIN index_statuses s ON (s.id=m.status_id)
-                        WHERE
-                            dispenser_action_index=? AND
-                            s.status='valid'
-                        ORDER BY m.action_index ASC`;
             }
             if(type=='DISPENSER_CLOSE'){
                 query = `SELECT
@@ -6107,11 +6294,15 @@ class Database {
                             a1.action_index=?
                         LIMIT 1`;
             }
-            // BET action. One action name over four formats: 0 create-feed -> bet_feeds,
-            // 2 place-bet -> bets, and 1 cancel / 3 resolve write NO row of their own
-            // (they flip the parent feed and append a bet_feed_statuses row). LEFT JOIN
-            // the two row-owning tables here; the cancel/resolve parent is resolved in
-            // post-processing, which also sets bet_kind so the client knows the shape.
+            // BET action. One action name over four formats, each owning its own row:
+            // 0 create-feed -> bet_feeds, 2 place-bet -> bets, 1 cancel -> bet_cancels,
+            // 3 resolve -> bet_resolves. The cancel/resolve tables carry the leg's PARSE
+            // status and are written whatever it is , which is what makes a
+            // chain-REJECTED cancel or resolve reportable: those legs used to write only
+            // a bet_feed_statuses row and only when valid, so this query returned a NULL
+            // status and the SDK could not tell a rejection from a success. Their
+            // feed_action_index is kept in its OWN alias, never coalesced onto the bets
+            // column, because post-processing disambiguates the shapes off that column.
             // Mirrors the VOTE multi-table + row-less-format handling above.
             if(type=='BET'){
                 query = `SELECT
@@ -6139,12 +6330,15 @@ class Database {
                             bt.amount,
                             bt.settled_block,
                             bbs.status as bet_status,
+                            -- cancel (format 1) / resolve (format 3) legs
+                            bc.feed_action_index as cancel_feed_ref,
+                            br.feed_action_index as resolve_feed_ref,
                             COALESCE(ft.tick, bt2.tick) as tick,
                             b1.block_index,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
                             t1.tx_index,
-                            COALESCE(fs.status, bs.status) as status
+                            COALESCE(fs.status, bs.status, bcs.status, brs.status) as status
                         FROM
                             actions a1
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
@@ -6160,6 +6354,10 @@ class Database {
                             LEFT  JOIN index_tickers      bt2 ON (bt2.id=bt.tick_id)
                             LEFT  JOIN index_statuses     bs ON (bs.id=bt.status_id)
                             LEFT  JOIN index_statuses     bbs ON (bbs.id=bt.bet_status_id)
+                            LEFT  JOIN bet_cancels        bc ON (bc.action_index=a1.action_index)
+                            LEFT  JOIN index_statuses     bcs ON (bcs.id=bc.status_id)
+                            LEFT  JOIN bet_resolves       br ON (br.action_index=a1.action_index)
+                            LEFT  JOIN index_statuses     brs ON (brs.id=br.status_id)
                         WHERE
                             a1.action_index=?
                         LIMIT 1`;
@@ -6774,7 +6972,13 @@ class Database {
                 }
                 delete data['current_status'];
                 if(type=='DISPENSER'){
-                   data.state.give_remaining = data['give_escrow'];
+                   // : one shared derivation for both read lanes. What is left in
+                   // escrow is create + refills - payouts, and this path used to compute
+                   // it inline from its own edit/dispense queries while the list lane
+                   // served nothing at all.
+                   let escrow = await this.getDispenserEscrowBatch(config, [action_index]);
+                   let entry  = escrow[String(action_index)];
+                   data.state.give_remaining = (entry) ? entry.escrow_remaining : null;
                    delete data.state.get_remaining;
                 }
             }
@@ -6880,9 +7084,16 @@ class Database {
                     data['bet_kind'] = 'bet';
                     data['feed_ref'] = data['feed_action_index'];
                 } else {
-                    // Format 1 (cancel) / 3 (resolve): row-less. The status row this action
-                    // wrote names the feed it acted on and the status it drove the feed to.
+                    // Format 1 (cancel) / 3 (resolve). The leg's own row (bet_cancels /
+                    // bet_resolves) names the feed it targeted and is present whatever the
+                    // parse status, so it is the fallback that makes a REJECTED leg point
+                    // at its feed. The bet_feed_statuses row is preferred when it exists
+                    // because it additionally carries the status the leg drove the feed to,
+                    // but it is written only on the valid path.
                     data['bet_kind'] = (fmt === 1) ? 'cancel' : (fmt === 3 ? 'resolve' : 'unknown');
+                    let legRef = this.util.isNull(data['cancel_feed_ref']) ? data['resolve_feed_ref'] : data['cancel_feed_ref'];
+                    if(!this.util.isNull(legRef))
+                        data['feed_ref'] = legRef;
                     let srow = await this.doQuery(config,
                         `SELECT fst.feed_action_index, s.status AS feed_status
                            FROM bet_feed_statuses fst
@@ -6894,6 +7105,9 @@ class Database {
                         data['feed_status'] = srow[0].feed_status;
                     }
                 }
+                // The cancel/resolve feed refs are plumbing for the branch above; the
+                // payload exposes one `feed_ref` for every shape.
+                delete data['cancel_feed_ref']; delete data['resolve_feed_ref'];
                 // Strip the columns belonging to the OTHER shape so the payload never
                 // carries a half-populated sibling (a null `amount` on a create reads
                 // like a zero-stake bet).
@@ -7082,9 +7296,8 @@ class Database {
                         for(let row of results){
                             let active = true;
                             if(type=='DISPENSER'){
-                                // Update state with any additional tokens escrowed in dispenser edits
-                                if(!this.util.isNull(row.give_escrow))
-                                    data.state.give_remaining = String(this.util.bcadd(data.state.give_remaining, row.give_escrow));
+                                // Escrow is derived by getDispenserEscrowBatch above ;
+                                // this loop only advances the expiration / list state.
                                 // Determine if the allow/block list edits are active using DISPENSER_LIST_DELAY.
                                 // Use a bignumber comparison (matching the indexer's bcgt-based consensus check)
                                 // rather than a JS '>' on mixed Number/bignumber operands.
@@ -7125,13 +7338,19 @@ class Database {
                         data.state.give_remaining = String(give_remaining);
                         data.state.get_remaining  = String(get_remaining);
                     }
-                    // Determine give_remaining by subtracting any amounts given out in dispenses
-                    if(type=='DISPENSER'){
-                        for(let row of results)
-                            data.state.give_remaining = String(this.util.bcsub(data.state.give_remaining, row.give_amount));
-                    }
                 }
             }
+            // : `list` above is the membership THIS action wrote, which for a
+            // create is its create-time snapshot and for an edit is that edit's
+            // result. Current membership lives under the head of the edit chain, so
+            // it is derived here and lands in `state` for two reasons: it is
+            // recomputed from rows written AFTER this action (the same shape as
+            // DISPENSER/ORDER/SWAP state), and `state` is precisely what the
+            // _isCacheableAction guard keys on. Without it the LRU would serve one
+            // membership for the life of the process and every later edit would be
+            // invisible, which is the  failure re-run on a new field.
+            if(type=='LIST')
+                data.state = await this.getListCurrentMembership(config, action_index, data.type);
             if(credits){
                 query = `SELECT
                             a1.address,
@@ -7881,6 +8100,102 @@ class Database {
         return [give_remaining, get_remaining];
     }
 
+    // Render a derived amount as a plain decimal string. mathjs bignumbers
+    // stringify to exponential notation below 1e-7 ('3e-8'), which no client
+    // parses as an amount, so 18-decimal dust would render unusable.
+    _amountString(value){
+        if(this.util.isNull(value)) return null;
+        return (value && typeof value.toFixed === 'function') ? value.toFixed() : String(value);
+    }
+
+    /**
+     * Live escrow for one or more dispensers .
+     *
+     * The ONLY dispenser-escrow derivation in this service. A dispenser holds no
+     * escrow column: what is left is the valid create row's GIVE_ESCROW, plus the
+     * top-up every valid DISPENSER_EDIT added, minus what every valid DISPENSE
+     * paid out. That is consensus-sensitive arithmetic (the indexer's
+     * getDispenserAmountRemaining is its mirror, down to the 64-digit precision
+     * and the valid-status filters), so both explorer read lanes - the per-action
+     * detail path and the getDispensers list path - call this instead of each
+     * rolling its own SQL, and the two can never disagree about how full a
+     * dispenser is.
+     *
+     * @param   {Object} config          request config (carries the coin/pool)
+     * @param   {Array}  action_indexes  dispenser action_index values
+     * @returns {Object} map keyed by String(action_index) ->
+     *                   { give_escrow, escrow_remaining } (both decimal strings,
+     *                   give_escrow null for an ownership dispenser, which escrows
+     *                   no amount at all)
+     */
+    async getDispenserEscrowBatch(config, action_indexes){
+        let map = {};
+        if(!Array.isArray(action_indexes) || !action_indexes.length)
+            return map;
+        // action_index is a BIGINT that reaches callers as either a Number or a
+        // String depending on the driver path, so key on String and de-dupe: a
+        // list page can repeat an index and must not bind it twice.
+        let idxs = [...new Set(action_indexes.filter((x) => !this.util.isNull(x)).map((x) => String(x)))];
+        if(!idxs.length)
+            return map;
+        let ph = idxs.map(() => '?').join(',');
+        // Opening balance: the create row's escrow. Filtered to valid rows the
+        // same way the indexer filters it - an invalid DISPENSER escrows nothing.
+        let query = `SELECT
+                        d.action_index,
+                        d.give_escrow
+                    FROM
+                        dispensers d
+                        INNER JOIN index_statuses s ON (s.id=d.status_id)
+                    WHERE
+                        d.action_index IN (` + ph + `) AND
+                        s.status=?`;
+        let rows = await this.doQuery(config, query, [...idxs, 'valid']);
+        for(let row of (rows || [])){
+            let escrow = this.util.isNull(row.give_escrow) ? null : row.give_escrow;
+            map[String(row.action_index)] = { give_escrow: escrow, escrow_remaining: escrow };
+        }
+        // Refills: every valid DISPENSER_EDIT that topped GIVE_ESCROW up.
+        query = `SELECT
+                    m.dispenser_action_index,
+                    m.give_escrow
+                FROM
+                    dispenser_edits m
+                    INNER JOIN index_statuses s ON (s.id=m.status_id)
+                WHERE
+                    m.dispenser_action_index IN (` + ph + `) AND
+                    s.status=?
+                ORDER BY m.action_index ASC`;
+        rows = await this.doQuery(config, query, [...idxs, 'valid']);
+        for(let row of (rows || [])){
+            let entry = map[String(row.dispenser_action_index)];
+            if(entry && !this.util.isNull(row.give_escrow))
+                entry.escrow_remaining = this.util.bcadd(entry.escrow_remaining, row.give_escrow, 64);
+        }
+        // Payouts: every valid DISPENSE this dispenser served.
+        query = `SELECT
+                    m.dispenser_action_index,
+                    m.give_amount
+                FROM
+                    dispenses m
+                    INNER JOIN index_statuses s ON (s.id=m.status_id)
+                WHERE
+                    m.dispenser_action_index IN (` + ph + `) AND
+                    s.status=?
+                ORDER BY m.action_index ASC`;
+        rows = await this.doQuery(config, query, [...idxs, 'valid']);
+        for(let row of (rows || [])){
+            let entry = map[String(row.dispenser_action_index)];
+            if(entry && !this.util.isNull(row.give_amount))
+                entry.escrow_remaining = this.util.bcsub(entry.escrow_remaining, row.give_amount, 64);
+        }
+        for(let key of Object.keys(map)){
+            map[key].give_escrow      = this._amountString(map[key].give_escrow);
+            map[key].escrow_remaining = this._amountString(map[key].escrow_remaining);
+        }
+        return map;
+    }
+
     /******************************************************************
      * Batch query methods (eliminate N+1 patterns)
      *****************************************************************/
@@ -8345,8 +8660,19 @@ class Database {
      ******************************************************************/
 
     // Resolve a project tick's current roster. Returns
-    // { roster_action_index, link_action_index, total } or null when the
-    // tick has never had an owner-valid roster link.
+    // { roster_action_index, membership_action_index, link_action_index, total }
+    // or null when the tick has never had an owner-valid roster link.
+    //
+    // roster_action_index is what the LINK pinned (the list's identity, and the
+    // index the UI links to); membership_action_index is the action whose
+    // list_items rows are the roster's CURRENT membership. Those differ once the
+    // list has been edited, because a LIST edit writes the resulting membership
+    // under the EDIT's own action_index and never touches the parent's rows
+    // . Every roster consumer below reads members through the membership
+    // index, so a project that dropped or added a token shows the roster the
+    // chain is enforcing rather than the one it shipped with. Flag-day gated at
+    // the tip by _isListEditResolutionActiveAtTip, so below the height the two
+    // indexes are equal and the legacy create-index read runs unchanged.
     async getProjectRosterInfo(config, tick){
         let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
         if(this.util.isNull(chain) || this.util.isNull(tick)) return null;
@@ -8368,11 +8694,14 @@ class Database {
         let rows = await this.doQuery(config, query, [chain, chain, tick]);
         if(!rows || !rows.length) return null;
         let info = {
-            roster_action_index: Number(rows[0].roster_action_index),
-            link_action_index:   Number(rows[0].link_action_index),
+            roster_action_index:     Number(rows[0].roster_action_index),
+            membership_action_index: Number(rows[0].roster_action_index),
+            link_action_index:       Number(rows[0].link_action_index),
             total: 0
         };
-        let count = await this.doQuery(config, `SELECT count(*) AS total FROM list_items WHERE action_index=?`, [info.roster_action_index]);
+        if(await this._isListEditResolutionActiveAtTip(config))
+            info.membership_action_index = Number(await this.getListHeadIndex(config, info.roster_action_index));
+        let count = await this.doQuery(config, `SELECT count(*) AS total FROM list_items WHERE action_index=?`, [info.membership_action_index]);
         if(count && count.length)
             info.total = Number(count[0].total);
         return info;
@@ -8380,15 +8709,23 @@ class Database {
 
     // Projects whose CURRENT roster includes the given tick (the reverse
     // lookup behind the token-page "Official: part of X" banner). A project
-    // whose latest roster dropped the tick does not match.
+    // whose latest roster dropped the tick does not match - which, once
+    //  edit resolution is live, includes a roster that dropped it by LIST
+    // EDIT and not only one replaced by a newer LINK. The edit's membership
+    // lives under the EDIT's action_index, so the membership join has to run
+    // against each project's resolved chain head, not the index the LINK pinned.
+    //
+    // That head is per-project, so the membership filter moves out of SQL: the
+    // candidate query returns one row per project (exactly the row count the old
+    // inner GROUP BY already produced), heads resolve for the whole set in a
+    // bounded number of queries, and one final query asks which of those heads
+    // list the tick. Below the flag day the original single-query form runs
+    // unchanged, because consensus is still reading the pinned create's rows.
     async getTokenProjects(config, tick){
         let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
         if(this.util.isNull(chain) || this.util.isNull(tick)) return [];
-        let query = `SELECT
-                        t1.tick                AS project,
-                        latest.link_action_index,
-                        lk.coin1_action_index  AS roster_action_index
-                    FROM (
+        // Latest owner-valid roster LINK per project, newest link first.
+        let latestRosterLinks = `FROM (
                         SELECT
                             i1.tick_id,
                             MAX(l.action_index) AS link_action_index
@@ -8403,18 +8740,50 @@ class Database {
                             INNER JOIN index_statuses s3 ON (s3.id=ls.status_id AND s3.status='valid')
                         GROUP BY i1.tick_id
                     ) latest
-                        INNER JOIN links          lk ON (lk.action_index=latest.link_action_index)
+                        INNER JOIN links          lk ON (lk.action_index=latest.link_action_index)`;
+        let select = `SELECT
+                        t1.tick                AS project,
+                        latest.link_action_index,
+                        lk.coin1_action_index  AS roster_action_index
+                    `;
+        if(!(await this._isListEditResolutionActiveAtTip(config))){
+            let query = select + latestRosterLinks + `
                         INNER JOIN list_items     li ON (li.action_index=lk.coin1_action_index)
                         INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND t2.tick=?)
                         INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
                     ORDER BY latest.link_action_index DESC`;
-        let rows = await this.doQuery(config, query, [chain, chain, tick]);
-        if(!rows || !rows.length) return [];
-        return rows.map(r => ({
-            project:             r.project,
-            link_action_index:   Number(r.link_action_index),
-            roster_action_index: Number(r.roster_action_index)
+            let rows = await this.doQuery(config, query, [chain, chain, tick]);
+            if(!rows || !rows.length) return [];
+            return rows.map(r => ({
+                project:                 r.project,
+                link_action_index:       Number(r.link_action_index),
+                roster_action_index:     Number(r.roster_action_index),
+                membership_action_index: Number(r.roster_action_index)
+            }));
+        }
+        let candidates = await this.doQuery(config, select + latestRosterLinks + `
+                        INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
+                    ORDER BY latest.link_action_index DESC`, [chain, chain]);
+        if(!candidates || !candidates.length) return [];
+        let heads   = await this.getListHeadIndexes(config, candidates.map(r => Number(r.roster_action_index)));
+        let rosters = candidates.map(r => ({
+            project:                 r.project,
+            link_action_index:       Number(r.link_action_index),
+            roster_action_index:     Number(r.roster_action_index),
+            membership_action_index: Number(heads[String(Number(r.roster_action_index))])
         }));
+        let indexes = [...new Set(rosters.map(r => r.membership_action_index))];
+        let members = await this.doQuery(config, `SELECT
+                        li.action_index
+                    FROM
+                        list_items    li
+                        INNER JOIN index_tickers t2 ON (t2.id=li.item_id AND t2.tick=?)
+                    WHERE
+                        li.action_index IN (` + indexes.map(() => '?').join(',') + `)
+                    GROUP BY li.action_index`, [tick, ...indexes]);
+        let listing = {};
+        for(let row of (members || [])) listing[String(Number(row['action_index']))] = true;
+        return rosters.filter(r => listing[String(r.membership_action_index)] === true);
     }
 
     /******************************************************************
@@ -8516,13 +8885,14 @@ class Database {
                         li.action_index=?
                     ORDER BY t3.tick ASC
                     LIMIT 1000`;
-        let rows = await this.doQuery(config, query, [info.roster_action_index]);
+        let rows = await this.doQuery(config, query, [info.membership_action_index]);
         let data = {
-            tick:                String(tick).toUpperCase(),
-            roster_action_index: info.roster_action_index,
-            link_action_index:   info.link_action_index,
-            total:               info.total,
-            members:             []
+            tick:                    String(tick).toUpperCase(),
+            roster_action_index:     info.roster_action_index,
+            membership_action_index: info.membership_action_index,
+            link_action_index:       info.link_action_index,
+            total:                   info.total,
+            members:                 []
         };
         if(rows && rows.length){
             data.members = rows.map(r => ({
@@ -8544,7 +8914,7 @@ class Database {
         let info = await this.getProjectRosterInfo(config, config.data.search);
         // No roster → empty datatable (object query short-circuits getData)
         if(!info) return [[], [], 0];
-        let args  = [info.roster_action_index];
+        let args  = [info.membership_action_index];
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -9138,13 +9508,17 @@ class Database {
         return null;
     }
 
+    // Dispenser snapshot for the WebSocket dispenser channel. give_remaining is
+    // DERIVED : the dispensers table has no such column, so selecting it
+    // threw 'Unknown column' on every subscribe/update and the channel silently
+    // pushed nothing.
     async getDispenserInfo(config, actionIndex) {
         let query = `SELECT
                         d.action_index,
                         a2.address as source,
                         t1.tick as give_tick,
                         d.give_amount,
-                        d.give_remaining,
+                        d.give_escrow,
                         t2.tick as get_tick,
                         d.get_amount,
                         d.expiration,
@@ -9161,7 +9535,14 @@ class Database {
                         d.action_index=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, [actionIndex]);
-        if (results && results.length) return results[0];
+        if (results && results.length){
+            let info   = results[0];
+            let escrow = await this.getDispenserEscrowBatch(config, [actionIndex]);
+            let entry  = escrow[String(actionIndex)];
+            info.escrow_remaining = (entry) ? entry.escrow_remaining : null;
+            info.give_remaining   = info.escrow_remaining;
+            return info;
+        }
         return null;
     }
 

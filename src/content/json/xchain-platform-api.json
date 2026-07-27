@@ -2855,7 +2855,12 @@
                             "type": "string"
                         },
                         "give_escrow": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Amount of GIVE_TICK escrowed when the dispenser was created"
+                        },
+                        "escrow_remaining": {
+                            "type": "string",
+                            "description": "Amount of GIVE_TICK left in escrow now (create escrow + refills - payouts)"
                         },
                         "give_amount": {
                             "type": "string"

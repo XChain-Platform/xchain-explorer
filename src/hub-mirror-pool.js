@@ -23,6 +23,7 @@
  ********************************************************************/
 
 const mariadb = require('mariadb');
+const poolSizing = require('./poolSizing');
 
 class HubMirrorPool {
 
@@ -35,9 +36,11 @@ class HubMirrorPool {
             password:         pass,
             database:         name,
             // Small pool: one streaming writer plus occasional bootstrap pages.
-            connectionLimit:  3,
+            // Sized per dbType (DB_POOL_SIZE_HUB_MIRROR) so raising the indexer
+            // or decoder pools does not drag this one along, and vice versa.
+            connectionLimit:  poolSizing.resolvePoolSize('hub-mirror'),
             insertIdAsNumber: true,
-            queryTimeout:     parseInt(process.env.DB_QUERY_TIMEOUT) || 30000
+            queryTimeout:     poolSizing.resolveQueryTimeout('hub-mirror')
         });
     }
 

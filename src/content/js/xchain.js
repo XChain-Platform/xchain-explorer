@@ -3063,7 +3063,20 @@ function showListDetails(data){
     $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
     $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');
     showActionDatatable('list-edits', data.edits, list_type, false);
-    showActionDatatable('list-items', data.list,  list_type, false);
+    // : `list` is what THIS action wrote; edits land under their own action
+    // index, so on a create with later edits it is a create-time snapshot. Show
+    // current membership (state.current_list) whenever the chain resolves the edit
+    // chain, and name the action that set it, because consumers pin a list by its
+    // CREATE index and this is the page a market's "who may bet" link lands on.
+    let state   = data.state || {};
+    let current = (state.edit_resolution_active && Array.isArray(state.current_list)) ? state.current_list : null;
+    let head    = state.membership_action_index;
+    let edited  = current && isNumeric(head) && Number(head) !== Number(data.action_index);
+    $('#info-list .list-membership-row').toggleClass('d-none', !edited);
+    if(edited)
+        $('#info-list .list-membership-action-index').html(formatLink('/' + XC.coin + '/action/' + head, formatAmount(head)));
+    $('#list-items-tab').html('<i class="fa fa-lg fa-list"></i> ' + (current ? 'Current List' : 'Full List'));
+    showActionDatatable('list-items', current || data.list, list_type, false);
 
 }
 

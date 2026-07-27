@@ -1038,8 +1038,11 @@ describe('Database#getProjectRosterInfo', () => {
         const stub = sinon.stub(db, 'doQuery');
         stub.onFirstCall().resolves([{ link_action_index: 74, roster_action_index: 73 }]);
         stub.onSecondCall().resolves([{ total: 2 }]);
+        // Edit resolution off: the pinned index IS the membership index (
+        // covers the armed case in db.list-edit-resolution.test.js).
+        sinon.stub(db, '_isListEditResolutionActiveAtTip').resolves(false);
         const info = await db.getProjectRosterInfo(cfg(), 'PROJECTX');
-        expect(info).to.deep.equal({ roster_action_index: 73, link_action_index: 74, total: 2 });
+        expect(info).to.deep.equal({ roster_action_index: 73, membership_action_index: 73, link_action_index: 74, total: 2 });
         // The roster query must filter to the LOCAL chain on BOTH link sides and
         // to valid TICK-type lists, newest link first
         const [, query, args] = stub.firstCall.args;
@@ -1068,10 +1071,15 @@ describe('Database#getTokenProjects', () => {
     });
     afterEach(() => { sinon.restore(); });
 
+    // Edit resolution off: the single-query legacy form runs, and the pinned
+    // index IS the membership index ( covers the armed, two-phase path in
+    // db.list-edit-resolution.test.js).
+    beforeEach(() => { sinon.stub(Database.prototype, '_isListEditResolutionActiveAtTip').resolves(false); });
+
     it('returns normalized membership rows', async () => {
         sinon.stub(db, 'doQuery').resolves([{ project: 'PROJECTX', link_action_index: 74n, roster_action_index: 73n }]);
         const rows = await db.getTokenProjects(cfg(), 'TOKENONE');
-        expect(rows).to.deep.equal([{ project: 'PROJECTX', link_action_index: 74, roster_action_index: 73 }]);
+        expect(rows).to.deep.equal([{ project: 'PROJECTX', link_action_index: 74, roster_action_index: 73, membership_action_index: 73 }]);
     });
 
     it('returns [] for a token on no current roster', async () => {
@@ -1103,7 +1111,7 @@ describe('Database#getProject', () => {
     });
 
     it('returns project + member rows when a roster exists', async () => {
-        sinon.stub(db, 'getProjectRosterInfo').resolves({ roster_action_index: 73, link_action_index: 74, total: 1 });
+        sinon.stub(db, 'getProjectRosterInfo').resolves({ roster_action_index: 73, membership_action_index: 73, link_action_index: 74, total: 1 });
         sinon.stub(db, 'doQuery').resolves([{ tick: 'TOKENONE', supply: '1', max_supply: '1', decimals: 0, lock_max_supply: 1 }]);
         const config = makeActionConfig('getProject', 'token');
         config.data.search = 'PROJECTX';
@@ -1131,7 +1139,7 @@ describe('Database#getProjectTokens', () => {
     });
 
     it('builds a token-shaped query scoped to the roster list_items', async () => {
-        sinon.stub(db, 'getProjectRosterInfo').resolves({ roster_action_index: 73, link_action_index: 74, total: 2 });
+        sinon.stub(db, 'getProjectRosterInfo').resolves({ roster_action_index: 73, membership_action_index: 73, link_action_index: 74, total: 2 });
         const [query, args, count] = await db.getProjectTokens(makeActionConfig('getProjectTokens', 'roster'));
         expect(query).to.include('list_items');
         expect(query).to.include('li.action_index=?');
@@ -3173,10 +3181,11 @@ describe('Database#getActionData', () => {
         expect(result.state).not.to.have.property('get_remaining');
     });
 
-    it('DISPENSER query2 with edits: give_escrow added to give_remaining (lines 5674-5697)', async () => {
+    it('DISPENSER with edits: refill escrow adds to give_remaining, list edit applies', async () => {
         const row = baseRow({ action: 'DISPENSER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', give_escrow: '100', expiration: 0, allow_list: null, block_list: null, current_status: 'open' });
-        // An edit row with give_escrow set (triggers line 5684) and allow_list (triggers 5693)
-        const editRow = { give_escrow: '50', expiration: null, allow_list: 'someList', block_list: null, block_time: 0 };
+        // A refill edit (give_escrow) that also sets allow_list. dispenser_action_index
+        // keys the row to its dispenser in the shared escrow derivation .
+        const editRow = { dispenser_action_index: 100, give_escrow: '50', expiration: null, allow_list: 'someList', block_list: null, block_time: 0 };
         sinon.stub(db, 'getActionType').resolves('DISPENSER');
         sinon.stub(db, 'getActionFeeData').resolves(null);
         sinon.stub(db, 'getTransactionData').resolves(null);
@@ -3194,9 +3203,9 @@ describe('Database#getActionData', () => {
         expect(result.state.allow_list).to.equal('someList');
     });
 
-    it('DISPENSER query3 dispenses: give_remaining reduced by dispenses (lines 5732-5735)', async () => {
+    it('DISPENSER with dispenses: give_remaining reduced by every payout', async () => {
         const row = baseRow({ action: 'DISPENSER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', give_escrow: '100', expiration: 0, allow_list: null, block_list: null, current_status: 'open' });
-        const dispenseRow = { give_amount: '10' };
+        const dispenseRow = { dispenser_action_index: 100, give_amount: '10' };
         sinon.stub(db, 'getActionType').resolves('DISPENSER');
         sinon.stub(db, 'getActionFeeData').resolves(null);
         sinon.stub(db, 'getTransactionData').resolves(null);

@@ -5138,17 +5138,27 @@ class Database {
                 // any more: give_escrow / escrow_remaining come from the shared
                 // getDispenserEscrowBatch , so this lane only carries the
                 // expiration and allow/block-list edits into state.
+                // b.block_time is the edit's own confirmation timestamp and is what
+                // gates allow/block-list activation below . Without the
+                // actions->blocks join it came back undefined, bcadd() coerced it to 0
+                // and every list edit read as already active, so DISPENSER_LIST_DELAY
+                // was ignored on the read path. The join mirrors the indexer's
+                // getDispenserEdits() so both sides gate on the same value. ORDER BY is
+                // qualified because `actions` also has an action_index column.
                 query2 = `SELECT
                             m.expiration,
                             m.allow_list,
-                            m.block_list
+                            m.block_list,
+                            b.block_time
                         FROM
                             dispenser_edits m
+                            INNER JOIN actions        a ON (a.action_index=m.action_index)
+                            INNER JOIN blocks         b ON (b.block_index=a.block_index)
                             INNER JOIN index_statuses s ON (s.id=m.status_id)
                         WHERE
                             m.dispenser_action_index=? AND
                             s.status='valid'
-                        ORDER BY action_index ASC`;
+                        ORDER BY m.action_index ASC`;
             }
             if(type=='DISPENSER_CLOSE'){
                 query = `SELECT
@@ -7320,7 +7330,12 @@ class Database {
                                 // Determine if the allow/block list edits are active using DISPENSER_LIST_DELAY.
                                 // Use a bignumber comparison (matching the indexer's bcgt-based consensus check)
                                 // rather than a JS '>' on mixed Number/bignumber operands.
-                                active = this.util.bcgt(now, this.util.bcadd(row.block_time, coinConfigs['DISPENSER_LIST_DELAY']));
+                                // A row with no block_time cannot be aged, and bcadd() would read it as 0
+                                // (i.e. active since the epoch), so withhold it instead of leaking a list
+                                // edit the delay has not released yet. The query2 join guarantees a value.
+                                active = this.util.isNull(row.block_time)
+                                    ? false
+                                    : this.util.bcgt(now, this.util.bcadd(row.block_time, coinConfigs['DISPENSER_LIST_DELAY']));
                             } 
                             if(!this.util.isNull(row.expiration))  data.state.expiration  = row.expiration;
                             if(active){

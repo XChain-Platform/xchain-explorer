@@ -57,6 +57,13 @@ class ChangeDetector extends EventEmitter {
         this.channelManager = options.channelManager || null;
         this.pollInterval   = options.pollInterval || 5000;
         this.fetchLimit     = options.fetchLimit   || 100;
+        // How long a coin's BET_CLOSED cursor stays parked after its indexer answers
+        // "no bet_feeds table". A schema gap is a deploy-order fact, not a permanent
+        // property of the chain, so it is a cooldown rather than a switch: see
+        // _checkBetLatches. Tests set it to 0 to probe on every poll.
+        this.betLatchRetryMs = options.betLatchRetryMs !== undefined
+            ? options.betLatchRetryMs
+            : 5 * 60 * 1000;
 
         // Track last known state per coin (e.g., "BTC", "TBTC", "RLTC")
         this.state = {};
@@ -280,8 +287,10 @@ class ChangeDetector extends EventEmitter {
     async _checkBetLatches(coin, config, currentBlockIndex, prev) {
         if (typeof this.db.getBetFeedsClosedSince !== 'function') return;
         // A coin whose indexer predates the BET tables is not an error condition to
-        // re-discover every 5 seconds; see the ER_NO_SUCH_TABLE branch below.
-        if (prev.betLatchUnsupported) return;
+        // re-discover every 5 seconds; see the ER_NO_SUCH_TABLE branch below. It is
+        // parked, not switched off: the table appears the moment that chain's indexer
+        // is upgraded, and this process can outlive several such upgrades.
+        if (prev.betLatchUnsupported && Date.now() < prev.betLatchRetryAt) return;
 
         let since = Number(prev.closedBlock);
         if (!Number.isFinite(since)) since = 0;
@@ -298,12 +307,35 @@ class ChangeDetector extends EventEmitter {
             // recurring fault. Any OTHER error still propagates to the poll loop's
             // handler, where a genuine DB failure belongs.
             if (this._isMissingTableError(e)) {
+                // Announce the transition only. A re-probe that finds the table still
+                // missing must stay silent, or the cooldown just turns a per-poll log
+                // into a per-cooldown one.
+                if (!prev.betLatchUnsupported) {
+                    console.log('ChangeDetector: no bet_feeds table for', coin,
+                                '- BET_CLOSED events parked for this coin, re-probing every',
+                                Math.round(this.betLatchRetryMs / 1000) + 's');
+                }
                 prev.betLatchUnsupported = true;
-                console.log('ChangeDetector: no bet_feeds table for', coin,
-                            '- BET_CLOSED events disabled for this coin');
+                prev.betLatchRetryAt     = Date.now() + this.betLatchRetryMs;
                 return;
             }
             throw e;
+        }
+
+        // The probe succeeded after the coin had been parked, which means that chain's
+        // indexer gained the BET tables while this process was running. Re-seed to the
+        // tip and emit nothing, for the same reason the first poll seeds rather than
+        // emits: every latch at or below the tip already happened, and pushing them now
+        // tells every subscriber that historical markets are closing this second. The
+        // REST timeline still reports those latches correctly (it synthesizes `closed`
+        // from bet_feeds.closed_block), so nothing is unreachable, only un-pushed.
+        if (prev.betLatchUnsupported) {
+            prev.betLatchUnsupported = false;
+            prev.betLatchRetryAt     = 0;
+            prev.closedBlock         = currentBlockIndex;
+            console.log('ChangeDetector: bet_feeds now present for', coin,
+                        '- BET_CLOSED events re-armed from block', currentBlockIndex);
+            return;
         }
 
         if (!rows || rows.length === 0) {

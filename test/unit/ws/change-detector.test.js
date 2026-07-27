@@ -463,6 +463,53 @@ describe('ChangeDetector', function () {
             expect(cd.state['BTC'].betLatchUnsupported).to.equal(true);
         });
 
+        it('re-probes after the cooldown and re-arms when the table appears', async function () {
+            // The park is a deploy-order fact, not a property of the chain: this process
+            // outlives the upgrade that adds bet_feeds to a coin's indexer. Observed on the
+            // devhost fleet, where DOGE was parked at explorer start, its indexer was
+            // later rebuilt with P4's migrations, and the coin stayed dark with no way back
+            // short of restarting the explorer.
+            const db = createMockDb({ blockIndex: 120, actionIndex: 500 });
+            const sqlErr = new Error("Table 'X.bet_feeds' doesn't exist");
+            sqlErr.code = 'ER_NO_SUCH_TABLE'; sqlErr.errno = 1146; sqlErr.sqlState = '42S02';
+            const err = new Error('SQL query failed: ...');
+            err.name = 'DbQueryError'; err.code = 'DB_ERROR'; err.cause = sqlErr;
+            db.getBetFeedsClosedSince = sinon.stub().rejects(err);
+            // retryMs 0 so the test drives the cooldown rather than waiting on a clock.
+            const cd = new ChangeDetector({ db, pollInterval: 60000, betLatchRetryMs: 0 });
+            cd.state['BTC'] = { blockIndex: 119, actionIndex: 500, closedBlock: 0, initialized: true };
+
+            await cd._checkCoin('BTC');
+            expect(cd.state['BTC'].betLatchUnsupported, 'parked on the missing table').to.equal(true);
+
+            // That chain's indexer gains the tables. No restart, no reconnect.
+            db.getBetFeedsClosedSince = sinon.stub().resolves([]);
+            db.getMaxBlockIndex.resolves(121);
+            const spy = sinon.spy();
+            cd.on('lifecycle_event', spy);
+            await cd._checkCoin('BTC');
+
+            expect(cd.state['BTC'].betLatchUnsupported, 're-armed without a restart').to.equal(false);
+            expect(cd.state['BTC'].closedBlock, 're-seeded to the tip, not replayed from 0').to.equal(121);
+            expect(spy.callCount, 'a re-arm pushes no backlog of historical latches').to.equal(0);
+        });
+
+        it('stays parked inside the cooldown, so re-probing is not a per-poll query', async function () {
+            const db = createMockDb({ blockIndex: 120, actionIndex: 500 });
+            const sqlErr = new Error("Table 'X.bet_feeds' doesn't exist");
+            sqlErr.code = 'ER_NO_SUCH_TABLE'; sqlErr.errno = 1146; sqlErr.sqlState = '42S02';
+            const err = new Error('SQL query failed: ...');
+            err.name = 'DbQueryError'; err.code = 'DB_ERROR'; err.cause = sqlErr;
+            db.getBetFeedsClosedSince = sinon.stub().rejects(err);
+            const cd = new ChangeDetector({ db, pollInterval: 60000, betLatchRetryMs: 60000 });
+            cd.state['BTC'] = { blockIndex: 119, actionIndex: 500, closedBlock: 0, initialized: true };
+
+            await cd._checkCoin('BTC');
+            await cd._checkCoin('BTC');
+            await cd._checkCoin('BTC');
+            expect(db.getBetFeedsClosedSince.callCount, 'one probe per cooldown, not per poll').to.equal(1);
+        });
+
         it('still surfaces a genuine DB failure instead of silencing the coin', async function () {
             // Only the missing-table case is a schema fact; everything else is a fault
             // the poll loop's own handler should see and log.

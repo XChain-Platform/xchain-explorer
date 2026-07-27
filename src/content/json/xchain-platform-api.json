@@ -38,7 +38,7 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/QUERY-ACTION",
-                    "description": "String to search for (action_index)",
+                    "description": "String to search for (action_index)"
                 }],
                 "responses": {
                     "200": {
@@ -66,10 +66,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block)",
+                    "description": "Type of search to perform (address, block)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block)",
+                    "description": "String to search for (address, block)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -87,7 +87,7 @@
                                         "type": "object",
                                         "properties": {
                                             "data": {
-                                                "$ref": "#/components/schemas/Address",
+                                                "$ref": "#/components/schemas/Address"
                                             }
                                         }
                                     },{
@@ -1427,9 +1427,9 @@
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
-                    "$ref": "#/components/parameters/TYPE-BLOCK",
+                    "$ref": "#/components/parameters/TYPE-BLOCK"
                 },{
-                    "$ref": "#/components/parameters/QUERY-BLOCK",
+                    "$ref": "#/components/parameters/QUERY-BLOCK"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -1747,9 +1747,9 @@
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 },{
-                    "$ref": "#/components/parameters/TYPE-BLOCK",
+                    "$ref": "#/components/parameters/TYPE-BLOCK"
                 },{
-                    "$ref": "#/components/parameters/QUERY-BLOCK",
+                    "$ref": "#/components/parameters/QUERY-BLOCK"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -2251,7 +2251,7 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/QUERY-TOKEN",
-                    "description": "String to search for (token)",
+                    "description": "String to search for (token)"
                 }],
                 "responses": {
                     "200": {
@@ -2282,7 +2282,7 @@
                     "description": "Type of search to perform (address, block, token, subtoken)"
                 },{
                     "$ref": "#/components/parameters/QUERY-TOKEN",
-                    "description": "String to search for",
+                    "description": "String to search for"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -2337,7 +2337,7 @@
                     }
                 }
             }
-        },
+        }
     },
     "components": {
         "schemas": {
@@ -2345,7 +2345,7 @@
                 "type": "object",
                 "properties": {
                     "data": {
-                        "type": "array",
+                        "type": "array"
                     },
                     "total": {
                         "type": "integer",
@@ -2479,7 +2479,7 @@
                     },
                     "timestamp": {
                         "type": "integer"
-                    },
+                    }
                 }
             },
             "Address": {
@@ -2729,7 +2729,7 @@
                     },
                     "tx_index": {
                         "type": "integer"
-                    },
+                    }
                 }
             },
             "Debit": {
@@ -3032,7 +3032,7 @@
                         },
                         "tick": {
                             "type": "string"
-                        },
+                        }
                     }
                }]
             },
@@ -3105,7 +3105,7 @@
                             },
                             "amount": {
                                 "type": "string"
-                            },
+                            }
                         }
                     },
                     "decimals": {
@@ -4018,7 +4018,7 @@
                             },
                             "sleep" : {
                                 "type": "boolean"
-                            },
+                            }
                         }
                     },
                     "markets" : {
@@ -4097,9 +4097,9 @@
                         "type": "string",
                         "description": "Amount of time to execute and return the data"
 
-                    },
+                    }
                 }
-            },
+            }
 
         },
         "parameters": {
@@ -4265,5 +4265,5 @@
         "responses": {
 
         }
-    },
+    }
 }

@@ -1,19 +1,26 @@
 <!-- Market Depth Chart -->
-<div id="market-chart-depth" style="height:400px;"></div>
+<div id="market-chart-depth"></div>
 
 <script type="text/javascript">
 
 // Function to handle updating market depth chart
 function updateChart(){
 
-    // Get the trade data from XC.CHART_DATA
+    // Get the orderbook data from XC.CHART_DATA
     let orders = XC.CHART_DATA.orderbook,
         types  = ['asks','bids'];
 
-    // Store the orderbook price/volume data so we can easily reference in tooltips
-    XC.MARKET_DEPTH = [];
+    if(!orders)
+        return;
 
-    // Set second array value to total volume
+    // A market with only one side of the book still has to draw
+    $.each(types, function(idx,name){
+        if(!Array.isArray(orders[name]))
+            orders[name] = [];
+    });
+
+    // Accumulate each side into running volume/value sums, which is what the
+    // depth curve plots and what the tooltip reports
     $.each(types, function(idx,name){
         var a = 0,
             b = 0;
@@ -23,7 +30,6 @@ function updateChart(){
             b       = numeral(parseFloat(b) + parseFloat(data[2])).format('0.00000000');
             data[1] = a;
             data[2] = b;
-            XC.MARKET_DEPTH[parseFloat(data[0])] = [data[1],data[2],name];
         });
     });
 
@@ -40,84 +46,18 @@ function updateChart(){
         orders[name].sort(function(a,b){
             if(a[0] < b[0]) return -1;
             if(a[0] > b[0]) return 1;
-            return 0;            
+            return 0;
         });
     });
 
     // Initialize the market depth chart
-    let cfg = {
-        chart: {
-            type: 'area',
-            borderColor: '#DFD7CA',
-            borderWidth: 0,
-        },
-        exporting: {
-            enabled: true
-        },
-        title: {
-          text: ''
-        },
-        lang: {
-            noData: "No buy or sell orders found"
-        },
-        // Price
-        xAxis: {
-            allowDecimals: true,
-            title: {
-                enabled: false
-            }
-        },
-        // Volume
-        yAxis: {
-            allowDecimals: true,
-            title: {
-                enabled: false
-            }
-        },
-        legend: {
-            enabled: false
-        },
-        tooltip: {
-            split: false,
-            shared: true,
-            useHTML: true,
-            formatter: function(){
-                var data = XC.MARKET_DEPTH[this.x],
-                    type = (data[2]=='bids') ? 'Buy' : 'Sell',
-                    txt  = '<b>' + type + ' Depth</b>';
-                txt += '<table class="highcharts-tooltip-table">';
-                txt += '<tr class="first"><td>Price</td><td class="separator">:</td><td class="text-right">' + formatAmount(bcformat(this.x,8)) + '</td><td>' + XC.tick2 + '</td></tr>';
-                txt += '<tr><td>Sum</td><td class="separator">:</td><td class="text-right">' + formatAmount(bcformat(data[0],8)) + '</td><td>' + XC.tick1 + '</td></tr>';
-                txt += '<tr><td colspan="2"></td><td class="text-right">' + formatAmount(bcformat(data[1],8)) + '</td><td>' + XC.tick2 + '</td></tr>';
-                txt += '</table>';
-                return txt;
-            }
-        },
-        plotOptions: {
-          area: {
-            marker: {
-              // enabled: false,
-              symbol: 'circle',
-              radius: 2,
-              states: {
-                hover: {
-                  enabled: true
-                }
-              }
-            }
-          }
-        },
-        series: [{ 
-            name: 'Asks',
-            color: '#a42015',
-            data: orders.asks 
-        }, { 
-            name: 'Bids', 
-            color: '#339349',
-            data: orders.bids 
-        }]
-    };
-    Highcharts.chart('market-chart-depth', cfg);
+    let cfg = XCC.depthConfig(orders, { tick1: XC.tick1, tick2: XC.tick2 });
+
+    XCC.render('market-chart-depth', cfg, {
+        name:   'market-depth',
+        height: 400,
+        noData: 'No buy or sell orders found'
+    });
 }
 
 // Handle updating the chart once the page has loaded

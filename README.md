@@ -28,7 +28,7 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 - **Rate limiting**: configurable request rate limiting (default 500 req/min)
 - **Security hardened**: Helmet CSP, CORS, SSRF-protected relay, parameterized SQL, directory traversal prevention
 - **DataTables integration**: server-side pagination endpoints for the web UI
-- **Highcharts integration**: candlestick, market depth, and line charts
+- **Chart.js integration**: candlestick, market depth, and line charts
 - **Icon service**: token icons with automatic fallback and optional background downloader
 - **BigNumber precision**: arbitrary-precision arithmetic for all amounts and prices
 - **1,285 tests**: unit, integration, e2e, boundary, security, fuzz, chaos, mutation, smoke, performance, regression

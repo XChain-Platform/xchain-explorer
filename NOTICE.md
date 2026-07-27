@@ -38,3 +38,8 @@ This software includes third-party open-source dependencies, each governed by
 its own license, predominantly MIT, ISC, Apache-2.0, and BSD. The MariaDB
 Node.js connector (`mariadb`) is licensed under LGPL-2.1-or-later. All
 third-party components retain their original license notices.
+
+The explorer also redistributes third-party browser assets as files in this
+repository, under `src/content/js/` and `src/content/css/`. They are not covered
+by the AGPL grant above; each is listed with its upstream project, version,
+license and notice in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).

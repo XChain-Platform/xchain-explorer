@@ -1,12 +1,9 @@
-// Copyright © 2025–2026 Dankest, LLC
-// Based on XChain Platform by Dankest, LLC – https://dankest.llc
+// Swagger UI initializer.
 //
-// SPDX-License-Identifier: AGPL-3.0-or-later
-//
-// This file is part of XChain Platform. Licensed under the GNU Affero
-// General Public License v3.0 or later; see LICENSE.md. A commercial
-// license (without AGPL source-disclosure terms) is available -
-// contact legal@dankest.llc.
+// Derived from the swagger-initializer.js shipped in swagger-ui-dist:
+// Copyright 2020 SmartBear Software Inc., licensed under the Apache License,
+// Version 2.0. See swagger-ui-bundle.js.LICENSE.txt and, in the repo root,
+// THIRD-PARTY-NOTICES.md. The configuration object below is XChain's.
 
 window.onload = function() {
   //<editor-fold desc="Changeable Configuration Block">

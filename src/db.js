@@ -6874,6 +6874,11 @@ class Database {
             // block_merkle_version) are NULL for v0/v1/v2/v4/v6 and populated for v3 and v5;
             // selected unconditionally here so the detail view matches the getAnchors()
             // list and checkpoint-reader surfaces.
+            // publisher / publisher_attestations carry the v4/v5/v6 tail: the elected
+            // PUBLISHER pubkey credited the reward and the RAW ([{pubkey,sig}]) XANCPUB
+            // quorum over the reward canonical. Both NULL for v0-v3. Selected here (and
+            // the attestations JSON expanded below) so the detail view can surface who
+            // was credited; the list is display-only transport, consumers re-verify.
             if(type=='ANCHOR'){
                 query = `SELECT
                             a2.action,
@@ -6901,6 +6906,8 @@ class Database {
                             m.block_merkle_version,
                             m.validator_signatures,
                             m.block_index_doge,
+                            m.publisher,
+                            m.publisher_attestations,
                             b1.block_time as timestamp,
                             t2.hash as tx_hash,
                             t1.tx_index,
@@ -7002,6 +7009,18 @@ class Database {
                 // expire action to the request), so only baseline data + version show.
                 if(this.util.isNull(data['version']) && !this.util.isNull(data['action_format']))
                     data['version'] = data['action_format'];
+            }
+            // Expand the inlined publisher-attestation JSON on ANCHOR v4/v5/v6 responses
+            // into a structured array the action-detail page can render. NULL/absent for
+            // v0-v3 (and the rootless/archive variants without a publisher tail), which
+            // yields an empty array so the client leaves the publisher row hidden.
+            if(type=='ANCHOR'){
+                if(data['publisher_attestations']){
+                    try { data['publisher_attestations'] = JSON.parse(data['publisher_attestations']); }
+                    catch(_) { console.warn('getActionData: ANCHOR publisher_attestations parse failed for action_index=' + action_index + ':', _); data['publisher_attestations'] = []; }
+                } else {
+                    data['publisher_attestations'] = [];
+                }
             }
             // VOTE: disambiguate the three sub-types and shape each. A v0 poll has a
             // poll_status; a v3 delegation has a delegator; anything else is a v1 ballot,

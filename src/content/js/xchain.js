@@ -3292,6 +3292,18 @@ function showAnchorDetails(data){
         $('#info-anchor .anchor-state-root').html(isNull(data.state_root) ? '-' : formatHash(data.state_root, 32));
         $('#info-anchor .anchor-block-merkle-root').html(isNull(data.block_merkle_root) ? '-' : formatHash(data.block_merkle_root, 32));
     }
+    // Publisher-attestation tail (v4/v5/v6 reward-derivation anchors; both NULL for
+    // v0-v3, so the row stays hidden). publisher is the elected pubkey credited the
+    // reward; publisher_attestations is the RAW XANCPUB quorum ([{pubkey,sig}]) carried
+    // on the wire - shown for provenance, consumers re-verify against their own set.
+    let pubSigs = Array.isArray(data.publisher_attestations) ? data.publisher_attestations : [];
+    let hasPublisher = !isNull(data.publisher) || pubSigs.length > 0;
+    $('#info-anchor .anchor-publisher-row').toggleClass('d-none', !hasPublisher);
+    if(hasPublisher){
+        $('#info-anchor .anchor-publisher').html(isNull(data.publisher) ? '-' : formatHash(data.publisher, 32));
+        $('#info-anchor .anchor-publisher-attestation-count').text(pubSigs.length);
+        $('#info-anchor .anchor-publisher-attestations').html(pubSigs.length ? pubSigs.map(s => formatHash(s.pubkey, 24)).join('<br>') : '-');
+    }
 }
 
 // Display PRICE action information (v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)

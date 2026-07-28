@@ -9166,6 +9166,16 @@ class Database {
     // explorer SYNTHESIZES that entry from the bet_feeds.closed_block stamp, which is
     // the latch's durable record, and marks it synthetic so a consumer can tell it
     // apart from an action-backed row.
+    //
+    // The block comes from `actions.block_index`, NOT from the action's transaction.
+    // BET_EXPIRE is emitted by the end-of-block pass and has NO transaction at all
+    // (tx_index NULL), so routing the block join through `transactions` returned NULL
+    // for the one status that can only ever arrive that way: an expired market rendered
+    // "block n/a", and because the synthetic-latch insertion below compares block
+    // numbers, a NULL also pushed the `closed` latch past it and printed the history in
+    // an impossible order (expired, then closed). One NULL, both symptoms. Joining
+    // blocks on a1.block_index is what the rest of this file already does; the
+    // transaction join stays, but only for the tx hash a system action does not have.
     async getBetFeedTimeline(config, feedIndex, closedBlock){
         let query = `SELECT
                         m.action_index,
@@ -9177,8 +9187,8 @@ class Database {
                         bet_feed_statuses m
                         LEFT JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        LEFT JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE m.feed_action_index=?
                     ORDER BY m.action_index ASC`;

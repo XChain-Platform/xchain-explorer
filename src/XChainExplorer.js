@@ -1855,7 +1855,11 @@ class XChainExplorer {
             let action = req.query.action;
             let params = req.query.params;   // pipe-delimited string; the indexer splits it
             let source = req.query.source;
-            if(Array.isArray(action) || Array.isArray(params) || Array.isArray(source))
+            // How the caller's real transaction will settle the protocol fee . The
+            // verdict differs by mode, so it is passed through rather than assumed; omitted,
+            // the indexer picks the chain's own default mode.
+            let feeMode = req.query.feeMode;
+            if(Array.isArray(action) || Array.isArray(params) || Array.isArray(source) || Array.isArray(feeMode))
                 return res.status(400).json({ error: 'repeated query parameters are not allowed', code: 'INVALID_PARAMETER' });
             action = String(action);
             if(!/^[A-Z0-9_]{1,32}$/.test(action))
@@ -1864,8 +1868,15 @@ class XChainExplorer {
             source = this.util.isNull(source) ? undefined : String(source);
             if((params && params.length > 8192) || (source && source.length > 4096))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
+            if(!this.util.isNull(feeMode)){
+                feeMode = String(feeMode).toLowerCase();
+                if(feeMode !== 'xchain' && feeMode !== 'native')
+                    return res.status(400).json({ error: 'invalid feeMode (expected xchain or native)', code: 'INVALID_PARAMETER' });
+            } else {
+                feeMode = undefined;
+            }
             let connector = new IndexerConnector(url);
-            let result = await connector.preflight({ action, params, source });
+            let result = await connector.preflight({ action, params, source, feeMode });
             return res.json(result);
         } catch(e){
             console.error('processPreflightRequest error:', e.message || e);

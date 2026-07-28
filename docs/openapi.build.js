@@ -206,7 +206,10 @@ const SPECIAL = [
         + '`feeExempt` (a settlement/lifecycle action with nothing to dry-run), '
         + '`busy` (the dry-run admission window is full; retryable), or '
         + '`guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). '
-        + 'Verdicts are memoized per block height, so a repeat at the same tip returns `cached: true`.',
+        + 'The protocol fee is settled the way `feeMode` says the real transaction will, so a payer who cannot cover an '
+        + 'XCHAIN-settled fee is told `invalid` here rather than after paying a miner fee; `feeTokenBalance` and '
+        + '`feeAffordable` report that balance beside `xchainFee`. '
+        + 'Verdicts are memoized per block height and settlement mode, so a repeat at the same tip returns `cached: true`.',
         {
             query: [
                 { name: 'action', required: true, schema: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$' },
@@ -215,6 +218,10 @@ const SPECIAL = [
                     example: '0|JDOG|1|bc1qexampleaddress', description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
                 { name: 'source', required: false, schema: { type: 'string', maxLength: 4096 },
                     description: 'Source address the action would be sent from' },
+                // : the verdict differs by settlement mode, so the caller states which
+                // one it is composing rather than the endpoint assuming the native one.
+                { name: 'feeMode', required: false, schema: { type: 'string', enum: ['xchain', 'native'] },
+                    description: 'How the transaction being composed will settle the protocol fee. The verdict differs: `xchain` debits the payer XCHAIN balance, `native` pays a coin output to the fee destination. Omit it to get the chain default (native on LTC/DOGE, the XCHAIN debit on BTC).' },
             ],
             schema: { $ref: '#/components/schemas/PreflightResponse' },
             responses: {
@@ -406,6 +413,18 @@ const spec = {
                     retryable: { type: 'boolean', description: 'Set alongside busy' },
                     cached: { type: 'boolean', description: 'Served from the block-height-keyed verdict memo' },
                     note: { type: 'string', description: 'Explanatory text accompanying a no-verdict response' },
+                    // . Echoed from the same dry-run that produced the verdict, so a
+                    // confirm screen can disclose the protocol fee without a second call to
+                    // /feequote. XCHAIN-denominated (the fee row is, in every payment mode);
+                    // sizing a native-coin output is still /feequote's job.
+                    xchainFee: { type: ['string', 'null'], description: 'Protocol fee the action would owe, XCHAIN-denominated decimal string (8dp); null when the run staged no fee record, absent on no-verdict responses' },
+                    // . Which way the fee was settled in the dry-run, and what the payer
+                    // holds to settle it with: without these a caller cannot tell an XCHAIN-mode
+                    // refusal apart from a structural one, or see it coming at all.
+                    feeMode: { type: 'string', enum: ['xchain', 'native'], description: 'Fee settlement mode the verdict was computed under' },
+                    feeTick: { type: 'string', description: 'Ticker the protocol fee is denominated in (the gas token)' },
+                    feeTokenBalance: { type: ['string', 'null'], description: 'Payer balance of feeTick at the quoted height, decimal string (8dp); null when it could not be read' },
+                    feeAffordable: { type: ['boolean', 'null'], description: 'Whether feeTokenBalance covers xchainFee; null in native mode (the fee is not paid from that balance) or when either input is unknown' },
                     // Deliberately typed as they are actually emitted. This proxy passes the
                     // indexer's dry-run values straight through as JSON numbers, so it is the
                     // one endpoint that departs from the decimal-string convention for chain

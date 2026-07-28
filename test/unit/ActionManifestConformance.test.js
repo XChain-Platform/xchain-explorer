@@ -8,12 +8,12 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-// Cross-repo ACTION-manifest conformance guard. Forgetting the explorer
-// getActionData branch for a new action renders its public page blank. The
-// authoritative set lives in xchain-documentation/protocol/action-manifest.json
-// (vendored here). This guard asserts the getActionData branches equal the
-// manifest's explorerRender slice. (The explorer set is the superset: it also
-// renders lifecycle + legacy order/dispenser cancel+edit views.)
+// Cross-repo ACTION-manifest conformance guard. Forgetting the explorer detail
+// handler for a new action renders its public page blank. The authoritative set
+// lives in xchain-documentation/protocol/action-manifest.json (vendored here).
+// This guard asserts the registered action-detail handlers equal the manifest's
+// explorerRender slice. (The explorer set is the superset: it also renders
+// lifecycle + legacy order/dispenser cancel+edit views.)
 
 const assert = require('assert');
 const fs   = require('fs');
@@ -29,26 +29,14 @@ function decomment(src) {
 function manifestSlice(flag) {
     return Object.entries(MANIFEST.actions).filter(([, v]) => v[flag]).map(([k]) => k).sort();
 }
-// Slice out just the getActionData method body so the uppercase-type== scrape
-// measures the render surface it claims to. db.js has many other (lowercase)
-// type== comparisons and any future uppercase type== in a different helper would
-// otherwise be miscounted as a render branch (making this exact-equality guard
-// pass or fail for the wrong reason). getActionData is a single 4-space-indented
-// method with no sibling method declared inside it, so the next 4-space method
-// declaration marks its end.
-function getActionDataBody(src) {
-    const marker = 'async getActionData(';
-    const start = src.indexOf(marker);
-    if (start < 0) throw new Error('getActionData not found in src/db.js');
-    const rest = src.slice(start + marker.length);
-    const next = rest.match(/\n {4}(?:async\s+)?[A-Za-z_$][\w$]*\s*\(/);
-    return next ? rest.slice(0, next.index) : rest;
-}
+// The render surface is the per-action detail registry (src/action-detail/):
+// one handler per action type, which getActionData dispatches on. Reading the
+// registry keys is exact by construction - the previous scrape for uppercase
+// `type=='X'` inside the getActionData body could miscount any unrelated
+// comparison that happened to sit in the same method.
 function localExplorerSet() {
-    const src = decomment(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'db.js'), 'utf8'));
-    const body = getActionDataBody(src);
-    const names = [...new Set([...body.matchAll(/type\s*==\s*["']([A-Z_]+)["']/g)].map(x => x[1]))];
-    return names.filter(n => n !== 'UNKNOWN').sort(); // UNKNOWN is the catch-all render, not an action
+    const { ACTION_TYPES } = require('../../src/action-detail');
+    return ACTION_TYPES.filter(n => n !== 'UNKNOWN').sort(); // UNKNOWN is the catch-all render, not an action
 }
 // The two CLIENT halves of the render seam. getActionData returning rich data is
 // useless if xchain.js has no dispatch branch or action.html no info-* panel:

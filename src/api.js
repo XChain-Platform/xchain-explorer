@@ -33,6 +33,8 @@ const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const fontawesomeKit  = require('./fontawesome-kit.js');
+const concurrencyGate = require('./concurrencyGate.js');
+const { installObservability } = require('./observability');   // : default-off /metrics + structured log shim
 
 dotenv.config();
 
@@ -103,6 +105,15 @@ async function startApi(){
 
     app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
 
+    // Static assets (icons, images) are served from disk, cost no DB work, and
+    // every page pulls a burst of them at once, so they are exempt from both
+    // the per-IP rate limit and the global concurrency gate below. Counting
+    // them would shed real queries to make room for favicons.
+    const isStaticAsset = (req) =>
+        /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) ||
+        req.path.startsWith('/icon') ||
+        req.path.startsWith('/images');
+
     // Rate limiting: requests per minute per IP (image requests are excluded;
     // override the default with EXPLORER_RATE_LIMIT_RPM)
     app.use(rateLimit({
@@ -111,8 +122,38 @@ async function startApi(){
         standardHeaders: true,
         legacyHeaders:   false,
         message:         { error: 'Too many requests', code: 'RATE_LIMITED' },
-        skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) || req.path.startsWith('/icon') || req.path.startsWith('/images'),
+        skip: isStaticAsset,
     }));
+
+    // Global in-flight concurrency cap . The limiter above is per-IP,
+    // so a stampede spread across thousands of distinct IPs never trips it and
+    // can still pin every MariaDB pool connection. This caps how many requests
+    // are being served at any instant across ALL callers and sheds the excess
+    // with an immediate 429 rather than queueing it. Override with
+    // EXPLORER_MAX_CONCURRENT_REQUESTS; 0 disables the cap.
+    const requestGate = concurrencyGate.createConcurrencyGate({
+        limit:      concurrencyGate.resolveLimit(process.env.EXPLORER_MAX_CONCURRENT_REQUESTS, 200),
+        retryAfter: 1,
+        skip:       isStaticAsset,
+        body:       { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' }
+    });
+    app.use(requestGate);
+
+    // : Prometheus /metrics plus a structured log shim, both DEFAULT OFF.
+    // Nothing is registered and no timer starts unless METRICS_ENABLED (and, for
+    // log shipping, LOG_SHIP_ENABLED + LOG_SHIP_URL) are set. Wired AFTER the
+    // rate limiter and the concurrency gate on purpose: the explorer is the one
+    // internet-facing service here, so an enabled scrape endpoint sheds like any
+    // other route, and METRICS_TOKEN (or a proxy ACL) should gate it on a public
+    // box. The request-timing middleware hoists itself to the front of the stack
+    // so it still measures the routes above. See src/observability/README.md.
+    let explorerVersion = '';
+    try { explorerVersion = require('../package.json').version; } catch { /* version label is cosmetic */ }
+    installObservability(app, {
+        service: 'xchain-explorer',
+        version: explorerVersion,
+        network: process.env.NETWORK || ''
+    });
 
     // Trust only the first proxy hop (prevents X-Forwarded-For spoofing)
     app.set('trust proxy', 1);
@@ -126,7 +167,14 @@ async function startApi(){
         // Checks that the explorer is up and can reach at least one DB pool.
         // Returns status:"degraded" + 503 when all pool probes time out or fail.
         async ping(params, {res}) {
-            const base = { slowRequests: XChainExplorer.getSlowRequests(), ...XChainExplorer.getLatencyStats() };
+            // request_gate exposes the global concurrency cap plus how many
+            // requests it has shed ; a climbing shed count is the only
+            // outward sign that a distinct-IP stampede is being refused.
+            const base = {
+                slowRequests: XChainExplorer.getSlowRequests(),
+                ...XChainExplorer.getLatencyStats(),
+                request_gate: requestGate.getStats()
+            };
             // Try a SELECT 1 against the first available DB pool. This catches the
             // case where the process is up but MariaDB is unreachable.
             try {

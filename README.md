@@ -134,6 +134,20 @@ The `icons` table backing this feature is created automatically by xchain-indexe
 
 Generated icons are written to `src/content/icons/{COIN}/{NETWORK}/{TICK}.png` and served by the existing `/icon/...` endpoint. Failed fetches back off (1h -> 1d -> 7d -> permanent) so unreachable URLs aren't repeatedly retried.
 
+## Metrics and log shipping (optional, off by default)
+
+A Prometheus `/metrics` endpoint and a structured log shim ship with this
+service and stay inert unless switched on: with no env set, no route is
+registered, no timer starts and no socket opens. Turn the endpoint on with
+`METRICS_ENABLED=1` (add `METRICS_TOKEN` to gate the scrape on a reachable
+box), and ship logs with `LOG_SHIP_ENABLED=1` plus `LOG_SHIP_URL`. Full
+variable list and the exported metric names are in
+[`src/observability/README.md`](src/observability/README.md).
+
+The module is vendored byte-identically from xchain-hub . Edit it there
+and re-run `xchain-hub/bin/sync-observability.sh`; a local edit fails the
+parity gate in `bin/check-observability-parity.js`.
+
 ## Scripts
 
 | Command | Description |

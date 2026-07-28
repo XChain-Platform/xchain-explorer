@@ -14,24 +14,40 @@
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   mutate: [
-    '../../src/utility.js',
-    '../../src/db.js',
-    '../../src/XChainExplorer.js',
-    '../../src/config.js',
-    '!../../src/content/**',
-    '!../../src/ssl/**',
-    '!../../src/configs/**'
+    'src/utility.js',
+    'src/db.js',
+    'src/XChainExplorer.js',
+    'src/config.js',
+    '!src/content/**',
+    '!src/ssl/**',
+    '!src/configs/**'
   ],
   testRunner: 'mocha',
   mochaOptions: {
-    spec: ['../../test/unit/**/*.test.js']
+    spec: ['test/unit/**/*.test.js'],
+    // Tests that assert on SOURCE TEXT rather than behaviour. They read a src
+    // file off disk and grep it (for a render-branch list, for route ordering),
+    // so under Stryker they read the instrumented sandbox copy and fail on
+    // every run including the dry run, taking the whole run down with them.
+    //
+    // Dropping them costs no mutation signal by construction: a test that never
+    // executes the code cannot kill a mutant of it. They still guard the real
+    // tree under `npm test`.
+    ignore: [
+      'test/unit/ActionManifestConformance.test.js',
+      'test/unit/ConsensusPrimitiveConformance.test.js',
+      'test/unit/HubMirrorClientConformance.test.js',
+      'test/unit/fontawesome-kit.test.js',
+      'test/unit/jsonrpc-body-guard.test.js',
+      'test/unit/openapi-coverage.test.js'
+    ]
   },
   reporters: ['html', 'json', 'clear-text', 'progress'],
   htmlReporter: {
-    fileName: '../../reports/mutation/index.html'
+    fileName: 'reports/mutation/index.html'
   },
   jsonReporter: {
-    fileName: '../../reports/mutation/results.json'
+    fileName: 'reports/mutation/results.json'
   },
   thresholds: {
     high: 90,

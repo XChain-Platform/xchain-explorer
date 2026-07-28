@@ -8535,6 +8535,19 @@
               "maxLength": 4096
             },
             "description": "Source address the action would be sent from"
+          },
+          {
+            "in": "query",
+            "name": "feeMode",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "xchain",
+                "native"
+              ]
+            },
+            "description": "How the transaction being composed will settle the protocol fee. The verdict differs: `xchain` debits the payer XCHAIN balance, `native` pays a coin output to the fee destination. Omit it to get the chain default (native on LTC/DOGE, the XCHAIN debit on BTC)."
           }
         ],
         "responses": {
@@ -8575,7 +8588,7 @@
             }
           }
         },
-        "description": "Dry-runs the action against the current tip inside a forced rollback and returns its validity verdict. Nothing is persisted or broadcast. `valid: null` means no verdict was produced, and the sibling flag says why: `denied` (VM actions such as DEPLOY/EXECUTE/XEXEC/BATCH are not offered on this public surface), `feeExempt` (a settlement/lifecycle action with nothing to dry-run), `busy` (the dry-run admission window is full; retryable), or `guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). Verdicts are memoized per block height, so a repeat at the same tip returns `cached: true`."
+        "description": "Dry-runs the action against the current tip inside a forced rollback and returns its validity verdict. Nothing is persisted or broadcast. `valid: null` means no verdict was produced, and the sibling flag says why: `denied` (VM actions such as DEPLOY/EXECUTE/XEXEC/BATCH are not offered on this public surface), `feeExempt` (a settlement/lifecycle action with nothing to dry-run), `busy` (the dry-run admission window is full; retryable), or `guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). The protocol fee is settled the way `feeMode` says the real transaction will, so a payer who cannot cover an XCHAIN-settled fee is told `invalid` here rather than after paying a miner fee; `feeTokenBalance` and `feeAffordable` report that balance beside `xchainFee`. Verdicts are memoized per block height and settlement mode, so a repeat at the same tip returns `cached: true`."
       },
       "x-registered": "express"
     },
@@ -9129,6 +9142,39 @@
           "note": {
             "type": "string",
             "description": "Explanatory text accompanying a no-verdict response"
+          },
+          "xchainFee": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Protocol fee the action would owe, XCHAIN-denominated decimal string (8dp); null when the run staged no fee record, absent on no-verdict responses"
+          },
+          "feeMode": {
+            "type": "string",
+            "enum": [
+              "xchain",
+              "native"
+            ],
+            "description": "Fee settlement mode the verdict was computed under"
+          },
+          "feeTick": {
+            "type": "string",
+            "description": "Ticker the protocol fee is denominated in (the gas token)"
+          },
+          "feeTokenBalance": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Payer balance of feeTick at the quoted height, decimal string (8dp); null when it could not be read"
+          },
+          "feeAffordable": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether feeTokenBalance covers xchainFee; null in native mode (the fee is not paid from that balance) or when either input is unknown"
           },
           "blockIndex": {
             "type": "integer",

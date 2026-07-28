@@ -142,7 +142,15 @@ describe('XChainIndexerConnector', function () {
             let call = sinon.stub(c, '_call').resolves({ supported: true, valid: true });
             let r = await c.preflight({ action: 'SEND', params: '0|JDOG|1|addr', source: 'me' });
             expect(r).to.deep.equal({ supported: true, valid: true });
-            expect(call.calledWith('preflight', { action: 'SEND', params: '0|JDOG|1|addr', source: 'me' })).to.be.true;
+            expect(call.calledWith('preflight', { action: 'SEND', params: '0|JDOG|1|addr', source: 'me', feeMode: undefined })).to.be.true;
+        });
+
+        // : the fee settlement mode changes the verdict, so it rides along.
+        it('preflight forwards feeMode when the caller sets one', async function () {
+            let c = new XChainIndexerConnector('http://x:1');
+            let call = sinon.stub(c, '_call').resolves({ supported: true, valid: false });
+            await c.preflight({ action: 'ISSUE', params: '0|NEWTICK', source: 'me', feeMode: 'xchain' });
+            expect(call.calledWith('preflight', { action: 'ISSUE', params: '0|NEWTICK', source: 'me', feeMode: 'xchain' })).to.be.true;
         });
     });
 });

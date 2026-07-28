@@ -94,10 +94,41 @@ describe('processPreflightRequest ( route)', function () {
 
     it('proxies a valid request to the connector and returns its result', async function () {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
-        sinon.stub(IndexerConnector.prototype, 'preflight').resolves({ supported: true, valid: true, status: 'valid' });
+        // The upstream verdict passes through verbatim, fee included : the
+        // proxy must not filter fields the confirm screen reads.
+        sinon.stub(IndexerConnector.prototype, 'preflight').resolves({ supported: true, valid: true, status: 'valid', xchainFee: '0.50000000' });
         const res = await call(fakeThis(), { action: 'SEND', params: '0|JDOG|1|addr', source: 'me' });
         expect(res._status).to.equal(200);
-        expect(res._json).to.deep.equal({ supported: true, valid: true, status: 'valid' });
+        expect(res._json).to.deep.equal({ supported: true, valid: true, status: 'valid', xchainFee: '0.50000000' });
+    });
+
+    // : the verdict depends on how the fee settles, so the mode has to survive the proxy.
+    it('passes feeMode through, lower-cased', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+        const stub = sinon.stub(IndexerConnector.prototype, 'preflight').resolves({ supported: true, valid: false });
+        await call(fakeThis(), { action: 'ISSUE', params: '0|NEWTICK', source: 'me', feeMode: 'NATIVE' });
+        expect(stub.firstCall.args[0].feeMode).to.equal('native');
+    });
+
+    it('omits feeMode when the caller did not send one (the indexer picks the chain default)', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+        const stub = sinon.stub(IndexerConnector.prototype, 'preflight').resolves({ supported: true, valid: true });
+        await call(fakeThis(), { action: 'ISSUE', params: '0|NEWTICK' });
+        expect(stub.firstCall.args[0].feeMode).to.equal(undefined);
+    });
+
+    it('400 on an unknown feeMode rather than silently answering the wrong question', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+        const res = await call(fakeThis(), { action: 'ISSUE', feeMode: 'creditcard' });
+        expect(res._status).to.equal(400);
+        expect(res._json.code).to.equal('INVALID_PARAMETER');
+    });
+
+    it('400 on a repeated feeMode', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+        const res = await call(fakeThis(), { action: 'ISSUE', feeMode: ['xchain', 'native'] });
+        expect(res._status).to.equal(400);
+        expect(res._json.code).to.equal('INVALID_PARAMETER');
     });
 
     it('502 when the upstream connector throws', async function () {
@@ -120,7 +151,10 @@ describe('preflight OpenAPI contract ', function () {
     const names = op.parameters.map((p) => p.name).filter(Boolean);
 
     it('documents the query parameters the route actually reads', function () {
-        expect(names).to.have.members(['action', 'params', 'source']);
+        expect(names).to.have.members(['action', 'params', 'source', 'feeMode']);
+        const feeMode = op.parameters.find((p) => p.name === 'feeMode');
+        expect(feeMode.required).to.equal(false);
+        expect(feeMode.schema.enum).to.have.members(['xchain', 'native']);
         const action = op.parameters.find((p) => p.name === 'action');
         expect(action.required).to.equal(true);
         expect(action.in).to.equal('query');
@@ -146,6 +180,16 @@ describe('preflight OpenAPI contract ', function () {
         expect(verdict.properties.valid.type).to.deep.equal(['boolean', 'null']);
         for (const field of ['supported', 'guardInert', 'denied', 'feeExempt', 'busy', 'cached', 'status'])
             expect(verdict.properties, field).to.have.property(field);
+        // : the fee the dry-run already computed is part of the published
+        // contract, so a client can disclose it without a second /feequote call.
+        expect(verdict.properties).to.have.property('xchainFee');
+        expect(verdict.properties.xchainFee.type).to.deep.equal(['string', 'null']);
+        // : the fee is only judged truthfully if the caller knows which mode it was
+        // judged under, and the payer balance is what makes an XCHAIN-mode refusal actionable.
+        for (const field of ['feeMode', 'feeTick', 'feeTokenBalance', 'feeAffordable'])
+            expect(verdict.properties, field).to.have.property(field);
+        expect(verdict.properties.feeTokenBalance.type).to.deep.equal(['string', 'null']);
+        expect(verdict.properties.feeAffordable.type).to.deep.equal(['boolean', 'null']);
     });
 
     it('declares the status codes the route emits, and only those', function () {

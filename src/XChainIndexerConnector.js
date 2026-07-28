@@ -88,8 +88,9 @@ class XChainIndexerConnector {
 
     // Validity-first pre-flight for a single action : would the indexer accept it?
     // Decoupled from native-fee support. See xchain-indexer Actions.computePreflight.
-    async preflight({ action, params, source }){
-        return this._call('preflight', { action, params, source });
+    // `feeMode` ('xchain' | 'native') selects how the fee settles in the dry-run .
+    async preflight({ action, params, source, feeMode }){
+        return this._call('preflight', { action, params, source, feeMode });
     }
 
     // Fee schedule + current oracle prices. See xchain-indexer Actions.getFeeSchedule.

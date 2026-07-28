@@ -108,3 +108,47 @@ describe('processPreflightRequest ( route)', function () {
         expect(res._json.code).to.equal('UPSTREAM_ERROR');
     });
 });
+
+// The published contract, not the implementation. The generator gave every
+// pre-wildcard route the paginated-list treatment, so preflight shipped
+// documented as taking page/limit/sortorder and returning {total, data} when it
+// in fact takes `action` and returns one verdict object. These assertions pin
+// the corrected entry against a silent regression on the next regeneration.
+describe('preflight OpenAPI contract ', function () {
+    const spec = require('../../docs/openapi.json');
+    const op = spec.paths['/{COIN}/api/preflight'].get;
+    const names = op.parameters.map((p) => p.name).filter(Boolean);
+
+    it('documents the query parameters the route actually reads', function () {
+        expect(names).to.have.members(['action', 'params', 'source']);
+        const action = op.parameters.find((p) => p.name === 'action');
+        expect(action.required).to.equal(true);
+        expect(action.in).to.equal('query');
+        // The pattern must be the one the route enforces, or a client that obeys
+        // the spec still gets a 400 INVALID_ACTION.
+        expect(new RegExp(action.schema.pattern).test('SEND')).to.equal(true);
+        expect(new RegExp(action.schema.pattern).test('send;drop')).to.equal(false);
+    });
+
+    it('does not advertise pagination it ignores', function () {
+        const refs = op.parameters.map((p) => p.$ref).filter(Boolean);
+        expect(refs).to.not.include('#/components/parameters/page');
+        expect(refs).to.not.include('#/components/parameters/limit');
+        expect(refs).to.not.include('#/components/parameters/sortorder');
+    });
+
+    it('returns a verdict object, not a list envelope', function () {
+        const schema = op.responses['200'].content['application/json'].schema;
+        expect(schema.$ref).to.equal('#/components/schemas/PreflightResponse');
+        const verdict = spec.components.schemas.PreflightResponse;
+        expect(verdict.type).to.equal('object');
+        // `valid` is nullable on purpose: no verdict is a distinct answer from invalid.
+        expect(verdict.properties.valid.type).to.deep.equal(['boolean', 'null']);
+        for (const field of ['supported', 'guardInert', 'denied', 'feeExempt', 'busy', 'cached', 'status'])
+            expect(verdict.properties, field).to.have.property(field);
+    });
+
+    it('declares the status codes the route emits, and only those', function () {
+        expect(Object.keys(op.responses).sort()).to.deep.equal(['200', '400', '404', '501', '502']);
+    });
+});

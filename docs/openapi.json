@@ -8505,13 +8505,36 @@
             "$ref": "#/components/parameters/coin"
           },
           {
-            "$ref": "#/components/parameters/page"
+            "in": "query",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,32}$"
+            },
+            "example": "SEND",
+            "description": "Action name (aliases are resolved)"
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "in": "query",
+            "name": "params",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "example": "0|JDOG|1|bc1qexampleaddress",
+            "description": "Pipe-delimited action parameters, exactly as encoded on the wire"
           },
           {
-            "$ref": "#/components/parameters/sortorder"
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Source address the action would be sent from"
           }
         ],
         "responses": {
@@ -8520,7 +8543,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/PreflightResponse"
                 }
               }
             }
@@ -8531,10 +8554,28 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
-          "503": {
-            "$ref": "#/components/responses/CoinUnavailable"
+          "501": {
+            "description": "Pre-flight unavailable: no indexer API is configured for this coin/network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream indexer could not be reached or errored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "description": "Dry-runs the action against the current tip inside a forced rollback and returns its validity verdict. Nothing is persisted or broadcast. `valid: null` means no verdict was produced, and the sibling flag says why: `denied` (VM actions such as DEPLOY/EXECUTE/XEXEC/BATCH are not offered on this public surface), `feeExempt` (a settlement/lifecycle action with nothing to dry-run), `busy` (the dry-run admission window is full; retryable), or `guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). Verdicts are memoized per block height, so a repeat at the same tip returns `cached: true`."
       },
       "x-registered": "express"
     },
@@ -9027,6 +9068,81 @@
       "ObjectResponse": {
         "type": "object",
         "description": "Single result object (fields vary per endpoint; amounts are decimal strings)"
+      },
+      "PreflightResponse": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "The action as classified, after alias resolution"
+          },
+          "coin": {
+            "type": "string",
+            "description": "Host chain the verdict was computed on"
+          },
+          "supported": {
+            "type": "boolean",
+            "description": "Whether the action handler actually ran (independent of native-fee support)"
+          },
+          "valid": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Would the action be accepted at the current tip; null when no verdict was produced"
+          },
+          "status": {
+            "type": "string",
+            "description": "Verdict status from the dry-run (\"valid\", or the rejecting status)"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the action would be rejected; null when valid"
+          },
+          "guardInert": {
+            "type": "boolean",
+            "description": "The controller guard was not entered, so the verdict is inconclusive"
+          },
+          "denied": {
+            "type": "boolean",
+            "description": "Action is not offered on this public surface (VM actions)"
+          },
+          "feeExempt": {
+            "type": "boolean",
+            "description": "Settlement/lifecycle action with no dry-runnable verdict"
+          },
+          "busy": {
+            "type": "boolean",
+            "description": "Dry-run admission window full; retry shortly"
+          },
+          "retryable": {
+            "type": "boolean",
+            "description": "Set alongside busy"
+          },
+          "cached": {
+            "type": "boolean",
+            "description": "Served from the block-height-keyed verdict memo"
+          },
+          "note": {
+            "type": "string",
+            "description": "Explanatory text accompanying a no-verdict response"
+          },
+          "blockIndex": {
+            "type": "integer",
+            "description": "Tip height the verdict was computed against (a JSON number here, not a decimal string)"
+          },
+          "blockTime": {
+            "type": "integer",
+            "description": "Unix timestamp of that block, used for the dry-run"
+          }
+        },
+        "required": [
+          "action",
+          "supported"
+        ]
       },
       "Error": {
         "type": "object",

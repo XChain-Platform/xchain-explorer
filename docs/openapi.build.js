@@ -194,7 +194,37 @@ const SPECIAL = [
     // have silently dropped it. Kept in the generator instead.
     ['/{COIN}/api/oraclefeequote', 'Fees', 'Oracle usage fee quote for a Mode B dispenser (proxied from the indexer)',
         'A dispenser naming an ORACLE_ADDRESS pays the oracle operator up front as a native-coin output, sized from the escrow the action adds. Returns requiredFeeNative / requiredFeeSats / belowDust. Backed by the same computation the indexer validates with, so an output sized from this quote is accepted.'],
-    ['/{COIN}/api/preflight', 'Core', 'Validity-first pre-flight of an action against the current tip (would it be accepted); proxied from the indexer'],
+    // . The verdict is decoupled from native-fee support: `supported` means
+    // the handler actually ran, `valid` is the on-chain validity answer, and a
+    // null `valid` means no verdict was produced (denied / feeExempt / busy /
+    // guardInert), never "invalid".
+    ['/{COIN}/api/preflight', 'Core',
+        'Validity-first pre-flight of an action against the current tip (would it be accepted); proxied from the indexer',
+        'Dry-runs the action against the current tip inside a forced rollback and returns its validity verdict. '
+        + 'Nothing is persisted or broadcast. `valid: null` means no verdict was produced, and the sibling flag says why: '
+        + '`denied` (VM actions such as DEPLOY/EXECUTE/XEXEC/BATCH are not offered on this public surface), '
+        + '`feeExempt` (a settlement/lifecycle action with nothing to dry-run), '
+        + '`busy` (the dry-run admission window is full; retryable), or '
+        + '`guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). '
+        + 'Verdicts are memoized per block height, so a repeat at the same tip returns `cached: true`.',
+        {
+            query: [
+                { name: 'action', required: true, schema: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$' },
+                    example: 'SEND', description: 'Action name (aliases are resolved)' },
+                { name: 'params', required: false, schema: { type: 'string', maxLength: 8192 },
+                    example: '0|JDOG|1|bc1qexampleaddress', description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
+                { name: 'source', required: false, schema: { type: 'string', maxLength: 4096 },
+                    description: 'Source address the action would be sent from' },
+            ],
+            schema: { $ref: '#/components/schemas/PreflightResponse' },
+            responses: {
+                501: { description: 'Pre-flight unavailable: no indexer API is configured for this coin/network',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                502: { description: 'The upstream indexer could not be reached or errored',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                503: null,   // the route resolves the coin itself and 404s; it never emits CoinUnavailable
+            },
+        }],
     ['/{COIN}/api/checkpoints', 'Checkpoints', 'Latest quorum-signed state checkpoints for this chain'],
     ['/{COIN}/api/checkpoint/{BLOCK_INDEX}/verify', 'Checkpoints', 'Verify a checkpoint: 2f+1 signatures, canonical string, validator set'],
     ['/{COIN}/api/checkpoints/range', 'Checkpoints', 'Quorum-signed checkpoints in a [from,to] block range (SPV forward-following)'],
@@ -253,38 +283,53 @@ const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'get
     // timeline) and getOracleStats one aggregate record, so neither paginates.
     'getBetFeed', 'getOracleStats']);
 
-function operation([p, method, types, tag, summary]) {
-    const isList = !LIST_METHODS_SINGLE.has(method);
+// `opts` (SPECIAL entries only) describes a route the table conventions cannot:
+// {query: [...]} its own query parameters instead of page/limit/sortorder,
+// {schema} a 200 body that is neither ListResponse nor ObjectResponse, and
+// {responses} extra status codes (a null value DELETES a default one, for
+// routes that cannot emit it). Without this every SPECIAL route inherited the
+// paginated-list contract, which is wrong for the indexer proxies: they take an
+// `action`, return one object, and never 503.
+function operation([p, method, types, tag, summary], opts) {
+    const o = opts || {};
+    const isList = !o.query && !o.schema && !LIST_METHODS_SINGLE.has(method);
     const params = pathParams(p, types);
     if (isList) params.push(
         { $ref: '#/components/parameters/page' },
         { $ref: '#/components/parameters/limit' },
         { $ref: '#/components/parameters/sortorder' });
+    for (const q of o.query || []) params.push(Object.assign({ in: 'query' }, q));
+    const responses = {
+        200: {
+            description: 'OK',
+            content: {
+                'application/json': {
+                    schema: o.schema
+                        || { $ref: isList ? '#/components/schemas/ListResponse' : '#/components/schemas/ObjectResponse' },
+                },
+            },
+        },
+        400: { $ref: '#/components/responses/BadRequest' },
+        404: { $ref: '#/components/responses/NotFound' },
+        503: { $ref: '#/components/responses/CoinUnavailable' },
+    };
+    for (const [code, body] of Object.entries(o.responses || {})) {
+        if (body === null) delete responses[code];
+        else responses[code] = body;
+    }
     return {
         get: {
             operationId: opId(p), tags: [tag], summary,
             parameters: params,
-            responses: {
-                200: {
-                    description: 'OK',
-                    content: {
-                        'application/json': {
-                            schema: { $ref: isList ? '#/components/schemas/ListResponse' : '#/components/schemas/ObjectResponse' },
-                        },
-                    },
-                },
-                400: { $ref: '#/components/responses/BadRequest' },
-                404: { $ref: '#/components/responses/NotFound' },
-                503: { $ref: '#/components/responses/CoinUnavailable' },
-            },
+            responses,
         },
     };
 }
 
 const paths = {};
 for (const r of ROUTES) paths[r[0]] = operation(r);
-for (const [p, tag, summary, description] of SPECIAL) {
-    paths[p] = operation([p, 'special_' + opId(p), null, tag, summary]);
+for (const [p, tag, summary, description, opts] of SPECIAL) {
+    paths[p] = operation([p, 'special_' + opId(p), null, tag, summary], opts);
     // Optional 4th element: prose that does not fit a one-line summary. Added
     // for oraclefeequote, whose entry had been hand-written into the generated
     // file WITH a description the generator could not express, so regenerating
@@ -343,6 +388,34 @@ const spec = {
                 required: ['total', 'data'],
             },
             ObjectResponse: { type: 'object', description: 'Single result object (fields vary per endpoint; amounts are decimal strings)' },
+            // . Mirrors xchain-indexer Actions.computePreflight(); `valid` is
+            // nullable because "no verdict" is a distinct answer from "invalid".
+            PreflightResponse: {
+                type: 'object',
+                properties: {
+                    action: { type: 'string', description: 'The action as classified, after alias resolution' },
+                    coin: { type: 'string', description: 'Host chain the verdict was computed on' },
+                    supported: { type: 'boolean', description: 'Whether the action handler actually ran (independent of native-fee support)' },
+                    valid: { type: ['boolean', 'null'], description: 'Would the action be accepted at the current tip; null when no verdict was produced' },
+                    status: { type: 'string', description: 'Verdict status from the dry-run ("valid", or the rejecting status)' },
+                    error: { type: ['string', 'null'], description: 'Why the action would be rejected; null when valid' },
+                    guardInert: { type: 'boolean', description: 'The controller guard was not entered, so the verdict is inconclusive' },
+                    denied: { type: 'boolean', description: 'Action is not offered on this public surface (VM actions)' },
+                    feeExempt: { type: 'boolean', description: 'Settlement/lifecycle action with no dry-runnable verdict' },
+                    busy: { type: 'boolean', description: 'Dry-run admission window full; retry shortly' },
+                    retryable: { type: 'boolean', description: 'Set alongside busy' },
+                    cached: { type: 'boolean', description: 'Served from the block-height-keyed verdict memo' },
+                    note: { type: 'string', description: 'Explanatory text accompanying a no-verdict response' },
+                    // Deliberately typed as they are actually emitted. This proxy passes the
+                    // indexer's dry-run values straight through as JSON numbers, so it is the
+                    // one endpoint that departs from the decimal-string convention for chain
+                    // indices stated above. Documented rather than quietly re-typed, because
+                    // clients already parse the shipped shape.
+                    blockIndex: { type: 'integer', description: 'Tip height the verdict was computed against (a JSON number here, not a decimal string)' },
+                    blockTime: { type: 'integer', description: 'Unix timestamp of that block, used for the dry-run' },
+                },
+                required: ['action', 'supported'],
+            },
             Error: {
                 type: 'object',
                 properties: {

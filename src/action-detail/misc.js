@@ -200,6 +200,7 @@ const FILE = {
                     t3.type as type,
                     a3.address as source,
                     gf.gate_ticker,
+                    gf.gate_min_amount,
                     gf.encryption_method,
                     gf.key_hash,
                     b1.block_index,

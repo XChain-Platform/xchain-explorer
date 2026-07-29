@@ -2169,6 +2169,7 @@ class Database {
                             m1.memo,
                             s1.status,
                             gf.gate_ticker,
+                            gf.gate_min_amount,
                             gf.encryption_method,
                             gf.key_hash
                         FROM
@@ -2218,6 +2219,7 @@ class Database {
                             m1.memo,
                             s1.status,
                             gf.gate_ticker,
+                            gf.gate_min_amount,
                             gf.encryption_method,
                             gf.key_hash
                         FROM

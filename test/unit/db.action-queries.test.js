@@ -532,6 +532,38 @@ describe('Database#getFiles (token type)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getFiles: the gating columns (PC-29 /  P9)
+//
+// Both getFiles paths select the gated_files columns, and the wallet reads
+// `row.gate_min_amount` straight off /api/files (packages/core gatedContent.js), so
+// the COLUMN NAME is fixed by an already-shipped consumer: an alias here, or a
+// missing column on one of the two paths, silently degrades every gated file to
+// "no threshold" in the wallet - which reads as an unconditional gate rather than
+// as an error. Pinned on both paths because they are separate SQL literals and one
+// has been edited without the other before.
+// ---------------------------------------------------------------------------
+
+['address', 'token'].forEach((type) => {
+    describe(`Database#getFiles (${type} type) gating columns`, () => {
+        let query;
+        before(async () => {
+            const config = makeActionConfig('getFiles', type);
+            [query] = await db.getFiles(config);
+        });
+
+        it('joins gated_files and selects gate_min_amount beside gate_ticker', () => {
+            expect(query).to.include('LEFT  JOIN gated_files');
+            expect(query).to.include('gf.gate_ticker');
+            expect(query).to.include('gf.gate_min_amount');
+        });
+
+        it('selects the threshold unaliased, since the wallet reads gate_min_amount', () => {
+            expect(query).to.not.match(/gf\.gate_min_amount\s+as\s+/i);
+        });
+    });
+});
+
+// ---------------------------------------------------------------------------
 // getIssues
 // ---------------------------------------------------------------------------
 

@@ -2573,8 +2573,22 @@ function showFileDetails(data){
         $('#info-file .file-key-hash').html(formatHash(data.key_hash, 24));
         $('#info-file .file-raw').html(formatLink('/' + XC.coin + '/api/file/' + data.action_index + '/raw', 'download ciphertext'));
         $('#info-file .file-gated-row').removeClass('d-none');
+        // GATE_MIN_AMOUNT (PC-29): the minimum balance of the gate token at which a
+        // recipient must be handed the unlock key. Absent means the gate is
+        // unconditional (any holder), which is what every FILE published before the
+        // field existed carries, so the row is hidden rather than shown as "none" -
+        // an empty threshold row would read as a balance requirement of zero.
+        if(!isNull(data.gate_min_amount) && data.gate_min_amount !== ''){
+            $('#info-file .file-gate-min-amount').html(
+                formatAmount(data.gate_min_amount) + ' ' +
+                formatLink('/' + XC.coin + '/token/' + data.gate_ticker, data.gate_ticker, data.gate_ticker));
+            $('#info-file .file-threshold-row').removeClass('d-none');
+        } else {
+            $('#info-file .file-threshold-row').addClass('d-none');
+        }
     } else {
         $('#info-file .file-gated-row').addClass('d-none');
+        $('#info-file .file-threshold-row').addClass('d-none');
     }
     // File viewer: non-gated media renders inline from the raw FILE endpoint
     // (the server only serves whitelisted media MIME types inline; everything
@@ -2587,6 +2601,11 @@ function showFileDetails(data){
         html   = '';
     if(!isNull(data.gate_ticker)){
         html = '<i class="fa fa-lock pe-1"></i> Token-gated content &mdash; holders decrypt client-side with their unlock key';
+        // With a threshold (PC-29) the key is only owed to recipients whose balance
+        // reaches it, so say so here rather than implying every holder gets one.
+        if(!isNull(data.gate_min_amount) && data.gate_min_amount !== '')
+            html += ', delivered to holders of at least ' + escapeHtml(String(data.gate_min_amount)) +
+                    ' ' + escapeHtml(String(data.gate_ticker));
     } else if(type.substring(0,6)=='image/' && type!='image/svg+xml'){
         html = '<img src="' + rawUrl + '" class="img-fluid" style="max-width:400px" alt="">';
     } else if(type.substring(0,6)=='video/'){

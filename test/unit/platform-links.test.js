@@ -52,12 +52,12 @@ describe('Platform switcher', function () {
             expect(LINKS.links.map((p) => p.key)).to.include(CURRENT);
         });
 
-        it('omits the internal dashboard and any host that is not live yet', function () {
+        it('omits the internal dashboard, and includes every live host', function () {
             const keys = LINKS.links.map((p) => p.key);
-            expect(keys, 'dashboard.xchain.io is internal').to.not.include('dashboard');
+            expect(keys, 'dashboard.xchain.io is internal and is never listed').to.not.include('dashboard');
             // Liveness rule: a host joins the list only once it serves 200 over
-            // HTTPS. mcp.xchain.io has no vhost yet.
-            expect(keys, 'mcp joins at xchain-websites phase 7').to.not.include('mcp');
+            // HTTPS. mcp.xchain.io met that on 2026-07-29, so it is expected here.
+            expect(keys, 'mcp.xchain.io is live').to.include('mcp');
         });
 
         it('is byte-identical to the file the renderer reads', function () {

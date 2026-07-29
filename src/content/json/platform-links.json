@@ -42,6 +42,12 @@
       "label": "Validator hub",
       "icon": "fa-solid fa-circle-nodes",
       "href": "https://hub.xchain.io/"
+    },
+    {
+      "key": "mcp",
+      "label": "MCP for agents",
+      "icon": "fa-solid fa-robot",
+      "href": "https://mcp.xchain.io/"
     }
   ]
 }

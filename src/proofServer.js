@@ -30,9 +30,17 @@
 'use strict';
 
 const M   = require('./merkle.js');
+const SUB = require('./state_subtree_activation.js');   // byte-identical fourth carrier; escrow-leaf liveness only
 const swq = require('./stake_weighted_quorum.js');
 
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
+
+// Reserved state_root slots that have a persisted column on state_tree_roots, in
+// no particular order (merkle.stateRoot places each by NAME, not by iteration
+// order). Derived from the frozen slot list rather than written out, so a slot
+// added to merkle.STATE_SUBTREES cannot be silently missed here; a slot with no
+// column simply never appears on a row and is skipped.
+const EXTENSION_SLOTS = M.STATE_SUBTREES.slice(2);
 
 class ProofServer {
     constructor(db) {
@@ -113,12 +121,37 @@ class ProofServer {
         return shaped;
     }
 
+    // The sub-root set a stored row commits, INCLUDING any armed extension slots.
+    // One helper, used by every reassembly and every sub_root_path here, so a slot
+    // can never be present in the binding check and absent from the proof path.
+    //
+    // NO ACTIVATION-HEIGHT GATE, deliberately, and this is the one design call in
+    // the explorer's read path worth understanding. The indexer writes these
+    // columns FROM the gated value: NULL whenever the slot was inert at that
+    // height, the real sub-root whenever it was armed. So the row already carries
+    // the gate's decision for its own height, and reading "non-NULL means
+    // committed" is exactly equivalent to re-deriving the gate, minus a second
+    // copy of the activation map that could drift from the indexer's on a
+    // half-deployed fleet. A drifted map would fail LOUDLY here
+    // (PROOF_STATE_ROOT_MISMATCH on every proof at that height), but loud is still
+    // an outage, and the outage would be caused solely by the duplicate.
+    //
+    // The constraint this accepts in exchange: nothing may write these columns for
+    // a height at which the slot was NOT committed. In particular a shadow-compute
+    // window must persist its candidate somewhere else, not here (spec §7).
+    _subRoots(tr) {
+        const subRoots = { balances_root: tr.balances_root, stakes_root: tr.stakes_root };
+        for (const slot of EXTENSION_SLOTS)
+            if (tr[slot]) subRoots[slot] = tr[slot];
+        return subRoots;
+    }
+
     // Bind a per-block sub-root set to the signed checkpoint: the indexer's
     // state_tree_roots row at the checkpoint height must reassemble to the signed
     // state_root, else the indexer DB and the signed checkpoint disagree (a server
     // bug / divergence) and we refuse to serve a proof a client could not bind.
     _bindRoots(cp, tr) {
-        const assembled = M.toHex(M.stateRoot({ balances_root: tr.balances_root, stakes_root: tr.stakes_root }));
+        const assembled = M.toHex(M.stateRoot(this._subRoots(tr)));
         if (cp.state_root && String(cp.state_root).toLowerCase() !== assembled)
             throw new Error('PROOF_STATE_ROOT_MISMATCH');
         return assembled;
@@ -137,7 +170,7 @@ class ProofServer {
         catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
         const keyBuf = M.balanceKey(chain, network, address, tick);
         const smt    = await this._prove(config, tr.balances_root, keyBuf);
-        const sub    = M.stateRootProof({ balances_root: tr.balances_root, stakes_root: tr.stakes_root }, 'balances_root');
+        const sub    = M.stateRootProof(this._subRoots(tr), 'balances_root');
         // Authoritative amount (never the balances cache). Non-inclusion => "0".
         // Height-bounded to cp.block_index (the SAME row getStateTreeRow committed
         // the leaf from), NOT the current tip: the SDK verifier requires
@@ -146,6 +179,62 @@ class ProofServer {
         const amount = (smt.leaf_value == null)
             ? M.canonicalAmount('0')
             : M.canonicalAmount(await this.db.getNetBalance18AtHeight(config, address, tick, cp.block_index));
+        const tip = await this.db.getMaxBlockIndex(config);
+        return {
+            proof: {
+                chain, network, height: Number(cp.block_index), address, tick, amount,
+                smt_proof: { key: smt.key, leaf_value: smt.leaf_value, compressed: smt.compressed },
+                sub_root_path: { index: sub.index, siblings: sub.siblings },
+                balances_root: tr.balances_root, stakes_root: tr.stakes_root,
+                state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version
+            },
+            checkpoint: this._shapeCheckpoint(cp, tip)
+        };
+    }
+
+    // GET /:coin/api/proof/locked-balance/:address/:tick?height=H
+    // (SPV sub-tree spec §3 Stage B / )
+    //
+    // Proves the XCHAIN_ESC locked-balance leaf for (address, tick): the second
+    // leaf domain inside the SAME balances_root the spendable proof binds, under
+    // escrowKey()'s domain tag, so the sub_root_path pins the balances_root slot
+    // exactly as balanceProof does and the response shape is identical. The two
+    // domains cannot be confused by a verifier: each derives its own key, so a
+    // locked proof fed to the spendable verifier (or vice versa) fails
+    // KEY_MISMATCH rather than verifying as the other.
+    //
+    // BELOW THE ARMED HEIGHT THIS REFUSES rather than proving absence, for the
+    // §4 reason contractStateProof does: against a balances_root that never
+    // covered the ESC domain, a non-membership proof for any escrow key verifies
+    // perfectly and means nothing. Unlike contract state, the refusal CANNOT be
+    // read off the stored row (there is no ESC column; an ESC-covered root is
+    // byte-indistinguishable from a v1 root when nothing is locked), so this is
+    // the one explorer read that consults the vendored activation carrier. The
+    // SDK verifier re-enforces the same rule with its OWN copy of the maps, so
+    // this server-side refusal is defense-in-depth for naive clients, not the
+    // trust boundary.
+    async lockedBalanceProof(config, chain, network, address, tick, height) {
+        const cp = await this.db.getCheckpointAtOrAbove(config, height);
+        if (!cp) return { error: 'NO_CHECKPOINT' };
+        if (cp.state_root == null) return { error: 'CHECKPOINT_PRE_COMMITMENT' };
+        if (!SUB.isEscrowLockedLeafActive(Number(cp.block_index), network, chain))
+            return { error: 'ESCROW_LEAF_NOT_COMMITTED' };
+        const tr = await this.db.getStateTreeRow(config, cp.block_index);
+        if (!tr) return { error: 'NO_STATE_TREE' };
+        let stateRoot;
+        try { stateRoot = this._bindRoots(cp, tr); }
+        catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
+        const keyBuf = M.escrowKey(chain, network, address, tick);
+        const smt    = await this._prove(config, tr.balances_root, keyBuf);
+        const sub    = M.stateRootProof(this._subRoots(tr), 'balances_root');
+        // Preimage AS-OF the checkpoint height from the journal (latest row at or
+        // below it; append-only, so exact). Non-inclusion means ZERO LOCKED, and
+        // at an armed height that is a real claim (delete-on-zero: released and
+        // never-locked keys both have no leaf), unlike below the armed height,
+        // where this method refuses instead of pretending the tree answers.
+        const amount = (smt.leaf_value == null)
+            ? M.canonicalAmount('0')
+            : M.canonicalAmount(await this.db.getLockedAmountAtHeight(config, address, tick, cp.block_index));
         const tip = await this.db.getMaxBlockIndex(config);
         return {
             proof: {
@@ -232,7 +321,7 @@ class ProofServer {
         let stateRoot;
         try { stateRoot = this._bindRoots(cp, tr); }
         catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
-        const sub  = M.stateRootProof({ balances_root: tr.balances_root, stakes_root: tr.stakes_root }, 'stakes_root');
+        const sub  = M.stateRootProof(this._subRoots(tr), 'stakes_root');
         const caps = (capabilities && capabilities.length) ? capabilities : ['oracle_publish', 'cross_chain'];
         const out  = {};
         for (const cap of caps) {
@@ -271,6 +360,71 @@ class ProofServer {
                 sub_root_path: { index: sub.index, siblings: sub.siblings },
                 state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version,
                 capabilities: out
+            },
+            checkpoint: this._shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
+        };
+    }
+
+    // GET /:coin/api/proof/contract-state/:contractIndex/:key?height=H  (spec §8.1)
+    //
+    // Returns a membership OR non-membership proof for one contract state key
+    // against the checkpoint-height contract_state_root, plus the sub_root_path
+    // that binds that sub-root into the signed state_root.
+    //
+    // BELOW AN ARMED HEIGHT THIS REFUSES RATHER THAN PROVING ABSENCE, and that is
+    // the whole reason for the CONTRACT_STATE_NOT_COMMITTED branch. An inert slot
+    // commits EMPTY_SMT_ROOT, so a non-membership proof against it verifies
+    // perfectly and means NOTHING: every key is absent from an empty tree whether
+    // or not the contract wrote it. Serving that as "no such key" would let a
+    // client conclude a key does not exist from a commitment that never covered
+    // contract state at all. Spec §4: extension-domain non-inclusion at a height
+    // whose arming status the client cannot establish is "not committed", never
+    // "absent".
+    //
+    // The caller is responsible for input validation (percent-decoding, the NUL
+    // byte, the length cap) BEFORE calling: `key` reaches merkle.contractStateKey
+    // here, and joinFields THROWS on a 0x00-bearing field.
+    async contractStateProof(config, chain, network, contractIndex, key, height) {
+        const cp = await this.db.getCheckpointAtOrAbove(config, height);
+        if (!cp) return { error: 'NO_CHECKPOINT' };
+        if (cp.state_root == null) return { error: 'CHECKPOINT_PRE_COMMITMENT' };
+        const tr = await this.db.getStateTreeRow(config, cp.block_index);
+        if (!tr) return { error: 'NO_STATE_TREE' };
+        if (!tr.contract_state_root) return { error: 'CONTRACT_STATE_NOT_COMMITTED' };
+        let stateRoot;
+        try { stateRoot = this._bindRoots(cp, tr); }
+        catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
+
+        const keyBuf = M.contractStateKey(chain, network, contractIndex, key);
+        const smt    = await this._prove(config, tr.contract_state_root, keyBuf);
+        const sub    = M.stateRootProof(this._subRoots(tr), 'contract_state_root');
+        // Leaf preimage AS-OF the checkpoint height, never the current tip: the
+        // client checks leafHash(state_value) against the proven leaf, and a
+        // tip-latest value would false-reject every key written after the
+        // checkpoint. contract_state is append-only with block_index, so the
+        // as-of-height read is exact (the escrow leaf gets the same property
+        // from escrow_leaf_journal, which exists precisely because the family
+        // tables it summarizes mutate in place).
+        // A tombstoned key has no leaf, so non-inclusion and "deleted" are the
+        // same answer here, exactly as they are in the commitment.
+        const stateValue = (smt.leaf_value == null)
+            ? null
+            : await this.db.getContractStateValueAtHeight(config, contractIndex, key, cp.block_index);
+        return {
+            proof: {
+                chain, network, height: Number(cp.block_index),
+                contract_index: String(contractIndex),
+                // The EXACT key bytes proven, echoed back. A client must compare
+                // this to what it asked for: the DB read is byte-exact, but the
+                // echo is what makes a folding read visible if one is ever
+                // reintroduced upstream.
+                state_key: key,
+                state_value: stateValue,
+                smt_proof: { key: smt.key, leaf_value: smt.leaf_value, compressed: smt.compressed },
+                sub_root_path: { index: sub.index, siblings: sub.siblings },
+                contract_state_root: tr.contract_state_root,
+                balances_root: tr.balances_root, stakes_root: tr.stakes_root,
+                state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version
             },
             checkpoint: this._shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
         };

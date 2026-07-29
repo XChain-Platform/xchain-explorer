@@ -39,6 +39,12 @@ const rateLimit        = require('express-rate-limit');
 const vmQuery          = require('./vm-query.js');
 const fontawesomeKit   = require('./fontawesome-kit.js');
 
+// Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
+// maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
+// exist in contract_state, so rejecting it here refuses work that could only ever
+// miss, and keeps an unbounded path segment from reaching the proof descent.
+const CONTRACT_STATE_KEY_MAX_BYTES = 1024;
+
 let slowRequests = 0;
 
 // Lightweight rolling latency reservoir: last 256 request times (ms). The
@@ -520,9 +526,10 @@ class XChainExplorer {
         // recomputes the proof locally and binds it to a quorum-signed checkpoint's
         // committed state_root (never trusting this server's word). The balance proof
         // + checkpoint range are live; action / validator-set / contract-state are
-        // balance + action + validator-set proofs and the checkpoint range are
-        // live; contract-state is reserved (501) pending its design dependency
-        // (see the handler). Merkle-proof recompute is CPU-bound per request
+        // balance + action + validator-set + contract-state proofs and the
+        // checkpoint range are all live. contract-state serves a real proof only at
+        // heights where the slot is armed and a typed 409 below them (see the
+        // handler). Merkle-proof recompute is CPU-bound per request
         // (hashes every leaf in the target block), so cap it per-IP well below
         // the platform-wide 500rpm default, mirroring the VM-call limiter's design.
         const actionProofLimiter = rateLimit({
@@ -549,7 +556,19 @@ class XChainExplorer {
         this.app.get('/:coin/api/checkpoints/range', (req, res) => { this.processCheckpointsRangeRequest(req, res); });
         this.app.get('/:coin/api/proof/action/:actionIndex', actionProofLimiter, (req, res) => { this.processActionProofRequest(req, res); });
         this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { this.processValidatorSetProofRequest(req, res); });
-        this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', (req, res) => { this.processContractStateProofRequest(req, res); });
+        // Contract-state proofs carry the action-proof limiter rather than running
+        // uncapped: the handler is one 256-deep SMT descent (a sequential DB read
+        // per non-empty level) plus two point reads, so it is a new unauthenticated
+        // CPU/IO amplifier of the same class the action-proof cap exists for. It was
+        // a 501 stub until now and so had no limiter at all. NOTE for whoever
+        // revisits this: the balance proof is the same single-descent shape and is
+        // still uncapped beyond the platform default, which is a pre-existing gap
+        // rather than a deliberate exemption, and tightening it is an operational
+        // call rather than part of this change.
+        this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', actionProofLimiter, (req, res) => { this.processContractStateProofRequest(req, res); });
+        // Locked-balance (XCHAIN_ESC) proofs are the same single-descent shape as
+        // the contract-state proof and get the same cap for the same reason.
+        this.app.get('/:coin/api/proof/locked-balance/:address/:tick', actionProofLimiter, (req, res) => { this.processLockedBalanceProofRequest(req, res); });
 
         // Read-only contract simulation (the platform's eth_call): runs a
         // method in a sandboxed xchain-vm against current state and discards
@@ -1672,12 +1691,122 @@ class XChainExplorer {
         }
     }
 
-    // GET /{COIN}/api/proof/contract-state/{contractIndex}/{key}  (SPV spec §8.1)
-    // RESERVED: contract_state_root is committed EMPTY in state_root_version 1 (spec
-    // §10 D1), so no real contract-state proof can be served until a later version.
+    // GET /{COIN}/api/proof/contract-state/{contractIndex}/{key}?height=H  (SPV spec §8.1)
+    //
+    // Serves a real proof at heights where contract_state_root is armed, and a typed
+    // 409 below them (an inert slot's EMPTY tree would "prove" every key absent).
+    //
+    // EVERY INPUT RULE BELOW RUNS BEFORE THE KEY REACHES ANY CRYPTO PRIMITIVE, which
+    // is the point of doing them here rather than deeper. merkle.joinFields THROWS on
+    // a 0x00-bearing field and decodeURIComponent THROWS on malformed percent-escapes,
+    // so a hostile `%00` or `%zz` path segment would otherwise surface as a 500 from
+    // an unauthenticated request. Each rule is a 400 with its own code.
     async processContractStateProofRequest(req, res){
-        return res.status(501).json({ error: 'contract-state proof unsupported in state_root_version 1 (committed EMPTY per spec D1)',
-                                      code: 'UNSUPPORTED_VERSION' });
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            // Same staleness gate as every other checkpoint-bound proof route.
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            if(!parsed)
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+
+            let contractIndex = String(req.params.contractIndex || '');
+            if(!/^[0-9]+$/.test(contractIndex))
+                return res.status(400).json({ error: 'contractIndex must be a non-negative integer',
+                                              code: 'INVALID_CONTRACT_INDEX' });
+
+            // Express already decodes :key once. Decode defensively and treat a
+            // malformed escape as a 400 rather than letting it throw.
+            let rawKey = req.params.key;
+            if(rawKey === undefined || rawKey === null || rawKey === '')
+                return res.status(400).json({ error: 'state key is required', code: 'MISSING_PARAMETER' });
+            let key;
+            try { key = decodeURIComponent(String(rawKey)); }
+            catch(e){ return res.status(400).json({ error: 'Malformed percent-encoding in state key',
+                                                    code: 'INVALID_KEY_ENCODING' }); }
+            if(key.indexOf('\u0000') !== -1)
+                return res.status(400).json({ error: 'state key may not contain a NUL byte',
+                                              code: 'INVALID_KEY_NUL' });
+            // Mirrors the VM's maxStateKeySize default (xchain-vm state.js), measured
+            // in UTF-8 BYTES because that is what the VM measures and what the column
+            // stores. A longer key cannot exist in contract_state, so this rejects
+            // work that could only ever miss.
+            if(Buffer.byteLength(key, 'utf8') > CONTRACT_STATE_KEY_MAX_BYTES)
+                return res.status(400).json({ error: 'state key exceeds ' + CONTRACT_STATE_KEY_MAX_BYTES + ' bytes',
+                                              code: 'KEY_TOO_LONG' });
+
+            let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
+            if(height !== null && !/^[0-9]+$/.test(String(height)))
+                return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });
+
+            let config = { coin, data: {} };
+            let result = await this.proofServer.contractStateProof(config, parsed.coin, parsed.network,
+                                                                   contractIndex, key,
+                                                                   height === null ? null : Number(height));
+            if(result.error){
+                let map = { NO_CHECKPOINT: [404, 'No signed checkpoint at or above this height'],
+                            CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
+                            CONTRACT_STATE_NOT_COMMITTED: [409, 'contract_state_root is not committed at this height (the slot is EMPTY here, so absence cannot be proven)'],
+                            NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
+                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
+                let m = map[result.error] || [500, 'Server error'];
+                return res.status(m[0]).json({ error: m[1], code: result.error });
+            }
+            return res.json(result);
+        } catch(e){
+            console.error('processContractStateProofRequest error:', e && e.message);
+            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+        }
+    }
+
+    // GET /{COIN}/api/proof/locked-balance/{address}/{tick}?height=H
+    // (SPV sub-tree spec §3 Stage B / )
+    //
+    // The XCHAIN_ESC sibling of the balance proof: same params, same response
+    // shape, same checkpoint binding, PLUS the liveness refusal: below the
+    // escrow leaf's armed height a non-inclusion proof would verify against a
+    // balances_root that never covered the domain, so the endpoint returns a
+    // typed 409 instead of "proving" that nothing is locked.
+    async processLockedBalanceProofRequest(req, res){
+        try {
+            let coin = String(req.params.coin || '').toUpperCase();
+            if(!this.db.pools || !this.db.pools[coin])
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            // Same staleness gate as every other checkpoint-bound proof route.
+            let gate = this._mirrorGate(coin);
+            if(gate.blocked)
+                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            if(!parsed)
+                return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
+            let address = String(req.params.address || '');
+            let tick    = String(req.params.tick || '');
+            if(!address || !tick)
+                return res.status(400).json({ error: 'address and tick are required', code: 'MISSING_PARAMETER' });
+            let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
+            if(height !== null && !/^[0-9]+$/.test(String(height)))
+                return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });
+            let config = { coin, data: {} };
+            let result = await this.proofServer.lockedBalanceProof(config, parsed.coin, parsed.network, address, tick,
+                                                                   height === null ? null : Number(height));
+            if(result.error){
+                let map = { NO_CHECKPOINT: [404, 'No signed checkpoint at or above this height'],
+                            CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
+                            ESCROW_LEAF_NOT_COMMITTED: [409, 'The locked-balance leaf is not committed at this height (balances_root does not cover the XCHAIN_ESC domain here, so absence cannot be proven)'],
+                            NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
+                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
+                let m = map[result.error] || [500, 'Server error'];
+                return res.status(m[0]).json({ error: m[1], code: result.error });
+            }
+            return res.json(result);
+        } catch(e){
+            console.error('processLockedBalanceProofRequest error:', e && e.message);
+            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+        }
     }
 
     // POST /{COIN}/api/contract/{contractIndex}/call  body: {method, params?, caller?}

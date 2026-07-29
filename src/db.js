@@ -6644,10 +6644,61 @@ class Database {
 
     // Per-block sub-roots from the indexer DB (state_tree_nodes' companion roots).
     async getStateTreeRow(config, blockIndex) {
+        // contract_state_root is the reserved-slot extension column (SPV sub-tree
+        // spec Stage A). NULL means the slot committed EMPTY at this height, which
+        // is every historical row and every row on a chain that has not armed it.
+        // It MUST be selected here: the sub-root set this row reassembles to is
+        // what binds a served proof to the signed checkpoint, and omitting a
+        // populated column reassembles to the wrong state_root and refuses to
+        // serve every proof at that height.
         let rows = await this.doQuery(config,
-            `SELECT balances_root, stakes_root, state_root, block_merkle_root
+            `SELECT balances_root, stakes_root, state_root, block_merkle_root, contract_state_root
              FROM state_tree_roots WHERE block_index = ? LIMIT 1`, [Number(blockIndex)]);
         return (rows && rows.length) ? rows[0] : null;
+    }
+
+    // Raw stored state_value for one contract state key AS-OF a height, or null
+    // when the key has no row at or below it OR its winning row is a deletion
+    // tombstone. This is the leaf preimage for a contract-state proof, so it must
+    // mirror the commitment's mapping exactly (contractStateSubtree.js):
+    //
+    //   - state_key_bin, the utf8_bin shadow, NEVER state_key. contract_state is
+    //     utf8_general_ci, so matching on state_key can return a row for a
+    //     DIFFERENT key that merely case-folds to the requested one, and the proof
+    //     would be cryptographically valid while binding the wrong key.
+    //   - highest id at or below the height, tombstones INCLUDED in the ordering
+    //     and tested afterwards. Filtering NULLs first would return the last
+    //     surviving write of a deleted key, contradicting the commitment, which
+    //     has no leaf for it.
+    //   - the RAW stored string, never JSON.parse'd: the client hashes these bytes.
+    async getContractStateValueAtHeight(config, contractIndex, stateKey, blockIndex) {
+        let rows = await this.doQuery(config,
+            `SELECT state_value FROM contract_state
+             WHERE contract_index = ? AND state_key_bin = ? AND block_index <= ?
+             ORDER BY id DESC LIMIT 1`,
+            [Number(contractIndex), String(stateKey), Number(blockIndex)]);
+        if (!rows || !rows.length) return null;
+        return (rows[0].state_value == null) ? null : String(rows[0].state_value);
+    }
+
+    // Locked-balance (XCHAIN_ESC) leaf preimage as-of a height: the latest
+    // escrow_leaf_journal row at or below it. The journal is append-only with a
+    // block_index (the indexer's writer appends one row per key per block whose
+    // total changed), so this read is exact, exactly like contract_state above.
+    // MAX(id) runs over ALL rows including NULL tombstones: filtering them
+    // before the max would resurrect a released lock at its last positive value.
+    // NULL (tombstone) and no-row both return null, which the proof layer maps
+    // to "zero locked", matching the reader's delete-on-zero rule.
+    async getLockedAmountAtHeight(config, address, tick, blockIndex) {
+        let rows = await this.doQuery(config,
+            `SELECT j.locked_amount FROM escrow_leaf_journal j
+             INNER JOIN index_addresses a ON a.id = j.address_id
+             INNER JOIN index_tickers   t ON t.id = j.tick_id
+             WHERE a.address = ? AND t.tick = ? AND j.block_index <= ?
+             ORDER BY j.id DESC LIMIT 1`,
+            [String(address), String(tick), Number(blockIndex)]);
+        if (!rows || !rows.length) return null;
+        return (rows[0].locked_amount == null) ? null : String(rows[0].locked_amount);
     }
 
     // One internal SMT node (content-addressed) from the indexer node store.

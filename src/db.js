@@ -163,8 +163,25 @@ class Database {
     // give_remaining, status, expiration and allow/block lists are derived from
     // rows written after the action confirmed, so caching one freezes it: the
     // action LRU has no TTL and is invalidated only by a reorg.
+    //
+    // : a NOT-FOUND is not immutable either, and it was being cached.
+    // getActionData builds `{credits,debits,escrows,fee}` all null and skips
+    // every query when getActionType finds no row - which is the normal state of
+    // an action_index in the seconds between its block landing and the indexer
+    // writing its typed row. That blank has no `state` block, so it passed this
+    // guard and was memoized FOREVER: no TTL, reorg-only invalidation. Anyone
+    // who asked one moment too early - the explorer's own action page on a
+    // refresh, or sdk.waitForActionIndex(), which polls this endpoint every 2s
+    // precisely because the action is not there yet - permanently blanked that
+    // action for every later reader. Measured on BTC regtest: actions 2204-2206
+    // returned an empty body while the identical detail SQL, run against the
+    // same database, returned full rows.
+    // A real response always carries `action_index` (every handler selects it,
+    // and deblankBaseline supplies it for a row-less variant), so its absence is
+    // exactly the not-found case and nothing else.
     _isCacheableAction(data){
-        return this.util.isNull(data && data['state']);
+        if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
+        return this.util.isNull(data['state']);
     }
     // Build an id/action cache key scoped to the coin AND its current reorg
     // generation (M-3). Coin-scoping also stops a bare address/tick key from

@@ -3086,10 +3086,13 @@ describe('Database#getActionData', () => {
     }
 
     it('returns cached result on second call (LRU cache, line 3918-3920)', async () => {
-        sinon.stub(db, 'getActionType').resolves('SEND');
-        sinon.stub(db, 'getActionFeeData').resolves(null);
-        sinon.stub(db, 'getTransactionData').resolves(null);
-        sinon.stub(db, 'doQuery').resolves([]);
+        // : this used to stub every query to `[]`, which models a state
+        // that cannot happen - getActionType found the action, so its `actions`
+        // row exists and deblankBaseline returns one - and the response it
+        // produced carried no `action_index`, i.e. it was indistinguishable from
+        // a NOT-FOUND, which is now deliberately not cached. Give it a real main
+        // row so it pins what it means: the second read is served from the LRU.
+        stubForType(db, 'SEND', { action: 'SEND', action_index: 100 });
         const config = cfg();
         const result1 = await db.getActionData(config, 100);
         const callCount1 = db.doQuery.callCount;

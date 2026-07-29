@@ -68,9 +68,56 @@ describe('action LRU skips responses carrying a live state block', function () {
 
     it('treats an empty-string or null state as cacheable rather than throwing', function () {
         const db = makeDb();
-        expect(db._isCacheableAction({ state: null })).to.equal(true);
-        expect(db._isCacheableAction({ state: '' })).to.equal(true);
-        expect(db._isCacheableAction(null)).to.equal(true);
+        // An action_index is required as of  (see the regression block
+        // below); these previously passed `{ state }` alone, which is also the
+        // shape of a NOT-FOUND. The property being pinned here is unchanged:
+        // odd `state` values are answered, not thrown on.
+        expect(db._isCacheableAction({ action_index: 7, state: null })).to.equal(true);
+        expect(db._isCacheableAction({ action_index: 7, state: '' })).to.equal(true);
+        expect(db._isCacheableAction(null)).to.equal(false);
+    });
+
+    // . The sibling of the defect above, in the other direction: the LRU
+    // was also memoizing responses for actions that DO NOT EXIST YET.
+    //
+    // getActionData returns `{credits,debits,escrows,fee}` all null when
+    // getActionType finds no row, which is the normal state of an action_index
+    // between its block landing and the indexer writing its typed row. That
+    // blank carries no `state`, so it was cached - with no TTL and reorg-only
+    // invalidation, i.e. for the life of the process.
+    //
+    // Measured on BTC regtest: `/RBTC/api/action/2206` served an empty body
+    // while the identical detail SQL, against the same database, returned a
+    // full row. Anyone who asked one moment too early blanked that action for
+    // every later reader - including sdk.waitForActionIndex(), which polls this
+    // exact endpoint every 2s BECAUSE the action is not there yet, and so can
+    // never succeed: its first poll caches the miss it is waiting to clear.
+    describe('[REGRESSION] a not-yet-indexed action must not be memoized', function () {
+        it('refuses the blank getActionData builds when the action has no row', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({ credits: null, debits: null, escrows: null, fee: null }))
+                .to.equal(false);
+        });
+
+        it('accepts the same response once the action exists', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({
+                action: 'DEPLOY', action_index: 2206, credits: null, debits: null,
+                escrows: null, fee: null,
+            })).to.equal(true);
+        });
+
+        it('a miss stays absent from the LRU, so the next read recomputes', function () {
+            const db  = makeDb();
+            const key = db._cacheKey('BTC', 2206);
+            const miss = { credits: null, debits: null, escrows: null, fee: null };
+            if (db._isCacheableAction(miss)) db._cacheSet(db._actionDataCache, key, miss);
+            expect(db._cacheGet(db._actionDataCache, key)).to.be.undefined;
+            // ...and the real row, once written, caches normally.
+            const real = Object.assign({ action: 'DEPLOY', action_index: 2206 }, miss);
+            if (db._isCacheableAction(real)) db._cacheSet(db._actionDataCache, key, real);
+            expect(db._cacheGet(db._actionDataCache, key)).to.deep.equal(real);
+        });
     });
 
     it('a state-bearing action stays absent from the LRU, so a later read recomputes', function () {

@@ -38,6 +38,7 @@ const ProofServer      = require('./proofServer.js');
 const rateLimit        = require('express-rate-limit');
 const vmQuery          = require('./vm-query.js');
 const fontawesomeKit   = require('./fontawesome-kit.js');
+const { renderPlatformSwitcher } = require('./platform_links.js');
 
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
 // maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
@@ -912,6 +913,11 @@ class XChainExplorer {
             // ($&, $', $`, $1) specially in a string replacement, so any page content containing
             // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.
             pageContent     = pageContent.replace('{CONTENT}', () => htmlContent);
+            // Cross-site navigation for the *.xchain.io family, rendered from the
+            // vendored platform-links.json (see src/platform_links.js). Same
+            // replacement-function reason as {CONTENT}: $-sequences in the markup
+            // must not be treated as capture-group references.
+            pageContent     = pageContent.replace('{PLATFORM_SWITCHER}', () => renderPlatformSwitcher());
 
             response.html = pageContent;
         }

@@ -21,7 +21,7 @@
     },
     {
       "key": "docs",
-      "label": "Developer docs",
+      "label": "Documentation",
       "icon": "fa-solid fa-book",
       "href": "https://docs.xchain.io/"
     },

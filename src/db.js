@@ -1903,6 +1903,7 @@ class Database {
                         a1.action_format, 
                         m.dispenser_action_index,
                         a2.address as source,
+                        m.give_escrow,
                         m.expiration,
                         m.allow_list,
                         m.block_list,

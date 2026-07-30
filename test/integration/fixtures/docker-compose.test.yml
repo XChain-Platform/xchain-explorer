@@ -1,4 +1,14 @@
 version: '3.8'
+
+# Pin the Compose project name. Without it Compose derives the project from this
+# file's PARENT DIRECTORY, which is `fixtures`, a name any other repo laying its
+# test compose out the same way also derives. That is not hypothetical: on
+# 2026-07-30 the decoder tier, built by copying this very layout, ran `down -v`
+# under the derived `fixtures` project and destroyed this file's container.
+# The published 3307 makes the collision fatal rather than merely confusing,
+# since two projects cannot both bind it.
+name: xchain-explorer-it
+
 services:
   mariadb-test:
     image: mariadb:10.11

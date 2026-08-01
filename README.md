@@ -4,14 +4,14 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.15.2-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-1%2C285%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-1.15.4-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-2%2C762%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20boundary%20%7C%20security%20%7C%20fuzz%20%7C%20chaos%20%7C%20mutation%20%7C%20smoke%20%7C%20performance%20%7C%20regression-brightgreen" alt="Coverage">
+  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20boundary%20%7C%20security%20%7C%20fuzz%20%7C%20chaos%20%7C%20mutation%20%7C%20smoke%20%7C%20performance%20%7C%20regression%20%7C%20conformance-brightgreen" alt="Coverage">
 </p>
 
 Query and presentation layer for the XChain Platform. Reads from the Indexer database and exposes 60+ REST API endpoints, a JSON-RPC 2.0 interface, and a Bootstrap-based web block explorer, all from a single Node.js/Express process. The explorer never writes to any database.
@@ -31,7 +31,9 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 - **Chart.js integration**: candlestick, market depth, and line charts
 - **Icon service**: token icons with automatic fallback and optional background downloader
 - **BigNumber precision**: arbitrary-precision arithmetic for all amounts and prices
-- **1,285 tests**: unit, integration, e2e, boundary, security, fuzz, chaos, mutation, smoke, performance, regression
+- **Contract pages**: on-chain source with syntax highlighting, a server-verified hash badge, extracted method list, and constructor params; a Read Contract card calls the sandboxed `POST /{COIN}/api/contract/{idx}/call` endpoint (off by default via `EXPLORER_VM_QUERY_ENABLED`), and a Write Contract card deep-links per-method calls into the wallet
+- **Self-synced hub mirror**: optional local copy of the hub-mirror tables (`database.checkpoint.self_sync` + `HUB_API_URL`) removes the hard requirement for a co-located hub DB; `GET /{COIN}/api/hub-mirror/status` reports staleness
+- **2,762+ tests**: unit, integration, e2e, boundary, security, fuzz, chaos, mutation, smoke, performance, regression, conformance
 
 ## Documentation
 
@@ -40,10 +42,11 @@ Full explorer documentation is available in the [xchain-documentation](https://g
 | Document | Description |
 |---|---|
 | [README](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/README.md) | Overview, installation, quick start, scripts, dependencies |
-| [Architecture](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/ARCHITECTURE.md) | Data pipeline, internal components, request processing pipeline, source files |
-| [Configuration](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/CONFIGURATION.md) | Environment variables, config.json, hub discovery, SSL/TLS, CORS, rate limiting |
-| [API Reference](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/API.md) | Complete REST API: all 60+ endpoints with paths, parameters, response formats, examples |
-| [Operations](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/OPERATIONS.md) | Running, Docker, SSL setup, security features, relay endpoint, troubleshooting |
+| [Architecture](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/architecture.md) | Data pipeline, internal components, request processing pipeline, source files |
+| [Configuration](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/configuration.md) | Environment variables, config.json, hub discovery, SSL/TLS, CORS, rate limiting |
+| [API Reference](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/api.md) | Complete REST API: all 60+ endpoints with paths, parameters, response formats, examples |
+| [WebSocket API](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/websocket.md) | Real-time streaming: connection, channel subscriptions, filters, event payloads |
+| [Operations](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/explorer/operations.md) | Running, Docker, SSL setup, security features, relay endpoint, troubleshooting |
 
 ## Quick Start
 
@@ -153,8 +156,9 @@ parity gate in `bin/check-observability-parity.js`.
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~583 tests) |
-| `npm run test:integration` | Integration tests (~83 tests, requires MariaDB) |
+| `npm test` | Run unit tests (~1,925 tests) |
+| `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
+| `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL |
 | `npm run test:e2e` | End-to-end tests (49 tests, requires full stack) |
 | `npm run test:boundary` | Boundary condition tests |
 | `npm run test:boundary:unit` | Boundary tests (unit only, no DB) |
@@ -163,6 +167,8 @@ parity gate in `bin/check-observability-parity.js`.
 | `npm run test:smoke:unit` | Smoke tests (unit only) |
 | `npm run test:smoke:connected` | Smoke tests (connected, requires services) |
 | `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal) |
+| `npm run test:fuzz` | Fuzz tests (property-based) |
+| `npm run test:fuzz:deep` | Fuzz tests with `FUZZ_ITERATIONS=10000` |
 | `npm run test:performance` | Performance tests (baseline, throughput, concurrency, pool, memory) |
 | `npm run test:chaos` | Chaos engineering tests |
 | `npm run test:chaos:db` | Chaos: database resilience |
@@ -185,20 +191,19 @@ parity gate in `bin/check-observability-parity.js`.
 
 | Type | Tests | Description |
 |---|---|---|
-| Unit - DB | ~290 | `db.action-queries.test.js`, `db.data-methods.test.js`, `db.query-builder.test.js`, `db.connection.test.js` |
-| Unit - Utility | ~149 | `utility.test.js`: BigNumber math, timers, sanitization, type checking |
-| Unit - Explorer | ~113 | `explorer.routing.test.js`, `explorer.paging.test.js`, `explorer.response.test.js`, `explorer.relay.test.js`, `explorer.icon.test.js` |
-| Unit - Config | ~31 | `config.test.js`, `hub-connector.test.js` |
-| Integration | ~83 | API actions, paging, markets, status, response format, error handling, pagination boundaries |
+| Unit | ~1,925 | `db.action-queries.test.js`, `db.data-methods.test.js`, `db.query-builder.test.js`, `db.connection.test.js`, `utility.test.js`, `explorer.routing.test.js`, `explorer.paging.test.js`, `explorer.response.test.js`, `explorer.relay.test.js`, `explorer.icon.test.js`, `config.test.js`, `hub-connector.test.js`, `ws/*.test.js`, and more |
+| Integration | ~154 | API actions, paging, markets, status, response format, error handling, pagination boundaries |
+| Conformance | 5 | Real-schema canary: executes explorer read paths against the indexer's live DDL in a real MariaDB |
 | E2E | 49 | Pipeline integrity, data formatting, markets, cross-endpoint consistency |
-| Boundary | ~211 | Validation limits, BigNumber edge cases, relay/icon boundaries, pagination, search |
-| Security | ~104 | SQL injection, SSRF protection, rate limiting, input validation, info leakage, path traversal |
+| Boundary | ~226 | Validation limits, BigNumber edge cases, relay/icon boundaries, pagination, search |
+| Security | ~137 | SQL injection, SSRF protection, rate limiting, input validation, info leakage, path traversal |
+| Fuzz | ~10 | Property-based testing |
 | Performance | 15 | Baseline throughput, concurrent load, pool exhaustion, memory stability |
-| Chaos | ~56 | DB resilience, API overload, network partition, resource saturation, external deps |
+| Chaos | ~54 | DB resilience, API overload, network partition, resource saturation, external deps |
 | Mutation | (Stryker) | StrykerJS mutation testing across utility, db, explorer, and config modules |
-| Smoke | ~40 | Config loading, server binding, DB connectivity, API liveness, static content |
-| Regression | 144 | P0 core unit + security + API, P1 markets + API contract, P2 cross-endpoint |
-| **Total** | **~1,285+** | |
+| Smoke | ~39 | Config loading, server binding, DB connectivity, API liveness, static content |
+| Regression | ~148 | P0 core unit + security + API, P1 markets + API contract, P2 cross-endpoint |
+| **Total** | **~2,762+** | |
 
 ---
 

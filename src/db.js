@@ -6110,12 +6110,20 @@ class Database {
         // (same rule as getDecoderTip).
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return null;
         try {
-            let query = 'SELECT t1.raw_data FROM `' + dbName + '`.transactions t1 ' +
+            // `data` (the FULL stored ACTION string) rides along so the serve
+            // path can derive the trailing COMPRESSION field at serve time
+            // ( spec §5.1). It must NEVER come from a parsed-at-ingest
+            // column: shipped indexers drop unknown trailing fields at parse, so
+            // a compressed FILE mined before an indexer upgrade would be stored
+            // marker-less and served as deflated garbage forever. The decoder's
+            // `data` column preserves the action string verbatim, so deriving
+            // here is always correct, including for history.
+            let query = 'SELECT t1.raw_data, t1.data FROM `' + dbName + '`.transactions t1 ' +
                         'INNER JOIN `' + dbName + '`.index_transactions t2 ON (t2.id=t1.tx_hash_id) ' +
                         'WHERE t2.hash=? LIMIT 1';
             let results = await this.doDecoderQuery(config, query, [rows[0].hash]);
             if(results && results.length && !this.util.isNull(results[0].raw_data))
-                return { raw_data: results[0].raw_data, type: rows[0].type };
+                return { raw_data: results[0].raw_data, type: rows[0].type, data: results[0].data };
         } catch(e){
             // Decoder DB unreachable, missing, or no cross-DB grant: omit the bytes.
             console.warn('getFileRaw: decoder raw_data unavailable for ' + config.coin + ' action ' + actionIndex + ': ' + (e && e.message ? e.message : e));

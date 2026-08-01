@@ -32,6 +32,7 @@ const HubOperationalCache = require('./HubOperationalCache.js');
 const HubMirrorSyncManager = require('./HubMirrorSyncManager.js');
 const IndexerConnector = require('./XChainIndexerConnector.js');
 const eq               = require('./equivocation_header.js');
+const compression      = require('./compression.js');
 const swq              = require('./stake_weighted_quorum.js');
 const ckpt             = require('./checkpoint_commitment_activation.js');
 const ProofServer      = require('./proofServer.js');
@@ -1360,7 +1361,12 @@ class XChainExplorer {
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         if(raw){
+            // Token-gated: ALWAYS serve the stored ciphertext untouched. If the
+            // action declares COMPRESSION=1 it means inflate-AFTER-decrypt
+            // ( spec §5.4), which only the key holder can do; inflating
+            // ciphertext here would be nonsense at best.
             res.set('Content-Type', 'application/octet-stream');
+            res.set('X-XChain-Stored-Form', 'encrypted');
             return res.send(raw);
         }
         // Non-gated: honor the declared MIME type inline only when it is a
@@ -1376,13 +1382,43 @@ class XChainExplorer {
             // with nosniff set it can't be coerced into a scriptable type.
             type=='application/json'
         );
+        // Transparent decompression ( spec Part B). COMPRESSION is derived
+        // from the stored ACTION STRING, never a parsed column (§5.1), and the
+        // read is fail-closed: on a lying field, a corrupt stream, or a tripped
+        // 150:1 ratio guard we serve the STORED bytes and say so in a header,
+        // rather than serving partial output or failing the request (§5.5).
+        let served;
+        try {
+            served = await compression.resolveServedBytes(file.raw_data, file.data);
+        } catch (e) {
+            // resolveServedBytes is contractually non-throwing; this is a
+            // belt-and-braces guard so a reader bug can never 500 a file route.
+            console.warn('processFileRawRequest: decompression guard failed, serving stored bytes:', e && e.message ? e.message : e);
+            served = { bytes: file.raw_data, inflated: false, storedForm: true, error: 'GUARD_FAILURE' };
+        }
+        if(served.storedForm){
+            // The bytes are NOT the original file. Say so explicitly rather than
+            // silently handing over deflated garbage the client cannot read.
+            res.set('X-XChain-Stored-Form', 'compressed');
+            res.set('X-XChain-Compression-Error', String(served.error || 'UNKNOWN'));
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('Content-Disposition', 'attachment');
+            return res.send(served.bytes);
+        }
+        if(served.inflated){
+            // Surface stored vs original size so a client can show the on-chain
+            // footprint next to the file size.
+            res.set('X-XChain-Compression', 'deflate-raw');
+            res.set('X-XChain-Stored-Length', String(served.storedLength));
+            res.set('X-XChain-Original-Length', String(served.originalLength));
+        }
         if(inline){
             res.set('Content-Type', type);
         } else {
             res.set('Content-Type', 'application/octet-stream');
             res.set('Content-Disposition', 'attachment');
         }
-        return res.send(file.raw_data);
+        return res.send(served.bytes);
     }
 
     // Staleness gate for consensus data served from a SELF-SYNCED checkpoint

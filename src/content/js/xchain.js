@@ -943,7 +943,11 @@ function getActionDetails(action, info){
         html += 'List ' + formatLink('/' + coin + '/token/' + info.list_action_index, info.list_action_index);
     }
     if(action=='BROADCAST'){
-        let percent = bcmul(info.fee, 100, 2);
+        // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
+        // NOT info.fee: for a BATCH child `info` is a full getActionData result whose fee
+        // slot is overwritten with the protocol-fee record, and bcmul on that object threw
+        // and aborted the whole member-table render (#2479 twin at this second call site).
+        let percent = (isNumeric(info.broadcast_fee)) ? bcmul(info.broadcast_fee, 100, 2) : '';
         // info.message / info.value are BROADCAST free text (on-chain,
         // attacker-controlled) and this html is injected via .html(). Escape them.
         if(info.action_format==0){

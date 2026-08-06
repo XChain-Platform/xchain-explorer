@@ -164,14 +164,14 @@ describe('db.js RPC-first operational reads', function () {
             const [page, args, total] = db._pageHubOperationalRows(cfg, rows(10));
             expect(args).to.equal(null);
             expect(total).to.equal(10);
-            expect(page.map(r => r.id)).to.deep.equal([10, 9, 8]);
+            expect(page.map(r => r.id)).to.deep.equal(['10', '9', '8']);
         });
 
         it("action 'next': id < start window", function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { limit: 3 }, offset: { action: 'next', start: 8, stop: null } });
             const [page, , total] = db._pageHubOperationalRows(cfg, rows(10));
-            expect(page.map(r => r.id)).to.deep.equal([7, 6, 5]);
+            expect(page.map(r => r.id)).to.deep.equal(['7', '6', '5']);
             expect(total).to.equal(10, 'total ignores the cursor window, matching the SQL count query');
         });
 
@@ -179,21 +179,56 @@ describe('db.js RPC-first operational reads', function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { order: 'ASC', limit: 3 }, offset: { action: 'prev', start: 4, stop: null } });
             const [page] = db._pageHubOperationalRows(cfg, rows(10));
-            expect(page.map(r => r.id)).to.deep.equal([5, 6, 7]);
+            expect(page.map(r => r.id)).to.deep.equal(['5', '6', '7']);
         });
 
         it("action 'last': id <= start, ASC order", function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { order: 'ASC', limit: 3 }, offset: { action: 'last', start: 3, stop: null } });
             const [page] = db._pageHubOperationalRows(cfg, rows(10));
-            expect(page.map(r => r.id)).to.deep.equal([1, 2, 3]);
+            expect(page.map(r => r.id)).to.deep.equal(['1', '2', '3']);
         });
 
         it('api paging applies apiOffset slice', function () {
             const db  = makeDb(null);
             const cfg = makeConfig({ type: 'api', data: { method: 'getGovernanceVotes', sql: { limit: 3, apiOffset: 3 } } });
             const [page] = db._pageHubOperationalRows(cfg, rows(10));
-            expect(page.map(r => r.id)).to.deep.equal([7, 6, 5]);
+            expect(page.map(r => r.id)).to.deep.equal(['7', '6', '5']);
+        });
+
+        // The hub's pool sets bigIntAsNumber, so the RPC transport delivers these
+        // BIGINT columns as JS Numbers while the legacy co-located-schema read
+        // delivers BigInt that the response sink stringifies. Both must reach
+        // consumers as decimal strings, or a hub outage flips the wire type of
+        // /validator_capabilities, /governance_proposals and /governance_votes
+        // mid-deployment.
+        it('normalizes BIGINT id columns to decimal strings on the RPC path', function () {
+            const db  = makeDb(null);
+            const cfg = listConfig('getValidatorCapabilities', { sql: { limit: 5 } });
+            const [page] = db._pageHubOperationalRows(cfg, [
+                { id: 2, capability: 'price',       qualified_at_block: 900001 },
+                { id: 1, capability: 'cross_chain', qualified_at_block: null }
+            ]);
+            expect(page.map(r => r.id)).to.deep.equal(['2', '1']);
+            expect(page[0].qualified_at_block).to.equal('900001');
+            expect(page[1].qualified_at_block).to.equal(null, 'a null BIGINT stays null');
+            expect(page[0].capability).to.equal('price', 'non-BIGINT columns pass through');
+        });
+
+        it('leaves a BIGINT column absent from the row shape absent', function () {
+            const db  = makeDb(null);
+            const cfg = listConfig('getGovernanceVotes', { sql: { limit: 5 } });
+            const [page] = db._pageHubOperationalRows(cfg, [{ id: 7, proposal_id: 'p-1', vote: 'approve' }]);
+            expect(page[0].id).to.equal('7');
+            expect(page[0]).to.not.have.property('qualified_at_block');
+            expect(page[0]).to.not.have.property('activation_block');
+        });
+
+        it('stringifies governance_proposals activation_block', function () {
+            const db  = makeDb(null);
+            const cfg = listConfig('getGovernanceProposals', { sql: { limit: 5 } });
+            const [page] = db._pageHubOperationalRows(cfg, [{ id: 4, proposal_id: 'p-9', activation_block: 910000 }]);
+            expect(page[0].activation_block).to.equal('910000');
         });
     });
 
@@ -210,7 +245,7 @@ describe('db.js RPC-first operational reads', function () {
                 capability: 'price', signing_pubkey: undefined
             });
             expect(total).to.equal(1);
-            expect(page[0].id).to.equal(3);
+            expect(page[0].id).to.equal('3');
         });
 
         it('falls back to the legacy co-located schema SQL when RPC returns null', async function () {

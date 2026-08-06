@@ -64,7 +64,9 @@ describe('protocol/constants', function () {
     it('CHECKPOINT_COMMITMENT_ACTIVATION arms testnet at 146000, regtest at genesis ( keying-skew fix)', function () {
         const m = C.CHECKPOINT_COMMITMENT_ACTIVATION;
         assert.ok(m && typeof m === 'object', 'CHECKPOINT_COMMITMENT_ACTIVATION must be a map');
-        assert.ok(Number.isInteger(m.mainnet) && m.mainnet > 0, 'mainnet must be armed');
+        // Pin the exact armed mainnet flag-day (BTC anchor ~2026-08-04); `> 0` let a
+        // one-sided edit of this copy pass green while moving a live consensus height.
+        assert.strictEqual(m.mainnet, 961000, 'mainnet arms at the BTC-anchored 961000 flag-day');
         assert.strictEqual(m.testnet, 146000, 'testnet arms only after every STATE_COMMITMENT testnet threshold');
         assert.strictEqual(m.regtest, 0, 'regtest activates at genesis');
     });

@@ -5184,7 +5184,7 @@ class Database {
             'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
             'action_format',                                                                                               // Action details
             'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
-            'message', 'value', 'broadcast_action_index',                                                                  // Broadcasts
+            'message', 'value', 'broadcast_action_index', 'broadcast_fee',                                                 // Broadcasts
             'callback_tick', 'callback_amount',                                                                            // Callbacks
             'dividend_tick',                                                                                               // Dividends
             'name', 'title',                                                                                               // Files
@@ -6535,7 +6535,28 @@ class Database {
         let limit = (config.data.sql && this.util.isNumeric(config.data.sql.limit)) ? Number(config.data.sql.limit) : 100;
         let from  = (config.type == 'api' && config.data.sql && Number(config.data.sql.apiOffset) > 0)
             ? Number(config.data.sql.apiOffset) : 0;
-        return [filtered.slice(from, from + limit), null, total];
+        return [this._normalizeHubOperationalRows(filtered.slice(from, from + limit)), null, total];
+    }
+
+    // One wire type for the BIGINT columns these three endpoints serve, on both
+    // transports. The hub RPC path carries them as JS Numbers (the hub's pool sets
+    // bigIntAsNumber, xchain-hub/src/db.js), while the legacy co-located-schema read
+    // returns BigInt that the response sink stringifies (utility.jsonStringify), so
+    // an unnormalized pass-through flips `id` between 100 and "100" whenever the hub
+    // goes unreachable mid-deployment. Coerce to decimal STRING, matching
+    // _normalizeCheckpointRows and the platform-wide BIGINT-as-string convention.
+    // Key-guarded because the three row shapes carry different subsets
+    // (validator_capabilities has qualified_at_block, governance_proposals has
+    // activation_block, governance_votes has neither): an absent or null column must
+    // stay absent or null, never become the literal string "undefined".
+    _normalizeHubOperationalRows(rows){
+        const bigintKeys = ['id', 'qualified_at_block', 'activation_block'];
+        return (rows || []).map(r => {
+            let out = { ...r };
+            for(const k of bigintKeys)
+                if(out[k] !== undefined && out[k] !== null) out[k] = String(out[k]);
+            return out;
+        });
     }
 
     // Resolve a co-located hub-DB federation/governance table for a coin

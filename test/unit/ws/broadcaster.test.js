@@ -157,7 +157,7 @@ describe('Broadcaster', function () {
                 .map(c => JSON.parse(c.args[0]))
                 .filter(m => m.type === 'NETWORK_STATS');
             expect(stats).to.have.length(1);
-            expect(stats[0].data.block_height).to.equal(101);
+            expect(stats[0].data.block_height).to.equal('101');
         });
 
         it('sequential blocks each emit a NETWORK_STATS frame in ascending height order', async function () {
@@ -174,7 +174,7 @@ describe('Broadcaster', function () {
             const stats = client.ws.send.getCalls()
                 .map(c => JSON.parse(c.args[0]))
                 .filter(m => m.type === 'NETWORK_STATS');
-            expect(stats.map(m => m.data.block_height)).to.deep.equal([100, 101]);
+            expect(stats.map(m => m.data.block_height)).to.deep.equal(['100', '101']);
         });
 
         it('a catch-up burst collapses to a single getMaxActionIndex read (newest height only)', async function () {
@@ -193,7 +193,7 @@ describe('Broadcaster', function () {
                 .map(c => JSON.parse(c.args[0]))
                 .filter(m => m.type === 'NETWORK_STATS');
             expect(stats).to.have.length(1);
-            expect(stats[0].data.block_height).to.equal(150);
+            expect(stats[0].data.block_height).to.equal('150');
         });
 
         it('a rejected stats emission does not poison the chain for later blocks', async function () {
@@ -211,8 +211,8 @@ describe('Broadcaster', function () {
             const stats = client.ws.send.getCalls()
                 .map(c => JSON.parse(c.args[0]))
                 .filter(m => m.type === 'NETWORK_STATS');
-            expect(stats.map(m => m.data.block_height)).to.deep.equal([100, 101]);
-            expect(stats.map(m => m.data.total_actions)).to.deep.equal([3, 4]);
+            expect(stats.map(m => m.data.block_height)).to.deep.equal(['100', '101']);
+            expect(stats.map(m => m.data.total_actions)).to.deep.equal(['3', '4']);
         });
 
         it('does not send to clients on different coin', function () {
@@ -586,6 +586,46 @@ describe('Broadcaster', function () {
             expect(client.ws.send.called).to.be.true;
             const msg = JSON.parse(client.ws.send.firstCall.args[0]);
             expect(msg.type).to.equal('MARKET_UPDATE');
+        });
+
+        it('stamps data.channel on every live entity frame, matching the SNAPSHOT discriminator', function () {
+            // WebSocketServer._sendSnapshots puts `channel` inside data for address,
+            // token, market and dispenser. The live frame for the same entity carried
+            // it only as an internal routing field, so the snapshot and the live update
+            // for one entity were keyed differently and a consumer that unified them on
+            // data.channel dropped every live update.
+            const cases = [
+                { channel: 'address',   type: 'ADDRESS_UPDATE',   params: { address: '1abc' },                data: { address: '1abc', balances: [] } },
+                { channel: 'token',     type: 'TOKEN_UPDATE',     params: { tick: 'PEPE' },                   data: { tick: 'PEPE', supply: '1' } },
+                { channel: 'market',    type: 'MARKET_UPDATE',    params: { tick1: 'PEPE', tick2: 'BTC' },    data: { tick1: 'PEPE', tick2: 'BTC' } },
+                { channel: 'dispenser', type: 'DISPENSER_UPDATE', params: { action_index: 777 },              data: { action_index: 777 } }
+            ];
+            // One client per case, each subscribed only to its own entity, so a
+            // frame can only have been delivered by the channel under test.
+            cases.forEach((c, i) => {
+                const client = createClient(i + 1, 'BTC');
+                wsServer.addClient(client);
+                wsServer.channelManager.subscribe(client, [c.channel], c.params);
+
+                changeDetector.emit('entity_update', 'BTC', { type: c.type, channel: c.channel, data: c.data });
+
+                expect(client.ws.send.called, c.type + ' was sent').to.be.true;
+                const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+                expect(msg.type).to.equal(c.type);
+                expect(msg.data.channel, c.type + ' carries its channel').to.equal(c.channel);
+            });
+        });
+
+        it('does not mutate the emitted event when stamping the channel', function () {
+            // The same data object reaches every other listener on this event.
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['address'], { address: '1abc' });
+            const data = { address: '1abc', balances: [] };
+
+            changeDetector.emit('entity_update', 'BTC', { type: 'ADDRESS_UPDATE', channel: 'address', data });
+
+            expect(data).to.not.have.property('channel');
         });
     });
 });

@@ -5071,9 +5071,13 @@ class Database {
         // shifts the offset 'action_index < ?' bind (binding 0 -> 'action_index < 0' -> no rows).
         args = (type=='block') ? [config.data.search]
              : (['address','token'].includes(type) ? [id] : []);
-        // Skip COUNT query when total is passed on the querystring (speeds up explorer pagination)
+        // Skip COUNT query when total is passed on the querystring (speeds up explorer pagination).
+        // Number() because a querystring value arrives as a string and `total` is the
+        // shared list-envelope field, which every other list route emits as a JSON
+        // integer (see the count branch of the generic list path); history was the one
+        // route handing consumers a string for it.
         if(q && q.total){
-            total = q.total;
+            total = Number(q.total);
         } else {
             // Get total number of matching records for this type of action and add to grand total
             count = `SELECT
@@ -5088,7 +5092,10 @@ class Database {
                     WHERE ` + where;
             results = await this.doQuery(config, count, args);
             if(results && results.length)
-                total = this.util.bcadd(total, results[0].count, 0);
+                // bcadd returns a decimal STRING (mathjs bignumber formatting), which is
+                // what put a quoted total on the history envelope; a row count is a plain
+                // integer far below 2^53, so narrow it here.
+                total = Number(this.util.bcadd(total, results[0].count, 0));
         }
         if(action && start){
             if(action=='prev'){

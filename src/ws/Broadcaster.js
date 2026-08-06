@@ -160,8 +160,13 @@ class Broadcaster {
             network:   info.network,
             timestamp: Date.now(),
             data: {
-                block_height:  block.block_index,
-                total_actions: totalActions
+                // Decimal strings, the v2 wire contract: total_actions comes from
+                // the db getter as Number while block_height arrives as a BIGINT
+                // row value, so the pair went out with two different JSON types
+                // and neither matched the SNAPSHOT the same subscriber seeded
+                // from. String() both so seed and live frame compare directly.
+                block_height:  String(block.block_index),
+                total_actions: String(totalActions)
             }
         };
         this._broadcastToChannel(coin, 'network', stats, null);
@@ -274,7 +279,16 @@ class Broadcaster {
             chain:     info.chain,
             network:   info.network,
             timestamp: Date.now(),
-            data:      updateEvent.data
+            // Stamp the entity channel INTO data, the way WebSocketServer._sendSnapshots
+            // stamps it on the SNAPSHOT frame for the same entity. The channel was only
+            // ever an internal routing field here, so the two frame families describing
+            // one entity were discriminated by two different keys: data.channel for the
+            // snapshot, envelope type for the live update. A consumer unifying the two on
+            // data.channel (which the ChangeDetector comment about aligned frame shapes
+            // invites) silently dropped every live update. Additive optional field, so no
+            // schema bump (ws/schema-version.js). Copy rather than mutate: the same data
+            // object goes to every other listener on this event.
+            data:      { channel: updateEvent.channel, ...updateEvent.data }
         };
 
         // Route to the correct entity channel

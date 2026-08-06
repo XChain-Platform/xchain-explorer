@@ -225,8 +225,15 @@ class WebSocketServer {
             data: {
                 version:              this.explorer.version || '1.0.0',
                 server_time:          Date.now(),
-                latest_block_index:   latestBlockIndex,
-                latest_action_index:  latestActionIndex,
+                // Chain indices ride as decimal STRINGS, the v2 wire contract
+                // (ws/schema-version.js): every action_index/block_index on a v2
+                // frame is a string, and these two arrive from the db getters as
+                // Number, which safeStringify leaves as a JSON number. Emitting a
+                // number here handed one connection two types for the same field
+                // (WELCOME numeric, CATCH_UP_COMPLETE and NEW_ACTION string) and
+                // would truncate above 2^53.
+                latest_block_index:   String(latestBlockIndex),
+                latest_action_index:  String(latestActionIndex),
                 limits: {
                     max_subscriptions:      this.channelManager.maxSubscriptions,
                     max_message_rate:       this.maxMsgPerSec,
@@ -565,22 +572,26 @@ class WebSocketServer {
             try {
                 let snapshotData = null;
 
+                // Same v2 decimal-string contract as WELCOME above: these indices
+                // come from the db getters as Number, and the live frame the
+                // subscriber sees next carries the same field as a string, so a
+                // snapshot that seeds state must not seed it with the other type.
                 switch (sub.channel) {
                     case 'blocks': {
                         const maxBlock = await db.getMaxBlockIndex(config);
-                        snapshotData = { channel: 'blocks', latest_block_index: maxBlock || 0 };
+                        snapshotData = { channel: 'blocks', latest_block_index: String(maxBlock || 0) };
                         break;
                     }
                     case 'network': {
                         const maxBlock  = await db.getMaxBlockIndex(config);
                         const maxAction = await db.getMaxActionIndex(config);
-                        snapshotData = { channel: 'network', block_height: maxBlock || 0, total_actions: maxAction || 0 };
+                        snapshotData = { channel: 'network', block_height: String(maxBlock || 0), total_actions: String(maxAction || 0) };
                         break;
                     }
                     case 'address': {
                         const balances = await db.getAddressBalances(config, sub.address);
                         const maxAction = await db.getMaxActionIndex(config);
-                        snapshotData = { channel: 'address', address: sub.address, balances: balances || [], last_action_index: maxAction || 0 };
+                        snapshotData = { channel: 'address', address: sub.address, balances: balances || [], last_action_index: String(maxAction || 0) };
                         break;
                     }
                     case 'token': {

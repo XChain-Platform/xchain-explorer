@@ -217,6 +217,113 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
     });
 });
 
+describe('WS schema v2 conformance: chain indices are decimal strings', function () {
+
+    afterEach(() => sinon.restore());
+
+    // Every BigInt-backed index on a v2 frame is a decimal string
+    // (ws/schema-version.js). WELCOME and the SNAPSHOT frames read theirs from
+    // db.getMax*Index, which return Number, so they used to be the only v2
+    // frames emitting these fields as JSON numbers: one connection saw
+    // latest_action_index as a number in WELCOME and as a string in
+    // CATCH_UP_COMPLETE and NEW_ACTION, and any value above 2^53 was truncated.
+    const DECIMAL = /^[0-9]+$/;
+
+    function serverWithIndices(maxBlock, maxAction) {
+        return makeServer({ explorer: { db: {
+            getMaxBlockIndex:   sinon.stub().resolves(maxBlock),
+            getMaxActionIndex:  sinon.stub().resolves(maxAction),
+            getAddressBalances: sinon.stub().resolves([])
+        } } });
+    }
+
+    function spyClient() {
+        return { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+    }
+
+    function framesOf(client, type) {
+        return client.ws.send.getCalls().map((c) => JSON.parse(c.args[0])).filter((m) => m.type === type);
+    }
+
+    it('WELCOME emits latest_block_index / latest_action_index as decimal strings', async function () {
+        const s = serverWithIndices(880123, 4567890);
+        const client = spyClient();
+
+        await s._sendWelcome(client);
+
+        const welcome = framesOf(client, 'WELCOME')[0];
+        expect(welcome.schema_version).to.equal(2);
+        expect(welcome.data.latest_block_index).to.equal('880123');
+        expect(welcome.data.latest_action_index).to.equal('4567890');
+        expect(welcome.data.latest_block_index).to.match(DECIMAL);
+        expect(welcome.data.latest_action_index).to.match(DECIMAL);
+    });
+
+    it('WELCOME keeps full precision for an index above 2^53', async function () {
+        // The regression this contract exists to prevent: a JSON number silently
+        // rounds 9007199254740993 to ...992.
+        const s = serverWithIndices(9007199254740993n, 9007199254740995n);
+        const client = spyClient();
+
+        await s._sendWelcome(client);
+
+        const welcome = framesOf(client, 'WELCOME')[0];
+        expect(welcome.data.latest_block_index).to.equal('9007199254740993');
+        expect(welcome.data.latest_action_index).to.equal('9007199254740995');
+    });
+
+    it('WELCOME still sends string zeros when the db read fails', async function () {
+        const s = makeServer({ explorer: { db: { getMaxBlockIndex: sinon.stub().rejects(new Error('db down')) } } });
+        const client = spyClient();
+
+        await s._sendWelcome(client);
+
+        const welcome = framesOf(client, 'WELCOME')[0];
+        expect(welcome.data.latest_block_index).to.equal('0');
+        expect(welcome.data.latest_action_index).to.equal('0');
+    });
+
+    it('SNAPSHOT frames emit their indices as decimal strings on every channel that carries one', async function () {
+        const s = serverWithIndices(880123, 4567890);
+        const client = spyClient();
+
+        await s._sendSnapshots(client, [
+            { channel: 'blocks' },
+            { channel: 'network' },
+            { channel: 'address', address: '1abc' }
+        ]);
+
+        const byChannel = new Map(framesOf(client, 'SNAPSHOT').map((m) => [m.data.channel, m.data]));
+        expect(byChannel.get('blocks').latest_block_index).to.equal('880123');
+        expect(byChannel.get('network').block_height).to.equal('880123');
+        expect(byChannel.get('network').total_actions).to.equal('4567890');
+        expect(byChannel.get('address').last_action_index).to.equal('4567890');
+    });
+
+    it('CATCH_UP_COMPLETE reports the same type as the WELCOME it follows', async function () {
+        // Both frames answer "how far along is the chain"; a subscriber that
+        // compares one against the other must not be comparing a string to a
+        // number.
+        const db = {
+            getMaxBlockIndex:  sinon.stub().resolves(880123),
+            getMaxActionIndex: sinon.stub().resolves(4567890),
+            getActionsSince:   sinon.stub().resolves([])
+        };
+        const { EventEmitter } = require('events');
+        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }) });
+        const client = spyClient();
+
+        await s._sendWelcome(client);
+        await s._handleCatchUp(client, 4567000, {}, 'req-1');
+
+        const welcome  = framesOf(client, 'WELCOME')[0];
+        const complete = framesOf(client, 'CATCH_UP_COMPLETE')[0];
+        expect(typeof complete.data.latest_action_index).to.equal(typeof welcome.data.latest_action_index);
+        expect(complete.data.latest_action_index).to.match(DECIMAL);
+    });
+});
+
 describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', function () {
 
     afterEach(() => sinon.restore());

@@ -778,8 +778,41 @@ describe('Database#getHistoryData', () => {
         config.data.query  = { total: null };
         const [data, total] = await db.getHistoryData(config);
         expect(data).to.be.an('array');
-        // total is accumulated via bcadd → BigNumber; compare via Number()
-        expect(Number(total)).to.equal(3);
+        // The shared list envelope types `total` as a JSON integer and every other
+        // list route emits one. History accumulated it through bcadd, which returns a
+        // decimal STRING, so /history was the single route answering with a quoted
+        // total; assert the type, not just the value.
+        expect(total).to.be.a('number');
+        expect(total).to.equal(3);
+    });
+
+    it('returns a numeric total when the count arrives as a BIGINT string', async () => {
+        // Large counts come back from the driver as strings, which is what put
+        // total: "124159" on the live /history/recent/recent envelope.
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+            if(q && q.includes('count(DISTINCT')) return [{ count: '124159' }];
+            return mockResults.historyRows();
+        });
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
+        const config = makeActionConfig('getHistory', 'block');
+        config.data.search = '500';
+        config.data.query  = { total: null };
+        const [, total] = await db.getHistoryData(config);
+        expect(total).to.be.a('number');
+        expect(total).to.equal(124159);
+    });
+
+    it('returns a numeric total when one is passed on the querystring', async () => {
+        // A querystring value is always a string; passing it straight through put the
+        // same quoted total on every paginated page.
+        sinon.stub(db, 'doQuery').resolves([]);
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
+        const config = makeActionConfig('getHistory', 'block');
+        config.data.search = '500';
+        config.data.query  = { total: '124159' };
+        const [, total] = await db.getHistoryData(config);
+        expect(total).to.be.a('number');
+        expect(total).to.equal(124159);
     });
 
     it('skips count query when q.total is already set', async () => {

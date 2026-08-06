@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Lockfile engines.node now matches the manifest ceiling >=22.0.0 <23, so a reinstall cannot silently resolve on Node 23+.
 - DISPENSER action detail now honours `DISPENSER_LIST_DELAY`: the edit query selects the edit's own `block_time`, so allow/block-list changes stay withheld until the delay elapses instead of reading as instantly active.
 - ANCHOR action detail now renders the elected publisher and the publisher-attestation quorum for v4/v5/v6 (reward-derivation) anchors; the fields were persisted but never selected or displayed. Rows stay hidden for v0-v3 anchors where they are null.
 - WS subscribe params.fields validated (crash-DoS closed), finality defaults read the vendored coin registry, XCHECKPOINT parity guard escalates under required-siblings, lockfile version sync.

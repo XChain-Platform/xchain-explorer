@@ -2990,6 +2990,23 @@ function showXcallDetails(data){
     $('#info-xcall .xcall-callback-method').text(isNull(data.callback_method) ? '-' : data.callback_method);
     $('#info-xcall .xcall-deadline').html(isNull(data.deadline_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deadline_block, numeral(data.deadline_block).format('0,0')));
     $('#info-xcall .xcall-request-status').html(statusBadge(data.request_status));
+    // The outcome as RECORDED ON THIS CHAIN (xcalls.result_status/result_payload/
+    // resolved_block). Not a duplicate of the execution block below: these three
+    // columns are what the indexer writes when it flips the request terminal, and
+    // they are the source the VM's xchain.crossChain.getCallResult reads, so this
+    // is the value a contract sees. The detail query has always selected them and
+    // the page never read them, which left the fetched consensus record invisible
+    // and unable to be compared against the mirrored execution record. Hidden as a
+    // group while the call is still pending, since none of the three is set then.
+    let resolved = !isNull(data.result_status) || !isNull(data.resolved_block);
+    $('#info-xcall .xcall-resolved-row').toggleClass('d-none', !resolved);
+    if(resolved){
+        // Plain text, like the execution's own Result Status: these values are
+        // delivered result codes, not the request lifecycle the badge colours.
+        $('#info-xcall .xcall-recorded-status').text(isNull(data.result_status) ? '-' : data.result_status);
+        $('#info-xcall .xcall-recorded-payload').html(isNull(data.result_payload) ? '-' : formatHash(data.result_payload, 32));
+        $('#info-xcall .xcall-resolved-block').html(isNull(data.resolved_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.resolved_block, numeral(data.resolved_block).format('0,0')));
+    }
     // Target-chain execution outcome (present once the call has executed on the far chain).
     let exec = data.execution || null;
     $('#info-xcall .xcall-execution-row').toggleClass('d-none', !exec);
@@ -3332,11 +3349,22 @@ function showPriceDetails(data){
     $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
     $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
+    // PRICE v1 carries the oracle's own usage FEE as a decimal fraction (0 to 1,
+    // where 0.01 means 1%) plus an optional MEMO. The detail query selects both
+    // (action-detail/consensus.js: m.fee as oracle_fee, m1.memo) and this
+    // renderer used to read neither, so a user-submitted quote showed its fee
+    // nowhere on the explorer. The raw decimal leads because that is the wire
+    // value a DISPENSER's required oracle-fee output is computed from; the
+    // percent reading rides along for readability. v0 validator snapshots carry
+    // neither field and render '-' like every other absent value here.
+    $('#info-price .price-oracle-fee').text(isNull(data.oracle_fee) ? '-'
+        : data.oracle_fee + ' (' + numeral(Number(data.oracle_fee) * 100).format('0,0.[000000]') + '%)');
     $('#info-price .price-round').text(isNull(data.round_number) ? '-' : numeral(data.round_number).format('0,0'));
     $('#info-price .price-round-timestamp').text(isNull(data.round_timestamp) ? '-' : data.round_timestamp);
     $('#info-price .price-pairs').text(isNull(data.pairs) ? (isNull(data.pair_count) ? '-' : data.pair_count) : JSON.stringify(data.pairs));
     $('#info-price .price-sig-count').text(isNull(data.sig_count) ? '-' : numeral(data.sig_count).format('0,0'));
     $('#info-price .price-validation-status').text(isNull(data.validation_status) ? '-' : data.validation_status);
+    $('#info-price .price-memo').text(isNull(data.memo) ? '-' : data.memo);
 }
 
 // Display NODEPROOF action information (full-node possession-proof verdict + per-validator PASS list)

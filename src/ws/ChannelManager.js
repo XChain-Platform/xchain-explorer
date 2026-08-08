@@ -220,12 +220,12 @@ class ChannelManager {
             // Add entity identifiers
             if (parsed.entityKey) Object.assign(entry, parsed.entityKey);
 
-            // Add filter info. 'statuses' is deliberately omitted to match the SUBSCRIBED
-            // confirmation (WebSocketServer._handleSubscribe): the actions feed cannot honor
-            // a status filter, so re-advertising it here would let a client rely on a no-op.
+            // Add filter info. 'statuses' and 'ticks' are deliberately omitted to match the
+            // SUBSCRIBED confirmation (WebSocketServer._handleSubscribe): the actions feed
+            // carries neither a status nor a tick column, so re-advertising either here
+            // would let a client rely on a no-op (#3860).
             entry.filters = {
                 types:    filter.types    ? [...filter.types]    : null,
-                ticks:    filter.ticks    ? [...filter.ticks]    : null,
                 fields:   filter.fields   ? [...filter.fields]   : null,
                 once:     filter.once
             };

@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Raw gated-file, checkpoint-response and checkpoint-range OpenAPI operations describe their real request params and response envelopes instead of inheriting generic defaults ().
+- Stake-weighted quorum rejects a validator entry with a missing or non-numeric weight instead of lowering the quorum denominator ().
+- BET oracle fees render as oracle fees rather than a protocol-fee object ().
+- The WebSocket ticks subscription filter no longer silently no-ops on the actions channel ().
+- Corrected a protocol-constants header that claimed a cross-repo tripwire which does not exist ().
+- Added a lint over the generated golden statements for the unstable-hotspot renderer ().
 - Lockfile engines.node now matches the manifest ceiling >=22.0.0 <23, so a reinstall cannot silently resolve on Node 23+.
 - DISPENSER action detail now honours `DISPENSER_LIST_DELAY`: the edit query selects the edit's own `block_time`, so allow/block-list changes stay withheld until the delay elapses instead of reading as instantly active.
 - ANCHOR action detail now renders the elected publisher and the publisher-attestation quorum for v4/v5/v6 (reward-derivation) anchors; the fields were persisted but never selected or displayed. Rows stay hidden for v0-v3 anchors where they are null.

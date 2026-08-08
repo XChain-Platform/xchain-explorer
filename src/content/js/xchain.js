@@ -2774,7 +2774,10 @@ function showBetDetails(data){
         $('#info-bet .bet-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
         // FEE is the ORACLE's percent cut of the pot, NOT the protocol's market
         // duration fee. Label it so the two are never confused (§10 naming pin).
-        $('#info-bet .bet-fee').text(isNull(data.fee) ? '-' : data.fee + '% of the pot (oracle fee)');
+        // Read it from the aliased column (bet_fee): db.js getActionData overwrites the
+        // reserved `fee` slot with the protocol-fee RECORD, so this printed
+        // '[object Object]% of the pot' (#3932, same collision as broadcast_fee).
+        $('#info-bet .bet-fee').text(isNull(data.bet_fee) ? '-' : data.bet_fee + '% of the pot (oracle fee)');
         $('#info-bet .bet-deadline').html(isNull(data.deadline) ? '-' : data.deadline + ' - ' + formatLivestamp(data.deadline) + ' (' + moment.unix(data.deadline).utcOffset(0).format() + ' GMT)');
         $('#info-bet .bet-refund-window').text(isNull(data.refund_window) ? '-' : numeral(data.refund_window).format('0,0') + ' seconds');
         $('#info-bet .bet-expire-at').html(isNull(data.expire_at) ? '-' : data.expire_at + ' - ' + formatLivestamp(data.expire_at) + ' (' + moment.unix(data.expire_at).utcOffset(0).format() + ' GMT)');

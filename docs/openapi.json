@@ -8322,24 +8322,22 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Raw file bytes. A gated FILE is ALWAYS application/octet-stream (12-byte nonce || AES-256-GCM ciphertext || 16-byte tag; X-XChain-Stored-Form: encrypted). A non-gated FILE is served under its declared media type when that type is render-safe (image/*, audio/*, video/* except image/svg+xml, application/pdf, application/json) and as an application/octet-stream attachment otherwise.",
             "content": {
-              "application/json": {
+              "application/octet-stream": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
@@ -8604,13 +8602,16 @@
             "$ref": "#/components/parameters/coin"
           },
           {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            },
+            "description": "Rows to return; clamped server-side to 1..100"
           }
         ],
         "responses": {
@@ -8619,7 +8620,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/CheckpointListResponse"
                 }
               }
             }
@@ -8702,13 +8703,24 @@
             "$ref": "#/components/parameters/coin"
           },
           {
-            "$ref": "#/components/parameters/page"
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "First block height of the range, inclusive"
           },
           {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Last block height of the range, inclusive; must be >= from. The span is capped server-side at 500 rows"
           }
         ],
         "responses": {
@@ -8717,7 +8729,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/CheckpointListResponse"
                 }
               }
             }
@@ -8787,6 +8799,67 @@
           "Proofs"
         ],
         "summary": "SPV balance inclusion proof for an address/tick against the committed balances_root (height optional)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ADDRESS",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/proof/locked-balance/{ADDRESS}/{TICK}": {
+      "get": {
+        "operationId": "proof_locked-balance_address_tick",
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "SPV locked-balance (XCHAIN_ESC) inclusion proof for an address/tick against the committed balances_root; 409 below the escrow leaf armed height (height optional)",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -8945,7 +9018,7 @@
         "tags": [
           "Proofs"
         ],
-        "summary": "SPV contract-state proof against the committed contract_state_root; 409 below an armed height (height optional)",
+        "summary": "SPV contract-state proof (not implemented in state_root_version 1; committed EMPTY per spec D1, returns 501)",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -8960,67 +9033,6 @@
           },
           {
             "name": "KEY",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "503": {
-            "$ref": "#/components/responses/CoinUnavailable"
-          }
-        }
-      },
-      "x-registered": "express"
-    },
-    "/{COIN}/api/proof/locked-balance/{ADDRESS}/{TICK}": {
-      "get": {
-        "operationId": "proof_locked-balance_address_tick",
-        "tags": [
-          "Proofs"
-        ],
-        "summary": "SPV locked-balance (XCHAIN_ESC) inclusion proof for an address/tick against the committed balances_root; 409 below the escrow leaf armed height (height optional)",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/coin"
-          },
-          {
-            "name": "TICK",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "ADDRESS",
             "in": "path",
             "required": true,
             "schema": {
@@ -9142,6 +9154,37 @@
       "ObjectResponse": {
         "type": "object",
         "description": "Single result object (fields vary per endpoint; amounts are decimal strings)"
+      },
+      "CheckpointListResponse": {
+        "type": "object",
+        "properties": {
+          "checkpoints": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Quorum-signed state checkpoints (fields vary per row; chain indices are decimal strings)"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of checkpoints returned"
+          },
+          "mirror_bootstrapped": {
+            "type": "boolean",
+            "description": "Self-synced hub mirror has completed its initial bootstrap (present only on /checkpoints)"
+          },
+          "mirror_lag_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Age of the mirror watermark (present only on /checkpoints)"
+          }
+        },
+        "required": [
+          "checkpoints",
+          "count"
+        ]
       },
       "PreflightResponse": {
         "type": "object",

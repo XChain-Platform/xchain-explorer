@@ -324,9 +324,11 @@ const VALID_FIAT_CODES = ['USD', 'CAD', 'AUD', 'MXN', 'GBP', 'JPY', 'CNY', 'CHF'
 const GAS_TICK = 'XCHAIN';
 
 // ── Oracle federation (xchain-hub) ───────────────────────────────────────────
-// Canonical source: xchain-hub/src/constants.js. Mirrored here byte-identical,
-// same as XCALL_MAX_HOPS above, so a hub-side edit or a consumer re-declaring
-// either literal has a cross-repo tripwire.
+// Canonical source: xchain-hub/src/constants.js. UNLIKE XCALL_MAX_HOPS above, these
+// two are covered by no local guard - this repo carries no copy of the xcall
+// constants gate at all; the guard that diffs this copy against the canonical lives
+// in xchain-hub/test/unit (#3886, corrected here per #3888), so a drift reddens hub
+// CI. Nothing here reads either one - they are re-exports for consumers.
 
 // Coarse global sanity ceiling on an ingested price_snapshots value (pre-scale,
 // covers pairs like BTC/KRW up to ~$7M BTC with headroom); rejects

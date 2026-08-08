@@ -186,7 +186,21 @@ const ROUTES = [
 
 // Pre-wildcard routes registered directly on the Express app in setupUrls().
 const SPECIAL = [
-    ['/{COIN}/api/file/{ACTION_INDEX}/raw', 'Files', 'Raw FILE bytes (gated: ciphertext as octet-stream; non-gated: inline for safe media types)'],
+    // The 200 is declared by hand because this route returns BYTES, not JSON, and the
+    // generic default would publish a paginated ListResponse over an octet stream (#3900).
+    ['/{COIN}/api/file/{ACTION_INDEX}/raw', 'Files',
+        'Raw FILE bytes (gated: ciphertext as octet-stream; non-gated: inline for safe media types)',
+        null,
+        { response200: {
+            description: 'Raw file bytes. A gated FILE is ALWAYS application/octet-stream '
+                + '(12-byte nonce || AES-256-GCM ciphertext || 16-byte tag; X-XChain-Stored-Form: encrypted). '
+                + 'A non-gated FILE is served under its declared media type when that type is render-safe '
+                + '(image/*, audio/*, video/* except image/svg+xml, application/pdf, application/json) '
+                + 'and as an application/octet-stream attachment otherwise.',
+            content: {
+                'application/octet-stream': { schema: { type: 'string', format: 'binary' } },
+                '*/*':                      { schema: { type: 'string', format: 'binary' } },
+            } } }],
     ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)'],
     ['/{COIN}/api/feeschedule', 'Fees', 'Fee schedule + oracle prices (proxied from the indexer)'],
     // . This entry existed in the generated openapi.json but not here,
@@ -232,11 +246,31 @@ const SPECIAL = [
                 503: null,   // the route resolves the coin itself and 404s; it never emits CoinUnavailable
             },
         }],
-    ['/{COIN}/api/checkpoints', 'Checkpoints', 'Latest quorum-signed state checkpoints for this chain'],
+    ['/{COIN}/api/checkpoints', 'Checkpoints', 'Latest quorum-signed state checkpoints for this chain',
+        null,
+        { schema: { $ref: '#/components/schemas/CheckpointListResponse' },
+          // `limit` is the one query param the handler reads; page/sortorder are inherited
+          // pagination the route has never honored (#3901).
+          query: [{ name: 'limit', required: false,
+                    schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+                    description: 'Rows to return; clamped server-side to 1..100' }] }],
     ['/{COIN}/api/checkpoint/{BLOCK_INDEX}/verify', 'Checkpoints', 'Verify a checkpoint: 2f+1 signatures, canonical string, validator set'],
-    ['/{COIN}/api/checkpoints/range', 'Checkpoints', 'Quorum-signed checkpoints in a [from,to] block range (SPV forward-following)'],
+    // from/to are `required` because the handler 400s (INVALID_RANGE) without them, so a
+    // client generated off the inherited page/limit/sortorder set could not call it (#3902).
+    ['/{COIN}/api/checkpoints/range', 'Checkpoints', 'Quorum-signed checkpoints in a [from,to] block range (SPV forward-following)',
+        null,
+        { schema: { $ref: '#/components/schemas/CheckpointListResponse' },
+          query: [
+            { name: 'from', required: true, schema: { type: 'integer', minimum: 0 },
+              description: 'First block height of the range, inclusive' },
+            { name: 'to',   required: true, schema: { type: 'integer', minimum: 0 },
+              description: 'Last block height of the range, inclusive; must be >= from. The span is capped server-side at 500 rows' },
+          ] }],
     ['/{COIN}/api/hub-mirror/status', 'Checkpoints', 'Self-synced hub-mirror status: bootstrap state and watermark lag ({enabled:false} in externally-maintained mode)'],
     ['/{COIN}/api/proof/balance/{ADDRESS}/{TICK}', 'Proofs', 'SPV balance inclusion proof for an address/tick against the committed balances_root (height optional)'],
+    // Present in the generated openapi.json but never in this table, so it survived only
+    // as a hand-edit the next regeneration would drop: the  hazard, second instance.
+    ['/{COIN}/api/proof/locked-balance/{ADDRESS}/{TICK}', 'Proofs', 'SPV locked-balance (XCHAIN_ESC) inclusion proof for an address/tick against the committed balances_root; 409 below the escrow leaf armed height (height optional)'],
     ['/{COIN}/api/proof/action/{ACTION_INDEX}', 'Proofs', 'SPV inclusion proof for an action against the committed state tree'],
     ['/{COIN}/api/proof/validator-set', 'Proofs', 'SPV proof of the BTC validator set at a snapshot height (stakes_root; BTC-only)'],
     ['/{COIN}/api/proof/contract-state/{CONTRACT_INDEX}/{KEY}', 'Proofs', 'SPV contract-state proof (not implemented in state_root_version 1; committed EMPTY per spec D1, returns 501)'],
@@ -292,14 +326,15 @@ const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'get
 
 // `opts` (SPECIAL entries only) describes a route the table conventions cannot:
 // {query: [...]} its own query parameters instead of page/limit/sortorder,
-// {schema} a 200 body that is neither ListResponse nor ObjectResponse, and
+// {schema} a 200 body that is neither ListResponse nor ObjectResponse,
 // {responses} extra status codes (a null value DELETES a default one, for
-// routes that cannot emit it). Without this every SPECIAL route inherited the
-// paginated-list contract, which is wrong for the indexer proxies: they take an
-// `action`, return one object, and never 503.
+// routes that cannot emit it), and {response200} an entire 200 entry, for a
+// body that is not JSON at all (binary routes; #3900). Without this every
+// SPECIAL route inherited the paginated-list contract, which is wrong for the
+// indexer proxies: they take an `action`, return one object, and never 503.
 function operation([p, method, types, tag, summary], opts) {
     const o = opts || {};
-    const isList = !o.query && !o.schema && !LIST_METHODS_SINGLE.has(method);
+    const isList = !o.query && !o.schema && !o.response200 && !LIST_METHODS_SINGLE.has(method);
     const params = pathParams(p, types);
     if (isList) params.push(
         { $ref: '#/components/parameters/page' },
@@ -307,7 +342,7 @@ function operation([p, method, types, tag, summary], opts) {
         { $ref: '#/components/parameters/sortorder' });
     for (const q of o.query || []) params.push(Object.assign({ in: 'query' }, q));
     const responses = {
-        200: {
+        200: o.response200 || {
             description: 'OK',
             content: {
                 'application/json': {
@@ -395,6 +430,20 @@ const spec = {
                 required: ['total', 'data'],
             },
             ObjectResponse: { type: 'object', description: 'Single result object (fields vary per endpoint; amounts are decimal strings)' },
+            // The checkpoint routes answer {checkpoints, count}, never the generic
+            // {total, data} list envelope (#3901). /checkpoints additionally spreads the
+            // mirror-gate annotation, so those two fields are optional, not required.
+            CheckpointListResponse: {
+                type: 'object',
+                properties: {
+                    checkpoints: { type: 'array', items: { type: 'object' },
+                        description: 'Quorum-signed state checkpoints (fields vary per row; chain indices are decimal strings)' },
+                    count: { type: 'integer', description: 'Number of checkpoints returned' },
+                    mirror_bootstrapped: { type: 'boolean', description: 'Self-synced hub mirror has completed its initial bootstrap (present only on /checkpoints)' },
+                    mirror_lag_seconds: { type: ['integer', 'null'], description: 'Age of the mirror watermark (present only on /checkpoints)' },
+                },
+                required: ['checkpoints', 'count'],
+            },
             // . Mirrors xchain-indexer Actions.computePreflight(); `valid` is
             // nullable because "no verdict" is a distinct answer from "invalid".
             PreflightResponse: {

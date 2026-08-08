@@ -190,6 +190,15 @@ describe('ChannelManager', function () {
             expect(subs[0].filters.statuses).to.be.undefined;
         });
 
+        it('#3860: omits ticks from the subscription list (no-op filter, matching SUBSCRIBED)', function () {
+            const client = createClient(1);
+            cm.subscribe(client, ['actions'], { ticks: ['PEPE'] });
+            const subs = cm.listSubscriptions(client);
+            // No action frame carries a tick column, so re-advertising the filter here
+            // would let a client rely on a stream that never narrows. It is still stored.
+            expect(subs[0].filters.ticks).to.be.undefined;
+        });
+
         it('stores once flag', function () {
             const client = createClient(1);
             cm.subscribe(client, ['actions'], { once: true });

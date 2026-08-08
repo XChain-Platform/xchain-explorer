@@ -256,7 +256,11 @@ class WebSocketServer {
                 // advertised contract so clients cannot rely on it. The filter
                 // mechanism still runs for events that do carry a status (e.g.
                 // lifecycle/COINPAY frames); it is simply not advertised.
-                features: ['snapshot', 'once', 'fields', 'ticks', 'batch', 'catch_up']
+                // 'ticks' is omitted for the same reason (#3860): getActionsSince
+                // selects no tick/give_tick/get_tick column, so Broadcaster's
+                // `if (tick && ...)` check never fires on the actions channel, the
+                // only channel ChannelManager.subscribe attaches a ticks filter to.
+                features: ['snapshot', 'once', 'fields', 'batch', 'catch_up']
             }
         };
 
@@ -363,17 +367,21 @@ class WebSocketServer {
         // Surface that as `ignored_filters` so a client that sent it can observe the
         // no-op instead of silently getting nothing. Same params object for the whole
         // subscribe() call, so this is constant across every confirmation below.
-        const ignoredFilters = params.statuses ? ['statuses'] : null;
+        // `ticks` joins it for the same reason (#3860): no action frame carries a
+        // tick field, so the ticks check never fires either.
+        const ignored = [];
+        if (params.statuses) ignored.push('statuses');
+        if (params.ticks)    ignored.push('ticks');
+        const ignoredFilters = ignored.length ? ignored : null;
 
         // Send SUBSCRIBED confirmation for each entity subscribed
         for (const sub of result.subscribed) {
-            // 'statuses' is deliberately not echoed here as an ACTIVE filter: confirming
-            // it back would let a client rely on a no-op. See the WELCOME features note
-            // and the matching omission in ChannelManager.getSubscriptionList
-            // (SUBSCRIPTION_LIST). It is still surfaced separately via `ignored_filters`.
+            // 'statuses' and 'ticks' are deliberately not echoed here as ACTIVE filters:
+            // confirming either back would let a client rely on a no-op. See the WELCOME
+            // features note and the matching omission in ChannelManager.getSubscriptionList
+            // (SUBSCRIPTION_LIST). Both are surfaced separately via `ignored_filters`.
             const activeFilters = {
                 types:    result.filter.types    ? [...result.filter.types]    : null,
-                ticks:    result.filter.ticks    ? [...result.filter.ticks]    : null,
                 fields:   result.filter.fields   ? [...result.filter.fields]   : null,
                 once:     result.filter.once
             };

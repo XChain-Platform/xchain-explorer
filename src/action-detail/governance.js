@@ -40,7 +40,8 @@ const BET = {
                     -- feed definition (format 0)
                     f.label,
                     f.outcomes,
-                    f.fee,
+                    -- Alias the oracle cut: getActionData overwrites the reserved fee slot (#3932)
+                    f.fee as bet_fee,
                     f.deadline,
                     f.refund_window,
                     f.expire_at,
@@ -147,7 +148,7 @@ const BET = {
             delete data['settled_block']; delete data['bet_status'];
         }
         if(data['bet_kind'] !== 'feed'){
-            delete data['label']; delete data['outcomes']; delete data['fee'];
+            delete data['label']; delete data['outcomes']; delete data['bet_fee'];
             delete data['deadline']; delete data['refund_window']; delete data['expire_at'];
             delete data['min_amount']; delete data['allow_list']; delete data['block_list'];
             delete data['details']; delete data['closed_block']; delete data['terminal_block'];

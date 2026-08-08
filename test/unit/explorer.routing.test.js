@@ -339,6 +339,50 @@ describe('XChainExplorer.processRequest – routing', function () {
     });
 
     // -----------------------------------------------------------------------
+    // 5b. Tip-freshness gate ()
+    // -----------------------------------------------------------------------
+
+    describe('tip-freshness gate', function () {
+
+        // The gate only runs for a coin this instance actually has a pool for; the
+        // staleness verdict itself is unit-tested against the real query in
+        // db.data-methods.test.js, so stub it here and assert the routing effect.
+        function withTip(stale) {
+            const e = makeExplorer();
+            e.db.pools = { BTC: {} };
+            e.db.isCoinTipStale = async () => stale;
+            return e;
+        }
+
+        it('refuses a data read with 503 COIN_DATA_STALE when the indexed tip is stale', async function () {
+            const res = mockRes();
+            await withTip(true).processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
+            expect(res._status).to.equal(503);
+            expect(JSON.parse(res._body)).to.include({ code: 'COIN_DATA_STALE' });
+        });
+
+        it('keeps /{COIN}/api/status reachable so an operator can see WHY it went stale', async function () {
+            const res = mockRes();
+            await withTip(true).processRequest(mockReq('/BTC/api/status'), res);
+            expect(res._status).to.not.equal(503);
+        });
+
+        it('serves normally when the tip is fresh', async function () {
+            const res = mockRes();
+            await withTip(false).processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
+            expect(res._status).to.not.equal(503);
+        });
+
+        it('keeps the unconfigured-coin 503 distinguishable from the stale one', async function () {
+            const res = mockRes();
+            await withTip(true).processRequest(mockReq('/LTC/api/sends/addr1/address'), res);
+            expect(res._status).to.equal(503);
+            expect(JSON.parse(res._body)).to.include({ code: 'COIN_NOT_AVAILABLE' });   // LTC has no pool here
+        });
+
+    });
+
+    // -----------------------------------------------------------------------
     // 6. Null string handling
     // -----------------------------------------------------------------------
 

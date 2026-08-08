@@ -58,8 +58,8 @@ const VALID_TYPES = new Set([
     // actionData.action value and whitelisting it would silently match nothing.
     'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
-    // Only names the producer actually emits belong here (LIFECYCLE_MAP in
-    // ChangeDetector.js plus its inline COINPAY_REQUIRED enrichment): the
+    // Only names the producer actually emits belong here (ChangeDetector.js's
+    // LIFECYCLE_MAP, NON_ACTION_LIFECYCLE_TYPES and INLINE_LIFECYCLE_TYPES): the
     // WELCOME envelope advertises this set verbatim, so a phantom name would
     // be accepted by subscribe() yet silently match zero events - same
     // anti-pattern as the CONTROLLER note above.
@@ -70,7 +70,10 @@ const VALID_TYPES = new Set([
     // BET_EXPIRED rides LIFECYCLE_MAP; BET_CLOSED is emitted by the ChangeDetector's
     // second cursor over bet_feeds.closed_block, because the deadline latch is a
     // direct status write with no action row behind it .
-    'BET_EXPIRED', 'BET_CLOSED'
+    'BET_EXPIRED', 'BET_CLOSED',
+    // The two ATTEST phases, enriched inline from the `attests` table because the
+    // raw action row carries no version to tell request from response ().
+    'ATTESTATION_REQUEST', 'ATTESTATION_RESPONSE'
 ]);
 
 class ChannelManager {

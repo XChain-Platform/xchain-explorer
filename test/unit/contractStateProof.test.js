@@ -300,7 +300,11 @@ describe('SPV Stage A: contract-state request validation @regression', function 
             _mirrorGate: () => ({ blocked: null }),
             parseCoinCode: () => ({ coin: CHAIN, network: NET }),
             configInfo: { getConfig: async () => ({}) },
-            proofServer: { contractStateProof: async () => { captured.reachedServer = true; return { proof: {}, checkpoint: {} }; } }
+            proofServer: { contractStateProof: async (cfg, chain, net, idx, key) => {
+                captured.reachedServer = true;
+                captured.serverKey = key;          // what the handler actually proves over
+                return { proof: {}, checkpoint: {} };
+            } }
         };
         const req = { params: Object.assign({ coin: COIN }, params), query: query || {} };
         return XChainExplorer.prototype.processContractStateProofRequest.call(self, req, res)
@@ -319,11 +323,39 @@ describe('SPV Stage A: contract-state request validation @regression', function 
         assert.throws(() => M.contractStateKey(CHAIN, NET, 7, 'a\u0000b'), /0x00/);
     });
 
-    it('rejects malformed percent-encoding with a 400', async function () {
-        const out = await runHandler({ contractIndex: '7', key: '%zz' });
-        assert.strictEqual(out.code, 400);
-        assert.strictEqual(out.body.code, 'INVALID_KEY_ENCODING');
-        assert.ok(!out.reachedServer);
+    it('forwards a percent-bearing key BYTE FOR BYTE, never decoding what Express already decoded', async function () {
+        // Express decodes :key before the handler runs, so a second decode here
+        // silently answers for a different key than the client asked about. Driven
+        // on the live service 2026-08-06: `/proof/contract-state/6/100%25` (the key
+        // `100%`) returned 400 INVALID_KEY_ENCODING, and `a%2541b` (the key `a%41b`)
+        // was proved as `aAb`. The SDK cannot catch that substitution, because
+        // verifyContractStateProof re-derives its key from the ECHOED state_key.
+        //
+        // These params are what Express hands over, i.e. already once-decoded.
+        const hex = await runHandler({ contractIndex: '7', key: 'a%41b' });
+        assert.ok(hex.reachedServer, 'a legitimate key must reach the proof server');
+        assert.strictEqual(hex.serverKey, 'a%41b', 'the key must not be decoded a second time');
+
+        assert.notStrictEqual(hex.body && hex.body.code, 'INVALID_KEY_ENCODING');
+    });
+
+    it('serves a key ending in a bare percent, which used to throw and 400', async function () {
+        // Kept separate from the case above so each fails on its own: a single test
+        // asserting both only ever reports the first, which hides half the guard.
+        // `100%` is what Express hands over for the request `100%25`; the retired
+        // decode threw URIError on it and answered INVALID_KEY_ENCODING, measured on
+        // the live service 2026-08-06.
+        const out = await runHandler({ contractIndex: '7', key: '100%' });
+        assert.ok(out.reachedServer, 'a key ending in `%` is legitimate and must be served');
+        assert.strictEqual(out.serverKey, '100%');
+        assert.notStrictEqual(out.code, 400);
+        assert.notStrictEqual(out.body && out.body.code, 'INVALID_KEY_ENCODING');
+    });
+
+    it('still forwards an ordinary key unchanged', async function () {
+        const out = await runHandler({ contractIndex: '7', key: 'seed/bulk/27' });
+        assert.ok(out.reachedServer);
+        assert.strictEqual(out.serverKey, 'seed/bulk/27');
     });
 
     it('rejects an over-cap key with a 400 (mirrors the VM maxStateKeySize)', async function () {

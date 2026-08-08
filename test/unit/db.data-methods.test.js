@@ -378,6 +378,138 @@ describe('Database#getStatus', () => {
     });
 });
 
+// The freshness gate that stops a frozen replica advertising itself as available.
+// decoder_lag_blocks cannot see a JOINT indexer+decoder freeze (it is an intra-replica
+// difference that reads 0 in that state), so the gate measures wall-clock instead.
+describe('Database tip-freshness gate ()', () => {
+    let db;
+    const ENV_KEYS = ['EXPLORER_TIP_MAX_AGE_S', 'EXPLORER_TIP_MAX_AGE_S_RBTC'];
+    let savedEnv;
+
+    beforeEach(() => {
+        db = makeDb();
+        savedEnv = {};
+        for (const k of ENV_KEYS) { savedEnv[k] = process.env[k]; delete process.env[k]; }
+    });
+    afterEach(() => {
+        for (const k of ENV_KEYS) {
+            if (savedEnv[k] === undefined) delete process.env[k];
+            else process.env[k] = savedEnv[k];
+        }
+        sinon.restore();
+    });
+
+    // Returns a pool whose every query answers with this block_time.
+    function poolWithBlockTime(coin, blockTime) {
+        db.pools = {};
+        db.pools[coin] = {
+            pool: {
+                getConnection: sinon.stub().resolves({
+                    query:   sinon.stub().resolves([{ max_index: 850, block_time: blockTime }]),
+                    release: sinon.stub().resolves()
+                })
+            },
+            config: {}
+        };
+    }
+
+    describe('#tipMaxAgeSeconds', () => {
+        it('defaults to 6 hours when no env override is set', () => {
+            expect(db.tipMaxAgeSeconds('RBTC')).to.equal(21600);
+        });
+
+        it('honours the global EXPLORER_TIP_MAX_AGE_S override', () => {
+            process.env.EXPLORER_TIP_MAX_AGE_S = '120';
+            expect(db.tipMaxAgeSeconds('RBTC')).to.equal(120);
+        });
+
+        it('lets a per-coin override win over the global one', () => {
+            process.env.EXPLORER_TIP_MAX_AGE_S      = '120';
+            process.env.EXPLORER_TIP_MAX_AGE_S_RBTC = '900';
+            expect(db.tipMaxAgeSeconds('RBTC')).to.equal(900);
+            expect(db.tipMaxAgeSeconds('BTC')).to.equal(120);
+        });
+
+        it('ignores a non-numeric override rather than reading it as 0 (which would disable the gate)', () => {
+            process.env.EXPLORER_TIP_MAX_AGE_S = 'off';
+            expect(db.tipMaxAgeSeconds('RBTC')).to.equal(21600);
+        });
+    });
+
+    describe('#isTipStale', () => {
+        const NOW = 1800000000;
+
+        it('is false for a tip inside the window', () => {
+            expect(db.isTipStale('RBTC', NOW - 60, NOW)).to.equal(false);
+        });
+
+        it('is true for a tip past the window', () => {
+            expect(db.isTipStale('RBTC', NOW - 21601, NOW)).to.equal(true);
+        });
+
+        it('fails closed on a 0 / null / non-numeric block_time', () => {
+            expect(db.isTipStale('RBTC', 0, NOW)).to.equal(true);
+            expect(db.isTipStale('RBTC', null, NOW)).to.equal(true);
+            expect(db.isTipStale('RBTC', 'soon', NOW)).to.equal(true);
+        });
+
+        it('is disabled by an explicit 0 threshold, even for a missing block_time', () => {
+            process.env.EXPLORER_TIP_MAX_AGE_S = '0';
+            expect(db.isTipStale('RBTC', NOW - 999999, NOW)).to.equal(false);
+            expect(db.isTipStale('RBTC', null, NOW)).to.equal(false);
+        });
+    });
+
+    describe('#isCoinTipStale', () => {
+        it('reads the indexer tip and caches the verdict', async () => {
+            poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - 60);
+            expect(await db.isCoinTipStale('RBTC')).to.equal(false);
+            const calls = db.pools['RBTC'].pool.getConnection.callCount;
+            expect(await db.isCoinTipStale('RBTC')).to.equal(false);
+            expect(db.pools['RBTC'].pool.getConnection.callCount).to.equal(calls);   // served from cache
+        });
+
+        it('fails closed when the indexer read throws', async () => {
+            sinon.stub(db, 'getMaxBlockTime').rejects(new Error('db down'));
+            expect(await db.isCoinTipStale('RBTC')).to.equal(true);
+        });
+    });
+
+    describe('#getStatus availability gating', () => {
+        it('drops a coin with a stale tip from `available` while leaving it `supported`', async () => {
+            poolWithBlockTime('RBTC', 1700000000);            // years old
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.stale).to.have.property('RBTC', true);
+            expect(data.tip_age_seconds['RBTC']).to.be.above(21600);
+            expect(data.available).to.not.have.property('RBTC');
+            expect(data.supported).to.have.property('RBTC');   // still a known coin
+        });
+
+        it('keeps a coin with a fresh tip available', async () => {
+            poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - 60);
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.stale).to.have.property('RBTC', false);
+            expect(data.available).to.have.property('RBTC');
+        });
+
+        it('does not mutate the shared hub-config COIN_AVAILABLE map when it drops a coin', async () => {
+            poolWithBlockTime('RBTC', 1700000000);
+            const [data]  = await db.getStatus(cfg({ coin: 'RBTC' }));
+            const fullCfg = await configInfo.getConfig();
+            expect(data.available).to.not.have.property('RBTC');
+            expect(fullCfg['COIN_AVAILABLE']).to.have.property('RBTC');
+        });
+
+        it('leaves an unmeasured coin (no pool here) alone rather than delisting it', async () => {
+            db.pools = {};
+            const [data]  = await db.getStatus(cfg());
+            const fullCfg = await configInfo.getConfig();
+            expect(data.available).to.deep.equal(fullCfg['COIN_AVAILABLE']);
+            expect(Object.keys(data.stale)).to.have.lengthOf(0);
+        });
+    });
+});
+
 describe('Database#getMempool', () => {
     let db;
     before(() => { db = makeDb(); });

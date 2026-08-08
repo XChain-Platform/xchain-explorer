@@ -49,6 +49,12 @@ const LIFECYCLE_MAP = {
 // name reachable only through a second cursor is invisible to a map-only check.
 const NON_ACTION_LIFECYCLE_TYPES = ['BET_CLOSED'];
 
+// Lifecycle events emitted inline by an enrichment path, so neither the map nor
+// a cursor names them. Declared here so the conformance test reads the producer
+// rather than carrying its own copy: that second copy is exactly what let the
+// two ATTESTATION names ship emitted-but-unfilterable ().
+const INLINE_LIFECYCLE_TYPES = ['COINPAY_REQUIRED', 'ATTESTATION_REQUEST', 'ATTESTATION_RESPONSE'];
+
 class ChangeDetector extends EventEmitter {
 
     constructor(options) {
@@ -681,8 +687,9 @@ class ChangeDetector extends EventEmitter {
 }
 
 module.exports = ChangeDetector;
-// Exposed for the ChannelManager VALID_TYPES conformance test: every
-// lifecycle name the types filter accepts must be one this map (or the
-// inline COINPAY_REQUIRED enrichment) actually emits.
+// Exposed for the ChannelManager VALID_TYPES conformance test: every lifecycle
+// name the types filter accepts must be one this producer actually emits, across
+// all three emission paths.
 module.exports.LIFECYCLE_MAP = LIFECYCLE_MAP;
 module.exports.NON_ACTION_LIFECYCLE_TYPES = NON_ACTION_LIFECYCLE_TYPES;
+module.exports.INLINE_LIFECYCLE_TYPES = INLINE_LIFECYCLE_TYPES;

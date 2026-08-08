@@ -673,6 +673,16 @@ class XChainExplorer {
         // validDataRequest is false when the coin is supported but not yet configured in this instance
         let validDataRequest = (!this.util.isNull(config['COIN_SUPPORTED'][coin]) && !this.util.isNull(config['COIN_AVAILABLE'][coin])) ? true : false;
 
+        // Fail closed on a frozen replica: a coin whose newest indexed block has aged
+        // past its threshold is no longer serving current data, so refuse the read
+        // rather than present a stale balance or action as live. Cached in db.js, so
+        // this costs no per-request query ().
+        let tipStale = false;
+        if(validDataRequest && this.db.pools && this.db.pools[coin])
+            tipStale = await this.db.isCoinTipStale(coin);
+        if(tipStale)
+            validDataRequest = false;
+
         // Force /{COIN}/api/status valid so we always return explorer config for that coin
         if(String(urlPath[1]).toLowerCase()=='api' && String(urlPath[2]).toLowerCase()=='status')
             validDataRequest = true;
@@ -879,7 +889,12 @@ class XChainExplorer {
 
         if(['api','explorer'].includes(cfg.type) && !this.util.isNull(cfg.data.method) && !validDataRequest){
             response.code = 503;
-            response.json = {
+            // Separate code for the freshness gate: a client retrying a COIN_NOT_AVAILABLE
+            // is misconfigured, one retrying COIN_DATA_STALE is waiting out an outage.
+            response.json = tipStale ? {
+                error: 'Indexed data for this coin is stale beyond its maximum tip age; refusing to serve it as current.',
+                code: 'COIN_DATA_STALE'
+            } : {
                 error: 'Explorer not configured to support data requests for this coin.',
                 code: 'COIN_NOT_AVAILABLE'
             };
@@ -1553,9 +1568,17 @@ class XChainExplorer {
                 source: String(v.source != null ? v.source : '')
             }));
 
-            let verified = isWeighted
+            // Reject a post-flag-day row missing any commitment field, mirroring the SDK's
+            // commitmentMissing (xchain-sdk/src/checkpoint.js): canonicalCheckpointString
+            // appends the root suffix only when all four are present, so such a row would
+            // otherwise verify against the LEGACY rootless preimage ().
+            let commitmentMissing = ckpt.isCheckpointCommitmentActive(cp.snapshot_block, cp.network)
+                && (cp.state_root == null || cp.block_merkle_root == null
+                    || cp.state_root_version == null || cp.block_merkle_version == null);
+
+            let verified = !commitmentMissing && (isWeighted
                 ? (qualified.size > 0 && swq.meetsStakeThreshold(validatorSet, validSigners))
-                : (qualified.size > 0 && validSigs >= quorum);
+                : (qualified.size > 0 && validSigs >= quorum));
 
             return res.json({
                 checkpoint:    cp,
@@ -1565,6 +1588,8 @@ class XChainExplorer {
                 quorum:        quorum,
                 valid_sigs:    validSigs,
                 verified:      verified,
+                // Tells a client the verdict is STRUCTURAL, not a signature shortfall.
+                commitment_missing:      commitmentMissing,
                 // qualified.size === 0 → the oracle_publish snapshot isn't mirrored
                 // here; the sigs may still be valid (clients can verify elsewhere).
                 snapshot_available:      qualified.size > 0,
@@ -1739,10 +1764,12 @@ class XChainExplorer {
     // 409 below them (an inert slot's EMPTY tree would "prove" every key absent).
     //
     // EVERY INPUT RULE BELOW RUNS BEFORE THE KEY REACHES ANY CRYPTO PRIMITIVE, which
-    // is the point of doing them here rather than deeper. merkle.joinFields THROWS on
-    // a 0x00-bearing field and decodeURIComponent THROWS on malformed percent-escapes,
-    // so a hostile `%00` or `%zz` path segment would otherwise surface as a 500 from
-    // an unauthenticated request. Each rule is a 400 with its own code.
+    // is the point of doing them here rather than deeper: merkle.joinFields THROWS on
+    // a 0x00-bearing field, so a hostile `%00` path segment would otherwise surface as
+    // a 500 from an unauthenticated request. Each rule is a 400 with its own code.
+    // A malformed escape (`%zz`) never gets this far at all -- Express decodes path
+    // params and rejects it before the route runs -- which is why there is no
+    // encoding rule here and why this handler must not decode anything itself.
     async processContractStateProofRequest(req, res){
         try {
             let coin = String(req.params.coin || '').toUpperCase();
@@ -1761,15 +1788,18 @@ class XChainExplorer {
                 return res.status(400).json({ error: 'contractIndex must be a non-negative integer',
                                               code: 'INVALID_CONTRACT_INDEX' });
 
-            // Express already decodes :key once. Decode defensively and treat a
-            // malformed escape as a 400 rather than letting it throw.
-            let rawKey = req.params.key;
-            if(rawKey === undefined || rawKey === null || rawKey === '')
+            // Express decodes :key for us, so this must NOT decode again. A second
+            // decodeURIComponent corrupts every key containing a percent sign: a
+            // client sends the key `a%41b` as `a%2541b`, Express hands over `a%41b`,
+            // and a second pass silently turns it into `aAb`, proving the WRONG KEY.
+            // A key ending in a bare `%` (sent as `%25`) threw outright, so a valid
+            // key was rejected. Express rejects a genuinely malformed escape (`%zz`)
+            // before the route runs, which is why the old INVALID_KEY_ENCODING branch
+            // could only ever fire on legitimate input.
+            let key = req.params.key;
+            if(key === undefined || key === null || key === '')
                 return res.status(400).json({ error: 'state key is required', code: 'MISSING_PARAMETER' });
-            let key;
-            try { key = decodeURIComponent(String(rawKey)); }
-            catch(e){ return res.status(400).json({ error: 'Malformed percent-encoding in state key',
-                                                    code: 'INVALID_KEY_ENCODING' }); }
+            key = String(key);
             if(key.indexOf('\u0000') !== -1)
                 return res.status(400).json({ error: 'state key may not contain a NUL byte',
                                               code: 'INVALID_KEY_NUL' });

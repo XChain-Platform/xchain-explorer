@@ -27,6 +27,18 @@ const poolSizing = require('./poolSizing');
 const listEditResolution = require('./list_edit_resolution_activation');
 const actionDetail = require('./action-detail');
 
+// Wall-clock age, in seconds, past which the newest INDEXED block means this
+// instance is no longer serving current data for a coin. Deliberately far above
+// every chain's normal inter-block gap (BTC ~10min): a fail-closed gate that
+// delists a quiet-but-healthy chain is worse than one that trails an outage by
+// hours, and the freezes this catches ran 55 hours and 33 days ().
+const TIP_MAX_AGE_DEFAULT_S = 21600;
+
+// TTL of the cached per-coin tip-staleness verdict. Short enough that a freeze
+// surfaces within one status poll, long enough that the per-request availability
+// gate costs no extra query on a busy explorer.
+const TIP_STALE_CACHE_TTL_MS = 15000;
+
 // Raised by doQuery when the underlying query genuinely FAILED (connection
 // unavailable after retries, or the DB rejected the statement), as opposed to
 // succeeding with an empty result set. The request layer maps it to a 5xx so a
@@ -4280,7 +4292,9 @@ class Database {
                                 : null;
         let data = {
             supported:       coinConfigs['COIN_SUPPORTED'],
-            available:       coinConfigs['COIN_AVAILABLE'],
+            // Copied, not aliased: the staleness gate below deletes stale coins from
+            // this map and must not mutate the shared hub-config object.
+            available:       Object.assign({}, coinConfigs['COIN_AVAILABLE']),
             hub_config_fetched_at:  (hubFetchedAtMs != null) ? new Date(hubFetchedAtMs).toISOString() : null,
             hub_config_age_seconds: (hubFetchedAtMs != null) ? Math.floor((Date.now() - hubFetchedAtMs) / 1000) : null,
             last_block:      {},
@@ -4298,7 +4312,13 @@ class Database {
             // Both fields are null for a coin when the decoder tip is
             // unavailable; last_block/last_block_time are unaffected.
             decoder_tip:        {},
-            decoder_lag_blocks: {}
+            decoder_lag_blocks: {},
+            // Wall-clock age of each measured coin's newest indexed block, and whether
+            // that age has passed the coin's max tip age. Unlike decoder_lag_blocks these
+            // see a JOINT indexer+decoder freeze, because they are measured against the
+            // local clock rather than against the other replica.
+            tip_age_seconds: {},
+            stale:           {}
         };
         let available = coinConfigs['COIN_AVAILABLE'] || {};
         for (let coin of Object.keys(available)) {
@@ -4328,6 +4348,17 @@ class Database {
                     data.decoder_tip[coin]        = null;
                     data.decoder_lag_blocks[coin] = null;
                 }
+                // Fail closed on a frozen replica: a coin whose newest indexed block has
+                // aged past its threshold stops being advertised as available, so a
+                // consumer reading this map cannot mistake a 55-hour-old tip for live
+                // data. Only coins this instance actually MEASURED are gated; a coin with
+                // no pool here is the pre-existing "supported but not configured" case.
+                let nowSec = Math.floor(Date.now() / 1000);
+                let tipSec = data.last_block_time[coin];
+                data.tip_age_seconds[coin] = (Number.isFinite(Number(tipSec)) && Number(tipSec) > 0)
+                                                ? (nowSec - Number(tipSec)) : null;
+                data.stale[coin] = this.isTipStale(coin, tipSec, nowSec);
+                if (data.stale[coin]) delete data.available[coin];
             }
         }
         // Chain->decoder visibility: the slice the DB-derived fields above can't
@@ -5852,6 +5883,60 @@ class Database {
         if (results && results.length && results[0].block_time !== null)
             return Number(results[0].block_time);
         return 0;
+    }
+
+    // Max tip age for a coin, in seconds: EXPLORER_TIP_MAX_AGE_S_<COIN> if set,
+    // else EXPLORER_TIP_MAX_AGE_S, else the default. An explicit 0 disables the
+    // gate for that coin, the same operator escape hatch MIRROR_MAX_LAG_S has; a
+    // regtest instance, where blocks are mined on demand, wants that.
+    /**
+     * @param {string} coin coin code, e.g. 'BTC' or 'TLTC'
+     * @returns {number} max age in seconds, 0 when the gate is disabled
+     */
+    tipMaxAgeSeconds(coin) {
+        let perCoin = parseInt(process.env['EXPLORER_TIP_MAX_AGE_S_' + String(coin).toUpperCase()], 10);
+        if (Number.isFinite(perCoin) && perCoin >= 0) return perCoin;
+        let global = parseInt(process.env.EXPLORER_TIP_MAX_AGE_S, 10);
+        if (Number.isFinite(global) && global >= 0) return global;
+        return TIP_MAX_AGE_DEFAULT_S;
+    }
+
+    // Is the newest indexed block old enough that this coin's data is not current?
+    // Fails closed on a missing, zero, or unparseable block_time, which is what a
+    // never-bootstrapped or unreadable replica looks like. decoder_lag_blocks
+    // cannot see this: it is an intra-replica difference that reads 0 whenever the
+    // indexer and decoder freeze together ().
+    /**
+     * @param {string} coin coin code
+     * @param {number|null} blockTimeSec unix seconds of the newest indexed block
+     * @param {number} [nowSec] unix seconds to measure against, defaults to now
+     * @returns {boolean}
+     */
+    isTipStale(coin, blockTimeSec, nowSec) {
+        let maxAge = this.tipMaxAgeSeconds(coin);
+        if (maxAge === 0) return false;
+        let tip = Number(blockTimeSec);
+        if (!Number.isFinite(tip) || tip <= 0) return true;
+        let now = Number.isFinite(Number(nowSec)) ? Number(nowSec) : Math.floor(Date.now() / 1000);
+        return (now - tip) > maxAge;
+    }
+
+    // Cached tip-staleness verdict for the per-request availability gate. An
+    // unreadable indexer counts as stale: the gate exists to stop this instance
+    // presenting data it cannot vouch for as current.
+    /**
+     * @param {string} coin coin code
+     * @returns {Promise<boolean>}
+     */
+    async isCoinTipStale(coin) {
+        if (!this._tipStaleCache) this._tipStaleCache = {};
+        const cached = this._tipStaleCache[coin];
+        if (cached && (Date.now() - cached.at) < TIP_STALE_CACHE_TTL_MS) return cached.stale;
+        let stale;
+        try { stale = this.isTipStale(coin, await this.getMaxBlockTime({ coin, data: {} })); }
+        catch (e) { stale = this.tipMaxAgeSeconds(coin) !== 0; }
+        this._tipStaleCache[coin] = { at: Date.now(), stale };
+        return stale;
     }
 
     // Get the decoder-tip reference for a coin: the highest block the decoder has

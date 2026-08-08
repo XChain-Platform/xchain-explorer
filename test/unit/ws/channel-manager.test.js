@@ -436,19 +436,20 @@ describe('ChannelManager', function () {
 
 describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts, )', function () {
     // Every lifecycle name the types filter accepts must be one the producer
-    // actually emits: LIFECYCLE_MAP values plus the inline COINPAY_REQUIRED
-    // enrichment in ChangeDetector. A phantom name is advertised in WELCOME
-    // and accepted by subscribe() yet silently matches zero events.
+    // actually emits. A phantom name is advertised in WELCOME and accepted by
+    // subscribe() yet silently matches zero events.
     // Emitted names come from three places, not one: the action-keyed LIFECYCLE_MAP,
-    // the inline COINPAY_REQUIRED enrichment, and NON_ACTION_LIFECYCLE_TYPES for
-    // events produced by a cursor of their own (BET_CLOSED, whose latch has no action
-    // row). A check that knows only the map reports the third group as phantom.
+    // NON_ACTION_LIFECYCLE_TYPES for events produced by a cursor of their own
+    // (BET_CLOSED, whose latch has no action row), and INLINE_LIFECYCLE_TYPES for
+    // the enrichment paths. All three are read from the producer rather than
+    // restated here: a local copy of the inline names is what let the two
+    // ATTESTATION types ship emitted-but-unfilterable ().
     function emittedNames() {
         const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
         return new Set(
             Object.values(ChangeDetector.LIFECYCLE_MAP).flat()
                 .concat(ChangeDetector.NON_ACTION_LIFECYCLE_TYPES || [])
-                .concat(['COINPAY_REQUIRED'])
+                .concat(ChangeDetector.INLINE_LIFECYCLE_TYPES || [])
         );
     }
 
@@ -457,7 +458,7 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts, )', f
         // Lifecycle names = VALID_TYPES entries that are not plain indexed
         // action types; identified as names ending in a lifecycle suffix.
         const lifecycle = [...ChannelManager.VALID_TYPES].filter((t) =>
-            /(_COMPLETED|_EXPIRED|_CLOSED|_CANCELLED|_FULFILLED|_REQUIRED)$/.test(t));
+            /(_COMPLETED|_EXPIRED|_CLOSED|_CANCELLED|_FULFILLED|_REQUIRED|_REQUEST|_RESPONSE)$/.test(t));
         const phantoms = lifecycle.filter((t) => !emitted.has(t));
         expect(phantoms, `VALID_TYPES advertises unemitted lifecycle types: ${phantoms.join(', ')}`).to.deep.equal([]);
     });

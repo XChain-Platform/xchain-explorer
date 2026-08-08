@@ -146,6 +146,12 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
 // ===========================================================================
 describe('XChainExplorer.processCheckpointVerifyRequest', function () {
 
+    // Pin the commitment flag-day off by default so the rootless CP fixture reads as a
+    // legacy row; on regtest the real activation height is 0, so every row is otherwise
+    // post-flag-day and the fail-closed guard would sink the quorum cases. Scoped here
+    // rather than file-wide: the byte-parity suite below needs the REAL predicate.
+    beforeEach(function () { sinon.stub(ckpt, 'isCheckpointCommitmentActive').returns(false); });
+
     it('404s an unknown coin', async function () {
         const explorer = makeExplorer();
         const res = mockRes();
@@ -193,7 +199,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
     it('SPV Phase 2: post CHECKPOINT_COMMITMENT flag-day the emitted canonical commits the roots', async function () {
         // Pin the checkpoint-commitment flag-day active; EQUIV stays off (default) so the
         // canonical is the raw v0 string + the SPV root suffix, with no header wrapping.
-        sinon.stub(ckpt, 'isCheckpointCommitmentActive').returns(true);
+        ckpt.isCheckpointCommitmentActive.returns(true);
         const STATE_ROOT = 'd4'.repeat(32), BLOCK_MERKLE = 'e5'.repeat(32);
         const cpRow = { ...CP, state_root: STATE_ROOT, state_root_version: 1,
                         block_merkle_root: BLOCK_MERKLE, block_merkle_version: 1 };
@@ -210,7 +216,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
     });
 
     it('SPV Phase 2: a null-root row keeps the rootless canonical even post-flag-day', async function () {
-        sinon.stub(ckpt, 'isCheckpointCommitmentActive').returns(true);
+        ckpt.isCheckpointCommitmentActive.returns(true);
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves([{ ...CP }]);   // CP has no roots
         explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
@@ -219,6 +225,44 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         const rootless = ['XCHECKPOINT', 'BTC', 'regtest', '500', 'c0'.repeat(32), 'a1'.repeat(32),
                           'b2'.repeat(32), 'c3'.repeat(32), '7', '100'].join('|');
         expect(res._body.canonical).to.equal(rootless);
+    });
+
+    it('SPV Phase 2: a null-root row post-flag-day fails closed, matching the SDK verifier', async function () {
+        // Quorate on signatures alone; only the missing commitment may sink it.
+        ckpt.isCheckpointCommitmentActive.returns(true);
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);   // CP has no roots
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.valid_sigs).to.equal(1);
+        expect(res._body.quorum).to.equal(1);
+        expect(res._body.commitment_missing).to.equal(true);
+        expect(res._body.verified).to.equal(false);
+    });
+
+    it('SPV Phase 2: one missing commitment field is enough to fail closed', async function () {
+        ckpt.isCheckpointCommitmentActive.returns(true);
+        const explorer = makeExplorer();
+        // Three of four roots present; block_merkle_version alone is null.
+        explorer.db.getCheckpointRows.resolves([{ ...CP, state_root: 'd4'.repeat(32),
+            state_root_version: 1, block_merkle_root: 'e5'.repeat(32), block_merkle_version: null }]);
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.commitment_missing).to.equal(true);
+        expect(res._body.verified).to.equal(false);
+    });
+
+    it('SPV Phase 2: a rootless row BELOW the flag-day still verifies (legacy rows unaffected)', async function () {
+        ckpt.isCheckpointCommitmentActive.returns(false);
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.commitment_missing).to.equal(false);
+        expect(res._body.verified).to.equal(true);
     });
 
     it('rejects below the majority floor: 1 valid sig of a 4-validator set (quorum 3)', async function () {

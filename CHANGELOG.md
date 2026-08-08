@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Status drops a coin whose newest indexed block breaches the staleness wall clock, and requests for it return 503 COIN_DATA_STALE, distinct from COIN_NOT_AVAILABLE ().
+- The checkpoint verifier mirrors the SDK's commitmentMissing fail-closed guard, so a post-flag-day rootless checkpoint no longer verifies ().
+- ATTESTATION_REQUEST and ATTESTATION_RESPONSE join VALID_TYPES, so narrowing the attestation channel by phase no longer rejects the whole subscribe ().
 - Raw gated-file, checkpoint-response and checkpoint-range OpenAPI operations describe their real request params and response envelopes instead of inheriting generic defaults ().
 - Stake-weighted quorum rejects a validator entry with a missing or non-numeric weight instead of lowering the quorum denominator ().
 - BET oracle fees render as oracle fees rather than a protocol-fee object ().

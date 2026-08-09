@@ -1976,7 +1976,7 @@ class XChainExplorer {
             if((params && params.length > 8192) || (source && source.length > 4096))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             let connector = new IndexerConnector(url);
-            let result = await connector.feequote({
+            let result = await this.feeQuoteWithBusyRetry(connector, {
                 action:        action,
                 params:        params,
                 source:        source,
@@ -1985,8 +1985,38 @@ class XChainExplorer {
             return res.json(result);
         } catch(e){
             console.error('processFeeQuoteRequest error:', e.message || e);
-            return res.status(502).json({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR' });
+            // `retryable` so a client can tell a transient upstream blip from a verdict; the
+            // code and status stay as they were, because callers already branch on them.
+            return res.status(502).json({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true });
         }
+    }
+
+    // Absorb the indexer's RETRYABLE busy answer on the fee-quote hop .
+    //
+    // The indexer time-boxes its wait for the block-processing transaction mutex and answers
+    // `busy: true, retryable: true` in milliseconds instead of queueing behind a whole block.
+    // Somebody has to do the retrying, and it cannot be the caller: the wallet reads this
+    // endpoint on every fee-bearing compose with no retry of its own, so a busy answer
+    // forwarded verbatim refuses the compose exactly the way the 502 it replaced did. This hop
+    // is where the overlap is cheap to absorb - it is colocated with the indexer, and a busy
+    // answer costs one round-trip.
+    //
+    // Only `busy && retryable` is retried: a real verdict (valid or invalid) is never re-asked,
+    // and neither is a transport failure, which the caller's catch still turns into a 502. The
+    // budget is a wall-clock deadline checked before each retry, so a genuinely saturated
+    // indexer still gets an answer to the client rather than an open request.
+    async feeQuoteWithBusyRetry(connector, args){
+        let budgetMs = parseInt(process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS, 10);
+        if(!(budgetMs > 0)) budgetMs = 6000;
+        let deadline = Date.now() + budgetMs;
+        let delayMs  = 250;
+        let result   = await connector.feequote(args);
+        while(result && result.busy === true && result.retryable === true && Date.now() < deadline){
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            delayMs = Math.min(delayMs * 2, 1000);
+            result  = await connector.feequote(args);
+        }
+        return result;
     }
 
     // Oracle usage fee quote for a Mode B dispenser (, proxy to the colocated

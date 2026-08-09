@@ -308,6 +308,18 @@ process.on('unhandledRejection', (reason) => {
     console.error('UNHANDLED_REJECTION (process kept alive):', (reason && reason.stack) ? reason.stack : reason);
 });
 
+// Say at boot that contract simulation is refusing, not only under the first
+// request (). Setting EXPLORER_VM_QUERY_ENABLED is an operator turning
+// the endpoint on; if the vendored VM drifted, vm-query's gate keeps it closed,
+// and the boot log is where that disagreement is cheapest to notice. Silent when
+// the flag is off: a stale VM nothing loads is not an operational fault.
+if(vmQuery.isEnabled()){
+    const vmFault = vmQuery.consensusFault();
+    if(vmFault)
+        console.error('EXPLORER_VM_QUERY_ENABLED is set but contract simulation is REFUSING: ' + vmFault +
+            '. Check the deployed VM with bin/check-explorer-vm-drift.sh, refresh it, then restart.');
+}
+
 // Tear down the contract-simulation VM's subprocess worker before exit
 // (vm-query.js; no-op when the feature is off or never used). The worker also
 // exits on IPC disconnect, so this is belt-and-suspenders.

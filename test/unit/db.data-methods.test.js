@@ -508,6 +508,42 @@ describe('Database tip-freshness gate ()', () => {
             expect(Object.keys(data.stale)).to.have.lengthOf(0);
         });
     });
+
+    // The published schema is the contract third parties code against, and it is
+    // served as a static asset that no other suite compares to the producer. That is
+    // how it kept describing `available` as a fixed config echo for the whole life of
+    // the freshness gate . Pinning it to getStatus makes the next field
+    // addition fail here instead of shipping a wrong contract.
+    describe('published OpenAPI contract for /status ', () => {
+        const status = require('../../src/content/json/xchain-platform-api.json')
+                        .components.schemas.ExplorerStatus;
+
+        it('documents every field getStatus returns, and no field it does not', async () => {
+            poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - 60);
+            const [data]   = await db.getStatus(cfg({ coin: 'RBTC' }));
+            const returned = Object.keys(data).sort();
+            const declared = Object.keys(status.properties).sort();
+            expect(returned.filter((k) => !declared.includes(k)),
+                'fields /status returns that ExplorerStatus does not declare').to.deep.equal([]);
+            expect(declared.filter((k) => !returned.includes(k)),
+                'fields ExplorerStatus declares that /status does not return').to.deep.equal([]);
+        });
+
+        it('describes available as gate-filtered rather than a static config echo', () => {
+            expect(status.properties.available.description).to.match(/stale/i);
+            expect(status.properties.available.description).to.match(/supported/);
+        });
+
+        it('describes stale and tip_age_seconds, including the fail-closed default', () => {
+            expect(status.properties.stale.description).to.match(/EXPLORER_TIP_MAX_AGE_S/);
+            expect(status.properties.stale.description).to.match(/21600/);
+            expect(status.properties.stale.description).to.match(/available/);
+            expect(status.properties.stale.additionalProperties.type).to.equal('boolean');
+            expect(status.properties.tip_age_seconds.description).to.match(/seconds/i);
+            expect(status.properties.tip_age_seconds.additionalProperties.type)
+                .to.deep.equal(['integer', 'null']);
+        });
+    });
 });
 
 describe('Database#getMempool', () => {

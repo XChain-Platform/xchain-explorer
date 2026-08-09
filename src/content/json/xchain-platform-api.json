@@ -2224,7 +2224,7 @@
             "get": {
                 "tags": ["General"],
                 "summary": "Get explorer status information",
-                "description": "Retrieves xchain-explorer status information",
+                "description": "Retrieves xchain-explorer status and sync health. 'available' is computed per request, not a static config echo: a coin whose newest indexed block has aged past its tip-age threshold is reported stale and dropped from 'available' while remaining in 'supported'.",
                 "parameters": [{
                     "$ref": "#/components/parameters/COIN"
                 }],
@@ -2956,7 +2956,19 @@
                 "properties": {
                     "available": {
                         "type": "object",
-                        "description": "List of coin networks which are supported in this xchain-explorer instance"
+                        "description": "Coin networks this instance serves as CURRENT data, keyed by coin ticker. Starts from the configured availability map and then drops every coin the tip-age gate marks stale (see 'stale'), so this map varies per request and a delisted coin still appears in 'supported'. Read this to decide whether to query a coin; read 'supported' to learn which coins the instance knows about at all.",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "hub_config_fetched_at": {
+                        "type": ["string", "null"],
+                        "description": "ISO-8601 timestamp of the last successful hub-config fetch. null until the first successful fetch.",
+                        "format": "date-time"
+                    },
+                    "hub_config_age_seconds": {
+                        "type": ["integer", "null"],
+                        "description": "Seconds since the last successful hub-config fetch. A climbing value means the served hub-derived config is stale. null until the first successful fetch."
                     },
                     "last_block": {
                         "type": "object",
@@ -2986,6 +2998,20 @@
                             "type": ["integer", "null"]
                         }
                     },
+                    "tip_age_seconds": {
+                        "type": "object",
+                        "description": "Wall-clock seconds between now and the block_time of the newest indexed block, keyed by coin ticker. null when that block_time is missing or unreadable. Unlike decoder_lag_blocks this sees a JOINT indexer+decoder freeze, because it measures against the local clock rather than against the other replica. Only coins this instance measures (those with a live pool) appear here.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "stale": {
+                        "type": "object",
+                        "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate). Fails closed, so a missing or unreadable block_time also reads true. A true entry is removed from 'available' and left in 'supported'. Only coins this instance measures appear here.",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        }
+                    },
                     "chain_tip": {
                         "type": "object",
                         "description": "Coin node's chain tip as the decoder reports it, keyed by coin ticker. null when the decoder health call is unavailable.",
@@ -3002,14 +3028,17 @@
                     },
                     "decoder_health": {
                         "type": "object",
-                        "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+                        "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
                         "additionalProperties": {
                             "type": "string"
                         }
                     },
                     "supported": {
                         "type": "object",
-                        "description": "List of coin networks which are supported on the XChain platform"
+                        "description": "Every coin network the XChain platform defines for this instance, keyed by coin ticker with a display name as the value. Static per config: the tip-age gate never removes a coin from here, only from 'available'.",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
                     }
                 }
             },

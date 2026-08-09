@@ -813,6 +813,12 @@ class Database {
     }
 
     async getQueryWhereSql(config){
+        // The base predicate is a WHERE ANCHOR: callers append ` AND ...`
+        // fragments, so the clause always needs a first term. On mappings_actions
+        // and mappings_files action_index is declared NOT NULL, so that anchor is
+        // deliberately always-true and filters nothing; the address_id and
+        // block_index branches below anchor on nullable columns and do drop
+        // orphan rows. Do not read either as a state filter ().
         let sql    = `m.action_index IS NOT NULL`;
         let type   = config.data.type;
         let method = config.data.method;

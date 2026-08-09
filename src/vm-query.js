@@ -106,6 +106,68 @@ try {
 } catch(e){
     vmLoadError = e;
 }
+// Consensus epoch the simulation gate requires of the vendored VM. Compiled in
+// rather than read from package.json for the reason the indexer pins its own
+// (protocol_changes.js CONSENSUS_VERSION): packaging metadata is not a
+// consensus input. Moving it is a deliberate edit made when the VM's epoch
+// moves, and the parity guard in test/unit/vm-query.test.js reddens if the
+// canonical sibling has moved past it.
+const REQUIRED_VM_CONSENSUS_VERSION = '3';
+
+// Exports only a contract-era VM carries. Presence, not value: the values are
+// frozen by the VM's own determinism goldens, and pinning them here would put
+// every flag-day into this file. A VM predating the contract era (the drift
+//  measured on the live explorer: an index.js a quarter the canonical
+// size, zero gate constants) is missing all of them.
+const REQUIRED_VM_CONSENSUS_EXPORTS = [
+    'CONSENSUS_VERSION',
+    'BINARY_ALLOC_GATE_BLOCK_TIME',
+    'ASYNC_SURFACE_GATE_BLOCK_TIME',
+    'STATE_KEY_NUL_GATE_BLOCK_TIME',
+    'METERING_EVAL_ORDER_GATE_BLOCK_TIME',
+    'PKG3_SANDBOX_ACTIVATION'
+];
+
+// Fail-closed consensus gate on the VENDORED VM, evaluated once at load
+// ().
+//
+// The deployed public explorer is a systemd unit, not a container, so the fleet
+// flag-day checker cannot reach it, and its vendored xchain-vm sat at a quarter
+// of the canonical size unnoticed: the version string was one patch behind while
+// the bytes were 116KB behind, which is why bin/check-explorer-vm-drift.sh
+// compares bytes over SSH and not versions.
+// That check is external and read-only, so it can be skipped: an operator who
+// sets EXPLORER_VM_QUERY_ENABLED without running it would have the explorer
+// simulate contract calls in a VM with none of the contract-era gates, and
+// answer with numbers no indexer agrees with, on the same service that serves
+// the  contract-state proofs. This makes the check unskippable for the
+// answers that matter: a drifted VM refuses to simulate instead of simulating
+// wrongly.
+//
+// It is deliberately COARSER than the byte comparison and does not replace it:
+// a running process has no canonical copy to diff against, so it can only ask
+// whether the VM it loaded is the right consensus epoch with the gate surface
+// intact. Byte-equality stays the operator precondition for enabling the flag.
+function computeConsensusFault(mod){
+    // No module at all is a different, already-typed failure (VM_MODULE_UNAVAILABLE);
+    // reporting it as drift would send the reader to the wrong repair.
+    if(!mod) return null;
+    const missing = REQUIRED_VM_CONSENSUS_EXPORTS.filter(k => mod[k] === undefined || mod[k] === null);
+    if(missing.length)
+        return 'the vendored xchain-vm is missing the contract-era consensus surface (' +
+            missing.join(', ') + '), so it predates the gates this chain runs under';
+    if(String(mod.CONSENSUS_VERSION) !== REQUIRED_VM_CONSENSUS_VERSION)
+        return 'the vendored xchain-vm declares CONSENSUS_VERSION ' + mod.CONSENSUS_VERSION +
+            ', this explorer requires ' + REQUIRED_VM_CONSENSUS_VERSION;
+    // A cap mismatch means the query isolate would reject contract code the
+    // chain itself indexed, which reads to a caller as a broken contract.
+    if(typeof mod.MAX_CODE_SIZE === 'number' && mod.MAX_CODE_SIZE !== MAX_CODE_SIZE)
+        return 'the vendored xchain-vm enforces MAX_CODE_SIZE ' + mod.MAX_CODE_SIZE +
+            ', the protocol constant is ' + MAX_CODE_SIZE;
+    return null;
+}
+const vmConsensusFault = computeConsensusFault(XChainVM);
+
 let vmInstance  = null;   // lazy singleton; one subprocess worker for all requests
 let inFlight    = 0;
 // Per-client-IP in-flight slot counts. The global cap alone is starvable: with
@@ -117,6 +179,13 @@ const inFlightByIp = new Map();
 
 function isEnabled(){
     return process.env.EXPLORER_VM_QUERY_ENABLED === 'true';
+}
+
+// The gate's verdict for callers outside this module: null when the vendored VM
+// is servable, otherwise the one-line reason. api.js reads it at boot so a
+// refusing explorer says so in its log rather than only under a request.
+function consensusFault(){
+    return vmConsensusFault;
 }
 
 function maxConcurrent(){
@@ -205,6 +274,15 @@ function validateRequest(body){
 async function simulate(db, config, contractIndex, body, chain, network, clientIp){
     if(!isEnabled())
         throw new VmQueryError('VM_QUERY_DISABLED', 'contract simulation is disabled on this explorer', 503);
+    // Before the request is even parsed: a drifted VM is refusing to serve at
+    // all, so a malformed body must not be answered as a 400 by a service that
+    // could not have run the call anyway ().
+    if(vmConsensusFault)
+        throw new VmQueryError('VM_QUERY_VM_DRIFT',
+            'contract simulation is disabled: ' + vmConsensusFault +
+            '. Refresh the deployed xchain-vm (bin/vendor-vm.sh) and restart, or leave ' +
+            'EXPLORER_VM_QUERY_ENABLED off; simulating in a non-canonical VM would answer ' +
+            'with results no indexer agrees with', 503);
 
     const { method, params, caller } = validateRequest(body);
     const vm = getVm();
@@ -289,4 +367,5 @@ async function shutdown(){
     }
 }
 
-module.exports = { isEnabled, simulate, shutdown, VmQueryError, MAX_CODE_SIZE, MAX_STATE_VALUE_SIZE };
+module.exports = { isEnabled, consensusFault, simulate, shutdown, VmQueryError,
+                   MAX_CODE_SIZE, MAX_STATE_VALUE_SIZE, REQUIRED_VM_CONSENSUS_VERSION };

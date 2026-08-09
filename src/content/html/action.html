@@ -125,17 +125,29 @@
                         <div class="d-none" id="info-address">
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <tbody>
-                            <tr>
+                            <tr class="address-preference-row">
                                 <th width="150">Fee Preference</th>
                                 <td class="address-fee-preference"></td>
                             </tr>
-                            <tr>
+                            <tr class="address-preference-row">
                                 <th>Require Memo</th>
                                 <td class="address-require-memo" style="overflow-wrap: anywhere;"></td>
                             </tr>
-                            <tr>
+                            <tr class="address-preference-row">
                                 <th>Dispenser Preference</th>
                                 <td class="address-dispenser-preference"></td>
+                            </tr>
+                            <tr class="address-controller-row d-none">
+                                <th width="150">Action Class</th>
+                                <td class="address-action-class"></td>
+                            </tr>
+                            <tr class="address-controller-row d-none">
+                                <th>Controller</th>
+                                <td class="address-controller"></td>
+                            </tr>
+                            <tr class="address-controller-row d-none">
+                                <th>Cooldown</th>
+                                <td class="address-cooldown"></td>
                             </tr>
                             <tr>
                                 <th>Memo</th>
@@ -654,6 +666,23 @@
                             <tbody class="bet-action-fields">
                             <tr><th>Market</th><td class="bet-action-feed-ref"></td></tr>
                             <tr><th>Resulting Status</th><td class="bet-action-status"></td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+
+                        <!-- BET_EXPIRE action (system refund pass: feed passed expire_at unresolved) -->
+                        <div class="d-none" id="info-bet-expire">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr><th width="175">Market</th><td class="bet-expire-feed"></td></tr>
+                            <tr><th>Label</th><td class="bet-expire-label"></td></tr>
+                            <tr><th>Wager Token</th><td class="bet-expire-token"></td></tr>
+                            <tr><th>Betting Closed</th><td class="bet-expire-deadline"></td></tr>
+                            <tr><th>Refund Window</th><td class="bet-expire-refund-window"></td></tr>
+                            <tr><th>Expired At</th><td class="bet-expire-expire-at"></td></tr>
+                            <tr><th>Bets Refunded</th><td class="bet-expire-refund-count"></td></tr>
+                            <tr><th>Amount Refunded</th><td class="bet-expire-refund-amount"></td></tr>
+                            <tr><th>Resulting Status</th><td class="bet-expire-feed-status"></td></tr>
                             </tbody>
                             </table>
                         </div>

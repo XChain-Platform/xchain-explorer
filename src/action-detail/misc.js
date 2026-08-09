@@ -24,10 +24,15 @@ const ADDRESS = {
         let query  = null;
         let query2 = null;
         let query3 = null;
+        // Rooted at `actions`, with the preferences row LEFT joined, because that row is OPTIONAL: an
+        // ADDRESS format 1 (controller bind) is not a preferences edit and older chains carry no
+        // `addresses` row for one at all. The INNER JOIN this replaces matched nothing for a v1, so the
+        // whole endpoint degraded to the de-blank baseline and served a bind with no status and no
+        // verdict (, the same shape as the D-136/ memo join).
         query = `SELECT
                     a3.action,
                     a2.action_format,
-                    a1.action_index,
+                    a2.action_index,
                     a4.address as source,
                     a1.fee_preference,
                     a1.require_memo,
@@ -39,19 +44,44 @@ const ADDRESS = {
                     m1.memo,
                     s1.status
                 FROM
-                    addresses a1
-                    INNER JOIN actions            a2 ON (a2.action_index=a1.action_index)
+                    actions a2
                     INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                    LEFT  JOIN addresses          a1 ON (a1.action_index=a2.action_index)
                     LEFT  JOIN index_actions      a3 ON (a3.id=a2.action_id)
                     LEFT  JOIN index_addresses    a4 ON (a4.id=t1.source_id)
                     LEFT  JOIN index_memos        m1 ON (m1.id=a1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                WHERE 
-                    a1.action_index=?
+                WHERE
+                    a2.action_index=?
+                LIMIT 1`;
+        // What a format 1 actually did lives in address_controllers, never in the preferences row. The
+        // lookup is keyed by this action_index, so it answers nothing for any other format and the
+        // shaping hook simply never fires. A REFUSED bind has no row here by design (the log is what
+        // consensus enforces); its verdict is the `status` above.
+        query2 = `SELECT
+                    c1.action_class,
+                    c1.contract_index,
+                    c1.is_unbind,
+                    c1.cooldown_blocks,
+                    c1.cooldown_end_block
+                FROM
+                    address_controllers c1
+                WHERE
+                    c1.action_index=?
                 LIMIT 1`;
         return { query, query2, query3 };
+    },
+    // Name the fields for the reader of an action page: `controller` is the guard contract's
+    // action_index, `unbind` mirrors the wire field, and the cooldown pair is what a later drop costs.
+    afterQuery2({ util }, data, results) {
+        let row = results[0];
+        data.action_class       = row.action_class;
+        data.controller         = (util.isNull(row.contract_index)) ? null : Number(row.contract_index);
+        data.unbind             = (Number(row.is_unbind) === 1) ? 1 : 0;
+        data.cooldown_blocks    = (util.isNull(row.cooldown_blocks)) ? null : Number(row.cooldown_blocks);
+        data.cooldown_end_block = (util.isNull(row.cooldown_end_block)) ? null : Number(row.cooldown_end_block);
     },
 };
 

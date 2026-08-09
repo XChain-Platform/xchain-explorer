@@ -51,6 +51,7 @@ const detailFields = [
     'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',
     'action_format',
     'fee_preference', 'require_memo', 'dispenser_preference',
+    'action_class', 'controller', 'unbind',
     'message', 'value', 'broadcast_action_index', 'broadcast_fee',
     'callback_tick', 'callback_amount',
     'dividend_tick',

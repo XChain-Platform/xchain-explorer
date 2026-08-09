@@ -933,10 +933,19 @@ function getActionDetails(action, info){
     let html = '';
     let coin = XC.coin; // TODO: update when XChain adds cross-network support
     if(action=='ADDRESS'){
-        let pref = (info.fee_preference==1) ? 'Destroy' : 'Donate';
-        let memo = (info.require_memo==1) ? 'True' : 'False';
-        let disp = (info.dispenser_preference) ? XC.dispenser_preferences[info.dispenser_preference] : 'Not set';
-        html += 'Fee Preference: ' + pref + '; Require Memo: ' + memo + '; Dispenser Preference: ' + disp;
+        // v1 is a controller bind, not a preferences edit: summarizing one with the preference
+        // defaults described an action it never took .
+        if(info.action_format==1){
+            let verb = (info.unbind==1) ? 'Unbind' : 'Bind';
+            html += verb + ' ' + (info.action_class || '-');
+            if(info.controller != null)
+                html += ' ' + formatLink('/' + coin + '/action/' + info.controller, info.controller);
+        } else {
+            let pref = (info.fee_preference==1) ? 'Destroy' : 'Donate';
+            let memo = (info.require_memo==1) ? 'True' : 'False';
+            let disp = (info.dispenser_preference) ? XC.dispenser_preferences[info.dispenser_preference] : 'Not set';
+            html += 'Fee Preference: ' + pref + '; Require Memo: ' + memo + '; Dispenser Preference: ' + disp;
+        }
     }
     if(action=='AIRDROP'){
         html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
@@ -2401,6 +2410,7 @@ function showActionDetails(){
     if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
     if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
     if(o.action=='BET'){              found = true;  showBetDetails(o);             }
+    if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
     // Load the action table data for credits/debits/escrow/fees
     showActionDatatable('credit',o.credits);
     showActionDatatable('debit', o.debits);
@@ -2417,12 +2427,39 @@ function showActionDetails(){
 
 // Display ADDRESS action information
 function showAddressDetails(data){
-    let preference   = (data.fee_preference) ? (' - ' + XC.fee_preferences[data.fee_preference]) : '';
-    let require_memo = (data.require_memo==1) ? 'true' : 'false';
-    let dispenser    = (data.dispenser_preference) ? XC.dispenser_preferences[data.dispenser_preference] : 'Not set';
-    $('#info-address .address-fee-preference').text(data.fee_preference + preference);
-    $('#info-address .address-require-memo').text(require_memo);
-    $('#info-address .address-dispenser-preference').text(dispenser);
+    // ADDRESS has two unrelated subjects. v0 edits this address's preferences; v1 binds (or drops) a
+    // guard contract over one action class of the account, and carries no preferences at all - showing
+    // the preference rows for one rendered "Fee Preference: null" over the entire payload .
+    if(data.action_format==1){
+        // A REFUSED bind has no controller event to describe (the log is what consensus enforces), so
+        // it shows neither row set: the page's own Status and Data fields carry the reason and the
+        // attempted wire values.
+        if(data.action_class != null){
+            let unbind = (data.unbind==1);
+            let target = (data.controller != null)
+                ? formatLink('/' + XC.coin + '/action/' + data.controller, data.controller)
+                : 'None';
+            $('#info-address .address-action-class').text(data.action_class);
+            $('#info-address .address-controller').html((unbind ? 'Unbind ' : 'Bind ') + target);
+            // A bind commits the cooldown a later drop will cost; the drop itself reports when it lands.
+            $('#info-address .address-cooldown').text(unbind
+                ? (data.cooldown_blocks + ' blocks (drops at block ' + data.cooldown_end_block + ')')
+                : (data.cooldown_blocks + ' blocks'));
+            $('#info-address .address-controller-row').removeClass('d-none');
+        } else {
+            $('#info-address .address-controller-row').addClass('d-none');
+        }
+        $('#info-address .address-preference-row').addClass('d-none');
+    } else {
+        let preference   = (data.fee_preference) ? (' - ' + XC.fee_preferences[data.fee_preference]) : '';
+        let require_memo = (data.require_memo==1) ? 'true' : 'false';
+        let dispenser    = (data.dispenser_preference) ? XC.dispenser_preferences[data.dispenser_preference] : 'Not set';
+        $('#info-address .address-fee-preference').text(data.fee_preference + preference);
+        $('#info-address .address-require-memo').text(require_memo);
+        $('#info-address .address-dispenser-preference').text(dispenser);
+        $('#info-address .address-controller-row').addClass('d-none');
+        $('#info-address .address-preference-row').removeClass('d-none');
+    }
     $('#info-address .address-memo').text(data.memo);
 }
 
@@ -2831,6 +2868,24 @@ function showBetDetails(data){
         let fs = data.feed_status;
         $('#info-bet .bet-action-status').html(isNull(fs) ? '-' : '<span class="badge text-bg-' + statusClass(fs) + '">' + esc(fs) + '</span>');
     }
+}
+
+// Display BET_EXPIRE action information (feed passed expire_at unresolved, so
+// every open bet is refunded in full and the oracle takes no cut)
+function showBetExpireDetails(data){
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+    $('#info-bet-expire .bet-expire-feed').html(isNull(data.feed_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_action_index, numeral(data.feed_action_index).format('0,0')));
+    $('#info-bet-expire .bet-expire-label').text(isNull(data.label) ? '-' : data.label);
+    $('#info-bet-expire .bet-expire-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-bet-expire .bet-expire-deadline').html(isNull(data.deadline) ? '-' : data.deadline + ' - ' + formatLivestamp(data.deadline) + ' (' + moment.unix(data.deadline).utcOffset(0).format() + ' GMT)');
+    $('#info-bet-expire .bet-expire-refund-window').text(isNull(data.refund_window) ? '-' : numeral(data.refund_window).format('0,0') + ' seconds');
+    $('#info-bet-expire .bet-expire-expire-at').html(isNull(data.expire_at) ? '-' : data.expire_at + ' - ' + formatLivestamp(data.expire_at) + ' (' + moment.unix(data.expire_at).utcOffset(0).format() + ' GMT)');
+    // Refund tally. Zero is a real answer (every bet had already left 'open' by
+    // another path), so print the count rather than dashing it out.
+    $('#info-bet-expire .bet-expire-refund-count').text(isNull(data.refund_count) ? '-' : numeral(data.refund_count).format('0,0'));
+    $('#info-bet-expire .bet-expire-refund-amount').html(isNull(data.refund_amount) ? '-' : formatAmount(data.refund_amount));
+    let fs = data.feed_status;
+    $('#info-bet-expire .bet-expire-feed-status').html(isNull(fs) ? '-' : '<span class="badge text-bg-' + ((fs=='expired') ? 'danger' : 'primary') + '">' + esc(fs) + '</span>');
 }
 
 // Display STAKE action information (capability v1/v2 or contract-targeted v3)

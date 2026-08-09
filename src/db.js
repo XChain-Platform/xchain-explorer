@@ -5221,6 +5221,7 @@ class Database {
             'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
             'action_format',                                                                                               // Action details
             'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
+            'action_class', 'controller', 'unbind',                                                                        // Addresses (controller bind, v1)
             'message', 'value', 'broadcast_action_index', 'broadcast_fee',                                                 // Broadcasts
             'callback_tick', 'callback_amount',                                                                            // Callbacks
             'dividend_tick',                                                                                               // Dividends

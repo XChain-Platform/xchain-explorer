@@ -12,7 +12,8 @@
  *
  **********************************************************************
  * Detail handlers for the governance and betting actions: VOTE (poll / ballot /
- * delegation) and BET (feed / place / cancel / resolve).
+ * delegation), BET (feed / place / cancel / resolve) and the system BET_EXPIRE
+ * that refunds an unresolved feed.
  ********************************************************************/
 
 'use strict';
@@ -153,6 +154,88 @@ const BET = {
             delete data['min_amount']; delete data['allow_list']; delete data['block_list'];
             delete data['details']; delete data['closed_block']; delete data['terminal_block'];
         }
+    },
+};
+
+const BET_EXPIRE = {
+    // BET_EXPIRE action. System-injected by the end-of-block expiry pass when a
+    // feed passes expire_at unresolved, so it is transactionless (block joins off
+    // actions.block_index, never through transactions) and owns NO table of its
+    // own. The link exists anyway: the pass writes one bet_feed_statuses row keyed
+    // by this minted action_index carrying the feed it expired plus the status it
+    // drove it to, which is what this drives off - the COINPAY_EXPIRE shape with
+    // the parent joined through bet_feeds for its market terms .
+    queries() {
+        let query  = null;
+        let query2 = null;
+        let query3 = null;
+        query = `SELECT
+                    a2.action,
+                    a1.action_format,
+                    a1.action_index,
+                    m.feed_action_index,
+                    f.label,
+                    f.outcomes,
+                    ft.tick,
+                    f.deadline,
+                    f.refund_window,
+                    f.expire_at,
+                    f.terminal_block,
+                    b1.block_index,
+                    b1.block_time as timestamp,
+                    s1.status as feed_status
+                FROM
+                    bet_feed_statuses m
+                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                    LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                    LEFT  JOIN bet_feeds          f  ON (f.action_index=m.feed_action_index)
+                    LEFT  JOIN index_tickers      ft ON (ft.id=f.tick_id)
+                WHERE
+                    m.action_index=?
+                LIMIT 1`;
+        // Refund tally. Every bet the pass refunded got a bet_statuses row keyed by
+        // this same action_index; join the stake back off bets so the panel can
+        // state how many bettors were made whole and for how much.
+        query2 = `SELECT
+                    m.bet_action_index,
+                    bt.amount
+                FROM
+                    bet_statuses m
+                    LEFT  JOIN bets               bt ON (bt.action_index=m.bet_action_index)
+                WHERE
+                    m.action_index=?
+                ORDER BY
+                    m.bet_action_index ASC`;
+        return { query, query2, query3 };
+    },
+    // A feed that expired with no open bets left is the normal empty case, and
+    // afterQuery2 does not run when the tally query returns nothing, so seed the
+    // zero here rather than letting the renderer read undefined as "unknown".
+    async afterMain(ctx, data) {
+        data['refund_count']  = 0;
+        data['refund_amount'] = '0';
+    },
+    // Sum in bignumber space at the indexer's own precision (bet_expire.js negates
+    // the escrow with bcsub(..., 64)); a float sum of VARCHAR stakes would round a
+    // large pot in the last places. Emit a FIXED-notation string at the widest
+    // decimal place any stake used, never the raw bignumber: that object is not
+    // structured-cloneable, and getActionData clones every cacheable payload, so
+    // returning it would throw on the way into the LRU. Its toString also flips to
+    // exponent notation past 1e21, which no amount field may render.
+    async afterQuery2({ db }, data, results) {
+        data['refund_count'] = results.length;
+        let total  = '0';
+        let places = 0;
+        for(let row of results){
+            if(db.util.isNull(row.amount)) continue;
+            let raw = String(row.amount);
+            let dot = raw.indexOf('.');
+            if(dot !== -1) places = Math.max(places, raw.length - dot - 1);
+            total = db.util.bcadd(total, raw, 64);
+        }
+        data['refund_amount'] = db.util.bcformat(total, places);
     },
 };
 
@@ -301,5 +384,6 @@ const VOTE = {
 
 module.exports = {
     BET,
+    BET_EXPIRE,
     VOTE
 };

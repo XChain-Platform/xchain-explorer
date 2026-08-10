@@ -1870,18 +1870,58 @@ describe('Database#getPrices', () => {
 // ---------------------------------------------------------------------------
 
 describe('Database#getPriceSnapshots', () => {
+    // price_snapshots is hub-mirrored (item 4063): xchain-sync never replicates it in
+    // any channel, so it is served only from the mandatory co-located hub DB. These
+    // structural tests configure that hub DB so the query builds; the "no hub DB ->
+    // fail loud" behavior has its own test below.
+    const HUB = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+
     it('returns a 3-element array', async () => {
         const db = makeDb();
+        db.checkpointDb = { ...HUB };
         const result = await db.getPriceSnapshots(makeActionConfig('getPriceSnapshots'));
         expect(result).to.be.an('array').with.lengthOf(3);
     });
 
     it('query references "price_snapshots" table', async () => {
         const db = makeDb();
+        db.checkpointDb = { ...HUB };
         const [query] = await db.getPriceSnapshots(makeActionConfig('getPriceSnapshots'));
         expect(query).to.include('price_snapshots m');
         expect(query).to.include('m.coin_pair');
         expect(query).to.include('m.price');
+    });
+
+    it('checkpoint hub DB configured -> database-qualifies price_snapshots (count + data)', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB };
+        const [query, , count] = await db.getPriceSnapshots(makeActionConfig('getPriceSnapshots'));
+        expect(query).to.include('`XChain_Hub`.price_snapshots m');
+        expect(count).to.include('`XChain_Hub`.price_snapshots m');
+    });
+
+    it('no checkpoint hub DB -> fails loud (no silent empty local mirror, item 4063)', async () => {
+        const db = makeDb();
+        // checkpointDb is empty by default. price_snapshots only ever arrives via
+        // hub_db_sync, so a thin replica's local copy is an empty table the live
+        // stream never fills: throw rather than serve it as a real result set.
+        let err = null;
+        try { await db.getPriceSnapshots(makeActionConfig('getPriceSnapshots')); }
+        catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.message).to.match(/co-located hub DB/i);
+        expect(err.message).to.include('price_snapshots');
+    });
+
+    it('rejects an unsafe hub DB identifier by failing loud', async () => {
+        const db = makeDb();
+        db.checkpointDb = { BTC: { name: 'bad name; DROP', chain: 'BTC', network: 'mainnet' } };
+        let err = null;
+        try { await db.getPriceSnapshots(makeActionConfig('getPriceSnapshots')); }
+        catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.message).to.match(/co-located hub DB/i);
+        expect(err.message).to.not.include('bad name');
     });
 });
 
@@ -3815,20 +3855,55 @@ describe('Database#getCapabilitySlashEvents', () => {
 // ---------------------------------------------------------------------------
 
 describe('Database#getOraclePrices', () => {
+    // oracle_prices is hub-mirrored (item 4062), same posture as price_snapshots and
+    // cross_chain_matches: served only from the mandatory co-located hub DB.
+    const HUB = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+
     it('returns a 3-element array', async () => {
         const db = makeDb();
+        db.checkpointDb = { ...HUB };
         const result = await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token'));
         expect(result).to.be.an('array').with.lengthOf(3);
     });
 
     it('query reads "oracle_prices" with tick/fiat/value, ordered by m.id', async () => {
         const db = makeDb();
+        db.checkpointDb = { ...HUB };
         const [query] = await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token'));
         expect(query).to.include('oracle_prices m');
         expect(query).to.include('m.tick');
         expect(query).to.include('m.fiat');
         expect(query).to.include('m.value');
         expect(query).to.include('ORDER BY m.id');
+    });
+
+    it('checkpoint hub DB configured -> database-qualifies oracle_prices (count + data)', async () => {
+        const db = makeDb();
+        db.checkpointDb = { ...HUB };
+        const [query, , count] = await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token'));
+        expect(query).to.include('`XChain_Hub`.oracle_prices m');
+        expect(count).to.include('`XChain_Hub`.oracle_prices m');
+    });
+
+    it('no checkpoint hub DB -> fails loud (no silent empty local mirror, item 4062)', async () => {
+        const db = makeDb();
+        let err = null;
+        try { await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token')); }
+        catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.message).to.match(/co-located hub DB/i);
+        expect(err.message).to.include('oracle_prices');
+    });
+
+    it('rejects an unsafe hub DB identifier by failing loud', async () => {
+        const db = makeDb();
+        db.checkpointDb = { BTC: { name: 'bad name; DROP', chain: 'BTC', network: 'mainnet' } };
+        let err = null;
+        try { await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token')); }
+        catch (e) { err = e; }
+        expect(err).to.be.an('error');
+        expect(err.message).to.match(/co-located hub DB/i);
+        expect(err.message).to.not.include('bad name');
     });
 });
 

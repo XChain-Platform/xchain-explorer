@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Oracle-price and price-snapshot reads resolve through the mandatory checkpoint schema, since both tables are hub-mirror only and never replicate to a serving node ().
+- A BATCH feed member no longer hands raw attacker-supplied base64 to the action-detail renderer ().
+- The cross-chain call barrier carries its own grace margin instead of borrowing the match margin under a comment that misdescribed the producer pattern ().
 - Status drops a coin whose newest indexed block breaches the staleness wall clock, and requests for it return 503 COIN_DATA_STALE, distinct from COIN_NOT_AVAILABLE ().
 - The checkpoint verifier mirrors the SDK's commitmentMissing fail-closed guard, so a post-flag-day rootless checkpoint no longer verifies ().
 - ATTESTATION_REQUEST and ATTESTATION_RESPONSE join VALID_TYPES, so narrowing the attestation channel by phase no longer rejects the whole subscribe ().

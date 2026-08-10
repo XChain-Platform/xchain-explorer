@@ -332,14 +332,16 @@ class Database {
         this.decoderPools = {};
         // Per-coin checkpoint-source database: the MANDATORY co-located hub DB for
         // serving the hub-mirrored tables (state_checkpoints, capability_snapshots,
-        // cross_chain_matches). xchain-sync excludes these tables from every snapshot
+        // cross_chain_matches, price_snapshots, oracle_prices). xchain-sync excludes
+        // these tables from every snapshot
         // and stream, so a serving node has no replicated copy: it MUST read them from
         // the hub DB on the same server, declared via a per-network `checkpoint` config
         // block. Like decoderDb, it is honored only when it shares server + credentials
         // with the indexer pool, and is read with a database-qualified query filtered by
         // chain/network (the hub table carries every chain; the per-coin endpoints must
         // not leak siblings). This is now a hard requirement, not an optional override:
-        // when a serving coin has no entry here, _checkpointSource / _matchSource throw
+        // when a serving coin has no entry here, _checkpointSource / _matchSource /
+        // _oracleMirrorSource throw
         // (fail loud) instead of falling back to a stale local mirror (#4138), and
         // _assertCheckpointDbForServingCoins() turns the same gap into a fatal startup
         // error so a misconfigured thin replica never silently serves empty hub data.
@@ -491,7 +493,8 @@ class Database {
     // replicates them. A missing entry is a fatal misconfiguration: throw a
     // clear, named error so a mis-provisioned thin replica fails to start
     // instead of silently serving empty state_checkpoints /
-    // capability_snapshots / cross_chain_matches (#4138).
+    // capability_snapshots / cross_chain_matches (#4138), or empty
+    // price_snapshots / oracle_prices (items 4062 / 4063).
     // Opt-out: ALLOW_NO_COLOCATED_HUB_DB=1 downgrades the fatal error to a warning,
     // for deployments that intentionally do not expose the hub-mirrored endpoints.
     _assertCheckpointDbForServingCoins(){
@@ -502,7 +505,8 @@ class Database {
         if(missing.length){
             let msg = 'Checkpoint schema missing for serving coin(s): ' + missing.join(', ') +
                 '. The hub-mirrored tables (state_checkpoints, capability_snapshots, ' +
-                'cross_chain_matches) are never replicated by xchain-sync and must be served ' +
+                'cross_chain_matches, price_snapshots, oracle_prices) are never replicated ' +
+                'by xchain-sync and must be served ' +
                 'from a local schema on the same server: add a database.checkpoint block ' +
                 '(same host + credentials as the indexer DB) for each serving coin/network, ' +
                 'either self-synced (self_sync: true + HUB_API_URL) or pointing at an ' +
@@ -6600,6 +6604,28 @@ class Database {
             'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
+    // Resolve an ORACLE hub-mirror table for a coin (price_snapshots, oracle_prices),
+    // mirroring _matchSource. Both are replication: 'hub-mirror' in xchain-sync's
+    // replicatedTables.js: carried only by hub_db_sync, and excluded from the per-block
+    // stream, the incremental catch-up AND the snapshots. A serving node's local copy is
+    // therefore an empty bootstrap table the live stream never fills, so these reads are
+    // database-qualified to the mandatory co-located hub schema (externally maintained,
+    // or self-synced from the hub's /hub-db feed by HubMirrorSyncManager, which mirrors
+    // exactly these two tables) and FAIL LOUD when it is absent, rather than silently
+    // serving a frozen/empty result set forever (items 4062 / 4063, same posture as
+    // #4138). Neither table carries a network column, so there is no network filter to
+    // apply (unlike cross_chain_matches); `table` is whitelisted to lowercase identifiers
+    // and dbName to a safe identifier charset, since database identifiers cannot be bound.
+    _oracleMirrorSource(config, table){
+        let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
+        if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
+            return { table: '`' + src.name + '`.' + table };
+        throw new Error('No co-located hub DB configured for coin ' + config.coin +
+            ': ' + table + ' is served only from the mandatory co-located hub DB ' +
+            '(config database.checkpoint, same host+credentials as the indexer DB), never from ' +
+            'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
+    }
+
     // Apply the generic id-keyed datatable paging semantics to RPC-sourced rows in
     // JS, mirroring what getQueryOffsetSql + ORDER BY m.id + LIMIT do in SQL for the
     // id-keyed list methods: action 'prev' keeps id > start (and < stop), 'last'
@@ -8068,12 +8094,17 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of hub-mirrored price_snapshots rows (federation PRICE v0 consensus
+    // snapshots replicated by hub_db_sync). Never replicated by xchain-sync, so the
+    // read is database-qualified to the mandatory co-located hub schema and fails loud
+    // without one (item 4063); see _oracleMirrorSource.
     async getPriceSnapshots(config){
         let sql   = config.data.sql;
+        let src   = this._oracleMirrorSource(config, 'price_snapshots');
         let count = `SELECT
                         count(*) as total
                     FROM
-                        price_snapshots m
+                        ${src.table} m
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -8089,7 +8120,7 @@ class Database {
                         m.status,
                         m.created_at
                     FROM
-                        price_snapshots m
+                        ${src.table} m
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -8099,12 +8130,16 @@ class Database {
     // Get list of hub-mirrored oracle_prices rows (user-published PRICE v1 oracle rows
     // replicated by hub_db_sync). These are the aggregated hub-effective published-oracle
     // prices that feed oracle-priced DISPENSERs. type in {token, address}.
+    // Never replicated by xchain-sync, so the read is database-qualified to the
+    // mandatory co-located hub schema and fails loud without one (item 4062);
+    // see _oracleMirrorSource.
     async getOraclePrices(config){
         let sql   = config.data.sql;
+        let src   = this._oracleMirrorSource(config, 'oracle_prices');
         let count = `SELECT
                         count(*) as total
                     FROM
-                        oracle_prices m
+                        ${src.table} m
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -8121,7 +8156,7 @@ class Database {
                         m.action_index,
                         m.created_at
                     FROM
-                        oracle_prices m
+                        ${src.table} m
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;

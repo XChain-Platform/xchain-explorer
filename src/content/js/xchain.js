@@ -3467,7 +3467,13 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
         data.forEach(function(info, idx){
             var cls = (info.status=='valid') ? 'bg-green' : 'bg-red';
             if(['actions','batch'].includes(type)){
-                let details = (info.details) ? info.details : info;
+                // Only the SUMMARY shape nests under `.details` (getActionSummaryData
+                // builds that object for the transaction actions table). A batch's
+                // member rows are full getActionData payloads with their fields flat,
+                // and a BET feed member keeps the raw attacker-supplied base64 DETAILS
+                // string on that same key, so a truthiness test handed getActionDetails
+                // a string instead of the action info (item 4086). Require an object.
+                let details = (info.details && typeof info.details === 'object') ? info.details : info;
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, formatAmount(info.action_index)) + '</td>';

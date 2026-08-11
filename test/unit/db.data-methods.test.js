@@ -544,6 +544,100 @@ describe('Database tip-freshness gate ()', () => {
                 .to.deep.equal(['integer', 'null']);
         });
     });
+
+    // replica_halted publishes xchain-sync's durable consensus-divergence halt
+    // (sync_halt, cleared_at IS NULL) beside `stale`, since a halted replica keeps
+    // reporting a small lag until its source mints past it and neither `stale` nor
+    // tip_age_seconds can see that state (2026-08-10: two chains sat halted a full
+    // day while every existing instrument read green). null must never collapse to
+    // false: a consumer reads false as healthy, and this field exists precisely
+    // because an absent signal was mistaken for a good one.
+    describe('Database#getStatus replica_halted (fail-closed halt signal)', () => {
+        let db;
+        beforeEach(() => { db = makeDb(); });
+        afterEach(() => { sinon.restore(); });
+
+        // Marks the coin as measured (getStatus's per-coin gate only runs for a
+        // coin with a live pool); doQuery is stubbed directly below so no real
+        // connection is ever opened through this placeholder pool object.
+        function markPooled(coin) {
+            db.pools = {};
+            db.pools[coin] = { pool: {}, config: {} };
+        }
+
+        // Dispatches by SQL text so the same stub answers the existence check,
+        // the halt-row read, AND the unrelated last_block/last_block_time queries
+        // getStatus also issues in the same per-coin pass. A fresh block_time
+        // keeps `stale` out of the way of these assertions.
+        function stubQueries({ tableExists = true, activeHalt = false, failOn = null } = {}) {
+            return sinon.stub(db, 'doQuery').callsFake(async (config, query, args) => {
+                if (/information_schema\.TABLES/.test(query)) {
+                    if (failOn === 'exists') throw new Error('existence check failed');
+                    return tableExists ? [{ 1: 1 }] : [];
+                }
+                if (/FROM sync_halt/.test(query)) {
+                    if (failOn === 'halt') throw new Error('halt read failed');
+                    expect(query).to.match(/cleared_at IS NULL/);
+                    expect(args).to.deep.equal(['indexer']);
+                    return activeHalt ? [{ id: 1 }] : [];
+                }
+                if (/MAX\(block_index\)/.test(query)) return [{ max_index: 850 }];
+                if (/block_time/.test(query)) return [{ block_time: Math.floor(Date.now() / 1000) - 60 }];
+                return [];
+            });
+        }
+
+        it('reads true when an active (uncleared) halt row exists', async () => {
+            markPooled('RBTC');
+            stubQueries({ tableExists: true, activeHalt: true });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.replica_halted).to.have.property('RBTC', true);
+        });
+
+        it('reads false when the table was read successfully and holds no active halt', async () => {
+            markPooled('RBTC');
+            stubQueries({ tableExists: true, activeHalt: false });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.replica_halted).to.have.property('RBTC', false);
+        });
+
+        it('reads null, never false, when the sync_halt table does not exist', async () => {
+            markPooled('RBTC');
+            stubQueries({ tableExists: false });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.replica_halted.RBTC).to.equal(null);
+            expect(data.replica_halted.RBTC).to.not.equal(false);
+        });
+
+        it('reads null, never false, when the table-existence check itself fails', async () => {
+            markPooled('RBTC');
+            stubQueries({ failOn: 'exists' });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.replica_halted.RBTC).to.equal(null);
+            expect(data.replica_halted.RBTC).to.not.equal(false);
+        });
+
+        it('reads null, never false, when the halt-row read fails after the table is confirmed present', async () => {
+            markPooled('RBTC');
+            stubQueries({ tableExists: true, failOn: 'halt' });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.replica_halted.RBTC).to.equal(null);
+            expect(data.replica_halted.RBTC).to.not.equal(false);
+        });
+
+        it('does not remove a halted coin from `available` (stale composes separately, out of scope here)', async () => {
+            markPooled('RBTC');
+            stubQueries({ tableExists: true, activeHalt: true });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.available).to.have.property('RBTC');
+        });
+
+        it('reads null directly (no pool for the coin) rather than false', async () => {
+            db.pools = {};
+            const result = await db.getReplicaHaltStatus('ZZZ');
+            expect(result).to.equal(null);
+        });
+    });
 });
 
 describe('Database#getMempool', () => {

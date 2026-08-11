@@ -4328,7 +4328,17 @@ class Database {
             // see a JOINT indexer+decoder freeze, because they are measured against the
             // local clock rather than against the other replica.
             tip_age_seconds: {},
-            stale:           {}
+            stale:           {},
+            // Durable consensus-divergence halt xchain-sync records into the same
+            // replica DB this pool serves (sync_halt, cleared_at IS NULL = active).
+            // A halted replica applies no further blocks but keeps reporting a
+            // small lag until its source mints past it, so neither stale nor
+            // tip_age_seconds can see it; this is the only fail-closed signal that
+            // can. true = an active halt row exists; false = the table was read
+            // successfully and holds none; null = the signal could not be
+            // determined (no pool, table absent, or a failed read) and MUST NOT
+            // collapse to false, since a consumer reads false as healthy.
+            replica_halted:  {}
         };
         let available = coinConfigs['COIN_AVAILABLE'] || {};
         for (let coin of Object.keys(available)) {
@@ -4369,6 +4379,10 @@ class Database {
                                                 ? (nowSec - Number(tipSec)) : null;
                 data.stale[coin] = this.isTipStale(coin, tipSec, nowSec);
                 if (data.stale[coin]) delete data.available[coin];
+                // Published beside stale, not folded into the gate: available already
+                // drops a coin once its tip ages, so the two compose (halted detects
+                // immediately, stale removes eventually) rather than duplicating.
+                data.replica_halted[coin] = await this.getReplicaHaltStatus(coin);
             }
         }
         // Chain->decoder visibility: the slice the DB-derived fields above can't
@@ -5948,6 +5962,39 @@ class Database {
         catch (e) { stale = this.tipMaxAgeSeconds(coin) !== 0; }
         this._tipStaleCache[coin] = { at: Date.now(), stale };
         return stale;
+    }
+
+    // Reads whether this coin's indexer replica carries an active
+    // consensus-divergence halt (xchain-sync's sync_halt table, cleared_at IS
+    // NULL). Checks table existence first via information_schema, a query that
+    // always succeeds (0 rows, not an error) on a deployment whose DB predates
+    // the sync client, so that ordinary case never hits the failure log below.
+    // Returns true (active halt), false (table read, no active halt), or null
+    // (no pool, table absent, or the read failed); null is never coerced to
+    // false, since /status consumers read false as healthy.
+    /**
+     * @param {string} coin coin code
+     * @returns {Promise<boolean|null>}
+     */
+    async getReplicaHaltStatus(coin) {
+        let config = { coin, data: {} };
+        let existing;
+        try {
+            existing = await this.doQuery(config,
+                `SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sync_halt' LIMIT 1`,
+                []);
+        } catch (e) {
+            return null;
+        }
+        if (!existing || !existing.length) return null;
+        try {
+            let rows = await this.doQuery(config,
+                `SELECT id FROM sync_halt WHERE db_type=? AND cleared_at IS NULL LIMIT 1`,
+                ['indexer']);
+            return !!(rows && rows.length);
+        } catch (e) {
+            return null;
+        }
     }
 
     // Get the decoder-tip reference for a coin: the highest block the decoder has

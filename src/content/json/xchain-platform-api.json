@@ -3012,6 +3012,13 @@
                             "type": "boolean"
                         }
                     },
+                    "replica_halted": {
+                        "type": "object",
+                        "description": "Durable consensus-divergence halt verdict per coin ticker, read from xchain-sync's sync_halt table on the same replica (true = an active, uncleared halt row exists). A halted replica keeps reporting a small lag until its source mints past it, so this is detectable neither by 'stale' nor by tip_age_seconds; it composes with 'stale' rather than replacing it (immediate detection here, eventual removal from 'available' there). true/false only when the table was read successfully; null when the signal could not be determined (table absent, e.g. a DB not built by the sync client, or the read failed) and is never coerced to false. Only coins this instance measures appear here.",
+                        "additionalProperties": {
+                            "type": ["boolean", "null"]
+                        }
+                    },
                     "chain_tip": {
                         "type": "object",
                         "description": "Coin node's chain tip as the decoder reports it, keyed by coin ticker. null when the decoder health call is unavailable.",

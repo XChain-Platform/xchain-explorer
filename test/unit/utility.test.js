@@ -14,10 +14,6 @@ const { expect } = require('chai');
 const sinon      = require('sinon');
 const proxyquire = require('proxyquire').noCallThru();
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 // Real Utility (no stubbing of fs yet; we stub per-suite where needed)
 const Utility = require('../../src/utility');
 
@@ -25,15 +21,7 @@ function makeUtil(configInfo) {
     return new Utility(configInfo || null);
 }
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
 describe('Utility', function () {
-
-    // -----------------------------------------------------------------------
-    // Constructor
-    // -----------------------------------------------------------------------
 
     describe('constructor', function () {
 
@@ -48,10 +36,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // isNull
-    // -----------------------------------------------------------------------
 
     describe('isNull()', function () {
 
@@ -69,10 +53,6 @@ describe('Utility', function () {
         it('returns false for an array', function () { expect(u.isNull([])).to.be.false; });
 
     });
-
-    // -----------------------------------------------------------------------
-    // isNumeric
-    // -----------------------------------------------------------------------
 
     describe('isNumeric()', function () {
 
@@ -96,10 +76,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // isFloat
-    // -----------------------------------------------------------------------
-
     describe('isFloat()', function () {
 
         let u;
@@ -115,10 +91,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // isInteger
-    // -----------------------------------------------------------------------
-
     describe('isInteger()', function () {
 
         let u;
@@ -129,19 +101,15 @@ describe('Utility', function () {
         it('returns true for a negative integer', function () { expect(u.isInteger(-3)).to.be.true; });
 
         it('returns false for a float',  function () { expect(u.isInteger(1.5)).to.be.false; });
-        // Canonical parity (review 2393): isInteger now matches the indexer's
-        // Number.isInteger(+value) exactly, so numeric strings and coercible
-        // primitives count as integers, same as on the consensus side.
+        // isInteger matches the indexer's Number.isInteger(+value) exactly, so
+        // numeric strings and coercible primitives count as integers, same as
+        // on the consensus side.
         it('returns true for a numeric string (canonical parity)', function () { expect(u.isInteger('4')).to.be.true; });
         it('returns false for NaN',      function () { expect(u.isInteger(NaN)).to.be.false; });
         it('returns true for null (+null === 0, canonical parity)', function () { expect(u.isInteger(null)).to.be.true; });
         it('returns true for boolean true (+true === 1, canonical parity)', function () { expect(u.isInteger(true)).to.be.true; });
 
     });
-
-    // -----------------------------------------------------------------------
-    // bcnum / bcformat
-    // -----------------------------------------------------------------------
 
     describe('bcnum()', function () {
 
@@ -188,10 +156,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // bcsub / bcadd / bcmul / bcdiv
-    // -----------------------------------------------------------------------
-
     describe('bcsub()', function () {
 
         let u;
@@ -219,9 +183,7 @@ describe('Utility', function () {
         });
 
         it('respects decimal precision truncation', function () {
-            // 10 - 3 = 7, but as bignumber division-like: test with values that
-            // produce repeating decimals when the operation itself is imprecise
-            // 1/3 subtracted: 1.000 - 0.333... needs precision
+            // Repeating-decimal operand so truncation to 4 places is meaningfully tested.
             const result = u.bcsub('1', '0.6666666666666666666', 4);
             expect(result.toString()).to.equal('0.3333');
         });
@@ -320,10 +282,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // Comparison operators
-    // -----------------------------------------------------------------------
-
     describe('bcgt()', function () {
 
         let u;
@@ -368,10 +326,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // getPrice
-    // -----------------------------------------------------------------------
-
     describe('getPrice()', function () {
 
         let u;
@@ -403,10 +357,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // priceSort
-    // -----------------------------------------------------------------------
 
     describe('priceSort()', function () {
 
@@ -471,10 +421,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // jsonStringify
-    // -----------------------------------------------------------------------
 
     describe('jsonStringify()', function () {
 
@@ -543,10 +489,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // sanitizeInt
-    // -----------------------------------------------------------------------
-
     describe('sanitizeInt()', function () {
 
         let u;
@@ -581,10 +523,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // escapeLike
-    // -----------------------------------------------------------------------
 
     describe('escapeLike()', function () {
 
@@ -621,10 +559,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // ksort
-    // -----------------------------------------------------------------------
-
     describe('ksort()', function () {
 
         let u;
@@ -655,10 +589,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // millisecondsToTimeString
-    // -----------------------------------------------------------------------
 
     describe('millisecondsToTimeString()', function () {
 
@@ -718,10 +648,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // getWallClockTime
-    // -----------------------------------------------------------------------
-
     describe('getWallClockTime()', function () {
 
         let u;
@@ -741,10 +667,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // Timer helpers (startTimer / getTimer / getTimerString / logTimer)
-    // -----------------------------------------------------------------------
 
     describe('startTimer() / getTimer()', function () {
 
@@ -837,17 +759,11 @@ describe('Utility', function () {
             const t = Date.now();
             u.logTimer(t, 'Quick');
             const output = stub.firstCall.args[0];
-            // With 0ms, timeString is '' and the condition is false, so no tab section
-            // However if condition is mutated to `true`, tab would be appended
-            // The output should just be 'Quick' (or 'Quick\t: (0ms)' at worst for very fast)
+            // At ~0ms timeString is '', so no tab section should be appended.
             expect(output).to.satisfy(s => s === 'Quick' || s.includes('\t'));
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // sleep
-    // -----------------------------------------------------------------------
 
     describe('sleep()', function () {
 
@@ -868,10 +784,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // throwError / logError
-    // -----------------------------------------------------------------------
 
     describe('throwError()', function () {
 
@@ -918,10 +830,6 @@ describe('Utility', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // fileExists (stubbing fs/promises)
-    // -----------------------------------------------------------------------
-
     describe('fileExists()', function () {
 
         let UtilityWithStub;
@@ -958,10 +866,6 @@ describe('Utility', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // fileGetContents (stubbing fs/promises)
-    // -----------------------------------------------------------------------
 
     describe('fileGetContents()', function () {
 

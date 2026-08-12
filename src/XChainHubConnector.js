@@ -19,7 +19,6 @@
  *
  ********************************************************************/
 
-// Load required libraries
 const axios = require('axios');
 
 // Fold a getallconfigs delta (only the rows that changed since our cursor) into
@@ -268,7 +267,6 @@ class XChainHubConnector {
     }
 }
 
-// Parse hub endpoints from environment variables
 // Returns an array of URL strings (e.g., ["http://host1:10000", "http://host2:10000"]),
 // or null when the hub is intentionally disabled (standalone mode).
 XChainHubConnector.parseEndpoints = function(){

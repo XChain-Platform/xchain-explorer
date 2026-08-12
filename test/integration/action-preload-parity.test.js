@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Golden-parity coverage for the page-level shared-leg prefetch ().
+ * Golden-parity coverage for the page-level shared-leg prefetch.
  *
  * getActionDataBatch used to overlap up to BATCH_CONCURRENCY unmodified
  * getActionData calls, so a page's DB work stayed O(actions x queries): every
@@ -104,7 +104,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-describe('getActionData page preload: golden parity ()', function () {
+describe('getActionData page preload: golden parity', function () {
     this.timeout(60000);
 
     let baseline = new Map();

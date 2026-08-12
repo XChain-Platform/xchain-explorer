@@ -41,10 +41,6 @@ describe('XChainDecoderConnector', function () {
         sinon.restore();
     });
 
-    // -----------------------------------------------------------------
-    // resolveDecoderUrl()
-    // -----------------------------------------------------------------
-
     describe('resolveDecoderUrl()', function () {
         it('prefers the coin+network-specific override', function () {
             process.env.DECODER_API_URL_BTC_REGTEST = 'http://specific:1';
@@ -62,10 +58,6 @@ describe('XChainDecoderConnector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // constructor
-    // -----------------------------------------------------------------
-
     describe('constructor', function () {
         it('defaults the timeout to 2500ms (status hot path)', function () {
             const c = new XChainDecoderConnector('http://x');
@@ -78,10 +70,6 @@ describe('XChainDecoderConnector', function () {
             expect(c.timeout).to.equal(900);
         });
     });
-
-    // -----------------------------------------------------------------
-    // health()
-    // -----------------------------------------------------------------
 
     describe('health()', function () {
         it('POSTs a JSON-RPC health call and returns the result', async function () {

@@ -80,15 +80,15 @@ class XChainIndexerConnector {
         return this._call('feequote', { action, params, source, feeOutputSats });
     }
 
-    // Oracle usage fee quote for a Mode B dispenser . See xchain-indexer
+    // Oracle usage fee quote for a Mode B dispenser. See xchain-indexer
     // utility.quoteOracleFee, which the consensus check shares.
     async oraclefeequote({ oracleAddress, giveCoin, giveTick, fiatCode, getCoin, giveEscrow, blockTime }){
         return this._call('oraclefeequote', { oracleAddress, giveCoin, giveTick, fiatCode, getCoin, giveEscrow, blockTime });
     }
 
-    // Validity-first pre-flight for a single action : would the indexer accept it?
+    // Validity-first pre-flight for a single action: would the indexer accept it?
     // Decoupled from native-fee support. See xchain-indexer Actions.computePreflight.
-    // `feeMode` ('xchain' | 'native') selects how the fee settles in the dry-run .
+    // `feeMode` ('xchain' | 'native') selects how the fee settles in the dry-run.
     async preflight({ action, params, source, feeMode }){
         return this._call('preflight', { action, params, source, feeMode });
     }

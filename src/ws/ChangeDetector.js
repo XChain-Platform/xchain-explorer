@@ -52,7 +52,7 @@ const NON_ACTION_LIFECYCLE_TYPES = ['BET_CLOSED'];
 // Lifecycle events emitted inline by an enrichment path, so neither the map nor
 // a cursor names them. Declared here so the conformance test reads the producer
 // rather than carrying its own copy: that second copy is exactly what let the
-// two ATTESTATION names ship emitted-but-unfilterable ().
+// two ATTESTATION names ship emitted-but-unfilterable.
 const INLINE_LIFECYCLE_TYPES = ['COINPAY_REQUIRED', 'ATTESTATION_REQUEST', 'ATTESTATION_RESPONSE'];
 
 class ChangeDetector extends EventEmitter {
@@ -127,7 +127,7 @@ class ChangeDetector extends EventEmitter {
 
         for (const coin of Object.keys(this.state)) {
             // Fail closed on a stale replica, matching the HTTP path and the WS
-            // serving boundaries (). A FROZEN replica emits nothing here
+            // serving boundaries. A FROZEN replica emits nothing here
             // anyway (every emit below is triggered by the tip advancing), but a
             // replica REPLAYING history from a snapshot does advance while its
             // newest block_time is hours old, and it pushed NEW_BLOCK/NEW_ACTION/
@@ -213,7 +213,7 @@ class ChangeDetector extends EventEmitter {
 
         const currentBlockIndex  = await this.db.getMaxBlockIndex(config) || 0;
         // Zero-default is 0n, not 0: getMaxActionIndex answers in BigInt so the
-        // action cursor stays exact above 2^53 (#4155), and `0n || 0` would have
+        // action cursor stays exact above 2^53, and `0n || 0` would have
         // flipped an empty chain's cursor back to Number for the rest of the poll.
         const currentActionIndex = await this.db.getMaxActionIndex(config) || 0n;
 
@@ -316,8 +316,8 @@ class ChangeDetector extends EventEmitter {
     // `actions`, and it exists because the latch is the one BET transition with no
     // action row: the end-of-block pass writes the status directly and mints nothing
     // for the actions cursor to find, so a subscribed market page used to learn that
-    // betting had closed only on its next fetch (, spec §11.1 which lists the
-    // latch among this channel's events).
+    // betting had closed only on its next fetch (spec §11.1 lists the latch
+    // among this channel's events).
     async _checkBetLatches(coin, config, currentBlockIndex, prev) {
         if (typeof this.db.getBetFeedsClosedSince !== 'function') return;
         // A coin whose indexer predates the BET tables is not an error condition to
@@ -449,7 +449,7 @@ class ChangeDetector extends EventEmitter {
     // range is not re-polled forever.
     // Compares as BigInt: both index columns are BIGINT, and Number() collapsed two
     // consecutive action indices above 2^53 onto one value, so a backlog cursor could
-    // land at or past an action that was never emitted (). The return keeps
+    // land at or past an action that was never emitted. The return keeps
     // currentMax's own type so the block cursor stays a Number and only the action
     // cursor, whose currentMax is now BigInt, becomes exact.
     _nextCursor(rows, indexKey, currentMax) {
@@ -639,7 +639,7 @@ class ChangeDetector extends EventEmitter {
                             // supply/holders here made replace-model consumers lose
                             // decimals/description as silent undefined; the sibling
                             // address/market/dispenser channels already keep the two
-                            // frame shapes aligned (item #2234).
+                            // frame shapes aligned.
                             data: {
                                 ...tokenInfo,
                                 tick:              tick,

@@ -11,12 +11,11 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Regression test for  (deep-review 2026-07-17 F1): the reorg
- * tip-poll in db.checkReorgAndInvalidate selected a `block_hash` column
- * that does not exist in the indexer's blocks table (the schema stores
- * only *_hash_id references into index_transactions). Every unit test
- * stubbed doQuery, so the bad SQL was never executed against the real
- * schema and the throw silently killed the live WS feed on every poll.
+ * Regression test: the reorg tip-poll in db.checkReorgAndInvalidate selected
+ * a `block_hash` column that does not exist in the indexer's blocks table
+ * (the schema stores only *_hash_id references into index_transactions).
+ * Every unit test stubbed doQuery, so the bad SQL was never executed against
+ * the real schema and the throw silently killed the live WS feed on every poll.
  *
  * This suite executes the ACTUAL SQL issued by checkReorgAndInvalidate
  * against tables built from the indexer's REAL DDL files
@@ -64,7 +63,7 @@ function extractColumns(ddl, table) {
         .map(l => l.split(/\s+/)[0]);
 }
 
-describe(' checkReorgAndInvalidate against the REAL indexer DDL', function () {
+describe('checkReorgAndInvalidate against the REAL indexer DDL', function () {
 
     let sqlite, db, cfg;
 
@@ -98,7 +97,7 @@ describe(' checkReorgAndInvalidate against the REAL indexer DDL', function () {
         sqlite.exec('DELETE FROM blocks; DELETE FROM index_transactions;');
         // Route the queries under test through the real-DDL SQLite tables so
         // any reference to a non-existent column throws like MariaDB's
-        // ER_BAD_FIELD_ERROR (this is the assertion that caught F1).
+        // ER_BAD_FIELD_ERROR (the assertion that caught the missing-column bug).
         sinon.stub(db, 'doQuery').callsFake(async (config, query, args) =>
             sqlite.prepare(query).all(...(args || [])));
     });

@@ -58,10 +58,6 @@ describe('Contract endpoints (integration)', function () {
         await db.teardownDatabase();
     });
 
-    // -----------------------------------------------------------------------
-    // getContract computed fields
-    // -----------------------------------------------------------------------
-
     describe('GET /RBTC/api/contract/{idx}', function () {
 
         it('returns the source with a passing integrity check', async function () {
@@ -106,10 +102,6 @@ describe('Contract endpoints (integration)', function () {
             }
         });
     });
-
-    // -----------------------------------------------------------------------
-    // POST /{COIN}/api/contract/{idx}/call
-    // -----------------------------------------------------------------------
 
     describe('POST /RBTC/api/contract/{idx}/call', function () {
 

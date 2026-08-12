@@ -17,7 +17,7 @@
  * db.getActionData used to be one ~2,600-line if-chain: every action type's
  * SQL and its result shaping sat inline, so adding an action meant editing the
  * middle of the platform's largest method and reviewing it meant reading past
- * 47 unrelated branches . The chain is now a registry: one handler per
+ * dozens of unrelated branches. The chain is now a registry: one handler per
  * action type, grouped by family, and getActionData is only the pipeline they
  * share. Adding an action adds a handler; it does not touch db.js.
  *
@@ -85,7 +85,7 @@ module.exports = {
     // The two pipeline steps that are the same for every action.
     deblankBaseline:     shared.deblankBaseline,
     attachLedgerEffects: shared.attachLedgerEffects,
-    // Page-level form of the effects step (): one query per effect
-    // table for a whole index set, feeding attachLedgerEffects' preload arg.
+    // Page-level form of the effects step: one query per effect table for a
+    // whole index set, feeding attachLedgerEffects' preload arg.
     prefetchLedgerEffects: shared.prefetchLedgerEffects
 };

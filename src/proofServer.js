@@ -193,7 +193,7 @@ class ProofServer {
     }
 
     // GET /:coin/api/proof/locked-balance/:address/:tick?height=H
-    // (SPV sub-tree spec §3 Stage B / )
+    // (SPV sub-tree spec §3 Stage B)
     //
     // Proves the XCHAIN_ESC locked-balance leaf for (address, tick): the second
     // leaf domain inside the SAME balances_root the spendable proof binds, under

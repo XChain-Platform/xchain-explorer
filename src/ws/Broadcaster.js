@@ -127,7 +127,6 @@ class Broadcaster {
             }
         };
 
-        // Broadcast to 'blocks' channel subscribers
         this._broadcastToChannel(coin, 'blocks', event, null);
 
         // Queue the NETWORK_STATS frame on the per-coin serial chain. The final
@@ -200,7 +199,6 @@ class Broadcaster {
             }
         };
 
-        // Broadcast to 'actions' channel subscribers
         this._broadcastToChannel(coin, 'actions', event, action);
 
         // Also broadcast to address channel if the source/destination is subscribed
@@ -225,7 +223,6 @@ class Broadcaster {
             data:      lifecycleEvent.data
         };
 
-        // Broadcast to 'actions' channel
         this._broadcastToChannel(coin, 'actions', event, lifecycleEvent);
 
         // If the lifecycle event names a dedicated channel (e.g. 'attestation'),
@@ -291,7 +288,6 @@ class Broadcaster {
             data:      { channel: updateEvent.channel, ...updateEvent.data }
         };
 
-        // Route to the correct entity channel
         let entityId = null;
         switch (updateEvent.channel) {
             case 'address':   entityId = updateEvent.data.address;      break;
@@ -309,7 +305,6 @@ class Broadcaster {
         }
     }
 
-    // Broadcast an event to all clients subscribed to a specific channel
     _broadcastToChannel(coin, channel, event, actionData, entityId) {
         let channelKey;
         if (entityId) {
@@ -393,7 +388,7 @@ class Broadcaster {
             }
         }
 
-        // Statuses filter. : this is currently a no-op for every event this
+        // Statuses filter. This is currently a no-op for every event this
         // server produces (action.status is always the literal SQL NULL from db.js
         // getActionsSince, so `status` below is always falsy and the `has()` check
         // never runs). Left evaluating rather than short-circuited: proving it dead

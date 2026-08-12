@@ -94,7 +94,7 @@ class Utility {
     async fileExists(filePath){
         let exists = false;
         try {
-            await fs.access(filePath); // Attempts to access the file
+            await fs.access(filePath);
             exists = true;
         } catch (error){
             if(error.code === 'ENOENT'){
@@ -109,7 +109,7 @@ class Utility {
     async fileGetContents(filePath){
         let data = false;
         try {
-            data = await fs.readFile(filePath, 'utf8'); // 'utf8' specifies the encoding
+            data = await fs.readFile(filePath, 'utf8');
         } catch (error) {
             // swallow
         }

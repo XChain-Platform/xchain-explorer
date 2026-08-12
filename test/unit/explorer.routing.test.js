@@ -25,10 +25,6 @@ const proxyquire            = require('proxyquire').noCallThru();
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockReq, mockRes }  = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Mock infrastructure
-// ---------------------------------------------------------------------------
-
 /** Captured cfg from the most-recent getData() call */
 let capturedConfig = null;
 
@@ -69,9 +65,6 @@ const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     './db.js':  MockDB
 });
 
-// ---------------------------------------------------------------------------
-// Helper: build an explorer instance with optional config overrides
-// ---------------------------------------------------------------------------
 function makeExplorer(configOverrides) {
     const configInfo = createConfigInfoStub(configOverrides);
     return new XChainExplorer(mockApp, configInfo);
@@ -85,10 +78,6 @@ async function request(explorer, path, query = {}) {
     return { cfg: capturedConfig, res };
 }
 
-// ---------------------------------------------------------------------------
-// Test suites
-// ---------------------------------------------------------------------------
-
 describe('XChainExplorer.processRequest – routing', function () {
 
     let explorer;
@@ -96,10 +85,6 @@ describe('XChainExplorer.processRequest – routing', function () {
     before(function () {
         explorer = makeExplorer();
     });
-
-    // -----------------------------------------------------------------------
-    // 1. Coin parsing
-    // -----------------------------------------------------------------------
 
     describe('coin parsing', function () {
 
@@ -130,10 +115,6 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Type detection
-    // -----------------------------------------------------------------------
-
     describe('type detection', function () {
 
         it('sets cfg.type="api" for /BTC/api/sends/1/block', async function () {
@@ -158,10 +139,6 @@ describe('XChainExplorer.processRequest – routing', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // 3. Method matching – api endpoints
-    // -----------------------------------------------------------------------
 
     describe('method matching (api)', function () {
 
@@ -225,10 +202,6 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // 3b. List-all explorer requests (home-page tabs, no QUERY/TYPE)
-    // -----------------------------------------------------------------------
-
     describe('list-all explorer matching (3-segment, no query/type)', function () {
 
         // Regression: the home-page tabs request /{COIN}/explorer/{action} with no
@@ -265,10 +238,6 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // 4. Market routes
-    // -----------------------------------------------------------------------
-
     describe('market routes', function () {
 
         it('/BTC/api/markets → method=getMarkets', async function () {
@@ -294,24 +263,19 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // 5. Response codes
-    // -----------------------------------------------------------------------
-
     describe('response codes', function () {
 
         it('returns 404 for a valid coin + valid route where db returns null data', async function () {
-            // MockDB always returns [[], null] so data is [] and total is null
-            // When total is null, processRequest falls into the not-found branch (404, so the
-            // HTTP status agrees with the NOT_FOUND body code)
+            // MockDB returns [[], null], so data is [] and total is null; when total
+            // is null, processRequest falls into the not-found branch (404).
             const res = mockRes();
             await explorer.processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
             expect(res._status).to.equal(404);
         });
 
-        // . The action route binds its path segment against a BIGINT column, so
-        // MariaDB coerced '7junk' to 7 and answered 200 with action 7. The 400 must also
-        // survive the empty-result branch further down, which used to rewrite it to 404.
+        // The action route binds its path segment against a BIGINT column, so MariaDB
+        // coerced '7junk' to 7 and answered 200 with action 7. The 400 must also survive
+        // the empty-result branch further down, which used to rewrite it to 404.
         ['7junk', 'junk', '7.5', '-1', '0x7', '7%20'].forEach((bad) => {
             it(`400s /BTC/api/action/${bad} instead of coercing it to a real action`, async function () {
                 const { cfg, res } = await request(explorer, '/BTC/api/action/' + bad);
@@ -365,10 +329,6 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // 5b. Tip-freshness gate ()
-    // -----------------------------------------------------------------------
-
     describe('tip-freshness gate', function () {
 
         // The gate only runs for a coin this instance actually has a pool for; the
@@ -408,10 +368,6 @@ describe('XChainExplorer.processRequest – routing', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // 5c. Tip-freshness gate on the contract-simulation route ()
-    // -----------------------------------------------------------------------
 
     describe('tip-freshness gate: contract simulation', function () {
 
@@ -457,10 +413,6 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // 6. Null string handling
-    // -----------------------------------------------------------------------
-
     describe('null string handling', function () {
 
         it('/BTC/api/history/null/block converts "null" search to null', async function () {
@@ -470,10 +422,6 @@ describe('XChainExplorer.processRequest – routing', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // 7. Explorer offset params
-    // -----------------------------------------------------------------------
 
     describe('explorer offset params', function () {
 
@@ -498,10 +446,6 @@ describe('XChainExplorer.processRequest – routing', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // 8. HTML routes – file assignment
-    // -----------------------------------------------------------------------
 
     describe('HTML routes', function () {
 

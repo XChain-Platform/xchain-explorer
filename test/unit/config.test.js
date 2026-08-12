@@ -15,9 +15,7 @@ const sinon      = require('sinon');
 const proxyquire = require('proxyquire').noCallThru();
 const path       = require('path');
 
-// ---------------------------------------------------------------------------
-// Polyfill CustomEvent for Node 18 (added globally in 18.7+ but missing here)
-// ---------------------------------------------------------------------------
+// Polyfill CustomEvent for Node 18 (added globally in 18.7+ but missing here).
 if (typeof CustomEvent === 'undefined') {
     global.CustomEvent = class CustomEvent extends Event {
         constructor(type, options) {
@@ -26,10 +24,6 @@ if (typeof CustomEvent === 'undefined') {
         }
     };
 }
-
-// ---------------------------------------------------------------------------
-// Shared stubs
-// ---------------------------------------------------------------------------
 
 // Stub fs to prevent SSL cert reads at module load time.
 // existsSync returns true so the coin-config file presence check passes;
@@ -79,11 +73,8 @@ const mockFileConfig = {
     ]
 };
 
-// ---------------------------------------------------------------------------
-// Helper: load a fresh copy of config.js with desired stubs.
-// Each call to proxyquire produces a new module instance (fresh internal state).
-// ---------------------------------------------------------------------------
-
+// Load a fresh copy of config.js with the given stubs; each call to proxyquire
+// produces a new module instance (fresh internal state).
 function loadConfig(overrides) {
     return proxyquire('../../src/config.js', Object.assign({
         'fs':                   fsStub,
@@ -94,15 +85,7 @@ function loadConfig(overrides) {
     }, overrides || {}));
 }
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
 describe('config', function () {
-
-    // -----------------------------------------------------------------------
-    // getConfig: file config (no hub)
-    // -----------------------------------------------------------------------
 
     describe('getConfig() with file config (no hub url/port)', function () {
 
@@ -152,10 +135,6 @@ describe('config', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // COIN_SUPPORTED: all 9 combinations
-    // -----------------------------------------------------------------------
-
     describe('COIN_SUPPORTED', function () {
 
         it('contains all 9 coin/network combinations', async function () {
@@ -183,10 +162,6 @@ describe('config', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // getConfig: caching
-    // -----------------------------------------------------------------------
-
     describe('getConfig() caching', function () {
 
         it('returns the cached value on a second call when cache=true', async function () {
@@ -204,10 +179,6 @@ describe('config', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // getConfig: throws when no valid config
-    // -----------------------------------------------------------------------
 
     describe('getConfig() with no valid config', function () {
 
@@ -237,10 +208,6 @@ describe('config', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // getConfig: with hub url/port
-    // -----------------------------------------------------------------------
 
     describe('getConfig() with hub url/port', function () {
 
@@ -315,10 +282,6 @@ describe('config', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // onConfigChanged / triggerConfigChanged
-    // -----------------------------------------------------------------------
-
     describe('onConfigChanged() / triggerConfigChanged()', function () {
 
         it('fires the registered listener when triggerConfigChanged is called', function (done) {
@@ -340,21 +303,13 @@ describe('config', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // startSync: documents existing behavior
-    // -----------------------------------------------------------------------
-
     describe('startSync()', function () {
 
         it('schedules a recurring config refresh (setInterval call does not throw)', function () {
-            // startSync calls setInterval(getConfig, ...) where getConfig refers to
-            // the module-level export method by name. This is an open ReferenceError
-            // in Node because the local scope has no 'getConfig' symbol.
-            // The test documents this known behavior.
+            // startSync's setInterval callback references the module-level getConfig
+            // by name, which is an open ReferenceError in this scope; that error only
+            // fires later, inside the timer, so calling startSync itself does not throw.
             const config = loadConfig();
-            // The ReferenceError is thrown synchronously inside setInterval callback,
-            // but setInterval itself schedules it; the call to startSync does not throw.
-            // We verify that the function at least exists and is callable.
             expect(config.startSync).to.be.a('function');
         });
 
@@ -382,10 +337,6 @@ describe('config', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // getConfig: resilience when the hub is unreachable
-    // -----------------------------------------------------------------------
 
     describe('getConfig() resilience (hub unreachable)', function () {
 

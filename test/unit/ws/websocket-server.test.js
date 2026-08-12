@@ -124,7 +124,7 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(subscribed.data.active_filters).to.not.have.property('statuses');
     });
 
-    it(': SUBSCRIBED echoes ignored_filters: ["statuses"] when a raw client sends one', function () {
+    it('SUBSCRIBED echoes ignored_filters: ["statuses"] when a raw client sends one', function () {
         // The `statuses` filter is still accepted (non-breaking) but is a no-op on
         // every event this server produces, so the confirmation must make that
         // no-op observable instead of silently dropping the client's request.
@@ -140,7 +140,7 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(subscribed.data.ignored_filters).to.deep.equal(['statuses']);
     });
 
-    it('#3860: a ticks filter comes back under ignored_filters, never under filters', function () {
+    it('a ticks filter comes back under ignored_filters, never under filters', function () {
         // getActionsSince selects no tick column, so a ticks filter can never narrow
         // the stream. Accept it (non-breaking) but never confirm it as active.
         const s = makeServer();
@@ -219,7 +219,7 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         expect(welcome.data.features).to.not.include('statuses');
     });
 
-    it('#3860: does NOT advertise a "ticks" feature (no action frame carries a tick)', async function () {
+    it('does NOT advertise a "ticks" feature (no action frame carries a tick)', async function () {
         // Same honesty contract as statuses: getActionsSince selects no tick column,
         // so the ticks check in Broadcaster._passesFilter can never reject anything.
         const s = makeServer();
@@ -353,7 +353,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         expect(complete.data.latest_action_index).to.match(DECIMAL);
     });
 
-    // #4155: the catch-up cursor used to be Number()-coerced on arrival, which rounded
+    // The catch-up cursor used to be Number()-coerced on arrival, which rounded
     // an above-2^53 decimal string UP. The SQL cursor then asked for rows after an
     // action the client had never seen, and the CATCH_UP_COMPLETE echo told the client
     // it was one index further along than it was.
@@ -414,7 +414,7 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
         return new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() });
     }
 
-    it('#3860: a ticks filter cannot narrow replayed actions - the producer emits no tick column', async function () {
+    it('a ticks filter cannot narrow replayed actions - the producer emits no tick column', async function () {
         // Rows match db.getActionsSince's real column list (action_index, action,
         // action_format, tx_hash, block_index, source, NULL as status): no tick.
         // The old fixture invented a `tick` key and made the dead filter read as live.
@@ -460,7 +460,7 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
     });
 });
 
-describe('WebSocketServer#_onMessage rate limiter (: sliding decay, not tumbling window)', function () {
+describe('WebSocketServer#_onMessage rate limiter (sliding decay, not tumbling window)', function () {
 
     afterEach(() => sinon.restore());
 
@@ -528,7 +528,7 @@ describe('WebSocketServer#_onMessage rate limiter (: sliding decay, not tumbling
     });
 });
 
-// . Drive a real upgrade and a real oversized frame, because the previous
+// Drive a real upgrade and a real oversized frame, because the previous
 // cap was installed as `ws._maxPayload` on the WebSocket, which reads fine to any
 // property-asserting test while the ws Receiver (the only reader of maxPayload) ran
 // on the 100 MB library default. Only the wire says whether the cap is armed.

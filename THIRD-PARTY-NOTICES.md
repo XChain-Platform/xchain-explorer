@@ -158,7 +158,6 @@ countries. Its use here is nominative.
 
 ## Keeping this file honest
 
-`claude/bin/license-ip-audit.js` (leg 3) fails the third-party checks if a
-vendored asset carries the XChain AGPL banner, or if it has neither an upstream
-notice in the file nor a row in this document. Add the row when you add the
-asset.
+An automated audit fails the third-party checks if a vendored asset carries
+the XChain AGPL banner, or if it has neither an upstream notice in the file
+nor a row in this document. Add the row when you add the asset.

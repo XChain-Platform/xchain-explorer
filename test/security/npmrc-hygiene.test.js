@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Security tests: .npmrc hygiene (, review-store #2231)
+ * Security tests: .npmrc hygiene
  *
  * The repo .npmrc is committed, so anything written into it is published to
  * every clone and every CI runner. Two classes of damage can land there by

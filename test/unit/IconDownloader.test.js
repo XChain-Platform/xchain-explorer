@@ -15,10 +15,6 @@ const { expect } = require('chai');
 const proxyquire = require('proxyquire').noCallThru();
 const path       = require('path');
 
-// ---------------------------------------------------------------------------
-// Stub factories
-// ---------------------------------------------------------------------------
-
 /**
  * Build a child_process.exec stub that calls its callback based on the
  * result map: { [cmdSubstring]: result }.  result = null means success with
@@ -50,7 +46,6 @@ function makeExecStub(handlers) {
 function makeStubs(opts) {
     opts = opts || {};
 
-    // axios stub
     const axiosStub = {
         get: sinon.stub().resolves({
             status:  200,
@@ -67,7 +62,6 @@ function makeStubs(opts) {
     // fs stub (sync, barely used by IconDownloader directly)
     const fsStub = {};
 
-    // fs/promises stub
     const fspStub = {
         mkdir:     sinon.stub().resolves(),
         writeFile: sinon.stub().resolves(),
@@ -103,7 +97,6 @@ function makeStubs(opts) {
         });
     }
 
-    // IconResolver stubs
     const resolveDescriptionToSource    = opts.resolveDescriptionToSource    || sinon.stub().returns(null);
     const selectIconUrlFromCip25Json    = opts.selectIconUrlFromCip25Json    || sinon.stub().returns(null);
 
@@ -172,10 +165,6 @@ function makeExplorer(configOverrides, pools) {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('IconDownloader', function () {
 
     let clock;
@@ -183,10 +172,6 @@ describe('IconDownloader', function () {
         if (clock) { clock.restore(); clock = null; }
         sinon.restore();
     });
-
-    // -----------------------------------------------------------------------
-    // Constructor
-    // -----------------------------------------------------------------------
 
     describe('constructor', function () {
         it('initialises with DEFAULTS and correct iconRoot', function () {
@@ -206,10 +191,6 @@ describe('IconDownloader', function () {
             expect(d.iconRoot).to.include('content/icons');
         });
     });
-
-    // -----------------------------------------------------------------------
-    // Lifecycle: start() disabled
-    // -----------------------------------------------------------------------
 
     describe('start() (disabled)', function () {
         it('returns without setting a timer when enabled=false', async function () {
@@ -236,10 +217,6 @@ describe('IconDownloader', function () {
             expect(d.timer).to.equal(null);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // Lifecycle: start() enabled
-    // -----------------------------------------------------------------------
 
     describe('start() (enabled)', function () {
         it('sets a timer and merges user config over defaults', async function () {
@@ -314,10 +291,6 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // Lifecycle: stop()
-    // -----------------------------------------------------------------------
-
     describe('stop()', function () {
         it('sets _stop and clears the timer', async function () {
             const stubs = makeStubs();
@@ -348,10 +321,6 @@ describe('IconDownloader', function () {
             expect(d._stop).to.equal(true);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // runOnce(): re-entrancy guard
-    // -----------------------------------------------------------------------
 
     describe('runOnce()', function () {
         it('skips if _running is already true', async function () {
@@ -442,10 +411,6 @@ describe('IconDownloader', function () {
             expect(processed).to.deep.equal(['BTC']);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // _listFlavors()
-    // -----------------------------------------------------------------------
 
     describe('_listFlavors()', function () {
         it('returns [] when pools is null', async function () {
@@ -585,10 +550,6 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // _discover()
-    // -----------------------------------------------------------------------
-
     describe('_discover()', function () {
         it('runs INSERT IGNORE and UPDATE queries with correct SQL fragments', async function () {
             const stubs = makeStubs();
@@ -611,10 +572,6 @@ describe('IconDownloader', function () {
             expect(secondSql).to.include('<=>');
         });
     });
-
-    // -----------------------------------------------------------------------
-    // _markOk()
-    // -----------------------------------------------------------------------
 
     describe('_markOk()', function () {
         it('issues UPDATE icons SET status=ok with correct args', async function () {
@@ -650,10 +607,6 @@ describe('IconDownloader', function () {
             expect(args[4]).to.equal(7);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // _markFailure()
-    // -----------------------------------------------------------------------
 
     describe('_markFailure()', function () {
         it('uses terminal path (no next_retry_at) when attempts >= maxAttempts', async function () {
@@ -720,10 +673,6 @@ describe('IconDownloader', function () {
             expect(args[2]).to.equal(7 * 86400);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // _processToken(): decision tree
-    // -----------------------------------------------------------------------
 
     describe('_processToken()', function () {
         function makeFlavor(coin, network) {
@@ -935,20 +884,13 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // _fetchSourceBytes(): all scheme branches
-    // -----------------------------------------------------------------------
-
     describe('_fetchSourceBytes()', function () {
 
-        // Helper: loads IconDownloader with specific per-test stubs
         function makeDownloader(stubs) {
             const IconDownloader = loadIconDownloader(stubs);
             const explorer = makeExplorer();
             return new IconDownloader(explorer);
         }
-
-        // ---- stamp ----
 
         it('stamp: decodes base64 and returns buffer', async function () {
             const stubs = makeStubs();
@@ -970,19 +912,14 @@ describe('IconDownloader', function () {
         it('stamp: throws when buffer is empty after decode', async function () {
             const stubs = makeStubs();
             const d = makeDownloader(stubs);
-            // An empty base64 string decodes to 0 bytes
-            const src = { scheme: 'stamp', data: '' };  // empty; data comes from resolver which validates
-            // Force it via src directly
-            // We simulate the error by passing data that decodes to nothing
-            // Buffer.from('', 'base64') => empty buffer
+            // AA== decodes to a single byte and must succeed; an empty string
+            // decodes to zero bytes and must throw.
+            const src = { scheme: 'stamp', data: '' };
             try {
                 await d._fetchSourceBytes({ scheme: 'stamp', data: 'AA==' }, 2);
-                // that one has 1 byte and should succeed
             } catch (e) {
-                // should not throw for AA==
                 throw new Error('unexpected throw for valid stamp');
             }
-            // Now test truly empty
             try {
                 await d._fetchSourceBytes({ scheme: 'stamp', data: '' }, 2);
                 throw new Error('should have thrown');
@@ -990,8 +927,6 @@ describe('IconDownloader', function () {
                 expect(e.message).to.include('empty after base64 decode');
             }
         });
-
-        // ---- ord ----
 
         it('ord: fetches URL, parses JSON, extracts base64 data', async function () {
             const imageData = 'data:image/png;base64,' + Buffer.from('FAKEIMAGE').toString('base64');
@@ -1065,7 +1000,7 @@ describe('IconDownloader', function () {
         });
 
         it('ord: throws when base64 decodes to empty buffer', async function () {
-            // A base64 data URL that decodes to empty: use empty string after base64,
+            // A base64 data URL that decodes to an empty buffer.
             const stubs = makeStubs({
                 axiosResponse: {
                     status:  200,
@@ -1085,8 +1020,6 @@ describe('IconDownloader', function () {
             }
         });
 
-        // ---- json_url / arweave / arweave_url / ipfs ----
-
         it('json_url: parses JSON and recurses via selectIconUrlFromCip25Json', async function () {
             const imageUrl = 'https://example.com/icon.png';
             const jsonBody = JSON.stringify({ image: imageUrl });
@@ -1099,11 +1032,10 @@ describe('IconDownloader', function () {
                     data:    Buffer.from(jsonBody),
                 },
                 selectIconUrlFromCip25Json: sinon.stub().returns(imageUrl),
-                // resolveDescriptionToSource: returns null to fall through to image_url
                 resolveDescriptionToSource: sinon.stub().callsFake((desc) => {
                     callCount++;
-                    if (callCount === 1) return null;   // first call from _processToken: not used here
-                    return null;  // null => makes the code do { scheme:'image_url', url: picked }
+                    if (callCount === 1) return null;
+                    return null;
                 }),
             });
 
@@ -1195,8 +1127,6 @@ describe('IconDownloader', function () {
             expect(result).to.deep.equal(imgBytes);
         });
 
-        // ---- imgur / image_url / default ----
-
         it('image_url: returns body when content-type starts with image/', async function () {
             const imgBytes = Buffer.from('IMGDATA');
             const stubs = makeStubs({
@@ -1264,8 +1194,6 @@ describe('IconDownloader', function () {
             expect(result).to.deep.equal(imgBytes);
         });
 
-        // ---- recursion limit ----
-
         it('throws "recursion limit hit" when depth < 0', async function () {
             const stubs = makeStubs();
             const d = makeDownloader(stubs);
@@ -1276,8 +1204,6 @@ describe('IconDownloader', function () {
                 expect(e.message).to.equal('recursion limit hit');
             }
         });
-
-        // ---- _httpFetch error paths ----
 
         it('_httpFetch: throws HTTP status error when axios throws with response', async function () {
             const err = new Error('Request failed');
@@ -1321,7 +1247,6 @@ describe('IconDownloader', function () {
         });
 
         it('_httpFetch: converts non-buffer resp.data to Buffer', async function () {
-            // resp.data is a Uint8Array (not a Buffer)
             const arr = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
             const stubs = makeStubs({
                 axiosResponse: {
@@ -1336,10 +1261,6 @@ describe('IconDownloader', function () {
             expect(Buffer.isBuffer(result)).to.equal(true);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // _writeIcon()
-    // -----------------------------------------------------------------------
 
     describe('_writeIcon()', function () {
         function makeWriteIconDownloader(execHandlers, fspOverrides) {
@@ -1378,21 +1299,17 @@ describe('IconDownloader', function () {
             expect(fspStub.writeFile.callCount).to.equal(1);
             expect(fspStub.writeFile.firstCall.args[1]).to.deep.equal(bytes);
 
-            // sniffMime called
             const sniffCall = execStub.getCalls().find(c => c.args[0].includes('--mime-type'));
             expect(sniffCall).to.not.equal(undefined);
 
-            // convert called
             const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
             expect(convertCall).to.not.equal(undefined);
             expect(convertCall.args[0]).to.include('64x64!');
             expect(convertCall.args[0]).to.include('-format png');
 
-            // readFile called on iconPath
             expect(fspStub.readFile.callCount).to.equal(1);
             expect(fspStub.readFile.firstCall.args[0]).to.equal(iconPath);
 
-            // returns an md5 string
             expect(hash).to.be.a('string').with.length(32);
         });
 
@@ -1490,14 +1407,9 @@ describe('IconDownloader', function () {
             ]);
             await d._writeIcon(Buffer.from('JPEGDATA'), '/tmp/out.png');
             const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            // No [0] suffix on JPEG
             expect(convertCall.args[0]).to.not.match(/\[0\]/);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // _processFlavor(): integration, batch query + token loop
-    // -----------------------------------------------------------------------
 
     describe('_processFlavor()', function () {
         it('logs "queue empty" when SELECT returns no rows', async function () {
@@ -1578,7 +1490,6 @@ describe('IconDownloader', function () {
             try {
                 await d._processFlavor(flavor);
             } catch (e) {
-                // expected
             }
             expect(conn.release.callCount).to.equal(1);
         });
@@ -1616,10 +1527,6 @@ describe('IconDownloader', function () {
             expect(processed).to.deep.equal(['AAA']);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // _httpFetch() direct tests (via a non-image scheme that calls it directly)
-    // -----------------------------------------------------------------------
 
     describe('_httpFetch()', function () {
         it('passes correct axios options (timeout, maxBytes, maxRedirects, User-Agent)', async function () {
@@ -1673,10 +1580,6 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // Logging helpers
-    // -----------------------------------------------------------------------
-
     describe('_log() and _logErr()', function () {
         it('_log outputs a formatted ISO timestamp line', function () {
             const stubs = makeStubs();
@@ -1726,10 +1629,6 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // backoffSeconds (tested via _markFailure args)
-    // -----------------------------------------------------------------------
-
     describe('backoffSeconds via _markFailure', function () {
         it('attempt=0 gives 3600s (same branch as <=1)', async function () {
             const stubs = makeStubs();
@@ -1755,15 +1654,10 @@ describe('IconDownloader', function () {
             const conn = makeMockConn([[]]);
             await d._markFailure(conn, 1, 4, 'fourth fail');
             const [sql, args] = conn.query.firstCall.args;
-            // Should take retry path (INTERVAL)
             expect(sql).to.include('INTERVAL');
             expect(args[2]).to.equal(30 * 86400);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // Pure helpers (truncate / md5 tested indirectly, but direct coverage via _markFailure)
-    // -----------------------------------------------------------------------
 
     describe('truncate(): via _processToken error message path', function () {
         it('truncates fetch error messages to 255 chars via _processToken', async function () {
@@ -1776,7 +1670,6 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
             d.cfg.maxAttempts = 99;
 
-            // _fetchSourceBytes throws a very long error message
             const longMsg = 'E'.repeat(300);
             d._fetchSourceBytes = sinon.stub().rejects(new Error(longMsg));
 
@@ -1828,14 +1721,7 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // _processToken uses fsp.mkdir before _writeIcon
-    // -----------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------
-    // Branch: e.code || e.message || 'fetch failed' fallback (line 378)
-    // -----------------------------------------------------------------------
-
+    // Covers the e.code || e.message || 'fetch failed' fallback chain.
     describe('_httpFetch "fetch failed" fallback', function () {
         it('uses "fetch failed" when axios error has neither code nor message', async function () {
             const err = {};   // no code, no message, no response
@@ -1853,10 +1739,6 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // Branch: truncate() non-string path (line 488)
-    // -----------------------------------------------------------------------
-
     describe('truncate() non-string input via _processToken', function () {
         it('converts non-string error to string before truncating', async function () {
             const src = { scheme: 'image_url', url: 'https://example.com/a.png' };
@@ -1868,7 +1750,6 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
             d.cfg.maxAttempts = 99;
 
-            // Throw a non-string-message error: use an object with no .message
             const weirdErr = new Error();
             weirdErr.message = 42;   // number, not string
             d._fetchSourceBytes = sinon.stub().rejects(weirdErr);
@@ -1889,10 +1770,6 @@ describe('IconDownloader', function () {
             expect(receivedMsgs[0]).to.equal('42');
         });
     });
-
-    // -----------------------------------------------------------------------
-    // Branch: _writeIcon convert error with e.message fallback (line 414)
-    // -----------------------------------------------------------------------
 
     describe('_writeIcon convert error e.message fallback', function () {
         it('uses e.message when e.stderr is absent', async function () {
@@ -1929,10 +1806,6 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // Branch: src.url || null in _markOk call (line 292)
-    // -----------------------------------------------------------------------
-
     describe('_processToken src.url undefined fallback', function () {
         it('passes null for sourceUrl when src has no .url property', async function () {
             // stamp scheme sources have .data but no .url
@@ -1956,16 +1829,11 @@ describe('IconDownloader', function () {
                 icon_id: 1, token_id: 10, attempts: 0, description: 'stamp:aGVsbG8=', tick: 'TOK',
             });
 
-            // src.url is undefined => src.url || null => null
             expect(d._markOk.callCount).to.equal(1);
             const [, , url] = d._markOk.firstCall.args;
             expect(url).to.equal(null);
         });
     });
-
-    // -----------------------------------------------------------------------
-    // Branch: convert error with neither stderr nor message (line 414)
-    // -----------------------------------------------------------------------
 
     describe('_writeIcon convert error empty fallback', function () {
         it('produces "convert failed: " when error has no stderr or message', async function () {
@@ -2031,12 +1899,10 @@ describe('IconDownloader', function () {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // Stress-sweep SSRF-1: literal-IP URLs bypass the dns.lookup shim (Node skips
-    // a custom `lookup` for IP-literal hosts), so _httpFetch must reject a private
-    // literal before connecting. Icon URLs come from on-chain token descriptions
-    // (fully attacker-controlled).
-    // -----------------------------------------------------------------------
+    // Literal-IP URLs bypass the dns.lookup shim (Node skips a custom `lookup`
+    // for IP-literal hosts), so _httpFetch must reject a private literal before
+    // connecting. Icon URLs come from on-chain token descriptions and are fully
+    // attacker-controlled.
     describe('_httpFetch SSRF literal-IP guard', function () {
         function downloader(stubs) {
             return new (loadIconDownloader(stubs))(makeExplorer());

@@ -28,10 +28,6 @@ const path       = require('path');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Explorer factory with stubbed deps
-// ---------------------------------------------------------------------------
-
 function makeExplorer(fsStub) {
     const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
         axios:    { get: sinon.stub().resolves({ data: {} }) },
@@ -52,10 +48,6 @@ function makeIconReq(iconPath) {
     };
 }
 
-// ===========================================================================
-// Basic path traversal
-// ===========================================================================
-
 describe('Security: Path Traversal: Basic attacks', function () {
 
     let explorer;
@@ -68,10 +60,6 @@ describe('Security: Path Traversal: Basic attacks', function () {
         expect(res._body).to.include({ error: 'Access denied', code: 'PATH_DENIED' });
     });
 });
-
-// ===========================================================================
-// Boundary check validation (pure logic test)
-// ===========================================================================
 
 describe('Security: Path Traversal: Boundary check logic', function () {
 
@@ -99,10 +87,6 @@ describe('Security: Path Traversal: Boundary check logic', function () {
         expect(evilPath.startsWith(dirPath + path.sep)).to.be.false;
     });
 });
-
-// ===========================================================================
-// Icon request handling
-// ===========================================================================
 
 describe('Security: Path Traversal: Icon request behavior', function () {
 
@@ -135,10 +119,6 @@ describe('Security: Path Traversal: Icon request behavior', function () {
         expect(res._body).to.include({ error: 'Access denied', code: 'PATH_DENIED' });
     });
 });
-
-// ===========================================================================
-// Edge cases
-// ===========================================================================
 
 describe('Security: Path Traversal: Edge cases', function () {
 

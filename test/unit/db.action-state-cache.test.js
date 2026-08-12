@@ -68,8 +68,8 @@ describe('action LRU skips responses carrying a live state block', function () {
 
     it('treats an empty-string or null state as cacheable rather than throwing', function () {
         const db = makeDb();
-        // An action_index is required as of  (see the regression block
-        // below); these previously passed `{ state }` alone, which is also the
+        // An action_index is required (see the regression block below); these
+        // previously passed `{ state }` alone, which is also the
         // shape of a NOT-FOUND. The property being pinned here is unchanged:
         // odd `state` values are answered, not thrown on.
         expect(db._isCacheableAction({ action_index: 7, state: null })).to.equal(true);
@@ -77,8 +77,8 @@ describe('action LRU skips responses carrying a live state block', function () {
         expect(db._isCacheableAction(null)).to.equal(false);
     });
 
-    // . The sibling of the defect above, in the other direction: the LRU
-    // was also memoizing responses for actions that DO NOT EXIST YET.
+    // The sibling of the defect above, in the other direction: the LRU was also
+    // memoizing responses for actions that DO NOT EXIST YET.
     //
     // getActionData returns `{credits,debits,escrows,fee}` all null when
     // getActionType finds no row, which is the normal state of an action_index
@@ -86,12 +86,12 @@ describe('action LRU skips responses carrying a live state block', function () {
     // blank carries no `state`, so it was cached - with no TTL and reorg-only
     // invalidation, i.e. for the life of the process.
     //
-    // Measured on BTC regtest: `/RBTC/api/action/2206` served an empty body
-    // while the identical detail SQL, against the same database, returned a
-    // full row. Anyone who asked one moment too early blanked that action for
-    // every later reader - including sdk.waitForActionIndex(), which polls this
-    // exact endpoint every 2s BECAUSE the action is not there yet, and so can
-    // never succeed: its first poll caches the miss it is waiting to clear.
+    // Measured on BTC regtest: the endpoint served an empty body while the
+    // identical detail SQL, against the same database, returned a full row.
+    // Anyone who asked one moment too early blanked that action for every later
+    // reader - including sdk.waitForActionIndex(), which polls this exact
+    // endpoint every 2s BECAUSE the action is not there yet, and so can never
+    // succeed: its first poll caches the miss it is waiting to clear.
     describe('[REGRESSION] a not-yet-indexed action must not be memoized', function () {
         it('refuses the blank getActionData builds when the action has no row', function () {
             const db = makeDb();

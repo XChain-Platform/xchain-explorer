@@ -11,20 +11,20 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Items 4449 / 4450 / 4452 / 4453 / 4455 / 4457: five renderer sites had drifted
- * from the protocol enums and column meanings the indexer writes.
+ * Five renderer sites had drifted from the protocol enums and column meanings
+ * the indexer writes.
  *
- *  - 4449 AIRDROP list_action_index and LINK coin1/coin2_action_index are ACTION
+ *  - AIRDROP list_action_index and LINK coin1/coin2_action_index are ACTION
  *    indexes, and the compact summary linked all three through /token/.
- *  - 4450 the compact LIST label carried a second, INVERTED copy of XC.list_types.
- *  - 4452 XC.encryption_methods started at ECDH and had no AES entry, against the
+ *  - the compact LIST label carried a second, INVERTED copy of XC.list_types.
+ *  - XC.encryption_methods started at ECDH and had no AES entry, against the
  *    protocol's 1=ECIES / 2=ECDH / 3=AES.
- *  - 4453 the MESSAGE summary branched on encryption_method, which the indexer
+ *  - the MESSAGE summary branched on encryption_method, which the indexer
  *    stamps to 1 on every format-2 record, so encrypted messages read as key
  *    exchanges.
- *  - 4455 attests.response_payload was selected by the detail query and rendered
+ *  - attests.response_payload was selected by the detail query and rendered
  *    nowhere.
- *  - 4457 the XCALL far-chain execute link was namespaced by the source chain.
+ *  - the XCALL far-chain execute link was namespaced by the source chain.
  *
  * Every assertion drives the SHIPPED function against the SHIPPED markup, in the
  * same harness the sibling content-client tests use, so a copy cannot drift.
@@ -137,7 +137,7 @@ function xcallExecuteHref(data) {
     return dom.window.$('#info-xcall .xcall-execute-action a').attr('href');
 }
 
-describe('item 4449 client: action-index summary links open actions, not token searches', function () {
+describe('client: action-index summary links open actions, not token searches', function () {
 
     it('an AIRDROP links its list reference as an action', function () {
         const html = summary('AIRDROP', { amount: 5, tick: 'XCP', list_action_index: 4242 });
@@ -161,7 +161,7 @@ describe('item 4449 client: action-index summary links open actions, not token s
     });
 });
 
-describe('item 4450 client: the compact LIST label reads the canonical enum', function () {
+describe('client: the compact LIST label reads the canonical enum', function () {
 
     it('the shipped enum still declares 1=Token and 2=Address', function () {
         expect(LIST_TYPES[1]).to.equal('Token');
@@ -188,7 +188,7 @@ describe('item 4450 client: the compact LIST label reads the canonical enum', fu
     });
 });
 
-describe('item 4452 client: the encryption-method map matches the protocol enum', function () {
+describe('client: the encryption-method map matches the protocol enum', function () {
 
     it('declares 1=ECIES, 2=ECDH and 3=AES', function () {
         expect(ENCRYPTION_METHODS[1]).to.contain('ECIES');
@@ -201,7 +201,7 @@ describe('item 4452 client: the encryption-method map matches the protocol enum'
     });
 });
 
-describe('item 4453 client: MESSAGE summaries key on the record format', function () {
+describe('client: MESSAGE summaries key on the record format', function () {
 
     it('a format-2 record summarizes as an encrypted message despite its stamped method 1', function () {
         const html = summary('MESSAGE', {
@@ -238,7 +238,7 @@ describe('item 4453 client: MESSAGE summaries key on the record format', functio
     });
 });
 
-describe('item 4455 client: the ATTEST response panel shows the decoded payload', function () {
+describe('client: the ATTEST response panel shows the decoded payload', function () {
 
     it('renders response_payload on a v1 response', function () {
         const cell = attestDetail({
@@ -268,7 +268,7 @@ describe('item 4455 client: the ATTEST response panel shows the decoded payload'
     });
 });
 
-describe('item 4457 client: the XCALL execute link is namespaced by the target chain', function () {
+describe('client: the XCALL execute link is namespaced by the target chain', function () {
 
     const BASE = {
         call_id: 'abcd1234', version: 0, contract_index: 10, target_chain: 'LTC',

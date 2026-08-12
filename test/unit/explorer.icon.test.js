@@ -17,10 +17,6 @@ const path       = require('path');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const ICONS_DIR = path.resolve(path.join(__dirname, '../../src/content/icons'));
 
 /**
@@ -46,20 +42,11 @@ function makeExplorer(fsStub) {
     return new XChainExplorer(app, configInfo);
 }
 
-// Build a minimal mock req for the icon handler
 function makeIconReq(iconPath) {
     return { path: iconPath };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('XChainExplorer#processIconRequest', function () {
-
-    // -----------------------------------------------------------------------
-    // Valid icon path: file exists
-    // -----------------------------------------------------------------------
 
     it('serves the file when icon exists', async function () {
         const existingIcon = '/icon/BTC.png';
@@ -79,10 +66,6 @@ describe('XChainExplorer#processIconRequest', function () {
         expect(res._status).to.equal(200);
     });
 
-    // -----------------------------------------------------------------------
-    // Missing icon: redirect to default
-    // -----------------------------------------------------------------------
-
     it('redirects to /icon/default.png when icon does not exist', async function () {
         const fsStub = { existsSync: sinon.stub().returns(false) };
         const explorer = makeExplorer(fsStub);
@@ -95,10 +78,6 @@ describe('XChainExplorer#processIconRequest', function () {
         expect(res._sentFile).to.be.null;
         expect(res._redirect).to.deep.equal({ code: 302, url: '/icon/default.png' });
     });
-
-    // -----------------------------------------------------------------------
-    // Path traversal: full escape (../../etc/passwd)
-    // -----------------------------------------------------------------------
 
     it('returns 403 for a path traversal that escapes the icons directory', async function () {
         const fsStub = { existsSync: sinon.stub() };
@@ -115,10 +94,6 @@ describe('XChainExplorer#processIconRequest', function () {
         expect(fsStub.existsSync.called).to.be.false;
     });
 
-    // -----------------------------------------------------------------------
-    // Path traversal: stays within icons dir (edge case, should be allowed)
-    // -----------------------------------------------------------------------
-
     it('allows a .. segment that resolves back into the icons directory', async function () {
         // e.g. /icon/BTC/../BTC.png resolves to <icons>/BTC.png which is still inside icons dir
         const fsStub = { existsSync: sinon.stub().returns(true) };
@@ -132,10 +107,6 @@ describe('XChainExplorer#processIconRequest', function () {
         expect(res._status).to.equal(200);
         expect(res._sentFile).to.not.be.null;
     });
-
-    // -----------------------------------------------------------------------
-    // Path traversal: URL-encoded attempt
-    // -----------------------------------------------------------------------
 
     it('returns 403 when the resolved path points outside icons directory via deep traversal', async function () {
         const fsStub = { existsSync: sinon.stub() };

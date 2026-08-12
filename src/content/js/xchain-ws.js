@@ -37,7 +37,7 @@ var XChainWS = {
     subscriptions:        [],
     // Exact decimal STRING from the v2 wire, or null when unseeded. Number() rounded
     // it above 2^53 and the rounded value went back out as since_action_index, so a
-    // reconnect asked for rows after an action never delivered ().
+    // reconnect asked for rows after an action never delivered.
     lastActionIndex:      null,
     reconnectAttempts:    0,
     maxReconnectAttempts: 10,

@@ -20,7 +20,6 @@
 
 'use strict';
 
-// Create an state object with current state info
 async function applyOfferState({ db, config, action_index, type }, data) {
     data['state'] = {
         get_remaining:  data['get_amount'],
@@ -32,7 +31,7 @@ async function applyOfferState({ db, config, action_index, type }, data) {
     }
     delete data['current_status'];
     if(type=='DISPENSER'){
-       // : one shared derivation for both read lanes. What is left in
+       // One shared derivation for both read lanes. What is left in
        // escrow is create + refills - payouts, and this path used to compute
        // it inline from its own edit/dispense queries while the list lane
        // served nothing at all.
@@ -55,7 +54,7 @@ async function applyOfferListEdits({ db, config, coinConfigs, type }, data, resu
     for(let row of results){
         let active = true;
         if(type=='DISPENSER'){
-            // Escrow is derived by getDispenserEscrowBatch above ;
+            // Escrow is derived by getDispenserEscrowBatch above;
             // this loop only advances the expiration / list state.
             // Determine if the allow/block list edits are active using DISPENSER_LIST_DELAY.
             // Use a bignumber comparison (matching the indexer's bcgt-based consensus check)
@@ -127,7 +126,7 @@ async function attachLedgerEffects(db, config, action_index, data, effects, prel
     let flags = effects || {};
     for(let effect of EFFECT_TABLES){
         if(flags[effect.key] === false) continue;
-        // Page-prefetched rows (prefetchLedgerEffects, ). The prefetch is
+        // Page-prefetched rows (prefetchLedgerEffects). The prefetch is
         // driven by these same `effects` flags, so an index that reaches here with a
         // preload in hand was always in that table's prefetched set: a missing map
         // entry means the action has no rows, never "not fetched".
@@ -159,8 +158,8 @@ async function attachLedgerEffects(db, config, action_index, data, effects, prel
 }
 
 // Prefetch the ledger effects for a whole PAGE of actions: one query per effect
-// table over the index set, instead of three queries per action (, the
-// N+1 the concurrent fan-out overlapped but never removed). `indexesByEffect`
+// table over the index set, instead of three queries per action (an N+1 the
+// concurrent fan-out overlapped but never removed). `indexesByEffect`
 // names, per table, only the action_indexes whose handler actually wants that
 // table, so a page of non-ledger actions still issues no query for it.
 //

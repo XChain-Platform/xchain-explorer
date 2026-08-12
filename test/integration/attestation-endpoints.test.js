@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests: attestation endpoints 
+ * Integration tests: attestation endpoints
  *
  * Covers the consolidated `attests` table surfaces: the REST list
  * (/api/attestations with block/address/contract filters), the explorer
@@ -78,10 +78,6 @@ after(async function () {
     this.timeout(10000);
     await db.teardownDatabase();
 });
-
-// ===========================================================================
-// REST list: /api/attestations
-// ===========================================================================
 
 describe('Attestation API (/api/attestations)', function () {
 
@@ -156,10 +152,6 @@ describe('Attestation API (/api/attestations)', function () {
     });
 
 });
-
-// ===========================================================================
-// Explorer DataTables route + HTML page
-// ===========================================================================
 
 describe('Attestation explorer surfaces', function () {
 

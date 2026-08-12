@@ -12,9 +12,9 @@
  *
  **********************************************************************/
 
-// Unit tests for src/fontawesome-kit.js . Two things are load-bearing:
-// the kit token must come from the environment and never from tracked source,
-// and whatever the environment supplies has to stay inert inside a <script>.
+// Unit tests for src/fontawesome-kit.js. Two things are load-bearing: the kit
+// token must come from the environment and never from tracked source, and
+// whatever the environment supplies has to stay inert inside a <script>.
 
 const { expect } = require('chai');
 const fs   = require('fs');

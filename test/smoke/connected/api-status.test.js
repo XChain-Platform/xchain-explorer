@@ -40,10 +40,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// SM-09: Status endpoint responds
-// ---------------------------------------------------------------------------
-
 describe('SM-09: GET /RBTC/api/status', function () {
 
     it('returns 200 with supported and available coins', async function () {
@@ -61,10 +57,6 @@ describe('SM-09: GET /RBTC/api/status', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-10: Network endpoint responds
-// ---------------------------------------------------------------------------
 
 describe('SM-10: GET /RBTC/api/network', function () {
 
@@ -84,10 +76,6 @@ describe('SM-10: GET /RBTC/api/network', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-13: Invalid coin returns correct error
-// ---------------------------------------------------------------------------
 
 describe('SM-13: Invalid coin handling', function () {
 

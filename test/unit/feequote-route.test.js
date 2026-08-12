@@ -9,7 +9,7 @@
  * General Public License v3.0 or later; see LICENSE.md.
  *
  **********************************************************************
- * . The indexer time-boxes its wait for the block-processing
+ * The indexer time-boxes its wait for the block-processing
  * transaction mutex and answers `busy: true, retryable: true` rather
  * than queueing behind a whole block. This hop absorbs that answer:
  * the wallet reads /feequote on every fee-bearing compose with no
@@ -51,7 +51,7 @@ async function call(ctx, query, params = { coin: 'RBTC' }) {
 const BUSY = { supported: true, action: 'ISSUE', valid: false, busy: true, retryable: true, retryAfterMs: 2000, error: 'fee quote busy (the indexer is processing a block ...); retry shortly' };
 const QUOTE = { supported: true, action: 'ISSUE', valid: true, requiredFeeSats: 2000 };
 
-describe('processFeeQuoteRequest busy-retry ', function () {
+describe('processFeeQuoteRequest busy-retry', function () {
     // Keep the budget tiny so the retry loop is a unit test, not a wait.
     let prevBudget;
     beforeEach(() => { prevBudget = process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS; process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS = '900'; });

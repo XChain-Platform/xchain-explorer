@@ -26,10 +26,6 @@ const sinon      = require('sinon');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
-// ---------------------------------------------------------------------------
-// Database factory: stubbed so no real DB connection needed
-// ---------------------------------------------------------------------------
-
 function makeDb() {
     const Database = require('../../src/db.js');
     const Utility  = require('../../src/utility.js');
@@ -39,7 +35,6 @@ function makeDb() {
     return new Database(explorer);
 }
 
-// Helper to build offset config
 function cfgOffset(method, action, start, stop) {
     return makeConfig({
         data: {
@@ -48,10 +43,6 @@ function cfgOffset(method, action, start, stop) {
         }
     });
 }
-
-// ===========================================================================
-// getQueryOffsetSql: Parameterized Offsets
-// ===========================================================================
 
 describe('Security: SQL Injection: Offset Parameterization', function () {
 
@@ -112,10 +103,6 @@ describe('Security: SQL Injection: Offset Parameterization', function () {
         expect(Number.isFinite(args[0])).to.be.true;
     });
 });
-
-// ===========================================================================
-// getQuery: Order and Limit Validation
-// ===========================================================================
 
 describe('Security: SQL Injection: Order/Limit Validation', function () {
 
@@ -194,10 +181,6 @@ describe('Security: SQL Injection: Order/Limit Validation', function () {
     });
 });
 
-// ===========================================================================
-// getQueryWhereSql: Parameterized WHERE Clauses
-// ===========================================================================
-
 describe('Security: SQL Injection: WHERE clause parameterization', function () {
 
     let db;
@@ -243,10 +226,6 @@ describe('Security: SQL Injection: WHERE clause parameterization', function () {
     });
 });
 
-// ===========================================================================
-// getSearch: LIKE query escaping
-// ===========================================================================
-
 describe('Security: SQL Injection: LIKE wildcard escaping', function () {
 
     let db;
@@ -271,10 +250,6 @@ describe('Security: SQL Injection: LIKE wildcard escaping', function () {
         expect(escaped).to.not.match(/^%/); // no unescaped leading %
     });
 });
-
-// ===========================================================================
-// sanitizeInt: Defense-in-depth integer validation
-// ===========================================================================
 
 describe('Security: sanitizeInt defense-in-depth', function () {
 
@@ -323,10 +298,6 @@ describe('Security: sanitizeInt defense-in-depth', function () {
         expect(db.util.sanitizeInt('abc', false)).to.equal(false);
     });
 });
-
-// ===========================================================================
-// getData: offset args merging
-// ===========================================================================
 
 describe('Security: getData merges offset args safely', function () {
 

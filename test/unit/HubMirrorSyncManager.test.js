@@ -44,7 +44,7 @@ function load({ env = {} } = {}) {
     }
     FakeSync.ensureTables = sinon.stub().callsFake(async () => { order.push('ensureTables'); });
 
-    //  drift reconciler: must run after ensureTables (tables exist) and
+    // Drift reconciler: must run after ensureTables (tables exist) and
     // before syncStart (the client's column cache must see the migrated shape).
     const ensureMirrorColumns = sinon.stub().callsFake(async () => { order.push('ensureMirrorColumns'); return []; });
 

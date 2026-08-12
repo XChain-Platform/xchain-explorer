@@ -117,7 +117,7 @@ const REQUIRED_VM_CONSENSUS_VERSION = '3';
 // Exports only a contract-era VM carries. Presence, not value: the values are
 // frozen by the VM's own determinism goldens, and pinning them here would put
 // every flag-day into this file. A VM predating the contract era (the drift
-//  measured on the live explorer: an index.js a quarter the canonical
+// once measured on the live explorer: an index.js a quarter the canonical
 // size, zero gate constants) is missing all of them.
 const REQUIRED_VM_CONSENSUS_EXPORTS = [
     'CONSENSUS_VERSION',
@@ -128,8 +128,7 @@ const REQUIRED_VM_CONSENSUS_EXPORTS = [
     'PKG3_SANDBOX_ACTIVATION'
 ];
 
-// Fail-closed consensus gate on the VENDORED VM, evaluated once at load
-// ().
+// Fail-closed consensus gate on the VENDORED VM, evaluated once at load.
 //
 // The deployed public explorer is a systemd unit, not a container, so the fleet
 // flag-day checker cannot reach it, and its vendored xchain-vm sat at a quarter
@@ -139,8 +138,8 @@ const REQUIRED_VM_CONSENSUS_EXPORTS = [
 // That check is external and read-only, so it can be skipped: an operator who
 // sets EXPLORER_VM_QUERY_ENABLED without running it would have the explorer
 // simulate contract calls in a VM with none of the contract-era gates, and
-// answer with numbers no indexer agrees with, on the same service that serves
-// the  contract-state proofs. This makes the check unskippable for the
+// answer with numbers no indexer agrees with, on the same service that also
+// serves contract-state proofs. This makes the check unskippable for the
 // answers that matter: a drifted VM refuses to simulate instead of simulating
 // wrongly.
 //
@@ -276,7 +275,7 @@ async function simulate(db, config, contractIndex, body, chain, network, clientI
         throw new VmQueryError('VM_QUERY_DISABLED', 'contract simulation is disabled on this explorer', 503);
     // Before the request is even parsed: a drifted VM is refusing to serve at
     // all, so a malformed body must not be answered as a 400 by a service that
-    // could not have run the call anyway ().
+    // could not have run the call anyway.
     if(vmConsensusFault)
         throw new VmQueryError('VM_QUERY_VM_DRIFT',
             'contract simulation is disabled: ' + vmConsensusFault +

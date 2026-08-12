@@ -108,12 +108,8 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Contract permissions manifest
-// ===========================================================================
-
 // action_index is a DECIMAL STRING on the wire, not a number. These two cases
-// asserted the number until : 9fe00ec had coerced getContract's BIGINT
+// asserted the number until commit 9fe00ec had coerced getContract's BIGINT
 // with Number() to satisfy them, three days before 38cc1d9 standardized
 // BIGINT-as-string across REST and WS as an explicit BREAKING CHANGE. The
 // coercion is the remnant, so the assertions move to the standardized type
@@ -137,10 +133,6 @@ describe('Contract API (/api/contract/{idx}): permissions manifest', function ()
         expect(res.body.max_take_bps).to.equal(null);
     });
 });
-
-// ===========================================================================
-// Token controller bindings
-// ===========================================================================
 
 describe('Token API (/api/token/{tick}): controllers[]', function () {
 
@@ -173,10 +165,6 @@ describe('Token API (/api/token/{tick}): controllers[]', function () {
         expect(res.body.controllers).to.be.an('array').with.lengthOf(0);
     });
 });
-
-// ===========================================================================
-// Address controller bindings
-// ===========================================================================
 
 describe('Address API (/api/address/{addr}): controllers[]', function () {
 

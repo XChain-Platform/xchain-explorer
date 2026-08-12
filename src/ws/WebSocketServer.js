@@ -77,7 +77,7 @@ class WebSocketServer {
         // maxPayload MUST be set here: ws copies it into each connection's Receiver
         // during handleUpgrade (websocket-server.js -> ws.setSocket), and the Receiver
         // is the only thing that reads it. Setting it on the WebSocket afterwards is
-        // dead, which left the endpoint on the 100 MB library default ().
+        // dead, which left the endpoint on the 100 MB library default.
         this.wss = new WSServer({ noServer: true, maxPayload: this.maxMessageSize });
 
         this.wss.on('connection', (ws, req, clientInfo) => {
@@ -207,11 +207,11 @@ class WebSocketServer {
     // Is this coin's indexed tip too old for the WS layer to answer a
     // current-state question about it?
     //
-    // The HTTP path has refused to serve a frozen replica since 
+    // The HTTP path has refused to serve a frozen replica
     // (XChainExplorer.processRequest -> 503 COIN_DATA_STALE), but every WS
     // serving boundary skipped that gate, so a replica whose producer reports
     // replica_stale kept answering WELCOME/CATCH_UP/SNAPSHOT out of frozen
-    // tables, stamped with a current `timestamp` and no marker ().
+    // tables, stamped with a current `timestamp` and no marker.
     //
     // Reads through db.isCoinTipStale, which is per-coin, 15s-cached and already
     // fails closed on an unreadable tip, so calling it per emit costs no query.
@@ -248,7 +248,7 @@ class WebSocketServer {
         // WS_SCHEMA_VERSION bump (ws/schema-version.js states the rule), and it
         // carries the same name and meaning as the `stale` map /status publishes
         // over HTTP. Chain DATA is a different question and does fail closed: see
-        // _handleCatchUp and _sendSnapshots ().
+        // _handleCatchUp and _sendSnapshots.
         const tipStale = await this._isCoinTipStale(client.coin);
 
         const welcome = {
@@ -294,7 +294,7 @@ class WebSocketServer {
                 // advertised contract so clients cannot rely on it. The filter
                 // mechanism still runs for events that do carry a status (e.g.
                 // lifecycle/COINPAY frames); it is simply not advertised.
-                // 'ticks' is omitted for the same reason (#3860): getActionsSince
+                // 'ticks' is omitted for the same reason: getActionsSince
                 // selects no tick/give_tick/get_tick column, so Broadcaster's
                 // `if (tick && ...)` check never fires on the actions channel, the
                 // only channel ChannelManager.subscribe attaches a ticks filter to.
@@ -341,7 +341,7 @@ class WebSocketServer {
         // Defense-in-depth: the ws surface is unauthenticated, and a synchronous
         // throw from any action handler escapes to `ws.on('message', ...)` with no
         // uncaughtException handler installed, terminating the process (a single
-        // frame becomes a crash-loop DoS, #3135). Individual handlers validate
+        // frame becomes a crash-loop DoS). Individual handlers validate
         // their input, but wrap the whole dispatch so any residual synchronous
         // throw returns an error frame and is logged, rather than killing the node.
         try {
@@ -398,14 +398,14 @@ class WebSocketServer {
             return;
         }
 
-        // : still accept a `statuses` filter (non-breaking: ChannelManager keeps
+        // Still accept a `statuses` filter (non-breaking: ChannelManager keeps
         // validating and storing it), but it is a no-op on every event this server
         // currently produces (action.status is a literal SQL NULL from db.js
         // getActionsSince, so Broadcaster._passesFilter's status check never fires).
         // Surface that as `ignored_filters` so a client that sent it can observe the
         // no-op instead of silently getting nothing. Same params object for the whole
         // subscribe() call, so this is constant across every confirmation below.
-        // `ticks` joins it for the same reason (#3860): no action frame carries a
+        // `ticks` joins it for the same reason: no action frame carries a
         // tick field, so the ticks check never fires either.
         const ignored = [];
         if (params.statuses) ignored.push('statuses');
@@ -515,7 +515,7 @@ class WebSocketServer {
         // BigInt, not Number: the client sends its cursor as the decimal string the v2
         // wire contract gave it, and Number() rounded it above 2^53 ("9007199254740995"
         // -> 9007199254740996), so the replay asked for rows AFTER an action the client
-        // had never seen and skipped it silently (). The regex above already
+        // had never seen and skipped it silently. The regex above already
         // proved the value is a non-negative integer literal, so BigInt() cannot throw.
         const sinceBig = BigInt(sinceActionIndex);
 
@@ -534,7 +534,7 @@ class WebSocketServer {
         // CATCH_UP_COMPLETE whose latest_action_index the client then treats as
         // caught-up, so the gap never heals. Refused through the same error frame
         // and requestId the depth gate below uses, so no new frame type or schema
-        // version is involved ().
+        // version is involved.
         if (await this._isCoinTipStale(client.coin)) {
             this._sendError(client, 'COIN_DATA_STALE',
                 'Indexed data for this coin is stale beyond its maximum tip age; refusing to replay it as current.',
@@ -640,7 +640,7 @@ class WebSocketServer {
         // COIN_DATA_STALE. A SNAPSHOT is the WS answer to "what is the current
         // state of this address/token/market", and on a stale replica it answered
         // out of frozen tables stamped `timestamp: Date.now()` with no marker: a
-        // balance the chain has since moved, presented as live ().
+        // balance the chain has since moved, presented as live.
         // Withheld, not annotated, because the HTTP read of the same rows is
         // already refused and a subscriber must not get a different answer for the
         // same question over a different transport. One error frame carries the

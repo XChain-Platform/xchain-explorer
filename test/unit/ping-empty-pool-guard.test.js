@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * : the JSON-RPC `ping` probe guarded its SELECT 1 behind
+ * The JSON-RPC `ping` probe guarded its SELECT 1 behind
  * `if(coin)` and then returned status:'success'/db:true unconditionally, so
  * an empty connection-pool map (a cold start before explorer.init() finishes,
  * or a recreated container that cannot reach the hub for config) reported a
@@ -29,7 +29,7 @@ const { expect } = require('chai');
 const fs   = require('fs');
 const path = require('path');
 
-describe('explorer ping empty-pool guard ()', function () {
+describe('explorer ping empty-pool guard', function () {
 
     const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
     const handler = src.slice(src.indexOf('async ping(params, {res})'),

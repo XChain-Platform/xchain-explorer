@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * : setupConnectionPools() must not orphan pool handles on re-entry.
+ * setupConnectionPools() must not orphan pool handles on re-entry.
  *
  * _rebuildPoolsIfStale() re-enters setup as a lazy recovery path whenever a
  * query finds no pool, throttled to once per 10 seconds. Every pool handle the
@@ -54,7 +54,7 @@ function configWithDedicatedDecoderCreds() {
     return cfg;
 }
 
-describe(' setupConnectionPools does not orphan pools on re-entry', function () {
+describe('setupConnectionPools does not orphan pools on re-entry', function () {
 
     let mockMariadb, Database, createdPools;
 
@@ -73,7 +73,7 @@ describe(' setupConnectionPools does not orphan pools on re-entry', function () 
                 return pool;
             })
         };
-        Database = proxyquire(process.env.XC694_DB_SRC || '../../src/db.js', { mariadb: mockMariadb });
+        Database = proxyquire(process.env.POOL_REBUILD_TEST_DB_SRC || '../../src/db.js', { mariadb: mockMariadb });
     });
 
     afterEach(function () {
@@ -105,7 +105,7 @@ describe(' setupConnectionPools does not orphan pools on re-entry', function () 
         for (const pool of firstRoundDecoderPools) {
             expect(pool.end.callCount).to.equal(1,
                 'a decoder pool was dropped without end(); its connections leak ' +
-                'until the process exits ');
+                'until the process exits');
         }
     });
 

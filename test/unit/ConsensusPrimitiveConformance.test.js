@@ -14,7 +14,7 @@
 
 'use strict';
 
-// Cross-service conformance guard (item 4535). The stake-weighted quorum
+// Cross-service conformance guard. The stake-weighted quorum
 // predicate and the equivocation-header builder are CONSENSUS-CRITICAL and
 // vendored byte-identically into five services (xchain-hub, xchain-indexer,
 // xchain-explorer, xchain-sdk, xchain-sync); a divergence in their logic forks

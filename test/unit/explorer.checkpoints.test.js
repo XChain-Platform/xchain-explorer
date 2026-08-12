@@ -37,7 +37,7 @@ const eq   = require('../../src/equivocation_header.js');
 const swq  = require('../../src/stake_weighted_quorum.js');
 const ckpt = require('../../src/checkpoint_commitment_activation.js');
 
-// ── Load XChainExplorer with heavy deps replaced ────────────────────────────
+// Load XChainExplorer with heavy deps replaced.
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express = () => mockApp;
 express.static = () => {};
@@ -51,7 +51,7 @@ const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'fs': { existsSync: () => true, readFileSync: () => 'mock' }
 });
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 function makeExplorer() {
     const explorer = new XChainExplorer(mockApp, createConfigInfoStub());
     explorer.db.pools = { BTC: {} };                       // BTC is a known coin
@@ -83,9 +83,7 @@ beforeEach(function () {
 });
 afterEach(function () { sinon.restore(); });
 
-// ===========================================================================
 // GET /{COIN}/api/checkpoints
-// ===========================================================================
 describe('XChainExplorer.processCheckpointsRequest', function () {
 
     it('404s an unknown coin', async function () {
@@ -117,7 +115,7 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
         expect(explorer.db.getCheckpointRows.secondCall.args[2]).to.equal(100); // clamped
     });
 
-    // . A malformed ?limit now 400s rather than being coerced by parseInt's
+    // A malformed ?limit now 400s rather than being coerced by parseInt's
     // leading-prefix rule, matching processCheckpointVerifyRequest's INVALID_BLOCK_INDEX
     // guard on the sibling route. This replaces the old "-5 clamps to 1" expectation:
     // a negative is malformed input, not a value to silently repair.
@@ -166,9 +164,7 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
     });
 });
 
-// ===========================================================================
 // GET /{COIN}/api/checkpoint/{blockIndex}/verify
-// ===========================================================================
 describe('XChainExplorer.processCheckpointVerifyRequest', function () {
 
     // Pin the commitment flag-day off by default so the rootless CP fixture reads as a
@@ -336,7 +332,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.verified).to.equal(false);
     });
 
-    it('a mirrored row with NO amount serves weight null and fails the weighted verdict closed ', async function () {
+    it('a mirrored row with NO amount serves weight null and fails the weighted verdict closed', async function () {
         // capability_snapshots.amount is NOT NULL, so this row can only come from a
         // corrupt mirror. Resolving it to '0' (the old behavior) was the dangerous
         // repair: the source stays in the quorum's dedupe map with no stake, so the
@@ -398,9 +394,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
 });
 
 
-// ===========================================================================
-// Canonical-string byte-parity vs the SDK builder (4th-copy drift guard)
-// ===========================================================================
+// Canonical-string byte-parity vs the SDK builder (4th-copy drift guard).
 // The XCHECKPOINT canonical is independently reconstructed in FOUR places (hub
 // engine, SDK checkpoint.js, indexer anchor.js, and the explorer's
 // canonicalCheckpointString). The cross-service parity suite compares only
@@ -458,7 +452,7 @@ describe('explorer canonicalCheckpointString == SDK canonicalCheckpoint @regress
     }
 
     // The verify route builds the canonical from the row _normalizeCheckpointRows
-    // returns, whose indices are now decimal strings rather than Numbers (#2019).
+    // returns, whose indices are decimal strings rather than Numbers.
     // The canonical String()s every index and the flag-day gates parseInt them, so
     // the signed bytes must be identical under either typing. Pin that: it is what
     // makes the wire-type change consensus-neutral.

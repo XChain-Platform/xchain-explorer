@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * BET cancel / resolve legs report a real status .
+ * BET cancel / resolve legs report a real status.
  *
  * BET is one action name over four formats. Create (0) and place (2) each own a
  * row that stores the action's PARSE status, so this endpoint has always served
@@ -20,7 +20,7 @@
  * ONLY on the valid path. So the action's `status` came back NULL for both legs,
  * whatever actually happened on chain, and the SDK could not tell a rejection from
  * a success - it reports statusKnown:false / statusSource:assumed for exactly this
- * case (, the honesty fix that this one makes unnecessary for BET).
+ * case, a fallback this fix makes unnecessary for BET.
  *
  * The indexer now writes bet_cancels / bet_resolves rows for both legs whatever the
  * status. These tests pin the reader half: the status reaches the payload, and the
@@ -85,7 +85,7 @@ const typeRow = ['LEFT  JOIN index_actions a2 ON (a2.id=a1.action_id)\n         
 
 const config = { coin: 'BTC', data: {} };
 
-describe('BET cancel/resolve action status  @regression', function () {
+describe('BET cancel/resolve action status @regression', function () {
 
     it('joins the two leg tables and coalesces their parse status into the action status', async function () {
         const db = makeDb([typeRow, ['bet_cancels', [legRow()]]]);

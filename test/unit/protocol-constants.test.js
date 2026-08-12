@@ -49,9 +49,9 @@ describe('protocol/constants', function () {
     });
 
     it('shapes the genesis-testnet activation maps as {mainnet>0, testnet:0, regtest:0}', function () {
-        // CHECKPOINT_COMMITMENT_ACTIVATION is deliberately excluded:  lead
-        // 0e418c8c armed its testnet to 146000 (the SPV root suffix must not be
-        // signed before every chain is past its STATE_COMMITMENT height).
+        // CHECKPOINT_COMMITMENT_ACTIVATION is deliberately excluded here: its testnet
+        // activation is armed to 146000, not 0, because the SPV root suffix must not
+        // be signed before every chain has passed its STATE_COMMITMENT height.
         for (const name of ['STAKE_WEIGHTED_QUORUM_ACTIVATION', 'EQUIV_HEADER_ACTIVATION', 'ANCHOR_REWARD_ACTIVATION']) {
             const m = C[name];
             assert.ok(m && typeof m === 'object', `${name} must be a map`);
@@ -61,7 +61,7 @@ describe('protocol/constants', function () {
         }
     });
 
-    it('CHECKPOINT_COMMITMENT_ACTIVATION arms testnet at 146000, regtest at genesis ( keying-skew fix)', function () {
+    it('pins CHECKPOINT_COMMITMENT_ACTIVATION at mainnet 961000, testnet 146000, regtest 0', function () {
         const m = C.CHECKPOINT_COMMITMENT_ACTIVATION;
         assert.ok(m && typeof m === 'object', 'CHECKPOINT_COMMITMENT_ACTIVATION must be a map');
         // Pin the exact armed mainnet flag-day (BTC anchor ~2026-08-04); `> 0` let a

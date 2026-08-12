@@ -31,7 +31,7 @@ const actionDetail = require('./action-detail');
 // instance is no longer serving current data for a coin. Deliberately far above
 // every chain's normal inter-block gap (BTC ~10min): a fail-closed gate that
 // delists a quiet-but-healthy chain is worse than one that trails an outage by
-// hours, and the freezes this catches ran 55 hours and 33 days ().
+// hours, and the freezes this catches ran 55 hours and 33 days in practice.
 const TIP_MAX_AGE_DEFAULT_S = 21600;
 
 // TTL of the cached per-coin tip-staleness verdict. Short enough that a freeze
@@ -176,21 +176,15 @@ class Database {
     // rows written after the action confirmed, so caching one freezes it: the
     // action LRU has no TTL and is invalidated only by a reorg.
     //
-    // : a NOT-FOUND is not immutable either, and it was being cached.
-    // getActionData builds `{credits,debits,escrows,fee}` all null and skips
-    // every query when getActionType finds no row - which is the normal state of
-    // an action_index in the seconds between its block landing and the indexer
-    // writing its typed row. That blank has no `state` block, so it passed this
-    // guard and was memoized FOREVER: no TTL, reorg-only invalidation. Anyone
-    // who asked one moment too early - the explorer's own action page on a
-    // refresh, or sdk.waitForActionIndex(), which polls this endpoint every 2s
-    // precisely because the action is not there yet - permanently blanked that
-    // action for every later reader. Measured on BTC regtest: actions 2204-2206
-    // returned an empty body while the identical detail SQL, run against the
-    // same database, returned full rows.
-    // A real response always carries `action_index` (every handler selects it,
-    // and deblankBaseline supplies it for a row-less variant), so its absence is
-    // exactly the not-found case and nothing else.
+    // A NOT-FOUND response is not immutable either. When getActionType finds no
+    // row yet (the normal state of an action_index in the seconds between its
+    // block landing and the indexer writing its typed row), getActionData
+    // builds an all-null response with no `state` block, so it used to pass
+    // this guard and get memoized forever with no TTL and reorg-only
+    // invalidation - permanently blanking the action for anyone who asked one
+    // moment too early. A real response always carries `action_index` (every
+    // handler selects it, and deblankBaseline supplies it for a row-less
+    // variant), so its absence is exactly the not-found case and nothing else.
     _isCacheableAction(data){
         if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
         return this.util.isNull(data['state']);
@@ -308,11 +302,11 @@ class Database {
         // exits, and MariaDB hits its max_connections ceiling in minutes
         // once refresh is active.
         //
-        // : decoderPools was missed when the guard above was first written,
-        // and it is the DEFAULT shape rather than an edge case, because
-        // xchain-node installs provision per-service DB users and so always take
-        // the dedicated-pool branch below. _rebuildPoolsIfStale() re-enters here
-        // as often as every 10s, so the omission leaked the decoder pool's 3
+        // decoderPools was missed when the guard above was first written, and it
+        // is the DEFAULT shape rather than an edge case, because xchain-node
+        // installs provision per-service DB users and so always take the
+        // dedicated-pool branch below. _rebuildPoolsIfStale() re-enters here as
+        // often as every 10s, so the omission leaked the decoder pool's 3
         // connections per coin per rebuild: one live regtest explorer had
         // accumulated 870 of that server's 1000 connections over four days, which
         // surfaced as OTHER services being unable to connect at all.
@@ -333,18 +327,16 @@ class Database {
         // Per-coin checkpoint-source database: the MANDATORY co-located hub DB for
         // serving the hub-mirrored tables (state_checkpoints, capability_snapshots,
         // cross_chain_matches, price_snapshots, oracle_prices). xchain-sync excludes
-        // these tables from every snapshot
-        // and stream, so a serving node has no replicated copy: it MUST read them from
-        // the hub DB on the same server, declared via a per-network `checkpoint` config
-        // block. Like decoderDb, it is honored only when it shares server + credentials
-        // with the indexer pool, and is read with a database-qualified query filtered by
-        // chain/network (the hub table carries every chain; the per-coin endpoints must
-        // not leak siblings). This is now a hard requirement, not an optional override:
-        // when a serving coin has no entry here, _checkpointSource / _matchSource /
-        // _oracleMirrorSource throw
-        // (fail loud) instead of falling back to a stale local mirror (#4138), and
-        // _assertCheckpointDbForServingCoins() turns the same gap into a fatal startup
-        // error so a misconfigured thin replica never silently serves empty hub data.
+        // these tables from every snapshot and stream, so a serving node has no
+        // replicated copy and MUST read them from the hub DB on the same server via a
+        // per-network `checkpoint` config block, honored only when it shares server +
+        // credentials with the indexer pool and read database-qualified, filtered by
+        // chain/network so the per-coin endpoints don't leak siblings. This is a hard
+        // requirement: a serving coin with no entry here makes _checkpointSource /
+        // _matchSource / _oracleMirrorSource throw instead of falling back to a stale
+        // local mirror, and _assertCheckpointDbForServingCoins() turns the same gap
+        // into a fatal startup error so a misconfigured thin replica never silently
+        // serves empty hub data.
         this.checkpointDb = {};
         // Per-key base chain name (RBTC → 'BTC'), used by the project-registry
         // queries to honor only same-chain LINKs (LINK skips owner validation
@@ -597,8 +589,8 @@ class Database {
         let data  = [];
         let total = null;
 
-        // Short-TTL result cache for the unauthenticated filesort-heavy list paths
-        // (items 5338, ). getHolders sorts by ABS(amount) on a VARCHAR column,
+        // Short-TTL result cache for the unauthenticated filesort-heavy list paths.
+        // getHolders sorts by ABS(amount) on a VARCHAR column,
         // getBalances sorts by tick across a balances/tokens join, and getTokens is a
         // multi-table join whose token/subtoken search is a leading-% LIKE: none of
         // these have an index-only path, so each call to the public /api or /explorer
@@ -669,7 +661,7 @@ class Database {
                 total = (rows) ? Number(rows[0].total) : 0;
             }
         }
-        // : the dispenser list lane served no escrow at all, so a client
+        // The dispenser list lane used to serve no escrow at all, so a client
         // listing dispensers could not say how full any of them was. give_escrow
         // now comes back with the row and the live remainder is derived here
         // through the same shared method the per-action detail path uses (one
@@ -681,7 +673,7 @@ class Database {
                 row.escrow_remaining = (entry) ? entry.escrow_remaining : null;
             }
         }
-        // : /validators stays the ONE validator table (no second federation-registry
+        // /validators stays the ONE validator table (no second federation-registry
         // page), so every on-chain active-set row also carries the hub registry's view of
         // the same signing pubkey: network addr, served chains, registration status. One
         // registry read serves the whole page, not a lookup per row. A pubkey the hub does
@@ -698,9 +690,9 @@ class Database {
                 row.hub_status = (entry) ? entry.status : (registry ? 'unregistered' : null);
             }
         }
-        // Populate the result cache (items 5338, ). Cap each map and evict the
-        // oldest entry on overflow so a flood of distinct ticks/addresses/pages cannot
-        // grow the cache without bound.
+        // Populate the result cache. Cap each map and evict the oldest entry on
+        // overflow so a flood of distinct ticks/addresses/pages cannot grow the
+        // cache without bound.
         if(cacheKey !== null){
             const envPrefix = RESULT_CACHES[config.data.method][1];
             const MAX = parseInt(process.env[envPrefix + '_MAX'], 10) || 500;
@@ -839,7 +831,7 @@ class Database {
         // and mappings_files action_index is declared NOT NULL, so that anchor is
         // deliberately always-true and filters nothing; the address_id and
         // block_index branches below anchor on nullable columns and do drop
-        // orphan rows. Do not read either as a state filter ().
+        // orphan rows. Do not read either as a state filter.
         let sql    = `m.action_index IS NOT NULL`;
         let type   = config.data.type;
         let method = config.data.method;
@@ -1060,9 +1052,9 @@ class Database {
                 sql += ' AND a2.address=?';
             // getDispensers only: the oracle lane answers "which dispensers price
             // against this ORACLE_ADDRESS", which is what an oracle operator needs
-            // before republishing a quote (PC-30) and who pays them the 
-            // usage fee. Resolved by subselect rather than through the a5 join the
-            // row query uses, because the count query carries no a5.
+            // before republishing a quote (PC-30) and who pays them the usage fee.
+            // Resolved by subselect rather than through the a5 join the row query
+            // uses, because the count query carries no a5.
             if(type=='oracle' && method=='getDispensers')
                 sql += ' AND m.oracle_address_id=(SELECT id FROM index_addresses WHERE address=?)';
             // getDispenses only: the fills of ONE dispenser, keyed by the
@@ -4718,7 +4710,7 @@ class Database {
      *****************************************************************/
 
     // Extract the revoke target of a DELEGATE v2/v3 from the transaction's decoded
-    // action string . Returns { pubkey } for v2 (capability revoke) and
+    // action string. Returns { pubkey } for v2 (capability revoke) and
     // { pubkey, target, tick } for v3 (contract-targeted revoke), or null when the
     // wire is absent/unparseable. Locates the `DELEGATE|<fmt>|...` segment so it works
     // for a standalone DELEGATE and one nested in a BATCH (`VERSION|CMD;CMD`); the
@@ -4851,8 +4843,8 @@ class Database {
         return (key in heads) ? heads[key] : action_index;
     }
 
-    // Is the  list-edit read resolution active for this coin at the CURRENT
-    // TIP? Every display that resolves an edit chain asks this first, because
+    // Is list-edit read resolution active for this coin at the CURRENT TIP?
+    // Every display that resolves an edit chain asks this first, because
     // below the flag day consensus still reads the pinned create's rows and the
     // explorer must not advertise a rule the chain is not applying yet. An
     // unresolvable coin/network is treated as inactive (the safe side).
@@ -4866,7 +4858,7 @@ class Database {
         return listEditResolution.isListEditResolutionActive(tip, resolved.network, resolved.coin);
     }
 
-    // Current membership of the list a LIST action belongs to ( display leg).
+    // Current membership of the list a LIST action belongs to (the display leg).
     //
     // A LIST edit writes the resulting membership under the EDIT's own
     // action_index and never touches the parent's rows, so the create's
@@ -4905,8 +4897,8 @@ class Database {
         return state;
     }
 
-    // @param {object} preload  optional page-level prefetch from _buildActionPreload
-    //                          (). Every leg it carries is OPTIONAL: an
+    // @param {object} preload  optional page-level prefetch from _buildActionPreload.
+    //                          Every leg it carries is OPTIONAL: an
     //                          index or tx_hash it does not cover falls through to
     //                          the single-index query, so the payload is the same
     //                          whether the preload is present, partial, or absent.
@@ -4932,7 +4924,7 @@ class Database {
             fee:    null
         };
         // Use the page preload only for the indexes it actually prefetched; anything
-        // else runs the per-index queries exactly as before ().
+        // else runs the per-index queries exactly as before.
         let pre  = (preload && preload.indexes && preload.indexes.has(Number(action_index))) ? preload : null;
         let type = (pre && pre.types.has(Number(action_index)))
             ? pre.types.get(Number(action_index))
@@ -4941,7 +4933,7 @@ class Database {
             // Per-action detail is a registry (src/action-detail/), not an
             // if-chain: one handler per action type owns its SQL and its result
             // shaping, so a new action adds a handler file entry instead of
-            // editing the middle of this method . Everything below is
+            // editing the middle of this method. Everything below is
             // the part every action shares - run the detail query, de-blank a
             // row-less variant, run the follow-ups, attach ledger effects - with
             // the handler's hooks called at the points where actions differ.
@@ -4995,18 +4987,13 @@ class Database {
             data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
         }
         // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry).
-        //
-        // Skip anything carrying a live `state` block. DISPENSER, ORDER and SWAP
-        // responses derive give_remaining / status / expiration / allow_list /
-        // block_list from rows written AFTER the action confirmed, and the cache
-        // has no TTL and is only invalidated by a reorg, so a cached entry froze
-        // that state for the life of the process. Measured on regtest: a dispenser
-        // drained by four fills and closed by the indexer kept serving
-        // `give_remaining: 200, status: open` until the explorer was restarted,
-        // and restarting alone (no chain change) corrected it to `0, empty`. The
-        // wallet's dispenser detail page reads this endpoint, so a buyer was shown
-        // an open dispenser with a full escrow and could pay one that dispenses
-        // nothing.
+        // Skip anything carrying a live `state` block: DISPENSER, ORDER and SWAP responses
+        // derive give_remaining / status / expiration / allow_list / block_list from rows
+        // written AFTER the action confirmed, and the cache has no TTL, so a cached entry
+        // would freeze that state for the process lifetime (previously measured on regtest:
+        // a fully-drained, closed dispenser kept serving `give_remaining: 200, status: open`
+        // until the explorer restarted, letting the wallet's detail page show a buyer an
+        // open dispenser they could pay for nothing).
         if(this._isCacheableAction(data))
             this._cacheSet(this._actionDataCache, this._cacheKey(config.coin, action_index), structuredClone(data));
         return data;
@@ -5228,7 +5215,7 @@ class Database {
         return [data, total];
     }
 
-    // Action type + owning transaction hash for a SET of action_indexes ().
+    // Action type + owning transaction hash for a SET of action_indexes.
     // Mirrors getActionType's join and adds the transactions / index_transactions hop
     // getTransactionData keys on, so one query gives a page both the type it dispatches
     // the handler on and the tx_hash it prefetches transactions by.
@@ -5262,7 +5249,7 @@ class Database {
         return map;
     }
 
-    // Batched getActionFeeData (). Same SELECT list, same order, same joins;
+    // Batched getActionFeeData. Same SELECT list, same order, same joins;
     // action_index rides along last and is deleted, so a surviving row is key-for-key
     // what the single-index query returns. Returns a Map of action_index -> fee row.
     async getActionFeeDataBatch(config, action_indexes){
@@ -5304,7 +5291,7 @@ class Database {
         return map;
     }
 
-    // Batched getTransactionData (), keyed by tx_hash rather than action_index
+    // Batched getTransactionData, keyed by tx_hash rather than action_index
     // because that is what the single-hash query takes. Every REQUESTED hash gets an
     // entry (null when the row is absent), so a caller can treat map.has() as authority
     // and only fall back for a hash the page never prefetched.
@@ -5334,7 +5321,7 @@ class Database {
         return map;
     }
 
-    // Build the page-level preload getActionData reads its shared legs from ().
+    // Build the page-level preload getActionData reads its shared legs from.
     // Six queries for the whole page in place of six per action: one meta query for type
     // and tx_hash, up to three ledger-effect queries, one fee query, one transaction
     // query. The effect prefetch is narrowed by each index's handler `effects` flags,
@@ -5395,7 +5382,7 @@ class Database {
             let key = Number(idx);
             if(!seen.has(key)){ seen.add(key); distinct.push(idx); }
         }
-        // Shared-leg prefetch (). Overlapping the fan-out hid the latency but
+        // Shared-leg prefetch. Overlapping the fan-out hid the latency but
         // left the page's DB work at O(actions x queries): every index still ran its
         // own type, three ledger-effect, fee and transaction queries. Those legs are
         // identical in shape for every action, so the page runs each of them ONCE over
@@ -5846,7 +5833,7 @@ class Database {
     }
 
     /**
-     * Live escrow for one or more dispensers .
+     * Live escrow for one or more dispensers.
      *
      * The ONLY dispenser-escrow derivation in this service. A dispenser holds no
      * escrow column: what is left is the valid create row's GIVE_ESCROW, plus the
@@ -6128,7 +6115,7 @@ class Database {
     // Fails closed on a missing, zero, or unparseable block_time, which is what a
     // never-bootstrapped or unreadable replica looks like. decoder_lag_blocks
     // cannot see this: it is an intra-replica difference that reads 0 whenever the
-    // indexer and decoder freeze together ().
+    // indexer and decoder freeze together.
     /**
      * @param {string} coin coin code
      * @param {number|null} blockTimeSec unix seconds of the newest indexed block
@@ -6233,8 +6220,8 @@ class Database {
     // Cached per coin for MEMPOOL_COUNT_CACHE_MS (default 15s, same pattern as
     // getFeeEstimate's _feeCache): the count backs the unauthenticated coin
     // homepage / network stats, and an uncached COUNT(*) on a busy mempool table
-    // is a full-scan the public read path can be made to repeat on every hit
-    // . A stale prior value is served when the query fails mid-flight.
+    // is a full-scan the public read path can be made to repeat on every hit.
+    // A stale prior value is served when the query fails mid-flight.
     async getDecoderMempoolCount(config) {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return 0;
@@ -6273,9 +6260,9 @@ class Database {
     // safety rules as getDecoderMempoolCount. Returns [] when the decoder DB isn't
     // reachable.
     //
-    // ENCODING : mempool_transactions.data is a MEDIUMTEXT utf8mb4
-    // column holding the canonical UTF-8 ACTION string ("SEND|0|TICK|..."), the
-    // exact same representation the decoder's confirmed-block path writes to
+    // ENCODING: mempool_transactions.data is a MEDIUMTEXT utf8mb4 column holding
+    // the canonical UTF-8 ACTION string ("SEND|0|TICK|..."), the exact same
+    // representation the decoder's confirmed-block path writes to
     // transactions.data. It is NOT hex. The decoder pins that contract in
     // test/unit/mempoolPayloadRepresentation.test.js (uuid:26220713); this read
     // and decodeMempoolRow below are the other half of it.
@@ -6303,7 +6290,7 @@ class Database {
     // SEND|0|TICK|AMOUNT|DESTINATION|MEMO). Returns null on garbage, which also
     // covers the decoder's rejected-ACTION sentinel (an empty string written for
     // a money-bearing tx whose ACTION was invalid or unknown) and any legacy
-    // hex-encoded row left behind by a pre- decoder: neither yields a
+    // hex-encoded row left behind by an older decoder: neither yields a
     // valid leading action name, so both drop out of the feed rather than
     // rendering as mojibake.
     decodeMempoolRow(row) {
@@ -6428,8 +6415,8 @@ class Database {
     // Returns the action-index high-water mark as an exact BigInt, never a Number.
     // This value is the WebSocket live/catch-up cursor, and Number() collapses two
     // consecutive action indices above 2^53 onto one value, which stalls or skips a
-    // NEW_ACTION frame even though the wire serializer emits exact decimal strings
-    // (). Callers that put it on the wire still String() it; the WS frames
+    // NEW_ACTION frame even though the wire serializer emits exact decimal strings.
+    // Callers that put it on the wire still String() it; the WS frames
     // are decimal strings under schema v2 (ws/serialize.js).
     async getMaxActionIndex(config) {
         let query   = `SELECT MAX(action_index) as max_index FROM actions`;
@@ -6481,7 +6468,7 @@ class Database {
         try {
             // `data` (the FULL stored ACTION string) rides along so the serve
             // path can derive the trailing COMPRESSION field at serve time
-            // ( spec §5.1). It must NEVER come from a parsed-at-ingest
+            // (protocol spec §5.1). It must NEVER come from a parsed-at-ingest
             // column: shipped indexers drop unknown trailing fields at parse, so
             // a compressed FILE mined before an indexer upgrade would be stored
             // marker-less and served as deflated garbage forever. The decoder's
@@ -6520,8 +6507,8 @@ class Database {
     // index the UI links to); membership_action_index is the action whose
     // list_items rows are the roster's CURRENT membership. Those differ once the
     // list has been edited, because a LIST edit writes the resulting membership
-    // under the EDIT's own action_index and never touches the parent's rows
-    // . Every roster consumer below reads members through the membership
+    // under the EDIT's own action_index and never touches the parent's rows.
+    // Every roster consumer below reads members through the membership
     // index, so a project that dropped or added a token shows the roster the
     // chain is enforcing rather than the one it shipped with. Flag-day gated at
     // the tip by _isListEditResolutionActiveAtTip, so below the height the two
@@ -6563,7 +6550,7 @@ class Database {
     // Projects whose CURRENT roster includes the given tick (the reverse
     // lookup behind the token-page "Official: part of X" banner). A project
     // whose latest roster dropped the tick does not match - which, once
-    //  edit resolution is live, includes a roster that dropped it by LIST
+    // edit resolution is live, includes a roster that dropped it by LIST
     // EDIT and not only one replaced by a newer LINK. The edit's membership
     // lives under the EDIT's action_index, so the membership join has to run
     // against each project's resolved chain head, not the index the LINK pinned.
@@ -6841,23 +6828,14 @@ class Database {
             'never from a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
-    // Resolve the cross_chain_matches source for a coin, mirroring _checkpointSource.
-    // cross_chain_matches is hub-mirrored (hub_db_sync), so xchain-sync EXCLUDES it from
-    // every snapshot and per-block stream: a thin replica's local copy is a stale bootstrap
-    // dump the live stream never refreshes. A serving node therefore MUST read matches from
-    // the same-server checkpoint schema (the one that already backs state_checkpoints/
-    // capability_snapshots): externally maintained, or self-synced live from the hub's
-    // /hub-db feed by HubMirrorSyncManager, so the endpoint serves retraction-aware rows.
-    // There is deliberately NO fallback to the replicated indexer DB (#4138): when the
-    // checkpoint schema is absent or its name is not a safe identifier we FAIL LOUD by
-    // throwing rather than silently serving the stale local copy. The hub table carries
-    // every chain AND network, so a network filter is required. dbName is config-derived,
-    // not client input, but database identifiers can't be bound; restrict to a safe
-    // identifier charset before use (same rule as _checkpointSource / the decoderDb readers).
-    // Self-sync note: batch_root/anchor_txid are backfilled hub-side by UPDATE after
-    // anchor publication and the feed has no update event, so on a self-synced mirror
-    // those two audit columns can read NULL; all settlement-relevant columns arrive
-    // on the insert.
+    // Resolve the cross_chain_matches source for a coin, mirroring _checkpointSource:
+    // same hub-mirror-only rule, same FAIL LOUD posture, same identifier-safety
+    // restriction. The hub table carries every chain AND network here, so a network
+    // filter is required (unlike the state_checkpoints table above). Self-sync note:
+    // batch_root/anchor_txid are backfilled hub-side by UPDATE after anchor
+    // publication and the feed has no update event, so on a self-synced mirror those
+    // two audit columns can read NULL; all settlement-relevant columns arrive on the
+    // insert.
     _matchSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
@@ -6871,17 +6849,11 @@ class Database {
     }
 
     // Resolve an ORACLE hub-mirror table for a coin (price_snapshots, oracle_prices),
-    // mirroring _matchSource. Both are replication: 'hub-mirror' in xchain-sync's
-    // replicatedTables.js: carried only by hub_db_sync, and excluded from the per-block
-    // stream, the incremental catch-up AND the snapshots. A serving node's local copy is
-    // therefore an empty bootstrap table the live stream never fills, so these reads are
-    // database-qualified to the mandatory co-located hub schema (externally maintained,
-    // or self-synced from the hub's /hub-db feed by HubMirrorSyncManager, which mirrors
-    // exactly these two tables) and FAIL LOUD when it is absent, rather than silently
-    // serving a frozen/empty result set forever (items 4062 / 4063, same posture as
-    // #4138). Neither table carries a network column, so there is no network filter to
-    // apply (unlike cross_chain_matches); `table` is whitelisted to lowercase identifiers
-    // and dbName to a safe identifier charset, since database identifiers cannot be bound.
+    // mirroring _matchSource: same hub-mirror-only, FAIL LOUD rule. A serving node's
+    // local copy is an empty bootstrap table the live stream never fills. Neither
+    // table carries a network column, so there is no network filter to apply (unlike
+    // cross_chain_matches); `table` is whitelisted to lowercase identifiers and
+    // dbName to a safe identifier charset, since database identifiers cannot be bound.
     _oracleMirrorSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
@@ -6945,18 +6917,16 @@ class Database {
 
     // Resolve a co-located hub-DB federation/governance table for a coin
     // (validator_capabilities, governance_proposals, governance_votes). Mirrors
-    // _matchSource: the table is DB-qualified to the co-located hub DB (same
-    // host+creds as the indexer DB, so the qualified name runs on the indexer pool)
-    // and read directly, never a local replica. `table` is whitelisted to lowercase
-    // identifiers (no injection). Federation data is platform-global (no per-chain
-    // network column), so there is no network filter.
+    // _matchSource: DB-qualified to the co-located hub DB, read directly, never a
+    // local replica. `table` is whitelisted to lowercase identifiers (no injection).
+    // Federation data is platform-global (no per-chain network column), so there is
+    // no network filter.
     //
     // LEGACY FALLBACK: the primary transport for these hub-LOCAL operational tables
     // is now the hub JSON-RPC read path (explorer.hubOperational, HubOperationalCache);
     // this direct-schema read remains only for deployments with no hub endpoint
-    // configured (NO_HUB=1 standalone with a co-located hub schema, e.g. the
-    // single-server production install). New deployments should set HUB_API_URL
-    // instead of provisioning a co-located hub schema.
+    // configured. New deployments should set HUB_API_URL instead of provisioning a
+    // co-located hub schema.
     _hubSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
@@ -7361,14 +7331,13 @@ class Database {
         // Pass the cursor as a BigInt (or a Number below 2^53), NEVER a decimal
         // string: the connector quotes a string param, and MariaDB compares a
         // quoted literal against a BIGINT column as a DOUBLE, which reintroduces
-        // exactly the >2^53 collapse the BigInt cursor exists to prevent (#4155).
-        // NOTE: the generic `actions` table carries no status_id (status lives on
-        // the per-ACTION-type tables, e.g. issues/sends/mints, joined as m.status_id
-        // elsewhere) and no status column; so this feed reports status as NULL.
-        // The earlier `s1.id=a1.status_id` join referenced a non-existent column and
-        // made the whole query throw (ER_BAD_FIELD_ERROR), which silently killed the
-        // WebSocket NEW_ACTION stream: the ChangeDetector advanced its action pointer
-        // but getActionsSince returned [] every poll, so no NEW_ACTION ever fired.
+        // exactly the >2^53 collapse the BigInt cursor exists to prevent.
+        // The generic `actions` table carries no status_id or status column (status
+        // lives on the per-ACTION-type tables, e.g. issues/sends/mints, joined as
+        // m.status_id elsewhere), so this feed reports status as NULL; a prior
+        // `s1.id=a1.status_id` join against that non-existent column threw
+        // ER_BAD_FIELD_ERROR and silently killed the WebSocket NEW_ACTION stream, since
+        // getActionsSince returned [] every poll while the pointer kept advancing.
         // Source is taken from actions.source_id (a1): the action's true source,
         // which for VM-emitted actions differs from the EXECUTE caller on transactions.
         // action_format rides along because one action NAME can carry several
@@ -7460,8 +7429,8 @@ class Database {
     }
 
     // Dispenser snapshot for the WebSocket dispenser channel. give_remaining is
-    // DERIVED : the dispensers table has no such column, so selecting it
-    // threw 'Unknown column' on every subscribe/update and the channel silently
+    // DERIVED: the dispensers table has no such column, so selecting it used to
+    // throw 'Unknown column' on every subscribe/update and the channel silently
     // pushed nothing.
     async getDispenserInfo(config, actionIndex) {
         let query = `SELECT
@@ -7602,7 +7571,7 @@ class Database {
     // the one BET transition with no action row: the end-of-block pass writes
     // bet_feeds.closed_block directly (spec §6), so the ChangeDetector's actions
     // cursor has nothing to see and a subscribed market page never learns that
-    // betting closed . closed_block IS the durable record of that write, and
+    // betting closed. closed_block IS the durable record of that write, and
     // it is also what the reorg reset clears, so a rolled-back-then-re-latched feed
     // re-emits naturally.
     // Ordered by closed_block ASC (then action_index) because the caller advances a
@@ -7732,7 +7701,7 @@ class Database {
             // action_index stays the driver's BIGINT so utility.jsonStringify emits the
             // exact decimal string openapi's info.description promises; a Number() here
             // collapsed values above 2^53 and made it the one index in this row typed
-            // unlike its own block_index (; contract standardized in 38cc1d9).
+            // unlike its own block_index (contract standardized in 38cc1d9).
             // The constructor lookup below binds it as a BigInt, never a quoted string,
             // which MariaDB would compare against a BIGINT column as a DOUBLE.
             if(this.util.isNull(row.action_index)) row.action_index = null;
@@ -8306,7 +8275,7 @@ class Database {
         return [query, null, count];
     }
 
-    // : the hub's own federation registry (`validators`: addr, chains,
+    // The hub's own federation registry (`validators`: addr, chains,
     // registration status), keyed by LOWERCASED signing pubkey. There is no separate
     // federation-registry page; these hub-only columns are folded onto the on-chain
     // active set that /validators already renders, so one table answers both "who is
@@ -9718,14 +9687,11 @@ class Database {
     // the latch's durable record, and marks it synthetic so a consumer can tell it
     // apart from an action-backed row.
     //
-    // The block comes from `actions.block_index`, NOT from the action's transaction.
-    // BET_EXPIRE is emitted by the end-of-block pass and has NO transaction at all
-    // (tx_index NULL), so routing the block join through `transactions` returned NULL
-    // for the one status that can only ever arrive that way: an expired market rendered
-    // "block n/a", and because the synthetic-latch insertion below compares block
-    // numbers, a NULL also pushed the `closed` latch past it and printed the history in
-    // an impossible order (expired, then closed). One NULL, both symptoms. Joining
-    // blocks on a1.block_index is what the rest of this file already does; the
+    // The block comes from `actions.block_index`, NOT from the action's transaction:
+    // BET_EXPIRE is emitted by the end-of-block pass and has no transaction at all
+    // (tx_index NULL), so routing the block join through `transactions` used to return
+    // NULL for that one status, and because the synthetic-latch insertion below compares
+    // block numbers, that NULL also mis-ordered the closed/expired history. The
     // transaction join stays, but only for the tx hash a system action does not have.
     async getBetFeedTimeline(config, feedIndex, closedBlock){
         let query = `SELECT

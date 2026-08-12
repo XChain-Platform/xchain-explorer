@@ -105,8 +105,8 @@ const PAYLOADS = {
 
 // Render the SHIPPED showBetDetails against the SHIPPED #info-bet markup in a real
 // jsdom + jQuery window. BET's LABEL / OUTCOMES / DETAILS are attacker-controlled
-// on-chain bytes (§11.1), so this is the direct test of the P7 rendering-safety
-// requirement: hostile payloads must come out as inert text, never live elements.
+// on-chain bytes, so this is a direct test of the rendering-safety requirement:
+// hostile payloads must come out as inert text, never live elements.
 function renderBetDetails(data) {
     const ACTION_HTML = fs.readFileSync(
         path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
@@ -301,8 +301,8 @@ describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', func
         });
     });
 
-    // §11.1 rendering safety for BET markets ( P7). LABEL, OUTCOMES and
-    // DETAILS arrive from the chain and are fully attacker-controlled.
+    // Rendering safety for BET markets. LABEL, OUTCOMES and DETAILS arrive from
+    // the chain and are fully attacker-controlled.
     describe('showBetDetails(): hostile market fields render inert', function () {
 
         function liveElements(dom) {

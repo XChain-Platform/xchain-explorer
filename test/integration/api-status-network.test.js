@@ -35,10 +35,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// /api/status
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/api/status', function () {
 
     it('returns 200 with supported and available coins', async function () {
@@ -93,10 +89,6 @@ describe('GET /RBTC/api/status', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// /api/network
-// ---------------------------------------------------------------------------
 
 describe('GET /RBTC/api/network', function () {
 

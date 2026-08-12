@@ -38,10 +38,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// SM-06: Connection pool initializes
-// ---------------------------------------------------------------------------
-
 describe('SM-06: Connection pool initializes', function () {
 
     it('db.pools contains the RBTC key after init', function () {
@@ -58,10 +54,6 @@ describe('SM-06: Connection pool initializes', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-07: Database connection succeeds
-// ---------------------------------------------------------------------------
 
 describe('SM-07: Database connection succeeds', function () {
 
@@ -88,10 +80,6 @@ describe('SM-07: Database connection succeeds', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-08: Database connection failure is bounded
-// ---------------------------------------------------------------------------
 
 describe('SM-08: Database connection failure is bounded', function () {
 

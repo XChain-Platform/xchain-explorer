@@ -49,10 +49,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// Sends by address
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/explorer/sends/{address}/address', function () {
 
     it('returns DataTables format with recordsTotal, recordsFiltered, data', async function () {
@@ -76,10 +72,6 @@ describe('GET /RBTC/explorer/sends/{address}/address', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// Pagination: start / length parameters
-// ---------------------------------------------------------------------------
 
 describe('Explorer pagination with start and length parameters', function () {
 
@@ -111,10 +103,6 @@ describe('Explorer pagination with start and length parameters', function () {
 
 });
 
-// ---------------------------------------------------------------------------
-// Balances by address
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/explorer/balances/{address}/address', function () {
 
     it('returns DataTables format with balance rows as arrays', async function () {
@@ -143,10 +131,6 @@ describe('GET /RBTC/explorer/balances/{address}/address', function () {
 
 });
 
-// ---------------------------------------------------------------------------
-// Tokens list
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/explorer/tokens (token list)', function () {
 
     it('returns recordsTotal >= 2 (seed has tokens issued in block 1)', async function () {
@@ -173,10 +157,6 @@ describe('GET /RBTC/explorer/tokens (token list)', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// Blocks
-// ---------------------------------------------------------------------------
 
 describe('GET /RBTC/explorer/blocks/all', function () {
 
@@ -208,10 +188,6 @@ describe('GET /RBTC/explorer/blocks/all', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// Sends by token
-// ---------------------------------------------------------------------------
 
 describe('GET /RBTC/explorer/sends/XCHAIN/token', function () {
 

@@ -29,16 +29,8 @@ const jsonRouter        = require('express-json-rpc-router');
 const db                = require('./helpers/db-setup');
 const { createApp }     = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Shared state
-// ---------------------------------------------------------------------------
-
 let request;
 let app, explorer, configInfo;
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
 
 before(async function () {
     this.timeout(30000);
@@ -62,15 +54,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Special Endpoints
-// ===========================================================================
-
 describe('Special Endpoints', function () {
-
-    // -----------------------------------------------------------------------
-    // 1. Icon endpoint: redirects for missing files
-    // -----------------------------------------------------------------------
 
     it('GET /icon/default.png: icon endpoint serves files', async function () {
         // A nonexistent icon file should redirect (302) to /icon/default.png.
@@ -81,10 +65,6 @@ describe('Special Endpoints', function () {
         expect(res.headers.location).to.equal('/icon/default.png');
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Icon path traversal protection
-    // -----------------------------------------------------------------------
-
     it('icon path traversal is blocked', async function () {
         // Express normalizes paths with ../ before the handler sees them.
         // The resulting path either stays inside the icon dir (→ 302 redirect to default)
@@ -94,10 +74,6 @@ describe('Special Endpoints', function () {
         expect([302, 403, 404]).to.include(res.status);
     });
 
-    // -----------------------------------------------------------------------
-    // 3. Relay: SSRF protection for loopback IP
-    // -----------------------------------------------------------------------
-
     it('relay blocks private IPs (SSRF protection)', async function () {
         const res = await request.get('/relay?url=http://127.0.0.1/test');
 
@@ -105,10 +81,6 @@ describe('Special Endpoints', function () {
         expect(res.headers['content-type']).to.include('json');
         expect(res.body.error).to.equal('Destination not permitted');
     });
-
-    // -----------------------------------------------------------------------
-    // 4. Relay: non-http/https protocol rejected
-    // -----------------------------------------------------------------------
 
     it('relay blocks non-http protocols', async function () {
         const res = await request.get('/relay?url=file:///etc/passwd');
@@ -118,10 +90,6 @@ describe('Special Endpoints', function () {
         expect(res.body.error).to.equal('Invalid protocol');
     });
 
-    // -----------------------------------------------------------------------
-    // 5. Relay: missing url param does not crash
-    // -----------------------------------------------------------------------
-
     it('relay without url returns error', async function () {
         // processRelayRequest checks isNull(req.query.url) and falls through to
         // a 503 response. The server must not crash.
@@ -129,10 +97,6 @@ describe('Special Endpoints', function () {
 
         expect(res.status).to.equal(503);
     });
-
-    // -----------------------------------------------------------------------
-    // 6. Relay: localhost hostname blocked
-    // -----------------------------------------------------------------------
 
     it('relay blocks localhost', async function () {
         const res = await request.get('/relay?url=http://localhost/test');
@@ -142,10 +106,6 @@ describe('Special Endpoints', function () {
         expect(res.body.error).to.equal('Destination not permitted');
     });
 
-    // -----------------------------------------------------------------------
-    // 7. Relay: 10.x.x.x private range blocked
-    // -----------------------------------------------------------------------
-
     it('relay blocks 10.x.x.x private range', async function () {
         const res = await request.get('/relay?url=http://10.0.0.1/test');
 
@@ -154,10 +114,6 @@ describe('Special Endpoints', function () {
         expect(res.body.error).to.equal('Destination not permitted');
     });
 
-    // -----------------------------------------------------------------------
-    // 8. Relay: 192.168.x.x private range blocked
-    // -----------------------------------------------------------------------
-
     it('relay blocks 192.168.x.x private range', async function () {
         const res = await request.get('/relay?url=http://192.168.1.1/test');
 
@@ -165,10 +121,6 @@ describe('Special Endpoints', function () {
         expect(res.headers['content-type']).to.include('json');
         expect(res.body.error).to.equal('Destination not permitted');
     });
-
-    // -----------------------------------------------------------------------
-    // 9. JSON-RPC ping
-    // -----------------------------------------------------------------------
 
     it('JSON-RPC ping endpoint', async function () {
         const res = await request
@@ -181,10 +133,6 @@ describe('Special Endpoints', function () {
         expect(res.body.result).to.have.property('status', 'success');
     });
 
-    // -----------------------------------------------------------------------
-    // 10. HTML pages are served
-    // -----------------------------------------------------------------------
-
     it('HTML pages are served', async function () {
         const res = await request.get('/');
 
@@ -192,19 +140,11 @@ describe('Special Endpoints', function () {
         expect(res.type).to.match(/text\/html/);
     });
 
-    // -----------------------------------------------------------------------
-    // 11. HTML 404 page
-    // -----------------------------------------------------------------------
-
     it('HTML 404 page', async function () {
         const res = await request.get('/nonexistent-page');
 
         expect(res.status).to.equal(404);
     });
-
-    // -----------------------------------------------------------------------
-    // 12. Static file routes do not crash
-    // -----------------------------------------------------------------------
 
     it('static file serving works', async function () {
         // The /css route is registered as a static file directory.

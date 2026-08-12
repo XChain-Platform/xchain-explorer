@@ -19,9 +19,9 @@
  * controller against that exact Chart.js version, the stacked price/volume
  * scales resolving, and XCC.render building the toolbar and tooltip bridge.
  *
- * Those are precisely the failure modes the Highcharts swap  could
- * introduce silently: every one of them leaves the unit configs green and the
- * market page blank.
+ * Those are precisely the failure modes the Highcharts swap could introduce
+ * silently: every one of them leaves the unit configs green and the market
+ * page blank.
  *
  * jsdom has no canvas backend, so a no-op 2D context stands in. Chart.js only
  * needs it for measurement and painting, and layout still runs for real, which

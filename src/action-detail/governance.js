@@ -22,7 +22,7 @@ const BET = {
     // BET action. One action name over four formats, each owning its own row:
     // 0 create-feed -> bet_feeds, 2 place-bet -> bets, 1 cancel -> bet_cancels,
     // 3 resolve -> bet_resolves. The cancel/resolve tables carry the leg's PARSE
-    // status and are written whatever it is , which is what makes a
+    // status and are written whatever it is, which is what makes a
     // chain-REJECTED cancel or resolve reportable: those legs used to write only
     // a bet_feed_statuses row and only when valid, so this query returned a NULL
     // status and the SDK could not tell a rejection from a success. Their
@@ -41,7 +41,7 @@ const BET = {
                     -- feed definition (format 0)
                     f.label,
                     f.outcomes,
-                    -- Alias the oracle cut: getActionData overwrites the reserved fee slot (#3932)
+                    -- Alias the oracle cut: getActionData overwrites the reserved fee slot
                     f.fee as bet_fee,
                     f.deadline,
                     f.refund_window,
@@ -164,7 +164,7 @@ const BET_EXPIRE = {
     // own. The link exists anyway: the pass writes one bet_feed_statuses row keyed
     // by this minted action_index carrying the feed it expired plus the status it
     // drove it to, which is what this drives off - the COINPAY_EXPIRE shape with
-    // the parent joined through bet_feeds for its market terms .
+    // the parent joined through bet_feeds for its market terms.
     queries() {
         let query  = null;
         let query2 = null;

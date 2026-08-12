@@ -41,10 +41,6 @@ describe('XChainIndexerConnector', function () {
         sinon.restore();
     });
 
-    // -----------------------------------------------------------------
-    // resolveIndexerUrl()
-    // -----------------------------------------------------------------
-
     describe('resolveIndexerUrl()', function () {
         it('prefers the coin+network-specific override', function () {
             process.env.INDEXER_API_URL_BTC_REGTEST = 'http://specific:1';
@@ -66,10 +62,6 @@ describe('XChainIndexerConnector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // constructor
-    // -----------------------------------------------------------------
-
     describe('constructor', function () {
         it('stores the url and a default 5s timeout', function () {
             let c = new XChainIndexerConnector('http://x:1');
@@ -83,10 +75,6 @@ describe('XChainIndexerConnector', function () {
             expect(c.timeout).to.equal(1234);
         });
     });
-
-    // -----------------------------------------------------------------
-    // _call() / feequote() / feeschedule()
-    // -----------------------------------------------------------------
 
     describe('JSON-RPC calls', function () {
         it('_call posts a JSON-RPC envelope and returns the result', async function () {
@@ -137,7 +125,7 @@ describe('XChainIndexerConnector', function () {
             expect(call.calledWith('feeschedule', {})).to.be.true;
         });
 
-        it('preflight delegates to _call with the preflight method + args ', async function () {
+        it('preflight delegates to _call with the preflight method + args', async function () {
             let c = new XChainIndexerConnector('http://x:1');
             let call = sinon.stub(c, '_call').resolves({ supported: true, valid: true });
             let r = await c.preflight({ action: 'SEND', params: '0|JDOG|1|addr', source: 'me' });
@@ -145,7 +133,7 @@ describe('XChainIndexerConnector', function () {
             expect(call.calledWith('preflight', { action: 'SEND', params: '0|JDOG|1|addr', source: 'me', feeMode: undefined })).to.be.true;
         });
 
-        // : the fee settlement mode changes the verdict, so it rides along.
+        // The fee settlement mode changes the verdict, so it rides along.
         it('preflight forwards feeMode when the caller sets one', async function () {
             let c = new XChainIndexerConnector('http://x:1');
             let call = sinon.stub(c, '_call').resolves({ supported: true, valid: false });

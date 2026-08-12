@@ -16,8 +16,8 @@
  * content-client-price-detail.test.js uses.
  *
  * What it protects: the market's ORACLE FEE, a scalar percentage of the pot,
- * against the reserved-slot collision that has now cost four fix commits
- * (BROADCAST #2479, PRICE, the BATCH child row #3738, BET #3932). getActionData
+ * against the reserved-slot collision that has recurred across several action
+ * types (BROADCAST, PRICE, a BATCH child row, and BET). getActionData
  * overwrites the payload's `fee` property with the generic protocol-fee RECORD
  * after the detail query runs, so a renderer that reads `data.fee` here prints
  * the literal string "[object Object]% of the pot" on a market whose creating

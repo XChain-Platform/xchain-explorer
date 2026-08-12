@@ -22,7 +22,6 @@ const EventEmitter = require('events');
 const ChannelManager = require('../../../src/ws/ChannelManager.js');
 const Broadcaster    = require('../../../src/ws/Broadcaster.js');
 
-// Helper: create a mock WebSocket
 function createMockWs() {
     return {
         readyState:     1, // OPEN
@@ -31,7 +30,6 @@ function createMockWs() {
     };
 }
 
-// Helper: create a mock client
 function createClient(id, coin, ws) {
     return {
         id:            id,
@@ -43,12 +41,10 @@ function createClient(id, coin, ws) {
     };
 }
 
-// Helper: create a mock change detector (EventEmitter)
 function createMockChangeDetector() {
     return new EventEmitter();
 }
 
-// Helper: create a mock WS server with channel manager and clients
 function createMockWsServer() {
     const cm = new ChannelManager({ maxSubscriptions: 25 });
     const clients = new Map();
@@ -75,10 +71,6 @@ describe('Broadcaster', function () {
             maxBackpressure: 65536
         });
     });
-
-    // -----------------------------------------------------------------
-    // Block broadcasting
-    // -----------------------------------------------------------------
 
     describe('block events', function () {
 
@@ -226,10 +218,6 @@ describe('Broadcaster', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Action broadcasting with filter pipeline
-    // -----------------------------------------------------------------
-
     describe('action events: filter pipeline', function () {
 
         it('broadcasts NEW_ACTION to actions subscribers', function () {
@@ -248,11 +236,9 @@ describe('Broadcaster', function () {
         });
 
         it('omits the destination field from NEW_ACTION (honesty contract)', function () {
-            // api-contracts finding: the block-derived actions feed never selects
-            // a destination column, so the field was always null while the
-            // catch-up replay path already omits it. The live event shape must not
-            // advertise destination routing it cannot honor - even when the raw
-            // action carries one, the emitted event omits the key.
+            // The block-derived actions feed never selects a destination column, so
+            // the live event shape must not advertise routing it cannot honor: even
+            // when the raw action carries a destination, the emitted event omits it.
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);
             wsServer.channelManager.subscribe(client, ['actions']);
@@ -320,10 +306,6 @@ describe('Broadcaster', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Address channel routing
-    // -----------------------------------------------------------------
-
     describe('address channel routing', function () {
 
         it('broadcasts to subscribed address when source matches', function () {
@@ -335,7 +317,6 @@ describe('Broadcaster', function () {
                 action_index: 501, action: 'SEND', source: '1abc', status: 'valid'
             });
 
-            // Client should receive the event via address channel
             expect(client.ws.send.called).to.be.true;
         });
 
@@ -351,10 +332,6 @@ describe('Broadcaster', function () {
             expect(client.ws.send.callCount).to.equal(0);
         });
     });
-
-    // -----------------------------------------------------------------
-    // Once auto-unsubscribe
-    // -----------------------------------------------------------------
 
     describe('once auto-unsubscribe', function () {
 
@@ -373,14 +350,9 @@ describe('Broadcaster', function () {
             expect(unsubMsg.type).to.equal('UNSUBSCRIBED');
             expect(unsubMsg.data.reason).to.equal('once');
 
-            // Subscription should be gone
             expect(client.subscriptions.size).to.equal(0);
         });
     });
-
-    // -----------------------------------------------------------------
-    // Backpressure
-    // -----------------------------------------------------------------
 
     describe('backpressure', function () {
 
@@ -398,10 +370,6 @@ describe('Broadcaster', function () {
             expect(ws.send.callCount).to.equal(0);
         });
     });
-
-    // -----------------------------------------------------------------
-    // Lifecycle events
-    // -----------------------------------------------------------------
 
     describe('lifecycle events', function () {
 
@@ -550,10 +518,6 @@ describe('Broadcaster', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Entity update events
-    // -----------------------------------------------------------------
-
     describe('entity update events', function () {
 
         it('broadcasts ADDRESS_UPDATE to address subscribers', function () {
@@ -590,18 +554,17 @@ describe('Broadcaster', function () {
 
         it('stamps data.channel on every live entity frame, matching the SNAPSHOT discriminator', function () {
             // WebSocketServer._sendSnapshots puts `channel` inside data for address,
-            // token, market and dispenser. The live frame for the same entity carried
-            // it only as an internal routing field, so the snapshot and the live update
-            // for one entity were keyed differently and a consumer that unified them on
-            // data.channel dropped every live update.
+            // token, market and dispenser. The live frame must carry the same key,
+            // or a consumer that unifies snapshot and live updates on data.channel
+            // drops every live update.
             const cases = [
                 { channel: 'address',   type: 'ADDRESS_UPDATE',   params: { address: '1abc' },                data: { address: '1abc', balances: [] } },
                 { channel: 'token',     type: 'TOKEN_UPDATE',     params: { tick: 'PEPE' },                   data: { tick: 'PEPE', supply: '1' } },
                 { channel: 'market',    type: 'MARKET_UPDATE',    params: { tick1: 'PEPE', tick2: 'BTC' },    data: { tick1: 'PEPE', tick2: 'BTC' } },
                 { channel: 'dispenser', type: 'DISPENSER_UPDATE', params: { action_index: 777 },              data: { action_index: 777 } }
             ];
-            // One client per case, each subscribed only to its own entity, so a
-            // frame can only have been delivered by the channel under test.
+            // One client per case, subscribed only to its own entity, so a frame
+            // can only have been delivered by the channel under test.
             cases.forEach((c, i) => {
                 const client = createClient(i + 1, 'BTC');
                 wsServer.addClient(client);

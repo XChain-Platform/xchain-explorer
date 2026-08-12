@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for the getData() short-TTL result cache (items 5338, ).
+ * Unit tests for the getData() short-TTL result cache.
  *
  * getHolders / getTokens / getBalances are unauthenticated filesort-heavy
  * list queries; getData caches their results per request shape so a burst

@@ -13,7 +13,7 @@
  *
  **********************************************************************
  *
- * XChain Explorer - Hub-mirror schema migration CLI 
+ * XChain Explorer - Hub-mirror schema migration CLI
  *
  * Runbook: brings an EXISTING hub-mirror / checkpoint schema up to the
  * current shape (today: the price_snapshots reorg-retraction columns

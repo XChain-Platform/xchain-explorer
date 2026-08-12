@@ -10,7 +10,7 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-// : engines.node must keep an upper bound below Node 23.
+// engines.node must keep an upper bound below Node 23.
 //
 // The explorer installs xchain-vm through an OPTIONAL `file:./xchain-vm`
 // dependency, and that package depends on isolated-vm 5.0.4, whose native
@@ -66,7 +66,7 @@ function boundedBelow23(range) {
             .some((c) => lte(c, [23, 0, 0])));
 }
 
-describe('packaging: engines.node ceiling ', function () {
+describe('packaging: engines.node ceiling', function () {
     const allDeps = Object.assign({}, pkg.dependencies, pkg.optionalDependencies, pkg.devDependencies);
 
     it('still links xchain-vm, so the ceiling is still load-bearing', function () {

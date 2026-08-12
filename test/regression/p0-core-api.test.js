@@ -27,17 +27,9 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Seed reference constants
-// ---------------------------------------------------------------------------
-
 const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const ADDR3 = 'bc1qaddr3ccccccccccccccccccccccccccc';
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
 
 let request;
 
@@ -52,10 +44,6 @@ after(async function () {
     this.timeout(10000);
     await db.teardownDatabase();
 });
-
-// ===========================================================================
-// @p0 @core Sends: primary data retrieval
-// ===========================================================================
 
 describe('@p0 @core Sends API regression', function () {
 
@@ -142,10 +130,6 @@ describe('@p0 @core Sends API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core Balances
-// ===========================================================================
-
 describe('@p0 @core Balances API regression', function () {
 
     it('GET /RBTC/api/balances/{address}: returns all token balances', async function () {
@@ -176,10 +160,6 @@ describe('@p0 @core Balances API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core Holders
-// ===========================================================================
-
 describe('@p0 @core Holders API regression', function () {
 
     it('GET /RBTC/api/holders/{tick}: returns holder list', async function () {
@@ -199,16 +179,12 @@ describe('@p0 @core Holders API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core Token detail
-// ===========================================================================
-
 describe('@p0 @core Token API regression', function () {
 
     it('GET /RBTC/api/token/{tick}: returns full token detail', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
         expect(res.status).to.equal(200);
-        // projects/registry are the Project_Registry.md display surfaces (2026-06)
+        // projects/registry hold additional token display metadata
         expect(res.body).to.have.all.keys(['callback', 'info', 'lists', 'locks', 'market', 'mints', 'projects', 'registry', 'runtime', 'supply']);
         expect(res.body.info.tick).to.equal('TOKENONE');
         expect(res.body.info.description).to.equal('Test Token One');
@@ -239,10 +215,6 @@ describe('@p0 @core Token API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core Block detail
-// ===========================================================================
-
 describe('@p0 @core Block API regression', function () {
 
     it('GET /RBTC/api/block/{N}: returns block info', async function () {
@@ -259,10 +231,6 @@ describe('@p0 @core Block API regression', function () {
         expect(res.body.error).to.be.a('string');
     });
 });
-
-// ===========================================================================
-// @p0 @core Transaction
-// ===========================================================================
 
 describe('@p0 @core Transaction API regression', function () {
 
@@ -284,10 +252,6 @@ describe('@p0 @core Transaction API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core Credits / Debits
-// ===========================================================================
-
 describe('@p0 @core Credits and Debits API regression', function () {
 
     it('GET /RBTC/api/credits/{address}/address: returns credits', async function () {
@@ -305,10 +269,6 @@ describe('@p0 @core Credits and Debits API regression', function () {
         expect(res.body.data).to.be.an('array').with.length.greaterThan(0);
     });
 });
-
-// ===========================================================================
-// @p0 @core Status / Network
-// ===========================================================================
 
 describe('@p0 @core Status and Network API regression', function () {
 
@@ -333,10 +293,6 @@ describe('@p0 @core Status and Network API regression', function () {
         expect(Number(res.body.totals.sends)).to.be.at.least(10);
     });
 });
-
-// ===========================================================================
-// @p0 @core Address summary
-// ===========================================================================
 
 describe('@p0 @core Address API regression', function () {
 

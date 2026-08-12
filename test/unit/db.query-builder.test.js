@@ -27,10 +27,7 @@ const Utility       = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Bootstrap: create a Database instance without a real MariaDB connection
-// ---------------------------------------------------------------------------
-
+// Create a Database instance without a real MariaDB connection.
 const Database = proxyquire('../../src/db.js', {
     mariadb: { createPool: () => ({}) }
 });
@@ -57,10 +54,6 @@ function cfgOffset(method, action, start, stop) {
         }
     });
 }
-
-// ---------------------------------------------------------------------------
-// getMaxMethodResults
-// ---------------------------------------------------------------------------
 
 describe('Database#getMaxMethodResults', () => {
     let db;
@@ -107,15 +100,9 @@ describe('Database#getMaxMethodResults', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getQueryWhereSql
-// ---------------------------------------------------------------------------
-
 describe('Database#getQueryWhereSql', () => {
     let db;
     before(() => { db = makeDb(); });
-
-    // --- Default base sql ---------------------------------------------------
 
     it('default: returns m.action_index IS NOT NULL', async () => {
         const sql = await db.getQueryWhereSql(cfg('getActions', null));
@@ -126,8 +113,6 @@ describe('Database#getQueryWhereSql', () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', null));
         expect(sql).to.equal('m.action_index IS NOT NULL');
     });
-
-    // --- Method-specific base overrides ------------------------------------
 
     it('getBalances: base is m.address_id IS NOT NULL', async () => {
         const sql = await db.getQueryWhereSql(cfg('getBalances', null));
@@ -164,8 +149,6 @@ describe('Database#getQueryWhereSql', () => {
         const sql = await db.getQueryWhereSql(cfg('getMarkets', null));
         expect(sql).to.equal('m.id IS NOT NULL');
     });
-
-    // --- type='address' ----------------------------------------------------
 
     it('type=address on a standard method: appends AND a2.address=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', 'address'));
@@ -207,8 +190,6 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
     });
 
-    // --- type='block' ------------------------------------------------------
-
     it('type=block on a standard method: appends AND b1.block_index=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', 'block'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND b1.block_index=?');
@@ -220,8 +201,6 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('b1.block_index IS NOT NULL');
     });
 
-    // --- type='source' / type='destination' --------------------------------
-
     it('type=source on a standard method: appends AND a2.address=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispensers', 'source'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND a2.address=?');
@@ -231,8 +210,6 @@ describe('Database#getQueryWhereSql', () => {
         const sql = await db.getQueryWhereSql(cfg('getDispenses', 'destination'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND a3.address=?');
     });
-
-    // --- type='oracle' (getDispensers only) --------------------------------
 
     it('type=oracle on getDispensers: filters on the dispenser oracle_address_id', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispensers', 'oracle'));
@@ -246,8 +223,6 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL');
     });
 
-    // --- type='dispenser' (getDispenses only) ------------------------------
-
     it('type=dispenser on getDispenses: filters on the dispense dispenser_action_index', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispenses', 'dispenser'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND m.dispenser_action_index=?');
@@ -259,8 +234,6 @@ describe('Database#getQueryWhereSql', () => {
         const sql = await db.getQueryWhereSql(cfg('getDispensers', 'dispenser'));
         expect(sql).to.equal('m.action_index IS NOT NULL');
     });
-
-    // --- type='token' ------------------------------------------------------
 
     it('type=token on a standard method: appends AND t3.tick=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', 'token'));
@@ -282,21 +255,15 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL AND t3.tick LIKE ?');
     });
 
-    // --- getMarket tick clause (always) ------------------------------------
-
     it('getMarket: appends tick OR-pair clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarket', null));
         expect(sql).to.equal('m.id IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))');
     });
 
-    // --- getMarkets + type='token' -----------------------------------------
-
     it('getMarkets + type=token: appends AND (t1.tick=? OR t2.tick=?)', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarkets', 'token'));
         expect(sql).to.equal('m.id IS NOT NULL AND (t1.tick=? OR t2.tick=?)');
     });
-
-    // --- getMarketOrders / getOrderbook / getMarketHistory -----------
 
     it('getMarketOrders: appends tick clause, no search3', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarketOrders', null));
@@ -323,8 +290,6 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?)) AND (a2.address=? OR a3.address=?)');
     });
 
-    // --- getHistory special cases ------------------------------------------
-
     it('getHistory + type=address: appends m.type_id=2 AND m.id=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getHistory', 'address'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND m.type_id=2 AND m.id=?');
@@ -346,15 +311,9 @@ describe('Database#getQueryWhereSql', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getQueryOffsetSql
-// ---------------------------------------------------------------------------
-
 describe('Database#getQueryOffsetSql', () => {
     let db;
     before(() => { db = makeDb(); });
-
-    // --- No offset / no action / no start ----------------------------------
 
     it('returns empty string and empty args when offset is absent', async () => {
         const config = makeConfig({ data: { method: 'getActions', type: null } });
@@ -380,8 +339,6 @@ describe('Database#getQueryOffsetSql', () => {
         expect(sql).to.equal('');
         expect(args).to.deep.equal([]);
     });
-
-    // --- Default field (m.action_index): parameterized ---------------------
 
     it('action=next with start only: parameterized placeholder', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, null));
@@ -419,15 +376,11 @@ describe('Database#getQueryOffsetSql', () => {
         expect(args).to.deep.equal([300]);
     });
 
-    // --- Unknown action treated like next (else branch) --------------------
-
     it('unknown action with start+stop: falls through to next-style clause', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'first', 500, 100));
         expect(sql).to.equal(' AND m.action_index < ? AND m.action_index > ?');
         expect(args).to.deep.equal([500, 100]);
     });
-
-    // --- getBlocks uses b1.block_index -------------------------------------
 
     it('getBlocks action=next with start: uses b1.block_index', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getBlocks', 'next', 800, 600));
@@ -453,8 +406,6 @@ describe('Database#getQueryOffsetSql', () => {
         expect(args).to.deep.equal([200]);
     });
 
-    // --- getTokens uses m.id -----------------------------------------------
-
     it('getTokens action=next with start+stop: uses m.id', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getTokens', 'next', 50, 10));
         expect(sql).to.equal(' AND m.id < ? AND m.id > ?');
@@ -473,15 +424,11 @@ describe('Database#getQueryOffsetSql', () => {
         expect(args).to.deep.equal([75]);
     });
 
-    // --- Numeric coercion --------------------------------------------------
-
     it('start/stop are parsed as integers (string numbers accepted)', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', '500', '100'));
         expect(sql).to.equal(' AND m.action_index < ? AND m.action_index > ?');
         expect(args).to.deep.equal([500, 100]);
     });
-
-    // --- Defensive null/undefined guards (mutation testing) -----------------
 
     it('returns empty when offset exists but start is empty string', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', '', null));
@@ -502,9 +449,8 @@ describe('Database#getQueryOffsetSql', () => {
     });
 
     it('action=next with start and stop=0: stop is false after sanitizeInt', async () => {
-        // stop=0 should become 0 from sanitizeInt, which is falsy
+        // stop=0 comes back 0 from sanitizeInt, and 0 is falsy, so `if(stop)` treats it as absent.
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', 500, 0));
-        // stop=0 => sanitizeInt(0, false) = 0 => truthy check `if(stop)` => 0 is falsy
         expect(sql).to.equal(' AND m.action_index < ?');
         expect(args).to.deep.equal([500]);
     });
@@ -515,10 +461,6 @@ describe('Database#getQueryOffsetSql', () => {
         expect(args).to.deep.equal([]);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getQueryWhereSql: cross-chain mirrors + contract delegations
-// ---------------------------------------------------------------------------
 
 describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', () => {
     let db;
@@ -608,8 +550,6 @@ describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', 
         expect(sql).to.include('m.country=?');
     });
 
-    // ----- BET (§11.1) -----------------------------------------------------
-
     it('getBetFeeds type=status filters the STORED feed status, not a clock recomputation', async () => {
         const sql = await db.getQueryWhereSql(cfg('getBetFeeds', 'status'));
         expect(sql).to.include('fs.status=?');
@@ -660,9 +600,6 @@ describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', 
     });
 });
 
-// ---------------------------------------------------------------------------
-// getQuery() API OFFSET cap (stress-sweep: deep-offset scan DoS)
-// ---------------------------------------------------------------------------
 describe('getQuery() API OFFSET cap', function () {
     // A synchronous stub query-builder so getQuery does not hit the DB. getQuery
     // sets config.data.sql.apiOffset BEFORE invoking this[data.method].

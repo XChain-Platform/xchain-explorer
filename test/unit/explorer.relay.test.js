@@ -17,15 +17,8 @@ const path       = require('path');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Build a minimal XChainExplorer instance with the given axios stub.
- * proxyquire.noCallThru() is NOT used globally so that internal helpers
- * (utility, path, etc.) are real; only the listed modules are replaced.
- */
+// proxyquire.noCallThru() is NOT used globally so internal helpers (utility,
+// path, etc.) stay real; only the listed modules are replaced.
 function makeExplorer(axiosStub) {
     const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
         axios:    axiosStub,
@@ -44,7 +37,6 @@ function makeExplorer(axiosStub) {
     return new XChainExplorer(app, configInfo);
 }
 
-// Build a minimal mock req for the relay handler
 function makeRelayReq(url) {
     return {
         path:    '/relay',
@@ -54,15 +46,7 @@ function makeRelayReq(url) {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('XChainExplorer#processRelayRequest', function () {
-
-    // -----------------------------------------------------------------------
-    // No url param → 503
-    // -----------------------------------------------------------------------
 
     it('returns 503 when no url query parameter is provided', async function () {
         const explorer = makeExplorer({});
@@ -74,10 +58,6 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._status).to.equal(503);
         expect(res._body).to.deep.equal({ error: 'service not available', code: 'SERVICE_UNAVAILABLE' });
     });
-
-    // -----------------------------------------------------------------------
-    // Valid JSON url → fetches and returns JSON
-    // -----------------------------------------------------------------------
 
     it('fetches a .json URL and returns re-serialized JSON', async function () {
         const payload = { tick: 'XCHAIN', supply: '1000000' };
@@ -93,13 +73,8 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(axiosStub.get.calledOnce).to.be.true;
         expect(axiosStub.get.firstCall.args[0]).to.equal('https://example.com/token.json');
         expect(res._type).to.equal('json');
-        // body should be a JSON string containing the payload fields
         expect(res._body).to.include('XCHAIN');
     });
-
-    // -----------------------------------------------------------------------
-    // Valid PNG url → fetches and returns base64
-    // -----------------------------------------------------------------------
 
     it('fetches a .png URL and returns a base64-encoded string', async function () {
         // Simulate a minimal 1x1 PNG as a buffer (just needs to be non-empty bytes)
@@ -114,15 +89,9 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(axiosStub.get.calledOnce).to.be.true;
-        // responseType arraybuffer should have been requested
         expect(axiosStub.get.firstCall.args[1]).to.have.property('responseType', 'arraybuffer');
-        // Response body should be a non-empty base64 string
         expect(res._body).to.be.a('string').and.have.length.above(0);
     });
-
-    // -----------------------------------------------------------------------
-    // Invalid protocol (ftp:) → 400
-    // -----------------------------------------------------------------------
 
     it('returns 400 for an ftp: protocol URL', async function () {
         const explorer = makeExplorer({});
@@ -134,10 +103,6 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._status).to.equal(400);
         expect(res._body).to.deep.equal({ error: 'Invalid protocol', code: 'RELAY_INVALID_PROTOCOL' });
     });
-
-    // -----------------------------------------------------------------------
-    // Private IPs → 403
-    // -----------------------------------------------------------------------
 
     it('returns 403 for 127.0.0.1 (loopback)', async function () {
         const explorer = makeExplorer({});
@@ -205,11 +170,10 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._body).to.deep.equal({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
     });
 
-    // Ranges the old hand-rolled inline blocklist missed (only /^fc00:/, no CGNAT,
-    // partial link-local): the canonical isPrivateAddress + net.isIP literal check
-    // must now cover them so an IPv6/CGNAT literal cannot bypass the guard. A private
-    // literal never reaches axios (the shim is skipped for IP literals), so a hit here
-    // proves the pre-connect canonical check fired.
+    // Ranges an earlier hand-rolled blocklist missed (only /^fc00:/, no CGNAT,
+    // partial link-local); the canonical isPrivateAddress + net.isIP literal check
+    // must cover them so an IPv6/CGNAT literal cannot bypass the guard. A private
+    // literal never reaches axios, so a hit here proves the pre-connect check fired.
     const ssrfLiteralGaps = [
         ['fd00:ec2::254 (AWS IMDS over IPv6, ULA)', 'http://[fd00:ec2::254]/latest/meta-data/x.json'],
         ['fdff:: (rest of fc00::/7 ULA)',           'http://[fdff::1]/token.json'],
@@ -233,10 +197,6 @@ describe('XChainExplorer#processRelayRequest', function () {
         });
     }
 
-    // -----------------------------------------------------------------------
-    // Network error → 400
-    // -----------------------------------------------------------------------
-
     it('returns 400 when axios throws a network error', async function () {
         const axiosStub = {
             get: sinon.stub().rejects(new Error('ECONNREFUSED'))
@@ -251,10 +211,6 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._body).to.deep.equal({ error: 'Invalid or unreachable URL', code: 'RELAY_FETCH_FAILED' });
     });
 
-    // -----------------------------------------------------------------------
-    // Unsupported extension (.html) → 503
-    // -----------------------------------------------------------------------
-
     it('returns 503 for an unsupported file extension (.html)', async function () {
         const axiosStub = { get: sinon.stub() };
         const explorer = makeExplorer(axiosStub);
@@ -263,7 +219,6 @@ describe('XChainExplorer#processRelayRequest', function () {
 
         await explorer.processRelayRequest(req, res);
 
-        // axios.get should never be called for unsupported extensions
         expect(axiosStub.get.called).to.be.false;
         expect(res._status).to.equal(503);
         expect(res._body).to.deep.equal({ error: 'service not available', code: 'SERVICE_UNAVAILABLE' });

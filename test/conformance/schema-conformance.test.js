@@ -11,11 +11,11 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Real-schema conformance canary .
+ * Real-schema conformance canary.
  *
- * Why this tier exists:  (a SELECT of a non-existent blocks.block_hash
- * column) silently killed the live WebSocket feed for 9 days because every
- * unit test stubbed doQuery and the integration tier runs against a fixture
+ * Why this tier exists: a SELECT of a non-existent blocks.block_hash column
+ * once silently killed the live WebSocket feed for 9 days because every unit
+ * test stubbed doQuery and the integration tier runs against a fixture
  * SNAPSHOT of the schema, so no automated test ever executed the explorer's
  * real SQL against the REAL indexer DDL. This suite closes that class of gap
  * systemically, not just for the one bug:
@@ -28,7 +28,7 @@
  *      missing table / SQL syntax).
  *   3. Drives the ChangeDetector poll loop end-to-end and asserts the WS
  *      feed emits a block + action event for a freshly inserted block
- *      (the exact surface  killed).
+ *      (the exact surface that outage killed).
  *   4. Guards the integration fixture snapshot against drift from the real
  *      DDL (per-table column-name parity), so the existing integration tier
  *      keeps testing the schema production actually has.
@@ -67,7 +67,7 @@ const DECODER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-decoder',
 const FIXTURE_SCHEMA  = path.join(__dirname, '..', 'integration', 'fixtures', 'schema.sql');
 
 // The canonical UTF-8 ACTION string the decoder writes to
-// mempool_transactions.data . Kept as plain text on purpose: it is the
+// mempool_transactions.data. Kept as plain text on purpose: it is the
 // same representation the confirmed-block path writes to transactions.data.
 const MEMPOOL_ACTION_STRING = 'SEND|0|CONFTICK|1|bcrt1qconformance|';
 
@@ -113,7 +113,7 @@ function migrationFiles(dir) {
         .map(f => path.join(mig, f));
 }
 
-describe(' real-schema conformance canary (real DDL on real MariaDB)', function () {
+describe('Real-schema conformance canary (real DDL on real MariaDB)', function () {
 
     this.timeout(120000);
 
@@ -316,7 +316,7 @@ describe(' real-schema conformance canary (real DDL on real MariaDB)', function 
      * 2. ChangeDetector WS-feed smoke: a fresh block must emit events
      *****************************************************************/
 
-    it('emits WS block + action events for a freshly indexed block ( class)', async function () {
+    it('emits WS block + action events for a freshly indexed block (guards the missing-column outage class)', async function () {
         const conn = await adminPool.getConnection();
         async function insertId(sql, args) {
             const res = await conn.query(sql, args);
@@ -374,7 +374,7 @@ describe(' real-schema conformance canary (real DDL on real MariaDB)', function 
         try {
             await conn.query('USE `' + DECODER_DB + '`');
             // Seeded as the canonical UTF-8 ACTION string, which is what the
-            // decoder's mempool path writes ; this row is byte-identical
+            // decoder's mempool path writes; this row is byte-identical
             // to the `transactions.data` value its confirmed twin would carry.
             await conn.query('INSERT INTO mempool_transactions (tx_hash, source, destination, amount, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
                 ['conf-mempool-tx-1', 'bcrt1qconformance', 'bcrt1qconformance', 0, 500, MEMPOOL_ACTION_STRING]);

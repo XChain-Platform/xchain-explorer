@@ -27,10 +27,6 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Seed reference
-// ---------------------------------------------------------------------------
-
 const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 let request;
@@ -46,10 +42,6 @@ after(async function () {
     this.timeout(10000);
     await db.teardownDatabase();
 });
-
-// ===========================================================================
-// @p1 @market Markets: list all pairs
-// ===========================================================================
 
 describe('@p1 @market Markets list regression', function () {
 
@@ -67,10 +59,6 @@ describe('@p1 @market Markets list regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @market Markets: filter by token
-// ===========================================================================
-
 describe('@p1 @market Markets filter by token regression', function () {
 
     it('GET /RBTC/api/markets/XCHAIN: returns both pairs', async function () {
@@ -78,10 +66,6 @@ describe('@p1 @market Markets filter by token regression', function () {
         expect(res.body.data.length).to.be.at.least(2);
     });
 });
-
-// ===========================================================================
-// @p1 @market Market: specific pair
-// ===========================================================================
 
 describe('@p1 @market Market specific pair regression', function () {
 
@@ -106,10 +90,6 @@ describe('@p1 @market Market specific pair regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @market Market: orders and orderbook
-// ===========================================================================
-
 describe('@p1 @market Market orders and orderbook regression', function () {
 
     it('GET /RBTC/api/market/XCHAIN/TOKENONE/orders: returns orders wrapper', async function () {
@@ -125,10 +105,6 @@ describe('@p1 @market Market orders and orderbook regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @action Orders
-// ===========================================================================
-
 describe('@p1 @action Orders API regression', function () {
 
     it('GET /RBTC/api/orders/{block}/block: returns orders in block', async function () {
@@ -140,10 +116,6 @@ describe('@p1 @action Orders API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @action Dispensers
-// ===========================================================================
-
 describe('@p1 @action Dispensers API regression', function () {
 
     it('GET /RBTC/api/dispensers/{block}/block: returns dispensers in block', async function () {
@@ -153,10 +125,6 @@ describe('@p1 @action Dispensers API regression', function () {
         expect(Number(res.body.total)).to.equal(3);
     });
 });
-
-// ===========================================================================
-// @p1 @action Dispenses
-// ===========================================================================
 
 describe('@p1 @action Dispenses API regression', function () {
 
@@ -168,10 +136,6 @@ describe('@p1 @action Dispenses API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @action Issues
-// ===========================================================================
-
 describe('@p1 @action Issues API regression', function () {
 
     it('GET /RBTC/api/issues/{block}/block: returns issues in block', async function () {
@@ -181,10 +145,6 @@ describe('@p1 @action Issues API regression', function () {
         expect(Number(res.body.total)).to.equal(2);
     });
 });
-
-// ===========================================================================
-// @p1 @action Mints
-// ===========================================================================
 
 describe('@p1 @action Mints API regression', function () {
 
@@ -196,10 +156,6 @@ describe('@p1 @action Mints API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @action Destroys
-// ===========================================================================
-
 describe('@p1 @action Destroys API regression', function () {
 
     it('GET /RBTC/api/destroys/{block}/block: returns destroys in block', async function () {
@@ -210,10 +166,6 @@ describe('@p1 @action Destroys API regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @action Broadcasts
-// ===========================================================================
-
 describe('@p1 @action Broadcasts API regression', function () {
 
     it('GET /RBTC/api/broadcasts/{block}/block: returns broadcasts in block', async function () {
@@ -223,10 +175,6 @@ describe('@p1 @action Broadcasts API regression', function () {
         expect(Number(res.body.total)).to.equal(1);
     });
 });
-
-// ===========================================================================
-// @p1 @pagination Pagination correctness
-// ===========================================================================
 
 describe('@p1 @pagination Pagination regression', function () {
 
@@ -249,10 +197,6 @@ describe('@p1 @pagination Pagination regression', function () {
         expect(Number(page1.body.total)).to.equal(Number(page2.body.total));
     });
 });
-
-// ===========================================================================
-// @p1 @precision BigNumber precision
-// ===========================================================================
 
 describe('@p1 @precision BigNumber amount precision regression', function () {
 
@@ -279,10 +223,6 @@ describe('@p1 @precision BigNumber amount precision regression', function () {
         expect(res.body.supply.max).to.be.a('string');
     });
 });
-
-// ===========================================================================
-// @p1 @error Error responses
-// ===========================================================================
 
 describe('@p1 @error Error response regression', function () {
 

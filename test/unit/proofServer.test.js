@@ -190,14 +190,12 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
     });
 });
 
-// Regression for the balance-proof height-bounding defect: the served amount must
-// be the net balance committed AT the checkpoint height, not the current tip. The
-// mock DB models a real in-history ledger for ADDR_A (a credit before the
-// checkpoint, another credit after it) so the height-bounded query and the
-// unbounded (tip) query return DIFFERENT amounts. The committed SMT leaf is built
-// from the CHECKPOINT-height net, and the proof is checked with the REAL xchain-sdk
-// verifier. Before the fix (proofServer called the unbounded getNetBalance18) the
-// tip amount fails amountLeaf()==leaf and the SDK returns LEAF_AMOUNT_MISMATCH.
+// Regression: the served amount must be the net balance committed AT the
+// checkpoint height, not the current tip. The mock ledger credits ADDR_A once
+// before the checkpoint and once after, so the height-bounded and unbounded (tip)
+// queries diverge, and the committed SMT leaf is built from the checkpoint-height
+// net. The old code queried the unbounded balance instead, which no longer
+// preimages the leaf and trips the real xchain-sdk verifier's LEAF_AMOUNT_MISMATCH.
 describe('SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-verified)', function () {
 
     before(function () { if (!verifyBalanceProof) this.skip(); });

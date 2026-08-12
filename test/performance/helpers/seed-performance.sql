@@ -71,9 +71,7 @@ TRUNCATE TABLE index_transactions;
 
 SET FOREIGN_KEY_CHECKS=1;
 
--- ============================================================
 -- Reference / index tables
--- ============================================================
 
 INSERT INTO index_actions (id, action) VALUES
 (1, 'SEND'), (2, 'ISSUE'), (3, 'ORDER'), (4, 'DESTROY'),
@@ -118,12 +116,8 @@ INSERT INTO index_tickers (id, tick) VALUES
 (5, 'BENCHMARK'), (6, 'VOLUME'), (7, 'SPEED'), (8, 'SCALE'),
 (9, 'CAPACITY'), (10, 'MEASURE');
 
--- ============================================================
--- Generate blocks, transactions, actions via stored procedure
--- (MariaDB compatible procedural SQL)
--- ============================================================
+-- Generate blocks, transactions, actions via stored procedure (MariaDB compatible)
 
--- 100 blocks
 DELIMITER //
 CREATE PROCEDURE seed_perf_data()
 BEGIN
@@ -132,21 +126,18 @@ BEGIN
     DECLARE act_idx INT DEFAULT 1;
     DECLARE tx_hash_idx INT DEFAULT 1;
 
-    -- Insert 200 transaction hashes
     WHILE tx_hash_idx <= 200 DO
         INSERT INTO index_transactions (id, hash) VALUES
             (tx_hash_idx, CONCAT('perf_tx_hash_', LPAD(tx_hash_idx, 4, '0'), '_', REPEAT('a', 48)));
         SET tx_hash_idx = tx_hash_idx + 1;
     END WHILE;
 
-    -- Insert 100 blocks
     WHILE i <= 100 DO
         INSERT INTO blocks (id, block_index, block_time, ledger_hash_id, actions_hash_id)
             VALUES (i, i, 1700000000 + (i * 600), NULL, NULL);
         SET i = i + 1;
     END WHILE;
 
-    -- Insert 200 transactions (2 per block)
     SET i = 1;
     WHILE i <= 100 DO
         INSERT INTO transactions (tx_index, block_index, tx_hash_id, source_id) VALUES
@@ -158,7 +149,6 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 
-    -- Insert 200 actions (one per transaction)
     -- Distribute action types: SEND(1), ISSUE(2), ORDER(3), BROADCAST(8)
     SET i = 1;
     WHILE i <= 200 DO
@@ -175,7 +165,6 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 
-    -- Insert 10 tokens
     SET i = 1;
     WHILE i <= 10 DO
         INSERT INTO tokens (tick_id, max_supply, max_mint, decimals, description, lock_max_supply, lock_mint, lock_mint_supply, lock_max_mint, lock_description, lock_sleep, lock_callback, coin_price, action_index) VALUES
@@ -197,7 +186,6 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 
-    -- Insert 50 issues
     SET i = 1;
     WHILE i <= 50 DO
         INSERT INTO issues (action_index, tick_id, max_supply, max_mint, decimals, description, mint_supply, allow_list, block_list, memo_id, status_id) VALUES
@@ -216,7 +204,6 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 
-    -- Insert 50 broadcasts
     SET i = 1;
     WHILE i <= 50 DO
         INSERT INTO broadcasts (action_index, message, memo_id, status_id) VALUES

@@ -10,10 +10,10 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-// : additive drift reconciler for the hub-mirror schema. A mirror
-// created before the price_snapshots retraction columns landed must get
-// them via ensureMirrorColumns() instead of a manual ALTER TABLE, and
-// re-running against an up-to-date schema must be a no-op.
+// Additive drift reconciler for the hub-mirror schema. A mirror created
+// before the price_snapshots retraction columns landed must get them via
+// ensureMirrorColumns() instead of a manual ALTER TABLE, and re-running
+// against an up-to-date schema must be a no-op.
 
 const fs   = require('fs');
 const path = require('path');
@@ -43,7 +43,7 @@ function fakeDb({ tables = ['price_snapshots'], columns = [], indexes = [] } = {
 }
 
 // Mock exposing SHOW INDEX Column_name rows for the capability_snapshots
-// uq_cap_snap widen ; uqCols is the live column set of uq_cap_snap.
+// uq_cap_snap widen; uqCols is the live column set of uq_cap_snap.
 function fakeCapDb(uqCols) {
     const executed = [];
     return {
@@ -75,7 +75,7 @@ const CURRENT_INDEXES = ['PRIMARY', 'idx_round_pair', 'idx_pair_block', 'idx_pai
 
 const noLog = () => {};
 
-describe('hub-mirror-migrate ', function () {
+describe('hub-mirror-migrate', function () {
 
     it('adds all three retraction columns and the source_chain index to a legacy table', async function () {
         const db = fakeDb({ columns: LEGACY_COLUMNS, indexes: ['PRIMARY', 'idx_round_pair'] });
@@ -124,7 +124,7 @@ describe('hub-mirror-migrate ', function () {
         expect(db.executed).to.have.lengthOf(0);
     });
 
-    it('widens a legacy 3-column uq_cap_snap to include source ', async function () {
+    it('widens a legacy 3-column uq_cap_snap to include source', async function () {
         const db = fakeCapDb(['snapshot_block', 'capability', 'signing_pubkey']);
         const applied = await ensureMirrorColumns(db, noLog);
         // Drop then re-add the wider key (separate ALTERs so the re-add cannot race).

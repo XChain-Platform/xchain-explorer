@@ -38,10 +38,6 @@ describe('ChannelManager', function () {
         cm = new ChannelManager({ maxSubscriptions: 25 });
     });
 
-    // -----------------------------------------------------------------
-    // Subscribe: global channels
-    // -----------------------------------------------------------------
-
     describe('subscribe – global channels', function () {
 
         it('subscribes to blocks channel', function () {
@@ -81,10 +77,6 @@ describe('ChannelManager', function () {
             expect(result.success).to.be.false;
         });
     });
-
-    // -----------------------------------------------------------------
-    // Subscribe: entity channels
-    // -----------------------------------------------------------------
 
     describe('subscribe – entity channels', function () {
 
@@ -132,8 +124,8 @@ describe('ChannelManager', function () {
             expect(result.success).to.be.false;
         });
 
-        // . A noncanonical index used to become a subscription identity of its
-        // own while the snapshot read coerced it back to the real row, so the client got
+        // A noncanonical index used to become a subscription identity of its own
+        // while the snapshot read coerced it back to the real row, so the client got
         // one dispenser-7 snapshot and then no live frames (Broadcaster routes on the
         // canonical index). Reject it at the resolver instead.
         ['7junk', '007', '7.5', '-1', '', ' 7', '0x7', '1e3'].forEach((bad) => {
@@ -169,10 +161,6 @@ describe('ChannelManager', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Subscribe: batch entity subscriptions
-    // -----------------------------------------------------------------
-
     describe('subscribe – batch', function () {
 
         it('subscribes to multiple addresses', function () {
@@ -204,10 +192,6 @@ describe('ChannelManager', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Subscribe: filters
-    // -----------------------------------------------------------------
-
     describe('subscribe – filters', function () {
 
         it('stores types filter', function () {
@@ -226,7 +210,7 @@ describe('ChannelManager', function () {
             expect(subs[0].filters.statuses).to.be.undefined;
         });
 
-        it('#3860: omits ticks from the subscription list (no-op filter, matching SUBSCRIBED)', function () {
+        it('omits ticks from the subscription list (no-op filter, matching SUBSCRIBED)', function () {
             const client = createClient(1);
             cm.subscribe(client, ['actions'], { ticks: ['PEPE'] });
             const subs = cm.listSubscriptions(client);
@@ -249,8 +233,8 @@ describe('ChannelManager', function () {
             expect(result.error.code).to.equal('INVALID_TYPE');
         });
 
-        // #3135: a non-iterable `fields` reached `new Set(params.fields)` and threw
-        // a synchronous TypeError out of the ws handler (unauthenticated crash).
+        // A non-iterable `fields` reached `new Set(params.fields)` and threw a
+        // synchronous TypeError out of the ws handler (unauthenticated crash).
         it('rejects a non-array fields filter instead of throwing (crash-DoS guard)', function () {
             const client = createClient(1);
             for (const bad of [1, {}, 'abc', true]) {
@@ -298,10 +282,6 @@ describe('ChannelManager', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Subscription limits
-    // -----------------------------------------------------------------
-
     describe('subscription limits', function () {
 
         it('enforces max subscriptions', function () {
@@ -325,10 +305,6 @@ describe('ChannelManager', function () {
             expect(result.success).to.be.true;
         });
     });
-
-    // -----------------------------------------------------------------
-    // Unsubscribe
-    // -----------------------------------------------------------------
 
     describe('unsubscribe', function () {
 
@@ -355,10 +331,6 @@ describe('ChannelManager', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // removeClient
-    // -----------------------------------------------------------------
-
     describe('removeClient', function () {
 
         it('removes all subscriptions for a client', function () {
@@ -378,10 +350,6 @@ describe('ChannelManager', function () {
             expect(cm.subscriptions.size).to.equal(0);
         });
     });
-
-    // -----------------------------------------------------------------
-    // listSubscriptions
-    // -----------------------------------------------------------------
 
     describe('listSubscriptions', function () {
 
@@ -420,10 +388,6 @@ describe('ChannelManager', function () {
             expect(entry.action_index).to.be.a('string');
         });
     });
-
-    // -----------------------------------------------------------------
-    // Subscriber queries
-    // -----------------------------------------------------------------
 
     describe('subscriber queries', function () {
 
@@ -470,7 +434,7 @@ describe('ChannelManager', function () {
     });
 });
 
-describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts, )', function () {
+describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts)', function () {
     // Every lifecycle name the types filter accepts must be one the producer
     // actually emits. A phantom name is advertised in WELCOME and accepted by
     // subscribe() yet silently matches zero events.
@@ -478,8 +442,8 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts, )', f
     // NON_ACTION_LIFECYCLE_TYPES for events produced by a cursor of their own
     // (BET_CLOSED, whose latch has no action row), and INLINE_LIFECYCLE_TYPES for
     // the enrichment paths. All three are read from the producer rather than
-    // restated here: a local copy of the inline names is what let the two
-    // ATTESTATION types ship emitted-but-unfilterable ().
+    // restated here: a local copy of the inline names is what previously let the
+    // two ATTESTATION types ship emitted-but-unfilterable.
     function emittedNames() {
         const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
         return new Set(
@@ -504,8 +468,8 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts, )', f
     // producer emits that the filter refuses. That failure is worse than a phantom:
     // types is validated per entry and one unknown name fails the ENTIRE subscribe
     // with INVALID_TYPE, so a client narrowing to a real event type gets no channel
-    // at all. Every BET name was in exactly that state (emitted since P7, never
-    // accepted) until .
+    // at all. Every BET name was in exactly that state (emitted, never accepted)
+    // until the filter was fixed to admit them.
     it('every type ChangeDetector emits is accepted by the types filter', function () {
         const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
         // Both halves matter: the filter matches on the event type OR the causing

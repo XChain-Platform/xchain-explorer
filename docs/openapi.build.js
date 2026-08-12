@@ -167,10 +167,10 @@ const ROUTES = [
     ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token', 'recent'], 'Core', 'Combined action history'],
     ['/{COIN}/api/holders/{QUERY}', 'getHolders', 'token', 'Tokens', 'Holders of a token'],
     ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions from the decoder. PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
-    // Typed rather than left on the property-less ObjectResponse (): the
-    // xchain-dashboard monitor reads network.block to gate its checkpoint-stall
-    // alert, so a producer rename or a null there must fail a contract check
-    // instead of silently blinding the alert. Optional 6th element = per-route opts.
+    // Typed rather than left on the property-less ObjectResponse: a monitoring
+    // dashboard reads network.block to gate its checkpoint-stall alert, so a
+    // producer rename or a null there must fail a contract check instead of
+    // silently blinding the alert. Optional 6th element = per-route opts.
     ['/{COIN}/api/network', 'getNetwork', null, 'Network', 'Network statistics',
         { schema: { $ref: '#/components/schemas/NetworkResponse' } }],
     ['/{COIN}/api/pubkey/{QUERY}', 'getPublicKey', 'address', 'Core', 'Known public key for an address'],
@@ -192,7 +192,7 @@ const ROUTES = [
 // Pre-wildcard routes registered directly on the Express app in setupUrls().
 const SPECIAL = [
     // The 200 is declared by hand because this route returns BYTES, not JSON, and the
-    // generic default would publish a paginated ListResponse over an octet stream (#3900).
+    // generic default would publish a paginated ListResponse over an octet stream.
     ['/{COIN}/api/file/{ACTION_INDEX}/raw', 'Files',
         'Raw FILE bytes (gated: ciphertext as octet-stream; non-gated: inline for safe media types)',
         null,
@@ -208,12 +208,12 @@ const SPECIAL = [
             } } }],
     ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)'],
     ['/{COIN}/api/feeschedule', 'Fees', 'Fee schedule + oracle prices (proxied from the indexer)'],
-    // . This entry existed in the generated openapi.json but not here,
-    // so it was hand-written into the output and the next regeneration would
-    // have silently dropped it. Kept in the generator instead.
+    // This entry existed in the generated openapi.json but not here, so it was
+    // hand-written into the output and the next regeneration would have
+    // silently dropped it. Kept in the generator instead.
     ['/{COIN}/api/oraclefeequote', 'Fees', 'Oracle usage fee quote for a Mode B dispenser (proxied from the indexer)',
         'A dispenser naming an ORACLE_ADDRESS pays the oracle operator up front as a native-coin output, sized from the escrow the action adds. Returns requiredFeeNative / requiredFeeSats / belowDust. Backed by the same computation the indexer validates with, so an output sized from this quote is accepted.'],
-    // . The verdict is decoupled from native-fee support: `supported` means
+    // The verdict is decoupled from native-fee support: `supported` means
     // the handler actually ran, `valid` is the on-chain validity answer, and a
     // null `valid` means no verdict was produced (denied / feeExempt / busy /
     // guardInert), never "invalid".
@@ -237,7 +237,7 @@ const SPECIAL = [
                     example: '0|JDOG|1|bc1qexampleaddress', description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
                 { name: 'source', required: false, schema: { type: 'string', maxLength: 4096 },
                     description: 'Source address the action would be sent from' },
-                // : the verdict differs by settlement mode, so the caller states which
+                // The verdict differs by settlement mode, so the caller states which
                 // one it is composing rather than the endpoint assuming the native one.
                 { name: 'feeMode', required: false, schema: { type: 'string', enum: ['xchain', 'native'] },
                     description: 'How the transaction being composed will settle the protocol fee. The verdict differs: `xchain` debits the payer XCHAIN balance, `native` pays a coin output to the fee destination. Omit it to get the chain default (native on LTC/DOGE, the XCHAIN debit on BTC).' },
@@ -255,13 +255,13 @@ const SPECIAL = [
         null,
         { schema: { $ref: '#/components/schemas/CheckpointListResponse' },
           // `limit` is the one query param the handler reads; page/sortorder are inherited
-          // pagination the route has never honored (#3901).
+          // pagination the route has never honored.
           query: [{ name: 'limit', required: false,
                     schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
                     description: 'Rows to return; clamped server-side to 1..100' }] }],
     ['/{COIN}/api/checkpoint/{BLOCK_INDEX}/verify', 'Checkpoints', 'Verify a checkpoint: 2f+1 signatures, canonical string, validator set'],
     // from/to are `required` because the handler 400s (INVALID_RANGE) without them, so a
-    // client generated off the inherited page/limit/sortorder set could not call it (#3902).
+    // client generated off the inherited page/limit/sortorder set could not call it.
     ['/{COIN}/api/checkpoints/range', 'Checkpoints', 'Quorum-signed checkpoints in a [from,to] block range (SPV forward-following)',
         null,
         { schema: { $ref: '#/components/schemas/CheckpointListResponse' },
@@ -274,7 +274,7 @@ const SPECIAL = [
     ['/{COIN}/api/hub-mirror/status', 'Checkpoints', 'Self-synced hub-mirror status: bootstrap state and watermark lag ({enabled:false} in externally-maintained mode)'],
     ['/{COIN}/api/proof/balance/{ADDRESS}/{TICK}', 'Proofs', 'SPV balance inclusion proof for an address/tick against the committed balances_root (height optional)'],
     // Present in the generated openapi.json but never in this table, so it survived only
-    // as a hand-edit the next regeneration would drop: the  hazard, second instance.
+    // as a hand-edit the next regeneration would drop: the same hazard as above, second instance.
     ['/{COIN}/api/proof/locked-balance/{ADDRESS}/{TICK}', 'Proofs', 'SPV locked-balance (XCHAIN_ESC) inclusion proof for an address/tick against the committed balances_root; 409 below the escrow leaf armed height (height optional)'],
     ['/{COIN}/api/proof/action/{ACTION_INDEX}', 'Proofs', 'SPV inclusion proof for an action against the committed state tree'],
     ['/{COIN}/api/proof/validator-set', 'Proofs', 'SPV proof of the BTC validator set at a snapshot height (stakes_root; BTC-only)'],
@@ -334,7 +334,7 @@ const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'get
 // {schema} a 200 body that is neither ListResponse nor ObjectResponse,
 // {responses} extra status codes (a null value DELETES a default one, for
 // routes that cannot emit it), and {response200} an entire 200 entry, for a
-// body that is not JSON at all (binary routes; #3900). Without this every
+// body that is not JSON at all (binary routes). Without this every
 // SPECIAL route inherited the paginated-list contract, which is wrong for the
 // indexer proxies: they take an `action`, return one object, and never 503.
 function operation([p, method, types, tag, summary], opts) {
@@ -437,7 +437,7 @@ const spec = {
                 required: ['total', 'data'],
             },
             ObjectResponse: { type: 'object', description: 'Single result object (fields vary per endpoint; amounts are decimal strings)' },
-            // Typed because a downstream alert depends on it (#4160). The shape is
+            // Typed because a downstream alert depends on it. The shape is
             // db.getNetwork()'s object plus the `runtime` every JSON response carries;
             // test/unit/network-response-contract.test.js drives the real producer
             // against this schema, so a field rename fails there rather than in the
@@ -501,7 +501,7 @@ const spec = {
                 required: ['network', 'totals', 'fee', 'coin', 'xchain', 'finality'],
             },
             // The checkpoint routes answer {checkpoints, count}, never the generic
-            // {total, data} list envelope (#3901). /checkpoints additionally spreads the
+            // {total, data} list envelope. /checkpoints additionally spreads the
             // mirror-gate annotation, so those two fields are optional, not required.
             CheckpointListResponse: {
                 type: 'object',
@@ -514,7 +514,7 @@ const spec = {
                 },
                 required: ['checkpoints', 'count'],
             },
-            // . Mirrors xchain-indexer Actions.computePreflight(); `valid` is
+            // Mirrors xchain-indexer Actions.computePreflight(); `valid` is
             // nullable because "no verdict" is a distinct answer from "invalid".
             PreflightResponse: {
                 type: 'object',
@@ -532,12 +532,12 @@ const spec = {
                     retryable: { type: 'boolean', description: 'Set alongside busy' },
                     cached: { type: 'boolean', description: 'Served from the block-height-keyed verdict memo' },
                     note: { type: 'string', description: 'Explanatory text accompanying a no-verdict response' },
-                    // . Echoed from the same dry-run that produced the verdict, so a
+                    // Echoed from the same dry-run that produced the verdict, so a
                     // confirm screen can disclose the protocol fee without a second call to
                     // /feequote. XCHAIN-denominated (the fee row is, in every payment mode);
                     // sizing a native-coin output is still /feequote's job.
                     xchainFee: { type: ['string', 'null'], description: 'Protocol fee the action would owe, XCHAIN-denominated decimal string (8dp); null when the run staged no fee record, absent on no-verdict responses' },
-                    // . Which way the fee was settled in the dry-run, and what the payer
+                    // Which way the fee was settled in the dry-run, and what the payer
                     // holds to settle it with: without these a caller cannot tell an XCHAIN-mode
                     // refusal apart from a structural one, or see it coming at all.
                     feeMode: { type: 'string', enum: ['xchain', 'native'], description: 'Fee settlement mode the verdict was computed under' },

@@ -34,10 +34,6 @@ function makeDb() {
     return new Database(explorer);
 }
 
-// ===========================================================================
-// Query parameter type confusion
-// ===========================================================================
-
 describe('Security: Input Validation: Type confusion', function () {
 
     let db;
@@ -100,10 +96,6 @@ describe('Security: Input Validation: Type confusion', function () {
     });
 });
 
-// ===========================================================================
-// Special character handling
-// ===========================================================================
-
 describe('Security: Input Validation: Special characters', function () {
 
     let db;
@@ -149,10 +141,6 @@ describe('Security: Input Validation: Special characters', function () {
         expect(sql).to.not.include('DROP');
     });
 });
-
-// ===========================================================================
-// Extreme value handling
-// ===========================================================================
 
 describe('Security: Input Validation: Extreme values', function () {
 
@@ -214,10 +202,6 @@ describe('Security: Input Validation: Extreme values', function () {
     });
 });
 
-// ===========================================================================
-// Method name validation
-// ===========================================================================
-
 describe('Security: Input Validation: Method name safety', function () {
 
     let db;
@@ -267,10 +251,6 @@ describe('Security: Input Validation: Method name safety', function () {
         }
     });
 });
-
-// ===========================================================================
-// DataTables parameter validation
-// ===========================================================================
 
 describe('Security: Input Validation: DataTables parameters', function () {
 

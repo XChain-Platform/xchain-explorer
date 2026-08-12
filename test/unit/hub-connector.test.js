@@ -14,13 +14,9 @@ const sinon      = require('sinon');
 const { expect } = require('chai');
 const proxyquire = require('proxyquire').noCallThru();
 
-// Collapse retry backoff to zero so the retry-path tests run instantly.
-// The connector reads this env var in its constructor.
+// Collapse retry backoff to zero so the retry-path tests run instantly;
+// the connector reads this env var in its constructor.
 process.env.HUB_RETRY_DELAY_MS = '0';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeAxiosStub() {
     return { post: sinon.stub() };
@@ -33,8 +29,8 @@ function loadConnector(axiosStub) {
 }
 
 // Axios-style error for a non-2xx response that still carries a valid JSON-RPC
-// body (e.g. the hub's HTTP 503 "degraded" health response when its DB pool is
-// down). Axios attaches the full response to the thrown error as err.response.
+// body (e.g. the hub's HTTP 503 "degraded" response when its DB pool is down);
+// axios attaches the full response to the thrown error as err.response.
 function degraded503Error(body) {
     const err = new Error('Request failed with status code 503');
     err.response = {
@@ -44,15 +40,7 @@ function degraded503Error(body) {
     return err;
 }
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
 describe('XChainHubConnector', function () {
-
-    // -----------------------------------------------------------------------
-    // Constructor
-    // -----------------------------------------------------------------------
 
     describe('constructor', function () {
 
@@ -73,10 +61,6 @@ describe('XChainHubConnector', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // ping()
-    // -----------------------------------------------------------------------
 
     describe('ping()', function () {
 
@@ -138,10 +122,6 @@ describe('XChainHubConnector', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // getAllConfig()
-    // -----------------------------------------------------------------------
 
     describe('getAllConfig()', function () {
 
@@ -256,12 +236,11 @@ describe('XChainHubConnector', function () {
         });
 
         it('sends the cursor one second behind the stored watermark (same-second row skip fix)', async function () {
-            // hub-consumer-config-staleness finding: the hub reads its watermark
-            // BEFORE reading config rows, with a strict `since_updated_at > cursor`
-            // filter, so a row committed in the watermark's epoch-second is never
-            // re-delivered once our cursor advances past it. Sending lastWatermark-1
-            // re-fetches that boundary second every poll; mergeConfigDelta's
-            // upsert-only merge makes the overlap a harmless no-op re-apply.
+            // The hub reads its watermark BEFORE reading config rows, with a strict
+            // `since_updated_at > cursor` filter, so a row committed in the watermark's
+            // epoch-second is never re-delivered once our cursor advances past it.
+            // Sending lastWatermark-1 re-fetches that boundary second every poll;
+            // mergeConfigDelta's upsert-only merge makes the overlap a no-op re-apply.
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: { configs: {}, seq: 1, watermark: 1000 } } });
             const XChainHubConnector = loadConnector(axiosStub);
@@ -305,10 +284,7 @@ describe('XChainHubConnector', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // Retry behavior: bridges the startup race where the hub is still booting
-    // -----------------------------------------------------------------------
-
+    // Retries bridge the startup race where the hub is still booting.
     describe('getAllConfig() retry behavior', function () {
 
         it('retries the endpoint pass HUB_RETRY_ATTEMPTS times before returning null', async function () {
@@ -354,9 +330,6 @@ describe('XChainHubConnector', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // parseEndpoints(): hub discovery vs. standalone (NO_HUB) mode
-    // -----------------------------------------------------------------------
     describe('parseEndpoints()', function () {
 
         const HUB_ENV = ['NO_HUB', 'HUB_VALIDATORS', 'HUB_API_HOST', 'HUB_PORT'];
@@ -417,10 +390,6 @@ describe('XChainHubConnector', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // _applyConfigResult() + delta merge + array constructor
-    // -----------------------------------------------------------------------
-
     describe('_applyConfigResult() and config-delta merge', function () {
 
         it('accepts an array of endpoint URLs directly', function () {
@@ -474,8 +443,8 @@ describe('XChainHubConnector', function () {
 
         it('resets the cursor and re-fetches full when it fails over to a different endpoint', async function () {
             // A wall-clock cursor from hub A is not valid against hub B (each stamps
-            // updated_at at its own apply time), so on failover the connector must discard
-            // the stale-cursor delta and re-fetch the full tree from the new endpoint.
+            // updated_at at its own apply time), so on failover the connector must
+            // discard the stale cursor and re-fetch the full tree from the new endpoint.
             const axiosStub = makeAxiosStub();
             // Poll 1: endpoint A serves a full tree and advances the cursor to 1000.
             axiosStub.post.withArgs('http://a:1').onFirstCall().resolves({ data: { result: {

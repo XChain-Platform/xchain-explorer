@@ -12,7 +12,7 @@
  *
  **********************************************************************
  *
- * XChain Explorer - Font Awesome kit config injection 
+ * XChain Explorer - Font Awesome kit config injection
  *
  * A Font Awesome kit is loaded by two things: the vendored kit loader
  * (content/js/fontawesome-kit-loader.js) and an account config object,
@@ -151,7 +151,7 @@ function renderConfigPrologue(env = process.env){
 const DISABLED_STUB =
     '// Font Awesome kit not configured for this deployment.\n' +
     '// Set EXPLORER_FONTAWESOME_KIT_TOKEN (see .env.example) to enable it; the kit\n' +
-    '// token is a deploy-time credential and is never committed .\n';
+    '// token is a deploy-time credential and is never committed.\n';
 
 let loaderSource = null;
 

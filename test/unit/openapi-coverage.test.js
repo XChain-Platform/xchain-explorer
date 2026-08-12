@@ -83,8 +83,8 @@ describe('openapi.json route coverage', () => {
 
     it('declares the raw-file endpoint as binary, not a JSON list', () => {
         // processFileRawRequest answers octet-stream (or the file's own render-safe type)
-        // and reads no query params; the generic default published ListResponse plus
-        // page/limit/sortorder over it (#3900).
+        // and reads no query params, so the spec must not describe it with the generic
+        // default (a ListResponse plus page/limit/sortorder).
         const op = SPEC.paths['/{COIN}/api/file/{ACTION_INDEX}/raw'].get;
         const c  = op.responses['200'].content;
         expect(c).to.have.property('application/octet-stream');
@@ -94,7 +94,7 @@ describe('openapi.json route coverage', () => {
 
     it('declares the checkpoint routes with their real body and params', () => {
         // Both answer {checkpoints, count}, not the {total, data} list envelope, and
-        // /checkpoints/range hard-requires from/to (400 INVALID_RANGE) (#3901, #3902).
+        // /checkpoints/range hard-requires from/to (400 INVALID_RANGE).
         for (const p of ['/{COIN}/api/checkpoints', '/{COIN}/api/checkpoints/range'])
             expect(SPEC.paths[p].get.responses['200'].content['application/json'].schema.$ref,
                 `${p} 200 schema`).to.equal('#/components/schemas/CheckpointListResponse');

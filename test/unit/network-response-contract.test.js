@@ -13,11 +13,11 @@
  **********************************************************************
  * Contract test: GET /{COIN}/api/network against its published schema.
  *
- * . That operation used to answer the shared, property-less
- * ObjectResponse, so every field of it was unconstrained: the xchain-dashboard
- * monitor reads network.block to gate its checkpoint-stall alert, and a rename
- * or a null there would still have validated against the published contract
- * while silently stopping that alert from firing.
+ * This operation used to answer the shared, property-less ObjectResponse, so
+ * every field of it was unconstrained: the xchain-dashboard monitor reads
+ * network.block to gate its checkpoint-stall alert, and a rename or a null
+ * there would still have validated against the published contract while
+ * silently stopping that alert from firing.
  *
  * The producer is driven for real here (db.getNetwork with only its DB reads
  * stubbed), so the assertion is about the SHIPPED response, not a fixture. A
@@ -114,7 +114,7 @@ async function producedNetworkBody() {
     return body;
 }
 
-describe('/{COIN}/api/network response contract (#4160)', function () {
+describe('/{COIN}/api/network response contract', function () {
 
     afterEach(() => sinon.restore());
 
@@ -127,7 +127,7 @@ describe('/{COIN}/api/network response contract (#4160)', function () {
     it('the schema constrains the fields the dashboard monitor actually reads', function () {
         // xchain-dashboard/monitor: protocol.js reads data.network + data.totals,
         // and alerts/evaluator.js reads data.network.block for the checkpoint-stall
-        // gate. Loosening any of these back to optional re-opens #4160.
+        // gate. Loosening any of these back to optional silently breaks that alert.
         const s = deref(networkSchema());
         expect(s.required).to.include.members(['network', 'totals']);
         expect(deref(s.properties.network).required).to.include('block');

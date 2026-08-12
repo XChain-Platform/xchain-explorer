@@ -79,7 +79,7 @@ describe('Database#doQuery', () => {
         expect(result).to.deep.equal(fakeRows);
     });
 
-    it('throws DbQueryError when a SQL error is thrown (M-4: outage != empty)', async () => {
+    it('throws DbQueryError when a SQL error is thrown rather than reading as an empty result', async () => {
         const fakeConn = {
             query:   sinon.stub().rejects(new Error('Table not found')),
             release: sinon.stub().resolves()
@@ -93,7 +93,7 @@ describe('Database#doQuery', () => {
         expect(err.code).to.equal('DB_ERROR');
     });
 
-    it('throws DbQueryError when no pool exists for the coin (M-4)', async () => {
+    it('throws DbQueryError when no pool exists for the coin', async () => {
         db.pools = {};
         let err = null;
         try { await db.doQuery(cfg(), 'SELECT 1', []); } catch (e) { err = e; }
@@ -119,7 +119,8 @@ describe('Database#doQuery', () => {
         };
         setupMockPool('BTC', fakeConn);
 
-        // doQuery now rethrows the failure (M-4); release() must still run via finally.
+        // doQuery rethrows the failure so an outage surfaces as an error, not silently
+        // as empty data; release() must still run via finally.
         try { await db.doQuery(cfg(), 'SELECT 1', []); } catch (e) { /* expected */ }
         expect(fakeConn.release.calledOnce).to.be.true;
     });
@@ -220,8 +221,8 @@ describe('Database#getAddress', () => {
     it('returns a data object with the expected top-level keys', async () => {
         const config = cfg({ data: { search: 'addr1bc' } });
         const [data] = await db.getAddress(config);
-        // controllers is the Controller_Bound_Tokens.md display surface ([] with no binding);
-        // info carries the SDK-facing address/address_id (Index_Id_References.md / F3).
+        // controllers surfaces the address's active controller bindings ([] with no binding);
+        // info carries the SDK-facing address/address_id (F3, see below).
         // tracker_available flags whether this coin's xchain-utxo-tracker answered (false here:
         // no tracker stubbed, so balances/utxos stay null and the page shows "Unavailable").
         expect(data).to.have.keys(['address', 'type', 'balances', 'utxos', 'estimated_value', 'tracker_available', 'controllers', 'info']);
@@ -381,7 +382,7 @@ describe('Database#getStatus', () => {
 // The freshness gate that stops a frozen replica advertising itself as available.
 // decoder_lag_blocks cannot see a JOINT indexer+decoder freeze (it is an intra-replica
 // difference that reads 0 in that state), so the gate measures wall-clock instead.
-describe('Database tip-freshness gate ()', () => {
+describe('Database tip-freshness gate', () => {
     let db;
     const ENV_KEYS = ['EXPLORER_TIP_MAX_AGE_S', 'EXPLORER_TIP_MAX_AGE_S_RBTC'];
     let savedEnv;
@@ -512,9 +513,9 @@ describe('Database tip-freshness gate ()', () => {
     // The published schema is the contract third parties code against, and it is
     // served as a static asset that no other suite compares to the producer. That is
     // how it kept describing `available` as a fixed config echo for the whole life of
-    // the freshness gate . Pinning it to getStatus makes the next field
-    // addition fail here instead of shipping a wrong contract.
-    describe('published OpenAPI contract for /status ', () => {
+    // the freshness gate. Pinning it to getStatus makes the next field addition fail
+    // here instead of shipping a wrong contract.
+    describe('published OpenAPI contract for /status', () => {
         const status = require('../../src/content/json/xchain-platform-api.json')
                         .components.schemas.ExplorerStatus;
 
@@ -710,7 +711,7 @@ describe('Database#getNetwork', () => {
         expect(data).to.have.keys(['totals', 'network', 'fee', 'coin', 'xchain', 'finality']);
     });
 
-    // #3212: finality is sourced from the vendored coin registry, not a hand-copied
+    // Finality is sourced from the vendored coin registry, not a hand-copied
     // literal map, so it stays in lockstep with the coin bundle's confirmations.
     it('sources finality from the coin registry (per-coin confirmation defaults)', async () => {
         setupPool(db, 'BTC', 'XChain_BTC');
@@ -828,7 +829,7 @@ describe('Database#getDecoderMempoolCount', () => {
         expect(await db.getDecoderMempoolCount(cfg())).to.equal(0);
     });
 
-    it('caches the count per coin for the TTL : second call does not re-query', async () => {
+    it('caches the count per coin for the TTL: second call does not re-query', async () => {
         db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
         const q = sinon.stub(db, 'doQuery').resolves([{ count: 7 }]);
         expect(await db.getDecoderMempoolCount(cfg())).to.equal(7);
@@ -1011,10 +1012,9 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        // projects/registry are the Project_Registry.md display surfaces; with
-        // no baseCoin map (un-inited db) they resolve to []/null. controllers is
-        // the Controller_Bound_Tokens.md surface (→ [] with no pool/tick id).
-        // open_polls is the token page's Active Governance surface (VOTE.md).
+        // projects/registry resolve to []/null with no baseCoin map (un-inited db).
+        // controllers surfaces active controller bindings ([] with no pool/tick id).
+        // open_polls lists the token's currently-open governance polls.
         expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry', 'controllers', 'open_polls']);
         expect(data.projects).to.deep.equal([]);
         expect(data.registry).to.equal(null);
@@ -1128,7 +1128,7 @@ describe('Database#getToken', () => {
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
         // decimals power client-side NFT-pattern classification (DECIMALS=0 +
-        // LOCK_MAX_SUPPLY=1, see NFT_Standard.md); callback_decimals stays internal
+        // LOCK_MAX_SUPPLY=1); callback_decimals stays internal
         expect(data.info.decimals).to.equal(8);
         expect(data.supply.decimals).to.equal(8);
         expect(data.info).to.not.have.property('callback_decimals');
@@ -1432,7 +1432,7 @@ describe('Database#getStatus decoder health aggregation', () => {
 });
 
 // getContract is a single-record data method (returns [data]); it LEFT JOINs
-// the permissions manifest (protocol/Controller_Bound_Tokens.md).
+// the contract's permissions manifest.
 describe('Database#getContract', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1482,7 +1482,7 @@ describe('Database#getContract', () => {
         expect(data.max_take_bps).to.equal(null);
     });
 
-    // : openapi's info.description promises chain indices are exact decimal
+    // openapi's info.description promises chain indices are exact decimal
     // strings on REST, and utility.jsonStringify delivers that only while the value is
     // still the driver's BIGINT. A Number() coercion here collapsed 9007199254740995
     // onto ...96 and disagreed with block_index in this same row.
@@ -1701,8 +1701,8 @@ describe('Database#getContractManifest', () => {
     });
 });
 
-// Controller bindings: read-time cooldown reduction (protocol/Controller_Bound_Tokens.md).
-// Mirrors the indexer's readEffectiveControllerMap / controllerEventIfGating.
+// Controller bindings apply a read-time cooldown reduction, mirroring the
+// indexer's readEffectiveControllerMap / controllerEventIfGating.
 describe('Database#getTokenControllerBindings', () => {
     let db;
     beforeEach(() => { db = makeDb(); });

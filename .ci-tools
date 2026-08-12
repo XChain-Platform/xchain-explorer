@@ -1,4 +1,4 @@
-# Tools the CI gate checks for on a venue before it runs this suite .
+# Tools the CI gate checks for on a venue before it runs this suite.
 #
 # The list is DERIVED from the suite by ci-gate.sh (it reads the spawn calls in
 # test/ and reports the binaries it believes are needed). This file only

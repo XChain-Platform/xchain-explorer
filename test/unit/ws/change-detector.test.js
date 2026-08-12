@@ -41,10 +41,6 @@ describe('ChangeDetector', function () {
         if (clock) { clock.restore(); clock = null; }
     });
 
-    // -----------------------------------------------------------------
-    // Initialization and seeding
-    // -----------------------------------------------------------------
-
     describe('initialization', function () {
 
         it('seeds state on first poll without emitting events', async function () {
@@ -55,7 +51,6 @@ describe('ChangeDetector', function () {
             cd.on('block', blockSpy);
             cd.on('action', actionSpy);
 
-            // Manually call _checkCoin to simulate first poll
             cd.state['BTC'] = { blockIndex: 0, actionIndex: 0, initialized: false };
             await cd._checkCoin('BTC');
 
@@ -66,10 +61,6 @@ describe('ChangeDetector', function () {
             expect(cd.state['BTC'].initialized).to.be.true;
         });
     });
-
-    // -----------------------------------------------------------------
-    // Block detection
-    // -----------------------------------------------------------------
 
     describe('block detection', function () {
 
@@ -103,10 +94,6 @@ describe('ChangeDetector', function () {
             expect(blockSpy.callCount).to.equal(0);
         });
     });
-
-    // -----------------------------------------------------------------
-    // Action detection
-    // -----------------------------------------------------------------
 
     describe('action detection', function () {
 
@@ -142,10 +129,6 @@ describe('ChangeDetector', function () {
             expect(actionSpy.callCount).to.equal(2);
         });
     });
-
-    // -----------------------------------------------------------------
-    // Lifecycle events
-    // -----------------------------------------------------------------
 
     describe('lifecycle events', function () {
 
@@ -185,7 +168,6 @@ describe('ChangeDetector', function () {
 
             await cd._checkCoin('BTC');
 
-            // Should emit both ORDER_MATCH and COINPAY_REQUIRED
             expect(lifecycleSpy.callCount).to.equal(2);
             const types = lifecycleSpy.getCalls().map(c => c.args[1].type);
             expect(types).to.include('ORDER_MATCH');
@@ -252,10 +234,6 @@ describe('ChangeDetector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Error resilience
-    // -----------------------------------------------------------------
-
     describe('error resilience', function () {
 
         it('continues polling when DB query fails', async function () {
@@ -264,14 +242,10 @@ describe('ChangeDetector', function () {
             const cd = new ChangeDetector({ db, pollInterval: 60000 });
             cd.state['BTC'] = { blockIndex: 100, actionIndex: 500, initialized: true };
 
-            // _poll catches per-coin errors; should not throw
+            // _poll catches per-coin errors; should not throw.
             await cd._poll();
         });
     });
-
-    // -----------------------------------------------------------------
-    // BET deadline latch cursor (, spec §11.1)
-    // -----------------------------------------------------------------
 
     describe('bet latch cursor', function () {
 
@@ -465,10 +439,9 @@ describe('ChangeDetector', function () {
 
         it('re-probes after the cooldown and re-arms when the table appears', async function () {
             // The park is a deploy-order fact, not a property of the chain: this process
-            // outlives the upgrade that adds bet_feeds to a coin's indexer. Observed on the
-            // devhost fleet, where DOGE was parked at explorer start, its indexer was
-            // later rebuilt with P4's migrations, and the coin stayed dark with no way back
-            // short of restarting the explorer.
+            // outlives the upgrade that adds bet_feeds to a coin's indexer, so a coin parked
+            // at explorer start must be able to re-arm once its indexer catches up, with no
+            // restart and no backlog of historical latches replayed.
             const db = createMockDb({ blockIndex: 120, actionIndex: 500 });
             const sqlErr = new Error("Table 'X.bet_feeds' doesn't exist");
             sqlErr.code = 'ER_NO_SUCH_TABLE'; sqlErr.errno = 1146; sqlErr.sqlState = '42S02';
@@ -537,10 +510,6 @@ describe('ChangeDetector', function () {
             expect(spy.callCount).to.equal(0);
         });
     });
-
-    // -----------------------------------------------------------------
-    // Start / Stop
-    // -----------------------------------------------------------------
 
     describe('start / stop', function () {
 

@@ -11,17 +11,16 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Regression tests for the 2026-07-03 platform-stability deepdive findings:
+ * Two platform-stability regressions fixed together:
  *
- *   M-3: the id/action LRU caches (address_id, tick_id, action_data) were never
- *        invalidated on reorg, so after the indexer reassigned ^id / action_index
- *        the explorer could serve a different entity under the cached key. Fixed
- *        by mixing a per-coin reorg generation into the cache key and bumping it
- *        from the tip-poll loop when a reorg is observed in the blocks table.
- *
- *   M-4: doQuery swallowed a failed read into an empty result, so a transient DB
- *        outage looked like "no data". Fixed by throwing DbQueryError on a real
- *        failure (a successful empty SELECT still returns its empty array).
+ *  - the id/action LRU caches (address_id, tick_id, action_data) were never
+ *    invalidated on reorg, so after the indexer reassigned ^id / action_index
+ *    the explorer could serve a different entity under the cached key. Fixed
+ *    by mixing a per-coin reorg generation into the cache key and bumping it
+ *    from the tip-poll loop when a reorg is observed in the blocks table.
+ *  - doQuery swallowed a failed read into an empty result, so a transient DB
+ *    outage looked like "no data". Fixed by throwing DbQueryError on a real
+ *    failure (a successful empty SELECT still returns its empty array).
  */
 
 'use strict';
@@ -43,11 +42,7 @@ const mockExplorer = { configInfo, util };
 function makeDb() { return new Database(mockExplorer); }
 function cfg(overrides = {}) { return makeConfig({ coin: 'BTC', ...overrides }); }
 
-// ---------------------------------------------------------------------------
-// M-3: reorg-generation cache keying + invalidation
-// ---------------------------------------------------------------------------
-
-describe('M-3 reorg cache invalidation', function () {
+describe('reorg cache invalidation', function () {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
@@ -181,11 +176,7 @@ describe('M-3 reorg cache invalidation', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// M-4: failed read propagates instead of masquerading as an empty result
-// ---------------------------------------------------------------------------
-
-describe('M-4 DB outage propagates (getData)', function () {
+describe('DB outage propagates (getData)', function () {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
@@ -211,12 +202,8 @@ describe('M-4 DB outage propagates (getData)', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// M-4: /status stays resilient (a health endpoint must not 500 on a per-coin
-// read failure now that doQuery throws)
-// ---------------------------------------------------------------------------
-
-describe('M-4 getStatus degrades a failed per-coin read to null', function () {
+// A health endpoint must not 500 on a per-coin read failure now that doQuery throws.
+describe('getStatus degrades a failed per-coin read to null', function () {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });

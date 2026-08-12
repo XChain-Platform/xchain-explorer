@@ -54,10 +54,6 @@ describe('ChangeDetector', function () {
 
     afterEach(() => sinon.restore());
 
-    // -----------------------------------------------------------------
-    // start() / stop()
-    // -----------------------------------------------------------------
-
     describe('start() / stop()', function () {
         it('seeds per-coin state, polls immediately, and schedules the interval', function () {
             let clock = sinon.useFakeTimers();
@@ -97,10 +93,6 @@ describe('ChangeDetector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // _poll()
-    // -----------------------------------------------------------------
-
     describe('_poll()', function () {
         it('does nothing when not running', async function () {
             let det = mk();
@@ -118,10 +110,6 @@ describe('ChangeDetector', function () {
             await det._poll(); // must not throw
         });
     });
-
-    // -----------------------------------------------------------------
-    // _checkCoin()
-    // -----------------------------------------------------------------
 
     describe('_checkCoin()', function () {
         it('seeds state on the first poll without emitting', async function () {
@@ -196,7 +184,7 @@ describe('ChangeDetector', function () {
             expect(seen).to.deep.equal(range(6, 255));          // every action emitted once, none skipped
         });
 
-        // #4155: Number() collapsed two consecutive action indices above 2^53 onto one
+        // Number() collapsed two consecutive action indices above 2^53 onto one
         // value, so a capped fetch could hand back a cursor at or past an action that
         // was never emitted, and the `last < currentMax` backlog test read equal.
         it('advances a >2^53 action cursor exactly instead of through a collapsed Number', function () {
@@ -282,10 +270,6 @@ describe('ChangeDetector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // _emitLifecycleEvents()
-    // -----------------------------------------------------------------
-
     describe('_emitLifecycleEvents()', function () {
         it('maps a known action type to a lifecycle event', async function () {
             let det = mk();
@@ -354,10 +338,6 @@ describe('ChangeDetector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // _emitEntityUpdates()
-    // -----------------------------------------------------------------
-
     describe('_emitEntityUpdates()', function () {
         it('returns immediately with no channel manager', async function () {
             let det = mk({ channelManager: null });
@@ -390,7 +370,7 @@ describe('ChangeDetector', function () {
             // The token SNAPSHOT frame spreads getTokenInfo verbatim
             // (WebSocketServer._sendSnapshots case 'token'), so the live frame
             // must be a superset of the same projection or replace-model
-            // consumers lose decimals/description as silent undefined (#2234).
+            // consumers lose decimals/description as silent undefined.
             let det = mk();
             det.channelManager.getSubscribedTicks.returns(new Set(['GOLD']));
             const tokenInfo = { tick: 'GOLD', supply: '100', decimals: 8, description: 'au', holders: 5 };
@@ -436,9 +416,8 @@ describe('ChangeDetector', function () {
             det.db.getMarketInfo.rejects(new Error('db'));
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
-            // ORDER_MATCH touches token? No. Use an action that hits all four branches
-            // separately: source addr (address), and ORDER_MATCH (market). Token/dispenser
-            // need their own action types, so fire one of each.
+            // Each action type only triggers one enrichment branch, so exercise
+            // address+token, dispenser, and market with separate calls.
             await det._emitEntityUpdates('BTC', {}, { source: 'addrA', action: 'MINT', action_index: 3 });      // address + token
             await det._emitEntityUpdates('BTC', {}, { action: 'DISPENSE', action_index: 4 });                   // dispenser
             await det._emitEntityUpdates('BTC', {}, { action: 'ORDER_MATCH', action_index: 5 });                // market
@@ -446,12 +425,8 @@ describe('ChangeDetector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // Per-poll entity-read batching (#3841 / a983778b): the enrichment reads
-    // are cached once per distinct entity per poll, but the SAME per-action
-    // events are still emitted.
-    // -----------------------------------------------------------------
-
+    // Enrichment reads are cached once per distinct entity per poll, but the
+    // same per-action events are still emitted.
     describe('per-poll entity-read batching', function () {
         function seedPoll(det, actions) {
             det.state['BTC'] = { blockIndex: 0, actionIndex: 0, initialized: true };
@@ -521,10 +496,6 @@ describe('ChangeDetector', function () {
         });
     });
 
-    // -----------------------------------------------------------------
-    // _emitAttestationEvents()
-    // -----------------------------------------------------------------
-
     describe('_emitAttestationEvents()', function () {
         it('ignores non-ATTEST actions', async function () {
             let det = mk();
@@ -564,10 +535,6 @@ describe('ChangeDetector', function () {
             expect(evs).to.deep.equal([]);
         });
     });
-
-    // -----------------------------------------------------------------
-    // getState()
-    // -----------------------------------------------------------------
 
     describe('getState()', function () {
         it('returns the coin state or a zeroed default', function () {

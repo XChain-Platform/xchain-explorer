@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * : pool sizes are per dbType and operator-tunable.
+ * Pool sizes are per dbType and operator-tunable.
  *
  * The indexer pool (page renders) and the decoder pool (status tip, mempool,
  * raw FILE bytes) were both literals in db.js, the decoder one at 3. An
@@ -50,7 +50,7 @@ function configWithDedicatedDecoderCreds(){
     return cfg;
 }
 
-describe(' explorer pool sizing is per dbType', function () {
+describe('explorer pool sizing is per dbType', function () {
 
     let Database, poolConfigs, saved;
 
@@ -140,7 +140,7 @@ describe(' explorer pool sizing is per dbType', function () {
     });
 });
 
-describe(' explorer poolSizing resolver', function () {
+describe('explorer poolSizing resolver', function () {
 
     it('clamps out-of-range values so one setting cannot exhaust max_connections', function () {
         expect(poolSizing.resolvePoolSize('indexer', { DB_POOL_SIZE_INDEXER: '9999' }))

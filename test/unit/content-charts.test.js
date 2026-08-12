@@ -16,8 +16,7 @@
  * The explorer used to vendor and serve Highstock/Highcharts, which is
  * proprietary: free for non-commercial use only, and never redistributable
  * from a public AGPL repo. That was the one finding able to block the public
- * repo flip ( / LICENSE-IP-HYGIENE.md IP-1), so the three market chart
- * views were moved onto Chart.js (MIT).
+ * repo flip, so the three market chart views were moved onto Chart.js (MIT).
  *
  * Two things are pinned here:
  *
@@ -90,10 +89,9 @@ describe('src/content charting assets: licence hygiene', () => {
     });
 
     it('serves the Chart.js stack with its upstream MIT banners intact', () => {
-        // IP-3 in the same audit: an earlier copyright sweep stamped our AGPL
-        // header onto vendored files and destroyed their attribution. These
-        // three must keep the upstream notice that grants us the right to
-        // redistribute them at all.
+        // An earlier copyright sweep stamped our AGPL header onto vendored files
+        // and destroyed their attribution. These three must keep the upstream
+        // notice that grants us the right to redistribute them at all.
         const expected = [
             ['chart.umd.js',                'Chart.js'],
             ['chartjs-adapter-moment.js',   'chartjs-adapter-moment'],

@@ -12,7 +12,7 @@
  *
  **********************************************************************
  *
- * Serve-side FILE payload decompression ( spec Part B).
+ * Serve-side FILE payload decompression.
  *
  * The explorer is a READER, and readers face hostile input: COMPRESSION is
  * sender-asserted and unverified, so a lying field is trivially craftable by

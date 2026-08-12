@@ -40,10 +40,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// GET /RBTC/api/markets
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/api/markets', function () {
 
     it('lists all market pairs with total and data wrapper', async function () {
@@ -65,10 +61,6 @@ describe('GET /RBTC/api/markets', function () {
 
 });
 
-// ---------------------------------------------------------------------------
-// GET /RBTC/api/markets/{TICK1}: filter by token
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/api/markets/XCHAIN', function () {
 
     it('returns both pairs since XCHAIN appears in each', async function () {
@@ -79,10 +71,6 @@ describe('GET /RBTC/api/markets/XCHAIN', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// GET /RBTC/api/market/{TICK1}/{TICK2}: specific pair
-// ---------------------------------------------------------------------------
 
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE', function () {
 
@@ -99,10 +87,6 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE', function () {
 
 });
 
-// ---------------------------------------------------------------------------
-// GET /RBTC/api/market/{TICK1}/{TICK2}/orders: open orders for pair
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orders', function () {
 
     it('returns open orders for the XCHAIN/TOKENONE pair', async function () {
@@ -117,10 +101,6 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orders', function () {
 
 });
 
-// ---------------------------------------------------------------------------
-// GET /RBTC/api/market/{TICK1}/{TICK2}/orderbook: aggregated orderbook
-// ---------------------------------------------------------------------------
-
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
 
     it('returns bids and asks arrays', async function () {
@@ -132,10 +112,6 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// Non-existent market pair
-// ---------------------------------------------------------------------------
 
 describe('GET /RBTC/api/market/FAKE/PAIR', function () {
 

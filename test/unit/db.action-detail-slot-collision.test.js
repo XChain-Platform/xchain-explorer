@@ -17,7 +17,7 @@
  * The golden pin next door records whatever the queries do, collision and all,
  * so it cannot catch this class; this file states the invariant instead. It
  * reads the same generated fixture, so a new handler is covered on the next
- * regen with no per-action maintenance (#3896).
+ * regen with no per-action maintenance.
  *********************************************************************/
 
 'use strict';
@@ -31,9 +31,8 @@ const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fixtures',
 // Slots getActionData assigns AFTER the handler runs: credits/debits/escrows/fee are
 // seeded before the main row and fee is refilled from getActionFeeData, tx_data last.
 // A detail query selecting one of these names has its value silently overwritten by the
-// generic record and the renderer prints '[object Object]'. Cost four fix commits in 90
-// days (BROADCAST #2479, PRICE, the BATCH child row, BET #3932); the remedy is always an
-// alias, e.g. `f.fee as bet_fee`.
+// generic record and the renderer prints '[object Object]'. This has recurred across
+// several action types; the fix is always an alias, e.g. `f.fee as bet_fee`.
 const RESERVED = ['credits', 'debits', 'escrows', 'fee', 'tx_data'];
 
 // The transactions lookup selects t1.fee, but getActionData reads only txData.data from

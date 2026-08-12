@@ -10,7 +10,7 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-// ─── Fuzz: Utility big-number math (mathjs bignumber) ─────────────────────────
+// Fuzz: Utility big-number math (mathjs bignumber)
 //
 // The explorer does ALL amount/fee/price math through Utility's bc* helpers, so
 // an arithmetic or comparison regression silently corrupts balances and order

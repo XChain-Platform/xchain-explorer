@@ -11,11 +11,11 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * : the frozen-replica freshness gate the HTTP path has enforced
- * since #3905 (503 COIN_DATA_STALE) was absent from every WebSocket serving
- * boundary, so a replica whose tip has aged past EXPLORER_TIP_MAX_AGE_S kept
- * answering WELCOME / CATCH_UP / SNAPSHOT out of frozen tables, stamped with
- * a current `timestamp` and carrying no marker.
+ * The frozen-replica freshness gate the HTTP path has long enforced (503
+ * COIN_DATA_STALE) was absent from every WebSocket serving boundary, so a
+ * replica whose tip had aged past EXPLORER_TIP_MAX_AGE_S kept answering
+ * WELCOME / CATCH_UP / SNAPSHOT out of frozen tables, stamped with a
+ * current `timestamp` and carrying no marker.
  *
  * The contract these tests pin:
  *   - WELCOME is the handshake, so it is ANNOTATED (`data.stale: true`), never
@@ -63,7 +63,7 @@ function makeServer(stale, dbExtra) {
 
 const typesOf = (frames, t) => frames.filter((f) => f.type === t);
 
-describe('WS frozen-replica freshness gate ()', function () {
+describe('WS frozen-replica freshness gate', function () {
 
     describe('WELCOME', function () {
 

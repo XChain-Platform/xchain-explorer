@@ -27,19 +27,11 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Shared state
-// ---------------------------------------------------------------------------
-
 let request;
 let app, explorer, configInfo;
 
 // Seed address with known balances
 const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
 
 before(async function () {
     this.timeout(30000);
@@ -53,15 +45,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Response Format
-// ===========================================================================
-
 describe('Response Format', function () {
-
-    // -----------------------------------------------------------------------
-    // 1. API responses have correct Content-Type
-    // -----------------------------------------------------------------------
 
     it('API responses have correct Content-Type', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
@@ -69,10 +53,6 @@ describe('Response Format', function () {
         expect(res.status).to.equal(200);
         expect(res.headers['content-type']).to.include('json');
     });
-
-    // -----------------------------------------------------------------------
-    // 2. Custom headers are present
-    // -----------------------------------------------------------------------
 
     it('does NOT leak the explorer version in a response header', async function () {
         // Deliberate: the build version is never surfaced in a header (info-leak
@@ -98,10 +78,6 @@ describe('Response Format', function () {
         expect(res.body).to.have.property('runtime');
     });
 
-    // -----------------------------------------------------------------------
-    // 3. API response properties are alphabetically sorted
-    // -----------------------------------------------------------------------
-
     it('API response properties are alphabetically sorted', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
 
@@ -122,10 +98,6 @@ describe('Response Format', function () {
         }
     });
 
-    // -----------------------------------------------------------------------
-    // 4. Explorer responses are NOT alphabetically sorted (array-of-arrays)
-    // -----------------------------------------------------------------------
-
     it('explorer responses return array-of-arrays in data', async function () {
         const res = await request.get('/RBTC/explorer/sends/5/block');
 
@@ -136,10 +108,6 @@ describe('Response Format', function () {
         expect(res.body.data[0]).to.be.an('array');
     });
 
-    // -----------------------------------------------------------------------
-    // 5. runtime field is present in API responses
-    // -----------------------------------------------------------------------
-
     it('runtime field is present in API responses', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
 
@@ -149,10 +117,6 @@ describe('Response Format', function () {
         expect(res.body.runtime).to.be.a('string');
         expect(res.body.runtime).to.match(/\d+/);
     });
-
-    // -----------------------------------------------------------------------
-    // 6. null fields are actual null, not the string "null"
-    // -----------------------------------------------------------------------
 
     it('null fields are actual null not string "null"', async function () {
         // action_index 9 is a send with no memo_id (memo_id is NULL in the seed)
@@ -167,10 +131,6 @@ describe('Response Format', function () {
         expect(send9.memo).to.equal(null);
         expect(send9.memo).to.not.equal('null');
     });
-
-    // -----------------------------------------------------------------------
-    // 7. Numeric precision preserved for amounts
-    // -----------------------------------------------------------------------
 
     it('amount values are strings with 8 decimal places', async function () {
         const res = await request.get(`/RBTC/api/balances/${ADDR1}`);

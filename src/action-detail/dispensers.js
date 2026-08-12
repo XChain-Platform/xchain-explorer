@@ -81,7 +81,6 @@ const COINPAY_EXPIRE = {
 };
 
 const DISPENSER = {
-    // DISPENSER action
     queries({ action_index }) {
         let query  = null;
         let query2 = null;
@@ -147,15 +146,15 @@ const DISPENSER = {
                 LIMIT 1`;
         // Get a list of dispenser edits. Escrow is NOT derived from these rows
         // any more: give_escrow / escrow_remaining come from the shared
-        // getDispenserEscrowBatch , so this lane only carries the
-        // expiration and allow/block-list edits into state.
-        // b.block_time is the edit's own confirmation timestamp and is what
-        // gates allow/block-list activation below . Without the
-        // actions->blocks join it came back undefined, bcadd() coerced it to 0
-        // and every list edit read as already active, so DISPENSER_LIST_DELAY
-        // was ignored on the read path. The join mirrors the indexer's
-        // getDispenserEdits() so both sides gate on the same value. ORDER BY is
-        // qualified because `actions` also has an action_index column.
+        // getDispenserEscrowBatch, so this lane only carries the expiration and
+        // allow/block-list edits into state.
+        // b.block_time is the edit's own confirmation timestamp and is what gates
+        // allow/block-list activation below. Without the actions->blocks join it
+        // came back undefined, bcadd() coerced it to 0 and every list edit read
+        // as already active, so DISPENSER_LIST_DELAY was ignored on the read
+        // path. The join mirrors the indexer's getDispenserEdits() so both sides
+        // gate on the same value. ORDER BY is qualified because `actions` also
+        // has an action_index column.
         query2 = `SELECT
                     m.expiration,
                     m.allow_list,

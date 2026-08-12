@@ -270,7 +270,6 @@ const SEND = {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        // Get basic information on the send
         query = `SELECT
                     a2.action,
                     a1.action_format,
@@ -288,10 +287,9 @@ const SEND = {
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                WHERE 
+                WHERE
                     s1.action_index=?
                 LIMIT 1`;
-        // Get a list of sends
         query2 = `SELECT
                     a1.address as destination,
                     t1.tick,
@@ -308,14 +306,12 @@ const SEND = {
                     s1.action_index=?`;
         return { query, query2, query3 };
     },
-    // Add any SENDS to the send data
     afterQuery2(ctx, data, results) {
         data.sends = results;
     },
 };
 
 const SWEEP = {
-    // SWEEP
     queries({ action_index }) {
         let query  = null;
         let query2 = null;
@@ -351,7 +347,6 @@ const SWEEP = {
                 WHERE 
                     s1.action_index=?
                 LIMIT 1`;
-        // Issues
         // TODO: Update query once each sweep issue is its own action_index
         query2 = `SELECT
                     a1.address,
@@ -366,7 +361,6 @@ const SWEEP = {
                     t1.tick ASC`;
         return { query, query2, query3 };
     },
-    // Add any ISSUES to the sweep data
     afterQuery2(ctx, data, results) {
         data.issues = results;
     },

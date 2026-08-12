@@ -28,7 +28,7 @@ const ADDRESS = {
         // ADDRESS format 1 (controller bind) is not a preferences edit and older chains carry no
         // `addresses` row for one at all. The INNER JOIN this replaces matched nothing for a v1, so the
         // whole endpoint degraded to the de-blank baseline and served a bind with no status and no
-        // verdict (, the same shape as the D-136/ memo join).
+        // verdict, the same failure shape as an earlier memo-join regression.
         query = `SELECT
                     a3.action,
                     a2.action_format,
@@ -372,9 +372,8 @@ const LIST = {
                     list_items l1
                     LEFT JOIN index_addresses a1 ON (a1.id=l1.item_id)
                     LEFT JOIN index_tickers   t1 ON (t1.id=l1.item_id)
-                WHERE 
+                WHERE
                     l1.action_index=?`;
-        // List Edits
         query3 = `SELECT
                     a1.address,
                     t1.tick,
@@ -406,7 +405,7 @@ const LIST = {
         }
         data.edits = edits.sort();
     },
-    // : `list` above is the membership THIS action wrote, which for a
+    // `list` above is the membership THIS action wrote, which for a
     // create is its create-time snapshot and for an edit is that edit's
     // result. Current membership lives under the head of the edit chain, so
     // it is derived here and lands in `state` for two reasons: it is
@@ -414,14 +413,13 @@ const LIST = {
     // DISPENSER/ORDER/SWAP state), and `state` is precisely what the
     // _isCacheableAction guard keys on. Without it the LRU would serve one
     // membership for the life of the process and every later edit would be
-    // invisible, which is the  failure re-run on a new field.
+    // invisible, a stale-cache failure repeated on a new field.
     async afterQueries({ db, config, action_index }, data) {
         data.state = await db.getListCurrentMembership(config, action_index, data.type);
     },
 };
 
 const UNKNOWN = {
-    // UNKNOWN
     queries() {
         let query  = null;
         let query2 = null;

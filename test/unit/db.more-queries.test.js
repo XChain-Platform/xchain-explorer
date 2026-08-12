@@ -54,10 +54,6 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const mockResults              = require('../fixtures/mock-db-results.js');
 
-// ---------------------------------------------------------------------------
-// Bootstrap: no real MariaDB pool needed
-// ---------------------------------------------------------------------------
-
 const Database = proxyquire('../../src/db.js', {
     mariadb: { createPool: () => ({}) }
 });
@@ -92,10 +88,6 @@ function makeActionConfig(method, type = 'address', extras = {}) {
         }
     });
 }
-
-// ---------------------------------------------------------------------------
-// LRU Cache Helpers
-// ---------------------------------------------------------------------------
 
 describe('Database LRU cache helpers', () => {
     let db;
@@ -136,10 +128,6 @@ describe('Database LRU cache helpers', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// init
-// ---------------------------------------------------------------------------
-
 describe('Database#init', () => {
     it('calls setupConnectionPools and resolves without throwing', async () => {
         const db = makeDb();
@@ -148,10 +136,6 @@ describe('Database#init', () => {
         expect(spy.calledOnce).to.be.true;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getCoinpays
-// ---------------------------------------------------------------------------
 
 describe('Database#getCoinpays', () => {
     let result;
@@ -186,10 +170,6 @@ describe('Database#getCoinpays', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getCoinpayExpires
-// ---------------------------------------------------------------------------
-
 describe('Database#getCoinpayExpires', () => {
     let result;
     before(async () => {
@@ -210,10 +190,6 @@ describe('Database#getCoinpayExpires', () => {
         expect(result[1]).to.be.null;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getCoinpayObligations
-// ---------------------------------------------------------------------------
 
 describe('Database#getCoinpayObligations', () => {
     let db;
@@ -241,10 +217,6 @@ describe('Database#getCoinpayObligations', () => {
         expect(args).to.be.an('array').with.lengthOf(1);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getMarkets
-// ---------------------------------------------------------------------------
 
 describe('Database#getMarkets', () => {
     let db;
@@ -302,10 +274,6 @@ describe('Database#getMarkets', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getMarket
-// ---------------------------------------------------------------------------
-
 describe('Database#getMarket', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -340,10 +308,6 @@ describe('Database#getMarket', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getMarketOrders
-// ---------------------------------------------------------------------------
-
 describe('Database#getMarketOrders', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -376,8 +340,7 @@ describe('Database#getMarketOrders', () => {
             if(callN === 2) return [{ action_index: 1 }];
             return [];
         });
-        // getMarketOrders now uses getOrderInfoBatch (one round-trip) instead of
-        // per-row getOrderInfo calls.
+        // Batched via getOrderInfoBatch (one round-trip) instead of per-row getOrderInfo calls.
         sinon.stub(db, 'getOrderInfoBatch').resolves({ 1: mockOrderInfo });
         const config = makeActionConfig('getMarketOrders', null);
         config.data.search2 = 'BTC';
@@ -389,10 +352,6 @@ describe('Database#getMarketOrders', () => {
         expect(data[0]).to.have.property('price');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getMarketHistory
-// ---------------------------------------------------------------------------
 
 describe('Database#getMarketHistory', () => {
     let db;
@@ -428,10 +387,6 @@ describe('Database#getMarketHistory', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOrderbook
-// ---------------------------------------------------------------------------
-
 describe('Database#getOrderbook', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -462,10 +417,6 @@ describe('Database#getOrderbook', () => {
         expect(data.asks.length + data.bids.length).to.be.greaterThan(0);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getActions
-// ---------------------------------------------------------------------------
 
 describe('Database#getActions', () => {
     it('returns a 3-element array', async () => {
@@ -508,10 +459,6 @@ describe('Database#getActions', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getAction
-// ---------------------------------------------------------------------------
-
 describe('Database#getAction', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -525,10 +472,6 @@ describe('Database#getAction', () => {
         expect(data).to.deep.equal({ action: 'SEND' });
     });
 });
-
-// ---------------------------------------------------------------------------
-// getBlocks
-// ---------------------------------------------------------------------------
 
 describe('Database#getBlocks', () => {
     let db;
@@ -560,10 +503,6 @@ describe('Database#getBlocks', () => {
         expect(data[0]).to.have.property('actions').that.is.an('object');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getSearch
-// ---------------------------------------------------------------------------
 
 describe('Database#getSearch', () => {
     let db;
@@ -616,7 +555,6 @@ describe('Database#getSearch', () => {
         expect(data.totals.tokens).to.equal(2);
     });
 
-    // Fix A: minimum search term length guard
     it('returns zero results immediately when search term is too short (< 3 chars)', async () => {
         const spy = sinon.spy(db, 'doQuery');
         const config = makeActionConfig('getSearch', 'address');
@@ -625,7 +563,7 @@ describe('Database#getSearch', () => {
         expect(total).to.equal(0);
         expect(data.totals.addresses).to.equal(0);
         expect(data.data).to.deep.equal([]);
-        expect(spy.callCount).to.equal(0); // no DB queries issued
+        expect(spy.callCount).to.equal(0);
     });
 
     it('returns zero results immediately for empty search string', async () => {
@@ -646,7 +584,6 @@ describe('Database#getSearch', () => {
         expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'tokens', 'transactions']);
     });
 
-    // Fix A: LIMIT cap
     it('clamps LIMIT to 100 even when sql.limit is larger', async () => {
         let capturedQuery = null;
         let callN = 0;
@@ -663,10 +600,6 @@ describe('Database#getSearch', () => {
         expect(capturedQuery).to.include('LIMIT 100');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getPublicKey
-// ---------------------------------------------------------------------------
 
 describe('Database#getPublicKey', () => {
     let db;
@@ -697,10 +630,6 @@ describe('Database#getPublicKey', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getTransactionData
-// ---------------------------------------------------------------------------
-
 describe('Database#getTransactionData', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -726,10 +655,6 @@ describe('Database#getTransactionData', () => {
         expect(capturedArgs).to.deep.equal(['myhash']);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getActionFeeData
-// ---------------------------------------------------------------------------
 
 describe('Database#getActionFeeData', () => {
     let db;
@@ -757,10 +682,6 @@ describe('Database#getActionFeeData', () => {
         expect(captured).to.include('transactions');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getHistoryData
-// ---------------------------------------------------------------------------
 
 describe('Database#getHistoryData', () => {
     let db;
@@ -859,17 +780,13 @@ describe('Database#getHistoryData', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getActionSummaryData
-// ---------------------------------------------------------------------------
-
 describe('Database#getActionSummaryData', () => {
     let db;
     beforeEach(() => {
         db = makeDb();
         // These cases stub getActionData to pin the projection loop, so the page-level
-        // shared-leg prefetch () has no reader; null is the "no preload" state
-        // getActionData already handles. Its parity is covered against a real MariaDB in
+        // shared-leg prefetch has no reader; null is the "no preload" state getActionData
+        // already handles. Its parity is covered against a real MariaDB in
         // test/integration/action-preload-parity.test.js.
         sinon.stub(db, '_buildActionPreload').resolves(null);
     });
@@ -906,10 +823,6 @@ describe('Database#getActionSummaryData', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getMaxBlockIndex
-// ---------------------------------------------------------------------------
-
 describe('Database#getMaxBlockIndex', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -930,10 +843,6 @@ describe('Database#getMaxBlockIndex', () => {
         expect(await db.getMaxBlockIndex(cfg())).to.equal(0);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getMaxBlockTime
-// ---------------------------------------------------------------------------
 
 describe('Database#getMaxBlockTime', () => {
     let db;
@@ -956,18 +865,14 @@ describe('Database#getMaxBlockTime', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getMaxActionIndex
-// ---------------------------------------------------------------------------
-
 describe('Database#getMaxActionIndex', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
-    // #4155: this value is the WebSocket live/catch-up cursor, so it answers in
-    // BigInt. Number() collapsed two consecutive indices above 2^53 onto one value
-    // and the poll loop then stalled or skipped a NEW_ACTION frame.
+    // This value is the WebSocket live/catch-up cursor, so it answers in BigInt.
+    // Number() collapsed two consecutive indices above 2^53 onto one value and
+    // the poll loop then stalled or skipped a NEW_ACTION frame.
     it('returns the max action_index as an exact BigInt', async () => {
         sinon.stub(db, 'doQuery').resolves([{ max_index: 99999 }]);
         expect(await db.getMaxActionIndex(cfg())).to.equal(99999n);
@@ -990,10 +895,6 @@ describe('Database#getMaxActionIndex', () => {
         expect(await db.getMaxActionIndex(cfg())).to.equal(0n);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getGatedFileRaw
-// ---------------------------------------------------------------------------
 
 describe('Database#getGatedFileRaw', () => {
     let db;
@@ -1020,10 +921,7 @@ describe('Database#getGatedFileRaw', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getFileRaw (non-gated FILE bytes from the colocated decoder DB)
-// ---------------------------------------------------------------------------
-
+// Non-gated FILE bytes read from the colocated decoder DB.
 describe('Database#getFileRaw', () => {
     let db;
     beforeEach(() => {
@@ -1040,8 +938,8 @@ describe('Database#getFileRaw', () => {
         stub.onSecondCall().resolves([{ raw_data: bytes, data: action }]);
         const result = await db.getFileRaw(cfg(), 42);
         // `data` carries the FULL stored ACTION string so the serve path can
-        // derive the trailing COMPRESSION field at serve time ( §5.1)
-        // rather than trusting a parsed-at-ingest column.
+        // derive the trailing COMPRESSION field at serve time rather than
+        // trusting a parsed-at-ingest column.
         expect(result).to.deep.equal({ raw_data: bytes, type: 'image/png', data: action });
         // The decoder read must be database-qualified and matched by tx HASH
         // (tx ids are numbered independently per DB and cannot be joined)
@@ -1077,10 +975,7 @@ describe('Database#getFileRaw', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Project registry queries (protocol/Project_Registry.md)
-// ---------------------------------------------------------------------------
-
+// Project registry queries (protocol/Project_Registry.md).
 describe('Database#getProjectRosterInfo', () => {
     let db;
     beforeEach(() => {
@@ -1093,8 +988,8 @@ describe('Database#getProjectRosterInfo', () => {
         const stub = sinon.stub(db, 'doQuery');
         stub.onFirstCall().resolves([{ link_action_index: 74, roster_action_index: 73 }]);
         stub.onSecondCall().resolves([{ total: 2 }]);
-        // Edit resolution off: the pinned index IS the membership index (
-        // covers the armed case in db.list-edit-resolution.test.js).
+        // Edit resolution off: the pinned index IS the membership index (the armed
+        // case is covered in db.list-edit-resolution.test.js).
         sinon.stub(db, '_isListEditResolutionActiveAtTip').resolves(false);
         const info = await db.getProjectRosterInfo(cfg(), 'PROJECTX');
         expect(info).to.deep.equal({ roster_action_index: 73, membership_action_index: 73, link_action_index: 74, total: 2 });
@@ -1127,7 +1022,7 @@ describe('Database#getTokenProjects', () => {
     afterEach(() => { sinon.restore(); });
 
     // Edit resolution off: the single-query legacy form runs, and the pinned
-    // index IS the membership index ( covers the armed, two-phase path in
+    // index IS the membership index (the armed, two-phase path is covered in
     // db.list-edit-resolution.test.js).
     beforeEach(() => { sinon.stub(Database.prototype, '_isListEditResolutionActiveAtTip').resolves(false); });
 
@@ -1203,10 +1098,6 @@ describe('Database#getProjectTokens', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getBlocksSince
-// ---------------------------------------------------------------------------
-
 describe('Database#getBlocksSince', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1232,10 +1123,6 @@ describe('Database#getBlocksSince', () => {
         expect(capturedArgs).to.deep.equal([800000, 50]);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getActionsSince
-// ---------------------------------------------------------------------------
 
 describe('Database#getActionsSince', () => {
     let db;
@@ -1271,10 +1158,6 @@ describe('Database#getActionsSince', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getAddressBalances
-// ---------------------------------------------------------------------------
-
 describe('Database#getAddressBalances', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1301,10 +1184,6 @@ describe('Database#getAddressBalances', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getTokenInfo
-// ---------------------------------------------------------------------------
-
 describe('Database#getTokenInfo', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1329,10 +1208,6 @@ describe('Database#getTokenInfo', () => {
         expect(capturedArgs).to.deep.equal(['XCHAIN', 'XCHAIN']);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getMarketInfo
-// ---------------------------------------------------------------------------
 
 describe('Database#getMarketInfo', () => {
     let db;
@@ -1359,10 +1234,6 @@ describe('Database#getMarketInfo', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDispenserInfo
-// ---------------------------------------------------------------------------
-
 describe('Database#getDispenserInfo', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1380,10 +1251,6 @@ describe('Database#getDispenserInfo', () => {
         expect(await db.getDispenserInfo(cfg(), 9999)).to.be.null;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getCoinpayObligation
-// ---------------------------------------------------------------------------
 
 describe('Database#getCoinpayObligation', () => {
     let db;
@@ -1403,10 +1270,6 @@ describe('Database#getCoinpayObligation', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOrderMatchSettlement
-// ---------------------------------------------------------------------------
-
 describe('Database#getOrderMatchSettlement', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1424,10 +1287,6 @@ describe('Database#getOrderMatchSettlement', () => {
         expect(await db.getOrderMatchSettlement(cfg(), 9999)).to.be.null;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getOrderInfo
-// ---------------------------------------------------------------------------
 
 describe('Database#getOrderInfo', () => {
     let db;
@@ -1464,10 +1323,6 @@ describe('Database#getOrderInfo', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOrderEditInfo
-// ---------------------------------------------------------------------------
-
 describe('Database#getOrderEditInfo', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1487,10 +1342,6 @@ describe('Database#getOrderEditInfo', () => {
         expect(result.block_list).to.be.false;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getOrderAmountsRemaining
-// ---------------------------------------------------------------------------
 
 describe('Database#getOrderAmountsRemaining', () => {
     let db;
@@ -1525,10 +1376,6 @@ describe('Database#getOrderAmountsRemaining', () => {
         expect(Number(get)).to.equal(120);   // 200 - 80 = 120
     });
 });
-
-// ---------------------------------------------------------------------------
-// getOrderInfoBatch
-// ---------------------------------------------------------------------------
 
 describe('Database#getOrderInfoBatch', () => {
     let db;
@@ -1568,10 +1415,7 @@ describe('Database#getOrderInfoBatch', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getHistory: wraps getHistoryData with [data, null, count]
-// ---------------------------------------------------------------------------
-
+// Wraps getHistoryData with [data, null, count].
 describe('Database#getHistory', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -1606,10 +1450,6 @@ describe('Database#getHistory', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getContracts
-// ---------------------------------------------------------------------------
-
 describe('Database#getContracts', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1629,10 +1469,6 @@ describe('Database#getContracts', () => {
         expect((await db.getContracts(makeActionConfig('getContracts')))[1]).to.be.null;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getContract
-// ---------------------------------------------------------------------------
 
 describe('Database#getContract', () => {
     // getContract is a single-record data method (returns [data]); the
@@ -1687,10 +1523,6 @@ describe('Database#getContract', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getContractState
-// ---------------------------------------------------------------------------
-
 describe('Database#getContractState', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1715,10 +1547,6 @@ describe('Database#getContractState', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getContractBalance
-// ---------------------------------------------------------------------------
-
 describe('Database#getContractBalance', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1740,10 +1568,6 @@ describe('Database#getContractBalance', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getExecutions
-// ---------------------------------------------------------------------------
-
 describe('Database#getExecutions', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1760,10 +1584,6 @@ describe('Database#getExecutions', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getExecution
-// ---------------------------------------------------------------------------
-
 describe('Database#getExecution', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1778,10 +1598,6 @@ describe('Database#getExecution', () => {
         expect(query).to.include('m.error_message');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getDeposits
-// ---------------------------------------------------------------------------
 
 describe('Database#getDeposits', () => {
     it('returns a 3-element array', async () => {
@@ -1799,10 +1615,6 @@ describe('Database#getDeposits', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getWithdrawals
-// ---------------------------------------------------------------------------
-
 describe('Database#getWithdrawals', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1816,10 +1628,6 @@ describe('Database#getWithdrawals', () => {
         expect(query).to.include('withdrawals m');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getStakes
-// ---------------------------------------------------------------------------
 
 describe('Database#getStakes', () => {
     it('returns a 3-element array', async () => {
@@ -1836,10 +1644,6 @@ describe('Database#getStakes', () => {
         expect(query).to.include('m.version');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getValidators
-// ---------------------------------------------------------------------------
 
 describe('Database#getValidators', () => {
     it('returns a 3-element array', async () => {
@@ -1861,10 +1665,6 @@ describe('Database#getValidators', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getPrices
-// ---------------------------------------------------------------------------
-
 describe('Database#getPrices', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1882,13 +1682,9 @@ describe('Database#getPrices', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getPriceSnapshots
-// ---------------------------------------------------------------------------
-
 describe('Database#getPriceSnapshots', () => {
-    // price_snapshots is hub-mirrored (item 4063): xchain-sync never replicates it in
-    // any channel, so it is served only from the mandatory co-located hub DB. These
+    // price_snapshots is hub-mirrored: xchain-sync never replicates it in any
+    // channel, so it is served only from the mandatory co-located hub DB. These
     // structural tests configure that hub DB so the query builds; the "no hub DB ->
     // fail loud" behavior has its own test below.
     const HUB = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
@@ -1917,7 +1713,7 @@ describe('Database#getPriceSnapshots', () => {
         expect(count).to.include('`XChain_Hub`.price_snapshots m');
     });
 
-    it('no checkpoint hub DB -> fails loud (no silent empty local mirror, item 4063)', async () => {
+    it('no checkpoint hub DB -> fails loud (no silent empty local mirror)', async () => {
         const db = makeDb();
         // checkpointDb is empty by default. price_snapshots only ever arrives via
         // hub_db_sync, so a thin replica's local copy is an empty table the live
@@ -1942,10 +1738,6 @@ describe('Database#getPriceSnapshots', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDelegations
-// ---------------------------------------------------------------------------
-
 describe('Database#getDelegations', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1967,10 +1759,6 @@ describe('Database#getDelegations', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getValidatorRewards
-// ---------------------------------------------------------------------------
-
 describe('Database#getValidatorRewards', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -1985,10 +1773,6 @@ describe('Database#getValidatorRewards', () => {
         expect(query).to.include('m.reward_type');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getContractStakes
-// ---------------------------------------------------------------------------
 
 describe('Database#getContractStakes', () => {
     it('returns a 3-element array', async () => {
@@ -2005,10 +1789,6 @@ describe('Database#getContractStakes', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getContractUnstakes
-// ---------------------------------------------------------------------------
-
 describe('Database#getContractUnstakes', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -2023,10 +1803,6 @@ describe('Database#getContractUnstakes', () => {
         expect(query).to.include('m.cooldown_end_block');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getSlashEvents
-// ---------------------------------------------------------------------------
 
 describe('Database#getSlashEvents', () => {
     it('returns a 3-element array', async () => {
@@ -2049,10 +1825,6 @@ describe('Database#getSlashEvents', () => {
         expect(query).to.include('ORDER BY m.id');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getDecoderTip
-// ---------------------------------------------------------------------------
 
 describe('Database#getDecoderTip', () => {
     let db;
@@ -2087,10 +1859,6 @@ describe('Database#getDecoderTip', () => {
         expect(await db.getDecoderTip(cfg())).to.be.null;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getQueryWhereSql: additional branches not covered by query-builder tests
-// ---------------------------------------------------------------------------
 
 describe('Database#getQueryWhereSql: additional branches', () => {
     let db;
@@ -2171,10 +1939,6 @@ describe('Database#getQueryWhereSql: additional branches', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getQueryOffsetSql: getSlashEvents uses m.id
-// ---------------------------------------------------------------------------
-
 describe('Database#getQueryOffsetSql: getSlashEvents', () => {
     let db;
     before(() => { db = makeDb(); });
@@ -2196,28 +1960,20 @@ describe('Database#getQueryOffsetSql: getSlashEvents', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// setupConnectionPools: called when config changes (lines 37-38)
-// ---------------------------------------------------------------------------
-
+// setupConnectionPools is called when config changes.
 describe('Database constructor onConfigChanged', () => {
     it('setupConnectionPools is called when configInfo fires triggerConfigChanged', async () => {
         const db = makeDb();
         const stub = sinon.stub(db, 'setupConnectionPools').resolves();
-        // Trigger the change listener registered during construction
         configInfo.triggerConfigChanged();
-        // setupConnectionPools is async-ish but listener may be sync-called
-        // Give microtask queue a tick to settle
+        // The listener may fire sync or async; flush the microtask queue before asserting.
         await new Promise(r => setImmediate(r));
         expect(stub.called).to.be.true;
         sinon.restore();
     });
 });
 
-// ---------------------------------------------------------------------------
-// setupConnectionPools: pool cleanup (lines 122-129)
-// ---------------------------------------------------------------------------
-
+// Pool cleanup path.
 describe('Database#setupConnectionPools', () => {
     it('ends old pool when pools already exist on re-setup', async () => {
         const db = makeDb();
@@ -2242,10 +1998,7 @@ describe('Database#setupConnectionPools', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getData: general path (lines 302-336)
-// ---------------------------------------------------------------------------
-
+// General data-fetch path.
 describe('Database#getData', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -2294,10 +2047,6 @@ describe('Database#getData', () => {
         expect(capturedArgs).to.include(999);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getQuery: API path (lines 340-399)
-// ---------------------------------------------------------------------------
 
 describe('Database#getQuery (API path)', () => {
     let db;
@@ -2385,10 +2134,6 @@ describe('Database#getQuery (API path)', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getHistoryData: additional branches (lines 5967-5976, 6000-6007)
-// ---------------------------------------------------------------------------
-
 describe('Database#getHistoryData: additional branches', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -2444,16 +2189,12 @@ describe('Database#getHistoryData: additional branches', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getActionSummaryData: non-SEND action (lines 6069-6072)
-// ---------------------------------------------------------------------------
-
 describe('Database#getActionSummaryData: non-SEND actions', () => {
     let db;
     beforeEach(() => {
         db = makeDb();
         // Same reason as the sibling describe above: getActionData is stubbed here, so
-        // the  prefetch has no reader (see action-preload-parity.test.js).
+        // the shared-leg prefetch has no reader (see action-preload-parity.test.js).
         sinon.stub(db, '_buildActionPreload').resolves(null);
     });
     afterEach(() => { sinon.restore(); });
@@ -2465,7 +2206,6 @@ describe('Database#getActionSummaryData: non-SEND actions', () => {
             tick: 'XCHAIN',
             source: 'addr1',
             amount: '100',
-            // No sends array
         });
         const actions = [{ action_index: 50, action: 'ISSUE', block_index: 400, timestamp: 1699000000, tx_hash: 'iss123', tx_index: 3 }];
         const result = await db.getActionSummaryData(cfg(), actions);
@@ -2485,10 +2225,6 @@ describe('Database#getActionSummaryData: non-SEND actions', () => {
         expect(result[0].details).to.be.false;
     });
 });
-
-// ---------------------------------------------------------------------------
-// getSearch: broadcast branch (lines 6222-6244)
-// ---------------------------------------------------------------------------
 
 describe('Database#getSearch: broadcast type', () => {
     let db;
@@ -2534,11 +2270,6 @@ describe('Database#getSearch: broadcast type', () => {
         expect(data.data[0]).to.have.property('hash', 'abc123def456');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getOrderInfoBatch: edit results loop + match deduction loop
-// (lines 6514-6522, 6561-6585)
-// ---------------------------------------------------------------------------
 
 describe('Database#getOrderInfoBatch: edit + match loops', () => {
     let db;
@@ -2615,10 +2346,7 @@ describe('Database#getOrderInfoBatch: edit + match loops', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getQueryOffsets: bail-out cases and doQuery-stub paths (lines 601-837)
-// ---------------------------------------------------------------------------
-
+// Covers bail-out cases and doQuery-stub paths.
 describe('Database#getQueryOffsets', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -2638,7 +2366,7 @@ describe('Database#getQueryOffsets', () => {
         });
     }
 
-    // Bail-out cases (lines 617-621, 675-676)
+    // Bail-out cases
     it('returns [] for getBalances (bail-out)', async () => {
         const result = await db.getQueryOffsets(qoCfg('getBalances', null, 'next'), false, 10);
         expect(result).to.deep.equal([]);
@@ -2677,7 +2405,7 @@ describe('Database#getQueryOffsets', () => {
         expect(result).to.deep.equal([]);
     });
 
-    // Type=address: id lookup + where construction (lines 623-653)
+    // Type=address: id lookup + where construction
     it('looks up address id and builds source_id where clause for getSends', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             if(q.includes('FROM index_addresses')) return [{ id: 42 }];
@@ -2695,7 +2423,6 @@ describe('Database#getQueryOffsets', () => {
         });
         const config = qoCfg('getSends', 'address', 'next', 'addr1');
         await db.getQueryOffsets(config, false, 10);
-        // If we got here without error, address branch ran
         expect(db.doQuery.callCount).to.be.greaterThan(0);
     });
 
@@ -2769,7 +2496,7 @@ describe('Database#getQueryOffsets', () => {
         expect(result).to.be.an('array');
     });
 
-    // Type=block where clause (line 654-656)
+    // Type=block where clause
     it('builds block_index where for block type', async () => {
         sinon.stub(db, 'doQuery').resolves([]);
         const config = qoCfg('getSends', 'block', 'next', '500');
@@ -2777,7 +2504,7 @@ describe('Database#getQueryOffsets', () => {
         expect(result).to.be.an('array');
     });
 
-    // action=first/last path with doQuery returning rows (lines 678-762)
+    // action=first/last path with doQuery returning rows
     it('action=first: sets offset1 from doQuery result and returns it incremented', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             if(q.includes('offset_index')) return [{ offset_index: 1000 }];
@@ -2801,7 +2528,7 @@ describe('Database#getQueryOffsets', () => {
         expect(result).to.be.an('array');
     });
 
-    // offset1 provided → stop offset lookup (lines 765-834)
+    // offset1 provided: stop offset lookup
     it('with offset1 provided and action=next: runs stop offset query', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             // stop-offset query returns offset_index rows
@@ -2845,7 +2572,6 @@ describe('Database#getQueryOffsets', () => {
         config.data.query = { limit: 10, length: 10, start: 500, offset: false, total: 50, action: 'next' };
         const result = await db.getQueryOffsets(config, 500, 10);
         expect(result).to.be.an('array');
-        // Verify it used mappings_actions
         const lastCall = db.doQuery.lastCall;
         if(lastCall) expect(lastCall.args[1]).to.include('mappings_actions');
     });
@@ -2916,10 +2642,6 @@ describe('Database#getQueryOffsets', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOrderbook: bid price aggregation (lines 3199-3213)
-// ---------------------------------------------------------------------------
-
 describe('Database#getOrderbook: bid/ask price aggregation', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -2963,10 +2685,6 @@ describe('Database#getOrderbook: bid/ask price aggregation', () => {
         expect(data.asks.length).to.equal(1);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getQuery: Explorer path (lines 359-390)
-// ---------------------------------------------------------------------------
 
 describe('Database#getQuery (Explorer path)', () => {
     let db;
@@ -3062,10 +2780,6 @@ describe('Database#getQuery (Explorer path)', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getQueryOffsets: remaining uncovered branches (639-640, 651-653, 689-697)
-// ---------------------------------------------------------------------------
-
 describe('Database#getQueryOffsets: remaining branches', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -3099,7 +2813,6 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         });
         const result = await db.getQueryOffsets(config, 500, 10);
         expect(result).to.be.an('array');
-        // The stop query should use owner_id
         const queries = db.doQuery.args.map(a => a[1] || '');
         const stopQuery = queries.find(q => q.includes('offset_index') && q.includes('tokens m'));
         expect(stopQuery).to.include('owner_id');
@@ -3116,7 +2829,6 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         config.data.query  = { limit: 10, length: 10, start: 500, offset: false, total: 50, action: 'next' };
         const result = await db.getQueryOffsets(config, 500, 10);
         expect(result).to.be.an('array');
-        // The stop query should use t1.source_id
         const queries = db.doQuery.args.map(a => a[1] || '');
         const stopQuery = queries.find(q => q.includes('offset_index') && q.includes('orders m'));
         expect(stopQuery).to.include('t1.source_id');
@@ -3129,16 +2841,12 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         config.data.offset = { action: 'first' };
         config.data.query  = { limit: 10, length: 10, start: 0, offset: false, total: 50, action: 'first' };
         const result = await db.getQueryOffsets(config, false, 10);
-        // Should use blocks b1 WHERE b1.block_index IS NOT NULL
         expect(db.doQuery.firstCall.args[1]).to.include('blocks b1');
         expect(result).to.be.an('array');
     });
 });
 
-// ---------------------------------------------------------------------------
-// getActionData: batch tests for many action types (lines 3918-5811)
-// ---------------------------------------------------------------------------
-
+// Batch tests for many action types.
 describe('Database#getActionData', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -3173,31 +2881,29 @@ describe('Database#getActionData', () => {
         sinon.stub(db, 'getActionFeeData').resolves(null);
         sinon.stub(db, 'getTransactionData').resolves(null);
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            // Credits/debits/escrows: return empty (table names: credits, debits, escrows)
+            // credits/debits/escrows always resolve empty
             if(q && (queryHasTable(q,'\\bcredits\\b') || queryHasTable(q,'\\bdebits\\b') || queryHasTable(q,'\\bescrows\\b'))) return [];
             // Extra routing provided by caller
             for(const [pattern, rows] of Object.entries(extra)){
                 if(q && q.includes(pattern)) return rows;
             }
-            // Default: return the main row for any other query
             if(mainRow) return [mainRow];
             return [];
         });
     }
 
     it('returns cached result on second call (LRU cache, line 3918-3920)', async () => {
-        // : this used to stub every query to `[]`, which models a state
-        // that cannot happen - getActionType found the action, so its `actions`
-        // row exists and deblankBaseline returns one - and the response it
-        // produced carried no `action_index`, i.e. it was indistinguishable from
-        // a NOT-FOUND, which is now deliberately not cached. Give it a real main
-        // row so it pins what it means: the second read is served from the LRU.
+        // Stubbing every query to `[]` would model a state that cannot happen:
+        // getActionType found the action, so its `actions` row exists and
+        // deblankBaseline returns one, yet the response would carry no
+        // `action_index`, making it indistinguishable from a NOT-FOUND, which is
+        // deliberately not cached. Give it a real main row so it pins what it
+        // means: the second read is served from the LRU.
         stubForType(db, 'SEND', { action: 'SEND', action_index: 100 });
         const config = cfg();
         const result1 = await db.getActionData(config, 100);
         const callCount1 = db.doQuery.callCount;
         const result2 = await db.getActionData(config, 100);
-        // Second call should not have called doQuery again
         expect(db.doQuery.callCount).to.equal(callCount1);
     });
 
@@ -3287,7 +2993,7 @@ describe('Database#getActionData', () => {
     it('DISPENSER with edits: refill escrow adds to give_remaining, list edit applies', async () => {
         const row = baseRow({ action: 'DISPENSER', give_tick: 'XCHAIN', get_tick: 'BTC', give_amount: '100', get_amount: '0.001', give_escrow: '100', expiration: 0, allow_list: null, block_list: null, current_status: 'open' });
         // A refill edit (give_escrow) that also sets allow_list. dispenser_action_index
-        // keys the row to its dispenser in the shared escrow derivation .
+        // keys the row to its dispenser in the shared escrow derivation.
         const editRow = { dispenser_action_index: 100, give_escrow: '50', expiration: null, allow_list: 'someList', block_list: null, block_time: 0 };
         sinon.stub(db, 'getActionType').resolves('DISPENSER');
         sinon.stub(db, 'getActionFeeData').resolves(null);
@@ -3472,10 +3178,9 @@ describe('Database#getActionData', () => {
 
     it('DEPLOY v4 chunk carrier: returns chunk data from deploy_chunks (action_format===4 branch)', async () => {
         // v4 carriers share the DEPLOY action name but live in deploy_chunks (one base64
-        // code slice each), so getActionData picks the detail query by action_format. The
-        // chunk fields are routed ONLY through the deploy_chunks query (via `extra`), so the
-        // assertions fail unless the action_format probe actually drives the v4 branch, so the
-        // base row carries action_format:4 but no chunk fields, proving discrimination.
+        // code slice each); getActionData picks the detail query by action_format. The
+        // base row carries action_format:4 but no chunk fields, so the assertions only
+        // pass if the action_format probe actually drove the v4 branch.
         stubForType(db, 'DEPLOY', baseRow({ action: 'DEPLOY', action_format: 4 }), {
             'deploy_chunks': [ baseRow({ action: 'DEPLOY', action_format: 4, code_hash: 'c0dehash', chunk_index: 2, total_chunks: 5 }) ]
         });
@@ -3769,10 +3474,6 @@ describe('Database#getActionData', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getContractDelegations
-// ---------------------------------------------------------------------------
-
 describe('Database#getContractDelegations', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -3790,10 +3491,7 @@ describe('Database#getContractDelegations', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getUnstakes (capability UNSTAKE v0)
-// ---------------------------------------------------------------------------
-
+// Capability UNSTAKE v0.
 describe('Database#getUnstakes', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -3811,10 +3509,7 @@ describe('Database#getUnstakes', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getStakeKeyRevocations (DELEGATE v2/v3 key revoke)
-// ---------------------------------------------------------------------------
-
+// DELEGATE v2/v3 key revoke.
 describe('Database#getStakeKeyRevocations', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -3831,10 +3526,7 @@ describe('Database#getStakeKeyRevocations', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getCollects (COLLECT validator reward claim)
-// ---------------------------------------------------------------------------
-
+// COLLECT validator reward claim.
 describe('Database#getCollects', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -3851,10 +3543,7 @@ describe('Database#getCollects', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getCapabilitySlashEvents (SLASH equivocation bond-burn, id-keyed)
-// ---------------------------------------------------------------------------
-
+// SLASH equivocation bond-burn, id-keyed.
 describe('Database#getCapabilitySlashEvents', () => {
     it('returns a 3-element array', async () => {
         const db = makeDb();
@@ -3872,12 +3561,9 @@ describe('Database#getCapabilitySlashEvents', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOraclePrices (user PRICE v1, hub-mirrored, id-keyed)
-// ---------------------------------------------------------------------------
-
+// User PRICE v1, hub-mirrored, id-keyed.
 describe('Database#getOraclePrices', () => {
-    // oracle_prices is hub-mirrored (item 4062), same posture as price_snapshots and
+    // oracle_prices is hub-mirrored, same posture as price_snapshots and
     // cross_chain_matches: served only from the mandatory co-located hub DB.
     const HUB = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
 
@@ -3907,7 +3593,7 @@ describe('Database#getOraclePrices', () => {
         expect(count).to.include('`XChain_Hub`.oracle_prices m');
     });
 
-    it('no checkpoint hub DB -> fails loud (no silent empty local mirror, item 4062)', async () => {
+    it('no checkpoint hub DB -> fails loud (no silent empty local mirror)', async () => {
         const db = makeDb();
         let err = null;
         try { await db.getOraclePrices(makeActionConfig('getOraclePrices', 'token')); }
@@ -3929,13 +3615,9 @@ describe('Database#getOraclePrices', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getCrossChainMatches
-// ---------------------------------------------------------------------------
-
 describe('Database#getCrossChainMatches', () => {
     // cross_chain_matches is hub-mirrored and served only from the mandatory co-located
-    // hub DB (#4138). These structural tests configure that hub DB so the query builds;
+    // hub DB. These structural tests configure that hub DB so the query builds;
     // the "no hub DB → fail loud" behavior is covered by its own test below.
     const HUB = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
 
@@ -3965,7 +3647,7 @@ describe('Database#getCrossChainMatches', () => {
         expect(query).to.include('ORDER BY m.id');
     });
 
-    it('no checkpoint hub DB → fails loud (no silent local-mirror fallback, #4138)', async () => {
+    it('no checkpoint hub DB → fails loud (no silent local-mirror fallback)', async () => {
         const db = makeDb();
         // checkpointDb is empty by default. The hub-mirrored cross_chain_matches table is
         // never replicated by xchain-sync, so a serving node MUST read it from the co-located
@@ -3998,7 +3680,7 @@ describe('Database#getCrossChainMatches', () => {
         expect(args).to.deep.equal(['addr1', 'mainnet']);
     });
 
-    it('rejects an unsafe hub DB identifier by failing loud (no local-mirror fallback, #4138)', async () => {
+    it('rejects an unsafe hub DB identifier by failing loud (no local-mirror fallback)', async () => {
         const db = makeDb();
         db.checkpointDb = { BTC: { name: 'bad name; DROP', chain: 'BTC', network: 'mainnet' } };
         // An unsafe configured identifier is a misconfiguration, not a reason to silently
@@ -4011,10 +3693,6 @@ describe('Database#getCrossChainMatches', () => {
         expect(err.message).to.not.include('bad name');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getCrossChainSettlements
-// ---------------------------------------------------------------------------
 
 describe('Database#getCrossChainSettlements', () => {
     it('returns a 3-element array', async () => {
@@ -4033,13 +3711,10 @@ describe('Database#getCrossChainSettlements', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Hub operational-state pages (p2p_peers/consensus_state/configs/telemetry_pings)
-// Served ONLY from the mandatory co-located hub DB (#4138), same as the governance
-// / cross-chain mirrors. These structural tests configure that hub DB so the query
-// builds; the "no hub DB -> fail loud" behavior gets one shared assertion below.
-// ---------------------------------------------------------------------------
-
+// Hub operational-state pages (p2p_peers/consensus_state/configs/telemetry_pings) are
+// served ONLY from the mandatory co-located hub DB, same as the governance and
+// cross-chain mirrors. These structural tests configure that hub DB so the query builds;
+// the "no hub DB -> fail loud" behavior gets one shared assertion below.
 const HUB_OPS = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
 
 describe('Database#getPeers', () => {
@@ -4062,7 +3737,7 @@ describe('Database#getPeers', () => {
         expect(count).to.include('`XChain_Hub`.p2p_peers m');
     });
 
-    it('no checkpoint hub DB -> fails loud (no local-mirror fallback, #4138)', async () => {
+    it('no checkpoint hub DB -> fails loud (no local-mirror fallback)', async () => {
         const db = makeDb();
         let err = null;
         try { await db.getPeers(makeActionConfig('getPeers')); }
@@ -4171,7 +3846,7 @@ describe('Database.getCheckpointAtOrAbove ordering (SPV latest-default)', () => 
 // BigInt; so does ws/serialize.js). They emitted JSON numbers, so the same field
 // name was a string on /block and a number on /checkpoints, breaking strict
 // equality against a WS NEW_BLOCK index. Pin the string wire type here so the
-// hand-shaped path cannot drift back ().
+// hand-shaped path cannot drift back.
 describe('Database._normalizeCheckpointRows emits BigInt indices as strings @regression', () => {
     const db = makeDb();
 
@@ -4199,7 +3874,7 @@ describe('Database._normalizeCheckpointRows emits BigInt indices as strings @reg
         expect(row.validator_signatures).to.deep.equal([]);
     });
 
-    it('validator_signatures: one wire type (array) across the checkpoint REST family ()', () => {
+    it('validator_signatures: one wire type (array) across the checkpoint REST family', () => {
         const sigs = [{ pubkey: 'aa', sig: 'bb' }];
         const mk = (v) => db._normalizeCheckpointRows([{
             block_index: 1n, checkpoint_seq: 1n, snapshot_block: 1n, validator_signatures: v

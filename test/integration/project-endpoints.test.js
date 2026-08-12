@@ -87,10 +87,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Project detail endpoint
-// ===========================================================================
-
 describe('Project API (/api/project/{tick})', function () {
 
     it('resolves the CURRENT roster (latest owner-valid tick-LIST link wins)', async function () {
@@ -120,10 +116,6 @@ describe('Project API (/api/project/{tick})', function () {
     });
 
 });
-
-// ===========================================================================
-// Token-page membership + registry fields
-// ===========================================================================
 
 describe('Token membership fields (/api/token/{tick})', function () {
 
@@ -156,10 +148,6 @@ describe('Token membership fields (/api/token/{tick})', function () {
     });
 
 });
-
-// ===========================================================================
-// Roster datatable (token-page Official Tokens tab)
-// ===========================================================================
 
 describe('Roster datatable (/explorer/projects/{tick}/roster)', function () {
 

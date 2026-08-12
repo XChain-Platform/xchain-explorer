@@ -32,10 +32,6 @@ const Utility = require('../../src/utility');
 const { createConfigInfoStub } = require('../fixtures/mock-config');
 const { makeConfig }           = require('../fixtures/mock-query-args');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeUtil() {
     return new Utility(createConfigInfoStub());
 }
@@ -47,10 +43,6 @@ function makeDb() {
     const explorer = { configInfo, util };
     return new Database(explorer);
 }
-
-// ===========================================================================
-// @p0 @core sanitizeInt: integer validation (defense-in-depth)
-// ===========================================================================
 
 describe('@p0 @core sanitizeInt regression', function () {
 
@@ -99,10 +91,6 @@ describe('@p0 @core sanitizeInt regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core escapeLike: LIKE query escaping
-// ===========================================================================
-
 describe('@p0 @core escapeLike regression', function () {
 
     let u;
@@ -131,10 +119,6 @@ describe('@p0 @core escapeLike regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core isNull: null detection
-// ===========================================================================
-
 describe('@p0 @core isNull regression', function () {
 
     let u;
@@ -148,10 +132,6 @@ describe('@p0 @core isNull regression', function () {
     it('returns false for non-empty string', function () { expect(u.isNull('x')).to.be.false; });
     it('returns false for object', function ()   { expect(u.isNull({})).to.be.false; });
 });
-
-// ===========================================================================
-// @p0 @core isNumeric: numeric detection
-// ===========================================================================
 
 describe('@p0 @core isNumeric regression', function () {
 
@@ -169,10 +149,6 @@ describe('@p0 @core isNumeric regression', function () {
     it('false for alpha string', function () { expect(u.isNumeric('abc')).to.be.false; });
     it('false for null', function ()         { expect(u.isNumeric(null)).to.be.false; });
 });
-
-// ===========================================================================
-// @p0 @core millisecondsToTimeString: formatting
-// ===========================================================================
 
 describe('@p0 @core millisecondsToTimeString regression', function () {
 
@@ -205,10 +181,6 @@ describe('@p0 @core millisecondsToTimeString regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @core logError / throwError: error logging
-// ===========================================================================
-
 describe('@p0 @core error logging regression', function () {
 
     let u;
@@ -223,10 +195,6 @@ describe('@p0 @core error logging regression', function () {
         expect(() => u.logError('test error', 'context')).to.throw(Error, 'test error');
     });
 });
-
-// ===========================================================================
-// @p0 @core Query builder: sortorder whitelist
-// ===========================================================================
 
 describe('@p0 @core query builder sortorder regression', function () {
 
@@ -274,10 +242,6 @@ describe('@p0 @core query builder sortorder regression', function () {
         expect(config.data.sql.order).to.equal('DESC');
     });
 });
-
-// ===========================================================================
-// @p0 @core Query builder: limit clamping
-// ===========================================================================
 
 describe('@p0 @core query builder limit clamping regression', function () {
 

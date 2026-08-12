@@ -25,27 +25,15 @@ const { expect } = require('chai');
 const fs         = require('fs');
 const path       = require('path');
 
-// ---------------------------------------------------------------------------
-// Read api.js source for configuration verification
-// ---------------------------------------------------------------------------
-
 const apiSource = fs.readFileSync(
     path.join(__dirname, '../../src/api.js'),
     'utf8'
 );
 
-// ---------------------------------------------------------------------------
-// Read XChainExplorer.js source for route-limiter verification
-// ---------------------------------------------------------------------------
-
 const explorerSource = fs.readFileSync(
     path.join(__dirname, '../../src/XChainExplorer.js'),
     'utf8'
 );
-
-// ===========================================================================
-// Route-specific limiters on compute-bound public endpoints
-// ===========================================================================
 
 describe('Security: Rate Limiting: compute-bound route limiters', function () {
 
@@ -61,14 +49,9 @@ describe('Security: Rate Limiting: compute-bound route limiters', function () {
     });
 });
 
-// ===========================================================================
-// Body size limit
-// ===========================================================================
-
 describe('Security: Rate Limiting: Body size limit', function () {
 
     it('express.json() has explicit body size limit', function () {
-        // Check that express.json is called with a limit option
         expect(apiSource).to.include("express.json({ limit:");
     });
 
@@ -79,10 +62,6 @@ describe('Security: Rate Limiting: Body size limit', function () {
         expect(limitKb).to.be.at.most(100);
     });
 });
-
-// ===========================================================================
-// Trust proxy configuration
-// ===========================================================================
 
 describe('Security: Rate Limiting: Trust proxy', function () {
 
@@ -96,10 +75,6 @@ describe('Security: Rate Limiting: Trust proxy', function () {
         expect(apiSource).to.include("'trust proxy', 1");
     });
 });
-
-// ===========================================================================
-// Rate limiter configuration
-// ===========================================================================
 
 describe('Security: Rate Limiting: Rate limiter config', function () {
 
@@ -131,10 +106,6 @@ describe('Security: Rate Limiting: Rate limiter config', function () {
     });
 });
 
-// ===========================================================================
-// Helmet security headers
-// ===========================================================================
-
 describe('Security: Rate Limiting: Helmet configuration', function () {
 
     it('helmet is enabled', function () {
@@ -149,10 +120,6 @@ describe('Security: Rate Limiting: Helmet configuration', function () {
         expect(apiSource).to.include("objectSrc:   [\"'none'\"]");
     });
 });
-
-// ===========================================================================
-// CORS configuration
-// ===========================================================================
 
 describe('Security: Rate Limiting: CORS configuration', function () {
 

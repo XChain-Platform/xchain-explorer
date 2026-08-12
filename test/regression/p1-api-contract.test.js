@@ -43,10 +43,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// @p1 @contract Content-Type headers
-// ===========================================================================
-
 describe('@p1 @contract Content-Type and headers regression', function () {
 
     it('API responses have JSON content-type', async function () {
@@ -65,10 +61,6 @@ describe('@p1 @contract Content-Type and headers regression', function () {
         expect(res.headers['access-control-allow-origin']).to.equal('*');
     });
 });
-
-// ===========================================================================
-// @p1 @contract Alphabetical key ordering
-// ===========================================================================
 
 describe('@p1 @contract Alphabetical key ordering regression', function () {
 
@@ -91,10 +83,6 @@ describe('@p1 @contract Alphabetical key ordering regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @contract Runtime field
-// ===========================================================================
-
 describe('@p1 @contract Runtime field regression', function () {
 
     it('runtime field is a string with digits', async function () {
@@ -104,10 +92,6 @@ describe('@p1 @contract Runtime field regression', function () {
         expect(res.body.runtime).to.match(/\d+/);
     });
 });
-
-// ===========================================================================
-// @p1 @contract Null handling
-// ===========================================================================
 
 describe('@p1 @contract Null field handling regression', function () {
 
@@ -121,10 +105,6 @@ describe('@p1 @contract Null field handling regression', function () {
         expect(send9.memo).to.not.equal('null');
     });
 });
-
-// ===========================================================================
-// @p1 @contract Explorer DataTables format
-// ===========================================================================
 
 describe('@p1 @contract Explorer DataTables format regression', function () {
 
@@ -176,10 +156,6 @@ describe('@p1 @contract Explorer DataTables format regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @contract Empty results
-// ===========================================================================
-
 describe('@p1 @contract Empty results regression', function () {
 
     it('valid query with no matches returns empty array, not error', async function () {
@@ -189,10 +165,6 @@ describe('@p1 @contract Empty results regression', function () {
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
 });
-
-// ===========================================================================
-// @p1 @contract Special endpoints
-// ===========================================================================
 
 describe('@p1 @contract Special endpoints regression', function () {
 
@@ -245,14 +217,9 @@ describe('@p1 @contract Special endpoints regression', function () {
     });
 });
 
-// ===========================================================================
-// @p1 @contract Error responses are JSON envelopes
-//
 // Every error path must return `{ error: <string> }` with a JSON content-type
 // so a consumer with a single `response.body.error` handler works uniformly.
 // The /file/raw, /relay and /icon handlers previously returned plain text.
-// ===========================================================================
-
 describe('@p1 @contract Error responses are JSON envelopes', function () {
 
     // /file/raw: documented, externally-consumed gated-content endpoint.

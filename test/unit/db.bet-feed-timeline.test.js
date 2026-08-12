@@ -11,11 +11,11 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * An expired market must be able to say which block refunded everyone .
+ * An expired market must be able to say which block refunded everyone.
  *
- * Found driving the betting expiry path in a browser (wallet E2E session 24).
- * LTC market #1193 expired correctly on chain at block 2264 and refunded its
- * 400-XCHAIN bet in full, and its History then read:
+ * A market that expired correctly on chain and refunded its bet in full showed
+ * a History with the expiry row missing its block, and the "closed" row landing
+ * AFTER the expiry instead of before it:
  *
  *     Taking bets                                  block 2255
  *     Expired unresolved, everyone refunded        block n/a      <-- no block
@@ -74,7 +74,7 @@ const CLOSED_TIME = ['block_time FROM blocks', [{ block_time: 1785262295 }]];
 
 const config = { coin: 'LTC', data: {} };
 
-describe('BET feed status timeline  @regression', function () {
+describe('BET feed status timeline @regression', function () {
 
     it('reads the block off the ACTION, so a transactionless BET_EXPIRE keeps its block', async function () {
         const db = makeDb([STATUS_ROWS, CLOSED_TIME]);

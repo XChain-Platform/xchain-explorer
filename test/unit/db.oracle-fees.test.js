@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * The oracle track record reports FEES EARNED (spec §11.1).
+ * The oracle track record reports FEES EARNED.
  *
  * The page had every count it was specified to carry except the one number that
  * says what running markets is worth to this address, so a reader could see that
@@ -64,7 +64,7 @@ const FEES_ROWS = [
     { tick: 'XCHAIN',       resolves: 1, amount: '12.000000000000000000' },
 ];
 
-describe('Betting oracle fees earned (§11.1) @regression', function () {
+describe('Betting oracle fees earned @regression', function () {
 
     it('sums the oracle credits and reports them per wager token', async function () {
         const db = makeDb([

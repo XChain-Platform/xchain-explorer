@@ -16,7 +16,7 @@
  * and Broadcaster MEMPOOL_ACTION / MEMPOOL_REMOVED routing. The decoder DB
  * is stubbed throughout; no real database.
  *
- * Encoding contract : mempool_transactions.data holds the canonical
+ * Encoding contract: mempool_transactions.data holds the canonical
  * UTF-8 ACTION string, byte-identical to what the decoder's confirmed-block
  * path writes to transactions.data. It is not hex. The fixtures below are
  * therefore plain text, and the drift guard at the bottom of this file pins the
@@ -49,7 +49,7 @@ function mkDb(rows) {
 const SEND_ROW  = { tx_hash: 'aa11', source: 'srcAddr1', data: 'SEND|0|TOK|5|destAddr1|nonce123' };
 const MINT_ROW  = { tx_hash: 'bb22', source: 'srcAddr2', data: 'MINT|0|OTHER|9' };
 const TRASH_ROW = { tx_hash: 'cc33', source: 'srcAddr3', data: 'zz-not-an-action-!!' };
-// A row written by a pre- decoder that still hex-encoded the payload.
+// A row written by an older decoder that still hex-encoded the payload.
 // It must NOT decode: the mempool feed drops it rather than showing mojibake.
 const LEGACY_HEX_ROW = { tx_hash: 'dd44', source: 'srcAddr4', data: hex('SEND|0|TOK|5|destAddr1|nonce123') };
 
@@ -106,7 +106,7 @@ describe('decoder mempool surface', () => {
         });
 
         it('does NOT hex-decode: a hex-looking payload is not treated as an action', () => {
-            // The regression this pins : the explorer used to run
+            // The regression this pins: the explorer used to run
             // Buffer.from(data, 'hex') over a column the decoder writes as plain
             // text, which silently blanked every pending action. Reading text as
             // text must stay the only interpretation, in both directions.
@@ -228,7 +228,7 @@ describe('decoder mempool surface', () => {
     });
 
     /******************************************************************
-     * Cross-repo encoding pin 
+     * Cross-repo encoding pin
      *
      * The explorer's read and the decoder's write have to agree on how
      * mempool_transactions.data is encoded, and they live in two repos, so a
@@ -241,7 +241,7 @@ describe('decoder mempool surface', () => {
      * Skips when no sibling xchain-decoder checkout is present (always true in
      * the platform monorepo; the standalone-explorer CI job has no decoder).
      *****************************************************************/
-    describe('decoder/explorer mempool encoding pin ', () => {
+    describe('decoder/explorer mempool encoding pin', () => {
         const decoderRoot = process.env.XCHAIN_DECODER_ROOT ||
                             path.resolve(__dirname, '../../../xchain-decoder');
         const decoderSrc  = path.join(decoderRoot, 'src', 'XChainDecoder.js');

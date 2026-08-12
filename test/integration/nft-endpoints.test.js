@@ -118,11 +118,8 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
 // nft search type removed with the NFT UI; the classifier is client-side only
 // (sdk.nft.isNft via content/js/xchain.js), so the server rejects type=nft
-// ===========================================================================
-
 describe('NFT token filter (type=nft) is not a supported type', function () {
 
     it('GET /RBTC/api/tokens/null/nft is rejected', async function () {
@@ -131,10 +128,6 @@ describe('NFT token filter (type=nft) is not a supported type', function () {
     });
 
 });
-
-// ===========================================================================
-// getToken decimals exposure (client-side classification)
-// ===========================================================================
 
 describe('Token detail decimals exposure', function () {
 
@@ -148,10 +141,6 @@ describe('Token detail decimals exposure', function () {
     });
 
 });
-
-// ===========================================================================
-// Raw FILE endpoint (TIS data_ref resolution target)
-// ===========================================================================
 
 describe('Raw FILE endpoint', function () {
 

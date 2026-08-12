@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- *  display leg, client half. Drives the SHIPPED showListDetails against
+ * Display leg, client half. Drives the SHIPPED showListDetails against
  * the SHIPPED #info-list markup sliced out of action.html, so a renamed class
  * or a dropped panel row fails here instead of silently rendering nothing.
  *
@@ -89,7 +89,7 @@ function renderListDetails(data) {
 const CREATE_ROWS = ['mMemberA', 'mMemberB'];
 const CURRENT     = ['mMemberB'];
 
-describe(' client: the LIST page shows current membership', function () {
+describe('client: the LIST page shows current membership', function () {
 
     it('[REGRESSION] renders the edit head\'s membership, not the create snapshot', function () {
         const out = renderListDetails({

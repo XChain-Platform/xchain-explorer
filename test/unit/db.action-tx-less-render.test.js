@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * getActionData rendering parity for system-synthesized (transaction-less /
- * row-less) actions - review items 1310-1314.
+ * row-less) actions.
  *
  * The indexer mints actions with no transaction (tx_index NULL) and, for some
  * variants, no domain-table row at all. These tests exercise the getActionData

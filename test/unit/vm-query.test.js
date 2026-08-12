@@ -41,8 +41,8 @@ function dbStub(overrides = {}){
 }
 
 // The consensus surface a canonical contract-era xchain-vm exports. Every stub
-// carries it by default, so the fail-closed gate () does not turn the
-// rest of the suite into drift refusals; the gate's own tests override it.
+// carries it by default, so the fail-closed drift gate does not turn the rest
+// of the suite into drift refusals; the gate's own tests override it.
 const CANONICAL_VM_CONSENSUS = {
     CONSENSUS_VERSION:                   '3',
     BINARY_ALLOC_GATE_BLOCK_TIME:        1786060800,
@@ -315,11 +315,11 @@ describe('vm-query', () => {
         await vmq.shutdown();
     });
 
-    //. The deployed explorer is a systemd unit the fleet flag-day
-    // checker cannot reach, and its vendored VM went four times stale unnoticed
-    // while the version string moved one patch. bin/check-explorer-vm-drift.sh
-    // sees that over SSH, but it is external and skippable; these cases are the
-    // part an operator cannot skip, because the endpoint itself refuses.
+    // A deployed explorer's vendored VM can go stale unnoticed even while an
+    // external drift-check script exists, because that script is skippable.
+    // These cases are the part an operator cannot skip: the endpoint itself
+    // refuses to simulate when its VM has drifted from the required consensus
+    // shape.
     describe('vendored-VM consensus gate', () => {
         // Each case names a shape of the measured drift: the live copy carried
         // none of these exports at all.
@@ -438,10 +438,9 @@ describe('vm-query protocol size-cap parity @regression', () => {
         expect(vmq.MAX_STATE_VALUE_SIZE).to.equal(65536);
     });
 
-    //. The gate's pin is compiled in, so an epoch bump in the VM would
-    // otherwise be discovered by an explorer refusing to simulate in production.
-    // Read by regex rather than require(), the way bin/vendor-vm.sh does, so the
-    // assertion never needs to load isolated-vm.
+    // The gate's pin is compiled in, so an epoch bump in the VM would otherwise
+    // be discovered by an explorer refusing to simulate in production. Read by
+    // regex rather than require(), so the assertion never needs to load isolated-vm.
     it('the compiled consensus pin equals the canonical sibling xchain-vm epoch', function(){
         const VM_DIR = process.env.XCHAIN_VM_SOURCE ||
             path.join(__dirname, '..', '..', '..', 'xchain-vm');

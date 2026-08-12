@@ -17,6 +17,5 @@ RUN npm ci --omit=dev
 
 COPY ./src /XChainExplorer/src
 COPY ./docs /XChainExplorer/docs
-#COPY ./.en[v] /XChainExplorer/.env
 
 CMD ["npm", "run", "api"]

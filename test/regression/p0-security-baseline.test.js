@@ -29,10 +29,6 @@ const { makeConfig }           = require('../fixtures/mock-query-args');
 const Utility  = require('../../src/utility');
 const Database = require('../../src/db.js');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeDb() {
     const configInfo = createConfigInfoStub();
     const util = new Utility(configInfo);
@@ -48,10 +44,6 @@ function cfgOffset(method, action, start, stop) {
         }
     });
 }
-
-// ===========================================================================
-// @p0 @security SQL Injection: Offset Parameterization
-// ===========================================================================
 
 describe('@p0 @security SQL injection offset parameterization regression', function () {
 
@@ -98,10 +90,6 @@ describe('@p0 @security SQL injection offset parameterization regression', funct
     });
 });
 
-// ===========================================================================
-// @p0 @security SQL Injection: WHERE clause parameterization
-// ===========================================================================
-
 describe('@p0 @security SQL injection WHERE clause regression', function () {
 
     let db;
@@ -147,10 +135,6 @@ describe('@p0 @security SQL injection WHERE clause regression', function () {
     });
 });
 
-// ===========================================================================
-// @p0 @security SQL Injection: Order/Limit Validation
-// ===========================================================================
-
 describe('@p0 @security SQL injection order/limit regression', function () {
 
     let db;
@@ -182,10 +166,6 @@ describe('@p0 @security SQL injection order/limit regression', function () {
         expect(config.data.sql.where.offsetArgs).to.deep.equal([100, 200]);
     });
 });
-
-// ===========================================================================
-// @p0 @security LIKE wildcard escaping
-// ===========================================================================
 
 describe('@p0 @security LIKE wildcard escaping regression', function () {
 

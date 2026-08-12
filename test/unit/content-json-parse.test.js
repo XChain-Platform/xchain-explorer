@@ -17,9 +17,9 @@
  * XChainExplorer.js and parsed in the browser, not by the server, so a syntax
  * error never trips a startup check or any other suite. That is exactly how
  * xchain-platform-api.json accumulated 20 trailing commas and left the Swagger
- * API-docs page blank for every visitor : swagger-initializer.js
- * fetches /json/xchain-platform-api.json and hands it to the parser, which
- * rejects trailing commas.
+ * API-docs page blank for every visitor: swagger-initializer.js fetches
+ * /json/xchain-platform-api.json and hands it to the parser, which rejects
+ * trailing commas.
  *
  * This harness parses every shipped .json asset with the same strict
  * JSON.parse the browser uses, and pins the shape of the OpenAPI document the

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * : the dispenser LIST lane served no escrow at all - neither the
+ * The dispenser LIST lane served no escrow at all - neither the
  * create-time give_escrow nor a live remainder - so a client listing an
  * address's dispensers could not say how full any of them was. The wallet
  * papered over it with an "Escrow pending" line that told every owner their
@@ -53,7 +53,7 @@ function stubEscrowQueries(db, { dispensers = [], edits = [], dispenses = [] } =
     });
 }
 
-describe('Database#getDispenserEscrowBatch ', function () {
+describe('Database#getDispenserEscrowBatch', function () {
 
     afterEach(() => sinon.restore());
 
@@ -160,7 +160,7 @@ describe('Database#getDispenserEscrowBatch ', function () {
     });
 });
 
-describe('getDispensers list lane serves escrow ', function () {
+describe('getDispensers list lane serves escrow', function () {
 
     afterEach(() => sinon.restore());
 
@@ -210,7 +210,7 @@ describe('getDispensers list lane serves escrow ', function () {
     });
 });
 
-describe('per-action and WebSocket lanes read the same derivation ', function () {
+describe('per-action and WebSocket lanes read the same derivation', function () {
 
     afterEach(() => sinon.restore());
 

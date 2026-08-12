@@ -12,9 +12,9 @@
  *
  **********************************************************************
  * getActionData rendering for DELEGATE revoke actions after the
- * DELEGATE_REVOKE_NO_REINSERT flag-day .
+ * DELEGATE_REVOKE_NO_REINSERT flag-day.
  *
- * At/after the flag-day (BTC 963000,  cohort) a v2 capability-revoke and a
+ * At/after the flag-day (BTC 963000) a v2 capability-revoke and a
  * v3 contract-revoke deactivate the PARENT delegation row and write NO row of
  * their own keyed by the revoking action's action_index (v3 never did). The main
  * DELEGATE detail query joins `delegations` / `contract_delegations` on
@@ -62,10 +62,10 @@ function makeDoQuery(opts) {
         // DELEGATE detail branch (drives from actions, joins stake_key_revocations)
         if(q.includes('stake_key_revocations skr'))
             return o.mainRows;
-        // v3 parent contract_delegations resolution 
+        // v3 parent contract_delegations resolution
         if(q.includes('contract_delegations cd') && q.includes('cd.target_contract_index=?'))
             return o.v3Parent ? [o.v3Parent] : [];
-        // v2 parent delegations resolution 
+        // v2 parent delegations resolution
         if(q.includes('FROM delegations d') || (q.includes('delegations d') && q.includes('ORDER BY d.action_index DESC')))
             return o.v2Parent ? [o.v2Parent] : [];
         // ledger effects
@@ -100,7 +100,7 @@ function v3RevokeMainRow(wire) {
     };
 }
 
-describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT  @regression', function() {
+describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression', function() {
 
     it('v2 capability-revoke: resolves signing_pubkey from wire + parent activation window', async function() {
         const db = makeDb();

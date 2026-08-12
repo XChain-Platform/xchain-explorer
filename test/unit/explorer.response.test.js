@@ -33,10 +33,7 @@ const { createConfigInfoStub }   = require('../fixtures/mock-config.js');
 const { mockReq, mockRes }       = require('../fixtures/mock-query-args.js');
 const mockResults                = require('../fixtures/mock-db-results.js');
 
-// ---------------------------------------------------------------------------
 // Shared state: control what getData returns per test
-// ---------------------------------------------------------------------------
-
 let getDataResult = [[], null];
 
 class MockDB {
@@ -46,19 +43,13 @@ class MockDB {
     async getData(config) { return getDataResult; }
 }
 
-// ---------------------------------------------------------------------------
 // Minimal Express stub: returns the same mockApp every time
-// ---------------------------------------------------------------------------
-
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express  = () => mockApp;
 express.static = () => {};
 express.json   = () => {};
 
-// ---------------------------------------------------------------------------
 // Load XChainExplorer with all heavy dependencies replaced
-// ---------------------------------------------------------------------------
-
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
     './db.js': MockDB,
@@ -68,15 +59,8 @@ const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     }
 });
 
-// ---------------------------------------------------------------------------
-// Factory helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Build a configured XChainExplorer instance.
- * Stubs fileExists/fileGetContents on the util instance so HTML tests work
- * without touching the filesystem.
- */
+// Stubs fileExists/fileGetContents on the util instance so HTML tests work
+// without touching the filesystem.
 function makeExplorer(configOverrides) {
     const configInfo = createConfigInfoStub(configOverrides);
     const explorer   = new XChainExplorer(mockApp, configInfo);
@@ -88,17 +72,12 @@ function makeExplorer(configOverrides) {
     return explorer;
 }
 
-// Restore all sinon stubs/spies created during a test
 afterEach(function () {
     sinon.restore();
-    // Reset default getData result
     getDataResult = [[], null];
 });
 
-// ---------------------------------------------------------------------------
 // Helper: call processRequest and return the populated res mock
-// ---------------------------------------------------------------------------
-
 async function handle(explorer, path, query = {}) {
     const req = mockReq(path, query);
     const res = mockRes();
@@ -106,20 +85,13 @@ async function handle(explorer, path, query = {}) {
     return res;
 }
 
-// ---------------------------------------------------------------------------
 // Helper: parse the JSON body from the response
-// ---------------------------------------------------------------------------
-
 function parseBody(res) {
     if (typeof res._body === 'string') {
         return JSON.parse(res._body);
     }
     return res._body;
 }
-
-// ===========================================================================
-// 1. API response shape
-// ===========================================================================
 
 describe('XChainExplorer.processRequest – API response shape', function () {
 
@@ -181,10 +153,6 @@ describe('XChainExplorer.processRequest – API response shape', function () {
 
 });
 
-// ===========================================================================
-// 2. Explorer response shape
-// ===========================================================================
-
 describe('XChainExplorer.processRequest – Explorer response shape', function () {
 
     it('returns recordsTotal and recordsFiltered for explorer type requests', async function () {
@@ -216,11 +184,11 @@ describe('XChainExplorer.processRequest – Explorer response shape', function (
         expect(body.recordsFiltered).to.equal(overrideTotal);
     });
 
-    // Stress-sweep regression: a non-numeric ?total= override previously flowed
-    // straight into getPagingDataResults -> bcsub (mathjs), throwing a DecimalError
-    // outside any try/catch. On the fire-and-forget catch-all handler that became an
-    // unhandled rejection that terminated the process (unauthenticated crash-loop DoS).
-    // The override must now be ignored when non-numeric, keeping the real DB count.
+    // A non-numeric ?total= override previously flowed straight into
+    // getPagingDataResults -> bcsub (mathjs), throwing a DecimalError outside any
+    // try/catch; on the fire-and-forget catch-all handler that became an unhandled
+    // rejection that terminated the process (unauthenticated crash-loop DoS). The
+    // override must now be ignored when non-numeric, keeping the real DB count.
     it('ignores a non-numeric ?total= override instead of crashing (DoS regression)', async function () {
         const rows     = mockResults.sendRows();
         getDataResult  = [rows, rows.length];
@@ -238,10 +206,6 @@ describe('XChainExplorer.processRequest – Explorer response shape', function (
     });
 
 });
-
-// ===========================================================================
-// 3. Special method top-level fields
-// ===========================================================================
 
 describe('XChainExplorer.processRequest – special method responses', function () {
 
@@ -306,12 +270,9 @@ describe('XChainExplorer.processRequest – special method responses', function 
 
 });
 
-// ===========================================================================
-// 3b. Ownership-flag column ordering (action_index MUST stay last)
-// ===========================================================================
-// The client extracts action_index = data[len-1] and status = data[len-2], and
-// pages on data[len-1]. getDispensers/getOrders/getSwaps append give/get_ownership
-// AFTER action_index, which put an ownership flag (0/1) where the cursor should be.
+// The client extracts action_index = data[len-1] and status = data[len-2], paging
+// on data[len-1]. getDispensers/getOrders/getSwaps append give/get_ownership AFTER
+// action_index, which put an ownership flag (0/1) where the cursor should be.
 // These pin the invariant: ownership flags sit BEFORE status/action_index.
 
 describe('XChainExplorer.processRequest – ownership row shape (action_index last)', function () {
@@ -347,10 +308,6 @@ describe('XChainExplorer.processRequest – ownership row shape (action_index la
     });
 
 });
-
-// ===========================================================================
-// 4. Error responses
-// ===========================================================================
 
 describe('XChainExplorer.processRequest – error responses', function () {
 
@@ -416,10 +373,6 @@ describe('XChainExplorer.processRequest – error responses', function () {
 
 });
 
-// ===========================================================================
-// 5. Response headers
-// ===========================================================================
-
 describe('XChainExplorer.processRequest – response headers', function () {
 
     it('does NOT set XChain-Explorer-Version header (info leakage prevention)', async function () {
@@ -454,10 +407,6 @@ describe('XChainExplorer.processRequest – response headers', function () {
     });
 
 });
-
-// ===========================================================================
-// 6. JSON serialization
-// ===========================================================================
 
 describe('XChainExplorer.processRequest – JSON serialization', function () {
 
@@ -505,11 +454,11 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         expect(res._body).to.be.a('string');
     });
 
-    // Stress-sweep regression: a DB row (or /relay body) carrying an object merely
-    // SHAPED like a serialized mathjs BigNumber but holding a non-numeric value made
-    // jsonStringify's replacer throw a DecimalError at the send sink, outside any
-    // try/catch -> unhandled rejection -> process crash. It must now serialize the
-    // hostile value gracefully rather than throw.
+    // A DB row (or /relay body) carrying an object merely SHAPED like a serialized
+    // mathjs BigNumber but holding a non-numeric value made jsonStringify's replacer
+    // throw a DecimalError at the send sink, outside any try/catch -> unhandled
+    // rejection -> process crash. It must now serialize the hostile value
+    // gracefully rather than throw.
     it('serializes a hostile BigNumber-shaped value without crashing (DoS regression)', async function () {
         const rows = [{ action_index: 1, evil: { mathjs: 'BigNumber', value: 'not-a-number' } }];
         getDataResult  = [rows, rows.length];
@@ -534,10 +483,6 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
     });
 
 });
-
-// ===========================================================================
-// 7. HTML responses
-// ===========================================================================
 
 describe('XChainExplorer.processRequest – HTML responses', function () {
 

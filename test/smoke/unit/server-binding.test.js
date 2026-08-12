@@ -30,10 +30,6 @@ const jsonRouter     = require('express-json-rpc-router');
 const { createTestConfigInfo } = require('../../integration/helpers/app-setup');
 const XChainExplorer = require('../../../src/XChainExplorer');
 
-// ---------------------------------------------------------------------------
-// SM-05: Express server binds and JSON-RPC ping responds
-// ---------------------------------------------------------------------------
-
 describe('SM-05: Server binding and JSON-RPC ping', function () {
 
     let app, request;

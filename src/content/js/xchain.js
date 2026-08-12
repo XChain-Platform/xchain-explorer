@@ -107,7 +107,7 @@ XC = {
     // List of supported message encryption methods
     // Keys are the protocol's ENCRYPTION_METHOD enum, 1=ECIES / 2=ECDH / 3=AES
     // (xchain-documentation/protocol/actions/message.md). The map used to start at ECDH and
-    // omit AES, so method 1 read as ECDH, method 2 as AES, and method 3 rendered blank (item 4452).
+    // omit AES, so method 1 read as ECDH, method 2 as AES, and method 3 rendered blank.
     encryption_methods: {
         1: 'Elliptic-Curve Integrated Encryption Scheme (ECIES)',
         2: 'Elliptic-Curve Diffie–Hellman (ECDH)',
@@ -397,7 +397,6 @@ function getTokenIcon(token){
 
 // Return nice display string for links
 function formatLink(url=null, text=null, icon=false, btn=false){
-    // console.log('text=',text);
     var html = '',
         cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
         html += '<a href="' + url + '" class="' + cls + '">';
@@ -472,11 +471,7 @@ function formatTransactionLink(tx){
         html += '<a href="https://blockchair.com/bitcoin/transaction/'  + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
         html += '<a href="https://chain.so/tx/BTC/'                     + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     } else if(coin=='TBTC'){
-        // Testnet 3 
-        // html += '<a href="https://mempool.space/testnet3/tx/'           + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
-        // html += '<a href="https://blockstream.info/testnet/tx/'         + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
-        // html += '<a href="https://live.blockcypher.com/btc-testnet/tx/' + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
-        // Testnet 4
+        // Testnet 4 (BTC testnet3 has been retired)
         html += '<a href="https://mempool.space/testnet4/tx/'           + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
         html += '<a href="https://blockstream.info/testnet/tx/'         + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
         html += '<a href="https://chain.so/tx/BTCTEST/'                 + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
@@ -826,10 +821,7 @@ function setupCollapsibleHeaders(){
     $('.collapse-header').each(function(){ toggleCollapseContent($(this).attr('id'), true); });
 }
 
-/******************************************************************
- * Basic Calculator (BC) math functions
- ******************************************************************/
-
+// Basic Calculator (BC) math functions.
 // Coerce a value to a full-precision bignumber (matches the SDK/indexer canonical
 // bcnum). Returns a mathjs bignumber (NOT a JS double), so neither this nor the
 // bc* helpers below re-funnel a result through parseFloat (which truncates past
@@ -938,7 +930,7 @@ function getActionDetails(action, info){
     let coin = XC.coin; // TODO: update when XChain adds cross-network support
     if(action=='ADDRESS'){
         // v1 is a controller bind, not a preferences edit: summarizing one with the preference
-        // defaults described an action it never took .
+        // defaults described an action it never took.
         if(info.action_format==1){
             let verb = (info.unbind==1) ? 'Unbind' : 'Bind';
             html += verb + ' ' + (info.action_class || '-');
@@ -955,7 +947,7 @@ function getActionDetails(action, info){
         html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
         // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
         // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
-        // searched for a token named after a number (item 4449). showAirdropDetails already links
+        // searched for a token named after a number. showAirdropDetails already links
         // this same field through /action/.
         html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
     }
@@ -963,7 +955,7 @@ function getActionDetails(action, info){
         // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
         // NOT info.fee: for a BATCH child `info` is a full getActionData result whose fee
         // slot is overwritten with the protocol-fee record, and bcmul on that object threw
-        // and aborted the whole member-table render (#2479 twin at this second call site).
+        // and aborted the whole member-table render (same fix applied at the other call site).
         let percent = (isNumeric(info.broadcast_fee)) ? bcmul(info.broadcast_fee, 100, 2) : '';
         // info.message / info.value are BROADCAST free text (on-chain,
         // attacker-controlled) and this html is injected via .html(). Escape them.
@@ -992,7 +984,7 @@ function getActionDetails(action, info){
         // order/swap/dispenser puts give and get on different networks, and the row already
         // carries give_coin/get_coin (db.getActionSummaryData detailFields, and the
         // action-detail markets/dispensers queries), so the page coin linked a remote token
-        // into the wrong namespace and labelled a remote native amount local (item 4451).
+        // into the wrong namespace and labelled a remote native amount local.
         // Fall back to the page coin for any subtype that omits the fields.
         let give_coin = info.give_coin || coin;
         let get_coin  = info.get_coin  || coin;
@@ -1011,7 +1003,7 @@ function getActionDetails(action, info){
     if(action=='LINK'){
         // Both link legs are ACTION indexes on their own chains (links.coin1_action_index /
         // coin2_action_index, indexer db.js createLink), not tickers, so /token/ opened a token
-        // search for a number (item 4449). showLinkDetails already uses /action/ for these two.
+        // search for a number. showLinkDetails already uses /action/ for these two.
         html += info.coin1 + ' action ' + formatLink('/' + info.coin1 + '/action/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
         html += info.coin2 + ' action ' + formatLink('/' + info.coin2 + '/action/' + info.coin2_action_index, info.coin2_action_index);
     }
@@ -1019,7 +1011,7 @@ function getActionDetails(action, info){
         let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
         // Read the type off the canonical map instead of a second inline copy: the copy was
         // inverted against XC.list_types (1=Token, 2=Address), so every compact row called a
-        // token list an address list and vice versa (item 4450). showListDetails already
+        // token list an address list and vice versa. showListDetails already
         // consumes the map, so this leaves one source of truth. An invalid edit row can carry a
         // null type (the parent lookup failed and the row persisted anyway), so name that case
         // rather than printing 'undefined'.
@@ -1030,13 +1022,13 @@ function getActionDetails(action, info){
         // Link the destination on ITS own chain: MESSAGE deliberately allows a destination on
         // another network (the indexer validates DESTINATION against COIN, not the broadcast
         // chain), and messages.coin is that destination network. Building the URL from the page
-        // coin sent a BTC-addressed message broadcast on DOGE to /DOGE/address/... (item 4454).
+        // coin sent a BTC-addressed message broadcast on DOGE to /DOGE/address/...
         let dest_coin = info.coin || coin;
         // Summarize by RECORD FORMAT, not by encryption_method: formats 0 and 1 are the key
         // exchange, 2 is the encrypted message, 3 is plaintext (indexer actions/message.js
         // formats). A v2 record carries no method on the wire and the indexer stamps method 1
         // (ECIES) onto it, so keying off the method labelled every ordinary encrypted message
-        // an 'Encryption key exchange' (item 4453). A row missing action_format keeps the old
+        // an 'Encryption key exchange'. A row missing action_format keeps the old
         // plaintext/encrypted fallback rather than defaulting into the key-exchange branch.
         if(!isNull(info.action_format) && [0,1].includes(Number(info.action_format))){
             html = 'Encryption key exchange with ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
@@ -1063,7 +1055,7 @@ function getActionDetails(action, info){
             html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
         html += ' until block ' + formatAmount(info.resume_block);
     }
-    // Compact summaries for the staking / contract families (#2266). Field names
+    // Compact summaries for the staking / contract families. Field names
     // mirror each type's show*Details() renderer.
     if(action=='DESTROY')
         html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
@@ -1116,7 +1108,7 @@ function getActionDetails(action, info){
     // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, ANCHOR, PRICE, NODEPROOF,
     // ATTEST, COINPAY, ... and any FUTURE type) falls back to a humanized
     // action name, so a new action type can no longer silently summarize as
-    // empty while being fully supported everywhere else (#2266).
+    // empty while being fully supported everywhere else.
     if(html === ''){
         let words = String(action).toLowerCase().split('_');
         html = words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');
@@ -1124,25 +1116,8 @@ function getActionDetails(action, info){
     return html;
 }
 
-/**********************************************************************
- * Handle loading data into a datatables table from the explorer API endpoints
- * 
- * Params :
- * - coin   - COIN name (BTC, LTC, DOGE, etc)
- * - action - Action name (address, credit, debit)
- * - query  - Query info (can be null in most cases)
- * - type   - Query type (address, block, token)
- * 
- * Examples :
- * - Load all `address` actions
- *   loadDatatablesData('BTC', 'address', null, null);
- * 
- * - Load `address` actions for a given address
- *   loadDatatablesData('BTC', 'address', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev', 'address');
- * 
- * - Load `address` actions for a given block
- *   loadDatatablesData('BTC', 'address', '862623', 'block');
- *********************************************************************/
+// Load an action's rows into its datatable from the explorer API; query/type
+// narrow the results to one address/block/etc when given.
 function loadDatatablesData(coin, action, query, type){
     // Handle initializing datatable object for this action
     if(!XC.datatables[action])
@@ -1895,7 +1870,7 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
-            // Validator / capability stake. : eq(7)-eq(9) are the hub federation
+            // Validator / capability stake. eq(7)-eq(9) are the hub federation
             // registry's view of the SAME signing pubkey (addr / served chains /
             // registration status), folded onto the on-chain active set so this one page
             // covers both. Registry strings are hub-supplied free text, so they render as
@@ -2306,26 +2281,8 @@ function loadDatatablesData(coin, action, query, type){
     });
 }
 
-/**********************************************************************
- * Handle loading data directly from the API endpoints
- * 
- * Params :
- * - coin     - COIN name (BTC, LTC, DOGE, etc)
- * - action   - Action name (address, credit, debit)
- * - query    - Query info (can be null in most cases)
- * - type     - Query type (address, block, token)
- * - callback - Callback function to process the response
- * 
- * Examples :
- * - Load all `address` actions
- *   loadApiData('BTC', 'block', '862623', null);
- * 
- * - Load `address` actions for a given address
- *   loadDApiData('BTC', 'address', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev', 'address');
- * 
- * - Load `address` actions for a given block
- *   loadDApiData('BTC', 'address', '862623', 'block');
- *********************************************************************/
+// Load an action's rows directly from the API and hand the response to callback;
+// query/type narrow the results to one address/block/etc when given.
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
     let endpoint = null;
@@ -2484,7 +2441,7 @@ function showActionDetails(){
 function showAddressDetails(data){
     // ADDRESS has two unrelated subjects. v0 edits this address's preferences; v1 binds (or drops) a
     // guard contract over one action class of the account, and carries no preferences at all - showing
-    // the preference rows for one rendered "Fee Preference: null" over the entire payload .
+    // the preference rows for one rendered "Fee Preference: null" over the entire payload.
     if(data.action_format==1){
         // A REFUSED bind has no controller event to describe (the log is what consensus enforces), so
         // it shows neither row set: the page's own Status and Data fields carry the reason and the
@@ -2535,14 +2492,14 @@ function showBatchDetails(data){
 function showBroadcastDetails(data){
     // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
     // NOT data.fee: the reserved data.fee slot is overwritten with the protocol-fee
-    // record when one exists, so reading it here rendered '[object Object]' (#2479).
+    // record when one exists, so reading it here rendered '[object Object]'.
     let percent = (isNumeric(data.broadcast_fee)) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.broadcast_fee, 100, 2) + '%</span>') : '';
     $('#info-broadcast .broadcast-message').text(data.message);
     $('#info-broadcast .broadcast-value').text(formatAmount(data.value));
     $('#info-broadcast .broadcast-fee').html(data.broadcast_fee + percent);
     $('#info-broadcast .broadcast-memo').text(data.memo);
     // BROADCAST v3 references an earlier broadcast (its only meaningful payload);
-    // link it and reveal the row, hidden for v0-v2 which have no reference (#2483).
+    // link it and reveal the row, hidden for v0-v2 which have no reference.
     if(data.broadcast_action_index != null){
         $('#info-broadcast .broadcast-reference').html(formatLink('/' + XC.coin + '/action/' + data.broadcast_action_index, data.broadcast_action_index));
         $('#info-broadcast .broadcast-reference-row').removeClass('d-none');
@@ -2751,7 +2708,7 @@ function showAttestDetails(data){
         $('#info-attest .attest-response-hash').html(formatHash(data.response_hash, 32));
         // Show the decoded body the response delivered, not only its hash: the detail query has
         // always selected attests.response_payload (action-detail/consensus.js) and nothing read
-        // it, so the panel could not be compared against the hash beside it (item 4455). Written
+        // it, so the panel could not be compared against the hash beside it. Written
         // with .text() because the payload is validator-broadcast free text.
         $('#info-attest .attest-response-payload').text(isNull(data.response_payload) ? '-' : String(data.response_payload));
         $('#info-attest .attest-meta').text(isNull(data.meta) ? '-' : data.meta);
@@ -3135,7 +3092,7 @@ function showXcallDetails(data){
     if(exec){
         // Namespace the executed action by the TARGET chain: action indexes are chain-local and
         // this one was minted by XEXEC on the far chain, so XC.coin pointed the link at whatever
-        // unrelated action shares that index here (item 4457). The callback link below keeps
+        // unrelated action shares that index here. The callback link below keeps
         // XC.coin because the callback is delivered back on this chain. Fall back to the page
         // coin only if target_chain is missing.
         let exec_coin = data.target_chain || XC.coin;
@@ -3227,7 +3184,7 @@ function showListDetails(data){
     $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
     $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');
     showActionDatatable('list-edits', data.edits, list_type, false);
-    // : `list` is what THIS action wrote; edits land under their own action
+    // `list` is what THIS action wrote; edits land under their own action
     // index, so on a create with later edits it is a create-time snapshot. Show
     // current membership (state.current_list) whenever the chain resolves the edit
     // chain, and name the action that set it, because consumers pin a list by its
@@ -3251,7 +3208,7 @@ function showMessageDetails(data){
     $('#info-message .message-key').text(data.encryption_key);
     $('#info-message .message-plaintext').text(data.plaintext_message);
     $('#info-message .message-encrypted').text(data.encrypted_message);
-    // Link the destination on ITS own chain (messages.coin), not the broadcast chain (item 4454).
+    // Link the destination on ITS own chain (messages.coin), not the broadcast chain.
     $('#info-message .message-destination').html(formatLink('/' + (data.coin || XC.coin) + '/address/' + data.destination, data.destination));
 }
 
@@ -3539,7 +3496,7 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 // member rows are full getActionData payloads with their fields flat,
                 // and a BET feed member keeps the raw attacker-supplied base64 DETAILS
                 // string on that same key, so a truthiness test handed getActionDetails
-                // a string instead of the action info (item 4086). Require an object.
+                // a string instead of the action info. Require an object.
                 let details = (info.details && typeof info.details === 'object') ? info.details : info;
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
@@ -3566,14 +3523,6 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                     html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick) + '</td>';
                 html += '    <td>' + info.status + '</td>';
                 html += '</tr>';
-            // } else if(type=='actions'){
-            //     html += '<tr class="' + cls + '">'
-            //     html += '    <td>' + (idx+1) + '</td>';
-            //     html += '    <td>' + info.action + '</td>';
-            //     html += '    <td>' + getActionDetails(info.action, info) + '</td>';
-            //     html += '    <td>' + info.status + '</td>';
-            //     html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, 'view', null, true) + '</td>';
-            //     html += '</tr>';
             } else if(type=='send'){
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
@@ -3702,12 +3651,6 @@ function updateTokenSection(id){
     }
 }
 
-// Resolve TIS `data_ref` entries across the media arrays. A data_ref of
-// "action:<index>" points at an on-chain FILE action; clients prefer it over
-// `data` when both are present (Token_Information_Standard.md, File Entry
-// Fields). Resolves to the explorer's own raw FILE endpoint. Also guarantees
-// every entry carries a string `data` so downstream substring/split calls are
-// safe on data_ref-only entries.
 // Resolve an action reference ("action:<index>" same-chain, or
 // "action:<COIN>:<index>" sibling-chain (base ticker, network tier implied
 // by the page's chain, same convention as LINK COIN1/COIN2) to this
@@ -3724,6 +3667,12 @@ function actionRefToRawPath(ref){
     return '/' + coin + '/api/file/' + m[2] + '/raw';
 }
 
+// Resolve TIS `data_ref` entries across the media arrays. A data_ref of
+// "action:<index>" points at an on-chain FILE action; clients prefer it over
+// `data` when both are present (Token_Information_Standard.md, File Entry
+// Fields). Resolves to the explorer's own raw FILE endpoint. Also guarantees
+// every entry carries a string `data` so downstream substring/split calls are
+// safe on data_ref-only entries.
 function resolveTisDataRefs(o){
     ['images','audio','video','files'].forEach(function(key){
         if(!o[key] || !o[key].length)

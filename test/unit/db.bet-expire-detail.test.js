@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * BET_EXPIRE is the only indexerHandled action that rendered nothing .
+ * BET_EXPIRE is the only indexerHandled action that rendered nothing.
  *
  * A feed left unresolved past expire_at is refunded by the end-of-block pass,
  * which mints a BET_EXPIRE action. Its detail page read "No additional
@@ -77,7 +77,7 @@ const config = { coin: 'LTC', data: {} };
 const betStatuses = (amounts) => ['bet_statuses',
     amounts.map((amount, i) => ({ bet_action_index: 1200 + i, amount }))];
 
-describe('BET_EXPIRE action detail  @regression', function () {
+describe('BET_EXPIRE action detail @regression', function () {
 
     it('resolves the expired feed through the bet_feed_statuses row it wrote', async function () {
         const db = makeDb([

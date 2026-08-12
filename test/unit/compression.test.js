@@ -11,17 +11,17 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Serve-side FILE payload decompression ( spec Part B), explorer side.
+ * Serve-side FILE payload decompression, explorer side.
  *
  * The explorer is a reader facing hostile input: COMPRESSION is sender-asserted
  * and anyone can publish a lying field for the price of one transaction. These
  * tests are therefore mostly about what must NOT happen:
  *  - a lying field must never crash the route or serve partial output;
  *  - a compression bomb must abort mid-stream on the 150:1 guard;
- *  - GATED ciphertext must never be inflated (§5.4: the field means
- *    inflate-after-decrypt, and the explorer holds no key);
+ *  - GATED ciphertext must never be inflated: the field means
+ *    inflate-after-decrypt, and the explorer holds no key;
  *  - COMPRESSION must be read from the ACTION STRING, so a FILE mined before
- *    an indexer upgrade still serves correctly (§5.1).
+ *    an indexer upgrade still serves correctly.
  */
 
 'use strict';
@@ -38,9 +38,9 @@ const GATED_COMPRESSED = 'FILE|0|s.enc|application/octet-stream|S||MYTOKEN|1|' +
 const ORIGINAL = Buffer.from('explorer serve path payload. '.repeat(300), 'utf8');
 const DEFLATED = zlib.deflateRawSync(ORIGINAL);
 
-describe('explorer FILE decompression ( Part B)', function () {
+describe('explorer FILE decompression', function () {
 
-    describe('action-string derivation (§5.1)', function () {
+    describe('action-string derivation', function () {
         it('reads the marker from the action string', function () {
             assert.strictEqual(compression.isCompressedAction(PUBLIC_COMPRESSED), true);
             assert.strictEqual(compression.isCompressedAction(PUBLIC_RAW), false);
@@ -91,7 +91,7 @@ describe('explorer FILE decompression ( Part B)', function () {
             assert.ok(r.bytes.equals(ORIGINAL));
         });
 
-        it('NEVER inflates gated ciphertext, even when the action declares compression (§5.4)', async function () {
+        it('NEVER inflates gated ciphertext, even when the action declares compression', async function () {
             // The stored bytes here happen to BE a valid deflate stream, so a
             // careless implementation would inflate them. It must not: on a
             // gated FILE the field describes the plaintext, and only the key
@@ -117,7 +117,7 @@ describe('explorer FILE decompression ( Part B)', function () {
         });
     });
 
-    describe('fail-closed serving (§5.5)', function () {
+    describe('fail-closed serving', function () {
         it('a lying field over plain text serves stored bytes with an indicator', async function () {
             const plain = Buffer.from('I am not deflate output', 'utf8');
             const r = await compression.resolveServedBytes(plain, PUBLIC_COMPRESSED);

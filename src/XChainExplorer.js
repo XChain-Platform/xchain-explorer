@@ -97,7 +97,7 @@ class XChainExplorer {
         // endpoint is configured; db.js then falls back to the legacy co-located
         // hub schema read.
         this.hubOperational = new HubOperationalCache(this);
-        // Self-synced hub-DB mirror (#4138 decoupling): populates the local
+        // Self-synced hub-DB mirror: populates the local
         // checkpoint schema from the hub's snapshot+subscribe feed for every
         // coin/network whose database.checkpoint block sets self_sync. No-op
         // when no self_sync flags are configured.
@@ -487,7 +487,7 @@ class XChainExplorer {
 
         // The Font Awesome kit is assembled per request from the vendored loader
         // plus a deploy-time account config, because the kit token is a credential
-        // that must not sit in a public repo . Registered before the /js
+        // that must not sit in a public repo. Registered before the /js
         // static mount so this route, not a file on disk, answers the request.
         this.app.get('/js/fontawesome-kit.js', (req, res) => { fontawesomeKit.serve(req, res); });
 
@@ -520,7 +520,7 @@ class XChainExplorer {
         // Spec: xchain-documentation/protocol/actions/ANCHOR.md
         this.app.get('/:coin/api/checkpoints', (req, res) => { this.processCheckpointsRequest(req, res); });
         this.app.get('/:coin/api/checkpoint/:blockIndex/verify', (req, res) => { this.processCheckpointVerifyRequest(req, res); });
-        // Self-synced hub-mirror observability (#4138 decoupling): bootstrap +
+        // Self-synced hub-mirror observability: bootstrap +
         // watermark-lag state per coin, {enabled:false} in externally-maintained mode.
         this.app.get('/:coin/api/hub-mirror/status', (req, res) => { this.processHubMirrorStatusRequest(req, res); });
 
@@ -626,7 +626,7 @@ class XChainExplorer {
         let dbError = false;
         // Set when a path parameter is malformed. Like dbError it suppresses the
         // NOT_FOUND fallback below, so a 400 does not get rewritten to a 404 by the
-        // empty-result branch ().
+        // empty-result branch.
         let badParam = false;
 
         let cfg = {
@@ -680,7 +680,7 @@ class XChainExplorer {
         // Fail closed on a frozen replica: a coin whose newest indexed block has aged
         // past its threshold is no longer serving current data, so refuse the read
         // rather than present a stale balance or action as live. Cached in db.js, so
-        // this costs no per-request query ().
+        // this costs no per-request query.
         let tipStale = false;
         if(validDataRequest && this.db.pools && this.db.pools[coin])
             tipStale = await this.db.isCoinTipStale(coin);
@@ -805,7 +805,7 @@ class XChainExplorer {
             // answered 200 with action 7 and `/api/action/junk` with action 0. Reject the
             // malformed id before the DB call, using the same strict shape and error code
             // as processFileRawRequest below. parseInt/sanitizeInt cannot do this job:
-            // parseInt('7junk') is 7, which reproduces the bug in JS ().
+            // parseInt('7junk') is 7, which reproduces the bug in JS.
             if(cfg.data.method === 'getAction' && cfg.data.type === 'action_index' &&
                !/^[0-9]+$/.test(String(cfg.data.search || ''))){
                 badParam      = true;
@@ -1218,7 +1218,7 @@ class XChainExplorer {
                     // (paging cursor).
                     if(method=='getStakes')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index];
-                    // : the validators row carries the hub federation registry's
+                    // The validators row carries the hub federation registry's
                     // addr/chains/registration-status for the same signing pubkey (db.js
                     // getData folds them on), so the on-chain active set and the hub registry
                     // render as ONE table instead of a second federation page. Those columns
@@ -1399,8 +1399,8 @@ class XChainExplorer {
         if(raw){
             // Token-gated: ALWAYS serve the stored ciphertext untouched. If the
             // action declares COMPRESSION=1 it means inflate-AFTER-decrypt
-            // ( spec §5.4), which only the key holder can do; inflating
-            // ciphertext here would be nonsense at best.
+            // (per the file-compression spec §5.4), which only the key holder can
+            // do; inflating ciphertext here would be nonsense at best.
             res.set('Content-Type', 'application/octet-stream');
             res.set('X-XChain-Stored-Form', 'encrypted');
             return res.send(raw);
@@ -1418,7 +1418,7 @@ class XChainExplorer {
             // with nosniff set it can't be coerced into a scriptable type.
             type=='application/json'
         );
-        // Transparent decompression ( spec Part B). COMPRESSION is derived
+        // Transparent decompression (per the file-compression spec, Part B). COMPRESSION is derived
         // from the stored ACTION STRING, never a parsed column (§5.1), and the
         // read is fail-closed: on a lying field, a corrupt stream, or a tripped
         // 150:1 ratio guard we serve the STORED bytes and say so in a header,
@@ -1458,7 +1458,7 @@ class XChainExplorer {
     }
 
     // Staleness gate for consensus data served from a SELF-SYNCED checkpoint
-    // mirror (#4138 semantics carried into the decoupled world). Only applies
+    // mirror. Only applies
     // to coins whose mirror this process runs (HubMirrorSyncManager); the
     // externally-maintained-schema mode is unaffected. Two tiers, per the
     // operator decision on this feature: a mirror that has NEVER completed its
@@ -1517,7 +1517,7 @@ class XChainExplorer {
                 return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
             // Strict shape before parsing, mirroring processCheckpointVerifyRequest below:
             // parseInt let '20junk', '1e2' and '1.5' through by prefix, and a negative
-            // clamped to 1 rather than reading as the malformed input it is ().
+            // clamped to 1 rather than reading as the malformed input it is.
             let limit = 10;
             if(!this.util.isNull(req.query.limit)){
                 if(!/^[0-9]+$/.test(String(req.query.limit)))
@@ -1591,7 +1591,7 @@ class XChainExplorer {
             // Per-validator { pubkey, weight, source } so a client can re-derive the
             // weighted verdict locally (weight = the key's stake amount; source = its
             // stake-weight grouping key, empty string in the legacy count regime).
-            // A missing amount is carried through as null, NOT as '0' .
+            // A missing amount is carried through as null, NOT as '0'.
             // capability_snapshots.amount is NOT NULL, so a null here means a corrupt
             // mirror row - and resolving it to '0' would be the worst possible repair:
             // the source stays in the quorum's dedupe map carrying no stake, so the
@@ -1609,7 +1609,7 @@ class XChainExplorer {
             // Reject a post-flag-day row missing any commitment field, mirroring the SDK's
             // commitmentMissing (xchain-sdk/src/checkpoint.js): canonicalCheckpointString
             // appends the root suffix only when all four are present, so such a row would
-            // otherwise verify against the LEGACY rootless preimage ().
+            // otherwise verify against the LEGACY rootless preimage.
             let commitmentMissing = ckpt.isCheckpointCommitmentActive(cp.snapshot_block, cp.network)
                 && (cp.state_root == null || cp.block_merkle_root == null
                     || cp.state_root_version == null || cp.block_merkle_version == null);
@@ -1874,7 +1874,7 @@ class XChainExplorer {
     }
 
     // GET /{COIN}/api/proof/locked-balance/{address}/{tick}?height=H
-    // (SPV sub-tree spec §3 Stage B / )
+    // (SPV sub-tree spec §3 Stage B)
     //
     // The XCHAIN_ESC sibling of the balance proof: same params, same response
     // shape, same checkpoint binding, PLUS the liveness refusal: below the
@@ -1942,7 +1942,7 @@ class XChainExplorer {
             // and on a stale replica it answered a "current state" question from state
             // the replica can no longer vouch for, unannotated, while ordinary REST
             // reads on the same coin were already returning COIN_DATA_STALE. Same coin
-            // key the pool check above and the catch-all both use ().
+            // key the pool check above and the catch-all both use.
             if(await this.db.isCoinTipStale(coin))
                 return res.status(503).json({
                     error: 'Indexed data for this coin is stale beyond its maximum tip age; refusing to serve it as current.',
@@ -2042,7 +2042,7 @@ class XChainExplorer {
         }
     }
 
-    // Absorb the indexer's RETRYABLE busy answer on the fee-quote hop .
+    // Absorb the indexer's RETRYABLE busy answer on the fee-quote hop.
     //
     // The indexer time-boxes its wait for the block-processing transaction mutex and answers
     // `busy: true, retryable: true` in milliseconds instead of queueing behind a whole block.
@@ -2070,7 +2070,7 @@ class XChainExplorer {
         return result;
     }
 
-    // Oracle usage fee quote for a Mode B dispenser (, proxy to the colocated
+    // Oracle usage fee quote for a Mode B dispenser (proxy to the colocated
     // indexer's `oraclefeequote`). A dispenser naming an ORACLE_ADDRESS must carry a
     // native-coin output paying the oracle operator; this tells a payer how much.
     // GET /{COIN}/api/oraclefeequote?oracleAddress=..&giveTick=..&fiatCode=USD&giveEscrow=1000
@@ -2118,7 +2118,7 @@ class XChainExplorer {
         }
     }
 
-    // Public validity-first pre-flight : "would the indexer accept this action?"
+    // Public validity-first pre-flight: "would the indexer accept this action?"
     // Thin proxy to the indexer's `preflight` JSON-RPC (the height-keyed verdict memo lives
     // indexer-side). Same input-validation shape as processFeeQuoteRequest: reject repeated
     // params, charset-check the action, cap param/source lengths.
@@ -2137,7 +2137,7 @@ class XChainExplorer {
             let action = req.query.action;
             let params = req.query.params;   // pipe-delimited string; the indexer splits it
             let source = req.query.source;
-            // How the caller's real transaction will settle the protocol fee . The
+            // How the caller's real transaction will settle the protocol fee. The
             // verdict differs by mode, so it is passed through rather than assumed; omitted,
             // the indexer picks the chain's own default mode.
             let feeMode = req.query.feeMode;

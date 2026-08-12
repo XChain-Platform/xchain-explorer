@@ -18,21 +18,18 @@
 'use strict';
 
 const ANCHOR = {
-    // ANCHOR action (DOGE-only; v0 = checkpoint, v1 = checkpoint+archive,
-    // v2 = continuation chunk, v3 = checkpoint+SPV roots once the
-    // CHECKPOINT_COMMITMENT flag-day activates, v4 = v0+publisher attestation
-    // (rootless), v5 = v3+publisher attestation (root-bearing; mainnet-preferred),
-    // v6 = v1+publisher attestation once the ARCHIVE_REWARD flag-day activates).
-    // archive_b64 is intentionally omitted (large; only the recovery assembler needs it).
-    // The four SPV root columns (state_root, state_root_version, block_merkle_root,
-    // block_merkle_version) are NULL for v0/v1/v2/v4/v6 and populated for v3 and v5;
-    // selected unconditionally here so the detail view matches the getAnchors()
-    // list and checkpoint-reader surfaces.
-    // publisher / publisher_attestations carry the v4/v5/v6 tail: the elected
-    // PUBLISHER pubkey credited the reward and the RAW ([{pubkey,sig}]) XANCPUB
-    // quorum over the reward canonical. Both NULL for v0-v3. Selected here (and
-    // the attestations JSON expanded below) so the detail view can surface who
-    // was credited; the list is display-only transport, consumers re-verify.
+    // ANCHOR action (DOGE-only). v0 checkpoint, v1 checkpoint+archive, v2
+    // continuation chunk, v3 checkpoint+SPV roots (post CHECKPOINT_COMMITMENT
+    // flag-day), v4 v0+publisher attestation (rootless), v5 v3+publisher
+    // attestation (root-bearing, mainnet-preferred), v6 v1+publisher attestation
+    // (post ARCHIVE_REWARD flag-day). archive_b64 is omitted (large; only the
+    // recovery assembler needs it). The SPV root columns (state_root,
+    // state_root_version, block_merkle_root, block_merkle_version) are NULL
+    // except on v3/v5, and publisher / publisher_attestations (the elected
+    // PUBLISHER pubkey and the raw XANCPUB quorum sigs) are NULL except on
+    // v4/v5/v6; all are selected unconditionally so the detail view matches the
+    // getAnchors() list and checkpoint-reader surfaces, and consumers re-verify
+    // rather than trust this display-only transport.
     queries() {
         let query  = null;
         let query2 = null;

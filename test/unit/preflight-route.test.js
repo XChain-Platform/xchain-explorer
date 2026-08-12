@@ -9,7 +9,7 @@
  * General Public License v3.0 or later; see LICENSE.md.
  *
  **********************************************************************
- * Unit tests for XChainExplorer.processPreflightRequest : the
+ * Unit tests for XChainExplorer.processPreflightRequest: the
  * input-validation + proxy shape of the public /{COIN}/api/preflight
  * route, exercised without a DB by calling the method on a minimal
  * `this` and asserting the mock res. Mirrors the sibling
@@ -48,7 +48,7 @@ async function call(ctx, query, params = { coin: 'RBTC' }) {
     return res;
 }
 
-describe('processPreflightRequest ( route)', function () {
+describe('processPreflightRequest', function () {
     afterEach(() => sinon.restore());
 
     it('404 on unknown coin', async function () {
@@ -94,15 +94,15 @@ describe('processPreflightRequest ( route)', function () {
 
     it('proxies a valid request to the connector and returns its result', async function () {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
-        // The upstream verdict passes through verbatim, fee included : the
-        // proxy must not filter fields the confirm screen reads.
+        // The upstream verdict passes through verbatim, fee included: the proxy
+        // must not filter fields the confirm screen reads.
         sinon.stub(IndexerConnector.prototype, 'preflight').resolves({ supported: true, valid: true, status: 'valid', xchainFee: '0.50000000' });
         const res = await call(fakeThis(), { action: 'SEND', params: '0|JDOG|1|addr', source: 'me' });
         expect(res._status).to.equal(200);
         expect(res._json).to.deep.equal({ supported: true, valid: true, status: 'valid', xchainFee: '0.50000000' });
     });
 
-    // : the verdict depends on how the fee settles, so the mode has to survive the proxy.
+    // The verdict depends on how the fee settles, so the mode has to survive the proxy.
     it('passes feeMode through, lower-cased', async function () {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
         const stub = sinon.stub(IndexerConnector.prototype, 'preflight').resolves({ supported: true, valid: false });
@@ -145,7 +145,7 @@ describe('processPreflightRequest ( route)', function () {
 // documented as taking page/limit/sortorder and returning {total, data} when it
 // in fact takes `action` and returns one verdict object. These assertions pin
 // the corrected entry against a silent regression on the next regeneration.
-describe('preflight OpenAPI contract ', function () {
+describe('preflight OpenAPI contract', function () {
     const spec = require('../../docs/openapi.json');
     const op = spec.paths['/{COIN}/api/preflight'].get;
     const names = op.parameters.map((p) => p.name).filter(Boolean);
@@ -180,11 +180,11 @@ describe('preflight OpenAPI contract ', function () {
         expect(verdict.properties.valid.type).to.deep.equal(['boolean', 'null']);
         for (const field of ['supported', 'guardInert', 'denied', 'feeExempt', 'busy', 'cached', 'status'])
             expect(verdict.properties, field).to.have.property(field);
-        // : the fee the dry-run already computed is part of the published
-        // contract, so a client can disclose it without a second /feequote call.
+        // The fee the dry-run already computed is part of the published contract,
+        // so a client can disclose it without a second /feequote call.
         expect(verdict.properties).to.have.property('xchainFee');
         expect(verdict.properties.xchainFee.type).to.deep.equal(['string', 'null']);
-        // : the fee is only judged truthfully if the caller knows which mode it was
+        // The fee is only judged truthfully if the caller knows which mode it was
         // judged under, and the payer balance is what makes an XCHAIN-mode refusal actionable.
         for (const field of ['feeMode', 'feeTick', 'feeTokenBalance', 'feeAffordable'])
             expect(verdict.properties, field).to.have.property(field);

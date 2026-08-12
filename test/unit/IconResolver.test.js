@@ -18,10 +18,6 @@ const {
     rewriteSchemeUrl,
 } = require('../../src/IconResolver');
 
-// ---------------------------------------------------------------------------
-// resolveDescriptionToSource: full priority chain
-// ---------------------------------------------------------------------------
-
 describe('IconResolver.resolveDescriptionToSource', function(){
 
     // [description, expected_scheme, substring_or_null_for_url_or_data]
@@ -77,10 +73,6 @@ describe('IconResolver.resolveDescriptionToSource', function(){
         });
     });
 });
-
-// ---------------------------------------------------------------------------
-// selectIconUrlFromCip25Json: CIP25 / TIS image array priority
-// ---------------------------------------------------------------------------
 
 describe('IconResolver.selectIconUrlFromCip25Json', function(){
 
@@ -177,10 +169,6 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
         expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/hi.png');
     });
 });
-
-// ---------------------------------------------------------------------------
-// rewriteSchemeUrl: direct unit tests
-// ---------------------------------------------------------------------------
 
 describe('IconResolver.rewriteSchemeUrl', function(){
     it('passes through https URL unchanged', function(){

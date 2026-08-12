@@ -11,9 +11,9 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Items 4451 / 4454: getActionDetails and showMessageDetails namespaced every
- * link by the BROADCAST chain (XC.coin), which is wrong for the two action
- * shapes that are deliberately cross-chain:
+ * getActionDetails and showMessageDetails namespaced every link by the
+ * BROADCAST chain (XC.coin), which is wrong for the two action shapes that
+ * are deliberately cross-chain:
  *
  *  - a CROSS_CHAIN_DEX order/swap/dispenser carries give and get on different
  *    networks, and the row already supplies give_coin/get_coin;
@@ -94,7 +94,7 @@ function messageDetail(data) {
     return dom.window.$('#info-message .message-destination a').attr('href');
 }
 
-describe('item 4451 client: market summaries namespace each leg by its own coin', function () {
+describe('client: market summaries namespace each leg by its own coin', function () {
 
     it('a cross-chain ORDER links give and get into their own chains', function () {
         const html = summary('ORDER', {
@@ -139,7 +139,7 @@ describe('item 4451 client: market summaries namespace each leg by its own coin'
     });
 });
 
-describe('item 4454 client: MESSAGE destinations link on the destination chain', function () {
+describe('client: MESSAGE destinations link on the destination chain', function () {
 
     it('the compact summary links an encrypted message to the destination chain', function () {
         const html = summary('MESSAGE', { coin: 'DOGE', destination: 'DDestAddr', encryption_method: 3 });

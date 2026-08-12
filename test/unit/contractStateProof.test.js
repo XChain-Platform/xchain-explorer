@@ -10,8 +10,7 @@
  *
  **********************************************************************
  *
- * Contract-state proofs and the two-root reassembly (SPV sub-tree spec §3 Stage A
- * items 4-5,  stage A2).
+ * Contract-state proofs and the two-root reassembly.
  *
  * The most valuable test in this file is not the new endpoint: it is
  * "balance and stakes proofs still serve at a height where contract_state_root is
@@ -25,7 +24,7 @@
  * EMPTY_SMT_ROOT, against which a non-membership proof for any key verifies
  * perfectly and means nothing. Serving that as "no such key" would let a client
  * conclude a key is absent from a commitment that never covered contract state.
- * The endpoint returns a typed CONTRACT_STATE_NOT_COMMITTED instead (spec §4).
+ * The endpoint returns a typed CONTRACT_STATE_NOT_COMMITTED instead.
  *
  *********************************************************************/
 

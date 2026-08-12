@@ -27,23 +27,11 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Shared state
-// ---------------------------------------------------------------------------
-
 let request;
 let app, explorer, configInfo;
 
-// ---------------------------------------------------------------------------
-// Seed reference constants
-// ---------------------------------------------------------------------------
-
 const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
 
 before(async function () {
     this.timeout(30000);
@@ -57,15 +45,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// API Action Endpoints: Sends
-// ===========================================================================
-
 describe('API Action Endpoints: Sends', function () {
-
-    // -----------------------------------------------------------------------
-    // 1. Block query
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/sends/{block}/block: returns sends in a specific block', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
@@ -79,10 +59,6 @@ describe('API Action Endpoints: Sends', function () {
         expect(Number(res.body.data[1].action_index)).to.equal(9);
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Address query (source or destination)
-    // -----------------------------------------------------------------------
-
     it('GET /RBTC/api/sends/{address}/address: returns sends by address (source or dest)', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address`);
 
@@ -94,10 +70,6 @@ describe('API Action Endpoints: Sends', function () {
         // Verify descending order: each item has a lower action_index than the one before it
         expect(Number(res.body.data[0].action_index)).to.be.greaterThan(Number(res.body.data[1].action_index));
     });
-
-    // -----------------------------------------------------------------------
-    // 3. Token query
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/sends/{tick}/token: filters by token', async function () {
         const res = await request.get('/RBTC/api/sends/XCHAIN/token');
@@ -113,10 +85,6 @@ describe('API Action Endpoints: Sends', function () {
         }
     });
 
-    // -----------------------------------------------------------------------
-    // 4. Source-only query
-    // -----------------------------------------------------------------------
-
     it('GET /RBTC/api/sends/{address}/source: filters by source only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/source`);
 
@@ -130,10 +98,6 @@ describe('API Action Endpoints: Sends', function () {
             expect(row.source).to.equal(ADDR1);
         }
     });
-
-    // -----------------------------------------------------------------------
-    // 5. Destination-only query
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/sends/{address}/destination: filters by destination only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR2}/destination`);
@@ -149,10 +113,6 @@ describe('API Action Endpoints: Sends', function () {
         }
     });
 
-    // -----------------------------------------------------------------------
-    // 6. sortorder=ASC reverses default order
-    // -----------------------------------------------------------------------
-
     it('sortorder=ASC reverses order', async function () {
         const res = await request.get('/RBTC/api/sends/5/block?sortorder=ASC');
 
@@ -163,10 +123,6 @@ describe('API Action Endpoints: Sends', function () {
         expect(Number(res.body.data[0].action_index)).to.be.lessThan(Number(res.body.data[1].action_index));
     });
 
-    // -----------------------------------------------------------------------
-    // 7. limit parameter caps results
-    // -----------------------------------------------------------------------
-
     it('limit parameter caps results', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=2`);
 
@@ -175,10 +131,6 @@ describe('API Action Endpoints: Sends', function () {
         expect(Number(res.body.total)).to.equal(7);
         expect(res.body.data).to.be.an('array').with.lengthOf(2);
     });
-
-    // -----------------------------------------------------------------------
-    // 8. page parameter returns the correct page
-    // -----------------------------------------------------------------------
 
     it('page parameter returns correct page', async function () {
         const page1 = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=2&page=1`);
@@ -197,10 +149,6 @@ describe('API Action Endpoints: Sends', function () {
         expect(overlap).to.be.empty;
     });
 
-    // -----------------------------------------------------------------------
-    // 9. total count is accurate
-    // -----------------------------------------------------------------------
-
     it('total count is accurate', async function () {
         const res = await request.get('/RBTC/api/sends/2/block');
 
@@ -210,10 +158,6 @@ describe('API Action Endpoints: Sends', function () {
         expect(res.body.data).to.be.an('array').with.lengthOf(2);
     });
 
-    // -----------------------------------------------------------------------
-    // 10. No matching results returns empty collection
-    // -----------------------------------------------------------------------
-
     it('no matching results returns empty', async function () {
         const res = await request.get('/RBTC/api/sends/NONEXISTENT/token');
 
@@ -221,10 +165,6 @@ describe('API Action Endpoints: Sends', function () {
         expect(Number(res.body.total)).to.equal(0);
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
-
-    // -----------------------------------------------------------------------
-    // 11. Response fields have correct structure
-    // -----------------------------------------------------------------------
 
     it('response fields have correct structure', async function () {
         const res = await request.get('/RBTC/api/sends/XCHAIN/token');
@@ -253,10 +193,6 @@ describe('API Action Endpoints: Sends', function () {
             expect(row).to.have.property(field);
         }
     });
-
-    // -----------------------------------------------------------------------
-    // 12. Response properties are alphabetically sorted
-    // -----------------------------------------------------------------------
 
     it('response properties are alphabetically sorted', async function () {
         const res = await request.get('/RBTC/api/sends/XCHAIN/token');

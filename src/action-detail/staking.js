@@ -96,9 +96,9 @@ const DELEGATE = {
                 LIMIT 1`;
         return { query, query2, query3 };
     },
-    // DELEGATE revoke de-blank . The v2 capability-revoke and v3
+    // DELEGATE revoke de-blank. The v2 capability-revoke and v3
     // contract-revoke variants deactivate the PARENT delegation row and, at/after
-    // the DELEGATE_REVOKE_NO_REINSERT flag-day (BTC 963000,  cohort), write NO
+    // the DELEGATE_REVOKE_NO_REINSERT flag-day (BTC 963000), write NO
     // row of their own keyed by the revoking action's action_index (v3 never did).
     // The main query's `delegations` / `contract_delegations` joins are on
     // a1.action_index, so they return nothing and the page renders blank. Resolve

@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Golden pin on the per-action detail registry (src/action-detail/), the
- * decomposition of the old ~2,600-line getActionData if-chain .
+ * decomposition of the old ~2,600-line getActionData if-chain.
  *
  * The whole point of the extraction is that behaviour did NOT change, so the
  * pin is byte-level: for every action type, in two result modes, the exact SQL

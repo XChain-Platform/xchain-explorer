@@ -27,9 +27,7 @@ const sinon      = require('sinon');
 const proxyquire = require('proxyquire').noCallThru();
 const path       = require('path');
 
-// ---------------------------------------------------------------------------
 // Polyfill CustomEvent for Node 18
-// ---------------------------------------------------------------------------
 if (typeof CustomEvent === 'undefined') {
     global.CustomEvent = class CustomEvent extends Event {
         constructor(type, options) {
@@ -38,10 +36,6 @@ if (typeof CustomEvent === 'undefined') {
         }
     };
 }
-
-// ---------------------------------------------------------------------------
-// Shared stubs
-// ---------------------------------------------------------------------------
 
 const fsStub = {
     readFileSync: sinon.stub().returns('mock-cert'),
@@ -78,10 +72,6 @@ function loadConfig(overrides) {
         './config.json':        validFileConfig
     }, overrides || {}));
 }
-
-// ---------------------------------------------------------------------------
-// SM-01: Config loads from config.json without error
-// ---------------------------------------------------------------------------
 
 describe('SM-01: Config loads successfully', function () {
 
@@ -145,10 +135,6 @@ describe('SM-01: Config loads successfully', function () {
 
 });
 
-// ---------------------------------------------------------------------------
-// SM-02: Config rejects missing configuration
-// ---------------------------------------------------------------------------
-
 describe('SM-02: Config rejects no valid configuration', function () {
 
     it('throws "No valid configuration" when config.json is missing and NODE_CONFIG is unset', async function () {
@@ -174,10 +160,6 @@ describe('SM-02: Config rejects no valid configuration', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-03: Config skips a coin with a missing config file
-// ---------------------------------------------------------------------------
 
 describe('SM-03: Config skips a coin with a missing config file', function () {
 
@@ -216,10 +198,6 @@ describe('SM-03: Config skips a coin with a missing config file', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-04: SSL certificates are readable
-// ---------------------------------------------------------------------------
 
 describe('SM-04: SSL certificates are accessible', function () {
 

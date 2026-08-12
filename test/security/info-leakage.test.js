@@ -27,10 +27,6 @@ const { expect } = require('chai');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockReq, mockRes }     = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Shared state for getData mock
-// ---------------------------------------------------------------------------
-
 let getDataResult = [[], null];
 
 class MockDB {
@@ -76,10 +72,6 @@ async function handle(explorer, urlPath, query = {}) {
     return res;
 }
 
-// ===========================================================================
-// Custom header removal
-// ===========================================================================
-
 describe('Security: Info Leakage: Custom headers', function () {
 
     it('does not include XChain-Explorer-Version header', async function () {
@@ -102,10 +94,6 @@ describe('Security: Info Leakage: Custom headers', function () {
     });
 });
 
-// ===========================================================================
-// Runtime header gating
-// ===========================================================================
-
 describe('Security: Info Leakage: Runtime header', function () {
 
     afterEach(() => { delete process.env.DEBUG; });
@@ -126,10 +114,6 @@ describe('Security: Info Leakage: Runtime header', function () {
         expect(res._headers).to.have.property('XChain-Runtime-Ms').that.is.a('number');
     });
 });
-
-// ===========================================================================
-// Debug logging gating
-// ===========================================================================
 
 describe('Security: Info Leakage: Debug logging', function () {
 
@@ -169,10 +153,6 @@ describe('Security: Info Leakage: Debug logging', function () {
     });
 });
 
-// ===========================================================================
-// Error response safety
-// ===========================================================================
-
 describe('Security: Info Leakage: Error responses', function () {
 
     it('returns generic error for failed data requests (no stack trace)', async function () {
@@ -202,10 +182,6 @@ describe('Security: Info Leakage: Error responses', function () {
         expect(body.error).to.not.include('password');
     });
 });
-
-// ===========================================================================
-// Runtime info in JSON response
-// ===========================================================================
 
 describe('Security: Info Leakage: JSON response runtime', function () {
 

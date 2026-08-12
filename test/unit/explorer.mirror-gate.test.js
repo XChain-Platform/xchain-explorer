@@ -142,11 +142,9 @@ describe('explorer hub-mirror staleness gate', function () {
         });
     });
 
-    // Stress-sweep: the SPV proof routes bind to the same mirror-maintained
-    // state_checkpoints as the balance-proof/checkpoint routes, so they must inherit
-    // the staleness gate too. Before this fix they answered off a frozen/empty mirror
-    // (authoritative 409) while their siblings correctly 503'd - an inconsistent
-    // staleness posture on consensus SPV endpoints.
+    // The SPV proof routes bind to the same mirror-maintained state_checkpoints as
+    // the balance-proof/checkpoint routes, so they must inherit the staleness gate
+    // too, rather than answering off a frozen/empty mirror while their siblings 503.
     describe('proof route gating', function () {
         it('action-proof: 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap', async function () {
             const res = mockRes();

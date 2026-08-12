@@ -27,10 +27,6 @@ const { expect } = require('chai');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Explorer factory with stubbed deps
-// ---------------------------------------------------------------------------
-
 function makeExplorer(axiosStub, dnsStub) {
     const stubs = {
         axios:    axiosStub || { get: sinon.stub().resolves({ data: {} }) },
@@ -55,10 +51,6 @@ function makeRelayReq(url) {
     };
 }
 
-// ===========================================================================
-// Redirect-based SSRF bypass prevention
-// ===========================================================================
-
 describe('Security: SSRF: Redirect bypass prevention', function () {
 
     it('sets maxRedirects to 0 (blocks redirect-based SSRF)', async function () {
@@ -68,7 +60,6 @@ describe('Security: SSRF: Redirect bypass prevention', function () {
 
         await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
 
-        // Verify axios was called with maxRedirects: 0
         expect(axiosStub.get.calledOnce).to.be.true;
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts).to.have.property('maxRedirects', 0);
@@ -86,10 +77,6 @@ describe('Security: SSRF: Redirect bypass prevention', function () {
         expect(opts).to.have.property('maxContentLength', 5 * 1024 * 1024);
     });
 });
-
-// ===========================================================================
-// Protocol validation
-// ===========================================================================
 
 describe('Security: SSRF: Protocol validation', function () {
 
@@ -123,10 +110,6 @@ describe('Security: SSRF: Protocol validation', function () {
         expect(res._status).to.be.oneOf([400, 503]);
     });
 });
-
-// ===========================================================================
-// Private IP blocklist
-// ===========================================================================
 
 describe('Security: SSRF: Private IP blocklist', function () {
 
@@ -166,10 +149,6 @@ describe('Security: SSRF: Private IP blocklist', function () {
     });
 });
 
-// ===========================================================================
-// File extension filtering
-// ===========================================================================
-
 describe('Security: SSRF: File extension filtering', function () {
 
     let explorer;
@@ -208,10 +187,6 @@ describe('Security: SSRF: File extension filtering', function () {
         expect(res._status).to.equal(503);
     });
 });
-
-// ===========================================================================
-// URL parsing edge cases
-// ===========================================================================
 
 describe('Security: SSRF: URL parsing edge cases', function () {
 
@@ -254,10 +229,6 @@ describe('Security: SSRF: URL parsing edge cases', function () {
     });
 });
 
-// ===========================================================================
-// Error handling (no info leakage)
-// ===========================================================================
-
 describe('Security: SSRF: Error response safety', function () {
 
     it('returns generic error message on network failure', async function () {
@@ -281,10 +252,6 @@ describe('Security: SSRF: Error response safety', function () {
         expect(res._body.error).to.not.include('ECONNREFUSED');
     });
 });
-
-// ===========================================================================
-// DNS-resolution bypass prevention (a domain pointing at a private/metadata IP)
-// ===========================================================================
 
 describe('Security: SSRF: DNS resolution bypass', function () {
 
@@ -349,12 +316,9 @@ describe('Security: SSRF: DNS resolution bypass', function () {
     });
 });
 
-// ===========================================================================
 // Canonical ssrf-guard module: the range list shared by /relay AND the
 // IconDownloader. Covers the ranges added when the two drifted copies were
 // unified (CGNAT 100.64/10, unspecified ::, complete ULA/link-local).
-// ===========================================================================
-
 describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function () {
     const { isPrivateAddress, makeSafeLookup } = require('../../src/ssrf-guard.js');
 
@@ -407,13 +371,10 @@ describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function 
     });
 });
 
-// ===========================================================================
 // IconDownloader egress: fetches URLs derived from on-chain token descriptions
 // (attacker-controlled), so it MUST carry the SSRF lookup guard on its axios
 // request or a token description of http://169.254.169.254/x.json turns the
 // explorer into an SSRF proxy.
-// ===========================================================================
-
 describe('Security: SSRF: IconDownloader fetch guard', function () {
     it('wires the SSRF lookup shim into its axios request options', async function () {
         const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };

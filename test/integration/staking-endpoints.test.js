@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests: capability staking endpoints 
+ * Integration tests: capability staking endpoints
  *
  * Covers the stakes / validators / delegations / rewards REST surfaces,
  * the explorer DataTables route, and the staking HTML pages. Seeds two
@@ -83,10 +83,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Stakes
-// ===========================================================================
-
 describe('Staking API (/api/stakes)', function () {
 
     it('lists all stake rows regardless of validity, newest first', async function () {
@@ -126,10 +122,6 @@ describe('Staking API (/api/stakes)', function () {
 
 });
 
-// ===========================================================================
-// Validators (valid stakes only)
-// ===========================================================================
-
 describe('Staking API (/api/validators)', function () {
 
     it('lists only valid stake rows', async function () {
@@ -143,10 +135,6 @@ describe('Staking API (/api/validators)', function () {
     });
 
 });
-
-// ===========================================================================
-// Delegations
-// ===========================================================================
 
 describe('Staking API (/api/delegations)', function () {
 
@@ -173,10 +161,6 @@ describe('Staking API (/api/delegations)', function () {
 
 });
 
-// ===========================================================================
-// Rewards (accrual ledger; id-keyed, no actions chain)
-// ===========================================================================
-
 describe('Staking API (/api/rewards)', function () {
 
     it('filters reward accruals by staking address', async function () {
@@ -195,10 +179,6 @@ describe('Staking API (/api/rewards)', function () {
     });
 
 });
-
-// ===========================================================================
-// Explorer DataTables routes + HTML pages
-// ===========================================================================
 
 describe('Staking explorer surfaces', function () {
 

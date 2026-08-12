@@ -27,16 +27,8 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Shared state
-// ---------------------------------------------------------------------------
-
 let request;
 let app, explorer, configInfo;
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
 
 before(async function () {
     this.timeout(30000);
@@ -50,15 +42,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Error Handling
-// ===========================================================================
-
 describe('Error Handling', function () {
-
-    // -----------------------------------------------------------------------
-    // 1. Unsupported coin returns 503
-    // -----------------------------------------------------------------------
 
     it('unsupported coin returns 503', async function () {
         // XRP is not in COIN_SUPPORTED, but the URL pattern /{COIN}/api/sends/{QUERY}/{TYPE}
@@ -69,10 +53,6 @@ describe('Error Handling', function () {
         expect(res.status).to.equal(503);
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Supported but unavailable coin returns 503
-    // -----------------------------------------------------------------------
-
     it('supported but unavailable coin returns 503', async function () {
         // BTC mainnet is in COIN_SUPPORTED but not in COIN_AVAILABLE (only RBTC is available)
         const res = await request.get('/BTC/api/sends/1/block');
@@ -82,20 +62,12 @@ describe('Error Handling', function () {
         expect(res.body.error).to.be.a('string').and.have.length.greaterThan(0);
     });
 
-    // -----------------------------------------------------------------------
-    // 3. Invalid API path returns 404
-    // -----------------------------------------------------------------------
-
     it('invalid path returns 404', async function () {
         // /RBTC/api/nonexistent/1/block has no matching route definition
         const res = await request.get('/RBTC/api/nonexistent/1/block');
 
         expect(res.status).to.equal(404);
     });
-
-    // -----------------------------------------------------------------------
-    // 4. String 'null' query value returns 200 with empty results
-    // -----------------------------------------------------------------------
 
     it('null search value returns 200 with empty results', async function () {
         // The explorer converts the string 'null' in the URL path to an actual null value.
@@ -107,10 +79,6 @@ describe('Error Handling', function () {
         expect(res.body).to.have.property('data');
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
-
-    // -----------------------------------------------------------------------
-    // 5. Invalid query parameters are handled gracefully
-    // -----------------------------------------------------------------------
 
     it('invalid limit param defaults to 100 and does not crash', async function () {
         // Non-numeric limit should be ignored; explorer defaults to 100
@@ -134,10 +102,6 @@ describe('Error Handling', function () {
             expect(Number(items[0].action_index)).to.be.greaterThan(Number(items[items.length - 1].action_index));
         }
     });
-
-    // -----------------------------------------------------------------------
-    // 6. Negative page number is handled gracefully
-    // -----------------------------------------------------------------------
 
     it('negative page number does not crash and returns data', async function () {
         // A negative page value is treated as page 1 by the paging logic

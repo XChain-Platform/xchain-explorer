@@ -13,7 +13,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests: VM list endpoints 
+ * Integration tests: VM list endpoints
  *
  * Covers the executions / deposits / withdrawals REST surfaces around
  * contract 40 (deployed by the baseline seed with a constructor
@@ -80,10 +80,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Executions
-// ===========================================================================
-
 describe('VM API (/api/executions)', function () {
 
     it('lists constructor + method executions, newest first', async function () {
@@ -123,10 +119,6 @@ describe('VM API (/api/executions)', function () {
 
 });
 
-// ===========================================================================
-// Deposits
-// ===========================================================================
-
 describe('VM API (/api/deposits)', function () {
 
     it('filters deposits by contract and surfaces tick + amount', async function () {
@@ -153,10 +145,6 @@ describe('VM API (/api/deposits)', function () {
 
 });
 
-// ===========================================================================
-// Withdrawals
-// ===========================================================================
-
 describe('VM API (/api/withdrawals)', function () {
 
     it('filters withdrawals by block and surfaces tick + amount', async function () {
@@ -182,10 +170,6 @@ describe('VM API (/api/withdrawals)', function () {
     });
 
 });
-
-// ===========================================================================
-// Explorer DataTables routes + HTML pages
-// ===========================================================================
 
 describe('VM explorer surfaces', function () {
 

@@ -56,13 +56,13 @@ describe('xchain-ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
 
 });
 
-// : the bundled client carried the same coerce-then-replay-as-cursor bug as
-// the SDK client. It tracked action_index through Number(), which rounds above 2^53,
-// and sent the rounded value back as since_action_index on reconnect, asking the
+// The bundled client carried the same coerce-then-replay-as-cursor bug as the SDK
+// client. It tracked action_index through Number(), which rounds above 2^53, and
+// sent the rounded value back as since_action_index on reconnect, asking the
 // server for rows after an action the page had never been shown. The object is a
 // plain browser global with no load-time DOM access, so it evaluates in a bare vm
 // sandbox and the real shipped methods can be driven directly.
-describe('xchain-ws.js catch-up cursor precision (#4154)', function () {
+describe('xchain-ws.js catch-up cursor precision', function () {
 
     function loadClient() {
         const vm = require('node:vm');

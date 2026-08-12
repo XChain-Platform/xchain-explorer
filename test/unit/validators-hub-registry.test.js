@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * : the hub federation registry has NO page of its own. Its hub-only
+ * The hub federation registry has NO page of its own. Its hub-only
  * columns (network addr, served chains, registration status) are folded onto
  * the existing on-chain /validators table, so the staked active set and the
  * hub's knowledge of the same signing pubkey read as one table.
@@ -57,11 +57,7 @@ function validatorConfig(overrides = {}) {
     return makeConfig({ type: 'explorer', data: { method: 'getValidators', ...overrides } });
 }
 
-// ===========================================================================
-// 1. db.getFederationRegistry()
-// ===========================================================================
-
-describe(' db.getFederationRegistry()', function () {
+describe('db.getFederationRegistry()', function () {
 
     afterEach(function () { sinon.restore(); });
 
@@ -119,11 +115,7 @@ describe(' db.getFederationRegistry()', function () {
     });
 });
 
-// ===========================================================================
-// 2. db.getData() folds the registry onto the on-chain rows
-// ===========================================================================
-
-describe(' db.getData() folds the hub registry onto /validators rows', function () {
+describe('db.getData() folds the hub registry onto /validators rows', function () {
 
     afterEach(function () { sinon.restore(); });
 
@@ -187,11 +179,7 @@ describe(' db.getData() folds the hub registry onto /validators rows', function 
     });
 });
 
-// ===========================================================================
-// 3. /explorer/validators row shape
-// ===========================================================================
-
-describe(' /explorer/validators datatables row shape', function () {
+describe('/explorer/validators datatables row shape', function () {
 
     let getDataResult = [[], null];
 
@@ -252,11 +240,7 @@ describe(' /explorer/validators datatables row shape', function () {
     });
 });
 
-// ===========================================================================
-// 4. Shipped client renderer + shipped page markup
-// ===========================================================================
-
-describe(' client: the validators table renders the hub registry columns', function () {
+describe('client: the validators table renders the hub registry columns', function () {
 
     const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
     const HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/validators.html'), 'utf8');

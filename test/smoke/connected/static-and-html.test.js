@@ -40,10 +40,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// SM-12: Static file serving works
-// ---------------------------------------------------------------------------
-
 describe('SM-12: Static file serving', function () {
 
     it('GET /json/ or a known static path responds without server error', async function () {
@@ -60,10 +56,6 @@ describe('SM-12: Static file serving', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-14: HTML home page loads
-// ---------------------------------------------------------------------------
 
 describe('SM-14: HTML pages load', function () {
 
@@ -89,10 +81,6 @@ describe('SM-14: HTML pages load', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-15: 404 handling works
-// ---------------------------------------------------------------------------
 
 describe('SM-15: 404 and error handling', function () {
 

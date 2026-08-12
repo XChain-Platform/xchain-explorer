@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Item 4086: showActionDatatable's actions/batch renderer decides what to hand
+ * showActionDatatable's actions/batch renderer decides what to hand
  * getActionDetails. Two different row shapes reach that one branch:
  *
  *  - the TRANSACTION actions table, whose rows come from db.getActionSummaryData
@@ -76,7 +76,7 @@ function renderRows(type, rows) {
     return seen;
 }
 
-describe('item 4086 client: showActionDatatable unwraps only a summary OBJECT', function () {
+describe('showActionDatatable client: unwraps only a summary OBJECT, never a raw feed BET details string', function () {
 
     it('[REGRESSION] a BET feed member\'s raw base64 details never reaches getActionDetails', function () {
         // governance.js keeps the raw DETAILS payload verbatim on a feed BET, and a

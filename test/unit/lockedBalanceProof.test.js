@@ -10,26 +10,18 @@
  *
  **********************************************************************
  *
- * Locked-balance (XCHAIN_ESC) proofs (SPV sub-tree spec §3 Stage B, 
- * stage B2).
+ * Locked-balance (XCHAIN_ESC) proofs (SPV sub-tree spec §3, Stage B2).
  *
- * The two most valuable tests here mirror the Stage A suite's priorities:
+ * Two properties matter most here. First, escrow leaves change the CONTENTS
+ * of balances_root, not the slot list, so a spendable-balance proof must keep
+ * serving unchanged even when the tree also carries locked leaves.
  *
- * 1. "A spendable-balance proof still serves at a height where the balances
- *    tree carries escrow leaves". The ESC domain changes the CONTENTS of
- *    balances_root, not the slot list, so nothing in the reassembly path
- *    should notice; this pins that nothing does.
- *
- * 2. THE REFUSAL, and its two independent enforcers. Below the armed height a
- *    non-membership proof for any escrow key verifies perfectly against a
- *    balances_root that never covered the domain, and means nothing. Unlike
- *    contract state there is NO stored signal (no column; an armed-but-idle
- *    domain commits a root byte-identical to v1), so the explorer refuses via
- *    its vendored activation carrier AND the SDK verifier refuses via its own
- *    copy. The two copies are separate module instances here (different repo
- *    require caches), which is exactly what lets the defense-in-depth vector
- *    exist: a server that serves anyway cannot make a conforming client
- *    accept.
+ * Second, THE REFUSAL: below the armed height, a non-membership proof for an
+ * escrow key verifies perfectly against a root that never covered the domain,
+ * and means nothing (there is no stored liveness column, so an idle domain
+ * commits a root byte-identical to v1). Both the explorer and the SDK refuse
+ * via their own separate activation-carrier copies, so a server that serves
+ * anyway still cannot make a conforming client accept.
  *
  *********************************************************************/
 

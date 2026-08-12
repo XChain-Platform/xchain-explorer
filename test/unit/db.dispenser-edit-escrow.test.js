@@ -11,24 +11,13 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * D-147: a dispenser edit must say how much escrow it added.
- *
- * `getDispenserEdits` served `expiration`, `allow_list` and `block_list` but
- * not `give_escrow`, and give_escrow is the field that makes an edit a REFILL.
- * A dispenser may be refilled at most 5 times (xchain-indexer
- * actions/dispenser.js, MAX_REFILLS); without this column no client can count
- * how many are gone, so the wallet stated the ceiling as policy copy and let an
- * owner sign a sixth refill that the chain records invalid every time.
- *
- * MEASURED on Litecoin regtest 2026-07-30: dispenser 1677 took five refills of
- * 20 (escrow 100 -> 200), and DISPENSER_EDIT 1683 came back
- * `invalid: MAX_REFILLS (dispenser refill limit reached)` - broadcast from the
- * wallet, which had shown a "Refill submitted" screen with a transaction id.
- * The edits feed for the owner's address carried all six rows and no amount on
- * any of them.
- *
- * The column exists on the table (xchain-indexer sql/dispenser_edits.sql:
- * `give_escrow VARCHAR(250)`); only the projection omitted it.
+ * A dispenser edit must say how much escrow it added, since that is what makes
+ * the edit a REFILL. A dispenser may be refilled at most 5 times (see
+ * xchain-indexer actions/dispenser.js, MAX_REFILLS); `getDispenserEdits`
+ * previously omitted `give_escrow`, so no client could count refills against
+ * that cap, and the wallet let an owner sign a sixth refill that the chain
+ * always rejects. Reproduced on regtest: the column already existed on the
+ * table, only the projection omitted it.
  */
 
 'use strict';

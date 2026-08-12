@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- *  display leg. A LIST edit writes the resulting membership under the
+ * Display leg. A LIST edit writes the resulting membership under the
  * EDIT's own action_index and never touches the parent's rows, so a list read
  * by its CREATE index returns create-time membership forever. The indexer's
  * read path now resolves the edit chain's head; the explorer has to show the
@@ -76,7 +76,7 @@ function listRoutes(headRows, itemRows) {
     ];
 }
 
-describe(': the explorer shows the membership the chain enforces', function () {
+describe('the explorer shows the membership the chain enforces', function () {
 
     describe('getListRootIndex', function () {
 
@@ -196,8 +196,9 @@ describe(': the explorer shows the membership the chain enforces', function () {
         it('[REGRESSION] a membership block makes the action uncacheable', function () {
             // Membership is recomputed from rows written after the create, so the
             // no-TTL action LRU would freeze it for the life of the process and
-            // hide every later edit - the  dispenser failure, re-run on a new
-            // field. Carrying it in `state` is what wires it into that guard.
+            // hide every later edit - the same class of caching failure a live-state
+            // DISPENSER hit, re-run on a new field. Carrying it in `state` is what
+            // wires it into that guard.
             const db = new Database(mockExplorer);
             const list = { action: 'LIST', action_index: ROOT,
                            state: { edit_resolution_active: true, membership_action_index: EDIT, current_list: ['mMemberB'] } };
@@ -231,7 +232,7 @@ describe(': the explorer shows the membership the chain enforces', function () {
 });
 
 /*
- * : the same question, asked by the project registry.
+ * The same question, asked by the project registry.
  *
  * A project's roster IS a TICK list, pinned by the LINK at its CREATE index, so
  * every roster surface had the create-time-membership bug the LIST page just
@@ -264,7 +265,7 @@ function rosterRoutes(extra) {
     ];
 }
 
-describe(': the project registry shows the roster the chain enforces', function () {
+describe('the project registry shows the roster the chain enforces', function () {
 
     describe('getProjectRosterInfo', function () {
 

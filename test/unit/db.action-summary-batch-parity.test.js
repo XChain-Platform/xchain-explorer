@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Payload-parity coverage for the getActionSummaryData N+1 fix (#3841).
+ * Payload-parity coverage for the getActionSummaryData N+1 fix.
  *
  * getActionSummaryData used to enrich each history row with a strictly-serial
  * `await getActionData(...)` per row. It now pre-resolves the DISTINCT action_index
@@ -43,10 +43,10 @@ const Database     = proxyquire('../../src/db.js', { mariadb: { createPool: () =
 //
 // The copy is hand-maintained, so it goes stale the moment db.js adds a field, and it
 // then fails as a PARITY break rather than as "the reference list drifted". Adding
-// `broadcast_fee` at db.js:5187 (, aliasing the broadcast's own fee so a
-// BATCH child row stops reading BROADCAST's overwritten data.fee) turned this suite
-// red with the field present on the batched side and absent here. Keep the two lists
-// identical whenever db.js changes.
+// `broadcast_fee` (aliasing the broadcast's own fee so a BATCH child row stops
+// reading BROADCAST's overwritten data.fee) turned this suite red with the field
+// present on the batched side and absent here. Keep the two lists identical whenever
+// db.js changes.
 const detailFields = [
     'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',
     'action_format',
@@ -127,10 +127,10 @@ function makeDb() {
     const db = new Database(mockExplorer);
     // getActionData resolves asynchronously in production; the batch loader awaits it.
     db.getActionData = async (config, action_index) => fixtureFor(action_index);
-    // The page-level shared-leg prefetch () is real DB work that only
-    // getActionData consumes, so with getActionData stubbed out it has no reader and
-    // would just want a pool this suite has no reason to own. null is the same "no
-    // preload" state getActionData already handles for every non-page caller. The
+    // The page-level shared-leg prefetch is real DB work that only getActionData
+    // consumes, so with getActionData stubbed out it has no reader and would just
+    // want a pool this suite has no reason to own. null is the same "no preload"
+    // state getActionData already handles for every non-page caller. The
     // prefetch's own payload parity is proved against a real MariaDB in
     // test/integration/action-preload-parity.test.js, never here: this file stubs
     // getActionData, so it can say nothing about getActionData's internals.

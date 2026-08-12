@@ -23,10 +23,6 @@ const { expect } = require('chai');
 const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function createMockConnection() {
     return {
         query:   sinon.stub().resolves([]),
@@ -48,10 +44,6 @@ function buildExplorer(configOverrides) {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Shared mock pool (used for proxyquire; createPool returns this by default)
-// ---------------------------------------------------------------------------
-
 let mockMariadb;
 let Database;
 
@@ -61,10 +53,6 @@ function freshDatabase(explorerOverrides, configOverrides) {
     if (explorerOverrides) Object.assign(explorer, explorerOverrides);
     return new Database(explorer);
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe('Database – connection management', function () {
 
@@ -78,10 +66,6 @@ describe('Database – connection management', function () {
     afterEach(function () {
         sinon.restore();
     });
-
-    // -----------------------------------------------------------------------
-    // Constructor
-    // -----------------------------------------------------------------------
 
     describe('constructor', function () {
 
@@ -121,10 +105,6 @@ describe('Database – connection management', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // LRU Cache Helpers (_cacheGet / _cacheSet)
-    // -----------------------------------------------------------------------
 
     describe('_cacheGet / _cacheSet', function () {
 
@@ -190,10 +170,6 @@ describe('Database – connection management', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // setupConnectionPools
-    // -----------------------------------------------------------------------
-
     describe('setupConnectionPools()', function () {
 
         it('creates a pool entry keyed "BTC" for BTC mainnet', async function () {
@@ -215,7 +191,7 @@ describe('Database – connection management', function () {
                 database: {
                     indexer: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Testnet_Indexer' },
                     decoder: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Testnet_Decoder' },
-                    // Mandatory co-located hub DB (#4138): a serving coin must declare it
+                    // Mandatory co-located hub DB: a serving coin must declare it
                     // or setupConnectionPools throws the startup assertion.
                     checkpoint: { db_host: '127.0.0.1', db_port: 3306, user: 'root', pass: 'pass', name: 'XChain_Hub' }
                 }
@@ -243,7 +219,7 @@ describe('Database – connection management', function () {
                 host: '10.0.0.1', port: 3307, user: 'admin', pass: 'secret', name: 'XChain_BTC_Mainnet_Indexer'
             };
             // Keep the mandatory co-located hub DB on the SAME host/creds as the
-            // relocated indexer so the #4138 startup assertion is satisfied.
+            // relocated indexer so the startup assertion is satisfied.
             config.BTC.mainnet.database.checkpoint = {
                 host: '10.0.0.1', port: 3307, user: 'admin', pass: 'secret', name: 'XChain_Hub'
             };
@@ -315,7 +291,7 @@ describe('Database – connection management', function () {
                 host: '10.9.9.9', port: 3306, user: 'root', pass: 'pass', name: 'XChain_BTC_Regtest_Decoder'
             };
             // Keep the mandatory co-located hub DB on the SAME host/creds as the relocated
-            // regtest indexer so the #4138 startup assertion is satisfied. It reuses the
+            // regtest indexer so the startup assertion is satisfied. It reuses the
             // indexer pool (same host/creds), so it does NOT add a createPool call.
             config.BTC.regtest.database.checkpoint = {
                 host: '10.9.9.9', port: 3306, user: 'root', pass: 'pass', name: 'XChain_Hub'
@@ -342,10 +318,6 @@ describe('Database – connection management', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // getConnection
-    // -----------------------------------------------------------------------
 
     describe('getConnection()', function () {
 
@@ -409,10 +381,6 @@ describe('Database – connection management', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // releaseConnection
-    // -----------------------------------------------------------------------
 
     describe('releaseConnection()', function () {
 

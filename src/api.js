@@ -34,7 +34,7 @@ const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const fontawesomeKit  = require('./fontawesome-kit.js');
 const concurrencyGate = require('./concurrencyGate.js');
-const { installObservability } = require('./observability');   // : default-off /metrics + structured log shim
+const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
 
 dotenv.config();
 
@@ -45,7 +45,7 @@ const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
 // Font Awesome origins are added to the CSP only when a kit is actually
-// configured for this deployment; see src/fontawesome-kit.js .
+// configured for this deployment; see src/fontawesome-kit.js.
 const FA_KIT_ENABLED = fontawesomeKit.buildKitConfig(process.env) !== null;
 const FA_CONNECT_SRC = FA_KIT_ENABLED ? ["https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"] : [];
 const FA_STYLE_SRC   = FA_KIT_ENABLED ? ["https://ka-p.fontawesome.com", "https://kit.fontawesome.com"] : [];
@@ -82,7 +82,7 @@ async function startApi(){
                 imgSrc:      ["'self'", "data:", "https:"],
                 // FontAwesome kit fetches CSS from ka-p.fontawesome.com and kit.fontawesome.com,
                 // and icon data from ka-f.fontawesome.com via XHR/fetch. The kit is only loaded
-                // when this deployment supplies a kit token , so a deployment running
+                // when this deployment supplies a kit token, so a deployment running
                 // without one never has to allow those origins at all.
                 connectSrc:  ["'self'", "wss:", "ws:", ...FA_CONNECT_SRC],
                 // FontAwesome dynamically injects CSS from ka-p and kit subdomains
@@ -125,7 +125,7 @@ async function startApi(){
         skip: isStaticAsset,
     }));
 
-    // Global in-flight concurrency cap . The limiter above is per-IP,
+    // Global in-flight concurrency cap. The limiter above is per-IP,
     // so a stampede spread across thousands of distinct IPs never trips it and
     // can still pin every MariaDB pool connection. This caps how many requests
     // are being served at any instant across ALL callers and sheds the excess
@@ -139,14 +139,12 @@ async function startApi(){
     });
     app.use(requestGate);
 
-    // : Prometheus /metrics plus a structured log shim, both DEFAULT OFF.
-    // Nothing is registered and no timer starts unless METRICS_ENABLED (and, for
-    // log shipping, LOG_SHIP_ENABLED + LOG_SHIP_URL) are set. Wired AFTER the
-    // rate limiter and the concurrency gate on purpose: the explorer is the one
-    // internet-facing service here, so an enabled scrape endpoint sheds like any
-    // other route, and METRICS_TOKEN (or a proxy ACL) should gate it on a public
-    // box. The request-timing middleware hoists itself to the front of the stack
-    // so it still measures the routes above. See src/observability/README.md.
+    // Prometheus /metrics plus a structured log shim, both DEFAULT OFF: nothing
+    // registers or starts a timer unless METRICS_ENABLED (and, for log shipping,
+    // LOG_SHIP_ENABLED + LOG_SHIP_URL) is set. Wired after the rate limiter and
+    // concurrency gate so an enabled scrape endpoint sheds like any other route;
+    // gate it with METRICS_TOKEN or a proxy ACL on a public box. See
+    // src/observability/README.md.
     let explorerVersion = '';
     try { explorerVersion = require('../package.json').version; } catch { /* version label is cosmetic */ }
     installObservability(app, {
@@ -168,7 +166,7 @@ async function startApi(){
         // Returns status:"degraded" + 503 when all pool probes time out or fail.
         async ping(params, {res}) {
             // request_gate exposes the global concurrency cap plus how many
-            // requests it has shed ; a climbing shed count is the only
+            // requests it has shed; a climbing shed count is the only
             // outward sign that a distinct-IP stampede is being refused.
             const base = {
                 slowRequests: XChainExplorer.getSlowRequests(),
@@ -184,8 +182,8 @@ async function startApi(){
                 // No pool at all is unhealthy, not a check to skip. The HTTP server
                 // listens before explorer.init() finishes populating pools, and a cold
                 // container that cannot reach the hub for its config never populates
-                // them, so falling through to success reported a node that can serve
-                // nothing as healthy (). The WebSocket start below already
+                // them, so falling through to success previously reported a node that
+                // can serve nothing as healthy. The WebSocket start below already
                 // treats an empty pool set as "do not serve"; the probe now agrees.
                 if(!coin){
                     res.status(503);
@@ -317,7 +315,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // Say at boot that contract simulation is refusing, not only under the first
-// request (). Setting EXPLORER_VM_QUERY_ENABLED is an operator turning
+// request. Setting EXPLORER_VM_QUERY_ENABLED is an operator turning
 // the endpoint on; if the vendored VM drifted, vm-query's gate keeps it closed,
 // and the boot log is where that disagreement is cheapest to notice. Silent when
 // the flag is off: a stale VM nothing loads is not an operational fault.

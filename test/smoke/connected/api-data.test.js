@@ -40,10 +40,6 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// SM-11: Data endpoint responds with correct structure
-// ---------------------------------------------------------------------------
-
 describe('SM-11: GET /RBTC/api/sends/{block}/block', function () {
 
     it('returns 200 with total and data keys', async function () {
@@ -65,10 +61,6 @@ describe('SM-11: GET /RBTC/api/sends/{block}/block', function () {
     });
 
 });
-
-// ---------------------------------------------------------------------------
-// SM-16: Market endpoint responds
-// ---------------------------------------------------------------------------
 
 describe('SM-16: GET /RBTC/api/markets', function () {
 

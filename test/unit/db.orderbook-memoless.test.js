@@ -11,28 +11,18 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * An order with no MEMO must still be an order.
+ * An order with no MEMO must still be an order. `getOrderInfoBatch` (the order
+ * book's second pass) and `getOrderInfo` (the single-order read) both joined
+ * `index_memos` with an INNER JOIN. MEMO is an OPTIONAL trailing field on
+ * ORDER, so every order placed without one, which is every order the wallet's
+ * default Create-order form produces, was silently dropped from the book even
+ * though the market row and its ask price were written correctly.
  *
- * `getOrderInfoBatch` (the order book's second pass) and `getOrderInfo` (the
- * single-order read) both joined `index_memos` with an INNER JOIN. MEMO is an
- * OPTIONAL trailing field on ORDER, so every order placed without one -
- * which is every order the wallet's Create order form produces unless the
- * user opens "Advanced options" - was dropped by that join.
- *
- * MEASURED on Litecoin regtest 2026-07-29, three structurally identical open
- * token-for-token orders:
- *   1367 CVUYAUNMP -> XCHAIN, memo "plain-order"  -> book: asks [["1","100"]]
- *   1353 CVGFBPJQQ -> XCHAIN, memo "e3-undercap"  -> book: asks [["1","1000"]]
- *   1414 MKT741909 -> XCHAIN, memo null           -> book: asks []
- * The market row and its ask price were written correctly in all three cases
- * (`/markets/MKT741909` carried tick1_ask 20), so the order was on the market
- * and only the BOOK could not see it. The tell that it was a join and not a
- * filter: the orderbook response still echoed `"market":"MKT741909/XCHAIN"`,
- * which `getOrderbook` sets only when its own query returned rows - the rows
- * were found and then discarded when the batch read could not resolve them.
- *
- * The rest of this file's own module already LEFT JOINs index_memos in 50
- * other places; these two were the outliers.
+ * Reproduced on regtest: the orderbook response still echoed the market pair,
+ * which only happens when the underlying query found rows, so the rows were
+ * found and then discarded when the batch read could not resolve them. The
+ * rest of this module already LEFT JOINs index_memos everywhere else; these
+ * two calls were the outliers.
  */
 
 'use strict';

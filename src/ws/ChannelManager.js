@@ -29,12 +29,11 @@ const GLOBAL_CHANNELS = new Set(['blocks', 'actions', 'mempool', 'network', 'att
 // wallet see live pools (§11.1).
 const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser', 'bet_feed']);
 
-// All valid channels
 const ALL_CHANNELS = new Set([...GLOBAL_CHANNELS, ...ENTITY_CHANNELS]);
 
 // Canonical decimal form of an action_index subscription key: no sign, no leading
 // zeros, no fraction, no trailing junk. Anything else is a distinct subscription
-// identity that the DB would silently coerce back to a real row ().
+// identity that the DB would silently coerce back to a real row.
 const CANONICAL_INDEX = /^(0|[1-9][0-9]*)$/;
 
 // Valid action types for the types filter
@@ -74,10 +73,10 @@ const VALID_TYPES = new Set([
     'DISPENSER_CLOSED', 'DISPENSER_EXPIRED',
     // BET_EXPIRED rides LIFECYCLE_MAP; BET_CLOSED is emitted by the ChangeDetector's
     // second cursor over bet_feeds.closed_block, because the deadline latch is a
-    // direct status write with no action row behind it .
+    // direct status write with no action row behind it.
     'BET_EXPIRED', 'BET_CLOSED',
     // The two ATTEST phases, enriched inline from the `attests` table because the
-    // raw action row carries no version to tell request from response ().
+    // raw action row carries no version to tell request from response.
     'ATTESTATION_REQUEST', 'ATTESTATION_RESPONSE'
 ]);
 
@@ -140,7 +139,7 @@ class ChannelManager {
         // non-iterable `fields` (e.g. {"fields":1} or {"fields":{}}) reaches
         // `new Set(params.fields)` below and throws a synchronous TypeError out of
         // the ws message handler, which no uncaughtException handler catches -
-        // an unauthenticated single-frame process kill / crash loop (#3135).
+        // an unauthenticated single-frame process kill / crash loop.
         let fieldsFilter = null;
         if (params.fields) {
             if (!Array.isArray(params.fields) || params.fields.some(f => typeof f !== 'string')) {
@@ -231,7 +230,7 @@ class ChannelManager {
             // Add filter info. 'statuses' and 'ticks' are deliberately omitted to match the
             // SUBSCRIBED confirmation (WebSocketServer._handleSubscribe): the actions feed
             // carries neither a status nor a tick column, so re-advertising either here
-            // would let a client rely on a no-op (#3860).
+            // would let a client rely on a no-op.
             entry.filters = {
                 types:    filter.types    ? [...filter.types]    : null,
                 fields:   filter.fields   ? [...filter.fields]   : null,
@@ -461,7 +460,7 @@ class ChannelManager {
                 // "007" became subscription identities of their own while the snapshot
                 // read (db.getDispenserInfo -> WHERE d.action_index=?) coerced them to
                 // dispenser 7. The subscriber then saw one snapshot and no live frames,
-                // since Broadcaster routes on the canonical index ().
+                // since Broadcaster routes on the canonical index.
                 {
                     const raw = (params.action_indexes && Array.isArray(params.action_indexes))
                         ? params.action_indexes

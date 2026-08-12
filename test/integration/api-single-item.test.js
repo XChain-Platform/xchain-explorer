@@ -28,10 +28,6 @@ const supertest     = require('supertest');
 const db            = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
-
 let request, app, explorer, configInfo;
 
 before(async function () {
@@ -46,15 +42,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('Single-Item API Endpoints', function () {
-
-    // -----------------------------------------------------------------------
-    // Block
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/block/{N}: returns block info', async function () {
         const res = await request.get('/RBTC/api/block/5');
@@ -66,10 +54,6 @@ describe('Single-Item API Endpoints', function () {
         // ledger_hash comes from index_transactions id=25
         expect(res.body.ledger_hash).to.be.a('string').and.have.length.greaterThan(0);
     });
-
-    // -----------------------------------------------------------------------
-    // Balances
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/balances/{address}: returns all token balances', async function () {
         const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -88,10 +72,6 @@ describe('Single-Item API Endpoints', function () {
         expect(res.body.data[0].tick).to.equal('TOKENONE');
     });
 
-    // -----------------------------------------------------------------------
-    // Holders
-    // -----------------------------------------------------------------------
-
     it('GET /RBTC/api/holders/{tick}: returns token holders', async function () {
         const res = await request.get('/RBTC/api/holders/XCHAIN');
         expect(res.status).to.equal(200);
@@ -109,10 +89,6 @@ describe('Single-Item API Endpoints', function () {
         // Default sort is DESC by ABS(amount), so addr1 (500000) should be first
         expect(first.address).to.equal('bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa');
     });
-
-    // -----------------------------------------------------------------------
-    // Token: standard fields and locks
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/token/{tick}: returns token detail', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
@@ -159,10 +135,6 @@ describe('Single-Item API Endpoints', function () {
         expect(locks.sleep).to.equal(false);
     });
 
-    // -----------------------------------------------------------------------
-    // Transaction: by hash
-    // -----------------------------------------------------------------------
-
     it('GET /RBTC/api/transaction/{hash}/tx_hash: returns transaction by hash', async function () {
         // tx_index=1 uses hash 'aaa1111...111' (index_transactions id=1)
         const hash = 'aaa1111111111111111111111111111111111111111111111111111111111111';
@@ -175,10 +147,6 @@ describe('Single-Item API Endpoints', function () {
         expect(res.body.actions).to.be.an('array');
     });
 
-    // -----------------------------------------------------------------------
-    // Transaction: by index
-    // -----------------------------------------------------------------------
-
     it('GET /RBTC/api/transaction/{index}/tx_index: returns transaction by index', async function () {
         const res = await request.get('/RBTC/api/transaction/1/tx_index');
         expect(res.status).to.equal(200);
@@ -188,10 +156,6 @@ describe('Single-Item API Endpoints', function () {
         expect(res.body.source).to.be.a('string');
         expect(res.body.actions).to.be.an('array');
     });
-
-    // -----------------------------------------------------------------------
-    // Credits
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/credits/{address}/address: returns credits for address', async function () {
         const addr = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -209,10 +173,6 @@ describe('Single-Item API Endpoints', function () {
         expect(first).to.have.all.keys(expectedFields);
     });
 
-    // -----------------------------------------------------------------------
-    // Debits
-    // -----------------------------------------------------------------------
-
     it('GET /RBTC/api/debits/{address}/address: returns debits for address', async function () {
         const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
         const res  = await request.get(`/RBTC/api/debits/${addr}/address`);
@@ -222,10 +182,6 @@ describe('Single-Item API Endpoints', function () {
         expect(Number(res.body.total)).to.be.at.least(3);
         expect(res.body.data).to.be.an('array').with.length.greaterThan(0);
     });
-
-    // -----------------------------------------------------------------------
-    // Error cases
-    // -----------------------------------------------------------------------
 
     it('nonexistent block returns 404', async function () {
         const res = await request.get('/RBTC/api/block/999999');
@@ -240,10 +196,6 @@ describe('Single-Item API Endpoints', function () {
         expect(res.body).to.be.an('object');
         expect(res.body.error).to.be.a('string');
     });
-
-    // -----------------------------------------------------------------------
-    // Address summary (stub)
-    // -----------------------------------------------------------------------
 
     it('GET /RBTC/api/address/{addr}: returns address summary', async function () {
         const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';

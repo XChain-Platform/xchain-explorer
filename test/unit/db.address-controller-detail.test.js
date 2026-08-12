@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- *  / D-154: an ADDRESS v1 controller bind had no readable verdict.
+ * An ADDRESS v1 controller bind had no readable verdict.
  *
  * ADDRESS has two unrelated subjects. Format 0 edits an address's preferences and
  * writes the `addresses` row; format 1 self-gates one action class of the account
@@ -19,7 +19,7 @@
  * handler INNER JOINed the preferences table, so for a v1 the join matched nothing,
  * getActionData fell through to its de-blank baseline, and `/api/action/<v1>` served
  * an action name, a source and a tx hash with no status, no controller, no action
- * class and no unbind flag. Measured on the LTC regtest venue as action 1787.
+ * class and no unbind flag. Measured on LTC regtest.
  *
  * What these tests pin:
  *   1. the join shape: the detail query is rooted at `actions` with the OPTIONAL

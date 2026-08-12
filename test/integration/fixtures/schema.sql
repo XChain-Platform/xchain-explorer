@@ -1370,7 +1370,7 @@ CREATE        INDEX block_index  ON polls (block_index);
 -- ============================================================
 -- Staking / attestation / VM custody tables for the
 -- attestation-, staking-, and vm-endpoints integration tests
--- (; mirrored from xchain-indexer/src/sql/*.sql)
+-- (mirrored from xchain-indexer/src/sql/*.sql)
 -- ============================================================
 
 DROP TABLE IF EXISTS index_pubkeys;

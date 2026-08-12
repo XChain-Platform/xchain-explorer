@@ -44,10 +44,10 @@ describe('serialize.safeStringify', function () {
         expect(JSON.parse(safeStringify(msg))).to.deep.equal(msg);
     });
 
-    // Cross-serializer conformance (finding 1778): the WS serializer and the
-    // REST serializer (utility.jsonStringify) must agree on the wire type of
-    // the same logical BIGINT fields, so a consumer reconciling a REST backfill
-    // against live WS frames by strict equality does not silently fail.
+    // Cross-serializer conformance: the WS serializer and the REST serializer
+    // (utility.jsonStringify) must agree on the wire type of the same logical
+    // BIGINT fields, so a consumer reconciling a REST backfill against live WS
+    // frames by strict equality does not silently fail.
     describe('REST/WS BIGINT conformance', function () {
         const util = new Utility(null);
 

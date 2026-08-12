@@ -47,14 +47,9 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// @p2 @consistency Transaction-Send cross-reference
-// ===========================================================================
-
 describe('@p2 @consistency Transaction-Send cross-reference regression', function () {
 
     it('send at action_index 9 shares tx_hash with its transaction', async function () {
-        // Get transaction details for tx_index 9
         const txRes = await request.get('/RBTC/api/transaction/9/tx_index');
         expect(txRes.status).to.equal(200);
 
@@ -80,10 +75,6 @@ describe('@p2 @consistency Transaction-Send cross-reference regression', functio
         expect(actionIndexes).to.include(23);
     });
 });
-
-// ===========================================================================
-// @p2 @consistency Block-scoped action counts
-// ===========================================================================
 
 describe('@p2 @consistency Block-scoped action counts regression', function () {
 
@@ -124,10 +115,6 @@ describe('@p2 @consistency Block-scoped action counts regression', function () {
     });
 });
 
-// ===========================================================================
-// @p2 @consistency API vs Explorer data agreement
-// ===========================================================================
-
 describe('@p2 @consistency API vs Explorer data agreement regression', function () {
 
     it('API and Explorer sends totals match for same query', async function () {
@@ -150,10 +137,6 @@ describe('@p2 @consistency API vs Explorer data agreement regression', function 
         expect(Number(apiRes.body.total)).to.equal(Number(explorerRes.body.recordsTotal));
     });
 });
-
-// ===========================================================================
-// @p2 @consistency Explorer token and block endpoints
-// ===========================================================================
 
 describe('@p2 @consistency Explorer token and block endpoints regression', function () {
 
@@ -181,10 +164,6 @@ describe('@p2 @consistency Explorer token and block endpoints regression', funct
     });
 });
 
-// ===========================================================================
-// @p2 @action Less-used action type endpoints
-// ===========================================================================
-
 describe('@p2 @action Less-used action type endpoints regression', function () {
 
     it('order_matches endpoint returns data', async function () {
@@ -202,10 +181,6 @@ describe('@p2 @action Less-used action type endpoints regression', function () {
         expect(res.status).to.not.equal(500);
     });
 });
-
-// ===========================================================================
-// @p2 @icon Icon endpoint
-// ===========================================================================
 
 describe('@p2 @icon Icon endpoint regression', function () {
 

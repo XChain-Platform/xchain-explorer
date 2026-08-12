@@ -22,17 +22,13 @@ const Utility                = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeApiConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Minimal Express mock: just enough for XChainExplorer constructor
-// ---------------------------------------------------------------------------
+// Minimal Express mock: just enough for the XChainExplorer constructor.
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express  = () => mockApp;
 express.static = () => {};
 express.json   = () => {};
 
-// ---------------------------------------------------------------------------
-// Mock DB: getMaxMethodResults returns realistic values
-// ---------------------------------------------------------------------------
+// Mock DB: getMaxMethodResults returns realistic values.
 class MockDB {
     constructor() {}
     async init() {}
@@ -42,28 +38,18 @@ class MockDB {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Load XChainExplorer with mocked dependencies
-// ---------------------------------------------------------------------------
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
     './db.js': MockDB
 });
 
-// ---------------------------------------------------------------------------
-// Helper: build a minimal explorer instance without hitting network/fs
-// ---------------------------------------------------------------------------
+// Builds a minimal explorer instance without hitting network/fs.
 function makeExplorer() {
     const configInfo = createConfigInfoStub();
     const explorer   = new XChainExplorer(mockApp, configInfo);
     return explorer;
 }
 
-// ---------------------------------------------------------------------------
-// Data factories
-// ---------------------------------------------------------------------------
-
-// Generic send row
 function makeSend(overrides = {}) {
     return Object.assign({
         action_index: 1,
@@ -77,7 +63,6 @@ function makeSend(overrides = {}) {
     }, overrides);
 }
 
-// Generic balance row
 function makeBalance(overrides = {}) {
     return Object.assign({
         tick:       'XCHAIN',
@@ -88,7 +73,6 @@ function makeBalance(overrides = {}) {
     }, overrides);
 }
 
-// Generic holder row
 function makeHolder(overrides = {}) {
     return Object.assign({
         address:    'addr1',
@@ -99,7 +83,6 @@ function makeHolder(overrides = {}) {
     }, overrides);
 }
 
-// Generic address row
 function makeAddress(overrides = {}) {
     return Object.assign({
         action_index:   10,
@@ -113,7 +96,6 @@ function makeAddress(overrides = {}) {
     }, overrides);
 }
 
-// Generic issue row
 function makeIssue(overrides = {}) {
     return Object.assign({
         action_index:     50,
@@ -151,14 +133,8 @@ function makeBlock(overrides = {}) {
     }, overrides);
 }
 
-// ---------------------------------------------------------------------------
-// Helpers to convert mathjs BigNumber results to plain JS numbers/strings
-// ---------------------------------------------------------------------------
+// Converts mathjs BigNumber results to plain JS numbers/strings.
 function toNum(v) { return Number(v); }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe('XChainExplorer.getPagingDataResults', function () {
 
@@ -167,10 +143,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
     before(function () {
         explorer = makeExplorer();
     });
-
-    // -----------------------------------------------------------------------
-    // API PAGINATION
-    // -----------------------------------------------------------------------
 
     describe('API pagination', function () {
 
@@ -234,10 +206,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // EXPLORER PAGINATION
-    // -----------------------------------------------------------------------
 
     describe('Explorer pagination', function () {
 
@@ -306,10 +274,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // COUNT NUMBERING AND count_reverse
-    // -----------------------------------------------------------------------
-
     describe('count and count_reverse numbering', function () {
 
         it('count_reverse = total - (count - 1) for first row (count=1, total=50)', function () {
@@ -358,10 +322,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // PREV / LAST REVERSAL
-    // -----------------------------------------------------------------------
 
     describe('prev/last action reversal', function () {
 
@@ -415,10 +375,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // STATUS CONVERSION
-    // -----------------------------------------------------------------------
-
     describe('status conversion (valid => 1, else => 0)', function () {
 
         it('status=valid maps to 1 in getSends', function () {
@@ -460,10 +416,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // METHOD-SPECIFIC FORMATTING: getSends
-    // -----------------------------------------------------------------------
-
     describe('method: getSends', function () {
 
         it('formats result as expected 9-element array', function () {
@@ -494,10 +446,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // METHOD-SPECIFIC FORMATTING: getBalances
-    // -----------------------------------------------------------------------
-
     describe('method: getBalances', function () {
 
         it('formats result as 6-element array with formatted amount, percent, value', function () {
@@ -525,10 +473,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // METHOD-SPECIFIC FORMATTING: getHolders
-    // -----------------------------------------------------------------------
-
     describe('method: getHolders', function () {
 
         it('formats result as 6-element array with address, formatted amount, percent, value', function () {
@@ -553,10 +497,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // METHOD-SPECIFIC FORMATTING: getBlocks
-    // -----------------------------------------------------------------------
-
     describe('method: getBlocks', function () {
 
         it('formats result as 4-element array with pipe-joined actions string', function () {
@@ -577,10 +517,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // METHOD-SPECIFIC FORMATTING: getIssues
-    // -----------------------------------------------------------------------
 
     describe('method: getIssues', function () {
 
@@ -618,10 +554,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
 
     });
 
-    // -----------------------------------------------------------------------
-    // METHOD-SPECIFIC FORMATTING: getAddresses
-    // -----------------------------------------------------------------------
-
     describe('method: getAddresses', function () {
 
         it('formats result as 9-element array', function () {
@@ -651,10 +583,6 @@ describe('XChainExplorer.getPagingDataResults', function () {
         });
 
     });
-
-    // -----------------------------------------------------------------------
-    // METHOD-SPECIFIC FORMATTING: getSearch
-    // -----------------------------------------------------------------------
 
     describe('method: getSearch', function () {
 

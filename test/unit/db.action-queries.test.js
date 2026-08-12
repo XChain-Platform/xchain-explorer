@@ -30,19 +30,13 @@ const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 
-// ---------------------------------------------------------------------------
-// Bootstrap: Database instance with no real MariaDB connection
-// ---------------------------------------------------------------------------
-
+// Stubbed MariaDB pool: these tests only build query strings, so no real
+// connection is needed.
 const configInfo = createConfigInfoStub();
 const util       = new Utility(configInfo);
 const mockExplorer = { configInfo, util };
 const Database = proxyquire('../../src/db.js', { mariadb: { createPool: () => ({}) } });
 const db = new Database(mockExplorer);
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
 
 const WHERE_DATA  = 'm.action_index IS NOT NULL AND a2.address=?';
 const SEARCH_ADDR = 'addr1';
@@ -69,10 +63,6 @@ function makeActionConfig(method, type = 'address', overrides = {}) {
         }
     });
 }
-
-// ---------------------------------------------------------------------------
-// getAddresses
-// ---------------------------------------------------------------------------
 
 describe('Database#getAddresses', () => {
     let result;
@@ -104,10 +94,6 @@ describe('Database#getAddresses', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getAirdrops
-// ---------------------------------------------------------------------------
-
 describe('Database#getAirdrops', () => {
     let result;
     before(async () => {
@@ -132,10 +118,6 @@ describe('Database#getAirdrops', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getBatches
-// ---------------------------------------------------------------------------
-
 describe('Database#getBatches', () => {
     let result;
     before(async () => {
@@ -158,10 +140,6 @@ describe('Database#getBatches', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getBroadcasts
-// ---------------------------------------------------------------------------
 
 describe('Database#getBroadcasts', () => {
     let result;
@@ -189,10 +167,6 @@ describe('Database#getBroadcasts', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getCallbacks
-// ---------------------------------------------------------------------------
-
 describe('Database#getCallbacks', () => {
     let result;
     before(async () => {
@@ -219,10 +193,6 @@ describe('Database#getCallbacks', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDestroys
-// ---------------------------------------------------------------------------
-
 describe('Database#getDestroys', () => {
     let result;
     before(async () => {
@@ -246,10 +216,6 @@ describe('Database#getDestroys', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getDispensers  (builds args internally)
-// ---------------------------------------------------------------------------
 
 describe('Database#getDispensers', () => {
     let result;
@@ -278,10 +244,6 @@ describe('Database#getDispensers', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDispenserCancels
-// ---------------------------------------------------------------------------
-
 describe('Database#getDispenserCancels', () => {
     let result;
     before(async () => {
@@ -304,10 +266,6 @@ describe('Database#getDispenserCancels', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getDispenserCloses
-// ---------------------------------------------------------------------------
 
 describe('Database#getDispenserCloses', () => {
     let result;
@@ -333,10 +291,6 @@ describe('Database#getDispenserCloses', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDispenserEdits
-// ---------------------------------------------------------------------------
-
 describe('Database#getDispenserEdits', () => {
     let result;
     before(async () => {
@@ -360,10 +314,6 @@ describe('Database#getDispenserEdits', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDispenserExpires
-// ---------------------------------------------------------------------------
-
 describe('Database#getDispenserExpires', () => {
     let result;
     before(async () => {
@@ -386,10 +336,6 @@ describe('Database#getDispenserExpires', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getDispenses  (builds args internally)
-// ---------------------------------------------------------------------------
 
 describe('Database#getDispenses', () => {
     let result;
@@ -417,10 +363,6 @@ describe('Database#getDispenses', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getDividends
-// ---------------------------------------------------------------------------
-
 describe('Database#getDividends', () => {
     let result;
     before(async () => {
@@ -446,10 +388,6 @@ describe('Database#getDividends', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getFees
-// ---------------------------------------------------------------------------
-
 describe('Database#getFees', () => {
     let result;
     before(async () => {
@@ -472,10 +410,6 @@ describe('Database#getFees', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getFiles  (non-token type path)
-// ---------------------------------------------------------------------------
 
 describe('Database#getFiles (non-token type)', () => {
     let result;
@@ -503,10 +437,6 @@ describe('Database#getFiles (non-token type)', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getFiles  (token type path, uses mappings_files)
-// ---------------------------------------------------------------------------
-
 describe('Database#getFiles (token type)', () => {
     let result;
     before(async () => {
@@ -531,17 +461,12 @@ describe('Database#getFiles (token type)', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getFiles: the gating columns (PC-29 /  P9)
-//
 // Both getFiles paths select the gated_files columns, and the wallet reads
-// `row.gate_min_amount` straight off /api/files (packages/core gatedContent.js), so
-// the COLUMN NAME is fixed by an already-shipped consumer: an alias here, or a
-// missing column on one of the two paths, silently degrades every gated file to
-// "no threshold" in the wallet - which reads as an unconditional gate rather than
-// as an error. Pinned on both paths because they are separate SQL literals and one
-// has been edited without the other before.
-// ---------------------------------------------------------------------------
+// row.gate_min_amount straight off /api/files, so the column name is fixed
+// by an already-shipped consumer: an alias here, or a missing column on
+// either path, silently degrades a gated file to "no threshold" instead of
+// raising an error. Pinned on both paths since they are separate SQL
+// literals that have drifted out of sync before.
 
 ['address', 'token'].forEach((type) => {
     describe(`Database#getFiles (${type} type) gating columns`, () => {
@@ -562,10 +487,6 @@ describe('Database#getFiles (token type)', () => {
         });
     });
 });
-
-// ---------------------------------------------------------------------------
-// getIssues
-// ---------------------------------------------------------------------------
 
 describe('Database#getIssues', () => {
     let result;
@@ -592,10 +513,6 @@ describe('Database#getIssues', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getLinks
-// ---------------------------------------------------------------------------
-
 describe('Database#getLinks', () => {
     let result;
     before(async () => {
@@ -620,10 +537,6 @@ describe('Database#getLinks', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getLists
-// ---------------------------------------------------------------------------
-
 describe('Database#getLists', () => {
     let result;
     before(async () => {
@@ -646,10 +559,6 @@ describe('Database#getLists', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getMessages  (builds args internally; address type gets two args)
-// ---------------------------------------------------------------------------
 
 describe('Database#getMessages', () => {
     let result;
@@ -676,10 +585,6 @@ describe('Database#getMessages', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getMints  (builds args internally)
-// ---------------------------------------------------------------------------
-
 describe('Database#getMints', () => {
     let result;
     before(async () => {
@@ -702,10 +607,6 @@ describe('Database#getMints', () => {
         expect(args).to.be.an('array').with.lengthOf(2);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getOrders  (builds args internally; address/token types get two args)
-// ---------------------------------------------------------------------------
 
 describe('Database#getOrders', () => {
     let result;
@@ -733,10 +634,6 @@ describe('Database#getOrders', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOrderCancels
-// ---------------------------------------------------------------------------
-
 describe('Database#getOrderCancels', () => {
     let result;
     before(async () => {
@@ -760,10 +657,6 @@ describe('Database#getOrderCancels', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOrderEdits
-// ---------------------------------------------------------------------------
-
 describe('Database#getOrderEdits', () => {
     let result;
     before(async () => {
@@ -786,10 +679,6 @@ describe('Database#getOrderEdits', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getOrderExpires
-// ---------------------------------------------------------------------------
 
 describe('Database#getOrderExpires', () => {
     let result;
@@ -815,10 +704,6 @@ describe('Database#getOrderExpires', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getOrderMatches
-// ---------------------------------------------------------------------------
-
 describe('Database#getOrderMatches', () => {
     let result;
     before(async () => {
@@ -837,7 +722,7 @@ describe('Database#getOrderMatches', () => {
         expect(query).to.include('get_coin');
     });
 
-    it('query exposes the fill amounts (PC-16 auto-pay cap cross-check)', () => {
+    it('query exposes give_amount and get_amount for the auto-pay cap cross-check', () => {
         const [query] = result;
         expect(query).to.include('m.give_amount');
         expect(query).to.include('m.get_amount');
@@ -854,10 +739,6 @@ describe('Database#getOrderMatches', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getSends  (builds args internally)
-// ---------------------------------------------------------------------------
 
 describe('Database#getSends', () => {
     let result;
@@ -884,10 +765,6 @@ describe('Database#getSends', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getSleeps
-// ---------------------------------------------------------------------------
-
 describe('Database#getSleeps', () => {
     let result;
     before(async () => {
@@ -910,10 +787,6 @@ describe('Database#getSleeps', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getSwaps  (builds args internally)
-// ---------------------------------------------------------------------------
 
 describe('Database#getSwaps', () => {
     let result;
@@ -941,10 +814,6 @@ describe('Database#getSwaps', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getSwapCancels
-// ---------------------------------------------------------------------------
-
 describe('Database#getSwapCancels', () => {
     let result;
     before(async () => {
@@ -967,10 +836,6 @@ describe('Database#getSwapCancels', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getSwapEdits
-// ---------------------------------------------------------------------------
 
 describe('Database#getSwapEdits', () => {
     let result;
@@ -995,10 +860,6 @@ describe('Database#getSwapEdits', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getSwapExpires
-// ---------------------------------------------------------------------------
-
 describe('Database#getSwapExpires', () => {
     let result;
     before(async () => {
@@ -1022,10 +883,6 @@ describe('Database#getSwapExpires', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getSwapMatches
-// ---------------------------------------------------------------------------
 
 describe('Database#getSwapMatches', () => {
     let result;
@@ -1052,10 +909,6 @@ describe('Database#getSwapMatches', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getSweeps  (builds args internally)
-// ---------------------------------------------------------------------------
-
 describe('Database#getSweeps', () => {
     let result;
     before(async () => {
@@ -1079,10 +932,6 @@ describe('Database#getSweeps', () => {
         expect(args[0]).to.equal(SEARCH_ADDR);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getTokens  (builds args internally; uses search term)
-// ---------------------------------------------------------------------------
 
 describe('Database#getTokens', () => {
     let result;
@@ -1108,10 +957,6 @@ describe('Database#getTokens', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getTokens with token type (wildcard search path)
-// ---------------------------------------------------------------------------
-
 describe('Database#getTokens (token type wildcard)', () => {
     let result;
     before(async () => {
@@ -1134,10 +979,6 @@ describe('Database#getTokens (token type wildcard)', () => {
         expect(args[0]).to.include('%');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getBalances
-// ---------------------------------------------------------------------------
 
 describe('Database#getBalances', () => {
     const BALANCES_WHERE = 'm.address_id IS NOT NULL';
@@ -1176,10 +1017,6 @@ describe('Database#getBalances', () => {
         expect(count).to.include(BALANCES_WHERE);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getHolders
-// ---------------------------------------------------------------------------
 
 describe('Database#getHolders', () => {
     const HOLDERS_WHERE = 'm.address_id IS NOT NULL';
@@ -1224,10 +1061,6 @@ describe('Database#getHolders', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getCredits
-// ---------------------------------------------------------------------------
-
 describe('Database#getCredits', () => {
     let result;
     before(async () => {
@@ -1252,10 +1085,6 @@ describe('Database#getCredits', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// getDebits
-// ---------------------------------------------------------------------------
 
 describe('Database#getDebits', () => {
     let result;
@@ -1282,10 +1111,6 @@ describe('Database#getDebits', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// getEscrows
-// ---------------------------------------------------------------------------
-
 describe('Database#getEscrows', () => {
     let result;
     before(async () => {
@@ -1310,10 +1135,6 @@ describe('Database#getEscrows', () => {
         expect(count).to.include(WHERE_DATA);
     });
 });
-
-// ---------------------------------------------------------------------------
-// Cross-cutting: ORDER BY and LIMIT are interpolated from sql object
-// ---------------------------------------------------------------------------
 
 describe('ACTION query methods: sql.order and sql.limit interpolation', () => {
     it('getSends uses sql.order=ASC in ORDER BY clause', async () => {
@@ -1369,10 +1190,6 @@ describe('ACTION query methods: sql.order and sql.limit interpolation', () => {
         expect(query).to.include('LIMIT 10');
     });
 });
-
-// ---------------------------------------------------------------------------
-// Cross-cutting: sql.where.offset is appended to query WHERE clause
-// ---------------------------------------------------------------------------
 
 describe('ACTION query methods: sql.where.offset appended to query', () => {
     it('getSends appends offset SQL to query WHERE clause', async () => {
@@ -1431,16 +1248,12 @@ describe('ACTION query methods: sql.where.offset appended to query', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// ATTEST queries: payload + callback_params_json projection
-//
-// The `attests` table stores the full attestation request body in `payload`
+// The attests table stores the full attestation request body in `payload`
 // (oracle URL for http_get providers, JSON prompt envelope for llm providers)
-// and the developer-supplied callback params in `callback_params_json`. These
-// must be present in every attests-reading query so API/WebSocket consumers can
-// inspect what an attestation asked for; a regression that drops them from any
-// SELECT silently hides the request body from consumers.
-// ---------------------------------------------------------------------------
+// and the developer-supplied callback params in `callback_params_json`. Both
+// must be present in every attests-reading query so API/WebSocket consumers
+// can inspect what an attestation asked for; a regression that drops either
+// column from a SELECT silently hides the request body from consumers.
 
 describe('Database#getAttestations exposes payload and callback_params_json', () => {
     it('list query and count select both columns from the attests table', async () => {
@@ -1505,10 +1318,6 @@ describe('Database#getAttestationsSince / getAttestationByActionIndex expose pay
     });
 });
 
-// ---------------------------------------------------------------------------
-// getXcalls (XCALL cross-chain call list)
-// ---------------------------------------------------------------------------
-
 describe('Database#getXcalls', () => {
     let result;
     before(async () => {
@@ -1538,10 +1347,6 @@ describe('Database#getXcalls', () => {
         expect(query).to.include('LIMIT 100');
     });
 });
-
-// ---------------------------------------------------------------------------
-// getXcall (single XCALL lifecycle by call_id)
-// ---------------------------------------------------------------------------
 
 describe('Database#getXcall', () => {
     let captured, originalDoQuery;

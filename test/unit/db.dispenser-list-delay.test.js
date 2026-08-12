@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * : DISPENSER allow/block-list edits do not take effect the moment
+ * DISPENSER allow/block-list edits do not take effect the moment
  * they confirm. Consensus holds them back by DISPENSER_LIST_DELAY seconds
  * of block time so a dispenser owner cannot flip a list on top of a buyer
  * who is already paying.
@@ -99,7 +99,7 @@ async function runDispenser(db, edits) {
     return { result, editQuery };
 }
 
-describe('db.getActionData - DISPENSER list-edit activation delay ', () => {
+describe('db.getActionData - DISPENSER list-edit activation delay', () => {
     let db;
 
     beforeEach(() => { db = new Database(mockExplorer); });

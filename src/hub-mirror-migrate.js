@@ -12,7 +12,7 @@
  *
  **********************************************************************
  *
- * XChain Explorer - Hub-mirror schema drift reconciler 
+ * XChain Explorer - Hub-mirror schema drift reconciler
  *
  * ensureTables() (vendored in hub_db_sync.js) only CREATEs missing tables;
  * it never ALTERs an existing one. A mirror schema created before the
@@ -57,7 +57,7 @@ const MIRROR_MIGRATIONS = {
             { name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }
         ]
     },
-    // : uq_cap_snap gained `source` (a key delegated by two sources now keeps
+    // uq_cap_snap gained `source` (a key delegated by two sources now keeps
     // both (source, pubkey) rows). The add-if-name-missing logic above cannot widen
     // an existing same-named index, so capability_snapshots uses widenIndexes: if the
     // live uq_cap_snap does not already cover `source`, drop and re-add it with the
@@ -113,7 +113,7 @@ async function ensureMirrorColumns(dbConn, log) {
             applied.push(sql);
         }
 
-        // Widen an existing UNIQUE key whose column set changed . Probe the
+        // Widen an existing UNIQUE key whose column set changed. Probe the
         // live index columns; if the required column is absent, drop and re-add the
         // wider key. Separate DROP then ADD so the re-add never races the drop. Only
         // ever widens (adds a column), so an already-unique table cannot collide and

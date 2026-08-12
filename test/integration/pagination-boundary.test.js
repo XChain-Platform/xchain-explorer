@@ -27,19 +27,11 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-// ---------------------------------------------------------------------------
-// Shared state
-// ---------------------------------------------------------------------------
-
 let request;
 let app, explorer, configInfo;
 
 // Seed address with 7 sends (source or destination)
 const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
 
 before(async function () {
     this.timeout(30000);
@@ -53,15 +45,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-// ===========================================================================
-// Pagination Boundary Conditions
-// ===========================================================================
-
 describe('Pagination Boundary Conditions', function () {
-
-    // -----------------------------------------------------------------------
-    // 1. Default limit is 100: all seeded rows are returned
-    // -----------------------------------------------------------------------
 
     it('default limit is 100: all seeded sends are returned', async function () {
         // Seed has 7 sends for addr1; default limit is 100 so all should come back
@@ -74,10 +58,6 @@ describe('Pagination Boundary Conditions', function () {
         expect(res.body.data.length).to.equal(7);
     });
 
-    // -----------------------------------------------------------------------
-    // 2. limit parameter caps the returned data
-    // -----------------------------------------------------------------------
-
     it('limit=3 returns exactly 3 rows', async function () {
         // addr1 has 7 sends; limit=3 should return only 3
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=3`);
@@ -87,10 +67,6 @@ describe('Pagination Boundary Conditions', function () {
         // Total should still reflect the full count
         expect(res.body).to.have.property('total', 7);
     });
-
-    // -----------------------------------------------------------------------
-    // 3. Page 1 and page 2 have no overlapping records
-    // -----------------------------------------------------------------------
 
     it('page 1 and page 2 have no overlap', async function () {
         const page1 = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=3&page=1`);
@@ -108,10 +84,6 @@ describe('Pagination Boundary Conditions', function () {
         expect(overlap).to.be.empty;
     });
 
-    // -----------------------------------------------------------------------
-    // 4. Page beyond results returns empty data array
-    // -----------------------------------------------------------------------
-
     it('page beyond results returns empty data with correct total', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?page=999&limit=10`);
 
@@ -121,10 +93,6 @@ describe('Pagination Boundary Conditions', function () {
         // But data is empty because there are no records on page 999
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
-
-    // -----------------------------------------------------------------------
-    // 5. Balances default sort is ASC (by tick name)
-    // -----------------------------------------------------------------------
 
     it('balances default sort is ASC by tick', async function () {
         // addr1 has balances for TOKENONE, TOKENTWO, and XCHAIN
@@ -138,10 +106,6 @@ describe('Pagination Boundary Conditions', function () {
         const sortedTicks = [...ticks].sort();
         expect(ticks).to.deep.equal(sortedTicks);
     });
-
-    // -----------------------------------------------------------------------
-    // 6. getHolders sorts by amount DESC (absolute)
-    // -----------------------------------------------------------------------
 
     it('getHolders sorts by amount DESC: first holder has largest amount', async function () {
         // XCHAIN balances from seed: addr1=500000, addr2=200000, addr3=100000

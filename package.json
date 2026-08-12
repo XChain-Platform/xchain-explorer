@@ -90,9 +90,9 @@
     "qs": "^6.15.2",
     "serialize-javascript": "^7.0.5",
     "diff": "^8.0.3",
-    "fast-uri": "^3.1.4",
+    "fast-uri": "^3.1.5",
     "hyperid": "^4.0.0",
-    "ip-address": "^10.1.1",
+    "ip-address": "^10.3.1",
     "js-yaml": "^4.3.0",
     "form-data": "^4.0.6",
     "tmp": "^0.2.7"

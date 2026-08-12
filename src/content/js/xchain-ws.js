@@ -35,7 +35,10 @@ var XChainWS = {
     url:                  null,
     coin:                 null,
     subscriptions:        [],
-    lastActionIndex:      0,
+    // Exact decimal STRING from the v2 wire, or null when unseeded. Number() rounded
+    // it above 2^53 and the rounded value went back out as since_action_index, so a
+    // reconnect asked for rows after an action never delivered ().
+    lastActionIndex:      null,
     reconnectAttempts:    0,
     maxReconnectAttempts: 10,
     reconnectDelay:       1000,
@@ -156,19 +159,12 @@ var XChainWS = {
             return;
         }
 
-        // Track latest action_index for catch-up on reconnect
-        if (msg.data && msg.data.action_index) {
-            var idx = Number(msg.data.action_index);
-            if (idx > this.lastActionIndex) {
-                this.lastActionIndex = idx;
-            }
-        }
-        // Also track from latest_action_index in WELCOME and CATCH_UP_COMPLETE
-        if (msg.data && msg.data.latest_action_index) {
-            var latestIdx = Number(msg.data.latest_action_index);
-            if (latestIdx > this.lastActionIndex) {
-                this.lastActionIndex = latestIdx;
-            }
+        // Track latest action_index for catch-up on reconnect. WELCOME's and
+        // CATCH_UP_COMPLETE's latest_action_index ride the same path, so the seed and
+        // the running maximum cannot drift apart.
+        if (msg.data) {
+            this._advanceCursor(msg.data.action_index);
+            this._advanceCursor(msg.data.latest_action_index);
         }
 
         // Envelope schema gate: the server stamps every frame with
@@ -187,12 +183,6 @@ var XChainWS = {
             console.log('[XChainWS] Server v' + msg.data.version,
                 '| block:', msg.data.latest_block_index,
                 '| action:', msg.data.latest_action_index);
-            if (this.lastActionIndex === 0 && msg.data.latest_action_index) {
-                // WS schema v2 emits BIGINT fields as decimal strings; coerce so
-                // lastActionIndex stays numeric (matching the Number() paths above)
-                // and the `idx > this.lastActionIndex` comparisons don't go string-wise.
-                this.lastActionIndex = Number(msg.data.latest_action_index);
-            }
         }
 
         // Track catch-up state
@@ -290,6 +280,19 @@ var XChainWS = {
         }
     },
 
+    // Advance the catch-up cursor to `raw` when it is higher, comparing as BigInt so
+    // two consecutive indices above 2^53 stay distinct. Stores the wire's own decimal
+    // string; nothing here converts to Number, and a value that is not a non-negative
+    // integer literal is not a cursor and is ignored (this also absorbs null).
+    _advanceCursor: function(raw) {
+        if (raw === null || raw === undefined) return;
+        var val = String(raw);
+        if (!/^[0-9]+$/.test(val)) return;
+        if (this.lastActionIndex === null || BigInt(val) > BigInt(this.lastActionIndex)) {
+            this.lastActionIndex = val;
+        }
+    },
+
     // Resubscribe to all tracked subscriptions (after reconnect)
     _resubscribe: function() {
         if (this.subscriptions.length === 0) {
@@ -299,7 +302,9 @@ var XChainWS = {
         for (var i = 0; i < this.subscriptions.length; i++) {
             var sub    = this.subscriptions[i];
             var params = Object.assign({}, sub.params);
-            if (this.lastActionIndex > 0) {
+            // Same gate as before the cursor became a string: a chain still at index 0
+            // gets no since_action_index.
+            if (this.lastActionIndex !== null && BigInt(this.lastActionIndex) > 0n) {
                 params.since_action_index = this.lastActionIndex;
             }
             this._send({ action: 'subscribe', channels: sub.channels, params: params });

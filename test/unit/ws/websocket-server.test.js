@@ -352,6 +352,54 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         expect(typeof complete.data.latest_action_index).to.equal(typeof welcome.data.latest_action_index);
         expect(complete.data.latest_action_index).to.match(DECIMAL);
     });
+
+    // #4155: the catch-up cursor used to be Number()-coerced on arrival, which rounded
+    // an above-2^53 decimal string UP. The SQL cursor then asked for rows after an
+    // action the client had never seen, and the CATCH_UP_COMPLETE echo told the client
+    // it was one index further along than it was.
+    it('catch-up keeps an above-2^53 since_action_index exact at the cursor and the echo', async function () {
+        const db = {
+            getMaxBlockIndex:  sinon.stub().resolves(9007199254740999n),
+            getMaxActionIndex: sinon.stub().resolves(9007199254740999n),
+            getActionsSince:   sinon.stub().resolves([])
+        };
+        const { EventEmitter } = require('events');
+        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }) });
+        const client = spyClient();
+
+        await s._handleCatchUp(client, '9007199254740995', {}, 'req-1');
+
+        const cursor = db.getActionsSince.firstCall.args[1];
+        expect(String(cursor)).to.equal('9007199254740995');
+        expect(typeof cursor).to.not.equal('number');
+
+        const complete = framesOf(client, 'CATCH_UP_COMPLETE')[0];
+        expect(complete.data.latest_action_index).to.equal('9007199254740995');
+    });
+
+    it('the catch-up depth gate stays exact above 2^53', async function () {
+        // currentMax - since must not be computed on two collapsed Numbers: the pair
+        // below is 6 apart, well inside the default depth, but both round to the same
+        // Number, which made the gate read a difference of 0 either way.
+        const db = {
+            getMaxBlockIndex:  sinon.stub().resolves(9007199254741001n),
+            getMaxActionIndex: sinon.stub().resolves(9007199254741001n),
+            getActionsSince:   sinon.stub().resolves([])
+        };
+        const { EventEmitter } = require('events');
+        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }), catchUpMaxDepth: 3 });
+        const client = spyClient();
+
+        await s._handleCatchUp(client, '9007199254740995', {}, 'req-2');
+
+        const errors = framesOf(client, 'error');
+        expect(errors).to.have.lengthOf(1);
+        expect(errors[0].data.code).to.equal('CATCH_UP_TOO_OLD');
+        expect(errors[0].data.message).to.include('9007199254740995');
+        expect(db.getActionsSince.called).to.equal(false);
+    });
 });
 
 describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', function () {
@@ -477,5 +525,68 @@ describe('WebSocketServer#_onMessage rate limiter (: sliding decay, not tumbling
         clock.tick(60000); // long idle: count clamps at 0, not a huge negative credit
         for (let i = 0; i < 10; i++) expect(sendPing(s, client)).to.equal(false);
         expect(sendPing(s, client)).to.equal(true);
+    });
+});
+
+// . Drive a real upgrade and a real oversized frame, because the previous
+// cap was installed as `ws._maxPayload` on the WebSocket, which reads fine to any
+// property-asserting test while the ws Receiver (the only reader of maxPayload) ran
+// on the 100 MB library default. Only the wire says whether the cap is armed.
+describe('WebSocketServer maxPayload (ws-5: the cap has to reach the receiver)', function () {
+    const http     = require('http');
+    const WSClient = require('ws');
+
+    let server, wsServer;
+
+    function listen() {
+        return new Promise((resolve) => {
+            server   = http.createServer();
+            wsServer = makeServer({ maxMessageSize: 1024 });
+            wsServer.attach([server]);
+            server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+        });
+    }
+
+    // Send one frame and report how the server answered.
+    function sendFrame(port, payload) {
+        return new Promise((resolve) => {
+            const ws = new WSClient('ws://127.0.0.1:' + port + '/BTC/api/websocket');
+            ws.on('open',  () => ws.send(payload));
+            ws.on('error', () => resolve({ outcome: 'error' }));
+            ws.on('close', (code) => resolve({ outcome: 'closed', code }));
+            ws.on('message', (data) => {
+                const msg = JSON.parse(data.toString());
+                if (msg.type === 'WELCOME') return;   // sent unprompted on connect
+                ws.close();
+                resolve({ outcome: 'reply', type: msg.type });
+            });
+        });
+    }
+
+    afterEach(function (done) {
+        if (wsServer) wsServer.stop();
+        if (server && server.listening) return server.close(() => done());
+        done();
+    });
+
+    it('closes a >1024-byte frame with 1009 instead of parsing it', async function () {
+        const port = await listen();
+        const oversized = JSON.stringify({ action: 'ping', pad: 'a'.repeat(2000) });
+        expect(oversized.length).to.be.greaterThan(1024);
+        const res = await sendFrame(port, oversized);
+        expect(res.outcome).to.equal('closed');
+        expect(res.code).to.equal(1009);   // 1009 = message too big
+    });
+
+    it('still serves a normal under-cap frame', async function () {
+        const port = await listen();
+        const res = await sendFrame(port, JSON.stringify({ action: 'ping' }));
+        expect(res.outcome).to.equal('reply');
+        expect(res.type).to.equal('pong');
+    });
+
+    it('installs the configured size on the ws server options, where the receiver reads it', async function () {
+        await listen();
+        expect(wsServer.wss.options.maxPayload).to.equal(1024);
     });
 });

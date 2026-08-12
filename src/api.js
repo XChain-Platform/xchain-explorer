@@ -181,12 +181,20 @@ async function startApi(){
                 const db    = explorer && explorer.db;
                 const pools = db && db.pools ? db.pools : {};
                 const coin  = Object.keys(pools)[0];
-                if(coin){
-                    await Promise.race([
-                        db.doQuery({ coin, data: {} }, 'SELECT 1', []),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), DB_PROBE_TIMEOUT_MS))
-                    ]);
+                // No pool at all is unhealthy, not a check to skip. The HTTP server
+                // listens before explorer.init() finishes populating pools, and a cold
+                // container that cannot reach the hub for its config never populates
+                // them, so falling through to success reported a node that can serve
+                // nothing as healthy (). The WebSocket start below already
+                // treats an empty pool set as "do not serve"; the probe now agrees.
+                if(!coin){
+                    res.status(503);
+                    return { status: 'degraded', db: false, ...base };
                 }
+                await Promise.race([
+                    db.doQuery({ coin, data: {} }, 'SELECT 1', []),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), DB_PROBE_TIMEOUT_MS))
+                ]);
                 return { status: 'success', db: true, ...base };
             } catch(err) {
                 res.status(503);

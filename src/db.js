@@ -4886,7 +4886,12 @@ class Database {
         return state;
     }
 
-    async getActionData(config, action_index){
+    // @param {object} preload  optional page-level prefetch from _buildActionPreload
+    //                          (). Every leg it carries is OPTIONAL: an
+    //                          index or tx_hash it does not cover falls through to
+    //                          the single-index query, so the payload is the same
+    //                          whether the preload is present, partial, or absent.
+    async getActionData(config, action_index, preload){
         // Check LRU cache first. Action data is immutable once confirmed, but a
         // reorg can reassign action_index, so the key carries coin + reorg
         // generation (action_index is per-coin, and a reorg bumps the generation
@@ -4907,7 +4912,12 @@ class Database {
             escrows: null,
             fee:    null
         };
-        let type = await this.getActionType(config, action_index);
+        // Use the page preload only for the indexes it actually prefetched; anything
+        // else runs the per-index queries exactly as before ().
+        let pre  = (preload && preload.indexes && preload.indexes.has(Number(action_index))) ? preload : null;
+        let type = (pre && pre.types.has(Number(action_index)))
+            ? pre.types.get(Number(action_index))
+            : await this.getActionType(config, action_index);
         if(type){
             // Per-action detail is a registry (src/action-detail/), not an
             // if-chain: one handler per action type owns its SQL and its result
@@ -4947,13 +4957,22 @@ class Database {
             }
             if(handler.afterQueries)
                 await handler.afterQueries(ctx, data);
-            await actionDetail.attachLedgerEffects(this, config, action_index, data, handler.effects);
+            await actionDetail.attachLedgerEffects(this, config, action_index, data, handler.effects, (pre) ? pre.effects : null);
             if(handler.afterEffects)
                 await handler.afterEffects(ctx, data);
-            let fee = await this.getActionFeeData(config, action_index);
+            let fee = (pre && pre.fees.has(Number(action_index)))
+                ? pre.fees.get(Number(action_index))
+                : await this.getActionFeeData(config, action_index);
             if(fee)
                 data.fee = fee;
-            let txData = await this.getTransactionData(config, data.tx_hash);
+            // The preload is keyed by tx_hash, and data.tx_hash comes from the handler
+            // row, which may name a transaction the page-level prefetch never saw (a
+            // BATCH child, a handler that aliases another action's tx). A hash the map
+            // does not carry falls back to the single-hash query rather than to null.
+            let txKey  = this.util.isNull(data.tx_hash) ? null : String(data.tx_hash);
+            let txData = (pre && txKey !== null && pre.txs.has(txKey))
+                ? pre.txs.get(txKey)
+                : await this.getTransactionData(config, data.tx_hash);
             data.tx_data = (!this.util.isNull(txData)) ? txData.data : null;
         }
         // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry).
@@ -5190,6 +5209,156 @@ class Database {
         return [data, total];
     }
 
+    // Action type + owning transaction hash for a SET of action_indexes ().
+    // Mirrors getActionType's join and adds the transactions / index_transactions hop
+    // getTransactionData keys on, so one query gives a page both the type it dispatches
+    // the handler on and the tx_hash it prefetches transactions by.
+    // Returns a Map of action_index -> { type, tx_hash }; an index with no row is absent,
+    // which the caller reads the same way getActionType reads a row-less result (null).
+    async getActionMetaBatch(config, action_indexes){
+        let map = new Map();
+        if(!action_indexes || !action_indexes.length) return map;
+        let ph  = action_indexes.map(() => '?').join(',');
+        let sql = `SELECT
+                        a1.action_index,
+                        a2.action,
+                        t2.hash as tx_hash
+                    FROM
+                        actions a1
+                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE
+                        a1.action_index IN (${ph})`;
+        let results = await this.doQuery(config, sql, [...action_indexes]);
+        for(let row of (results || [])){
+            let key = Number(row.action_index);
+            // First row wins, matching getActionType's unqualified results[0].
+            if(map.has(key)) continue;
+            map.set(key, {
+                type:    (row.action === undefined)  ? null : row.action,
+                tx_hash: (row.tx_hash === undefined) ? null : row.tx_hash
+            });
+        }
+        return map;
+    }
+
+    // Batched getActionFeeData (). Same SELECT list, same order, same joins;
+    // action_index rides along last and is deleted, so a surviving row is key-for-key
+    // what the single-index query returns. Returns a Map of action_index -> fee row.
+    async getActionFeeDataBatch(config, action_indexes){
+        let map = new Map();
+        if(!action_indexes || !action_indexes.length) return map;
+        let ph    = action_indexes.map(() => '?').join(',');
+        let query = `SELECT
+                        a2.address as source,
+                        a3.address as destination,
+                        t2.tick,
+                        f1.amount,
+                        f1.method,
+                        f1.gas_cost,
+                        f1.gas_price,
+                        f1.xchain_amount,
+                        f1.payment_mode,
+                        f1.native_coin_amount,
+                        f1.native_coin,
+                        f1.oracle_round,
+                        f1.fee_preference,
+                        f1.fee_version,
+                        f1.action_index as _group_index
+                    FROM
+                        fees f1
+                        INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)
+                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
+                    WHERE
+                        f1.action_index IN (${ph})`;
+        let results = await this.doQuery(config, query, [...action_indexes]);
+        for(let row of (results || [])){
+            let key = Number(row._group_index);
+            delete row._group_index;
+            // First row wins, matching getActionFeeData's unqualified results[0].
+            if(!map.has(key)) map.set(key, row);
+        }
+        return map;
+    }
+
+    // Batched getTransactionData (), keyed by tx_hash rather than action_index
+    // because that is what the single-hash query takes. Every REQUESTED hash gets an
+    // entry (null when the row is absent), so a caller can treat map.has() as authority
+    // and only fall back for a hash the page never prefetched.
+    async getTransactionDataBatch(config, hashes){
+        let map = new Map();
+        if(!hashes || !hashes.length) return map;
+        let distinct = [...new Set(hashes.map((h) => String(h)))];
+        let ph       = distinct.map(() => '?').join(',');
+        let query = `SELECT
+                        t1.tx_index,
+                        t1.block_index,
+                        t2.hash,
+                        t1.fee,
+                        t1.data
+                    FROM
+                        transactions t1
+                        INNER JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    WHERE
+                        t2.hash IN (${ph})`;
+        let results = await this.doQuery(config, query, distinct);
+        for(let row of (results || [])){
+            let key = String(row.hash);
+            if(!map.has(key)) map.set(key, row);
+        }
+        for(let h of distinct)
+            if(!map.has(h)) map.set(h, null);
+        return map;
+    }
+
+    // Build the page-level preload getActionData reads its shared legs from ().
+    // Six queries for the whole page in place of six per action: one meta query for type
+    // and tx_hash, up to three ledger-effect queries, one fee query, one transaction
+    // query. The effect prefetch is narrowed by each index's handler `effects` flags,
+    // the SAME flags attachLedgerEffects gates on, so the prefetched set and the consumed
+    // set are equal by construction and a page of non-ledger actions queries none of them.
+    // Per-handler detail queries are deliberately untouched: they differ per action type
+    // and batching them is the high-risk half of this change.
+    async _buildActionPreload(config, action_indexes){
+        let idxs = (action_indexes || []).map((i) => Number(i));
+        if(!idxs.length) return null;
+        let preload = {
+            indexes: new Set(idxs),
+            types:   new Map(),
+            fees:    new Map(),
+            txs:     new Map(),
+            effects: null
+        };
+        let meta          = await this.getActionMetaBatch(config, idxs);
+        let effectIndexes = { credits: [], debits: [], escrows: [] };
+        let typed         = [];
+        let hashes        = [];
+        for(let idx of idxs){
+            let row = meta.get(idx) || { type: null, tx_hash: null };
+            preload.types.set(idx, row.type);
+            // An untyped index short-circuits in getActionData before any shared leg
+            // runs, so it contributes nothing to the effect / fee / tx prefetch sets.
+            if(this.util.isNull(row.type)) continue;
+            typed.push(idx);
+            let flags = actionDetail.getHandler(row.type).effects || {};
+            for(let key of ['credits', 'debits', 'escrows'])
+                if(flags[key] !== false) effectIndexes[key].push(idx);
+            if(!this.util.isNull(row.tx_hash)) hashes.push(String(row.tx_hash));
+        }
+        preload.effects = await actionDetail.prefetchLedgerEffects(this, config, effectIndexes);
+        let fees = await this.getActionFeeDataBatch(config, typed);
+        // Absence in the fee query means "no fee row", which is the null the single-index
+        // path returns; record it explicitly so has() is authoritative for typed indexes.
+        for(let idx of typed)
+            preload.fees.set(idx, fees.has(idx) ? fees.get(idx) : null);
+        preload.txs = await this.getTransactionDataBatch(config, hashes);
+        return preload;
+    }
+
     // Batch-load getActionData for a set of action indexes (Fix B / #3841). Resolves the
     // DISTINCT action_index set concurrently through the existing getActionData path (bounded
     // by BATCH_CONCURRENCY so the connection pool is not exhausted), returning a Map keyed by
@@ -5207,13 +5376,23 @@ class Database {
             let key = Number(idx);
             if(!seen.has(key)){ seen.add(key); distinct.push(idx); }
         }
+        // Shared-leg prefetch (). Overlapping the fan-out hid the latency but
+        // left the page's DB work at O(actions x queries): every index still ran its
+        // own type, three ledger-effect, fee and transaction queries. Those legs are
+        // identical in shape for every action, so the page runs each of them ONCE over
+        // the whole index set and threads the result in as a preload; only the
+        // per-handler detail queries still fan out. Indexes already in the LRU are
+        // excluded, so a warm page prefetches nothing, and at a single cold index the
+        // query count is unchanged (the type and tx legs merge into one meta query).
+        let cold = distinct.filter((idx) => this._cacheGet(this._actionDataCache, this._cacheKey(config.coin, idx)) === undefined);
+        let preload = (cold.length) ? await this._buildActionPreload(config, cold) : null;
         let out = new Map();
         let cursor = 0;
         const worker = async () => {
             while(cursor < distinct.length){
                 let i = cursor++;
                 let idx = distinct[i];
-                out.set(Number(idx), await this.getActionData(config, idx));
+                out.set(Number(idx), await this.getActionData(config, idx, preload));
             }
         };
         let workers = [];
@@ -6212,12 +6391,18 @@ class Database {
         }
     }
 
+    // Returns the action-index high-water mark as an exact BigInt, never a Number.
+    // This value is the WebSocket live/catch-up cursor, and Number() collapses two
+    // consecutive action indices above 2^53 onto one value, which stalls or skips a
+    // NEW_ACTION frame even though the wire serializer emits exact decimal strings
+    // (). Callers that put it on the wire still String() it; the WS frames
+    // are decimal strings under schema v2 (ws/serialize.js).
     async getMaxActionIndex(config) {
         let query   = `SELECT MAX(action_index) as max_index FROM actions`;
         let results = await this.doQuery(config, query, []);
         if (results && results.length && results[0].max_index !== null)
-            return Number(results[0].max_index);
-        return 0;
+            return BigInt(results[0].max_index);
+        return 0n;
     }
 
     // Get the raw AES-256-GCM ciphertext bytes for a gated FILE by action_index.
@@ -7139,6 +7324,10 @@ class Database {
     }
 
     async getActionsSince(config, sinceActionIndex, limit) {
+        // Pass the cursor as a BigInt (or a Number below 2^53), NEVER a decimal
+        // string: the connector quotes a string param, and MariaDB compares a
+        // quoted literal against a BIGINT column as a DOUBLE, which reintroduces
+        // exactly the >2^53 collapse the BigInt cursor exists to prevent (#4155).
         // NOTE: the generic `actions` table carries no status_id (status lives on
         // the per-ACTION-type tables, e.g. issues/sends/mints, joined as m.status_id
         // elsewhere) and no status column; so this feed reports status as NULL.
@@ -7506,10 +7695,13 @@ class Database {
             }
             row.permissions  = permissions;
             row.max_take_bps = this.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps);
-            // action_index is the contract identity; return it numeric like the other
-            // action-index surfaces (e.g. project roster_action_index) rather than the
-            // driver's raw BIGINT string, so consumers don't have to coerce per field.
-            row.action_index = this.util.isNull(row.action_index) ? null : Number(row.action_index);
+            // action_index stays the driver's BIGINT so utility.jsonStringify emits the
+            // exact decimal string openapi's info.description promises; a Number() here
+            // collapsed values above 2^53 and made it the one index in this row typed
+            // unlike its own block_index (; contract standardized in 38cc1d9).
+            // The constructor lookup below binds it as a BigInt, never a quoted string,
+            // which MariaDB would compare against a BIGINT column as a DOUBLE.
+            if(this.util.isNull(row.action_index)) row.action_index = null;
 
             // Source integrity: the chain carries the source itself, so
             // "verified contract" reduces to hashing what we serve. A mismatch

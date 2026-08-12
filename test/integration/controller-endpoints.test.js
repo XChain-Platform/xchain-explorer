@@ -112,12 +112,19 @@ after(async function () {
 // Contract permissions manifest
 // ===========================================================================
 
+// action_index is a DECIMAL STRING on the wire, not a number. These two cases
+// asserted the number until : 9fe00ec had coerced getContract's BIGINT
+// with Number() to satisfy them, three days before 38cc1d9 standardized
+// BIGINT-as-string across REST and WS as an explicit BREAKING CHANGE. The
+// coercion is the remnant, so the assertions move to the standardized type
+// rather than the code moving back. block_index in this same response was
+// always a string; test/unit/ws/serialize.test.js pins REST===WS.
 describe('Contract API (/api/contract/{idx}): permissions manifest', function () {
 
     it('surfaces a parsed permissions array and numeric max_take_bps', async function () {
         const res = await request.get('/RBTC/api/contract/90');
         expect(res.status).to.equal(200);
-        expect(res.body.action_index).to.equal(90);
+        expect(res.body.action_index).to.equal('90');
         expect(res.body.permissions).to.deep.equal(['send', 'mint']);
         expect(res.body.max_take_bps).to.equal(300);
     });
@@ -125,7 +132,7 @@ describe('Contract API (/api/contract/{idx}): permissions manifest', function ()
     it('returns permissions=null / max_take_bps=null for a contract with no manifest', async function () {
         const res = await request.get('/RBTC/api/contract/91');
         expect(res.status).to.equal(200);
-        expect(res.body.action_index).to.equal(91);
+        expect(res.body.action_index).to.equal('91');
         expect(res.body.permissions).to.equal(null);
         expect(res.body.max_take_bps).to.equal(null);
     });

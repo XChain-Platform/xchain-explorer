@@ -69,7 +69,14 @@ function buildServer(options){
     let releaseHeld;
     const held = new Promise(resolve => { releaseHeld = resolve; });
 
+    // Count arrivals at the parked handler, so a test whose gate is DISABLED
+    // still has a condition to wait on: with a cap of 0 the gate counts
+    // nothing, so `in_flight` never rises and every other wait here has no
+    // observable to poll.
+    let parkedArrivals = 0;
+
     app.get('/expensive', async (req, res) => {
+        parkedArrivals++;
         await held;
         res.json({ ok: true, ip: req.ip });
     });
@@ -78,7 +85,7 @@ function buildServer(options){
     const server = http.createServer(app);
     openServers.push(server);
 
-    return { app, gate, server, release: () => releaseHeld() };
+    return { app, gate, server, release: () => releaseHeld(), parkedArrivals: () => parkedArrivals };
 }
 
 function listen(server){
@@ -197,11 +204,14 @@ describe('Security: global in-flight concurrency cap ', function () {
     });
 
     it('is disabled by a cap of 0 (operator escape hatch)', async function () {
-        const { server, gate, release } = buildServer({ limit: 0 });
+        const { server, gate, release, parkedArrivals } = buildServer({ limit: 0 });
         await listen(server);
 
         const parked = [get(server, '/expensive', 1), get(server, '/expensive', 2), get(server, '/expensive', 3)];
-        await new Promise(r => setTimeout(r, 50));
+        // Wait for all three to actually reach the handler. A fixed settle here
+        // passed vacuously on a busy venue, asserting an empty gate before any
+        // request had arrived, which is the assertion this case exists to make.
+        await waitFor(() => parkedArrivals() === 3, 'all three requests to park in the handler');
 
         // A disabled gate counts nothing and sheds nothing; it must not become a
         // cap of zero that refuses every request.

@@ -1482,6 +1482,18 @@ describe('Database#getContract', () => {
         expect(data.max_take_bps).to.equal(null);
     });
 
+    // : openapi's info.description promises chain indices are exact decimal
+    // strings on REST, and utility.jsonStringify delivers that only while the value is
+    // still the driver's BIGINT. A Number() coercion here collapsed 9007199254740995
+    // onto ...96 and disagreed with block_index in this same row.
+    it('leaves a BIGINT action_index exact rather than coercing it to a Number', async () => {
+        const big = BigInt('9007199254740995');
+        sinon.stub(db, 'doQuery').resolves([contractRow({ action_index: big })]);
+        const [data] = await db.getContract(baseCfg());
+        expect(typeof data.action_index).to.equal('bigint');
+        expect(String(data.action_index)).to.equal('9007199254740995');
+    });
+
     it('parses a JSON permissions array and coerces max_take_bps to a number', async () => {
         sinon.stub(db, 'doQuery').resolves([contractRow({ permissions: '["send","mint"]', max_take_bps: '300' })]);
         const [data] = await db.getContract(baseCfg());

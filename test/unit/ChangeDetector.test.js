@@ -196,6 +196,29 @@ describe('ChangeDetector', function () {
             expect(seen).to.deep.equal(range(6, 255));          // every action emitted once, none skipped
         });
 
+        // #4155: Number() collapsed two consecutive action indices above 2^53 onto one
+        // value, so a capped fetch could hand back a cursor at or past an action that
+        // was never emitted, and the `last < currentMax` backlog test read equal.
+        it('advances a >2^53 action cursor exactly instead of through a collapsed Number', function () {
+            let det = mk();  // fetchLimit 100
+            let rows = [];
+            for (let i = 0n; i < 100n; i++) rows.push({ action: 'SEND', action_index: 9007199254740000n + i });
+
+            let next = det._nextCursor(rows, 'action_index', 9007199254741000n);
+            expect(String(next)).to.equal('9007199254740099');
+            expect(typeof next).to.equal('bigint');
+        });
+
+        it('leaves the block cursor a Number (only the action cursor went BigInt)', function () {
+            let det = mk();  // fetchLimit 100
+            let rows = [];
+            for (let i = 1; i <= 100; i++) rows.push({ block_index: i });
+
+            let next = det._nextCursor(rows, 'block_index', 500);
+            expect(next).to.equal(100);
+            expect(typeof next).to.equal('number');
+        });
+
         it('drains a block burst larger than fetchLimit across polls', async function () {
             let det = mk();
             det.state.BTC = { blockIndex: 0, actionIndex: 0, initialized: true };

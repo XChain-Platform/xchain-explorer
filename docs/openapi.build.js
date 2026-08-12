@@ -167,7 +167,12 @@ const ROUTES = [
     ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token', 'recent'], 'Core', 'Combined action history'],
     ['/{COIN}/api/holders/{QUERY}', 'getHolders', 'token', 'Tokens', 'Holders of a token'],
     ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions from the decoder. PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
-    ['/{COIN}/api/network', 'getNetwork', null, 'Network', 'Network statistics'],
+    // Typed rather than left on the property-less ObjectResponse (): the
+    // xchain-dashboard monitor reads network.block to gate its checkpoint-stall
+    // alert, so a producer rename or a null there must fail a contract check
+    // instead of silently blinding the alert. Optional 6th element = per-route opts.
+    ['/{COIN}/api/network', 'getNetwork', null, 'Network', 'Network statistics',
+        { schema: { $ref: '#/components/schemas/NetworkResponse' } }],
     ['/{COIN}/api/pubkey/{QUERY}', 'getPublicKey', 'address', 'Core', 'Known public key for an address'],
     ['/{COIN}/api/project/{QUERY}', 'getProject', 'token', 'Tokens', 'Project registry roster (official tokens of a project tick)'],
     ['/{COIN}/api/token/{QUERY}', 'getToken', 'token', 'Tokens', 'Token detail (supply, info, NFT/registry surfaces)'],
@@ -369,7 +374,9 @@ function operation([p, method, types, tag, summary], opts) {
 }
 
 const paths = {};
-for (const r of ROUTES) paths[r[0]] = operation(r);
+// A ROUTES entry may carry the same optional 6th `opts` element a SPECIAL entry
+// passes, for a route whose 200 body the table conventions cannot describe.
+for (const r of ROUTES) paths[r[0]] = operation(r, r[5]);
 for (const [p, tag, summary, description, opts] of SPECIAL) {
     paths[p] = operation([p, 'special_' + opId(p), null, tag, summary], opts);
     // Optional 4th element: prose that does not fit a one-line summary. Added
@@ -430,6 +437,69 @@ const spec = {
                 required: ['total', 'data'],
             },
             ObjectResponse: { type: 'object', description: 'Single result object (fields vary per endpoint; amounts are decimal strings)' },
+            // Typed because a downstream alert depends on it (#4160). The shape is
+            // db.getNetwork()'s object plus the `runtime` every JSON response carries;
+            // test/unit/network-response-contract.test.js drives the real producer
+            // against this schema, so a field rename fails there rather than in the
+            // dashboard. Chain values here are plain integers, not the decimal-string
+            // chain indices the info.description describes.
+            NetworkAsset: {
+                type: 'object',
+                description: 'A coin or token identity with its quoted prices (decimal strings).',
+                properties: {
+                    name:   { type: 'string' },
+                    symbol: { type: 'string' },
+                    price: {
+                        type: 'object',
+                        properties: {
+                            btc: { type: 'string', description: 'Price in BTC, 8dp decimal string' },
+                            usd: { type: 'string', description: 'Price in USD, decimal string ("0.00" when no market)' },
+                        },
+                        required: ['btc', 'usd'],
+                    },
+                },
+                required: ['name', 'symbol', 'price'],
+            },
+            NetworkResponse: {
+                type: 'object',
+                description: 'Network statistics for one coin: indexer tip, mempool depth, per-action-type record counts, fee tiers, coin/XCHAIN identity and prices, and recommended finality depths.',
+                properties: {
+                    network: {
+                        type: 'object',
+                        description: 'This coin\'s indexer tip. `block` is the height the dashboard checkpoint-stall alert reads.',
+                        properties: {
+                            block:       { type: 'integer', description: 'Indexer tip height' },
+                            time:        { type: 'integer', description: 'Unix time of the tip block (0 when the chain is empty)' },
+                            unconfirmed: { type: 'integer', description: 'Mempool depth from the decoder DB (0 when unreachable)' },
+                        },
+                        required: ['block', 'time', 'unconfirmed'],
+                    },
+                    totals: {
+                        type: 'object',
+                        additionalProperties: { type: 'integer' },
+                        description: 'Exact record count per action table, keyed by table name',
+                    },
+                    fee: {
+                        type: 'object',
+                        description: 'Suggested fee tiers in sat/vByte from this coin\'s encoder',
+                        properties: {
+                            low:    { type: 'number' },
+                            medium: { type: 'number' },
+                            high:   { type: 'number' },
+                        },
+                        required: ['low', 'medium', 'high'],
+                    },
+                    coin:   { $ref: '#/components/schemas/NetworkAsset' },
+                    xchain: { $ref: '#/components/schemas/NetworkAsset' },
+                    finality: {
+                        type: 'object',
+                        additionalProperties: { type: 'integer' },
+                        description: 'Recommended confirmation depth per chain (display guidance, never a gate)',
+                    },
+                    runtime: { type: 'string', description: 'Server-side render time, present on every JSON response' },
+                },
+                required: ['network', 'totals', 'fee', 'coin', 'xchain', 'finality'],
+            },
             // The checkpoint routes answer {checkpoints, count}, never the generic
             // {total, data} list envelope (#3901). /checkpoints additionally spreads the
             // mirror-gate annotation, so those two fields are optional, not required.

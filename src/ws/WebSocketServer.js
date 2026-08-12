@@ -73,8 +73,12 @@ class WebSocketServer {
 
     // Attach to HTTP and/or HTTPS servers
     attach(servers) {
-        // Create a noServer WSS (we handle upgrade manually for path filtering)
-        this.wss = new WSServer({ noServer: true });
+        // Create a noServer WSS (we handle upgrade manually for path filtering).
+        // maxPayload MUST be set here: ws copies it into each connection's Receiver
+        // during handleUpgrade (websocket-server.js -> ws.setSocket), and the Receiver
+        // is the only thing that reads it. Setting it on the WebSocket afterwards is
+        // dead, which left the endpoint on the 100 MB library default ().
+        this.wss = new WSServer({ noServer: true, maxPayload: this.maxMessageSize });
 
         this.wss.on('connection', (ws, req, clientInfo) => {
             this._onConnection(ws, req, clientInfo);
@@ -188,9 +192,6 @@ class WebSocketServer {
         this.clients.set(clientId, client);
         this.ipCounts.set(clientInfo.ip, (this.ipCounts.get(clientInfo.ip) || 0) + 1);
 
-        // Set max message size
-        ws._maxPayload = this.maxMessageSize;
-
         this._log('connect', clientId, { coin: clientInfo.coin, ip: clientInfo.ip });
 
         // Send WELCOME
@@ -201,6 +202,28 @@ class WebSocketServer {
         ws.on('close', ()      => this._onClose(client));
         ws.on('error', (err)   => this._onError(client, err));
         ws.on('pong', ()       => { client.alive = true; });
+    }
+
+    // Is this coin's indexed tip too old for the WS layer to answer a
+    // current-state question about it?
+    //
+    // The HTTP path has refused to serve a frozen replica since 
+    // (XChainExplorer.processRequest -> 503 COIN_DATA_STALE), but every WS
+    // serving boundary skipped that gate, so a replica whose producer reports
+    // replica_stale kept answering WELCOME/CATCH_UP/SNAPSHOT out of frozen
+    // tables, stamped with a current `timestamp` and no marker ().
+    //
+    // Reads through db.isCoinTipStale, which is per-coin, 15s-cached and already
+    // fails closed on an unreadable tip, so calling it per emit costs no query.
+    // A db without the method is a unit-test double, never the shipped Database:
+    // fail OPEN there rather than throw inside a send path, mirroring the
+    // `typeof this.db.checkReorgAndInvalidate === 'function'` probe ChangeDetector
+    // uses for the same reason.
+    async _isCoinTipStale(coin) {
+        const db = this.explorer && this.explorer.db;
+        if (!db || typeof db.isCoinTipStale !== 'function') return false;
+        try { return await db.isCoinTipStale(coin); }
+        catch (e) { return false; }
     }
 
     // Send WELCOME message with server info
@@ -216,6 +239,17 @@ class WebSocketServer {
         } catch (e) {
             // Non-fatal: send WELCOME with zeros
         }
+
+        // WELCOME is the handshake, so it is annotated rather than withheld: a
+        // client that never receives it cannot subscribe, unsubscribe or read the
+        // limits, which is a worse outage than a marked one. The two indices below
+        // are frozen on a stale replica, and unmarked they read as the live chain
+        // tip. `stale` is an ADDITIVE optional field, so it needs no
+        // WS_SCHEMA_VERSION bump (ws/schema-version.js states the rule), and it
+        // carries the same name and meaning as the `stale` map /status publishes
+        // over HTTP. Chain DATA is a different question and does fail closed: see
+        // _handleCatchUp and _sendSnapshots ().
+        const tipStale = await this._isCoinTipStale(client.coin);
 
         const welcome = {
             type:      'WELCOME',
@@ -234,6 +268,10 @@ class WebSocketServer {
                 // would truncate above 2^53.
                 latest_block_index:   String(latestBlockIndex),
                 latest_action_index:  String(latestActionIndex),
+                // True when the two indices above are a frozen replica's, not the
+                // live chain tip; omitted (not false) when fresh so the frame is
+                // byte-identical to the historical one on the healthy path.
+                ...(tipStale ? { stale: true } : {}),
                 limits: {
                     max_subscriptions:      this.channelManager.maxSubscriptions,
                     max_message_rate:       this.maxMsgPerSec,
@@ -474,7 +512,12 @@ class WebSocketServer {
             this._sendError(client, 'INVALID_PARAMS', 'since_action_index must be a non-negative integer', requestId);
             return;
         }
-        sinceActionIndex = Number(sinceActionIndex);
+        // BigInt, not Number: the client sends its cursor as the decimal string the v2
+        // wire contract gave it, and Number() rounded it above 2^53 ("9007199254740995"
+        // -> 9007199254740996), so the replay asked for rows AFTER an action the client
+        // had never seen and skipped it silently (). The regex above already
+        // proved the value is a non-negative integer literal, so BigInt() cannot throw.
+        const sinceBig = BigInt(sinceActionIndex);
 
         // Check if catch-up already in progress
         if (client.catchUpInProgress) {
@@ -485,12 +528,29 @@ class WebSocketServer {
         const db     = this.explorer.db;
         const config = { coin: client.coin };
 
+        // Fail closed on a frozen replica, matching the HTTP path's 503
+        // COIN_DATA_STALE. A catch-up replays chain history the client is missing;
+        // served from a stale replica it silently hands back a SHORT replay and a
+        // CATCH_UP_COMPLETE whose latest_action_index the client then treats as
+        // caught-up, so the gap never heals. Refused through the same error frame
+        // and requestId the depth gate below uses, so no new frame type or schema
+        // version is involved ().
+        if (await this._isCoinTipStale(client.coin)) {
+            this._sendError(client, 'COIN_DATA_STALE',
+                'Indexed data for this coin is stale beyond its maximum tip age; refusing to replay it as current.',
+                requestId);
+            return;
+        }
+
         // Check depth: reject if too far behind
         try {
-            const currentMax = await db.getMaxActionIndex(config) || 0;
-            if (currentMax - sinceActionIndex > this.catchUpMaxDepth) {
+            // Both sides BigInt so the subtraction is exact and never mixes types;
+            // getMaxActionIndex answers in BigInt, and BigInt() re-wraps a Number a
+            // test double may return.
+            const currentMax = BigInt(await db.getMaxActionIndex(config) || 0);
+            if (currentMax - sinceBig > BigInt(this.catchUpMaxDepth)) {
                 this._sendError(client, 'CATCH_UP_TOO_OLD',
-                    `Requested action_index ${sinceActionIndex} is more than ${this.catchUpMaxDepth} behind current (${currentMax}). Use REST API to backfill.`,
+                    `Requested action_index ${sinceBig} is more than ${this.catchUpMaxDepth} behind current (${currentMax}). Use REST API to backfill.`,
                     requestId);
                 return;
             }
@@ -502,7 +562,7 @@ class WebSocketServer {
         client.catchUpInProgress = true;
 
         try {
-            const actions = await db.getActionsSince(config, sinceActionIndex, this.catchUpMaxEvents);
+            const actions = await db.getActionsSince(config, sinceBig, this.catchUpMaxEvents);
             const info    = this._getCoinInfo(client.coin);
             let eventsReplayed = 0;
             const truncated = actions.length >= this.catchUpMaxEvents;
@@ -542,7 +602,7 @@ class WebSocketServer {
             // break that type contract and lose precision above 2^53.
             const latestIdx = actions.length > 0
                 ? String(actions[actions.length - 1].action_index)
-                : (sinceActionIndex == null ? sinceActionIndex : String(sinceActionIndex));
+                : String(sinceBig);
 
             // Send CATCH_UP_COMPLETE
             const complete = {
@@ -575,6 +635,23 @@ class WebSocketServer {
     async _sendSnapshots(client, subscribed) {
         const db     = this.explorer.db;
         const config = { coin: client.coin };
+
+        // Fail closed on a frozen replica, matching the HTTP path's 503
+        // COIN_DATA_STALE. A SNAPSHOT is the WS answer to "what is the current
+        // state of this address/token/market", and on a stale replica it answered
+        // out of frozen tables stamped `timestamp: Date.now()` with no marker: a
+        // balance the chain has since moved, presented as live ().
+        // Withheld, not annotated, because the HTTP read of the same rows is
+        // already refused and a subscriber must not get a different answer for the
+        // same question over a different transport. One error frame carries the
+        // reason so the withholding is visible rather than an empty silence; the
+        // client's live subscriptions stay attached, so emission resumes on its own
+        // once isCoinTipStale clears.
+        if (await this._isCoinTipStale(client.coin)) {
+            this._sendError(client, 'COIN_DATA_STALE',
+                'Indexed data for this coin is stale beyond its maximum tip age; refusing to snapshot it as current.');
+            return;
+        }
 
         for (const sub of subscribed) {
             try {

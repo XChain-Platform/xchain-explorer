@@ -131,6 +131,42 @@ describe('ChannelManager', function () {
             const result = cm.subscribe(client, ['market'], { tick1: 'PEPE' });
             expect(result.success).to.be.false;
         });
+
+        // . A noncanonical index used to become a subscription identity of its
+        // own while the snapshot read coerced it back to the real row, so the client got
+        // one dispenser-7 snapshot and then no live frames (Broadcaster routes on the
+        // canonical index). Reject it at the resolver instead.
+        ['7junk', '007', '7.5', '-1', '', ' 7', '0x7', '1e3'].forEach((bad) => {
+            it(`rejects noncanonical dispenser action_index ${JSON.stringify(bad)}`, function () {
+                const client = createClient(1);
+                const singular = cm.subscribe(client, ['dispenser'], { action_index: bad });
+                expect(singular.success, 'singular path').to.be.false;
+                expect(singular.error.code).to.equal('INVALID_CHANNEL');
+                expect(client.subscriptions.size).to.equal(0);
+
+                const batch = cm.subscribe(client, ['dispenser'], { action_indexes: [bad] });
+                expect(batch.success, 'batch path').to.be.false;
+                expect(batch.error.code).to.equal('INVALID_CHANNEL');
+                expect(client.subscriptions.size).to.equal(0);
+            });
+        });
+
+        it('rejects a noncanonical entry anywhere in an action_indexes batch (bet_feed too)', function () {
+            const client = createClient(1);
+            const result = cm.subscribe(client, ['bet_feed'], { action_indexes: [100, '7junk', 300] });
+            expect(result.success).to.be.false;
+            expect(result.error.code).to.equal('INVALID_CHANNEL');
+            expect(client.subscriptions.size).to.equal(0);
+        });
+
+        it('still accepts canonical indexes as number or string, including 0', function () {
+            const client = createClient(1);
+            const result = cm.subscribe(client, ['dispenser'], { action_indexes: [7, '7', 0] });
+            expect(result.success).to.be.true;
+            // 7 and '7' collapse to the same key, so two distinct entities survive.
+            expect(client.subscriptions.size).to.equal(2);
+            expect(result.subscribed.map((s) => s.action_index)).to.include('7');
+        });
     });
 
     // -----------------------------------------------------------------

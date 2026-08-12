@@ -117,10 +117,35 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
         expect(explorer.db.getCheckpointRows.secondCall.args[2]).to.equal(100); // clamped
     });
 
-    it('clamps a negative ?limit to 1 instead of passing it to the SQL LIMIT', async function () {
+    // . A malformed ?limit now 400s rather than being coerced by parseInt's
+    // leading-prefix rule, matching processCheckpointVerifyRequest's INVALID_BLOCK_INDEX
+    // guard on the sibling route. This replaces the old "-5 clamps to 1" expectation:
+    // a negative is malformed input, not a value to silently repair.
+    ['-5', '20junk', '1.5', '1e2', 'abc', '+5'].forEach((bad) => {
+        it(`400s a malformed ?limit=${bad} instead of coercing it`, async function () {
+            const explorer = makeExplorer();
+            const res = mockRes();
+            await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: bad }), res);
+            expect(res._status).to.equal(400);
+            expect(res._body).to.include({ code: 'INVALID_LIMIT' });
+            expect(explorer.db.getCheckpointRows.called, 'no DB call on a rejected limit').to.be.false;
+        });
+    });
+
+    it('treats an empty ?limit= as absent and still applies the default of 10', async function () {
         const explorer = makeExplorer();
-        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '-5' }), mockRes());
-        expect(explorer.db.getCheckpointRows.firstCall.args[2]).to.equal(1);   // two-sided clamp
+        const res = mockRes();
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '' }), res);
+        expect(res._status).to.equal(200);
+        expect(explorer.db.getCheckpointRows.firstCall.args[2]).to.equal(10);
+    });
+
+    it('accepts a well-formed ?limit and still clamps 0 up to 1', async function () {
+        const explorer = makeExplorer();
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '25' }), mockRes());
+        expect(explorer.db.getCheckpointRows.firstCall.args[2]).to.equal(25);
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '0' }), mockRes());
+        expect(explorer.db.getCheckpointRows.secondCall.args[2]).to.equal(1);
     });
 
     it('returns null-safe { checkpoints: [], count: 0 } when the query yields nothing', async function () {

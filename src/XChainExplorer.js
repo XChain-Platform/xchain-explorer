@@ -624,6 +624,10 @@ class XChainExplorer {
         // M-4). Suppresses the empty-result assembly and the NOT_FOUND fallback
         // so the response stays a 5xx rather than a misleading empty 200 / 404.
         let dbError = false;
+        // Set when a path parameter is malformed. Like dbError it suppresses the
+        // NOT_FOUND fallback below, so a 400 does not get rewritten to a 404 by the
+        // empty-result branch ().
+        let badParam = false;
 
         let cfg = {
             coin: null, // COIN type (BTC, LTC, DOGE)
@@ -796,7 +800,18 @@ class XChainExplorer {
             // empty mirror must read as an outage, not an empty ledger), and
             // otherwise annotate lag. Same gate as the checkpoint routes.
             let mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? this._mirrorGate(cfg.coin) : null;
-            if(mirrorGate && mirrorGate.blocked){
+            // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT
+            // action_index column, and MariaDB coerces the string, so `/api/action/7junk`
+            // answered 200 with action 7 and `/api/action/junk` with action 0. Reject the
+            // malformed id before the DB call, using the same strict shape and error code
+            // as processFileRawRequest below. parseInt/sanitizeInt cannot do this job:
+            // parseInt('7junk') is 7, which reproduces the bug in JS ().
+            if(cfg.data.method === 'getAction' && cfg.data.type === 'action_index' &&
+               !/^[0-9]+$/.test(String(cfg.data.search || ''))){
+                badParam      = true;
+                response.code = 400;
+                response.json = { error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' };
+            } else if(mirrorGate && mirrorGate.blocked){
                 data  = [];
                 total = 0;
             } else if(cfg.data.method === 'getTokens' &&
@@ -819,7 +834,7 @@ class XChainExplorer {
                 }
             }
 
-            if(!dbError){
+            if(!dbError && !badParam){
             let json = {};
 
             if(this.util.isNumeric(total)){
@@ -905,7 +920,7 @@ class XChainExplorer {
         // in this service (e.g. :1071, :1133). A 400 made consumers that branch on status
         // (including xchain-sdk) treat "does not exist" as a malformed request. Empty list
         // queries are unaffected (they return 200 with total:0).
-        else if(!dbError && ['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
+        else if(!dbError && !badParam && ['api','explorer'].includes(cfg.type) && this.util.isNull(data) && this.util.isNull(total)){
             response.code = 404;
             response.json = {
                 error: 'The requested resource was not found.',
@@ -1494,7 +1509,15 @@ class XChainExplorer {
             let gate = this._mirrorGate(coin);
             if(gate.blocked)
                 return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
-            let limit = Math.max(1, Math.min(parseInt(req.query.limit) || 10, 100));
+            // Strict shape before parsing, mirroring processCheckpointVerifyRequest below:
+            // parseInt let '20junk', '1e2' and '1.5' through by prefix, and a negative
+            // clamped to 1 rather than reading as the malformed input it is ().
+            let limit = 10;
+            if(!this.util.isNull(req.query.limit)){
+                if(!/^[0-9]+$/.test(String(req.query.limit)))
+                    return res.status(400).json({ error: 'Invalid limit', code: 'INVALID_LIMIT' });
+                limit = Math.max(1, Math.min(parseInt(req.query.limit, 10), 100));
+            }
             let rows = await this.db.getCheckpointRows({ coin, data: {} }, null, limit);
             return res.json({ checkpoints: rows || [], count: (rows || []).length, ...(gate.annotate || {}) });
         } catch (e) {
@@ -1897,6 +1920,19 @@ class XChainExplorer {
             let contractIndex = req.params.contractIndex;
             if(!/^[0-9]+$/.test(String(contractIndex)))
                 return res.status(400).json({ error: 'Invalid contract index', code: 'INVALID_CONTRACT_INDEX' });
+
+            // Fail closed on a frozen replica, exactly as the catch-all data routes do.
+            // This route is hand-registered ahead of the catch-all, so it never passed
+            // through processRequest's gate: a simulation reads MUTABLE contract state,
+            // and on a stale replica it answered a "current state" question from state
+            // the replica can no longer vouch for, unannotated, while ordinary REST
+            // reads on the same coin were already returning COIN_DATA_STALE. Same coin
+            // key the pool check above and the catch-all both use ().
+            if(await this.db.isCoinTipStale(coin))
+                return res.status(503).json({
+                    error: 'Indexed data for this coin is stale beyond its maximum tip age; refusing to serve it as current.',
+                    code: 'COIN_DATA_STALE'
+                });
 
             let config = { coin, data: {} };
             let result = await vmQuery.simulate(this.db, config, Number(contractIndex), req.body || {}, parsed.coin, parsed.network, req.ip);

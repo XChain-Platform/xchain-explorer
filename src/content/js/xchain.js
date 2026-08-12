@@ -105,9 +105,13 @@ XC = {
     },
 
     // List of supported message encryption methods
+    // Keys are the protocol's ENCRYPTION_METHOD enum, 1=ECIES / 2=ECDH / 3=AES
+    // (xchain-documentation/protocol/actions/message.md). The map used to start at ECDH and
+    // omit AES, so method 1 read as ECDH, method 2 as AES, and method 3 rendered blank (item 4452).
     encryption_methods: {
-        1: 'Elliptic-Curve Diffie–Hellman (ECDH)',
-        2: 'Advanced Encryption Standard (AES)'
+        1: 'Elliptic-Curve Integrated Encryption Scheme (ECIES)',
+        2: 'Elliptic-Curve Diffie–Hellman (ECDH)',
+        3: 'Advanced Encryption Standard (AES)'
     },
 
     // Placeholder for current coin, network, query, and query type
@@ -949,7 +953,11 @@ function getActionDetails(action, info){
     }
     if(action=='AIRDROP'){
         html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
-        html += 'List ' + formatLink('/' + coin + '/token/' + info.list_action_index, info.list_action_index);
+        // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
+        // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
+        // searched for a token named after a number (item 4449). showAirdropDetails already links
+        // this same field through /action/.
+        html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
     }
     if(action=='BROADCAST'){
         // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
@@ -980,12 +988,20 @@ function getActionDetails(action, info){
     if(['DISPENSER', 'DISPENSE', 'DISPENSER_CLOSE', 'DISPENSER_CANCEL', 'DISPENSER_EXPIRE', 'DISPENSER_EDIT',
         'SWAP', 'SWAP_MATCH', 'SWAP_CANCEL', 'SWAP_EXPIRE', 'SWAP_EDIT',
         'ORDER', 'ORDER_MATCH', 'ORDER_CANCEL', 'ORDER_EXPIRE', 'ORDER_EDIT'].includes(action)){
-        html  = formatLinkAmount('/' + coin + '/token/' + info.give_tick, info.give_tick, info.give_tick, info.give_amount) + ' for ';
+        // Namespace each leg by its OWN coin, not the broadcast chain. A CROSS_CHAIN_DEX
+        // order/swap/dispenser puts give and get on different networks, and the row already
+        // carries give_coin/get_coin (db.getActionSummaryData detailFields, and the
+        // action-detail markets/dispensers queries), so the page coin linked a remote token
+        // into the wrong namespace and labelled a remote native amount local (item 4451).
+        // Fall back to the page coin for any subtype that omits the fields.
+        let give_coin = info.give_coin || coin;
+        let get_coin  = info.get_coin  || coin;
+        html  = formatLinkAmount('/' + give_coin + '/token/' + info.give_tick, info.give_tick, info.give_tick, info.give_amount) + ' for ';
         if(isNull(info.get_tick)){
             let cls = getNetworkIcon();
-            html += ' <i class="fa ' + cls + '"></i> ' + formatAmount(info.get_amount) + ' ' + coin ;
+            html += ' <i class="fa ' + cls + '"></i> ' + formatAmount(info.get_amount) + ' ' + get_coin ;
         } else {
-            html  += formatLinkAmount('/' + coin + '/token/' + info.get_tick, info.get_tick, info.get_tick, info.get_amount);
+            html  += formatLinkAmount('/' + get_coin + '/token/' + info.get_tick, info.get_tick, info.get_tick, info.get_amount);
         }
     }
     if(action=='FILE')
@@ -993,21 +1009,41 @@ function getActionDetails(action, info){
     if(action=='ISSUE')
         html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
     if(action=='LINK'){
-        html += info.coin1 + ' action ' + formatLink('/' + info.coin1 + '/token/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
-        html += info.coin2 + ' action ' + formatLink('/' + info.coin2 + '/token/' + info.coin2_action_index, info.coin2_action_index);
+        // Both link legs are ACTION indexes on their own chains (links.coin1_action_index /
+        // coin2_action_index, indexer db.js createLink), not tickers, so /token/ opened a token
+        // search for a number (item 4449). showLinkDetails already uses /action/ for these two.
+        html += info.coin1 + ' action ' + formatLink('/' + info.coin1 + '/action/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
+        html += info.coin2 + ' action ' + formatLink('/' + info.coin2 + '/action/' + info.coin2_action_index, info.coin2_action_index);
     }
     if(action=='LIST'){
         let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
-        let type2   = (info.type==2) ? 'Token' : 'Address';
+        // Read the type off the canonical map instead of a second inline copy: the copy was
+        // inverted against XC.list_types (1=Token, 2=Address), so every compact row called a
+        // token list an address list and vice versa (item 4450). showListDetails already
+        // consumes the map, so this leaves one source of truth. An invalid edit row can carry a
+        // null type (the parent lookup failed and the row persisted anyway), so name that case
+        // rather than printing 'undefined'.
+        let type2   = XC.list_types[info.type] || 'Unknown';
         html = action3 + ' ' + type2 + ' List';
     }
     if(action=='MESSAGE'){
-        if([1,2].includes(info.encryption_method)){
-            html = 'Encryption key exchange with ' + formatLink('/' + coin + '/address/' + info.destination, info.destination);
+        // Link the destination on ITS own chain: MESSAGE deliberately allows a destination on
+        // another network (the indexer validates DESTINATION against COIN, not the broadcast
+        // chain), and messages.coin is that destination network. Building the URL from the page
+        // coin sent a BTC-addressed message broadcast on DOGE to /DOGE/address/... (item 4454).
+        let dest_coin = info.coin || coin;
+        // Summarize by RECORD FORMAT, not by encryption_method: formats 0 and 1 are the key
+        // exchange, 2 is the encrypted message, 3 is plaintext (indexer actions/message.js
+        // formats). A v2 record carries no method on the wire and the indexer stamps method 1
+        // (ECIES) onto it, so keying off the method labelled every ordinary encrypted message
+        // an 'Encryption key exchange' (item 4453). A row missing action_format keeps the old
+        // plaintext/encrypted fallback rather than defaulting into the key-exchange branch.
+        if(!isNull(info.action_format) && [0,1].includes(Number(info.action_format))){
+            html = 'Encryption key exchange with ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
         } else if(info.plaintext_message){
             html = info.plaintext_message;
         } else {
-            html = 'Encrypted message to ' + formatLink('/' + coin + '/address/' + info.destination, info.destination);
+            html = 'Encrypted message to ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
         }
     }
     if(action=='MINT')
@@ -2694,6 +2730,11 @@ function showAttestDetails(data){
     if(isResponse){
         $('#info-attest .attest-response-status').text(data.response_status);
         $('#info-attest .attest-response-hash').html(formatHash(data.response_hash, 32));
+        // Show the decoded body the response delivered, not only its hash: the detail query has
+        // always selected attests.response_payload (action-detail/consensus.js) and nothing read
+        // it, so the panel could not be compared against the hash beside it (item 4455). Written
+        // with .text() because the payload is validator-broadcast free text.
+        $('#info-attest .attest-response-payload').text(isNull(data.response_payload) ? '-' : String(data.response_payload));
         $('#info-attest .attest-meta').text(isNull(data.meta) ? '-' : data.meta);
         let sigs = Array.isArray(data.signatures) ? data.signatures : [];
         $('#info-attest .attest-sig-count').text(sigs.length);
@@ -3073,7 +3114,13 @@ function showXcallDetails(data){
     let exec = data.execution || null;
     $('#info-xcall .xcall-execution-row').toggleClass('d-none', !exec);
     if(exec){
-        $('#info-xcall .xcall-execute-action').html(isNull(exec.execute_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + exec.execute_action_index, exec.execute_action_index));
+        // Namespace the executed action by the TARGET chain: action indexes are chain-local and
+        // this one was minted by XEXEC on the far chain, so XC.coin pointed the link at whatever
+        // unrelated action shares that index here (item 4457). The callback link below keeps
+        // XC.coin because the callback is delivered back on this chain. Fall back to the page
+        // coin only if target_chain is missing.
+        let exec_coin = data.target_chain || XC.coin;
+        $('#info-xcall .xcall-execute-action').html(isNull(exec.execute_action_index) ? '-' : formatLink('/' + exec_coin + '/action/' + exec.execute_action_index, exec.execute_action_index));
         $('#info-xcall .xcall-result-status').text(isNull(exec.result_status) ? '-' : exec.result_status);
         $('#info-xcall .xcall-return-payload').html(isNull(exec.return_payload_b64) ? '-' : formatHash(exec.return_payload_b64, 32));
         $('#info-xcall .xcall-gas-used').text(isNull(exec.gas_used) ? '-' : numeral(exec.gas_used).format('0,0'));
@@ -3185,7 +3232,8 @@ function showMessageDetails(data){
     $('#info-message .message-key').text(data.encryption_key);
     $('#info-message .message-plaintext').text(data.plaintext_message);
     $('#info-message .message-encrypted').text(data.encrypted_message);
-    $('#info-message .message-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    // Link the destination on ITS own chain (messages.coin), not the broadcast chain (item 4454).
+    $('#info-message .message-destination').html(formatLink('/' + (data.coin || XC.coin) + '/address/' + data.destination, data.destination));
 }
 
 // Display MINT action information

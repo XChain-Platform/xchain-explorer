@@ -865,7 +865,14 @@ describe('Database#getHistoryData', () => {
 
 describe('Database#getActionSummaryData', () => {
     let db;
-    beforeEach(() => { db = makeDb(); });
+    beforeEach(() => {
+        db = makeDb();
+        // These cases stub getActionData to pin the projection loop, so the page-level
+        // shared-leg prefetch () has no reader; null is the "no preload" state
+        // getActionData already handles. Its parity is covered against a real MariaDB in
+        // test/integration/action-preload-parity.test.js.
+        sinon.stub(db, '_buildActionPreload').resolves(null);
+    });
     afterEach(() => { sinon.restore(); });
 
     it('returns the same array it was passed (pass-through)', async () => {
@@ -958,19 +965,29 @@ describe('Database#getMaxActionIndex', () => {
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
-    it('returns the max action_index number', async () => {
+    // #4155: this value is the WebSocket live/catch-up cursor, so it answers in
+    // BigInt. Number() collapsed two consecutive indices above 2^53 onto one value
+    // and the poll loop then stalled or skipped a NEW_ACTION frame.
+    it('returns the max action_index as an exact BigInt', async () => {
         sinon.stub(db, 'doQuery').resolves([{ max_index: 99999 }]);
-        expect(await db.getMaxActionIndex(cfg())).to.equal(99999);
+        expect(await db.getMaxActionIndex(cfg())).to.equal(99999n);
     });
 
-    it('returns 0 when max_index is null', async () => {
+    it('keeps an above-2^53 max_index exact instead of rounding it', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ max_index: '9007199254740995' }]);
+        const max = await db.getMaxActionIndex(cfg());
+        expect(max).to.equal(9007199254740995n);
+        expect(String(max)).to.equal('9007199254740995');
+    });
+
+    it('returns 0n when max_index is null', async () => {
         sinon.stub(db, 'doQuery').resolves([{ max_index: null }]);
-        expect(await db.getMaxActionIndex(cfg())).to.equal(0);
+        expect(await db.getMaxActionIndex(cfg())).to.equal(0n);
     });
 
-    it('returns 0 when doQuery returns empty', async () => {
+    it('returns 0n when doQuery returns empty', async () => {
         sinon.stub(db, 'doQuery').resolves([]);
-        expect(await db.getMaxActionIndex(cfg())).to.equal(0);
+        expect(await db.getMaxActionIndex(cfg())).to.equal(0n);
     });
 });
 
@@ -2433,7 +2450,12 @@ describe('Database#getHistoryData: additional branches', () => {
 
 describe('Database#getActionSummaryData: non-SEND actions', () => {
     let db;
-    beforeEach(() => { db = makeDb(); });
+    beforeEach(() => {
+        db = makeDb();
+        // Same reason as the sibling describe above: getActionData is stubbed here, so
+        // the  prefetch has no reader (see action-preload-parity.test.js).
+        sinon.stub(db, '_buildActionPreload').resolves(null);
+    });
     afterEach(() => { sinon.restore(); });
 
     it('copies direct fields from info to details for non-SEND action (line 6070)', async () => {

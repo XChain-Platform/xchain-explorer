@@ -32,6 +32,11 @@ const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser', 'bet
 // All valid channels
 const ALL_CHANNELS = new Set([...GLOBAL_CHANNELS, ...ENTITY_CHANNELS]);
 
+// Canonical decimal form of an action_index subscription key: no sign, no leading
+// zeros, no fraction, no trailing junk. Anything else is a distinct subscription
+// identity that the DB would silently coerce back to a real row ().
+const CANONICAL_INDEX = /^(0|[1-9][0-9]*)$/;
+
 // Valid action types for the types filter
 const VALID_TYPES = new Set([
     // Indexed action types
@@ -451,12 +456,24 @@ class ChannelManager {
                 // subscription so SUBSCRIBED, SUBSCRIPTION_LIST and UNSUBSCRIBED all carry
                 // the same representation (a client may send it as a number or a string).
                 // bet_feed shares this shape: the feed id IS its creating action_index.
-                if (params.action_indexes && Array.isArray(params.action_indexes)) {
-                    for (const idx of params.action_indexes) keys.push({ action_index: String(idx) });
-                } else if (params.action_index !== undefined) {
-                    keys.push({ action_index: String(params.action_index) });
-                } else {
-                    return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel requires action_index or action_indexes param` } };
+                //
+                // String() alone normalized the TYPE but not the VALUE, so "7junk" and
+                // "007" became subscription identities of their own while the snapshot
+                // read (db.getDispenserInfo -> WHERE d.action_index=?) coerced them to
+                // dispenser 7. The subscriber then saw one snapshot and no live frames,
+                // since Broadcaster routes on the canonical index ().
+                {
+                    const raw = (params.action_indexes && Array.isArray(params.action_indexes))
+                        ? params.action_indexes
+                        : (params.action_index !== undefined ? [params.action_index] : null);
+                    if (raw === null)
+                        return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel requires action_index or action_indexes param` } };
+                    for (const idx of raw) {
+                        const str = String(idx);
+                        if (!CANONICAL_INDEX.test(str))
+                            return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel action_index must be a canonical decimal integer (got: ${str})` } };
+                        keys.push({ action_index: str });
+                    }
                 }
                 break;
 

@@ -127,6 +127,14 @@ function makeDb() {
     const db = new Database(mockExplorer);
     // getActionData resolves asynchronously in production; the batch loader awaits it.
     db.getActionData = async (config, action_index) => fixtureFor(action_index);
+    // The page-level shared-leg prefetch () is real DB work that only
+    // getActionData consumes, so with getActionData stubbed out it has no reader and
+    // would just want a pool this suite has no reason to own. null is the same "no
+    // preload" state getActionData already handles for every non-page caller. The
+    // prefetch's own payload parity is proved against a real MariaDB in
+    // test/integration/action-preload-parity.test.js, never here: this file stubs
+    // getActionData, so it can say nothing about getActionData's internals.
+    db._buildActionPreload = async () => null;
     // configInfo.getConfig is not exercised by the stubbed getActionData path.
     return db;
 }

@@ -123,10 +123,20 @@ const EFFECT_TABLES = [
     { key: 'escrows', table: 'escrows e1', alias: 'e1' }
 ];
 
-async function attachLedgerEffects(db, config, action_index, data, effects) {
+async function attachLedgerEffects(db, config, action_index, data, effects, preloaded) {
     let flags = effects || {};
     for(let effect of EFFECT_TABLES){
         if(flags[effect.key] === false) continue;
+        // Page-prefetched rows (prefetchLedgerEffects, ). The prefetch is
+        // driven by these same `effects` flags, so an index that reaches here with a
+        // preload in hand was always in that table's prefetched set: a missing map
+        // entry means the action has no rows, never "not fetched".
+        if(preloaded && preloaded[effect.key]){
+            let rows = preloaded[effect.key].get(Number(action_index));
+            if(rows && rows.length)
+                data[effect.key] = rows;
+            continue;
+        }
         let a = effect.alias;
         let query = `SELECT
                     a1.address,
@@ -148,4 +158,53 @@ async function attachLedgerEffects(db, config, action_index, data, effects) {
     }
 }
 
-module.exports = { applyOfferState, applyOfferListEdits, deblankBaseline, attachLedgerEffects };
+// Prefetch the ledger effects for a whole PAGE of actions: one query per effect
+// table over the index set, instead of three queries per action (, the
+// N+1 the concurrent fan-out overlapped but never removed). `indexesByEffect`
+// names, per table, only the action_indexes whose handler actually wants that
+// table, so a page of non-ledger actions still issues no query for it.
+//
+// Byte-parity with attachLedgerEffects is structural, not asserted: the SELECT
+// list is the single-index one with the grouping key appended and deleted again
+// (leaving the address/tick/amount key order untouched), and the ORDER BY is the
+// single-index one with action_index in front, so each index's slice comes back
+// in exactly the order the per-index query returns.
+//
+// Returns { credits, debits, escrows }, each a Map of action_index -> rows.
+async function prefetchLedgerEffects(db, config, indexesByEffect) {
+    let out = {};
+    for(let effect of EFFECT_TABLES){
+        let idxs = (indexesByEffect && indexesByEffect[effect.key]) || [];
+        let map  = new Map();
+        out[effect.key] = map;
+        if(!idxs.length) continue;
+        let a  = effect.alias;
+        let ph = idxs.map(() => '?').join(',');
+        let query = `SELECT
+                    a1.address,
+                    t1.tick,
+                    ${a}.amount,
+                    ${a}.action_index as _group_index
+                FROM
+                    ${effect.table}
+                    LEFT  JOIN index_tickers   t1 ON (t1.id=${a}.tick_id)
+                    LEFT  JOIN index_addresses a1 ON (a1.id=${a}.address_id)
+                WHERE
+                    ${a}.action_index IN (${ph})
+                ORDER BY
+                    ${a}.action_index ASC,
+                    t1.tick ASC,
+                    CAST(${a}.amount as DECIMAL(64,18)) DESC,
+                    a1.address ASC`;
+        let results = await db.doQuery(config, query, [...idxs]);
+        for(let row of (results || [])){
+            let key = Number(row._group_index);
+            delete row._group_index;
+            if(!map.has(key)) map.set(key, []);
+            map.get(key).push(row);
+        }
+    }
+    return out;
+}
+
+module.exports = { applyOfferState, applyOfferListEdits, deblankBaseline, attachLedgerEffects, prefetchLedgerEffects };

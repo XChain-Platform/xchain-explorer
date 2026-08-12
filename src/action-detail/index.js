@@ -84,5 +84,8 @@ module.exports = {
     getHandler,
     // The two pipeline steps that are the same for every action.
     deblankBaseline:     shared.deblankBaseline,
-    attachLedgerEffects: shared.attachLedgerEffects
+    attachLedgerEffects: shared.attachLedgerEffects,
+    // Page-level form of the effects step (): one query per effect
+    // table for a whole index set, feeding attachLedgerEffects' preload arg.
+    prefetchLedgerEffects: shared.prefetchLedgerEffects
 };

@@ -309,6 +309,33 @@ describe('XChainExplorer.processRequest – routing', function () {
             expect(res._status).to.equal(404);
         });
 
+        // . The action route binds its path segment against a BIGINT column, so
+        // MariaDB coerced '7junk' to 7 and answered 200 with action 7. The 400 must also
+        // survive the empty-result branch further down, which used to rewrite it to 404.
+        ['7junk', 'junk', '7.5', '-1', '0x7', '7%20'].forEach((bad) => {
+            it(`400s /BTC/api/action/${bad} instead of coercing it to a real action`, async function () {
+                const { cfg, res } = await request(explorer, '/BTC/api/action/' + bad);
+                expect(res._status).to.equal(400);
+                // processRequest serializes the api body itself, so _body is a JSON string.
+                expect(JSON.parse(res._body).code).to.equal('INVALID_ACTION_INDEX');
+                expect(cfg, 'the DB was never queried').to.be.null;
+            });
+        });
+
+        it('still routes a well-formed /BTC/api/action/7 through to the DB', async function () {
+            const { cfg, res } = await request(explorer, '/BTC/api/action/7');
+            expect(cfg, 'the DB was queried').to.not.be.null;
+            expect(cfg.data.method).to.equal('getAction');
+            expect(cfg.data.search).to.equal('7');
+            expect(res._status).to.not.equal(400);
+        });
+
+        it('leaves the sibling numeric route /BTC/api/block/{n} untouched by the action guard', async function () {
+            const { cfg } = await request(explorer, '/BTC/api/block/9junk');
+            expect(cfg, 'block route still reaches the DB (out of this fix scope)').to.not.be.null;
+            expect(cfg.data.method).to.equal('getBlock');
+        });
+
         it('returns 503 for a supported-but-unavailable coin (LTC not in COIN_AVAILABLE)', async function () {
             // LTC is in COIN_SUPPORTED but not in COIN_AVAILABLE (per mock-config).
             const res = mockRes();
@@ -378,6 +405,54 @@ describe('XChainExplorer.processRequest – routing', function () {
             await withTip(true).processRequest(mockReq('/LTC/api/sends/addr1/address'), res);
             expect(res._status).to.equal(503);
             expect(JSON.parse(res._body)).to.include({ code: 'COIN_NOT_AVAILABLE' });   // LTC has no pool here
+        });
+
+    });
+
+    // -----------------------------------------------------------------------
+    // 5c. Tip-freshness gate on the contract-simulation route ()
+    // -----------------------------------------------------------------------
+
+    describe('tip-freshness gate: contract simulation', function () {
+
+        // POST /{COIN}/api/contract/{idx}/call is hand-registered ahead of the
+        // catch-all, so it never ran processRequest's gate above and answered a
+        // current-state question from a frozen replica's contract state.
+        function withTip(stale) {
+            const e = makeExplorer();
+            e.db.pools = { RBTC: {} };
+            e.db.isCoinTipStale = async () => stale;
+            return e;
+        }
+
+        function callReq() {
+            return { params: { coin: 'RBTC', contractIndex: '40' }, body: { method: 'get' }, ip: '127.0.0.1' };
+        }
+
+        it('refuses the simulation with 503 COIN_DATA_STALE when the indexed tip is stale', async function () {
+            const res = mockRes();
+            await withTip(true).processContractCallRequest(callReq(), res);
+            expect(res._status).to.equal(503);
+            expect(res._body).to.include({ code: 'COIN_DATA_STALE' });
+        });
+
+        it('does not gate the simulation when the tip is fresh', async function () {
+            const res = mockRes();
+            await withTip(false).processContractCallRequest(callReq(), res);
+            // The VM is not wired in this unit harness, so the call fails past the
+            // gate; what matters is that the freshness gate is not what stopped it.
+            expect(res._body && res._body.code).to.not.equal('COIN_DATA_STALE');
+        });
+
+        it('rejects a malformed contract index before consulting the tip', async function () {
+            const e = withTip(true);
+            let consulted = false;
+            e.db.isCoinTipStale = async () => { consulted = true; return true; };
+            const res = mockRes();
+            await e.processContractCallRequest(
+                { params: { coin: 'RBTC', contractIndex: 'not-a-number' }, body: {}, ip: '127.0.0.1' }, res);
+            expect(res._status).to.equal(400);
+            expect(consulted, 'shape errors stay 400, not 503').to.equal(false);
         });
 
     });

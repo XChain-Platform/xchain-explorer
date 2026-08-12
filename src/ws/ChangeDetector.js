@@ -111,10 +111,35 @@ class ChangeDetector extends EventEmitter {
         }
     }
 
+    // Is this coin's indexed tip too old for the live feed to present its rows as
+    // current? Same per-coin, 15s-cached, fail-closed verdict the HTTP path gates
+    // on (db.isCoinTipStale). A db without the method is a unit-test double, never
+    // the shipped Database, so fail OPEN there, mirroring the
+    // `typeof this.db.checkReorgAndInvalidate === 'function'` probe in _checkCoin.
+    async _isCoinTipStale(coin) {
+        if (!this.db || typeof this.db.isCoinTipStale !== 'function') return false;
+        try { return await this.db.isCoinTipStale(coin); }
+        catch (e) { return false; }
+    }
+
     async _poll() {
         if (!this.running) return;
 
         for (const coin of Object.keys(this.state)) {
+            // Fail closed on a stale replica, matching the HTTP path and the WS
+            // serving boundaries (). A FROZEN replica emits nothing here
+            // anyway (every emit below is triggered by the tip advancing), but a
+            // replica REPLAYING history from a snapshot does advance while its
+            // newest block_time is hours old, and it pushed NEW_BLOCK/NEW_ACTION/
+            // ADDRESS_UPDATE frames for historical blocks stamped
+            // `timestamp: Date.now()`, which a subscriber reads as the chain tip.
+            // Evaluated once per coin per cycle, which is what the cached verdict is
+            // sized for, and it suppresses the mempool diff too: a mempool read from
+            // a replica that cannot vouch for its own tip is no more current than its
+            // blocks. Cursors are left untouched, so the backlog emits normally once
+            // the tip catches up rather than being skipped.
+            if (await this._isCoinTipStale(coin)) continue;
+
             try {
                 await this._checkCoin(coin);
             } catch (e) {
@@ -187,7 +212,10 @@ class ChangeDetector extends EventEmitter {
             reorged = await this.db.checkReorgAndInvalidate(config);
 
         const currentBlockIndex  = await this.db.getMaxBlockIndex(config) || 0;
-        const currentActionIndex = await this.db.getMaxActionIndex(config) || 0;
+        // Zero-default is 0n, not 0: getMaxActionIndex answers in BigInt so the
+        // action cursor stays exact above 2^53 (#4155), and `0n || 0` would have
+        // flipped an empty chain's cursor back to Number for the rest of the poll.
+        const currentActionIndex = await this.db.getMaxActionIndex(config) || 0n;
 
         // First poll: seed state without emitting
         if (!prev.initialized) {
@@ -419,11 +447,24 @@ class ChangeDetector extends EventEmitter {
     // jumping to the tip (which would drop the un-fetched remainder). An empty fetch
     // (rows filtered out despite a higher tip) advances to the tip so the same empty
     // range is not re-polled forever.
+    // Compares as BigInt: both index columns are BIGINT, and Number() collapsed two
+    // consecutive action indices above 2^53 onto one value, so a backlog cursor could
+    // land at or past an action that was never emitted (). The return keeps
+    // currentMax's own type so the block cursor stays a Number and only the action
+    // cursor, whose currentMax is now BigInt, becomes exact.
     _nextCursor(rows, indexKey, currentMax) {
         if (!rows || rows.length === 0) return currentMax;
-        const last = Number(rows[rows.length - 1][indexKey]);
-        if (rows.length >= this.fetchLimit && Number.isFinite(last) && last < currentMax)
-            return last;
+        let last, max;
+        // A malformed/absent index on the last row is not a cursor: fall back to the
+        // tip rather than throw out of the poll loop, matching the old isFinite guard.
+        try {
+            last = BigInt(rows[rows.length - 1][indexKey]);
+            max  = BigInt(currentMax);
+        } catch (e) {
+            return currentMax;
+        }
+        if (rows.length >= this.fetchLimit && last < max)
+            return (typeof currentMax === 'bigint') ? last : Number(last);
         return currentMax;
     }
 

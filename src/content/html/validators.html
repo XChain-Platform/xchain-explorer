@@ -17,12 +17,15 @@
                         <th class="">Signing Pubkey</th>
                         <th class="">Version</th>
                         <th class="quantity">Stake Amount</th>
+                        <th class="">Hub Address</th>
+                        <th class="">Chains</th>
+                        <th class="">Registration</th>
                         <th class="view"></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="8" class="loading-data">Loading validator data...</td>
+                        <td colspan="11" class="loading-data">Loading validator data...</td>
                     </tr>
                 </tbody>
                 </table>
@@ -35,7 +38,7 @@
 $(document).ready(function() {
 
     XC.pageInfo.title       = 'Validators';
-    XC.pageInfo.description = 'Active capability-staking validators on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. Aggregate stake per pubkey auto-qualifies it for the price, cross_chain, oracle_publish and attestation capabilities.';
+    XC.pageInfo.description = 'Active capability-staking validators on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. Aggregate stake per pubkey auto-qualifies it for the price, cross_chain, oracle_publish and attestation capabilities. The hub address, served chains and registration status come from the hub federation registry for the same signing pubkey.';
     XC.pageInfo.canonical   = '/' + XC.coin + '/validators';
     updatePageInfo();
 

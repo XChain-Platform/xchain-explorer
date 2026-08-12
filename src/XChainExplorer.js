@@ -1215,12 +1215,18 @@ class XChainExplorer {
                     if(['getDeposits','getWithdrawals'].includes(method))
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.contract_index, info.tick, info.amount, status, info.action_index];
                     // Capability staking list pages. The raw stakes page keeps action_index LAST
-                    // (paging cursor); validators carry activation/deactivation tails for the active-set
-                    // view (small set, single page) and are shaped separately.
+                    // (paging cursor).
                     if(method=='getStakes')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index];
+                    // : the validators row carries the hub federation registry's
+                    // addr/chains/registration-status for the same signing pubkey (db.js
+                    // getData folds them on), so the on-chain active set and the hub registry
+                    // render as ONE table instead of a second federation page. Those columns
+                    // plus the activation/deactivation tails all sit BEFORE status/action_index:
+                    // the client reads status second-to-last and action_index last (view link +
+                    // paging cursor), so nothing may displace them.
                     if(method=='getValidators')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index, info.activation_block, info.deactivation_block];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, info.hub_addr, info.hub_chains, info.hub_status, info.activation_block, info.deactivation_block, status, info.action_index];
                     if(method=='getDelegations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, status, info.action_index];
                     if(method=='getValidatorRewards')
@@ -1585,9 +1591,18 @@ class XChainExplorer {
             // Per-validator { pubkey, weight, source } so a client can re-derive the
             // weighted verdict locally (weight = the key's stake amount; source = its
             // stake-weight grouping key, empty string in the legacy count regime).
+            // A missing amount is carried through as null, NOT as '0' .
+            // capability_snapshots.amount is NOT NULL, so a null here means a corrupt
+            // mirror row - and resolving it to '0' would be the worst possible repair:
+            // the source stays in the quorum's dedupe map carrying no stake, so the
+            // denominator S shrinks while a signer keeps the full numerator and a
+            // smaller real stake clears 3*tally > 2*S. Carrying the absence through
+            // makes meetsStakeThreshold fail closed here AND in any client that
+            // re-derives the verdict from this same served set, instead of both of
+            // them agreeing on a laundered, quorate-looking answer.
             let validatorSet = validators.map(v => ({
                 pubkey: String(v.signing_pubkey).toLowerCase(),
-                weight: String(v.amount != null ? v.amount : '0'),
+                weight: (v.amount === null || v.amount === undefined) ? null : String(v.amount),
                 source: String(v.source != null ? v.source : '')
             }));
 

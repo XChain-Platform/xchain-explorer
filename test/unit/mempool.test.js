@@ -15,10 +15,19 @@
  * db.decodeMempoolRow / db.getMempool, the ChangeDetector mempool diffing,
  * and Broadcaster MEMPOOL_ACTION / MEMPOOL_REMOVED routing. The decoder DB
  * is stubbed throughout; no real database.
+ *
+ * Encoding contract : mempool_transactions.data holds the canonical
+ * UTF-8 ACTION string, byte-identical to what the decoder's confirmed-block
+ * path writes to transactions.data. It is not hex. The fixtures below are
+ * therefore plain text, and the drift guard at the bottom of this file pins the
+ * explorer's read against the decoder's actual write so neither side can move
+ * alone.
  */
 
 'use strict';
 
+const fs             = require('fs');
+const path           = require('path');
 const sinon          = require('sinon');
 const { expect }     = require('chai');
 const Database       = require('../../src/db.js');
@@ -37,9 +46,12 @@ function mkDb(rows) {
     return db;
 }
 
-const SEND_ROW  = { tx_hash: 'aa11', source: 'srcAddr1', data_hex: hex('SEND|0|TOK|5|destAddr1|nonce123') };
-const MINT_ROW  = { tx_hash: 'bb22', source: 'srcAddr2', data_hex: hex('MINT|0|OTHER|9') };
-const TRASH_ROW = { tx_hash: 'cc33', source: 'srcAddr3', data_hex: 'zz-not-hex-!!' };
+const SEND_ROW  = { tx_hash: 'aa11', source: 'srcAddr1', data: 'SEND|0|TOK|5|destAddr1|nonce123' };
+const MINT_ROW  = { tx_hash: 'bb22', source: 'srcAddr2', data: 'MINT|0|OTHER|9' };
+const TRASH_ROW = { tx_hash: 'cc33', source: 'srcAddr3', data: 'zz-not-an-action-!!' };
+// A row written by a pre- decoder that still hex-encoded the payload.
+// It must NOT decode: the mempool feed drops it rather than showing mojibake.
+const LEGACY_HEX_ROW = { tx_hash: 'dd44', source: 'srcAddr4', data: hex('SEND|0|TOK|5|destAddr1|nonce123') };
 
 describe('decoder mempool surface', () => {
 
@@ -64,6 +76,8 @@ describe('decoder mempool surface', () => {
             expect(sql).to.include('m.tx_hash');
             expect(sql).to.include('m.source');
             expect(sql).to.include('m.data');
+            // The column is text, so it must not be aliased (or read) as hex.
+            expect(sql).to.not.include('data_hex');
             expect(sql).to.include('LIMIT 500');
         });
 
@@ -75,7 +89,7 @@ describe('decoder mempool surface', () => {
     });
 
     describe('db.decodeMempoolRow', () => {
-        it('decodes hex to the action string and extracts the action name', () => {
+        it('reads the stored UTF-8 action string and extracts the action name', () => {
             const db = mkDb([]);
             const d = db.decodeMempoolRow(SEND_ROW);
             expect(d).to.deep.equal({
@@ -84,11 +98,30 @@ describe('decoder mempool surface', () => {
             });
         });
 
-        it('returns null for garbage rows', () => {
+        it('accepts a Buffer-valued data column (driver returning TEXT as binary)', () => {
+            const db = mkDb([]);
+            const d = db.decodeMempoolRow({ ...SEND_ROW, data: Buffer.from(SEND_ROW.data, 'utf8') });
+            expect(d.action).to.equal('SEND');
+            expect(d.data).to.equal('SEND|0|TOK|5|destAddr1|nonce123');
+        });
+
+        it('does NOT hex-decode: a hex-looking payload is not treated as an action', () => {
+            // The regression this pins : the explorer used to run
+            // Buffer.from(data, 'hex') over a column the decoder writes as plain
+            // text, which silently blanked every pending action. Reading text as
+            // text must stay the only interpretation, in both directions.
+            const db = mkDb([]);
+            expect(db.decodeMempoolRow(LEGACY_HEX_ROW)).to.equal(null);
+        });
+
+        it('returns null for garbage rows and the rejected-ACTION "" sentinel', () => {
             const db = mkDb([]);
             expect(db.decodeMempoolRow(TRASH_ROW)).to.equal(null);
             expect(db.decodeMempoolRow({ tx_hash: 'x' })).to.equal(null);
-            expect(db.decodeMempoolRow({ tx_hash: 'x', data_hex: hex('|||') })).to.equal(null);
+            expect(db.decodeMempoolRow({ tx_hash: 'x', data: '|||' })).to.equal(null);
+            // The decoder stores '' (never NULL) for a money-bearing tx whose
+            // ACTION was invalid or unknown; it is not a renderable action.
+            expect(db.decodeMempoolRow({ tx_hash: 'x', data: '' })).to.equal(null);
         });
     });
 
@@ -191,6 +224,70 @@ describe('decoder mempool surface', () => {
             detector.emit('mempool_removed', 'RBTC', { tx_hash: 'aa11' });
             expect(sent).to.have.lengthOf(1);
             expect(sent[0]).to.include({ channel: 'mempool', type: 'MEMPOOL_REMOVED' });
+        });
+    });
+
+    /******************************************************************
+     * Cross-repo encoding pin 
+     *
+     * The explorer's read and the decoder's write have to agree on how
+     * mempool_transactions.data is encoded, and they live in two repos, so a
+     * test inside either one alone cannot catch a one-sided change: that is
+     * exactly how the explorer ended up hex-decoding a column the decoder had
+     * started writing as text. These two tests drive the decoder's own
+     * canonicalization into the explorer's own reader, and read the decoder's
+     * write site directly, so moving either side turns this red.
+     *
+     * Skips when no sibling xchain-decoder checkout is present (always true in
+     * the platform monorepo; the standalone-explorer CI job has no decoder).
+     *****************************************************************/
+    describe('decoder/explorer mempool encoding pin ', () => {
+        const decoderRoot = process.env.XCHAIN_DECODER_ROOT ||
+                            path.resolve(__dirname, '../../../xchain-decoder');
+        const decoderSrc  = path.join(decoderRoot, 'src', 'XChainDecoder.js');
+        const hasDecoder  = fs.existsSync(decoderSrc);
+
+        it('the decoder-canonical stored form is what the explorer reader parses', function () {
+            if (!hasDecoder) this.skip();
+            let canonicalizeActionPayload;
+            try {
+                ({ canonicalizeActionPayload } = require(decoderSrc));
+            } catch (e) {
+                this.skip();                       // sibling checkout without installed deps
+                return;
+            }
+            const strict = new TextDecoder('utf-8', { fatal: true });
+            const db = mkDb([]);
+            const SAMPLES = [
+                'SEND|0|TOK|5|destAddr1|nonce123',
+                'ATTEST|0|hello world',
+            ];
+            for (const wire of SAMPLES) {
+                // Exactly what the decoder's mempool path writes to the column.
+                const canonical = canonicalizeActionPayload(Buffer.from(wire, 'utf8'));
+                const stored    = strict.decode(canonical.buffer);
+                expect(stored, 'decoder stored form drifted from the UTF-8 ACTION string').to.equal(wire);
+
+                const decoded = db.decodeMempoolRow({ tx_hash: 'aa11', source: 'srcAddr1', data: stored });
+                expect(decoded, 'explorer could not read the decoder stored form for ' + wire).to.not.equal(null);
+                expect(decoded.data).to.equal(wire);
+                expect(decoded.action).to.equal(wire.split('|')[0]);
+            }
+        });
+
+        it('the decoder mempool INSERT still passes the decoded string, not hex', function () {
+            if (!hasDecoder) this.skip();
+            const src = fs.readFileSync(decoderSrc, 'utf8');
+            const at  = src.indexOf('insertMempoolTransaction({');
+            expect(at, 'decoder mempool INSERT call site not found').to.be.greaterThan(-1);
+            // The assignment of the value bound to `data:` lives just above the call.
+            const site = src.slice(Math.max(0, at - 2500), at + 600);
+            expect(site, 'decoder mempool INSERT no longer stores the UTF-8 decode')
+                .to.match(/data:\s*mempoolDataString/);
+            expect(site, 'decoder mempool payload is no longer produced by a UTF-8 decode')
+                .to.include('strictTextDecoder.decode(mempoolData)');
+            expect(site, 'decoder mempool write reintroduced hex encoding; the explorer read must move with it')
+                .to.not.match(/toString\(\s*['"]hex['"]\s*\)/);
         });
     });
 });

@@ -66,6 +66,11 @@ const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer',
 const DECODER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-decoder', 'src', 'sql');
 const FIXTURE_SCHEMA  = path.join(__dirname, '..', 'integration', 'fixtures', 'schema.sql');
 
+// The canonical UTF-8 ACTION string the decoder writes to
+// mempool_transactions.data . Kept as plain text on purpose: it is the
+// same representation the confirmed-block path writes to transactions.data.
+const MEMPOOL_ACTION_STRING = 'SEND|0|CONFTICK|1|bcrt1qconformance|';
+
 // A MariaDB error that means the SQL disagrees with the schema. This is the
 // drift class the canary exists for; anything matching it is a hard failure.
 // (doQuery wraps the driver error, so match on the propagated message text.)
@@ -368,8 +373,11 @@ describe(' real-schema conformance canary (real DDL on real MariaDB)', function 
         const conn = await adminPool.getConnection();
         try {
             await conn.query('USE `' + DECODER_DB + '`');
+            // Seeded as the canonical UTF-8 ACTION string, which is what the
+            // decoder's mempool path writes ; this row is byte-identical
+            // to the `transactions.data` value its confirmed twin would carry.
             await conn.query('INSERT INTO mempool_transactions (tx_hash, source, destination, amount, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
-                ['conf-mempool-tx-1', 'bcrt1qconformance', 'bcrt1qconformance', 0, 500, Buffer.from('SEND|0|CONFTICK|1|bcrt1qconformance|').toString('hex')]);
+                ['conf-mempool-tx-1', 'bcrt1qconformance', 'bcrt1qconformance', 0, 500, MEMPOOL_ACTION_STRING]);
         } finally {
             conn.release();
         }
@@ -379,6 +387,14 @@ describe(' real-schema conformance canary (real DDL on real MariaDB)', function 
         const rows = await db.getDecoderMempoolRows({ coin: 'RBTC' }, 10);
         expect(rows.length, 'decoder mempool query returned nothing for a seeded row (schema drift or pool wiring)').to.equal(1);
         expect(rows[0].tx_hash).to.equal('conf-mempool-tx-1');
+        // Encoding parity against the REAL column type, not a stub: the read has
+        // to hand back the same string that went in, and decodeMempoolRow has to
+        // parse it. A one-sided switch back to hex on either side fails here.
+        expect(String(rows[0].data), 'mempool data column round-trip changed the payload').to.equal(MEMPOOL_ACTION_STRING);
+        const decodedMempool = db.decodeMempoolRow(rows[0]);
+        expect(decodedMempool, 'explorer could not decode a real decoder mempool row').to.not.equal(null);
+        expect(decodedMempool.action).to.equal('SEND');
+        expect(decodedMempool.data).to.equal(MEMPOOL_ACTION_STRING);
     });
 
     /******************************************************************

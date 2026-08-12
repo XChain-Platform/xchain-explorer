@@ -1895,15 +1895,34 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
-            // Validator / capability stake
+            // Validator / capability stake. : eq(7)-eq(9) are the hub federation
+            // registry's view of the SAME signing pubkey (addr / served chains /
+            // registration status), folded onto the on-chain active set so this one page
+            // covers both. Registry strings are hub-supplied free text, so they render as
+            // TEXT, never as markup. A null status means no registry was reachable
+            // (unknown); 'unregistered' means the registry answered and does not list
+            // this pubkey.
             if(action=='validator'){
-                let pubkey  = data[4];
-                let version = data[5];
-                amount      = data[6];
+                let pubkey     = data[4];
+                let version    = data[5];
+                amount         = data[6];
+                let hub_addr   = data[7];
+                let hub_chains = data[8];
+                let hub_status = data[9];
+                let reg_cls    = (hub_status=='active')     ? 'success'
+                               : (hub_status=='suspended')  ? 'warning text-dark'
+                               : (hub_status=='removed')    ? 'danger'
+                               : (hub_status=='unregistered') ? 'secondary'
+                               : 'light text-dark';
                 $('td', row).eq(4).html(formatHash(pubkey));
                 $('td', row).eq(5).text('v' + version);
                 $('td', row).eq(6).html(formatAmount(amount));
-                $('td', row).eq(7).html(action_link);
+                $('td', row).eq(7).text(isNull(hub_addr) ? '-' : hub_addr);
+                $('td', row).eq(8).text(isNull(hub_chains) ? '-' : hub_chains);
+                $('td', row).eq(9).html($('<span>')
+                    .addClass('badge text-bg-' + reg_cls)
+                    .text(isNull(hub_status) ? 'unknown' : hub_status));
+                $('td', row).eq(10).html(action_link);
             }
             // Raw stake list (all STAKE actions, any status; getStakes shaper, action_index last)
             if(action=='stake'){

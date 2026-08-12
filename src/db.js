@@ -681,6 +681,23 @@ class Database {
                 row.escrow_remaining = (entry) ? entry.escrow_remaining : null;
             }
         }
+        // : /validators stays the ONE validator table (no second federation-registry
+        // page), so every on-chain active-set row also carries the hub registry's view of
+        // the same signing pubkey: network addr, served chains, registration status. One
+        // registry read serves the whole page, not a lookup per row. A pubkey the hub does
+        // not list is 'unregistered'; a deployment with no reachable hub registry leaves
+        // all three null, which the page renders as unknown rather than as unregistered.
+        if(config.data.method=='getValidators' && Array.isArray(data) && data.length){
+            let registry = await this.getFederationRegistry(config);
+            for(let row of data){
+                let entry = (registry && !this.util.isNull(row.signing_pubkey))
+                    ? registry[String(row.signing_pubkey).toLowerCase()]
+                    : null;
+                row.hub_addr   = (entry) ? entry.addr   : null;
+                row.hub_chains = (entry) ? entry.chains : null;
+                row.hub_status = (entry) ? entry.status : (registry ? 'unregistered' : null);
+            }
+        }
         // Populate the result cache (items 5338, ). Cap each map and evict the
         // oldest entry on overflow so a flood of distinct ticks/addresses/pages cannot
         // grow the cache without bound.
@@ -4130,10 +4147,12 @@ class Database {
     // (the indexer can still reject them at confirmation), carry no destination
     // column, and the full decoded action string ships in `data`; clients with
     // format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
-    // Filtering is a best-effort prefilter done in JS (the data column is hex in
-    // SQL): TYPE=address matches the source OR any exact pipe-segment of the
-    // action string (covers SEND destinations across versions); TYPE=token
-    // matches any exact segment against the uppercased tick.
+    // Filtering is a best-effort prefilter done in JS rather than in SQL (the
+    // action string is one opaque pipe-joined column, so a LIKE would match
+    // across field boundaries): TYPE=address matches the source OR any exact
+    // pipe-segment of the action string (covers SEND destinations across
+    // versions); TYPE=token matches any exact segment against the uppercased
+    // tick.
     async getMempool(config){
         let search = String(config.data.search || '');
         let type   = String(config.data.type || '').toLowerCase();
@@ -6253,13 +6272,20 @@ class Database {
     // decoded action string (`data`), which callers parse. Same access pattern +
     // safety rules as getDecoderMempoolCount. Returns [] when the decoder DB isn't
     // reachable.
+    //
+    // ENCODING : mempool_transactions.data is a MEDIUMTEXT utf8mb4
+    // column holding the canonical UTF-8 ACTION string ("SEND|0|TICK|..."), the
+    // exact same representation the decoder's confirmed-block path writes to
+    // transactions.data. It is NOT hex. The decoder pins that contract in
+    // test/unit/mempoolPayloadRepresentation.test.js (uuid:26220713); this read
+    // and decodeMempoolRow below are the other half of it.
     async getDecoderMempoolRows(config, limit) {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return [];
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
         let max = Math.max(1, Math.min(Number(limit) || 200, 500));
         try {
-            let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data_hex ' +
+            let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data ' +
                         'FROM `' + dbName + '`.mempool_transactions m ' +
                         'LIMIT ' + max;
             let results = await this.doDecoderQuery(config, query, []);
@@ -6270,13 +6296,21 @@ class Database {
         return [];
     }
 
-    // Decode one decoder mempool row: hex -> utf8 action string -> segments.
-    // The wire layout is pipe-joined with the action name first
-    // (e.g. SEND|0|TICK|AMOUNT|DESTINATION|MEMO). Returns null on garbage.
+    // Split one decoder mempool row's action string into its parts. The column
+    // already holds the canonical UTF-8 ACTION string (see the encoding note on
+    // getDecoderMempoolRows), so there is nothing to decode: the wire layout is
+    // pipe-joined with the action name first (e.g.
+    // SEND|0|TICK|AMOUNT|DESTINATION|MEMO). Returns null on garbage, which also
+    // covers the decoder's rejected-ACTION sentinel (an empty string written for
+    // a money-bearing tx whose ACTION was invalid or unknown) and any legacy
+    // hex-encoded row left behind by a pre- decoder: neither yields a
+    // valid leading action name, so both drop out of the feed rather than
+    // rendering as mojibake.
     decodeMempoolRow(row) {
         try {
-            if(!row || this.util.isNull(row.data_hex)) return null;
-            let text = Buffer.from(String(row.data_hex), 'hex').toString('utf8');
+            if(!row || this.util.isNull(row.data)) return null;
+            // Buffer only if a driver hands back the TEXT column as binary.
+            let text = Buffer.isBuffer(row.data) ? row.data.toString('utf8') : String(row.data);
             if(!text.length) return null;
             let segments = text.split('|');
             let action = String(segments[0] || '').trim().toUpperCase();
@@ -8270,6 +8304,50 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // : the hub's own federation registry (`validators`: addr, chains,
+    // registration status), keyed by LOWERCASED signing pubkey. There is no separate
+    // federation-registry page; these hub-only columns are folded onto the on-chain
+    // active set that /validators already renders, so one table answers both "who is
+    // staked on chain" and "what does the hub know about that key".
+    //
+    // Transport order matches getValidatorCapabilities: hub JSON-RPC first
+    // (HubOperationalCache, TTL-cached), legacy co-located hub schema as the fallback.
+    // Returns NULL when no registry is reachable at all (no hub endpoint configured,
+    // hub down past the stale ceiling, and no co-located hub schema). Null is the
+    // "unknown" signal: the caller must not render it as "not registered".
+    async getFederationRegistry(config){
+        let rows = null;
+        let ops  = this.explorer ? this.explorer.hubOperational : null;
+        if(ops && ops.enabled()){
+            try { rows = await ops.getFederationValidators(); }
+            catch(e){ console.log('Federation registry RPC read failed: ' + (e && e.message)); }
+        }
+        if(!rows){
+            try {
+                let src = this._hubSource(config, 'validators');
+                rows = await this.doQuery(config,
+                    'SELECT signing_pubkey, addr, chains, status FROM ' + src.table, []);
+            } catch(e){
+                if(process.env.DEBUG) console.log('Federation registry schema read failed:', e);
+                return null;
+            }
+        }
+        if(!Array.isArray(rows)) return null;
+        let registry = {};
+        for(let row of rows){
+            if(!row || this.util.isNull(row.signing_pubkey)) continue;
+            // `chains` is absent on a hub older than the getvalidators column add;
+            // absent and NULL both mean "the hub did not say", never the string
+            // "undefined".
+            registry[String(row.signing_pubkey).toLowerCase()] = {
+                addr:   this.util.isNull(row.addr)   ? null : String(row.addr),
+                chains: this.util.isNull(row.chains) ? null : String(row.chains),
+                status: this.util.isNull(row.status) ? null : String(row.status)
+            };
+        }
+        return registry;
     }
 
     async getPrices(config){

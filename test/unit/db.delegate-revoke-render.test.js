@@ -14,7 +14,7 @@
  * getActionData rendering for DELEGATE revoke actions after the
  * DELEGATE_REVOKE_NO_REINSERT flag-day .
  *
- * At/after the flag-day (BTC 969500 / 2026-10-01) a v2 capability-revoke and a
+ * At/after the flag-day (BTC 963000,  cohort) a v2 capability-revoke and a
  * v3 contract-revoke deactivate the PARENT delegation row and write NO row of
  * their own keyed by the revoking action's action_index (v3 never did). The main
  * DELEGATE detail query joins `delegations` / `contract_delegations` on

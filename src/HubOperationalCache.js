@@ -109,6 +109,15 @@ class HubOperationalCache {
         return this.getRows('getvalidatorcapabilities', { capability, signing_pubkey, limit: 500 });
     }
 
+    // : the hub's own federation registry (`validators`: addr, chains,
+    // registration status). It is NOT a page of its own; the rows are folded onto
+    // the on-chain /validators active set so the staked pubkey and the hub's
+    // knowledge of it read as one table. getvalidators takes no filters and
+    // returns only status='active' rows.
+    getFederationValidators(){
+        return this.getRows('getvalidators', {});
+    }
+
     getGovernanceProposals({ status, parameter, proposal_id } = {}){
         // proposal_id has no server-side filter on getproposals; fetch the
         // bounded list and let the caller's row filter narrow it. status and

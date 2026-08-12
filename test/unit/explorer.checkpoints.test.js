@@ -336,6 +336,29 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.verified).to.equal(false);
     });
 
+    it('a mirrored row with NO amount serves weight null and fails the weighted verdict closed ', async function () {
+        // capability_snapshots.amount is NOT NULL, so this row can only come from a
+        // corrupt mirror. Resolving it to '0' (the old behavior) was the dangerous
+        // repair: the source stays in the quorum's dedupe map with no stake, so the
+        // denominator S shrinks while a signer keeps the whole numerator and a
+        // smaller real stake clears 3*tally > 2*S. The absence is carried through
+        // instead, which the REAL predicate (not stubbed here) refuses - and any
+        // client re-deriving the verdict from the served set refuses identically.
+        swq.isStakeWeightedQuorumActive.returns(true);
+        const explorer = makeExplorer();
+        explorer.db.getCheckpointRows.resolves([{ ...CP }]);
+        explorer.db.getCapabilitySnapshotRows.resolves([
+            { signing_pubkey: PK('a'), amount: null, source: 'src_a' },
+            { signing_pubkey: PK('b'), amount: '5',  source: 'src_b' }
+        ]);
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
+        expect(res._body.is_weighted).to.equal(true);
+        expect(res._body.verified).to.equal(false);
+        expect(res._body.validators[0].weight).to.equal(null);
+        expect(res._body.validators[1].weight).to.equal('5');
+    });
+
     it('stake-weighted branch: defers the verdict to the source-deduped predicate', async function () {
         swq.isStakeWeightedQuorumActive.returns(true);
         const thresholdStub = sinon.stub(swq, 'meetsStakeThreshold').returns(true);

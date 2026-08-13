@@ -232,7 +232,7 @@ describe('db.js RPC-first operational reads', function () {
         });
     });
 
-    describe('RPC-first dispatch with legacy fallback', function () {
+    describe('RPC-first dispatch, fail-loud on hub outage', function () {
         it('uses the RPC cache and maps the type filter to params', async function () {
             const ops = {
                 enabled: () => true,
@@ -248,17 +248,59 @@ describe('db.js RPC-first operational reads', function () {
             expect(page[0].id).to.equal('3');
         });
 
-        it('falls back to the legacy co-located schema SQL when RPC returns null', async function () {
-            const ops = { enabled: () => true, getGovernanceVotes: sinon.stub().resolves(null) };
+        // XC-1388, operator ruling (a). This assertion is the DELIBERATE inverse of
+        // the contract this file pinned green until 2026-08-12, when a null from the
+        // cache dropped these three reads onto the co-located hub schema. That schema
+        // has no freshness bound, so the fall-through made HubOperationalCache's 600s
+        // stale ceiling unenforceable: an install with a remote HUB_API_URL plus the
+        // mandatory local hub schema served indefinitely stale operational rows that
+        // rendered as live. Once a hub endpoint is configured, these tables are served
+        // from the hub or not at all. Do not "restore" the fall-through.
+        const failLoudCases = [
+            ['getValidatorCapabilities', 'validator_capabilities'],
+            ['getGovernanceProposals',   'governance_proposals'],
+            ['getGovernanceVotes',       'governance_votes']
+        ];
+        for (const [method, table] of failLoudCases) {
+            it('fails loud instead of reading the co-located schema when ' + method
+                + ' passes the stale ceiling', async function () {
+                const ops = { enabled: () => true, staleMaxMs: 600000, [method]: sinon.stub().resolves(null) };
+                const db  = makeDb(ops);
+                // A co-located hub schema IS configured here: that is exactly the
+                // deployment shape the old fall-through served stale rows from.
+                db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+                let err = null;
+                try { await db[method](listConfig(method)); }
+                catch (e) { err = e; }
+                expect(err).to.be.an('error', method + ' must throw, never fall through to SQL');
+                expect(err.message).to.contain(table);
+                expect(err.message).to.contain('Hub unreachable');
+                expect(err.message).to.contain('600s');
+                expect(err.message).to.not.contain('XChain_Hub');
+            });
+        }
+
+        it('reports the configured stale ceiling in the outage error', async function () {
+            const ops = { enabled: () => true, staleMaxMs: 90000, getGovernanceVotes: sinon.stub().resolves(null) };
             const db  = makeDb(ops);
             db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
-            const cfg = listConfig('getGovernanceVotes');
-            const [query, , count] = await db.getGovernanceVotes(cfg);
+            let err = null;
+            try { await db.getGovernanceVotes(listConfig('getGovernanceVotes')); }
+            catch (e) { err = e; }
+            expect(err.message).to.contain('90s');
+        });
+
+        // The no-hub deployment shape is unchanged: with no endpoint configured the
+        // cache is disabled and the co-located schema read is the ONLY transport.
+        it('reads the co-located schema SQL when no hub endpoint is configured', async function () {
+            const db  = makeDb({ enabled: () => false });
+            db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+            const [query, , count] = await db.getGovernanceVotes(listConfig('getGovernanceVotes'));
             expect(query).to.contain('`XChain_Hub`.governance_votes');
             expect(count).to.contain('count(*)');
         });
 
-        it('legacy path throws loud when neither RPC nor a co-located schema exists', async function () {
+        it('throws loud when neither a hub endpoint nor a co-located schema exists', async function () {
             const db  = makeDb({ enabled: () => false });
             db.checkpointDb = {};
             let err = null;
@@ -266,6 +308,21 @@ describe('db.js RPC-first operational reads', function () {
             catch (e) { err = e; }
             expect(err).to.be.an('error');
             expect(err.message).to.contain('governance_proposals');
+            expect(err.message).to.contain('No co-located hub DB configured');
+        });
+
+        // getFederationRegistry is the sanctioned exception: it decorates the on-chain
+        // /validators set, so a hub outage must degrade the decoration rather than
+        // blank a page of consensus data.
+        it('getFederationRegistry still falls back to the schema read on a hub outage', async function () {
+            const ops = { enabled: () => true, staleMaxMs: 600000, getFederationValidators: sinon.stub().resolves(null) };
+            const db  = makeDb(ops);
+            db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+            db.doQuery = sinon.stub().resolves([{ signing_pubkey: 'AA', addr: 'bc1q', chains: 'BTC', status: 'active' }]);
+            const registry = await db.getFederationRegistry(makeConfig({ type: 'explorer', data: { method: 'getValidators' } }));
+            expect(db.doQuery.calledOnce).to.equal(true);
+            expect(registry).to.have.property('aa');
+            expect(registry.aa.status).to.equal('active');
         });
     });
 });

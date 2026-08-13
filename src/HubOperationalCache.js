@@ -27,14 +27,20 @@
  * deployment can still point operational reads at a hub without enabling
  * hub config discovery; otherwise the regular discovery endpoints from
  * XChainHubConnector.parseEndpoints(). When neither is configured the cache
- * is disabled and db.js falls back to the legacy co-located hub schema read.
+ * is disabled (enabled() false) and db.js reads the co-located hub schema
+ * instead. That schema read is the NO-HUB deployment shape only; it is never
+ * a fallback for a configured-but-unreachable hub.
  *
  * Failure model: a fresh cache entry is served without a hub round-trip;
  * on hub unreachability a stale entry is served up to a bounded ceiling
- * (EXPLORER_HUB_CACHE_STALE_MAX_MS) so a hub restart doesn't blank the
- * pages, and beyond that the caller falls back or fails loud. Rows are
- * fetched with server-side filters (the datasets are bounded to 500 rows
- * per query hub-side), so cache keys include the filter params.
+ * (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s) so a hub restart doesn't
+ * blank the pages. Past that ceiling getRows returns null and the caller
+ * FAILS LOUD (db.js _hubOperationalOutage, operator ruling XC-1388): the
+ * co-located schema carries no freshness bound, so falling through to it
+ * would have made the ceiling unenforceable and served indefinitely stale
+ * operational state that read as live. Rows are fetched with server-side
+ * filters (the datasets are bounded to 500 rows per query hub-side), so
+ * cache keys include the filter params.
  *
  ********************************************************************/
 
@@ -66,7 +72,11 @@ class HubOperationalCache {
 
     // Fetch rows for one hub RPC read method, TTL-cached per (method, params).
     // Returns an array of rows, or null when the hub is unreachable and no
-    // acceptably-fresh stale entry exists (callers fall back or fail loud).
+    // acceptably-fresh stale entry exists. Null means FAIL LOUD for the three
+    // list callers in db.js (XC-1388), not "read the co-located schema instead";
+    // getFederationRegistry is the one caller still allowed to fall through on
+    // null, because it only DECORATES the on-chain /validators set: failing loud
+    // there would blank a page of consensus data over an off-chain nicety.
     async getRows(method, params = {}){
         if(!this.connector) return null;
         // Drop undefined params so the cache key is stable and the hub sees

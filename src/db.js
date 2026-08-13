@@ -6922,11 +6922,15 @@ class Database {
     // Federation data is platform-global (no per-chain network column), so there is
     // no network filter.
     //
-    // LEGACY FALLBACK: the primary transport for these hub-LOCAL operational tables
-    // is now the hub JSON-RPC read path (explorer.hubOperational, HubOperationalCache);
-    // this direct-schema read remains only for deployments with no hub endpoint
-    // configured. New deployments should set HUB_API_URL instead of provisioning a
-    // co-located hub schema.
+    // NO-HUB DEPLOYMENT SHAPE ONLY: the primary transport for these hub-LOCAL
+    // operational tables is the hub JSON-RPC read path (explorer.hubOperational,
+    // HubOperationalCache); this direct-schema read serves only deployments with NO
+    // hub endpoint configured at all (hubOperational.enabled() false). It is NOT a
+    // fallback for a configured-but-unreachable hub: that case fails loud through
+    // _hubOperationalOutage below, because this table carries no freshness bound and
+    // would otherwise serve indefinitely stale operational rows (XC-1388). New
+    // deployments should set HUB_API_URL instead of provisioning a co-located hub
+    // schema.
     _hubSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
@@ -6935,6 +6939,27 @@ class Database {
             ': ' + table + ' is served only from the mandatory co-located hub DB ' +
             '(config database.checkpoint, same host+credentials as the indexer DB). ' +
             'Configure the checkpoint DB block to serve this coin.');
+    }
+
+    // FAIL LOUD when a CONFIGURED hub is unreachable past HubOperationalCache's stale
+    // ceiling (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s). Operator ruling XC-1388:
+    // once a hub endpoint is configured, validator_capabilities/governance_proposals/
+    // governance_votes are served from the hub or not at all. Silently dropping to the
+    // co-located _hubSource read here bypassed the ceiling entirely, because that schema
+    // has no freshness bound (governance_proposals carries no freshness column at all),
+    // so an install with a remote HUB_API_URL plus the mandatory local hub schema served
+    // indefinitely stale operational state that looked live. The accepted cost is that
+    // these three pages blank on a co-located install whose hub PROCESS is down while its
+    // hub DB is still up; a blank page with a reason beats a stale page without one.
+    _hubOperationalOutage(table){
+        let ops     = this.explorer ? this.explorer.hubOperational : null;
+        let ceiling = (ops && this.util.isNumeric(ops.staleMaxMs)) ? Math.round(ops.staleMaxMs / 1000) : 600;
+        throw new Error('Hub unreachable: ' + table + ' could not be read over hub JSON-RPC and the ' +
+            'last cached rows are older than the ' + ceiling + 's stale ceiling ' +
+            '(EXPLORER_HUB_CACHE_STALE_MAX_MS). With a hub endpoint configured this table is served ' +
+            'from the hub only, never from the co-located hub schema, which carries no freshness ' +
+            'bound. Restore the hub endpoint, or unset HUB_API_URL and hub discovery to run this ' +
+            'install on the co-located schema.');
     }
 
     // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from
@@ -8281,11 +8306,14 @@ class Database {
     // active set that /validators already renders, so one table answers both "who is
     // staked on chain" and "what does the hub know about that key".
     //
-    // Transport order matches getValidatorCapabilities: hub JSON-RPC first
-    // (HubOperationalCache, TTL-cached), legacy co-located hub schema as the fallback.
-    // Returns NULL when no registry is reachable at all (no hub endpoint configured,
-    // hub down past the stale ceiling, and no co-located hub schema). Null is the
-    // "unknown" signal: the caller must not render it as "not registered".
+    // Hub JSON-RPC first (HubOperationalCache, TTL-cached), co-located hub schema as
+    // the fallback. This is DELIBERATELY the one exception to the fail-loud rule the
+    // three list endpoints follow (XC-1388): the registry only decorates rows that
+    // /validators already renders from on-chain state, so a hub outage must degrade
+    // the decoration, never blank a page of consensus data. Returns NULL when no
+    // registry is reachable at all (no hub endpoint configured, hub down past the
+    // stale ceiling, and no co-located hub schema). Null is the "unknown" signal:
+    // the caller must not render it as "not registered".
     async getFederationRegistry(config){
         let rows = null;
         let ops  = this.explorer ? this.explorer.hubOperational : null;
@@ -9059,8 +9087,9 @@ class Database {
 
     // Per-validator per-capability qualification flags. type in {capability, pubkey}.
     // id-keyed. Primary transport: hub JSON-RPC via HubOperationalCache (these are
-    // hub-LOCAL operational rows, not consensus mirror data); falls back to the
-    // legacy co-located hub schema read when no hub endpoint is configured.
+    // hub-LOCAL operational rows, not consensus mirror data). The co-located hub
+    // schema read below serves ONLY the no-hub deployment shape; a configured hub
+    // that is unreachable past the stale ceiling fails loud (XC-1388).
     async getValidatorCapabilities(config){
         let ops = this.explorer.hubOperational;
         if(ops && ops.enabled()){
@@ -9069,7 +9098,7 @@ class Database {
                 signing_pubkey: config.data.type=='pubkey'     ? config.data.search : undefined
             });
             if(rows) return this._pageHubOperationalRows(config, rows);
-            // fall through to the legacy schema read when the hub is unreachable
+            this._hubOperationalOutage('validator_capabilities');
         }
         let sql = config.data.sql;
         let src = this._hubSource(config, 'validator_capabilities');
@@ -9091,8 +9120,11 @@ class Database {
     }
 
     // Governance parameter proposals. type in {status, parameter, proposal}. id-keyed.
-    // Primary transport: hub JSON-RPC via HubOperationalCache; legacy co-located hub
-    // schema read only when no hub endpoint is configured.
+    // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
+    // schema read serves ONLY the no-hub deployment shape. A configured hub that is
+    // unreachable past the stale ceiling fails loud (XC-1388); this table is the
+    // clearest case for it, since governance_proposals carries no freshness column
+    // at all, so a per-row freshness cap on the schema read is unbuildable.
     async getGovernanceProposals(config){
         let ops = this.explorer.hubOperational;
         if(ops && ops.enabled()){
@@ -9102,6 +9134,7 @@ class Database {
                 proposal_id: config.data.type=='proposal'  ? config.data.search : undefined
             });
             if(rows) return this._pageHubOperationalRows(config, rows);
+            this._hubOperationalOutage('governance_proposals');
         }
         let sql = config.data.sql;
         let src = this._hubSource(config, 'governance_proposals');
@@ -9124,8 +9157,9 @@ class Database {
     }
 
     // Per-validator governance votes. type in {proposal, voter}. id-keyed.
-    // Primary transport: hub JSON-RPC via HubOperationalCache; legacy co-located hub
-    // schema read only when no hub endpoint is configured.
+    // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
+    // schema read serves ONLY the no-hub deployment shape. A configured hub that is
+    // unreachable past the stale ceiling fails loud (XC-1388).
     async getGovernanceVotes(config){
         let ops = this.explorer.hubOperational;
         if(ops && ops.enabled()){
@@ -9134,6 +9168,7 @@ class Database {
                 voter_pubkey: config.data.type=='voter'    ? config.data.search : undefined
             });
             if(rows) return this._pageHubOperationalRows(config, rows);
+            this._hubOperationalOutage('governance_votes');
         }
         let sql = config.data.sql;
         let src = this._hubSource(config, 'governance_votes');
@@ -9154,9 +9189,13 @@ class Database {
     // ── Hub operational-state pages (p2p_peers / consensus_state / configs /
     // telemetry_pings). These are hub-LOCAL operational tables with no on-chain
     // action and, unlike validator_capabilities/governance_*, no hub JSON-RPC read
-    // surface, so they are served ONLY from the mandatory co-located hub DB via
-    // _hubSource (same host+creds as the indexer pool; #4138). Each is id-keyed
-    // (no action_index), so the paging cursor compares m.id (see getQueryOffsetSql).
+    // surface at all, so they are served ONLY from the co-located hub DB via
+    // _hubSource (same host+creds as the indexer pool; #4138), which is therefore
+    // mandatory for these four on any install that serves them. That is the reverse
+    // of the three RPC-first tables above, where the co-located schema serves only
+    // the no-hub shape and a configured-but-down hub fails loud (XC-1388). Each is
+    // id-keyed (no action_index), so the paging cursor compares m.id (see
+    // getQueryOffsetSql).
 
     // P2P peer roster the hub gossips with. type in {validator}. id-keyed.
     async getPeers(config){

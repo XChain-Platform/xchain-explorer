@@ -1,3 +1,30 @@
+# Repos the explorer suite needs checked out BESIDE it on the CI venue.
+#
+# Declaring a sibling here is what makes its cross-repo guards actually run. An
+# UNdeclared sibling is not a neutral omission: every guard written against it
+# resolves with existsSync, calls this.skip(), and the gate still prints PASS,
+# so the run reports green having exercised none of them. Measured 2026-08-12,
+# that gap was 13 guards (a venue carrying only indexer + vm + sdk ran 2431
+# passing / 18 pending where a full local checkout runs 2444 / 5). See
+# test/unit/sibling-coverage.test.js, which reports the surface this file leaves
+# uncovered; the same gap applies to a sibling that is declared but missing.
+#
+# ci-dispatch.sh ships each of these at its origin/master (falling back to local
+# HEAD) and REFUSES the push if one is not a checkout beside this repo, so a
+# declared sibling can never be silently absent.
+
+# Indexer schema conformance, list-edit resolution and reorg DDL, and the
+# hub-connector contract.
 xchain-indexer
+# Contract endpoints, the node-engine ceiling, and vm-query parity.
 xchain-vm
+# Checkpoint, locked-balance and contract-state proof parity.
 xchain-sdk
+# Decoder schema conformance and the mempool decode twin.
+xchain-decoder
+# Action-manifest, consensus-primitive and vm-query constant conformance.
+xchain-documentation
+# Compression-parameter twin parity.
+xchain-encoder
+# Vendored coins-registry byte-identity: BTC/LTC/DOGE/index/consensus_pin.
+xchain-hub

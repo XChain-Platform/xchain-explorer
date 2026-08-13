@@ -13,7 +13,7 @@
             "description": "API endpoints that return XChain platform ACTION data",
             "externalDocs": {
                 "description": "ACTION Documentation",
-                "url": "https://github.com/XChain-platform/xchain-documentation/blob/master/actions/README.md"
+                "url": "https://github.com/XChain-Platform/xchain-documentation/blob/master/actions/README.md"
             }
         },{
             "name": "Dispensers",

@@ -3911,7 +3911,7 @@ function showTokenContent(json){
     var desc = $('#token-description').text();
 
     // If we do not already have any audio/video/image content defined, check if this is one of the TIS defined formats
-    // https://github.com/XChain-platform/xchain-documentation/blob/master/Token_Information_Standard.md#supported-token-description-formats
+    // https://github.com/XChain-Platform/xchain-documentation/blob/master/Token_Information_Standard.md#supported-token-description-formats
     if(!audio && !video && !image){
         // Cleanup description a bit to remove leading/trailing spaces and some funky characters
         desc = desc.trim().replace('\u001e','');
@@ -4271,7 +4271,7 @@ function showTokenInfo(){
 
 
 // Handle converting any legacy JSON to use the XChain Token Information Standard standard
-// https://github.com/XChain-platform/xchain-documentation/blob/master/Token_Information_Standard.md
+// https://github.com/XChain-Platform/xchain-documentation/blob/master/Token_Information_Standard.md
 function legacyJsonToXChainTIS(o){
     var json = {},
         ipfs = /^ipfs:\/\//i,

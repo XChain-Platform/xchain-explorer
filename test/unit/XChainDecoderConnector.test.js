@@ -56,6 +56,38 @@ describe('XChainDecoderConnector', function () {
         it('returns null when nothing is configured', function () {
             expect(resolveDecoderUrl('BTC', 'mainnet')).to.be.null;
         });
+
+        // XC-1260: the config-derived per-chain endpoint is what makes decoder
+        // health readable on a deployment that never exported an env var per chain.
+        it('uses the config-derived endpoint when no env var is set', function () {
+            expect(resolveDecoderUrl('BTC', 'mainnet', 'http://from-config:3002')).to.equal('http://from-config:3002');
+        });
+
+        it('lets the coin+network-specific override beat the config-derived endpoint', function () {
+            process.env.DECODER_API_URL_BTC_REGTEST = 'http://specific:1';
+            expect(resolveDecoderUrl('BTC', 'regtest', 'http://from-config:3002')).to.equal('http://specific:1');
+        });
+
+        it('prefers the config-derived endpoint over the GENERIC env var', function () {
+            // The generic var names one decoder for every coin, so it is right for
+            // at most one chain on a multi-chain deployment; the config endpoint is
+            // resolved per coin/network.
+            process.env.DECODER_API_URL = 'http://generic:2';
+            expect(resolveDecoderUrl('BTC', 'mainnet', 'http://from-config:3002')).to.equal('http://from-config:3002');
+        });
+
+        it('falls back to the generic env var when the config carries no endpoint', function () {
+            process.env.DECODER_API_URL = 'http://generic:2';
+            expect(resolveDecoderUrl('BTC', 'mainnet', null)).to.equal('http://generic:2');
+        });
+
+        it('does not build a half-formed env key from an unparseable coin code', function () {
+            // A code the caller could not split into coin+network must not read
+            // DECODER_API_URL__; it falls straight through to the later steps.
+            process.env.DECODER_API_URL = 'http://generic:2';
+            expect(resolveDecoderUrl(null, null, null)).to.equal('http://generic:2');
+            expect(resolveDecoderUrl(null, null, 'http://from-config:3002')).to.equal('http://from-config:3002');
+        });
     });
 
     describe('constructor', function () {

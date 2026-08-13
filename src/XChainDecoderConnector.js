@@ -26,18 +26,33 @@
 
 const axios = require('axios');
 
-// Resolve the decoder JSON-RPC API URL for a coin + network from the environment.
-// Mirrors the INDEXER_API_URL convention used by XChainIndexerConnector:
-//   DECODER_API_URL_<COIN>_<NETWORK>   (e.g. DECODER_API_URL_BTC_REGTEST)
-//   DECODER_API_URL                     (generic fallback)
+// Resolve the decoder JSON-RPC API URL for a coin + network. Priority:
+//   1. DECODER_API_URL_<COIN>_<NETWORK>  (e.g. DECODER_API_URL_BTC_REGTEST)
+//   2. configUrl, the per-chain endpoint the caller derived from the config the
+//      explorer already holds (db.js decoderApiUrl; see _decoderApiUrlFromConfig)
+//   3. DECODER_API_URL                   (generic fallback)
+// The env keys mirror the INDEXER_API_URL convention used by
+// XChainIndexerConnector, but the per-chain configUrl deliberately outranks the
+// GENERIC env var: DECODER_API_URL names one decoder and is applied to every
+// coin, so on a multi-chain deployment it is right for at most one of them,
+// while configUrl is resolved per coin/network. The coin/network-specific env
+// var still wins over both, so an operator override always holds.
+//
+// Requiring an env var per chain is why this field read 'unconfigured' for all
+// nine coins on a deployment whose decoder endpoints were already in its config
+// (XC-1260); step 2 is what makes the chain->decoder gap visible without one.
+//
 // Returns null when none is configured; the caller then reports the coin's
 // decoder health as 'unconfigured' rather than guessing at a URL.
-function resolveDecoderUrl(coin, network){
+function resolveDecoderUrl(coin, network, configUrl){
     let c = String(coin || '').toUpperCase();
     let n = String(network || '').toUpperCase();
-    return process.env['DECODER_API_URL_' + c + '_' + n]
-        || process.env['DECODER_API_URL']
-        || null;
+    // Only consult the specific key when both halves are known: a code the
+    // caller could not parse would otherwise read DECODER_API_URL__.
+    if(c && n && process.env['DECODER_API_URL_' + c + '_' + n])
+        return process.env['DECODER_API_URL_' + c + '_' + n];
+    if(configUrl) return configUrl;
+    return process.env['DECODER_API_URL'] || null;
 }
 
 class XChainDecoderConnector {

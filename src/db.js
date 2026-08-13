@@ -335,6 +335,15 @@ class Database {
         // installs, which provision per-service DB users. Same-credentials
         // deployments make no entry here and reuse the indexer pool.
         this.decoderPools = {};
+        // Per-coin decoder JSON-RPC endpoint (NOT a database), derived from the
+        // same config entry the decoder pool above is built from. Feeds the
+        // chain_tip / chain_lag_blocks / decoder_health block of /api/status,
+        // which is the only place the chain->decoder gap is visible: the
+        // explorer reads DBs only, so a decoder stalled behind its coin node
+        // still reports decoder_lag_blocks 0 once the indexer catches up to it.
+        // Absent for a coin whose config carries no endpoint; that coin reports
+        // decoder_health 'unconfigured'. See _decoderApiUrlFromConfig.
+        this.decoderApiUrl = {};
         // Per-coin checkpoint-source database: the MANDATORY co-located hub DB for
         // serving the hub-mirrored tables (state_checkpoints, capability_snapshots,
         // cross_chain_matches, price_snapshots, oracle_prices). xchain-sync excludes
@@ -370,6 +379,12 @@ class Database {
                         // Record the base chain name for this key (RBTC -> BTC):
                         // LINK/LIST rows store the bare chain name in index_coins
                         this.baseCoin[key] = coin;
+                        // Decoder JSON-RPC endpoint for this coin/network, if the
+                        // config carries one. Resolved here rather than in the pool
+                        // branch below so a coin whose indexer entry is not usable
+                        // as a pool can still report decoder health.
+                        let dApiUrl = this._decoderApiUrlFromConfig(info[net].database.decoder);
+                        if(dApiUrl) this.decoderApiUrl[key] = dApiUrl;
                         if (("db_host" in cfg) && ("db_port" in cfg)){
                             this.pools[key] = {
                                 "config": {
@@ -485,6 +500,41 @@ class Database {
         // only a stale/empty bootstrap copy. Fail loud at startup rather than
         // letting a thin replica silently serve empty hub-mirror data with no alarm.
         this._assertCheckpointDbForServingCoins();
+    }
+
+    // Decoder JSON-RPC endpoint for one coin/network, read out of the config the
+    // explorer already holds. Two config shapes reach here and they disagree on
+    // what `host`/`port` mean, so the shape is discriminated rather than guessed:
+    //
+    //   - Hub config (xchain-node's updateconfig push): the xchain-decoder entry
+    //     carries db_host/db_port for the DATABASE and host/port for the decoder's
+    //     API (SERVICE_REGISTRY maps them from DECODER_URL + DECODER_API_PORT), the
+    //     same pair xchain-hub's own _resolveIndexerUrl builds an indexer URL from.
+    //   - src/config.json: host/port ARE the database and there is no API entry, so
+    //     reading them as an endpoint would point the health poll at MariaDB.
+    //
+    // Hence the db_host/db_port test: only their presence proves the hub shape, in
+    // which host/port are free to mean the API. api_url (or api_host + api_port) is
+    // an explicit operator override honored in EITHER shape, so a config.json
+    // deployment can name the endpoint beside the DB instead of exporting one env
+    // var per chain. Returns null when the entry carries nothing usable.
+    _decoderApiUrlFromConfig(dcfg){
+        if(!dcfg || typeof dcfg !== 'object') return null;
+        let trim = (v) => this.util.isNull(v) ? '' : String(v).trim();
+        // Accept a host written with or without a scheme; default to http, which
+        // is what the decoder's API serves (TLS terminates upstream when present).
+        let join = (host, port) => {
+            host = trim(host).replace(/\/+$/, '');
+            port = trim(port);
+            if(!host || !port) return null;
+            return (/^https?:\/\//i.test(host) ? host : 'http://' + host) + ':' + port;
+        };
+        let explicitUrl = trim(dcfg.api_url).replace(/\/+$/, '');
+        if(explicitUrl) return explicitUrl;
+        let explicit = join(dcfg.api_host, dcfg.api_port);
+        if(explicit) return explicit;
+        if(this.util.isNull(dcfg.db_host) || this.util.isNull(dcfg.db_port)) return null;
+        return join(dcfg.host, dcfg.port);
     }
 
     // Startup assertion: every coin/network this explorer serves (has an indexer
@@ -4430,9 +4480,10 @@ class Database {
         // health() JSON-RPC: chain_tip is the coin node's tip as the decoder
         // sees it, chain_lag_blocks the decoder's self-reported gap to it, and
         // decoder_health the decoder's own status ('healthy'/'unhealthy'),
-        // 'unconfigured' when no DECODER_API_URL[_<COIN>_<NETWORK>] is set, or
-        // 'unreachable' when the call fails. Calls run in parallel and are
-        // bounded by the connector timeout so /status stays responsive.
+        // 'unconfigured' when no endpoint resolves for the coin (neither the
+        // loaded config nor DECODER_API_URL[_<COIN>_<NETWORK>]), or 'unreachable'
+        // when the call fails. Calls run in parallel and are bounded by the
+        // connector timeout so /status stays responsive.
         data.chain_tip        = {};
         data.chain_lag_blocks = {};
         data.decoder_health   = {};
@@ -4455,7 +4506,14 @@ class Database {
             data.chain_tip[code]        = null;
             data.chain_lag_blocks[code] = null;
             let parsed = parseCode(code);
-            let url    = parsed ? DecoderConnector.resolveDecoderUrl(parsed.coin, parsed.network) : null;
+            // Per-chain endpoint from the loaded config first (setupConnectionPools),
+            // so a hub-provisioned deployment reports real chain_tip / chain_lag_blocks
+            // without nine DECODER_API_URL_<COIN>_<NETWORK> env vars; the specific env
+            // var still overrides it, the generic one is still the last resort.
+            let url    = DecoderConnector.resolveDecoderUrl(
+                            parsed ? parsed.coin    : null,
+                            parsed ? parsed.network : null,
+                            (this.decoderApiUrl || {})[code] || null);
             if(!url){
                 data.decoder_health[code] = 'unconfigured';
                 return;

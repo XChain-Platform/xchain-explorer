@@ -1464,8 +1464,19 @@ describe('Database#getToken escrow_action_index', () => {
 
 describe('Database#getStatus decoder health aggregation', () => {
     const axios = require('axios');
-    const ENV_KEYS = ['DECODER_API_URL', 'DECODER_API_URL_BTC_MAINNET'];
+    const ENV_KEYS = ['DECODER_API_URL', 'DECODER_API_URL_BTC_MAINNET', 'DECODER_API_URL_BTC_REGTEST'];
     let db, saved;
+
+    // The per-chain endpoints setupConnectionPools derives from the loaded config
+    // (see db.connection.test.js for how they are read out of the config shapes).
+    const CONFIG_URLS = { BTC: 'http://decoder-btc-mainnet:3002', RBTC: 'http://decoder-btc-regtest:3002' };
+    const healthReply = { data: { result: { status: 'healthy', chainTipBlock: 900500, blockLag: 7 } } };
+    // URL each coin's health call was actually POSTed to.
+    function urlsByCoin(stub) {
+        const seen = {};
+        for (const call of stub.getCalls()) seen[call.args[0]] = true;
+        return Object.keys(seen);
+    }
 
     beforeEach(() => {
         db = makeDb();
@@ -1515,6 +1526,50 @@ describe('Database#getStatus decoder health aggregation', () => {
             expect(data.chain_tip[code]).to.be.null;
             expect(data.chain_lag_blocks[code]).to.be.null;
         }
+    });
+
+    // XC-1260: the field read 'unconfigured' for all nine coins on a deployment
+    // that had decoder endpoints in its config but no env var per chain, which
+    // made the chain->decoder gap invisible even on healthy chains.
+    it('polls the per-chain endpoint from the loaded config with no env var set', async () => {
+        db.decoderApiUrl = Object.assign({}, CONFIG_URLS);
+        const post = sinon.stub(axios, 'post').resolves(healthReply);
+        const [data] = await db.getStatus(cfg());
+        expect(urlsByCoin(post).sort()).to.deep.equal([CONFIG_URLS.BTC, CONFIG_URLS.RBTC].sort());
+        for (const code of Object.keys(data.decoder_health)) {
+            expect(data.decoder_health[code]).to.equal('healthy');
+            expect(data.chain_tip[code]).to.equal(900500);
+            expect(data.chain_lag_blocks[code]).to.equal(7);
+        }
+    });
+
+    it('lets the coin/network-specific env var override the config-derived endpoint', async () => {
+        process.env.DECODER_API_URL_BTC_MAINNET = 'http://override:9002';
+        db.decoderApiUrl = Object.assign({}, CONFIG_URLS);
+        const post = sinon.stub(axios, 'post').resolves(healthReply);
+        await db.getStatus(cfg());
+        // BTC takes the override; RBTC still takes its own config-derived endpoint.
+        expect(urlsByCoin(post).sort()).to.deep.equal(['http://override:9002', CONFIG_URLS.RBTC].sort());
+    });
+
+    it('prefers the per-chain config endpoint over the generic DECODER_API_URL', async () => {
+        // The generic var names ONE decoder and is applied to every coin, so on a
+        // multi-chain deployment it is right for at most one of them; a per-chain
+        // endpoint is right for all of them.
+        process.env.DECODER_API_URL = 'http://generic:3001';
+        db.decoderApiUrl = Object.assign({}, CONFIG_URLS);
+        const post = sinon.stub(axios, 'post').resolves(healthReply);
+        await db.getStatus(cfg());
+        expect(urlsByCoin(post)).to.not.include('http://generic:3001');
+        expect(urlsByCoin(post).sort()).to.deep.equal([CONFIG_URLS.BTC, CONFIG_URLS.RBTC].sort());
+    });
+
+    it('still falls back to the generic DECODER_API_URL for a coin the config has no endpoint for', async () => {
+        process.env.DECODER_API_URL = 'http://generic:3001';
+        db.decoderApiUrl = { BTC: CONFIG_URLS.BTC };
+        const post = sinon.stub(axios, 'post').resolves(healthReply);
+        await db.getStatus(cfg());
+        expect(urlsByCoin(post).sort()).to.deep.equal([CONFIG_URLS.BTC, 'http://generic:3001'].sort());
     });
 });
 

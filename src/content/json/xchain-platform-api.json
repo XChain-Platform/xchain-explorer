@@ -3000,14 +3000,21 @@
                     },
                     "tip_age_seconds": {
                         "type": "object",
-                        "description": "Wall-clock seconds between now and the block_time of the newest indexed block, keyed by coin ticker. null when that block_time is missing or unreadable. Unlike decoder_lag_blocks this sees a JOINT indexer+decoder freeze, because it measures against the local clock rather than against the other replica. Only coins this instance measures (those with a live pool) appear here.",
+                        "description": "Wall-clock seconds between now and the block_time of the newest indexed block, keyed by coin ticker. Never negative: a tip dated ahead of this host clamps to 0 here and reports its skew in tip_future_seconds. null when that block_time is missing or unreadable. Unlike decoder_lag_blocks this sees a JOINT indexer+decoder freeze, because it measures against the local clock rather than against the other replica. Only coins this instance measures (those with a live pool) appear here.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "tip_future_seconds": {
+                        "type": "object",
+                        "description": "Seconds the newest indexed block is dated AHEAD of this host's clock, keyed by coin ticker; 0 when the tip is not ahead, null when block_time is missing or unreadable. A non-zero value is host clock drift or a chain with lax timestamp rules, and it means tip_age_seconds is clamped rather than measured. Skew past the tolerance (EXPLORER_TIP_MAX_FUTURE_SKEW_S_<COIN>, else EXPLORER_TIP_MAX_FUTURE_SKEW_S, default 7200; 0 disables the check) reads stale, so a future-dated tip cannot pass as fresh indefinitely. Only coins this instance measures appear here.",
                         "additionalProperties": {
                             "type": ["integer", "null"]
                         }
                     },
                     "stale": {
                         "type": "object",
-                        "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate). Fails closed, so a missing or unreadable block_time also reads true. A true entry is removed from 'available' and left in 'supported'. Only coins this instance measures appear here.",
+                        "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate), and also true when tip_future_seconds has passed that coin's max future skew. Fails closed, so a missing or unreadable block_time also reads true. A true entry is removed from 'available' and left in 'supported'. Only coins this instance measures appear here.",
                         "additionalProperties": {
                             "type": "boolean"
                         }

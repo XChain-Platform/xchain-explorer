@@ -34,6 +34,17 @@ const actionDetail = require('./action-detail');
 // hours, and the freezes this catches ran 55 hours and 33 days in practice.
 const TIP_MAX_AGE_DEFAULT_S = 21600;
 
+// How far AHEAD of this host's clock a newest-indexed block may be dated before
+// its timestamp stops counting as evidence of freshness. A future-dated tip
+// makes (now - block_time) negative, which reads as "younger than any
+// threshold", so a frozen chain can hide behind one for as long as the skew
+// lasts: with no bound, a tip dated a year ahead would never age out. 7200s is
+// the BTC-family consensus limit on how far ahead of network-adjusted time a
+// block may be dated, so a tip beyond it is host clock drift or a chain the
+// timestamp rules do not bind (testnet), neither of which this instance can
+// vouch for. Overridable per coin, 0 disables the check.
+const TIP_MAX_FUTURE_SKEW_DEFAULT_S = 7200;
+
 // TTL of the cached per-coin tip-staleness verdict. Short enough that a freeze
 // surfaces within one status poll, long enough that the per-request availability
 // gate costs no extra query on a busy explorer.
@@ -4339,6 +4350,14 @@ class Database {
             // see a JOINT indexer+decoder freeze, because they are measured against the
             // local clock rather than against the other replica.
             tip_age_seconds: {},
+            // How far AHEAD of this host's clock each measured coin's newest
+            // indexed block is dated, 0 when it is not ahead. Published because
+            // tip_age_seconds is clamped at 0: without this field a future-dated
+            // tip would be indistinguishable from a block mined this second, and
+            // that skew is the thing an operator has to fix (XC-1333: TBTC read
+            // -6649 with the raw subtraction). null when block_time is missing
+            // or unreadable, the same as tip_age_seconds.
+            tip_future_seconds: {},
             stale:           {},
             // Durable consensus-divergence halt xchain-sync records into the same
             // replica DB this pool serves (sync_halt, cleared_at IS NULL = active).
@@ -4386,8 +4405,16 @@ class Database {
                 // no pool here is the pre-existing "supported but not configured" case.
                 let nowSec = Math.floor(Date.now() / 1000);
                 let tipSec = data.last_block_time[coin];
-                data.tip_age_seconds[coin] = (Number.isFinite(Number(tipSec)) && Number(tipSec) > 0)
-                                                ? (nowSec - Number(tipSec)) : null;
+                // Split the signed difference into two non-negative fields. The raw
+                // subtraction went negative whenever a tip was dated ahead of this
+                // host's clock, and a negative age passes every "older than X"
+                // comparison a consumer writes, so a genuinely frozen coin read as
+                // fresher than fresh. Age clamps at 0 and the skew is published
+                // separately rather than being thrown away.
+                let tipDelta = (Number.isFinite(Number(tipSec)) && Number(tipSec) > 0)
+                                    ? (nowSec - Number(tipSec)) : null;
+                data.tip_age_seconds[coin]    = (tipDelta === null) ? null : Math.max(0, tipDelta);
+                data.tip_future_seconds[coin] = (tipDelta === null) ? null : Math.max(0, -tipDelta);
                 data.stale[coin] = this.isTipStale(coin, tipSec, nowSec);
                 if (data.stale[coin]) delete data.available[coin];
                 // Published beside stale, not folded into the gate: available already
@@ -6111,11 +6138,34 @@ class Database {
         return TIP_MAX_AGE_DEFAULT_S;
     }
 
+    // Max future skew for a coin, in seconds: EXPLORER_TIP_MAX_FUTURE_SKEW_S_<COIN>
+    // if set, else EXPLORER_TIP_MAX_FUTURE_SKEW_S, else the default. An explicit 0
+    // disables the future-tip check for that coin, the same escape hatch
+    // EXPLORER_TIP_MAX_AGE_S has for the age check.
+    /**
+     * @param {string} coin coin code, e.g. 'BTC' or 'TBTC'
+     * @returns {number} max future skew in seconds, 0 when the check is disabled
+     */
+    tipMaxFutureSkewSeconds(coin) {
+        let perCoin = parseInt(process.env['EXPLORER_TIP_MAX_FUTURE_SKEW_S_' + String(coin).toUpperCase()], 10);
+        if (Number.isFinite(perCoin) && perCoin >= 0) return perCoin;
+        let global = parseInt(process.env.EXPLORER_TIP_MAX_FUTURE_SKEW_S, 10);
+        if (Number.isFinite(global) && global >= 0) return global;
+        return TIP_MAX_FUTURE_SKEW_DEFAULT_S;
+    }
+
     // Is the newest indexed block old enough that this coin's data is not current?
     // Fails closed on a missing, zero, or unparseable block_time, which is what a
     // never-bootstrapped or unreadable replica looks like. decoder_lag_blocks
     // cannot see this: it is an intra-replica difference that reads 0 whenever the
     // indexer and decoder freeze together.
+    //
+    // A tip dated far AHEAD of this host also fails closed. Its age is negative,
+    // which clears the age gate by a margin that grows with the skew, so an
+    // unbounded future timestamp is a permanent freshness alibi for a coin that
+    // has stopped advancing (XC-1333). Skew within tipMaxFutureSkewSeconds is
+    // tolerated so ordinary clock drift and lax testnet timestamp rules do not
+    // delist a healthy chain.
     /**
      * @param {string} coin coin code
      * @param {number|null} blockTimeSec unix seconds of the newest indexed block
@@ -6128,7 +6178,12 @@ class Database {
         let tip = Number(blockTimeSec);
         if (!Number.isFinite(tip) || tip <= 0) return true;
         let now = Number.isFinite(Number(nowSec)) ? Number(nowSec) : Math.floor(Date.now() / 1000);
-        return (now - tip) > maxAge;
+        let delta = now - tip;
+        if (delta < 0) {
+            let maxSkew = this.tipMaxFutureSkewSeconds(coin);
+            return (maxSkew !== 0) && (-delta > maxSkew);
+        }
+        return delta > maxAge;
     }
 
     // Cached tip-staleness verdict for the per-request availability gate. An

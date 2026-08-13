@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.15.5] - 2026-08-13
 
 ### Fixed
 - Oracle-price and price-snapshot reads now resolve through the mandatory checkpoint schema, since both tables are hub-mirror only and never replicate to a serving node.

@@ -282,10 +282,20 @@ describe('decoder mempool surface', () => {
             expect(at, 'decoder mempool INSERT call site not found').to.be.greaterThan(-1);
             // The assignment of the value bound to `data:` lives just above the call.
             const site = src.slice(Math.max(0, at - 2500), at + 600);
-            expect(site, 'decoder mempool INSERT no longer stores the UTF-8 decode')
-                .to.match(/data:\s*mempoolDataString/);
-            expect(site, 'decoder mempool payload is no longer produced by a UTF-8 decode')
-                .to.include('strictTextDecoder.decode(mempoolData)');
+            // The decoder folded the mempool and confirmed-block writes into one
+            // storage gate, so the UTF-8 decode moved out of this call site and into
+            // buildStoredActionRecord. What this pin protects is unchanged: the column
+            // still receives the decoded string. Assert the binding here and the decode
+            // in the helper that now owns it, rather than the old inline variable.
+            expect(site, 'decoder mempool INSERT no longer stores the shared storage-gate record')
+                .to.match(/data:\s*stored\.data/);
+            expect(site, 'decoder mempool payload no longer comes from the shared storage gate')
+                .to.include('buildStoredActionRecord(');
+            const gateAt = src.indexOf('buildStoredActionRecord(parseResult, txHash, mempool)');
+            expect(gateAt, 'decoder storage gate buildStoredActionRecord not found').to.be.greaterThan(-1);
+            const gate = src.slice(gateAt, gateAt + 4000);
+            expect(gate, 'decoder storage gate no longer produces the payload by a UTF-8 decode')
+                .to.match(/decode\(\s*canonical\.buffer\s*\)/);
             expect(site, 'decoder mempool write reintroduced hex encoding; the explorer read must move with it')
                 .to.not.match(/toString\(\s*['"]hex['"]\s*\)/);
         });

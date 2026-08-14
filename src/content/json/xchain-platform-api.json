@@ -2795,7 +2795,8 @@
                             "type": "string"
                         },
                         "get_amount": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Coin attributed to this dispense. When one payment fills several dispenses in the same transaction, this is that dispense's share, not the payment's full amount. Testnet and regtest already behave this way; mainnet has not yet activated the change."
                         },
                         "get_address": {
                             "type": "string"

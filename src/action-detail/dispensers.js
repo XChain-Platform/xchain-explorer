@@ -19,6 +19,11 @@
 
 const shared = require('./shared.js');
 
+// coin_amount/vout are the SETTLEMENT record's; when one transaction pays more
+// than one obligation, each row names the specific output that paid THAT
+// obligation, not the transaction's first output (mainnet not yet armed;
+// testnet/regtest already this way). See "One Payment, Several Dispensers" in
+// protocol/actions/dispenser.md for the get_amount analogue below.
 const COINPAY = {
     queries() {
         let query  = null;
@@ -375,6 +380,12 @@ const DISPENSER_EXPIRE = {
     },
 };
 
+// m.get_amount is dispenses.get_amount (a fill), not d1.get_amount (the
+// dispenser's price, above). When one payment fills several dispensers behind
+// the same address in a batch, each fill's get_amount is its share of the
+// payment rather than the whole payment restated per row (mainnet not yet
+// armed; testnet/regtest already this way). See "One Payment, Several
+// Dispensers" in protocol/actions/dispenser.md.
 const DISPENSE = {
     queries() {
         let query  = null;

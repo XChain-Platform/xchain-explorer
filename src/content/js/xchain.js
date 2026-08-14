@@ -2598,7 +2598,12 @@ function showDispenserExpireDetails(data){
     $('#info-dispenser-expire .dispenser-expire-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
 }
 
-// Display DISPENSE action information
+// Display DISPENSE action information. get_amount is what THIS fill was
+// charged: when one payment fills several dispensers in the same transaction,
+// it is that fill's share, not the whole payment restated per fill (mainnet
+// not yet armed; testnet/regtest already this way). The "Get Amount" label
+// stays as-is since it is still an accurate name for "coin received for this
+// event" either way - see protocol/actions/dispenser.md.
 function showDispenseDetails(data){
     $('#info-dispense .dispense-give-coin').text(data.give_coin);
     $('#info-dispense .dispense-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
@@ -3377,7 +3382,12 @@ function showSweepDetails(data){
     $('#info-sweep .sweep-memo').text(data.memo);
 }
 
-// Display COINPAY action information (native-coin settlement payment for an obligation)
+// Display COINPAY action information (native-coin settlement payment for an
+// obligation). coin_amount/vout name the specific output that paid THIS
+// obligation: when one transaction pays more than one obligation, they no
+// longer default to the transaction's first output (mainnet not yet armed;
+// testnet/regtest already this way). Labels stay as-is since "Coin Amount" /
+// "Vout" remain accurate names either way - see components/indexer/database.md.
 function showCoinpayDetails(data){
     $('#info-coinpay .coinpay-obligation').html(isNull(data.obligation_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.obligation_action_index, numeral(data.obligation_action_index).format('0,0')));
     $('#info-coinpay .coinpay-coin-amount').html(isNull(data.coin_amount) ? '-' : formatAmount(data.coin_amount));

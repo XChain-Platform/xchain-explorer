@@ -2064,6 +2064,13 @@ class Database {
     async getDispenses(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
+        // get_amount here is dispenses.get_amount (a fill), not dispensers.get_amount
+        // (a price). When one payment fills several dispensers behind the same
+        // address in a batch, each fill's get_amount is its share of the payment
+        // rather than the whole payment restated per row (mainnet not yet armed;
+        // testnet/regtest already this way) - do not "fix" this label back to the
+        // whole-payment reading, see protocol/actions/dispenser.md "One Payment,
+        // Several Dispensers".
         // Support searching by both source or dispenser address
         if(config.data.type=='address')
             args.push(config.data.search);
@@ -2847,6 +2854,12 @@ class Database {
     }
 
     async getCoinpays(config){
+        // coin_amount/vout here are the settlement record's, not the obligation's
+        // (coinpay_obligations.coin_amount is the amount OWED). When one
+        // transaction pays more than one obligation, each row's coin_amount/vout
+        // name the specific output that paid THAT obligation, not the
+        // transaction's first output (mainnet not yet armed; testnet/regtest
+        // already this way) - do not "fix" this back to a single shared output.
         let sql   = config.data.sql;
         let count = `SELECT
                         count(*) as total

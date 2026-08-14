@@ -1413,8 +1413,10 @@ function loadDatatablesData(coin, action, query, type){
                         if(name=='swap_cancels')  icon='fa-exchange';  
                         if(name=='swap_edits')    icon='fa-exchange';  
                         if(name=='swap_matches')  icon='fa-exchange';  
-                        if(name=='sweeps')        icon='fa-truck';  
-                        html += '<a title="' + num + ' ' + name + '">' + num + ' <i class="fa ' + icon + ' me-3"></i></a>';
+                        if(name=='sweeps')        icon='fa-truck';
+                        // name/num flow into an HTML attribute via .html() below; escape
+                        // before it lands in markup so an attribute-breakout can't inject.
+                        html += '<a title="' + escapeHtml(num) + ' ' + escapeHtml(name) + '">' + escapeHtml(num) + ' <i class="fa ' + icon + ' me-3"></i></a>';
                     }
                 });
                 if(html=='')
@@ -1532,7 +1534,8 @@ function loadDatatablesData(coin, action, query, type){
                     $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
                 }
                 if(isNull(get_token)){
-                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + get_amount + ' ' + get_coin ;
+                    // get_amount/get_coin are on-chain fields; escape before they land in the .html() sink below.
+                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(get_amount) + ' ' + escapeHtml(get_coin) ;
                 } else {
                     html = formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount)
                 }
@@ -1549,7 +1552,8 @@ function loadDatatablesData(coin, action, query, type){
                 get_amount = data[9];
                 $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
                 if(isNull(get_token)){
-                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + get_amount + ' ' + get_coin ;
+                    // get_amount/get_coin are on-chain fields; escape before they land in the .html() sink below.
+                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(get_amount) + ' ' + escapeHtml(get_coin) ;
                 } else {
                     html = formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount)
                 }
@@ -3585,7 +3589,14 @@ function stripHtml(html){
         var doc = new DOMParser().parseFromString(String(html), 'text/html');
         return doc.body.textContent || '';
     } catch(e) {
-        return String(html).replace(/<[^>]*>/g, '');
+        // Single-pass tag stripping can leave a tag reassembled from adjacent
+        // fragments (e.g. "<scr" + "ipt>"); loop the replace to a fixpoint.
+        var out = String(html), prev;
+        do {
+            prev = out;
+            out  = out.replace(/<[^>]*>/g, '');
+        } while(out !== prev);
+        return out;
     }
 }
 
@@ -3981,7 +3992,18 @@ function showTokenContent(json){
         if(image){
             $('#artwork-header').show();
             var el = $('#artwork-image');
-            el.attr('src',image);
+            // image is derived from on-chain token metadata; only allow http(s)
+            // URLs into the src attribute so a javascript:/data: URI can't land there.
+            var safeImage = String(image);
+            if(safeImage.startsWith('http://') || safeImage.startsWith('https://'))
+                // .attr() sets the attribute through the DOM API, not markup, so
+                // there is no HTML parser to later un-escape entities the way the
+                // video/audio src sinks above rely on. Strip (not entity-escape)
+                // the tag/attribute-breakout characters instead: a real URL is
+                // always percent-encoded and never carries a literal <, >, " or '
+                // (unlike '&', which legitimately separates query params), so a
+                // benign URL is unaffected while a payload loses its markup bytes.
+                el.attr('src', safeImage.replace(/[<>"']/g, ''));
             el.show();
         }
         if(video){
@@ -4383,7 +4405,7 @@ function legacyJsonToXChainTIS(o){
     if(urls){
         urls.forEach(function(str){
             var [url, qs] = String(str).split('?'),
-                url   = url.replace('"',''),
+                url   = url.replace(/"/g,''),
                 arr   = url.split('.'),
                 ext   = arr[arr.length-1].toLowerCase(),
                 found = false;

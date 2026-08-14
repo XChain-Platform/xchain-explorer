@@ -237,6 +237,15 @@ class Utility {
         return Number.isFinite(parsed) ? parsed : defaultVal;
     }
 
+    // Every address format XChain serves (base58 BTC/LTC/DOGE, bech32, xchain
+    // account tokens) is plain alphanumeric within a bounded length. A URL path
+    // segment echoed back into a response is not: it can carry HTML/script
+    // metacharacters, so anything reflected as an "address" must pass this
+    // shape check first, not just get URL-decoded and forwarded.
+    isAddressLike(value){
+        return typeof value === 'string' && /^[A-Za-z0-9]{1,128}$/.test(value);
+    }
+
     ksort(obj){
         const sortedKeys = Object.keys(obj).sort();
         const sortedObj = sortedKeys.reduce((acc, key) => {

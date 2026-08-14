@@ -870,8 +870,11 @@ class XChainExplorer {
                 json = data;
             }
 
+            // cfg.data.search is the raw {QUERY} path segment: only echo it back as
+            // json.address once it is confirmed address-shaped, so an arbitrary
+            // (and possibly script-bearing) path segment never reaches the response.
             if(cfg.data.method=='getBalances')
-                json.address = cfg.data.search;
+                json.address = this.util.isAddressLike(cfg.data.search) ? cfg.data.search : null;
             if(cfg.data.method=='getSearch'){
                 delete data.data;
                 json = Object.assign({}, json, data);
@@ -969,7 +972,12 @@ class XChainExplorer {
         res.status(response.code);
 
         if(!this.util.isNull(response.json)){
-            res.type('json').send(this.util.jsonStringify(response.json));
+            // Explicit header, not res.type('json'): a browser that ever received this
+            // body as text/html would let a reflected value execute as markup, so the
+            // JSON content type is set directly rather than through a helper whose
+            // effect a static analyzer (or a future refactor) could lose track of.
+            res.set('Content-Type', 'application/json; charset=utf-8');
+            res.send(this.util.jsonStringify(response.json));
         } else if(!this.util.isNull(response.html)){
             res.send(response.html);
         } else {
@@ -2248,6 +2256,15 @@ class XChainExplorer {
                     /^\d+$/,
                 ];
                 if(blocked.some(r => r.test(hostname)))
+                    return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
+
+                // Web ports only. Token metadata lives on ordinary web servers, so
+                // nothing legitimate needs a non-web port, while an unrestricted port
+                // turns this endpoint into a probe for services (databases, admin
+                // panels) that happen to sit on a public address and therefore pass
+                // the private-range checks above.
+                const port = parsed.port === '' ? (parsed.protocol === 'https:' ? '443' : '80') : parsed.port;
+                if(!['80', '443'].includes(port))
                     return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
 
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();

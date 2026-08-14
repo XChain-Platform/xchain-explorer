@@ -26,6 +26,7 @@ const { expect }     = require('chai');
 const supertest      = require('supertest');
 const express        = require('express');
 const cors           = require('cors');
+const { testCorsOptions } = require('../../helpers/cors.js');
 const jsonRouter     = require('express-json-rpc-router');
 const { createTestConfigInfo } = require('../../integration/helpers/app-setup');
 const XChainExplorer = require('../../../src/XChainExplorer');
@@ -39,7 +40,7 @@ describe('SM-05: Server binding and JSON-RPC ping', function () {
 
         app = express();
         app.use(express.json());
-        app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
+        app.use(cors(testCorsOptions()));
 
         const configInfo = createTestConfigInfo(13306); // non-existent DB port is fine; we only test ping
         const explorer = new XChainExplorer(app, configInfo);

@@ -1517,9 +1517,19 @@
 	
 	
 	var _stripHtml = function ( d ) {
-		return d
-			.replace( _re_html, '' ) // Complete tags
-			.replace(/<script/i, ''); // Safety for incomplete script tag
+		// Loop each pass to its own fixpoint (not just once) so adjacent fragments
+		// left by an earlier replace (e.g. "<scr" + "ipt>") can't reassemble into
+		// a live tag.
+		var prev;
+		do {
+			prev = d;
+			d = d.replace( _re_html, '' ); // Complete tags
+		} while ( d !== prev );
+		do {
+			prev = d;
+			d = d.replace(/<script/gi, ''); // Safety for incomplete script tag
+		} while ( d !== prev );
+		return d;
 	};
 	
 	
@@ -4585,7 +4595,7 @@
 					word = m ? m[1] : word;
 				}
 	
-				return word.replace('"', '');
+				return word.replace(/"/g, '');
 			} );
 	
 			search = '^(?=.*?'+a.join( ')(?=.*?' )+').*$';
@@ -5932,7 +5942,9 @@
 	
 		for ( var i=0, ien=settings.aoData.length ; i<ien ; i++ ) {
 			s = _fnGetCellData( settings, i, colIdx, 'display' )+'';
-			s = s.replace( __re_html_remove, '' );
+			// Loop to a fixpoint so a single pass can't leave a tag reassembled
+			// from adjacent fragments.
+			s = (function ( v ) { var p; do { p = v; v = v.replace( __re_html_remove, '' ); } while ( v !== p ); return v; })( s );
 			s = s.replace( /&nbsp;/g, ' ' );
 	
 			if ( s.length > max ) {
@@ -6183,7 +6195,8 @@
 		{
 			var col = columns[i];
 			var asSorting = col.asSorting;
-			var sTitle = col.ariaTitle || col.sTitle.replace( /<.*?>/g, "" );
+			// Loop the tag-strip to a fixpoint so a single pass can't leave a tag reassembled.
+			var sTitle = col.ariaTitle || (function ( v ) { var p; do { p = v; v = v.replace( /<.*?>/g, "" ); } while ( v !== p ); return v; })( col.sTitle );
 			var th = col.nTh;
 	
 			// IE7 is throwing an error when setting these properties with jQuery's
@@ -8410,7 +8423,9 @@
 		if ( loaded && loaded.childRows ) {
 			api
 				.rows( $.map(loaded.childRows, function (id){
-					return id.replace(/:/g, '\\:')
+					// Escape the full CSS/jQuery selector metacharacter set, not just
+					// ':', so a saved id containing any of them can't alter the selector.
+					return id.replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
 				}) )
 				.every( function () {
 					_fnCallbackFire( context, null, 'requestChild', [ this ] )
@@ -15026,9 +15041,11 @@
 			return _empty(data) ?
 				data :
 				typeof data === 'string' ?
-					data
-						.replace( _re_new_lines, " " )
-						.replace( _re_html, "" ) :
+					// Loop the tag-strip to a fixpoint so a single pass can't leave a
+					// tag reassembled from adjacent fragments.
+					(function ( v ) { var p; do { p = v; v = v.replace( _re_html, "" ); } while ( v !== p ); return v; })(
+						data.replace( _re_new_lines, " " )
+					) :
 					'';
 		},
 	
@@ -15127,7 +15144,8 @@
 			return _empty(a) ?
 				'' :
 				a.replace ?
-					a.replace( /<.*?>/g, "" ).toLowerCase() :
+					// Loop the tag-strip to a fixpoint so a single pass can't leave a tag reassembled.
+					(function ( v ) { var p; do { p = v; v = v.replace( /<.*?>/g, "" ); } while ( v !== p ); return v; })( a ).toLowerCase() :
 					a+'';
 		},
 	

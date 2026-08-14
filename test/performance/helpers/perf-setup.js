@@ -23,6 +23,7 @@ const autocannon  = require('autocannon');
 const http        = require('http');
 const express     = require('express');
 const cors        = require('cors');
+const { testCorsOptions } = require('../../helpers/cors.js');
 const { createTestConfigInfo } = require('../../integration/helpers/app-setup');
 const XChainExplorer = require('../../../src/XChainExplorer.js');
 
@@ -45,7 +46,7 @@ async function bootServer() {
 
     const app = express();
     app.use(express.json());
-    app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
+    app.use(cors(testCorsOptions()));
 
     const configInfo = createTestConfigInfo(DB_PORT);
     const explorer   = new XChainExplorer(app, configInfo);

@@ -103,7 +103,22 @@ async function startApi(){
 
     app.use(express.json({ limit: '10kb' }));
 
-    app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
+    // Public read API: cross-origin GETs are the norm (docs examples, wallets,
+    // third-party dashboards), so with nothing configured every origin is
+    // admitted. Deployments that need to fence the API set EXPLORER_CORS_ORIGIN
+    // to a comma-separated allowlist of exact origins.
+    const corsAllowlist = String(process.env.EXPLORER_CORS_ORIGIN || '')
+        .split(',').map(s => s.trim()).filter(s => s.length && s !== '*');
+    app.use(cors({
+        // Callback form rather than a static wildcard: an allowlisted deployment
+        // reflects only listed origins, an open one reflects the caller's origin,
+        // and requests without an Origin header (curl, same-origin) always pass.
+        origin: (origin, cb) => {
+            if (!origin || corsAllowlist.length === 0 || corsAllowlist.includes(origin)) return cb(null, true);
+            return cb(null, false);
+        },
+        methods: ['GET', 'POST'],
+    }));
 
     // Static assets (icons, images) are served from disk, cost no DB work, and
     // every page pulls a burst of them at once, so they are exempt from both

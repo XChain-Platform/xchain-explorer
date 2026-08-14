@@ -26,6 +26,7 @@ const http           = require('http');
 const net            = require('net');
 const express        = require('express');
 const cors           = require('cors');
+const { testCorsOptions } = require('../../helpers/cors.js');
 const rateLimit      = require('express-rate-limit');
 const autocannon     = require('autocannon');
 const { createTestConfigInfo } = require('../../integration/helpers/app-setup');
@@ -54,7 +55,7 @@ async function bootServer(opts = {}) {
 
     const app = express();
     app.use(express.json({ limit: '10kb' }));
-    app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
+    app.use(cors(testCorsOptions()));
 
     if (opts.rateLimit === true) {
         app.use(rateLimit({

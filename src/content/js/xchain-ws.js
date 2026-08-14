@@ -180,9 +180,12 @@ var XChainWS = {
         // Handle system messages
         if (msg.type === 'WELCOME') {
             this.serverInfo = msg.data;
-            console.log('[XChainWS] Server v' + msg.data.version,
-                '| block:', msg.data.latest_block_index,
-                '| action:', msg.data.latest_action_index);
+            // Constant format string with the server-supplied values passed as
+            // separate arguments, not concatenated in: a WELCOME frame's fields
+            // are server data, but console.log must never take a caller-shaped
+            // string as its own first argument.
+            console.log('[XChainWS] Server v%s | block: %s | action: %s',
+                msg.data.version, msg.data.latest_block_index, msg.data.latest_action_index);
         }
 
         // Track catch-up state

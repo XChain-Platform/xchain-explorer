@@ -17,6 +17,7 @@
 
 const express        = require('express');
 const cors           = require('cors');
+const { testCorsOptions } = require('../../../helpers/cors.js');
 const XChainExplorer = require('../../../../src/XChainExplorer.js');
 
 function createTestConfigInfo(dbPort) {
@@ -75,7 +76,7 @@ async function createApp(dbPort) {
 
     const app = express();
     app.use(express.json());
-    app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
+    app.use(cors(testCorsOptions()));
 
     const configInfo = createTestConfigInfo(dbPort);
     const explorer = new XChainExplorer(app, configInfo);

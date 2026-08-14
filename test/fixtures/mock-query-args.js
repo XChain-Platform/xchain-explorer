@@ -148,7 +148,19 @@ function mockRes() {
         _redirect: null,
         _sentFile: null,
         status: function(code) { res._status = code; return res; },
-        set: function(headers) { Object.assign(res._headers, headers); return res; },
+        // Real Express res.set() takes either a name/value pair or a headers
+        // object; mirror both so a call site that sets Content-Type directly
+        // (rather than through the .type() shorthand) is tracked the same way.
+        set: function(headerOrName, value) {
+            if (typeof headerOrName === 'string') {
+                res._headers[headerOrName] = value;
+                if (headerOrName.toLowerCase() === 'content-type' && /^application\/json/i.test(value))
+                    res._type = 'json';
+            } else {
+                Object.assign(res._headers, headerOrName);
+            }
+            return res;
+        },
         type: function(t) { res._type = t; return res; },
         send: function(body) { res._body = body; return res; },
         sendFile: function(f) { res._sentFile = f; return res; },

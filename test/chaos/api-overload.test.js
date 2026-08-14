@@ -15,6 +15,7 @@ const net  = require('net');
 const { expect } = require('chai');
 const express        = require('express');
 const cors           = require('cors');
+const { testCorsOptions } = require('../helpers/cors.js');
 const rateLimit      = require('express-rate-limit');
 const { createTestConfigInfo } = require('../integration/helpers/app-setup');
 const XChainExplorer = require('../../src/XChainExplorer.js');
@@ -44,7 +45,7 @@ async function bootRateLimitedServer() {
 
     const app = express();
     app.use(express.json({ limit: '10kb' }));
-    app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
+    app.use(cors(testCorsOptions()));
 
     app.use(rateLimit({
         windowMs:        60 * 1000,

@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] - 2026-08-14
+
+First release of the XChain Platform release train. Every component in the train
+now shares one platform version, so "XChain 0.9.0" names an exact, reproducible
+set of software rather than a rough era.
+
+### Changed
+- Adopted the platform version stream. This component moves from `1.15.5` to
+  `0.9.0`. **The number is lower but the release is newer**: the platform stream
+  starts at 0.9.0 for the testnet series, and 1.0.0 is reserved for mainnet.
+
+<!-- ------------------------------------------------------------------------
+     Versions BELOW this line are this component's own legacy stream, from
+     before the release train. They are kept for history and are NOT comparable
+     to the platform versions above: a higher legacy number is an older release.
+     ------------------------------------------------------------------------ -->
+
 ## [1.15.5] - 2026-08-13
 
 ### Fixed

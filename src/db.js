@@ -696,10 +696,23 @@ class Database {
             // pure list-all request (no QUERY and no TYPE) has none. Many action methods still
             // seed args=[config.data.search] (= [undefined] here); that phantom prepends to the
             // offset args, shifting `m.action_index < ?` to bind NULL and returning zero rows.
-            // Force [] for pure list-all so only the offset args remain. Typed requests (search
-            // and/or a resource type present) keep the method's args, or the single-search fallback.
+            // Drop the phantom for pure list-all so only the offset args remain. Typed requests
+            // (search and/or a resource type present) keep the method's args, or the
+            // single-search fallback.
+            //
+            // The phantom is dropped by VALUE, not by discarding the whole array: a method can
+            // add a placeholder of its own that has nothing to do with search or type, and
+            // discarding its args left that placeholder unbound. getCrossChainMatches appends
+            // `AND m.network = ?` on every request, so a bare
+            // GET /{COIN}/api/cross_chain_matches answered 500 "Parameter at position 1 is not
+            // set" on any install with the mandatory checkpoint schema actually configured.
+            // On the list-all path the seeded search is null/undefined by construction, so
+            // filtering nulls removes exactly the phantom and nothing a method meant to bind.
             let baseArgs;
-            if(!config.data.search && !config.data.type)
+            let listAll = !config.data.search && !config.data.type;
+            if(Array.isArray(args))
+                baseArgs = listAll ? args.filter(a => !this.util.isNull(a)) : args;
+            else if(listAll)
                 baseArgs = [];
             else if(args && typeof args === 'object')
                 baseArgs = args;

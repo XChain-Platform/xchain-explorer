@@ -101,15 +101,20 @@ jobs:
       - name: Run integration suite
         run: npm run test:integration
 
-  # Real-schema conformance canary: loads the REAL indexer (and
-  # decoder, when present) DDL into a real MariaDB and executes every routed
-  # db.js read path plus the ChangeDetector WS poll loop against it. This is
-  # the always-on systemic catch for a schema-drift class (a SELECT
-  # of a non-existent column shipping green because unit tests stub the DB
-  # and the integration tier runs on a fixture snapshot). Needs the sibling
-  # xchain-indexer checkout (same deploy-key pattern as drift-guards below);
-  # runs from the explorer checkout so relative ../xchain-indexer resolves
-  # like the platform monorepo layout.
+  # Real-schema conformance canary: loads the REAL indexer, hub and decoder DDL
+  # into a real MariaDB and executes every routed db.js read path plus the
+  # ChangeDetector WS poll loop against it. This is the always-on systemic catch
+  # for a schema-drift class (a SELECT of a non-existent column shipping green
+  # because unit tests stub the DB and the integration tier runs on a fixture
+  # snapshot). Needs the sibling xchain-indexer checkout (same deploy-key pattern
+  # as drift-guards below); runs from the explorer checkout so relative
+  # ../xchain-indexer resolves like the platform monorepo layout.
+  #
+  # xchain-hub and xchain-decoder ride along because a sibling this suite reads
+  # but the job does not provide is not a neutral omission: the suite calls
+  # this.skip() on the missing DDL and the job still prints green. Without the
+  # hub DDL there is no co-located hub schema, and the 13 checkpoint/mirror/
+  # federation read paths degrade into tolerated no-ops instead of running.
   conformance:
     needs: ci
     runs-on: ubuntu-latest
@@ -136,6 +141,27 @@ jobs:
           repository: XChain-Platform/xchain-indexer
           ssh-key: ${{ secrets.XCHAIN_INDEXER_DEPLOY_KEY }}
           path: xchain-indexer
+
+      - name: Check out the real hub DDL (xchain-hub)
+        uses: actions/checkout@v4
+        with:
+          repository: XChain-Platform/xchain-hub
+          ssh-key: ${{ secrets.XCHAIN_HUB_DEPLOY_KEY }}
+          path: xchain-hub
+
+      # No deploy key is provisioned on this repo for the decoder, and none is
+      # needed: it is public post-flip, so clone it unauthenticated the way the
+      # shared workflow clones every declared sibling. Tracks the caller's branch
+      # so a DDL change on develop is measured against develop.
+      - name: Check out the real decoder DDL (xchain-decoder)
+        env:
+          SIBLINGS_REF: ${{ github.ref == 'refs/heads/master' && 'master' || 'develop' }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/${{ github.repository_owner }}/xchain-decoder.git"
+          git clone --quiet --depth 1 --branch "$SIBLINGS_REF" "$url" xchain-decoder \
+            || git clone --quiet --depth 1 "$url" xchain-decoder
+          echo "sibling xchain-decoder @ $(git -C xchain-decoder rev-parse --abbrev-ref HEAD) $(git -C xchain-decoder rev-parse --short HEAD)"
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4

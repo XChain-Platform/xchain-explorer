@@ -2046,6 +2046,56 @@ describe('Database#getData', () => {
         await db.getData(config);
         expect(capturedArgs).to.include(999);
     });
+
+    // A pure list-all request (no QUERY, no TYPE) has no data-WHERE placeholder, so the
+    // phantom args=[config.data.search] many methods seed must not reach the driver: it
+    // would prepend to the offset args and bind `m.action_index < ?` to NULL. Dropping it
+    // by VALUE rather than discarding the method's whole array is what keeps a method's
+    // OWN placeholder bound (getCrossChainMatches' `AND m.network = ?`), which a bare
+    // /{COIN}/api/cross_chain_matches otherwise left unset for a 500.
+    it('list-all drops the phantom search seed but keeps a method-supplied bind', async () => {
+        let capturedArgs = null;
+        sinon.stub(db, 'getQuery').resolves(['SELECT 1 WHERE m.network = ?', [null, 'regtest'], '']);
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { capturedArgs = a; return []; });
+        const config = makeConfig({ coin: 'BTC', data: { search: null, type: null, sql: { where: { offsetArgs: [] }, apiOffset: 0 } } });
+        config.type = 'api';
+        await db.getData(config);
+        expect(capturedArgs).to.deep.equal(['regtest']);
+    });
+
+    it('list-all still drops a lone phantom search seed (no method bind to keep)', async () => {
+        let capturedArgs = null;
+        sinon.stub(db, 'getQuery').resolves(['SELECT 1', [null], '']);
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { capturedArgs = a; return []; });
+        const config = makeConfig({ coin: 'BTC', data: { search: null, type: null, sql: { where: { offsetArgs: [42] }, apiOffset: 0 } } });
+        config.type = 'api';
+        await db.getData(config);
+        expect(capturedArgs).to.deep.equal([42]);
+    });
+
+    it('typed request keeps the method args in order (search before the method bind)', async () => {
+        let capturedArgs = null;
+        sinon.stub(db, 'getQuery').resolves(['SELECT 1 WHERE m.status = ? AND m.network = ?', ['open', 'regtest'], '']);
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { capturedArgs = a; return []; });
+        const config = makeConfig({ coin: 'BTC', data: { search: 'open', type: 'status', sql: { where: { offsetArgs: [] }, apiOffset: 0 } } });
+        config.type = 'api';
+        await db.getData(config);
+        expect(capturedArgs).to.deep.equal(['open', 'regtest']);
+    });
+
+    it('list-all count query gets the same de-phantomed base args as the data query', async () => {
+        const seen = [];
+        sinon.stub(db, 'getQuery').resolves(['SELECT 1 WHERE m.network = ?', [null, 'regtest'], 'SELECT count(*) WHERE m.network = ?']);
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => {
+            seen.push(a);
+            return q.includes('count(*)') ? [{ total: 0 }] : [];
+        });
+        const config = makeConfig({ coin: 'BTC', data: { search: null, type: null, sql: { where: { offsetArgs: [] }, apiOffset: 0 } } });
+        config.type = 'api';
+        await db.getData(config);
+        expect(seen).to.have.lengthOf(2);
+        expect(seen[1]).to.deep.equal(['regtest']);
+    });
 });
 
 describe('Database#getQuery (API path)', () => {

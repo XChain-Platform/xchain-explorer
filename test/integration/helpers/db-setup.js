@@ -41,25 +41,79 @@ function getPool() {
     return pool;
 }
 
-// Split a SQL script into statements, honoring `DELIMITER` directives. The node
-// mariadb driver has no client-side DELIMITER handling (that is a CLI-only
+// Remove SQL `--` line comments while respecting quoted strings, so a ';' in
+// comment prose is never read as a statement terminator. Mirrors the same-named
+// helper in src/hub_db_sync.js; the fixtures carry a license header whose text
+// ("...v3.0 or later; see LICENSE.md...") tore every DELIMITER-bearing fixture
+// into an invalid fragment until this ran first.
+function stripSqlLineComments(sql) {
+    let out = '';
+    let quote = null;
+    for (let i = 0; i < sql.length; i++) {
+        const ch = sql[i];
+        if (quote) {
+            out += ch;
+            if (ch === quote) {
+                if (sql[i + 1] === quote) { out += sql[++i]; }
+                else { quote = null; }
+            }
+            continue;
+        }
+        if (ch === "'" || ch === '"' || ch === '`') { quote = ch; out += ch; continue; }
+        if (ch === '-' && sql[i + 1] === '-') {
+            while (i < sql.length && sql[i] !== '\n') { i++; }
+            if (i < sql.length) { out += '\n'; }
+            continue;
+        }
+        out += ch;
+    }
+    return out;
+}
+
+// Split a SQL script into statements: strip `--` comments, then honor `DELIMITER`
+// directives while breaking on the active delimiter outside quoted strings. The
+// node mariadb driver has no client-side DELIMITER handling (that is a CLI-only
 // directive), so a fixture that defines a stored procedure with `DELIMITER //`
-// cannot be sent as one multi-statement query: the procedure body's internal
-// `;` would be mis-split. This walks the script line by line, tracking the active
+// cannot be sent as one multi-statement query: the procedure body's internal `;`
+// would be mis-split. This walks the script line by line, tracking the active
 // delimiter, and returns each statement so runSqlFile can send them one at a
-// time. Adequate for our fixtures (no `;` or delimiter tokens inside string
-// literals); it is not a general-purpose SQL parser.
+// time. Comments and string literals are respected; it is not otherwise a
+// general-purpose SQL parser.
 function splitSqlStatements(sql) {
     const out = [];
     let delim = ';';
     let buf = '';
+    // Break `text` on `d`, skipping any occurrence inside a quoted string: a
+    // fixture value containing the delimiter would otherwise be cut in half and
+    // sent as two invalid statements.
+    const splitOutsideQuotes = (text, d) => {
+        const parts = [];
+        let cur = '';
+        let quote = null;
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (quote) {
+                cur += ch;
+                if (ch === quote) {
+                    if (text[i + 1] === quote) { cur += text[++i]; }
+                    else { quote = null; }
+                }
+                continue;
+            }
+            if (ch === "'" || ch === '"' || ch === '`') { quote = ch; cur += ch; continue; }
+            if (text.startsWith(d, i)) { parts.push(cur); cur = ''; i += d.length - 1; continue; }
+            cur += ch;
+        }
+        parts.push(cur);
+        return parts;
+    };
     const flush = (d) => {
-        for (const part of buf.split(d)) {
+        for (const part of splitOutsideQuotes(buf, d)) {
             if (part.trim()) out.push(part.trim());
         }
         buf = '';
     };
-    for (const line of sql.split('\n')) {
+    for (const line of stripSqlLineComments(sql).split('\n')) {
         const m = line.match(/^\s*DELIMITER\s+(\S+)\s*$/i);
         if (m) { flush(delim); delim = m[1]; continue; }
         buf += line + '\n';
@@ -164,5 +218,8 @@ module.exports = {
     closePool,
     setupDatabase,
     teardownDatabase,
-    DB_CONFIG
+    DB_CONFIG,
+    // Exported for the unit guard: the fixture splitter is DB-free and its
+    // comment handling is what the perf suite regressed on.
+    splitSqlStatements
 };

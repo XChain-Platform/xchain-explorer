@@ -95,6 +95,13 @@ async function createApp(dbPort) {
     // anyway; hub-mirrored endpoints fail loud per request instead of at boot.
     process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';
 
+    // The fixture's seeded blocks carry fixed past timestamps, so the tip-age
+    // freshness gate (db.isCoinTipStale) would read RBTC as frozen and answer
+    // 503 COIN_DATA_STALE on every API route. Take the gate's own regtest
+    // escape hatch (an explicit 0 disables it): these suites assert route
+    // behavior, not replica freshness, which has its own unit coverage.
+    process.env.EXPLORER_TIP_MAX_AGE_S = '0';
+
     const app = express();
     app.use(express.json());
     app.use(cors(testCorsOptions()));

@@ -8519,10 +8519,10 @@
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 8192
+              "maxLength": 390000
             },
             "example": "0|JDOG|1|bc1qexampleaddress",
-            "description": "Pipe-delimited action parameters, exactly as encoded on the wire"
+            "description": "Pipe-delimited action parameters, exactly as encoded on the wire. Over a GET the practical ceiling is the HTTP request-line limit (~16 KiB including headers), not this one: POST the body for anything larger, such as a multi-hundred-command BATCH"
           },
           {
             "in": "query",
@@ -8586,7 +8586,117 @@
             }
           }
         },
-        "description": "Dry-runs the action against the current tip inside a forced rollback and returns its validity verdict. Nothing is persisted or broadcast. `valid: null` means no verdict was produced, and the sibling flag says why: `denied` (VM actions such as DEPLOY/EXECUTE/XEXEC/BATCH are not offered on this public surface), `feeExempt` (a settlement/lifecycle action with nothing to dry-run), `busy` (the dry-run admission window is full; retryable), or `guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). The protocol fee is settled the way `feeMode` says the real transaction will, so a payer who cannot cover an XCHAIN-settled fee is told `invalid` here rather than after paying a miner fee; `feeTokenBalance` and `feeAffordable` report that balance beside `xchainFee`. Verdicts are memoized per block height and settlement mode, so a repeat at the same tip returns `cached: true`."
+        "description": "Dry-runs the action against the current tip inside a forced rollback and returns its validity verdict. Nothing is persisted or broadcast. `valid: null` means no verdict was produced, and the sibling flag says why: `denied` (VM actions such as DEPLOY/EXECUTE/XEXEC are not offered on this public surface, and neither is a BATCH carrying one as a sub-command, which reports the offending name in `deniedSubAction`), `feeExempt` (a settlement/lifecycle action with nothing to dry-run), `busy` (the dry-run admission window is full; retryable), or `guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). A BATCH of non-VM sub-commands IS pre-flighted, and answers `subCommands`: one verdict per sub-command, in list order. Read that rather than the batch-level `valid`, because sub-commands are not atomic. The protocol fee is settled the way `feeMode` says the real transaction will, so a payer who cannot cover an XCHAIN-settled fee is told `invalid` here rather than after paying a miner fee; `feeTokenBalance` and `feeAffordable` report that balance beside `xchainFee`. Verdicts are memoized per block height and settlement mode, so a repeat at the same tip returns `cached: true`.\n\nThe same inputs are accepted as a JSON body on **POST** to this path. Use it for anything that will not fit a query string: a 250-command BATCH (the consensus maximum) runs to roughly 17,500 characters and a GET of that size is refused with a bare 431 by the HTTP server before any handler runs. The verdict is identical either way."
+      },
+      "post": {
+        "tags": [
+          "Core"
+        ],
+        "operationId": "postPreflight",
+        "summary": "Validity-first pre-flight of an action, with the inputs in a JSON body (for batches too large for a query string)",
+        "description": "Identical to the GET in inputs and verdict. Use it when `params` will not fit a URL, which is the case for any large BATCH: a 250-command batch is roughly 17,500 characters and a GET that size is refused with a 431 before the handler runs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9_]{1,32}$",
+                    "example": "BATCH",
+                    "description": "Action name (aliases are resolved)"
+                  },
+                  "params": {
+                    "type": "string",
+                    "maxLength": 390000,
+                    "description": "Pipe-delimited action parameters, exactly as encoded on the wire"
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "description": "Source address the action would be sent from"
+                  },
+                  "feeMode": {
+                    "type": "string",
+                    "enum": [
+                      "xchain",
+                      "native"
+                    ],
+                    "description": "How the real transaction will settle the protocol fee; omit for the chain default"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreflightResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "description": "Request body exceeds the pre-flight body limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many pre-flight POSTs from this client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Pre-flight unavailable: no indexer API is configured for this coin/network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream indexer could not be reached or errored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ]
       },
       "x-registered": "express"
     },
@@ -9402,6 +9512,48 @@
           "blockTime": {
             "type": "integer",
             "description": "Unix timestamp of that block, used for the dry-run"
+          },
+          "subCommands": {
+            "type": "array",
+            "description": "BATCH only: each sub-command's own verdict, in list order. Sub-commands are not atomic, so the batch-level `valid` does not tell a composer which of them will settle.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "position": {
+                  "type": "integer",
+                  "description": "Position in the batch, 0-based"
+                },
+                "action": {
+                  "type": "string",
+                  "description": "Sub-command action name, after alias resolution"
+                },
+                "status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "This sub-command's own verdict status (\"valid\", or the rejecting status); null when the handler recorded none"
+                },
+                "refused": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Set instead of a status when the sub-command was never dispatched (a VM-reaching action is not run on this public surface); null otherwise"
+                }
+              },
+              "required": [
+                "position",
+                "action"
+              ]
+            }
+          },
+          "oracleFeesOwed": {
+            "type": "object",
+            "description": "BATCH only: total oracle usage fee owed per oracle address, summed over the batch's Mode B DISPENSER sub-commands. Disclosed so a composer can size the outputs; not part of the verdict.",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "required": [

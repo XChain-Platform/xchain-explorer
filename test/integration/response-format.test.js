@@ -63,10 +63,16 @@ describe('Response Format', function () {
         expect(res.headers).to.not.have.property('xchain-explorer-version');
     });
 
-    it('Access-Control-Allow-Origin header is *', async function () {
-        const res = await request.get('/RBTC/api/sends/5/block');
+    it('reflects the caller Origin in Access-Control-Allow-Origin (open CORS)', async function () {
+        // The CORS layer is the allowlist-callback form (EXPLORER_CORS_ORIGIN);
+        // with nothing configured it admits every origin by REFLECTING it, and
+        // a request with no Origin header gets no CORS header at all. Assert
+        // the reflected form: a literal * is exactly what the callback form
+        // exists to avoid.
+        const res = await request.get('/RBTC/api/sends/5/block')
+            .set('Origin', 'https://example.com');
 
-        expect(res.headers).to.have.property('access-control-allow-origin', '*');
+        expect(res.headers).to.have.property('access-control-allow-origin', 'https://example.com');
     });
 
     it('does NOT set XChain-Runtime-Ms header unless DEBUG is enabled; runtime rides the body', async function () {

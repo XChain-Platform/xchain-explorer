@@ -21,7 +21,9 @@
  * systemically, not just for the one bug:
  *
  *   1. Loads the indexer's REAL DDL (xchain-indexer/src/sql/*.sql, plus its
- *      dated migrations) verbatim into a real MariaDB.
+ *      dated migrations) verbatim into a real MariaDB, and the co-located
+ *      hub-mirror schema the serving invariant requires (this repo's vendored
+ *      src/sql/hub-mirror twins plus the hub's own operational-table DDL).
  *   2. Executes every db.js read path reachable from the API route table
  *      (pulled live from XChainExplorer.urls, so new endpoints are covered
  *      automatically) and fails on any schema error (unknown column /
@@ -33,12 +35,20 @@
  *      DDL (per-table column-name parity), so the existing integration tier
  *      keeps testing the schema production actually has.
  *
+ * Deployment shape: NO_HUB, i.e. no hub JSON-RPC endpoint. That is deliberate.
+ * With a hub endpoint configured, validator_capabilities / governance_proposals
+ * / governance_votes are served over JSON-RPC and carry no local SQL at all, so
+ * an unreachable hub turned 13 routed read paths into tolerated no-ops that the
+ * canary still printed as green. Running the no-hub shape routes those tables
+ * to the co-located hub schema, where they execute real SQL against the real
+ * DDL, which is the only shape in which this tier can see them.
+ *
  * Requires the integration MariaDB fixture (127.0.0.1:3307):
  *   npm run test:integration:up
- * In CI this runs in a dedicated job with a mariadb service container plus a
- * sibling checkout of xchain-indexer (same pattern as the drift-guards job).
- * The decoder-DB checks run only when a sibling xchain-decoder checkout is
- * present (always true in the platform monorepo).
+ * In CI this runs in a dedicated job with a mariadb service container plus
+ * sibling checkouts of xchain-indexer and xchain-hub (same pattern as the
+ * drift-guards job). The decoder-DB checks run only when a sibling
+ * xchain-decoder checkout is present (always true in the platform monorepo).
  */
 
 'use strict';
@@ -61,10 +71,48 @@ const DB_PASS = process.env.CONFORMANCE_DB_PASS || 'testpass';
 const INDEXER_DB = 'XChain_Conformance_Indexer';
 const DECODER_DB = 'XChain_Conformance_Decoder';
 const FIXTURE_DB = 'XChain_Conformance_Fixture';
+const HUB_DB     = 'XChain_Conformance_Hub';
 
 const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql');
 const DECODER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-decoder', 'src', 'sql');
+const HUB_SQL_DIR     = path.join(__dirname, '..', '..', '..', 'xchain-hub', 'src', 'sql');
+const MIRROR_SQL_DIR  = path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror');
 const FIXTURE_SCHEMA  = path.join(__dirname, '..', 'integration', 'fixtures', 'schema.sql');
+
+// Hub-LOCAL operational tables the explorer reads out of the co-located hub
+// schema in the no-hub shape (db.js _hubSource). These are the hub's own
+// tables, never vendored here, so their DDL comes from the sibling checkout.
+// The mirror twins (state_checkpoints, capability_snapshots, price_snapshots,
+// oracle_prices, cross_chain_matches, cross_chain_calls,
+// anchor_reward_attestations) are loaded from THIS repo's vendored copies
+// instead, because those are the files the explorer's own ensureTables()
+// creates in production; drift between them and the hub is the drift-guards
+// job's business, not this one's.
+const HUB_LOCAL_TABLES = [
+    'validators.sql',
+    'validator_capabilities.sql',
+    'governance_proposals.sql',
+    'governance_votes.sql',
+    'p2p_peers.sql',
+    'consensus_state.sql',
+    'configs.sql',
+    'telemetry_pings.sql'
+];
+
+// Per-method probe arguments for read paths whose WHERE clause binds a
+// parameter unconditionally. Without a value the driver refuses the query with
+// "Parameter at position 1 is not set" BEFORE it reaches the server, so the SQL
+// never meets the schema and the method contributes nothing to this tier. The
+// values are deliberately arbitrary: the canary asserts the query is legal
+// against the real DDL, not that it matches a row.
+const PROBE_ARGS = {
+    // contract_state / contract balance reads key off the contract's index and
+    // its derived custody address respectively.
+    getContractState:   { search: '1' },
+    getContractBalance: { search: 'C:BTC:1' },
+    // poll_results is keyed by the poll's creating action_index.
+    getPollResults:     { search: '1' }
+};
 
 // The canonical UTF-8 ACTION string the decoder writes to
 // mempool_transactions.data. Kept as plain text on purpose: it is the
@@ -119,10 +167,12 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
 
     const hasIndexerDdl = fs.existsSync(INDEXER_SQL_DIR);
     const hasDecoderDdl = fs.existsSync(DECODER_SQL_DIR);
+    const hasHubDdl     = HUB_LOCAL_TABLES.every(f => fs.existsSync(path.join(HUB_SQL_DIR, f)));
 
     let adminPool = null;
     let explorer  = null;
     let db        = null;
+    let app       = null;
 
     async function adminQuery(sql) {
         const conn = await adminPool.getConnection();
@@ -176,7 +226,11 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
                 regtest: {
                     database: {
                         indexer: Object.assign({ name: INDEXER_DB }, dbCreds),
-                        decoder: hasDecoderDdl ? Object.assign({ name: DECODER_DB }, dbCreds) : undefined
+                        decoder: hasDecoderDdl ? Object.assign({ name: DECODER_DB }, dbCreds) : undefined,
+                        // Mandatory co-located hub schema. db.js honours this block only
+                        // when host/port/user/pass match the indexer block exactly, which
+                        // is why it reuses dbCreds rather than restating them.
+                        checkpoint: Object.assign({ name: HUB_DB }, dbCreds)
                     },
                     address: coinConfig.address
                 }
@@ -193,6 +247,15 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
         // Only skip when this checkout is the standalone explorer repo without
         // the sibling indexer DDL (CI provides it via a sibling checkout).
         if (!hasIndexerDdl) this.skip();
+
+        // A venue that HAS the indexer sibling but not the hub one is a
+        // misconfigured venue, not a standalone checkout, and `.ci-siblings`
+        // declares both. Say so rather than skipping (which prints green) or
+        // letting it surface downstream as a pile of "Unknown table" errors.
+        if (!hasHubDdl)
+            throw new Error('Conformance canary needs the sibling xchain-hub checkout at ' + HUB_SQL_DIR +
+                ' for the co-located hub schema (declared in .ci-siblings). Without it the ' +
+                'checkpoint/mirror/federation read paths cannot be exercised at all.');
 
         adminPool = mariadb.createPool({
             host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
@@ -213,11 +276,34 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             await loadSchema(DECODER_DB, ddlFiles(DECODER_SQL_DIR).concat(migrationFiles(DECODER_SQL_DIR)));
         }
 
-        // 3. Boot the real explorer (routes + Database with real pools).
-        //    No checkpoint schema in this rig: take the sanctioned bypass so
-        //    hub-mirrored endpoints fail per-request instead of at boot.
-        process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';
-        const app = express();
+        // 3. Co-located hub schema: this repo's vendored mirror twins (what
+        //    ensureTables() creates in production) plus the hub's own
+        //    operational tables from the sibling checkout. Loading it for real
+        //    is what lets the read loop below reach the checkpoint/mirror/
+        //    federation paths at all; without it they throw a config error the
+        //    loop can only tolerate.
+        const hubFiles = ddlFiles(MIRROR_SQL_DIR)
+            .concat(HUB_LOCAL_TABLES.map(f => path.join(HUB_SQL_DIR, f)));
+        await loadSchema(HUB_DB, hubFiles);
+
+        // 4. Boot the real explorer (routes + Database with real pools).
+        //    NO_HUB is the shape this tier runs in: see the header. It also has
+        //    to be set before construction, because HubOperationalCache resolves
+        //    its endpoint list once in its constructor.
+        //    The checkpoint block above satisfies the mandatory co-located hub-DB
+        //    invariant, so this rig deliberately does NOT take the
+        //    ALLOW_NO_COLOCATED_HUB_DB bypass: the canary boots under the same
+        //    startup contract a serving node does.
+        //    The rig indexes one block at a fixed past timestamp, so the tip-age
+        //    freshness gate would answer 503 COIN_DATA_STALE on every route before
+        //    any SQL ran. Disable it via its own escape hatch (explicit 0), the
+        //    same way the integration and perf harnesses do; freshness has its own
+        //    unit coverage and is not what this tier measures.
+        process.env.NO_HUB = '1';
+        process.env.EXPLORER_TIP_MAX_AGE_S = '0';
+        delete process.env.HUB_API_URL;
+        delete process.env.ALLOW_NO_COLOCATED_HUB_DB;
+        app = express();
         app.use(express.json());
         explorer = new XChainExplorer(app, createConfigInfo());
         await explorer.init();
@@ -240,9 +326,12 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
                 await adminQuery('DROP DATABASE IF EXISTS `' + INDEXER_DB + '`');
                 await adminQuery('DROP DATABASE IF EXISTS `' + DECODER_DB + '`');
                 await adminQuery('DROP DATABASE IF EXISTS `' + FIXTURE_DB + '`');
+                await adminQuery('DROP DATABASE IF EXISTS `' + HUB_DB + '`');
             } catch (e) { /* teardown */ }
             await adminPool.end();
         }
+        delete process.env.NO_HUB;
+        delete process.env.EXPLORER_TIP_MAX_AGE_S;
     });
 
     /******************************************************************
@@ -264,7 +353,8 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
         const tolerated      = [];
         let executed = 0;
         for (const method of methods) {
-            const cfg = makeConfig({ coin: 'RBTC', data: { method } });
+            const cfg = makeConfig(Object.assign({ coin: 'RBTC' },
+                { data: Object.assign({ method }, PROBE_ARGS[method] || {}) }));
             try {
                 await db.getData(cfg);
                 executed++;
@@ -272,9 +362,10 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
                 if (isSchemaError(e)) {
                     schemaFailures.push(method + ': ' + e.message);
                 } else {
-                    // Non-schema throws (e.g. hub-mirrored reads with no
-                    // checkpoint schema configured in this rig) are expected
-                    // for a handful of methods and are not schema drift.
+                    // Non-schema throws are not schema drift, but they are also
+                    // not coverage: the method did not execute SQL. Recorded so
+                    // the ratchet below can tell a benign throw from a read path
+                    // this rig silently stopped exercising.
                     tolerated.push(method + ': ' + e.message.split('\n')[0]);
                 }
             }
@@ -282,9 +373,50 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
         if (tolerated.length) console.log('conformance: tolerated non-schema errors:\n  ' + tolerated.join('\n  '));
         expect(schemaFailures, 'queries disagreeing with the REAL schema:\n' + schemaFailures.join('\n'))
             .to.deep.equal([]);
+
+        // Anti-silent-skip ratchet. A tolerated throw looks identical to a pass
+        // in the count above, which is how an unreachable hub and a missing
+        // checkpoint schema quietly removed 13 read paths from this tier while
+        // it kept printing green. These two patterns mean "the rig is wired
+        // wrong", never "the schema is fine", so they fail loudly.
+        const rigFailures = tolerated.filter(t =>
+            /No co-located hub DB|Hub unreachable|Parameter at position|is not set|ECONNREFUSED/i.test(t));
+        expect(rigFailures, 'read paths the conformance rig failed to exercise (harness wiring, not schema):\n' +
+            rigFailures.join('\n')).to.deep.equal([]);
+
         // Guard against a vacuous pass (e.g. every method throwing tolerated
         // config errors would otherwise still be green).
         expect(executed).to.be.at.least(40, 'too few read paths actually executed SQL');
+    });
+
+    // The routed surface, not just the db layer. Every list route in the
+    // hub-mirrored family is reachable with no {QUERY}/{TYPE} segment, and that
+    // shape is the one no other tier boots with a checkpoint schema to test: the
+    // integration fixture has none, so these routes fail their config check there
+    // long before any SQL runs. A bare cross_chain_matches request answered 500
+    // here (its `AND m.network = ?` bind was dropped with the phantom search seed)
+    // on exactly the installs that are configured correctly.
+    it('serves the hub-mirrored list routes with no QUERY/TYPE segment', async function () {
+        const request = require('supertest');
+        const routes = [
+            '/RBTC/api/cross_chain_matches',
+            '/RBTC/api/checkpoints',
+            '/RBTC/api/validator_capabilities',
+            '/RBTC/api/governance_proposals',
+            '/RBTC/api/governance_votes',
+            '/RBTC/api/peers',
+            '/RBTC/api/consensus_state',
+            '/RBTC/api/configs'
+        ];
+        const failures = [];
+        for (const route of routes) {
+            // A route this build does not expose is not this test's business;
+            // 404 means "not routed", anything 5xx means "routed and broken".
+            const res = await request(app).get(route);
+            if (res.status >= 500) failures.push(route + ' -> ' + res.status + ' ' + JSON.stringify(res.body));
+        }
+        expect(failures, 'hub-mirrored list routes failing on a correctly configured install:\n' +
+            failures.join('\n')).to.deep.equal([]);
     });
 
     it('runs the single-item detail reads without a schema error', async function () {

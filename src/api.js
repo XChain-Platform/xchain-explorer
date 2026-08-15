@@ -101,7 +101,17 @@ async function startApi(){
         },
     }));
 
-    app.use(express.json({ limit: '10kb' }));
+    // Tight global body ceiling: nothing on this read-only API legitimately posts more.
+    // The one exception is POST /{COIN}/api/preflight, which carries a whole composed
+    // action (a 250-command BATCH is ~17,500 characters) and mounts its own parser with
+    // its own ceiling at the route. Skipping it here rather than raising the global limit
+    // keeps the large-body allowance scoped to the single route that needs it; the
+    // predicate lives beside that route so the two cannot drift apart.
+    const globalJson = express.json({ limit: '10kb' });
+    app.use((req, res, next) => {
+        if (XChainExplorer.isPreflightPostRequest(req)) return next();
+        return globalJson(req, res, next);
+    });
 
     // Public read API: cross-origin GETs are the norm (docs examples, wallets,
     // third-party dashboards), so with nothing configured every origin is

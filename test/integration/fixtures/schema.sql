@@ -1006,7 +1006,9 @@ CREATE TABLE events (
     id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     time DATETIME,
     code VARCHAR(50),
-    data VARCHAR(250)
+    data VARCHAR(250),
+    witness_time DATETIME,           -- REORG marker witness: decoder event's time; NULL on legacy/non-REORG rows
+    witness_hash CHAR(64)            -- REORG marker witness: sha256 of the decoder event's data; NULL on legacy/non-REORG rows
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 -- ============================================================
@@ -1420,7 +1422,8 @@ CREATE TABLE validator_rewards (
     reward_type         VARCHAR(20) NOT NULL,            -- 'oracle_base', 'attest_fee', 'anchor_<chain>', ...
     round_reference     BIGINT UNSIGNED,                 -- round number or attestation ref
     amount              VARCHAR(250) NOT NULL,
-    block_index         BIGINT UNSIGNED NOT NULL
+    block_index         BIGINT UNSIGNED NOT NULL,
+    derive_block_index  BIGINT UNSIGNED DEFAULT NULL     -- creating block of a derived anchor/archive reward; rollback's second scoping key
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX reward_unique     ON validator_rewards (source_id, signing_pubkey_id, reward_type, round_reference);
@@ -1445,6 +1448,8 @@ CREATE TABLE attests (
     request_status                ENUM('pending','fulfilled','expired','errored','rejected'),
     resolved_block                BIGINT UNSIGNED,
     responsible_set_json          MEDIUMTEXT,
+    origin_chain                  VARCHAR(8),                 -- cross-chain relay: origin chain of a materialized/relay-eligible request
+    origin_action_index           BIGINT UNSIGNED,            -- cross-chain relay: the origin chain's v0 action_index
     response_hash                 CHAR(64),
     response_payload              MEDIUMTEXT,
     response_status               ENUM('ok','timeout','no_quorum','provider_error','expired'),

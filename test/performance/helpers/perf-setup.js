@@ -44,6 +44,12 @@ async function bootServer() {
     // anyway and let any hub-mirrored endpoint fail loud per request instead.
     process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';
 
+    // The perf fixture's seeded blocks carry fixed past timestamps, so the
+    // tip-age freshness gate would answer 503 COIN_DATA_STALE on every route
+    // being measured. Disable it via its own regtest escape hatch (explicit 0);
+    // freshness behavior has its own unit coverage.
+    process.env.EXPLORER_TIP_MAX_AGE_S = '0';
+
     const app = express();
     app.use(express.json());
     app.use(cors(testCorsOptions()));

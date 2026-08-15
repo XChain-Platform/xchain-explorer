@@ -189,6 +189,12 @@ const ROUTES = [
     ['/{COIN}/api/market/{TICK1}/{TICK2}/orderbook', 'getOrderbook', null, 'Markets', 'Aggregated order book for a pair'],
 ];
 
+// Mirrors MAX_PREFLIGHT_PARAMS_LENGTH in src/XChainExplorer.js, which is the protocol's
+// own action-payload ceiling (ENVELOPE_MAX_PAYLOAD). Declared here rather than required
+// from the service so this generator keeps its zero-dependency, side-effect-free shape;
+// test/unit/preflight-route.test.js asserts the two never drift apart.
+const PREFLIGHT_PARAMS_MAX_LENGTH = 390000;
+
 // Pre-wildcard routes registered directly on the Express app in setupUrls().
 const SPECIAL = [
     // The 200 is declared by hand because this route returns BYTES, not JSON, and the
@@ -221,20 +227,29 @@ const SPECIAL = [
         'Validity-first pre-flight of an action against the current tip (would it be accepted); proxied from the indexer',
         'Dry-runs the action against the current tip inside a forced rollback and returns its validity verdict. '
         + 'Nothing is persisted or broadcast. `valid: null` means no verdict was produced, and the sibling flag says why: '
-        + '`denied` (VM actions such as DEPLOY/EXECUTE/XEXEC/BATCH are not offered on this public surface), '
+        + '`denied` (VM actions such as DEPLOY/EXECUTE/XEXEC are not offered on this public surface, and neither is a '
+        + 'BATCH carrying one as a sub-command, which reports the offending name in `deniedSubAction`), '
         + '`feeExempt` (a settlement/lifecycle action with nothing to dry-run), '
         + '`busy` (the dry-run admission window is full; retryable), or '
         + '`guardInert` (the action is a controller-bound token whose guard is never entered here, so re-check on an authenticated tier). '
+        + 'A BATCH of non-VM sub-commands IS pre-flighted, and answers `subCommands`: one verdict per sub-command, in list '
+        + 'order. Read that rather than the batch-level `valid`, because sub-commands are not atomic. '
         + 'The protocol fee is settled the way `feeMode` says the real transaction will, so a payer who cannot cover an '
         + 'XCHAIN-settled fee is told `invalid` here rather than after paying a miner fee; `feeTokenBalance` and '
         + '`feeAffordable` report that balance beside `xchainFee`. '
-        + 'Verdicts are memoized per block height and settlement mode, so a repeat at the same tip returns `cached: true`.',
+        + 'Verdicts are memoized per block height and settlement mode, so a repeat at the same tip returns `cached: true`.\n\n'
+        + 'The same inputs are accepted as a JSON body on **POST** to this path. Use it for anything that will not fit a '
+        + 'query string: a 250-command BATCH (the consensus maximum) runs to roughly 17,500 characters and a GET of that '
+        + 'size is refused with a bare 431 by the HTTP server before any handler runs. The verdict is identical either way.',
         {
             query: [
                 { name: 'action', required: true, schema: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$' },
                     example: 'SEND', description: 'Action name (aliases are resolved)' },
-                { name: 'params', required: false, schema: { type: 'string', maxLength: 8192 },
-                    example: '0|JDOG|1|bc1qexampleaddress', description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
+                // maxLength is the protocol's own action-payload ceiling, so the proxy never
+                // refuses on length something the indexer would have judged. In practice a GET
+                // is limited far below this by the HTTP request-line size; POST the body instead.
+                { name: 'params', required: false, schema: { type: 'string', maxLength: PREFLIGHT_PARAMS_MAX_LENGTH },
+                    example: '0|JDOG|1|bc1qexampleaddress', description: 'Pipe-delimited action parameters, exactly as encoded on the wire. Over a GET the practical ceiling is the HTTP request-line limit (~16 KiB including headers), not this one: POST the body for anything larger, such as a multi-hundred-command BATCH' },
                 { name: 'source', required: false, schema: { type: 'string', maxLength: 4096 },
                     description: 'Source address the action would be sent from' },
                 // The verdict differs by settlement mode, so the caller states which
@@ -249,6 +264,37 @@ const SPECIAL = [
                 502: { description: 'The upstream indexer could not be reached or errored',
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
                 503: null,   // the route resolves the coin itself and 404s; it never emits CoinUnavailable
+            },
+            // Same endpoint, different transport: the query parameters above become body
+            // fields, and the response is the same PreflightResponse. It exists because the
+            // largest legal input cannot be carried in a URL at all.
+            post: {
+                operationId: 'postPreflight',
+                summary: 'Validity-first pre-flight of an action, with the inputs in a JSON body (for batches too large for a query string)',
+                description: 'Identical to the GET in inputs and verdict. Use it when `params` will not fit a URL, which is the case for any large BATCH: a 250-command batch is roughly 17,500 characters and a GET that size is refused with a 431 before the handler runs.',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    action: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$', example: 'BATCH', description: 'Action name (aliases are resolved)' },
+                                    params: { type: 'string', maxLength: PREFLIGHT_PARAMS_MAX_LENGTH, description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
+                                    source: { type: 'string', maxLength: 4096, description: 'Source address the action would be sent from' },
+                                    feeMode: { type: 'string', enum: ['xchain', 'native'], description: 'How the real transaction will settle the protocol fee; omit for the chain default' },
+                                },
+                                required: ['action'],
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    413: { description: 'Request body exceeds the pre-flight body limit',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                    429: { description: 'Too many pre-flight POSTs from this client',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                },
             },
         }],
     ['/{COIN}/api/checkpoints', 'Checkpoints', 'Latest quorum-signed state checkpoints for this chain',
@@ -364,13 +410,25 @@ function operation([p, method, types, tag, summary], opts) {
         if (body === null) delete responses[code];
         else responses[code] = body;
     }
-    return {
+    const item = {
         get: {
             operationId: opId(p), tags: [tag], summary,
             parameters: params,
             responses,
         },
     };
+    // {post} a second operation on the same path, for a route registered with both
+    // verbs. It INHERITS this operation's path parameters and status codes so the two
+    // can never document different failure sets, and adds its own requestBody plus any
+    // codes only the POST can emit (a body limit, its own rate limit). The table
+    // conventions describe GET-only routes, so this is opt-in per entry.
+    if (o.post) {
+        const post = Object.assign({ tags: [tag] }, o.post);
+        post.parameters = pathParams(p, types);
+        post.responses = Object.assign({}, responses, o.post.responses || {});
+        item.post = post;
+    }
+    return item;
 }
 
 const paths = {};
@@ -551,6 +609,32 @@ const spec = {
                     // clients already parse the shipped shape.
                     blockIndex: { type: 'integer', description: 'Tip height the verdict was computed against (a JSON number here, not a decimal string)' },
                     blockTime: { type: 'integer', description: 'Unix timestamp of that block, used for the dry-run' },
+                    // BATCH only, and the reason a batch pre-flight is worth doing at all:
+                    // sub-commands are NOT atomic, so the batch-level `valid` says nothing
+                    // about which of them will settle. Undocumented until now, which left the
+                    // one field a batch composer actually reads out of the published contract.
+                    subCommands: {
+                        type: 'array',
+                        description: 'BATCH only: each sub-command\'s own verdict, in list order. Sub-commands are not atomic, so the batch-level `valid` does not tell a composer which of them will settle.',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                position: { type: 'integer', description: 'Position in the batch, 0-based' },
+                                action: { type: 'string', description: 'Sub-command action name, after alias resolution' },
+                                status: { type: ['string', 'null'], description: 'This sub-command\'s own verdict status ("valid", or the rejecting status); null when the handler recorded none' },
+                                refused: { type: ['string', 'null'], description: 'Set instead of a status when the sub-command was never dispatched (a VM-reaching action is not run on this public surface); null otherwise' },
+                            },
+                            required: ['position', 'action'],
+                        },
+                    },
+                    // Disclosed, not judged: a probe carries no transaction and therefore no
+                    // oracle fee outputs, so the indexer reports what is owed per oracle rather
+                    // than faking a verdict it cannot compute.
+                    oracleFeesOwed: {
+                        type: 'object',
+                        description: 'BATCH only: total oracle usage fee owed per oracle address, summed over the batch\'s Mode B DISPENSER sub-commands. Disclosed so a composer can size the outputs; not part of the verdict.',
+                        additionalProperties: { type: 'string' },
+                    },
                 },
                 required: ['action', 'supported'],
             },

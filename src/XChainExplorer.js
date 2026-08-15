@@ -47,6 +47,36 @@ const { renderPlatformSwitcher } = require('./platform_links.js');
 // miss, and keeps an unbounded path segment from reaching the proof descent.
 const CONTRACT_STATE_KEY_MAX_BYTES = 1024;
 
+// Upper bound on the `params` string the pre-flight proxy will forward, in
+// characters. It is the protocol's OWN ceiling on an action payload
+// (ENVELOPE_MAX_PAYLOAD; canonical source xchain-documentation/protocol/
+// constants.js, mirrored in xchain-decoder/src/protocol/constants.js), so this
+// proxy can never be the component that refuses an action the indexer would
+// have judged.
+//
+// It used to be a flat 8192 copied from the feequote route, which put the
+// ceiling precisely on the feature BATCH exists for: consensus caps a batch at
+// 250 sub-commands, and 250 realistic child issuances run to ~17,500
+// characters, so the LARGEST legal batches were exactly the ones that came back
+// `parameter too long` instead of a verdict.
+//
+// Raising it is safe because payload SIZE is not a work multiplier upstream:
+// the indexer dry-run is bounded by the 250-command cap, its 8-pending
+// admission window and its 10s timeout, so a longer string buys a caller no
+// extra compute. The bytes themselves are bounded per request here and per
+// minute by the POST route's own rate limiter.
+const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
+
+// Upper bound on the `source` address string. Unchanged; an address is orders
+// of magnitude below this and it only exists to keep the field bounded.
+const MAX_PREFLIGHT_SOURCE_LENGTH = 4096;
+
+// Body-parser ceiling for POST /{COIN}/api/preflight. Above
+// MAX_PREFLIGHT_PARAMS_LENGTH because JSON string escaping can inflate a
+// payload before the length check above can see it; the real refusal is the
+// character check on the decoded value, not this.
+const PREFLIGHT_BODY_LIMIT = '1mb';
+
 let slowRequests = 0;
 
 // Lightweight rolling latency reservoir: last 256 request times (ms). The
@@ -510,6 +540,31 @@ class XChainExplorer {
         this.app.get('/:coin/api/feequote',    (req, res) => { this.processFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/oraclefeequote', (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
+        // POST sibling of the same pre-flight. Not a second endpoint: identical inputs,
+        // identical verdict, different transport. A GET cannot carry the largest legal
+        // input at all - a 250-command BATCH is ~17,500 characters and Node refuses the
+        // request line with a bare 431 before any handler runs (max-http-header-size
+        // defaults to 16 KiB) - so the batches this surface exists to pre-flight are
+        // unreachable over the query string no matter how high the length cap goes.
+        // Small actions should keep using the GET, which stays memo-friendly and cacheable.
+        //
+        // The body parser is mounted per-route with its own ceiling because api.js applies a
+        // deliberately tight 10kb global json() to everything else; the rate limiter is
+        // per-route for the same reason the VM-call route has one, since this is the only
+        // unauthenticated surface on the explorer that accepts a body this large.
+        const preflightPostLimiter = rateLimit({
+            windowMs:        60 * 1000,
+            limit:           parseInt(process.env.EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM, 10) || 60,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            message:         { error: 'Too many pre-flight requests', code: 'RATE_LIMITED' }
+        });
+        // Limiter BEFORE the parser on purpose: a rate-limited caller is refused without
+        // the server reading their megabyte first.
+        this.app.post('/:coin/api/preflight',
+            preflightPostLimiter,
+            express.json({ limit: PREFLIGHT_BODY_LIMIT }),
+            (req, res) => { this.processPreflightRequest(req, res); });
         this.app.get('/:coin/api/feeschedule', (req, res) => { this.processFeeScheduleRequest(req, res); });
 
         // Quorum-signed state checkpoints (the light-client verification surface).
@@ -2130,7 +2185,14 @@ class XChainExplorer {
     // Thin proxy to the indexer's `preflight` JSON-RPC (the height-keyed verdict memo lives
     // indexer-side). Same input-validation shape as processFeeQuoteRequest: reject repeated
     // params, charset-check the action, cap param/source lengths.
-    // GET /{COIN}/api/preflight?action=SEND&params=0|JDOG|1|addr&source=...
+    //
+    // Serves BOTH registrations, because they are one endpoint over two transports and the
+    // verdict must not depend on which one the caller picked:
+    //   GET  /{COIN}/api/preflight?action=SEND&params=0|JDOG|1|addr&source=...
+    //   POST /{COIN}/api/preflight   {"action":"BATCH","params":"0|ISSUE|...;...","source":"..."}
+    // The POST exists because the largest legal input cannot ride a query string: a
+    // 250-command BATCH is ~17,500 characters and Node rejects the request line with a 431
+    // before any handler sees it. See the route registration for the full reasoning.
     async processPreflightRequest(req, res){
         try {
             let config = await this.configInfo.getConfig();
@@ -2140,23 +2202,35 @@ class XChainExplorer {
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
                 return res.status(501).json({ error: 'pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
-            if(this.util.isNull(req.query.action))
+            // One input object for both transports. A POST reads its JSON body; anything else
+            // reads the query string. `req.body` is undefined on a body-less POST under
+            // body-parser 2.x, so it is defaulted rather than dereferenced.
+            let input = (String(req.method || 'GET').toUpperCase() === 'POST') ? (req.body || {}) : (req.query || {});
+            if(this.util.isNull(input.action))
                 return res.status(400).json({ error: 'action is required', code: 'MISSING_PARAMETER' });
-            let action = req.query.action;
-            let params = req.query.params;   // pipe-delimited string; the indexer splits it
-            let source = req.query.source;
+            let action = input.action;
+            let params = input.params;   // pipe-delimited string; the indexer splits it
+            let source = input.source;
             // How the caller's real transaction will settle the protocol fee. The
             // verdict differs by mode, so it is passed through rather than assumed; omitted,
             // the indexer picks the chain's own default mode.
-            let feeMode = req.query.feeMode;
+            let feeMode = input.feeMode;
             if(Array.isArray(action) || Array.isArray(params) || Array.isArray(source) || Array.isArray(feeMode))
                 return res.status(400).json({ error: 'repeated query parameters are not allowed', code: 'INVALID_PARAMETER' });
+            // Non-string scalars/objects reach here from a JSON body (and from bracket-notation
+            // query keys), where String() would quietly stringify them into something the
+            // indexer then judges. Refuse instead of forwarding "[object Object]".
+            for(let field of ['action', 'params', 'source', 'feeMode']){
+                let value = input[field];
+                if(value !== undefined && value !== null && typeof value !== 'string')
+                    return res.status(400).json({ error: field + ' must be a string', code: 'INVALID_PARAMETER' });
+            }
             action = String(action);
             if(!/^[A-Z0-9_]{1,32}$/.test(action))
                 return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
             params = this.util.isNull(params) ? undefined : String(params);
             source = this.util.isNull(source) ? undefined : String(source);
-            if((params && params.length > 8192) || (source && source.length > 4096))
+            if((params && params.length > MAX_PREFLIGHT_PARAMS_LENGTH) || (source && source.length > MAX_PREFLIGHT_SOURCE_LENGTH))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             if(!this.util.isNull(feeMode)){
                 feeMode = String(feeMode).toLowerCase();
@@ -2343,5 +2417,18 @@ function canonicalCheckpointString(cp){
         : canonRaw;
 }
 
+// True for the one request the global json() body parser in api.js must NOT touch:
+// POST /{COIN}/api/preflight parses its own body with a far larger ceiling (see the
+// route registration), and the tight global parser would 413 a legal 250-command
+// BATCH before the route-level parser ever ran. Exported here, beside the route it
+// describes, so api.js cannot drift from the path the route actually claims.
+function isPreflightPostRequest(req){
+    if(!req || String(req.method || '').toUpperCase() !== 'POST') return false;
+    return /^\/[^/]+\/api\/preflight\/?$/i.test(String(req.path || ''));
+}
+
 module.exports = XChainExplorer;
 module.exports.canonicalCheckpointString = canonicalCheckpointString;
+module.exports.isPreflightPostRequest = isPreflightPostRequest;
+module.exports.MAX_PREFLIGHT_PARAMS_LENGTH = MAX_PREFLIGHT_PARAMS_LENGTH;
+module.exports.PREFLIGHT_BODY_LIMIT = PREFLIGHT_BODY_LIMIT;

@@ -814,8 +814,19 @@ class Database {
             limit = length;
             if(limit > max)
                 limit = max;
-            if(action=='last')
-                limit = (config.data.query.total - config.data.query.start);
+            // Size the jump-to-last page from the client's own record total, but clamp
+            // it to the same per-method max the branches above enforce. `total` and
+            // `start` are raw query-string input, so without the clamp
+            // `?action=last&total=1e15` reached the LIMIT clause verbatim (full-table
+            // scan on an unauthenticated list route) and a missing, non-numeric, or
+            // repeated `total` emitted `LIMIT NaN` as a 500. A real last page never
+            // exceeds one page of rows, so the ceiling is invisible to the UI; an
+            // unusable total falls back to the already-clamped page length.
+            if(action=='last'){
+                let tail = Number(config.data.query.total) - Number(start);
+                if(Number.isFinite(tail))
+                    limit = Math.max(1, Math.min(tail, max));
+            }
             // token/subtoken/roster searches paginate by fetch-and-slice (no action_index offsets),
             // so the SQL limit must cover start+length rows. Cap the offset fed to the
             // SQL LIMIT: without a bound, an unauthenticated request with a huge `start`

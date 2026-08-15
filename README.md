@@ -137,6 +137,8 @@ The `icons` table backing this feature is created automatically by xchain-indexe
 
 Generated icons are written to `src/content/icons/{COIN}/{NETWORK}/{TICK}.png` and served by the existing `/icon/...` endpoint. Failed fetches back off (1h -> 1d -> 7d -> permanent) so unreachable URLs aren't repeatedly retried.
 
+Accepted source formats are PNG, JPEG, GIF and WebP, decided by sniffing the downloaded bytes rather than by trusting the URL. **SVG is refused:** the renderer behind it dereferences external references, and those fetches would leave ImageMagick without passing the downloader's private-address and web-port checks, so a token whose only icon is an SVG is recorded failed (`unsupported mime 'image/svg+xml'`) instead. Egress is restricted to ports 80 and 443, on the first request and on every redirect hop, the same restriction `/relay` enforces.
+
 ## Metrics and log shipping (optional, off by default)
 
 A Prometheus `/metrics` endpoint and a structured log shim ship with this

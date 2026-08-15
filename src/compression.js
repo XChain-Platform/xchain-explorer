@@ -53,12 +53,36 @@ const COMPRESSION_MAX_RATIO = 150;
 const GATE_TICKER_FIELD_INDEX = 6;
 const COMPRESSION_FIELD_INDEX = 10;
 
+// Unwrap a BATCH-wrapped FILE to its own sub-command, or hand the string back
+// unchanged. A FILE may legally ride inside a BATCH (protocol actions/file.md),
+// and what the serve path reads is the DECODER's tx-level `data` column, so the
+// stored string is then `BATCH|<v>|FILE|0|...;...` and the FILE-prefix gates
+// below would read `BATCH` and pass deflated bytes through as raw.
+//
+// Splitting on ';' and then '|' IS how consensus reads a BATCH
+// (xchain-indexer/src/actions/batch.js splits TX_DATA on ';' and each command on
+// '|'), so no field of an on-chain-valid FILE can carry either delimiter; a
+// BATCH carries at most one FILE, since a transaction carries one rawData
+// payload (protocol actions/batch.md). Fail-closed: with no FILE sub-command
+// found the string is returned untouched, the gates read false, and the caller
+// serves the stored bytes exactly as before.
+function extractFileSubcommand(actionString) {
+    if (typeof actionString !== 'string' || actionString.length === 0) return actionString;
+    const parts = actionString.split('|');
+    if (String(parts[0]).toUpperCase() !== 'BATCH') return actionString;
+    // Drop the BATCH|<VERSION>| prefix, then take the first FILE command.
+    for (const command of parts.slice(2).join('|').split(';')) {
+        if (String(command.split('|')[0]).toUpperCase() === 'FILE') return command;
+    }
+    return actionString;
+}
+
 // Does this FILE v0 action string declare deflate-raw? Lenient by design:
 // anything that is not exactly the known code reads as raw, so an unknown
 // future code degrades safely instead of erroring.
 function isCompressedAction(actionString) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
-    const parts = actionString.split('|');
+    const parts = extractFileSubcommand(actionString).split('|');
     if (parts.length <= COMPRESSION_FIELD_INDEX) return false;
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
     if (String(parts[1]) !== '0') return false;
@@ -69,7 +93,7 @@ function isCompressedAction(actionString) {
 // here (the client inflates after decrypting).
 function isGatedAction(actionString) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
-    const parts = actionString.split('|');
+    const parts = extractFileSubcommand(actionString).split('|');
     if (parts.length <= GATE_TICKER_FIELD_INDEX) return false;
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
     if (String(parts[1]) !== '0') return false;
@@ -157,7 +181,9 @@ function inflateStoredBytes(stored, options = {}) {
  * Resolve the bytes to serve for one FILE, applying every §5 rule in order.
  *
  * @param {Buffer} stored - the bytes exactly as stored on chain.
- * @param {string|null} actionString - the FULL stored action string.
+ * @param {string|null} actionString - the FULL stored action string, exactly as
+ *   the decoder kept it. That is the TRANSACTION's string, so a batched FILE
+ *   arrives as `BATCH|<v>|FILE|0|...` and is unwrapped by the gates.
  * @param {object} [options]
  * @param {boolean} [options.gated] - force the gated branch (the caller often
  *   already knows, because it read gated_files).
@@ -188,6 +214,7 @@ module.exports = {
     inflateStoredBytes,
     isCompressedAction,
     isGatedAction,
+    extractFileSubcommand,
     COMPRESSION_CODE_DEFLATE_RAW,
     COMPRESSION_MAX_RATIO,
     COMPRESSION_FIELD_INDEX,

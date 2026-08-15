@@ -2807,6 +2807,66 @@ describe('Database#getQuery (Explorer path)', () => {
         expect(config.data.sql.order).to.equal('ASC');
     });
 
+    // The action=last branch sizes its LIMIT from the client's own `total`/`start`,
+    // so it has to re-apply the per-method clamp the earlier branches enforce.
+    function lastPageConfig(query){
+        return makeConfig({
+            coin: 'BTC',
+            type: 'explorer',
+            data: {
+                method: 'getSends',
+                type: null,
+                search: '',
+                query: Object.assign({ limit: 10, length: 10, start: 0, offset: false, action: 'last', page: 1, sortorder: 'DESC' }, query),
+                sql: { where: { data: '', offset: '', offsetArgs: [] }, order: 'DESC', limit: 100, apiOffset: 0 },
+                offset: { action: 'last', start: false, stop: false }
+            }
+        });
+    }
+
+    function stubLastPageQuery(){
+        sinon.stub(db, 'getSends').resolves(['SELECT 1', null, '']);
+        sinon.stub(db, 'getQueryWhereSql').resolves('1=1');
+        sinon.stub(db, 'getQueryOffsets').resolves([false, false]);
+        sinon.stub(db, 'getQueryOffsetSql').resolves(['', []]);
+    }
+
+    it('clamps the action=last limit to the per-method max on a huge total', async () => {
+        stubLastPageQuery();
+        const config = lastPageConfig({ total: '1000000000000000' });
+        await db.getQuery(config);
+        expect(config.data.sql.limit).to.equal(100);
+    });
+
+    it('falls back to the page length when the action=last total is not numeric', async () => {
+        stubLastPageQuery();
+        const config = lastPageConfig({ total: 'abc' });
+        await db.getQuery(config);
+        expect(Number.isFinite(config.data.sql.limit)).to.be.true;
+        expect(config.data.sql.limit).to.equal(10);
+    });
+
+    it('falls back to the page length when action=last total is a repeated param', async () => {
+        stubLastPageQuery();
+        const config = lastPageConfig({ total: ['1', '2'] });
+        await db.getQuery(config);
+        expect(config.data.sql.limit).to.equal(10);
+    });
+
+    it('never emits a negative action=last limit when total is below start', async () => {
+        stubLastPageQuery();
+        const config = lastPageConfig({ total: '5', start: 20 });
+        await db.getQuery(config);
+        expect(config.data.sql.limit).to.be.at.least(1);
+    });
+
+    it('leaves a real last-page limit untouched', async () => {
+        stubLastPageQuery();
+        const config = lastPageConfig({ total: 47, start: 40 });
+        await db.getQuery(config);
+        expect(config.data.sql.limit).to.equal(7);
+    });
+
     it('adds getSearch limit as bcadd(start, length) (line 378-379)', async () => {
         sinon.stub(db, 'getSearch').resolves([{}, null, 0]);
         sinon.stub(db, 'getQueryWhereSql').resolves('1=1');

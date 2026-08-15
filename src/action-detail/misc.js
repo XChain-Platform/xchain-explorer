@@ -129,13 +129,19 @@ const BATCH = {
     query2Args({ action_index }, data) {
         return [action_index, data.tx_index];
     },
+    // Resolve the children through the batch loader rather than one serial await each.
+    // A serial recursion paid ~6-8 round trips per child with no shared-leg preload, so a
+    // cold max-size batch (BATCH_ISSUANCE_LIMITS caps sub-commands at 250) issued well over
+    // a thousand strictly sequential queries on a user-reachable page. getActionDataBatch
+    // resolves the same indexes through the SAME unmodified getActionData, bounded by
+    // BATCH_CONCURRENCY, so every child payload is unchanged and the pool cannot be drained.
+    // Order comes from the index list, never from the returned Map (query2 is ordered by
+    // action_index and the column is unique, so the mapping is one-to-one).
+    // BATCH cannot nest (actionLimits['BATCH'] = 0), so the fan-out is one level deep.
     async afterQuery2({ db, config }, data, results) {
-        let actions = [];
-        for(let row of results){
-            let info = await db.getActionData(config, Number(row.action_index));
-            actions.push(info);
-        }
-        data.actions = actions;
+        let indexes  = results.map((row) => Number(row.action_index));
+        let byIndex  = await db.getActionDataBatch(config, indexes);
+        data.actions = indexes.map((idx) => byIndex.get(idx));
     },
 };
 

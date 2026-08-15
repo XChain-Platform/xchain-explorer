@@ -4266,7 +4266,13 @@ function showTokenInfo(){
         jsonUrl = actionRefToRawPath(desc.trim());
     } else if(json.test(desc) || ipfs.test(desc) || ord.test(desc) || ar.test(desc) || arweave.test(desc)){
         if(ipfs.test(desc)){
-            jsonUrl = 'https://ipfs.io/ipfs/' + String(desc).replace(ipfs,'');
+            // Same gateway the server resolves ipfs: through (IPFS_GATEWAY in
+            // src/IconResolver.js) and the same one this file already rewrites
+            // ipfs:// image entries to below. Pointing the page somewhere else
+            // makes it render icons the downloader could not fetch, and vice
+            // versa. The optional // is stripped here too, so the ipfs://HASH
+            // form does not land as a double-slashed path the gateway 404s.
+            jsonUrl = 'https://ipfsc.crystalsuite.com/' + String(desc).replace(/^ipfs:(\/\/)?/i,'');
         } else if(ord.test(desc)){
             var hash = String(desc).replace(ord,'');
             if(hash.length!=64)

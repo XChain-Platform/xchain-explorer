@@ -116,6 +116,33 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
         expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/sm.png');
     });
 
+    // The token page takes 64x64 first (content/js/xchain.js). Starting at 48x48
+    // cached a different image than the page displayed, and upscaled it, since
+    // the downloader renders at 64px.
+    it('prefers a 64x64 icon over 48x48, as the token page does', function(){
+        const json = { images: [
+            { type: 'icon', size: '48x48', data: 'https://x.com/48.png' },
+            { type: 'icon', size: '64x64', data: 'https://x.com/64.png' },
+        ]};
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/64.png');
+    });
+
+    it('still takes 48x48 when no 64x64 icon is present', function(){
+        const json = { images: [
+            { type: 'icon', size: '128x128', data: 'https://x.com/128.png' },
+            { type: 'icon', size: '48x48',   data: 'https://x.com/48.png' },
+        ]};
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/48.png');
+    });
+
+    it('takes a 64x64 icon ahead of a same-size entry that is not an icon', function(){
+        const json = { images: [
+            { type: 'standard', size: '64x64', data: 'https://x.com/std.png' },
+            { type: 'icon',     size: '64x64', data: 'https://x.com/64.png' },
+        ]};
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/64.png');
+    });
+
     it('prefers 48x48 icon over a "large" entry', function(){
         const json = { images: [
             { type: 'large', data: 'https://x.com/big.png' },

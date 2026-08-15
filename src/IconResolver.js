@@ -24,6 +24,15 @@
  *
  ********************************************************************/
 
+// The one IPFS gateway this service resolves ipfs: through, root-addressed
+// (`<gateway><hash>`, no /ipfs/ path segment). Held as a constant because the
+// page must agree with it: content/js/xchain.js resolves ipfs: descriptions and
+// rewrites ipfs:// image entries against the SAME gateway, and a page pointed at
+// a different one renders an icon the downloader failed to fetch, or backs the
+// icons row off to permanently-failed while the page renders fine. Changing the
+// gateway is a two-file change, here and there.
+const IPFS_GATEWAY = 'https://ipfsc.crystalsuite.com/';
+
 /**
  * Classify a token description into an icon source.
  *
@@ -77,7 +86,7 @@ function resolveDescriptionToSource(description){
     if(/^ipfs:/i.test(desc)){
         const hash = desc.replace(/^ipfs:(\/\/)?/i, '').trim();
         if(hash === '') return null;
-        return { scheme: 'ipfs', url: 'https://ipfsc.crystalsuite.com/' + hash };
+        return { scheme: 'ipfs', url: IPFS_GATEWAY + hash };
     }
 
     // 4. ar:HASH: Arweave gateway
@@ -149,16 +158,21 @@ function resolveDescriptionToSource(description){
  * community JSONs) is mapped onto "image" so the normal picker chain
  * handles it.
  *
- * Priority chain (smallest icon-shaped sources first; caller resizes down):
- *   1. images[].data where type=='icon' && size=='48x48'
- *   2. images[].data where type=='icon' (any size)
- *   3. top-level "image"           (CIP25 / post-normalization "icon")
- *   4. images[].data where type=='standard'
- *   5. images[].data where type=='large'
- *   6. top-level "image_large"     (legacy)
- *   7. images[].data where type=='hires'
- *   8. top-level "image_large_hd"  (legacy)
- *   9. first images[].data with anything usable
+ * Priority chain (icon-shaped sources first; caller resizes down). Steps 1-3
+ * are the token page's own order (content/js/xchain.js), which this must match
+ * or the cached listing icon and the page disagree for a token carrying both
+ * sizes. 64x64 leads on both sides because the downloader renders at 64px, so
+ * preferring the 48x48 would upscale past a native-size source that is present:
+ *   1. images[].data where type=='icon' && size=='64x64'
+ *   2. images[].data where type=='icon' && size=='48x48'
+ *   3. images[].data where type=='icon' (any size)
+ *   4. top-level "image"           (CIP25 / post-normalization "icon")
+ *   5. images[].data where type=='standard'
+ *   6. images[].data where type=='large'
+ *   7. top-level "image_large"     (legacy)
+ *   8. images[].data where type=='hires'
+ *   9. top-level "image_large_hd"  (legacy)
+ *  10. first images[].data with anything usable
  *
  * Any returned URL is run through rewriteSchemeUrl() to translate
  * ipfs:// or ar: prefixes to gateway URLs.
@@ -173,37 +187,43 @@ function selectIconUrlFromCip25Json(json){
 
     const images = Array.isArray(j.images) ? j.images : [];
 
-    // 1. 48x48 icon
+    // 1. 64x64 icon (what the page takes first, and the size we render at)
+    for(const img of images){
+        if(!img || typeof img !== 'object') continue;
+        if(img.type === 'icon' && img.size === '64x64' && img.data)
+            return rewriteSchemeUrl(img.data);
+    }
+    // 2. 48x48 icon
     for(const img of images){
         if(!img || typeof img !== 'object') continue;
         if(img.type === 'icon' && img.size === '48x48' && img.data)
             return rewriteSchemeUrl(img.data);
     }
-    // 2. Any icon
+    // 3. Any icon
     for(const img of images){
         if(!img || typeof img !== 'object') continue;
         if(img.type === 'icon' && img.data)
             return rewriteSchemeUrl(img.data);
     }
-    // 3. Top-level "image"
+    // 4. Top-level "image"
     if(j.image) return rewriteSchemeUrl(j.image);
-    // 4/5. standard / large in images[]
+    // 5/6. standard / large in images[]
     for(const t of ['standard','large']){
         for(const img of images){
             if(!img || typeof img !== 'object') continue;
             if(img.type === t && img.data) return rewriteSchemeUrl(img.data);
         }
     }
-    // 6. Top-level "image_large"
+    // 7. Top-level "image_large"
     if(j.image_large)    return rewriteSchemeUrl(j.image_large);
-    // 7. hires in images[]
+    // 8. hires in images[]
     for(const img of images){
         if(!img || typeof img !== 'object') continue;
         if(img.type === 'hires' && img.data) return rewriteSchemeUrl(img.data);
     }
-    // 8. Top-level "image_large_hd"
+    // 9. Top-level "image_large_hd"
     if(j.image_large_hd) return rewriteSchemeUrl(j.image_large_hd);
-    // 9. First usable images[] entry
+    // 10. First usable images[] entry
     for(const img of images){
         if(!img || typeof img !== 'object') continue;
         if(img.data) return rewriteSchemeUrl(img.data);
@@ -222,10 +242,10 @@ function rewriteSchemeUrl(url){
     if(u === '') return null;
 
     if(/^ipfs:\/\//i.test(u))
-        return 'https://ipfsc.crystalsuite.com/' + u.replace(/^ipfs:\/\//i, '');
+        return IPFS_GATEWAY + u.replace(/^ipfs:\/\//i, '');
 
     if(/^ipfs:/i.test(u))
-        return 'https://ipfsc.crystalsuite.com/' + u.replace(/^ipfs:/i, '');
+        return IPFS_GATEWAY + u.replace(/^ipfs:/i, '');
 
     if(/^ar:/i.test(u))
         return 'https://arweave.net/' + u.replace(/^ar:/i, '');

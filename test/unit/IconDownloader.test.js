@@ -1380,14 +1380,21 @@ describe('IconDownloader', function () {
             expect(convertCall.args[0]).to.include('[0]');
         });
 
-        it('uses [0] frame selector for SVG mime type', async function () {
+        // SVG never reaches convert: ImageMagick's SVG renderer dereferences
+        // external references, and those fetches leave `convert` without passing
+        // this pipeline's SSRF guard. Refuse the format at the sniff instead.
+        it('refuses SVG before ImageMagick is ever invoked', async function () {
             const { d, execStub } = makeWriteIconDownloader([
                 ['--mime-type', { stdout: 'image/svg+xml\n', stderr: '' }],
                 ['-resize',     null],
             ]);
-            await d._writeIcon(Buffer.from('<svg/>'), '/tmp/out.png');
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            expect(convertCall.args[0]).to.include('[0]');
+            try {
+                await d._writeIcon(Buffer.from('<svg><image xlink:href="http://169.254.169.254/"/></svg>'), '/tmp/out.png');
+                throw new Error('should have thrown');
+            } catch (e) {
+                expect(e.message).to.include("unsupported mime 'image/svg+xml'");
+            }
+            expect(execStub.getCalls().find(c => c.args[0].includes('-resize'))).to.equal(undefined);
         });
 
         it('uses [0] frame selector for WebP mime type', async function () {

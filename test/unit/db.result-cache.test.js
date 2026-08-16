@@ -104,11 +104,16 @@ describe('Database#getData result cache', () => {
     });
 
     it('re-queries after the TTL expires', async () => {
-        process.env.EXPLORER_TOKENS_CACHE_MS = '1';
         const stub = stubQuery(db, [{ id: 1 }], 7);
         const config = () => cfg('getTokens', { data: { search: 'PEPE' } });
         await db.getData(config());
-        await new Promise(r => setTimeout(r, 10));
+        // Expiry is a stored timestamp, so rewind the entry an hour instead of
+        // sleeping the TTL out: no wall clock, no venue-speed race.
+        expect(db._tokensCache.size).to.equal(1);
+        for (const entry of db._tokensCache.values()) {
+            expect(entry.at, 'a cached entry carries its insert time').to.be.a('number');
+            entry.at -= 60 * 60 * 1000;
+        }
         await db.getData(config());
         expect(stub.callCount).to.equal(2);
     });

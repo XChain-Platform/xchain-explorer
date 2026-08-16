@@ -932,7 +932,10 @@ describe('Database#getDecoderMempoolCount', () => {
             q.onFirstCall().resolves([{ count: 7 }]);
             q.onSecondCall().resolves([{ count: 9 }]);
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(7);
-            await new Promise(r => setTimeout(r, 5));
+            // Expiry is a stored timestamp: rewind the entry an hour instead of
+            // sleeping the TTL out, so the staleness never rides the wall clock.
+            expect(db._mempoolCountCache.BTC.t, 'the count should be cached').to.be.a('number');
+            db._mempoolCountCache.BTC.t -= 60 * 60 * 1000;
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(9);
             expect(q.callCount).to.equal(2);
         } finally {
@@ -958,7 +961,10 @@ describe('Database#getDecoderMempoolCount', () => {
             q.onFirstCall().resolves([{ count: 11 }]);
             q.onSecondCall().rejects(new Error('no grant'));
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(11);
-            await new Promise(r => setTimeout(r, 5));
+            // Same as above: age the cached entry rather than sleeping, so the
+            // refresh attempt (and its failure) is what the test turns on.
+            expect(db._mempoolCountCache.BTC.t, 'the count should be cached').to.be.a('number');
+            db._mempoolCountCache.BTC.t -= 60 * 60 * 1000;
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(11);
         } finally {
             delete process.env.MEMPOOL_COUNT_CACHE_MS;

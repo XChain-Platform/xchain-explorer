@@ -25,6 +25,7 @@ const {
     seedDatabase,
     httpGet,
     openSlowSocket,
+    waitUntil,
     DB_PORT
 } = require('./helpers/chaos-setup');
 const {
@@ -221,6 +222,17 @@ describe('CE-API-03: Slowloris (Slow Client Connections)', function () {
         const port = parseInt(serverUrl.port, 10);
         const host = serverUrl.hostname;
 
+        // Collect the connections the server accepts, so the head-start below can
+        // wait on the condition this test actually needs (the server is holding
+        // the partial headers) instead of a fixed 1 s pause. The client handles
+        // are no evidence: openSlowSocket resolves once the 33 header bytes are
+        // handed to the kernel, so every client socket reads as "sent" while the
+        // server has accepted only a couple of them.
+        const PARTIAL_HEADER_BYTES = 33; // 'GET / HTTP/1.1\r\nHost: localhost\r\n'
+        const accepted = [];
+        const collectAccepted = (sock) => accepted.push(sock);
+        rlServer.on('connection', collectAccepted);
+
         // Open 50 slow sockets that send partial HTTP headers
         const socketPromises = [];
         for (let i = 0; i < 50; i++) {
@@ -228,8 +240,14 @@ describe('CE-API-03: Slowloris (Slow Client Connections)', function () {
         }
         const slowSockets = (await Promise.all(socketPromises)).filter(Boolean);
 
-        // Allow sockets time to begin sending partial headers
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Wait until the server holds a half-open request for every slow socket.
+        const heldHalfOpen = () =>
+            accepted.filter(s => s.bytesRead >= PARTIAL_HEADER_BYTES).length;
+        const allHeld = await waitUntil(() => heldHalfOpen() >= slowSockets.length,
+            { timeout: 1000, interval: 20 });
+        rlServer.removeListener('connection', collectAccepted);
+        expect(allHeld, 'the server should hold a partial request for every slow socket')
+            .to.equal(true);
 
         // Fire 10 legitimate HTTP GET requests while slow sockets are held open
         const legitimateRequests = [];
@@ -250,13 +268,17 @@ describe('CE-API-03: Slowloris (Slow Client Connections)', function () {
         const completed = responses.filter(r => r.status === 'fulfilled');
         expect(completed.length, 'at least 5 of 10 legitimate requests should complete').to.be.at.least(5);
 
-        // Clean up and verify server recovery
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Verify server recovery by polling the real post-condition (the status
+        // route answers again) instead of pausing a fixed 500ms and hoping the
+        // destroyed sockets have been reaped by then.
         let serverAlive = false;
-        try {
-            const recovery = await httpGetLocal('/RBTC/api/status');
-            serverAlive = typeof recovery.statusCode === 'number';
-        } catch { serverAlive = false; }
+        await waitUntil(async () => {
+            try {
+                const recovery = await httpGetLocal('/RBTC/api/status');
+                serverAlive = typeof recovery.statusCode === 'number';
+            } catch { serverAlive = false; }
+            return serverAlive;
+        }, { timeout: 15000, interval: 250 });
         expect(serverAlive, 'server should be alive after slowloris cleanup').to.equal(true);
     });
 });

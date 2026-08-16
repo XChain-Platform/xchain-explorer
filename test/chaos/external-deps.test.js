@@ -32,9 +32,11 @@ const http       = require('http');
 const {
     bootServer,
     stopServer,
+    getServer,
     getServerUrl,
     httpGet,
     concurrentRequests,
+    waitUntil,
     seedDatabase,
 } = require('./helpers/chaos-setup');
 
@@ -133,12 +135,21 @@ describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
         // even though the relay requests are blocking their own async chains.
         const relayPath  = `/relay?url=${TIMEOUT_URL}`;
 
+        // Count relay requests as the server receives them, so the head-start
+        // below waits on the real condition ("all 10 are in flight") instead of
+        // a fixed pause that a loaded venue can outrun.
+        const server = getServer();
+        let relayArrivals = 0;
+        const countRelay = (req) => { if (req.url.startsWith('/relay')) relayArrivals++; };
+        server.on('request', countRelay);
+
         // Kick off relay requests in the background. Don't await yet.
         const relayPromise = concurrentRequests(relayPath, 10, { timeout: 12000 });
 
-        // Small head-start so relay requests are already in-flight when we
-        // measure the API response time.
-        await new Promise(r => setTimeout(r, 200));
+        const allInFlight = await waitUntil(() => relayArrivals >= 10,
+            { timeout: 10000, interval: 20 });
+        server.removeListener('request', countRelay);
+        expect(allInFlight, 'all 10 relay requests should reach the server').to.equal(true);
 
         // Normal API requests should complete well within 5 s regardless of
         // whatever the relay is doing.

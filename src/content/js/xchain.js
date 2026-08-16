@@ -2773,6 +2773,17 @@ function showVoteDetails(data){
             $('#info-vote .vote-callback').html(formatLink('/' + XC.coin + '/contract/' + data.callback_contract_index, data.callback_contract_index) + (isNull(data.callback_method) ? '' : '.' + data.callback_method));
         else
             $('#info-vote .vote-callback').text('-');
+        // PC-42 timelock (callback_delay_blocks) and the EXECUTE the callback actually
+        // fired (callback_execute_action_index). Both are selected by the VOTE detail
+        // query and were rendered nowhere, so a binding poll whose callback had already
+        // run showed no sign of it. Poll branch only: the v2 finalize action writes no
+        // polls row of its own, so its LEFT JOIN misses and both fields are null there
+        // (action-detail/governance.js) - a finalize row would be a permanent '-'.
+        $('#info-vote .vote-callback-delay').text(isNull(data.callback_delay_blocks) ? '-' : data.callback_delay_blocks);
+        if(!isNull(data.callback_execute_action_index))
+            $('#info-vote .vote-callback-execute').html(formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
+        else
+            $('#info-vote .vote-callback-execute').text('-');
         // Frozen per-option tally (poll_results). Empty until VOTE v2 finalizes.
         $.getJSON('/' + XC.coin + '/api/poll/' + data.action_index + '/results', function(res){
             let rows = (res && res.data) ? res.data : [];

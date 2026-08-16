@@ -491,3 +491,8 @@ class ChannelManager {
 module.exports = ChannelManager;
 module.exports.VALID_TYPES = VALID_TYPES;
 module.exports.VALID_CHANNELS = ALL_CHANNELS;
+// Exported so the snapshot invariant is derived from this authority rather than
+// restated in a test: an entity channel names a thing with current state, so
+// each one owes a case in WebSocketServer._sendSnapshots. bet_feed was added
+// here and nowhere else, and its snapshot:true then sent no frame at all.
+module.exports.ENTITY_CHANNELS = ENTITY_CHANNELS;

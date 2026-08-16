@@ -664,7 +664,18 @@ class WebSocketServer {
                 switch (sub.channel) {
                     case 'blocks': {
                         const maxBlock = await db.getMaxBlockIndex(config);
-                        snapshotData = { channel: 'blocks', latest_block_index: String(maxBlock || 0) };
+                        // One tip key across both frame families on this channel. The
+                        // snapshot named the tip latest_block_index (matching WELCOME)
+                        // while every live NEW_BLOCK on the same channel names it
+                        // block_index (Broadcaster._onBlock), so a subscriber seeding
+                        // from the snapshot read undefined off its first live frame.
+                        // Both keys are emitted here rather than latest_block_index
+                        // being added to NEW_BLOCK: a per-block frame is NOT the tip
+                        // during a catch-up burst (ChangeDetector emits up to
+                        // fetchLimit blocks per poll), so 'latest' would be false on
+                        // every frame but the last.
+                        const tip = String(maxBlock || 0);
+                        snapshotData = { channel: 'blocks', latest_block_index: tip, block_index: tip };
                         break;
                     }
                     case 'network': {
@@ -692,6 +703,16 @@ class WebSocketServer {
                     case 'dispenser': {
                         const dispenserInfo = await db.getDispenserInfo(config, sub.action_index);
                         snapshotData = { channel: 'dispenser', action_index: sub.action_index, ...(dispenserInfo || {}) };
+                        break;
+                    }
+                    // bet_feed is action_index-keyed exactly like dispenser above
+                    // (ChannelManager.ENTITY_CHANNELS). Without this case snapshotData
+                    // stayed null and the guard below skipped the send, so a market
+                    // page subscribing with snapshot:true got SUBSCRIBED, no initial
+                    // pools/status, and no error saying why.
+                    case 'bet_feed': {
+                        const betFeedInfo = await db.getBetFeedInfo(config, sub.action_index);
+                        snapshotData = { channel: 'bet_feed', action_index: sub.action_index, ...(betFeedInfo || {}) };
                         break;
                     }
                 }

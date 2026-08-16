@@ -9779,16 +9779,26 @@ class Database {
         return [query, null, count];
     }
 
-    // Single BET market by its creating action_index (the feed id), returned as one
-    // object (getPoll pattern) with the per-outcome pools, bet counts and the full
-    // status timeline attached. DETAILS is returned as the RAW base64 exactly as it
-    // landed on the wire plus a decoded `details_json` when it parses; it is never
-    // rendered as markup and no URL inside it is ever fetched (§11.1 rendering
-    // safety, SSRF-guard stance).
+    // HTTP entry point for one BET market (getPoll pattern: a one-element array
+    // whose element is null when there is no such feed). The router's where-builder
+    // resolves to `m.action_index IS NOT NULL AND m.action_index=?` for this method
+    // (getQueryWhereSql), which is the equality getBetFeedInfo binds directly, so
+    // both entry points read the same row through one query body.
     async getBetFeed(config){
+        return [await this.getBetFeedInfo(config, config.data.search)];
+    }
+
+    // Single BET market by its creating action_index (the feed id), returned as one
+    // object with the per-outcome pools, bet counts and the full status timeline
+    // attached, or null. DETAILS is returned as the RAW base64 exactly as it landed
+    // on the wire plus a decoded `details_json` when it parses; it is never rendered
+    // as markup and no URL inside it is ever fetched (§11.1 rendering safety,
+    // SSRF-guard stance). Takes the index as an argument rather than off the config
+    // so callers holding no router-built config can read it too: the WebSocket
+    // bet_feed SNAPSHOT builds `{ coin }` alone. Same shape as getDispenserInfo.
+    async getBetFeedInfo(config, actionIndex){
         let data  = null;
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
+        let args  = [actionIndex];
         let query = `SELECT
                         a4.action,
                         m.action_index,
@@ -9825,7 +9835,7 @@ class Database {
                         LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + `
+                    WHERE m.action_index=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
         if(results && results.length){
@@ -9848,7 +9858,7 @@ class Database {
             row.timeline = await this.getBetFeedTimeline(config, row.action_index, row.closed_block);
             data = row;
         }
-        return [data];
+        return data;
     }
 
     // Per-outcome pool totals for one feed. Sums ONLY bet_status='open' rows, which

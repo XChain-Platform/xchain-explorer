@@ -40,9 +40,14 @@
 # which publishes the same port with the same fixture credentials. Docker is
 # therefore REQUIRED for those tiers, never skipped, and the fixture is recycled
 # between them so each tier meets a fresh database the way each GitHub job does.
-# The conformance tier is the one that reads env, so it honours an already-set
-# CONFORMANCE_DB_*, then the venue's CI_DB_* (exported by ci-gate.sh from
-# venue.env), then the fixture. Nothing here echoes or logs a password.
+# The conformance tier is the one that reads env, and it goes to the SAME
+# fixture rather than to the venue's own MariaDB. It creates four databases of
+# its own (XChain_Conformance_*) and builds the real DDL inside them, which
+# needs a privileged user; the venue's `ci` user holds CREATE globally but ALL
+# only on ci_%, so pointing this at CI_DB_* got the databases created and then
+# failed mid-DDL with "INDEX command denied" (measured on DankServer). GitHub
+# gives this job its own throwaway container with root for exactly that reason,
+# and the fixture is that container. Nothing here echoes or logs a password.
 #
 # SKIPPED-BY-DESIGN: none. Every run-step in ci.yml has a twin below. The
 # actions-only steps (actions/checkout, setup-node, npm ci, and the two
@@ -88,10 +93,10 @@ need_sib() {
   done
 }
 
-export CONFORMANCE_DB_HOST="${CONFORMANCE_DB_HOST:-${CI_DB_HOST:-127.0.0.1}}"
-export CONFORMANCE_DB_PORT="${CONFORMANCE_DB_PORT:-${CI_DB_PORT:-3307}}"
-export CONFORMANCE_DB_USER="${CONFORMANCE_DB_USER:-${CI_DB_USER:-root}}"
-export CONFORMANCE_DB_PASS="${CONFORMANCE_DB_PASS:-${CI_DB_PASS:-testpass}}"
+export CONFORMANCE_DB_HOST="${CONFORMANCE_DB_HOST:-127.0.0.1}"
+export CONFORMANCE_DB_PORT="${CONFORMANCE_DB_PORT:-3307}"
+export CONFORMANCE_DB_USER="${CONFORMANCE_DB_USER:-root}"
+export CONFORMANCE_DB_PASS="${CONFORMANCE_DB_PASS:-testpass}"
 
 need_sib xchain-indexer xchain-vm xchain-sdk xchain-decoder xchain-documentation \
          xchain-encoder xchain-hub

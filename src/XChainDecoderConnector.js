@@ -38,9 +38,8 @@ const axios = require('axios');
 // while configUrl is resolved per coin/network. The coin/network-specific env
 // var still wins over both, so an operator override always holds.
 //
-// Requiring an env var per chain is why this field read 'unconfigured' for all
-// nine coins on a deployment whose decoder endpoints were already in its config
-// (XC-1260); step 2 is what makes the chain->decoder gap visible without one.
+// configUrl exists so a coin whose decoder endpoint is already in the
+// explorer's config resolves without also requiring a per-chain env var.
 //
 // Returns null when none is configured; the caller then reports the coin's
 // decoder health as 'unconfigured' rather than guessing at a URL.

@@ -4444,9 +4444,8 @@ class Database {
             // indexed block is dated, 0 when it is not ahead. Published because
             // tip_age_seconds is clamped at 0: without this field a future-dated
             // tip would be indistinguishable from a block mined this second, and
-            // that skew is the thing an operator has to fix (XC-1333: TBTC read
-            // -6649 with the raw subtraction). null when block_time is missing
-            // or unreadable, the same as tip_age_seconds.
+            // that skew is the thing an operator has to fix. null when block_time
+            // is missing or unreadable, the same as tip_age_seconds.
             tip_future_seconds: {},
             stale:           {},
             // Durable consensus-divergence halt xchain-sync records into the same
@@ -6261,9 +6260,9 @@ class Database {
     // A tip dated far AHEAD of this host also fails closed. Its age is negative,
     // which clears the age gate by a margin that grows with the skew, so an
     // unbounded future timestamp is a permanent freshness alibi for a coin that
-    // has stopped advancing (XC-1333). Skew within tipMaxFutureSkewSeconds is
-    // tolerated so ordinary clock drift and lax testnet timestamp rules do not
-    // delist a healthy chain.
+    // has stopped advancing. Skew within tipMaxFutureSkewSeconds is tolerated
+    // so ordinary clock drift and lax testnet timestamp rules do not delist a
+    // healthy chain.
     /**
      * @param {string} coin coin code
      * @param {number|null} blockTimeSec unix seconds of the newest indexed block
@@ -7081,9 +7080,8 @@ class Database {
     // hub endpoint configured at all (hubOperational.enabled() false). It is NOT a
     // fallback for a configured-but-unreachable hub: that case fails loud through
     // _hubOperationalOutage below, because this table carries no freshness bound and
-    // would otherwise serve indefinitely stale operational rows (XC-1388). New
-    // deployments should set HUB_API_URL instead of provisioning a co-located hub
-    // schema.
+    // would otherwise serve indefinitely stale operational rows. New deployments
+    // should set HUB_API_URL instead of provisioning a co-located hub schema.
     _hubSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
@@ -7095,15 +7093,14 @@ class Database {
     }
 
     // FAIL LOUD when a CONFIGURED hub is unreachable past HubOperationalCache's stale
-    // ceiling (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s). Operator ruling XC-1388:
-    // once a hub endpoint is configured, validator_capabilities/governance_proposals/
-    // governance_votes are served from the hub or not at all. Silently dropping to the
-    // co-located _hubSource read here bypassed the ceiling entirely, because that schema
-    // has no freshness bound (governance_proposals carries no freshness column at all),
-    // so an install with a remote HUB_API_URL plus the mandatory local hub schema served
-    // indefinitely stale operational state that looked live. The accepted cost is that
-    // these three pages blank on a co-located install whose hub PROCESS is down while its
-    // hub DB is still up; a blank page with a reason beats a stale page without one.
+    // ceiling (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s). Once a hub endpoint is
+    // configured, validator_capabilities/governance_proposals/governance_votes are
+    // served from the hub or not at all: the co-located schema carries no freshness
+    // bound (governance_proposals has no freshness column at all), so falling back to
+    // it would serve indefinitely stale operational state that looks live. The
+    // accepted cost is that these three pages blank on a co-located install whose hub
+    // PROCESS is down while its hub DB is still up; a blank page with a reason beats a
+    // stale page without one.
     _hubOperationalOutage(table){
         let ops     = this.explorer ? this.explorer.hubOperational : null;
         let ceiling = (ops && this.util.isNumeric(ops.staleMaxMs)) ? Math.round(ops.staleMaxMs / 1000) : 600;
@@ -8461,7 +8458,7 @@ class Database {
     //
     // Hub JSON-RPC first (HubOperationalCache, TTL-cached), co-located hub schema as
     // the fallback. This is DELIBERATELY the one exception to the fail-loud rule the
-    // three list endpoints follow (XC-1388): the registry only decorates rows that
+    // three list endpoints follow: the registry only decorates rows that
     // /validators already renders from on-chain state, so a hub outage must degrade
     // the decoration, never blank a page of consensus data. Returns NULL when no
     // registry is reachable at all (no hub endpoint configured, hub down past the
@@ -9242,7 +9239,7 @@ class Database {
     // id-keyed. Primary transport: hub JSON-RPC via HubOperationalCache (these are
     // hub-LOCAL operational rows, not consensus mirror data). The co-located hub
     // schema read below serves ONLY the no-hub deployment shape; a configured hub
-    // that is unreachable past the stale ceiling fails loud (XC-1388).
+    // that is unreachable past the stale ceiling fails loud.
     async getValidatorCapabilities(config){
         let ops = this.explorer.hubOperational;
         if(ops && ops.enabled()){
@@ -9275,8 +9272,8 @@ class Database {
     // Governance parameter proposals. type in {status, parameter, proposal}. id-keyed.
     // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
     // schema read serves ONLY the no-hub deployment shape. A configured hub that is
-    // unreachable past the stale ceiling fails loud (XC-1388); this table is the
-    // clearest case for it, since governance_proposals carries no freshness column
+    // unreachable past the stale ceiling fails loud; this table is the clearest
+    // case for it, since governance_proposals carries no freshness column
     // at all, so a per-row freshness cap on the schema read is unbuildable.
     async getGovernanceProposals(config){
         let ops = this.explorer.hubOperational;
@@ -9312,7 +9309,7 @@ class Database {
     // Per-validator governance votes. type in {proposal, voter}. id-keyed.
     // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
     // schema read serves ONLY the no-hub deployment shape. A configured hub that is
-    // unreachable past the stale ceiling fails loud (XC-1388).
+    // unreachable past the stale ceiling fails loud.
     async getGovernanceVotes(config){
         let ops = this.explorer.hubOperational;
         if(ops && ops.enabled()){
@@ -9346,7 +9343,7 @@ class Database {
     // _hubSource (same host+creds as the indexer pool; #4138), which is therefore
     // mandatory for these four on any install that serves them. That is the reverse
     // of the three RPC-first tables above, where the co-located schema serves only
-    // the no-hub shape and a configured-but-down hub fails loud (XC-1388). Each is
+    // the no-hub shape and a configured-but-down hub fails loud. Each is
     // id-keyed (no action_index), so the paging cursor compares m.id (see
     // getQueryOffsetSql).
 

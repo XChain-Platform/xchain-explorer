@@ -57,8 +57,8 @@ describe('XChainDecoderConnector', function () {
             expect(resolveDecoderUrl('BTC', 'mainnet')).to.be.null;
         });
 
-        // XC-1260: the config-derived per-chain endpoint is what makes decoder
-        // health readable on a deployment that never exported an env var per chain.
+        // The config-derived per-chain endpoint is what makes decoder health
+        // readable on a deployment that never exported an env var per chain.
         it('uses the config-derived endpoint when no env var is set', function () {
             expect(resolveDecoderUrl('BTC', 'mainnet', 'http://from-config:3002')).to.equal('http://from-config:3002');
         });

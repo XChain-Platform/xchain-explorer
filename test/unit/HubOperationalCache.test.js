@@ -248,14 +248,11 @@ describe('db.js RPC-first operational reads', function () {
             expect(page[0].id).to.equal('3');
         });
 
-        // XC-1388, operator ruling (a). This assertion is the DELIBERATE inverse of
-        // the contract this file pinned green until 2026-08-12, when a null from the
-        // cache dropped these three reads onto the co-located hub schema. That schema
-        // has no freshness bound, so the fall-through made HubOperationalCache's 600s
-        // stale ceiling unenforceable: an install with a remote HUB_API_URL plus the
-        // mandatory local hub schema served indefinitely stale operational rows that
-        // rendered as live. Once a hub endpoint is configured, these tables are served
-        // from the hub or not at all. Do not "restore" the fall-through.
+        // Deliberate inverse of falling through to the co-located hub schema on a
+        // cache miss: that schema has no freshness bound, so the fall-through would
+        // make HubOperationalCache's 600s stale ceiling unenforceable. Once a hub
+        // endpoint is configured, these tables are served from the hub or not at
+        // all. Do not restore the fall-through.
         const failLoudCases = [
             ['getValidatorCapabilities', 'validator_capabilities'],
             ['getGovernanceProposals',   'governance_proposals'],

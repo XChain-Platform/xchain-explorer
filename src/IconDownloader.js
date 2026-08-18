@@ -73,8 +73,17 @@ const DEFAULTS = {
     convertBin:      '/usr/bin/convert',
 };
 
+// Raster formats only. SVG is deliberately absent: these bytes come from
+// on-chain token descriptions (anyone can ISSUE a token with any description),
+// _writeIcon hands them to ImageMagick `convert`, and IM's SVG renderer
+// dereferences external references (xlink:href, XML entities, nested image
+// URLs). Those fetches leave `convert`, not the axios client below, so they
+// never pass SAFE_LOOKUP or _rejectPrivateLiteral: an SVG naming
+// http://169.254.169.254/ is an egress this pipeline's SSRF guard cannot see,
+// and no ImageMagick policy.xml ships with this service to disable the coders.
+// The trade is that a token whose only icon is an SVG gets no rendered icon.
 const ALLOWED_MIME = new Set([
-    'image/png','image/jpeg','image/jpg','image/gif','image/webp','image/svg+xml',
+    'image/png','image/jpeg','image/jpg','image/gif','image/webp',
 ]);
 
 const NETWORKS = ['mainnet','testnet','regtest'];
@@ -385,18 +394,37 @@ class IconDownloader {
         }
     }
 
+    // The egress-policy gate for this pipeline: both checks an icon URL must pass
+    // before a socket opens, and again on every redirect hop.
+    //
     // SSRF: the dns.lookup shim (SAFE_LOOKUP) only fires for DNS-name hosts; Node's
     // net.connect skips a custom `lookup` when the host is an IP literal, so a URL
     // like http://169.254.169.254/x.json or http://127.0.0.1:6379/x.png would bypass
     // the shim and connect straight to an internal/metadata address. Check literal
     // hosts against the canonical classifier before connecting (and again on each
     // redirect hop, since a Location: can also point at a literal IP).
+    //
+    // WEB PORTS ONLY: the same rule /relay enforces (processRelayRequest), for the
+    // same reason and over the same class of attacker-written URLs. Token icons
+    // live on ordinary web servers, so nothing legitimate needs another port,
+    // while an unrestricted port turns this fetch into a probe for services
+    // (databases, admin panels) sitting on a PUBLIC address, which is exactly what
+    // the private-range check above lets through. The probe's result is readable:
+    // the icons row keeps status and last_error.
     _rejectPrivateLiteral(rawUrl){
-        let host;
-        try { host = new URL(rawUrl).hostname.replace(/^\[|\]$/g, ''); }
+        let parsed;
+        try { parsed = new URL(rawUrl); }
         catch(_){ return; } // malformed URL: axios/URL will reject it downstream
+        const host = parsed.hostname.replace(/^\[|\]$/g, '');
         if(netmod.isIP(host) && isPrivateAddress(host)){
             const e = new Error('Destination is a non-permitted address');
+            e.code = 'RELAY_DENIED';
+            throw e;
+        }
+        // Read the port the way /relay does: empty means the protocol's default.
+        const port = (parsed.port === '') ? (parsed.protocol === 'https:' ? '443' : '80') : parsed.port;
+        if(!['80', '443'].includes(port)){
+            const e = new Error('Destination port is not permitted');
             e.code = 'RELAY_DENIED';
             throw e;
         }
@@ -455,8 +483,8 @@ class IconDownloader {
             throw new Error(`unsupported mime '${mime}'`);
         }
 
-        // GIF/SVG/WebP: pick the first frame so animated/multi-page sources don't break the resize
-        const needsFirstFrame = (mime === 'image/gif' || mime === 'image/svg+xml' || mime === 'image/webp');
+        // GIF/WebP: pick the first frame so animated/multi-page sources don't break the resize
+        const needsFirstFrame = (mime === 'image/gif' || mime === 'image/webp');
         const srcArg          = needsFirstFrame ? `${tmp}[0]` : tmp;
         const size            = this.cfg.iconSize;
 

@@ -120,6 +120,30 @@ function attestDetail(data) {
     return (cls) => dom.window.$('#info-attest .' + cls).text().trim();
 }
 
+// Render the shipped VOTE detail panel and hand back a cell reader plus the DOM,
+// so a test can read either the text or an href out of a cell. $.getJSON is
+// stubbed: the poll branch fetches the frozen tally, which is not what is under
+// test here and would be an unanswered XHR in jsdom.
+function voteDetail(data) {
+    const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml('info-vote', 'info-bet') + '</body>',
+        { runScripts: 'outside-only' });
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/numeral.js'), 'utf8'));
+    dom.window.XC = { coin: 'BTC' };
+    dom.window.eval(`
+        $.getJSON = function(){ return { done: function(){} }; };
+        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatAmount(v){ return String(v); }
+        ${extractFn('isNull')}
+    `);
+    dom.window.eval(extractFn('showVoteDetails'));
+    dom.window.showVoteDetails(data);
+    return {
+        text: (cls) => dom.window.$('#info-vote .' + cls).text().trim(),
+        href: (cls) => dom.window.$('#info-vote .' + cls + ' a').attr('href')
+    };
+}
+
 // Render the shipped XCALL detail panel and hand back the execute-action href.
 function xcallExecuteHref(data) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml('info-xcall', 'info-xexec') + '</body>',
@@ -292,5 +316,57 @@ describe('client: the XCALL execute link is namespaced by the target chain', fun
             execution: { execute_action_index: 555, result_status: 'ok', return_payload_b64: 'bb', gas_used: 21000 }
         });
         expect(href).to.equal('/BTC/action/555');
+    });
+});
+
+describe('client: the VOTE poll panel shows the callback timelock and the EXECUTE it fired', function () {
+
+    const POLL = {
+        vote_kind: 'poll', action_index: 900, tick: 'XCP', question: 'ship it?',
+        options: ['no', 'yes'], tally_mode: 'weighted', weight_mode: 'balance',
+        max_selections: 1, end_block: 900000, quorum: 10, min_voters: 2,
+        poll_status: 'finalized', winning_option: 1, deposit_amount: 5,
+        callback_contract_index: 77, callback_method: 'onDecided'
+    };
+
+    it('links callback_execute_action_index as an action, the way ATTEST does', function () {
+        const cell = voteDetail({ ...POLL, callback_delay_blocks: 144, callback_execute_action_index: 4242 });
+        expect(cell.href('vote-callback-execute')).to.equal('/BTC/action/4242');
+        expect(cell.text('vote-callback-execute')).to.equal('4242');
+    });
+
+    it('renders the PC-42 timelock the query has always selected', function () {
+        const cell = voteDetail({ ...POLL, callback_delay_blocks: 144, callback_execute_action_index: 4242 });
+        expect(cell.text('vote-callback-delay')).to.equal('144');
+    });
+
+    it('dashes both cells on a binding poll whose callback has not fired', function () {
+        const cell = voteDetail({ ...POLL, callback_delay_blocks: 0, callback_execute_action_index: null });
+        expect(cell.text('vote-callback-execute')).to.equal('-');
+        expect(cell.text('vote-callback-delay')).to.equal('0');
+    });
+
+    it('dashes both cells on a non-binding poll', function () {
+        const cell = voteDetail({
+            ...POLL, callback_contract_index: null, callback_method: null,
+            callback_delay_blocks: null, callback_execute_action_index: null
+        });
+        expect(cell.text('vote-callback')).to.equal('-');
+        expect(cell.text('vote-callback-delay')).to.equal('-');
+        expect(cell.text('vote-callback-execute')).to.equal('-');
+    });
+
+    it('[REGRESSION] the contract/method callback cell still renders beside them', function () {
+        const cell = voteDetail({ ...POLL, callback_delay_blocks: 144, callback_execute_action_index: 4242 });
+        expect(cell.href('vote-callback')).to.equal('/BTC/contract/77');
+        expect(cell.text('vote-callback')).to.equal('77.onDecided');
+    });
+
+    it('every cell the poll branch writes exists in the shipped markup', function () {
+        // The gap this covers was a renderer/template split: the JS read fields the
+        // page had no cell for. Assert the pairing rather than the two halves.
+        const panel = panelHtml('info-vote', 'info-bet');
+        for (const cls of ['vote-callback', 'vote-callback-delay', 'vote-callback-execute'])
+            expect(panel, cls + ' is missing from action.html').to.contain('class="' + cls + '"');
     });
 });

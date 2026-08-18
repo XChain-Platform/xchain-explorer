@@ -70,7 +70,8 @@
     "test:regression:p0": "mocha test/regression/p0-*.test.js --timeout 30000 --exit",
     "test:regression:p0:unit": "mocha test/regression/p0-core-unit.test.js test/regression/p0-security-baseline.test.js --timeout 0 --exit",
     "test:regression:p1": "mocha test/regression/p0-*.test.js test/regression/p1-*.test.js --timeout 30000 --exit",
-    "test:regression:full": "mocha test/regression/**/*.test.js --timeout 30000 --exit --recursive"
+    "test:regression:full": "mocha test/regression/**/*.test.js --timeout 30000 --exit --recursive",
+    "ci:full": "bash bin/ci-full.sh"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^9.6.1",

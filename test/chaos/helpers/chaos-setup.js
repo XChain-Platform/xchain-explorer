@@ -246,6 +246,29 @@ function startHealthPoller(urlPath, results, intervalMs = 500) {
 }
 
 /**
+ * Poll `predicate` until it is truthy or the timeout elapses.
+ *
+ * The chaos suites need "wait until the system reaches state X", not "sleep and
+ * hope": a fixed pause passes or fails on how busy the venue is. Resolves true
+ * when the predicate held, false on timeout, so the caller keeps its own
+ * assertion and a miss reports the test's message rather than an opaque hang.
+ *
+ * @param {() => (boolean|Promise<boolean>)} predicate
+ * @param {{timeout?: number, interval?: number}} [opts]
+ * @returns {Promise<boolean>}
+ */
+async function waitUntil(predicate, opts = {}) {
+    const timeout  = opts.timeout  || 10000;
+    const interval = opts.interval || 50;
+    const deadline = Date.now() + timeout;
+    for (;;) {
+        if (await predicate()) return true;
+        if (Date.now() >= deadline) return false;
+        await new Promise(r => setTimeout(r, interval));
+    }
+}
+
+/**
  * Wait for the health endpoint to return 200.
  * Used to measure recovery time after a fault is removed.
  */
@@ -273,5 +296,6 @@ module.exports = {
     openSlowSocket,
     startHealthPoller,
     waitForRecovery,
+    waitUntil,
     DB_PORT
 };

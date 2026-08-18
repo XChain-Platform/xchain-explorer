@@ -814,8 +814,19 @@ class Database {
             limit = length;
             if(limit > max)
                 limit = max;
-            if(action=='last')
-                limit = (config.data.query.total - config.data.query.start);
+            // Size the jump-to-last page from the client's own record total, but clamp
+            // it to the same per-method max the branches above enforce. `total` and
+            // `start` are raw query-string input, so without the clamp
+            // `?action=last&total=1e15` reached the LIMIT clause verbatim (full-table
+            // scan on an unauthenticated list route) and a missing, non-numeric, or
+            // repeated `total` emitted `LIMIT NaN` as a 500. A real last page never
+            // exceeds one page of rows, so the ceiling is invisible to the UI; an
+            // unusable total falls back to the already-clamped page length.
+            if(action=='last'){
+                let tail = Number(config.data.query.total) - Number(start);
+                if(Number.isFinite(tail))
+                    limit = Math.max(1, Math.min(tail, max));
+            }
             // token/subtoken/roster searches paginate by fetch-and-slice (no action_index offsets),
             // so the SQL limit must cover start+length rows. Cap the offset fed to the
             // SQL LIMIT: without a bound, an unauthenticated request with a huge `start`
@@ -2487,6 +2498,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -2503,6 +2515,7 @@ class Database {
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
+                        m1.memo,
                         s1.status
                     FROM
                         lists m
@@ -2510,6 +2523,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -4430,9 +4444,8 @@ class Database {
             // indexed block is dated, 0 when it is not ahead. Published because
             // tip_age_seconds is clamped at 0: without this field a future-dated
             // tip would be indistinguishable from a block mined this second, and
-            // that skew is the thing an operator has to fix (XC-1333: TBTC read
-            // -6649 with the raw subtraction). null when block_time is missing
-            // or unreadable, the same as tip_age_seconds.
+            // that skew is the thing an operator has to fix. null when block_time
+            // is missing or unreadable, the same as tip_age_seconds.
             tip_future_seconds: {},
             stale:           {},
             // Durable consensus-divergence halt xchain-sync records into the same
@@ -6247,9 +6260,9 @@ class Database {
     // A tip dated far AHEAD of this host also fails closed. Its age is negative,
     // which clears the age gate by a margin that grows with the skew, so an
     // unbounded future timestamp is a permanent freshness alibi for a coin that
-    // has stopped advancing (XC-1333). Skew within tipMaxFutureSkewSeconds is
-    // tolerated so ordinary clock drift and lax testnet timestamp rules do not
-    // delist a healthy chain.
+    // has stopped advancing. Skew within tipMaxFutureSkewSeconds is tolerated
+    // so ordinary clock drift and lax testnet timestamp rules do not delist a
+    // healthy chain.
     /**
      * @param {string} coin coin code
      * @param {number|null} blockTimeSec unix seconds of the newest indexed block
@@ -7067,9 +7080,8 @@ class Database {
     // hub endpoint configured at all (hubOperational.enabled() false). It is NOT a
     // fallback for a configured-but-unreachable hub: that case fails loud through
     // _hubOperationalOutage below, because this table carries no freshness bound and
-    // would otherwise serve indefinitely stale operational rows (XC-1388). New
-    // deployments should set HUB_API_URL instead of provisioning a co-located hub
-    // schema.
+    // would otherwise serve indefinitely stale operational rows. New deployments
+    // should set HUB_API_URL instead of provisioning a co-located hub schema.
     _hubSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
@@ -7081,15 +7093,14 @@ class Database {
     }
 
     // FAIL LOUD when a CONFIGURED hub is unreachable past HubOperationalCache's stale
-    // ceiling (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s). Operator ruling XC-1388:
-    // once a hub endpoint is configured, validator_capabilities/governance_proposals/
-    // governance_votes are served from the hub or not at all. Silently dropping to the
-    // co-located _hubSource read here bypassed the ceiling entirely, because that schema
-    // has no freshness bound (governance_proposals carries no freshness column at all),
-    // so an install with a remote HUB_API_URL plus the mandatory local hub schema served
-    // indefinitely stale operational state that looked live. The accepted cost is that
-    // these three pages blank on a co-located install whose hub PROCESS is down while its
-    // hub DB is still up; a blank page with a reason beats a stale page without one.
+    // ceiling (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s). Once a hub endpoint is
+    // configured, validator_capabilities/governance_proposals/governance_votes are
+    // served from the hub or not at all: the co-located schema carries no freshness
+    // bound (governance_proposals has no freshness column at all), so falling back to
+    // it would serve indefinitely stale operational state that looks live. The
+    // accepted cost is that these three pages blank on a co-located install whose hub
+    // PROCESS is down while its hub DB is still up; a blank page with a reason beats a
+    // stale page without one.
     _hubOperationalOutage(table){
         let ops     = this.explorer ? this.explorer.hubOperational : null;
         let ceiling = (ops && this.util.isNumeric(ops.staleMaxMs)) ? Math.round(ops.staleMaxMs / 1000) : 600;
@@ -8447,7 +8458,7 @@ class Database {
     //
     // Hub JSON-RPC first (HubOperationalCache, TTL-cached), co-located hub schema as
     // the fallback. This is DELIBERATELY the one exception to the fail-loud rule the
-    // three list endpoints follow (XC-1388): the registry only decorates rows that
+    // three list endpoints follow: the registry only decorates rows that
     // /validators already renders from on-chain state, so a hub outage must degrade
     // the decoration, never blank a page of consensus data. Returns NULL when no
     // registry is reachable at all (no hub endpoint configured, hub down past the
@@ -9228,7 +9239,7 @@ class Database {
     // id-keyed. Primary transport: hub JSON-RPC via HubOperationalCache (these are
     // hub-LOCAL operational rows, not consensus mirror data). The co-located hub
     // schema read below serves ONLY the no-hub deployment shape; a configured hub
-    // that is unreachable past the stale ceiling fails loud (XC-1388).
+    // that is unreachable past the stale ceiling fails loud.
     async getValidatorCapabilities(config){
         let ops = this.explorer.hubOperational;
         if(ops && ops.enabled()){
@@ -9261,8 +9272,8 @@ class Database {
     // Governance parameter proposals. type in {status, parameter, proposal}. id-keyed.
     // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
     // schema read serves ONLY the no-hub deployment shape. A configured hub that is
-    // unreachable past the stale ceiling fails loud (XC-1388); this table is the
-    // clearest case for it, since governance_proposals carries no freshness column
+    // unreachable past the stale ceiling fails loud; this table is the clearest
+    // case for it, since governance_proposals carries no freshness column
     // at all, so a per-row freshness cap on the schema read is unbuildable.
     async getGovernanceProposals(config){
         let ops = this.explorer.hubOperational;
@@ -9298,7 +9309,7 @@ class Database {
     // Per-validator governance votes. type in {proposal, voter}. id-keyed.
     // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
     // schema read serves ONLY the no-hub deployment shape. A configured hub that is
-    // unreachable past the stale ceiling fails loud (XC-1388).
+    // unreachable past the stale ceiling fails loud.
     async getGovernanceVotes(config){
         let ops = this.explorer.hubOperational;
         if(ops && ops.enabled()){
@@ -9332,7 +9343,7 @@ class Database {
     // _hubSource (same host+creds as the indexer pool; #4138), which is therefore
     // mandatory for these four on any install that serves them. That is the reverse
     // of the three RPC-first tables above, where the co-located schema serves only
-    // the no-hub shape and a configured-but-down hub fails loud (XC-1388). Each is
+    // the no-hub shape and a configured-but-down hub fails loud. Each is
     // id-keyed (no action_index), so the paging cursor compares m.id (see
     // getQueryOffsetSql).
 
@@ -9765,16 +9776,26 @@ class Database {
         return [query, null, count];
     }
 
-    // Single BET market by its creating action_index (the feed id), returned as one
-    // object (getPoll pattern) with the per-outcome pools, bet counts and the full
-    // status timeline attached. DETAILS is returned as the RAW base64 exactly as it
-    // landed on the wire plus a decoded `details_json` when it parses; it is never
-    // rendered as markup and no URL inside it is ever fetched (§11.1 rendering
-    // safety, SSRF-guard stance).
+    // HTTP entry point for one BET market (getPoll pattern: a one-element array
+    // whose element is null when there is no such feed). The router's where-builder
+    // resolves to `m.action_index IS NOT NULL AND m.action_index=?` for this method
+    // (getQueryWhereSql), which is the equality getBetFeedInfo binds directly, so
+    // both entry points read the same row through one query body.
     async getBetFeed(config){
+        return [await this.getBetFeedInfo(config, config.data.search)];
+    }
+
+    // Single BET market by its creating action_index (the feed id), returned as one
+    // object with the per-outcome pools, bet counts and the full status timeline
+    // attached, or null. DETAILS is returned as the RAW base64 exactly as it landed
+    // on the wire plus a decoded `details_json` when it parses; it is never rendered
+    // as markup and no URL inside it is ever fetched (§11.1 rendering safety,
+    // SSRF-guard stance). Takes the index as an argument rather than off the config
+    // so callers holding no router-built config can read it too: the WebSocket
+    // bet_feed SNAPSHOT builds `{ coin }` alone. Same shape as getDispenserInfo.
+    async getBetFeedInfo(config, actionIndex){
         let data  = null;
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
+        let args  = [actionIndex];
         let query = `SELECT
                         a4.action,
                         m.action_index,
@@ -9811,7 +9832,7 @@ class Database {
                         LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + `
+                    WHERE m.action_index=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
         if(results && results.length){
@@ -9834,7 +9855,7 @@ class Database {
             row.timeline = await this.getBetFeedTimeline(config, row.action_index, row.closed_block);
             data = row;
         }
-        return [data];
+        return data;
     }
 
     // Per-outcome pool totals for one feed. Sums ONLY bet_status='open' rows, which

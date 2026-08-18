@@ -407,4 +407,48 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
             done();
         });
     });
+
+    // Web ports only, the rule /relay already enforces over the same class of
+    // attacker-written URLs: the private-range checks pass a PUBLIC address, so
+    // an unrestricted port makes this fetch a service probe whose result is
+    // readable in the icons row (status, last_error).
+    describe('web-port restriction', function () {
+        const load = (axiosStub) => proxyquire('../../src/IconDownloader.js', {
+            axios: axiosStub,
+            './IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+        });
+
+        it('refuses a non-web port before any socket opens', async function () {
+            const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
+            const dl = new (load(axiosStub))({ util: {} });
+            for (const url of ['https://victim.example:6379/x.png', 'http://victim.example:22/x.png',
+                               'http://victim.example:8080/x.png']) {
+                let err = null;
+                try { await dl._httpFetch(url); } catch (e) { err = e; }
+                expect(err, url).to.be.an('error');
+                expect(err.code, url).to.equal('RELAY_DENIED');
+            }
+            expect(axiosStub.get.callCount, 'no request may be issued').to.equal(0);
+        });
+
+        it('still allows the web ports, default or explicit', async function () {
+            const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
+            const dl = new (load(axiosStub))({ util: {} });
+            for (const url of ['https://example.com/icon.png', 'http://example.com/icon.png',
+                               'https://example.com:443/icon.png', 'http://example.com:80/icon.png']) {
+                await dl._httpFetch(url);
+            }
+            expect(axiosStub.get.callCount).to.equal(4);
+        });
+
+        it('re-checks the port on a redirect hop', async function () {
+            const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
+            const dl = new (load(axiosStub))({ util: {} });
+            await dl._httpFetch('https://example.com/icon.png');
+            const opts = axiosStub.get.firstCall.args[1];
+            expect(() => opts.beforeRedirect({ href: 'http://example.com:6379/icon.png' }))
+                .to.throw(/port is not permitted/);
+            expect(() => opts.beforeRedirect({ href: 'https://elsewhere.example/icon.png' })).to.not.throw();
+        });
+    });
 });

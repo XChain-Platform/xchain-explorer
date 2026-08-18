@@ -38,6 +38,7 @@ const {
     concurrentRequests,
     startHealthPoller,
     waitForRecovery,
+    waitUntil,
     seedDatabase,
 } = require('./helpers/chaos-setup');
 
@@ -135,13 +136,22 @@ describe('CE-DB-01: Complete Database Unavailability', function () {
         const pollResults = [];
         const stopPoller  = startHealthPoller(HEALTH, pollResults, 500);
 
-        // Let one clean poll land before injecting the fault.
-        await new Promise(r => setTimeout(r, 600));
+        // Wait for the poll itself, not for a poll interval to elapse: the
+        // pre-fault baseline is "one healthy result is on the board".
+        const baselineLanded = await waitUntil(() => pollResults.some(p => p.ok),
+            { timeout: 10000, interval: 50 });
+        expect(baselineLanded, 'a healthy poll should land before the fault').to.equal(true);
 
         await faults.dbDown();
 
-        // Collect ~6 s of failure signals.
-        await new Promise(r => setTimeout(r, 6000));
+        // Collect failure signals until the outage shows up on the board, rather
+        // than sleeping a fixed 6 s window. The bound is longer than that window
+        // so a slow venue still gets there; the condition is the same one the
+        // assertions below make (a failing poll exists).
+        const failuresLanded = await waitUntil(
+            () => pollResults.some(p => !p.ok),
+            { timeout: 20000, interval: 100 });
+        expect(failuresLanded, 'the outage should produce failing polls').to.equal(true);
 
         await faults.dbUp();
         await waitForRecovery(HEALTH, 15000);

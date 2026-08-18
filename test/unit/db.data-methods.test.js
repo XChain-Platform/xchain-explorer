@@ -480,8 +480,6 @@ describe('Database tip-freshness gate', () => {
             expect(db.isTipStale('RBTC', null, NOW)).to.equal(false);
         });
 
-        // XC-1333: TBTC served a tip dated 1.8h ahead of the host, so its raw age
-        // was -6649 and the age comparison read fresher the further ahead it went.
         // Skew inside the tolerance stays healthy; past it the tip stops counting
         // as evidence of freshness at all.
         it('tolerates a tip dated modestly ahead of the host clock', () => {
@@ -550,8 +548,6 @@ describe('Database tip-freshness gate', () => {
         });
 
         it('reports tip_age_seconds 0 and the skew in tip_future_seconds for a future-dated tip', async () => {
-            // The measured XC-1333 case: TBTC's newest indexed block dated ~1.8h
-            // ahead of the host, which used to publish tip_age_seconds: -6649.
             poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) + 6649);
             const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
             expect(data.tip_age_seconds['RBTC']).to.equal(0);
@@ -932,7 +928,10 @@ describe('Database#getDecoderMempoolCount', () => {
             q.onFirstCall().resolves([{ count: 7 }]);
             q.onSecondCall().resolves([{ count: 9 }]);
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(7);
-            await new Promise(r => setTimeout(r, 5));
+            // Expiry is a stored timestamp: rewind the entry an hour instead of
+            // sleeping the TTL out, so the staleness never rides the wall clock.
+            expect(db._mempoolCountCache.BTC.t, 'the count should be cached').to.be.a('number');
+            db._mempoolCountCache.BTC.t -= 60 * 60 * 1000;
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(9);
             expect(q.callCount).to.equal(2);
         } finally {
@@ -958,7 +957,10 @@ describe('Database#getDecoderMempoolCount', () => {
             q.onFirstCall().resolves([{ count: 11 }]);
             q.onSecondCall().rejects(new Error('no grant'));
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(11);
-            await new Promise(r => setTimeout(r, 5));
+            // Same as above: age the cached entry rather than sleeping, so the
+            // refresh attempt (and its failure) is what the test turns on.
+            expect(db._mempoolCountCache.BTC.t, 'the count should be cached').to.be.a('number');
+            db._mempoolCountCache.BTC.t -= 60 * 60 * 1000;
             expect(await db.getDecoderMempoolCount(cfg())).to.equal(11);
         } finally {
             delete process.env.MEMPOOL_COUNT_CACHE_MS;
@@ -1528,9 +1530,8 @@ describe('Database#getStatus decoder health aggregation', () => {
         }
     });
 
-    // XC-1260: the field read 'unconfigured' for all nine coins on a deployment
-    // that had decoder endpoints in its config but no env var per chain, which
-    // made the chain->decoder gap invisible even on healthy chains.
+    // Config-derived endpoints must resolve without a per-chain env var, or the
+    // chain->decoder gap goes invisible even on a healthy chain.
     it('polls the per-chain endpoint from the loaded config with no env var set', async () => {
         db.decoderApiUrl = Object.assign({}, CONFIG_URLS);
         const post = sinon.stub(axios, 'post').resolves(healthReply);

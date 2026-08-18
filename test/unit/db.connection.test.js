@@ -323,7 +323,7 @@ describe('Database – connection management', function () {
     // chain_lag_blocks / decoder_health. Deriving it from the config the explorer
     // already loads is what stops every coin reading 'unconfigured' on a
     // deployment that never exported one DECODER_API_URL_<COIN>_<NETWORK> per
-    // chain (XC-1260).
+    // chain.
     describe('setupConnectionPools() decoder API endpoint', function () {
 
         // Hub-config shape: xchain-node's updateconfig push carries db_host/db_port

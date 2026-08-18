@@ -35,12 +35,12 @@
  * on hub unreachability a stale entry is served up to a bounded ceiling
  * (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s) so a hub restart doesn't
  * blank the pages. Past that ceiling getRows returns null and the caller
- * FAILS LOUD (db.js _hubOperationalOutage, operator ruling XC-1388): the
- * co-located schema carries no freshness bound, so falling through to it
- * would have made the ceiling unenforceable and served indefinitely stale
- * operational state that read as live. Rows are fetched with server-side
- * filters (the datasets are bounded to 500 rows per query hub-side), so
- * cache keys include the filter params.
+ * FAILS LOUD (db.js _hubOperationalOutage): the co-located schema carries
+ * no freshness bound, so falling through to it would make the ceiling
+ * unenforceable and serve indefinitely stale operational state that reads
+ * as live. Rows are fetched with server-side filters (the datasets are
+ * bounded to 500 rows per query hub-side), so cache keys include the
+ * filter params.
  *
  ********************************************************************/
 
@@ -71,12 +71,9 @@ class HubOperationalCache {
     }
 
     // Fetch rows for one hub RPC read method, TTL-cached per (method, params).
-    // Returns an array of rows, or null when the hub is unreachable and no
-    // acceptably-fresh stale entry exists. Null means FAIL LOUD for the three
-    // list callers in db.js (XC-1388), not "read the co-located schema instead";
-    // getFederationRegistry is the one caller still allowed to fall through on
-    // null, because it only DECORATES the on-chain /validators set: failing loud
-    // there would blank a page of consensus data over an off-chain nicety.
+    // Null means the hub is unreachable past the stale ceiling. The three
+    // list callers in db.js must FAIL LOUD on null; getFederationRegistry
+    // alone falls through, since it only decorates the on-chain /validators set.
     async getRows(method, params = {}){
         if(!this.connector) return null;
         // Drop undefined params so the cache key is stable and the hub sees

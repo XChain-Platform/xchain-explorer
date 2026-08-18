@@ -162,11 +162,13 @@ describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
     });
 
     it('serves the last good value if a later hub fetch fails (cache fallback)', async function () {
-        process.env.PRICE_CACHE_MS = '1';   // 1ms TTL so the cached value expires between calls
         const db = makeDb();
         const good = await db.getCoinPriceUsd({ coin: 'BTC' });
         expect(good).to.equal(ORACLE_BTC_USD);
-        await new Promise((r) => setTimeout(r, 10));   // let the cache go stale
+        // Staleness is a stored timestamp, so rewind the cached entry an hour
+        // instead of sleeping the TTL out: no wall clock, no venue-speed race.
+        expect(db._priceCache.BTC.t, 'the good price should be cached').to.be.a('number');
+        db._priceCache.BTC.t -= 60 * 60 * 1000;   // the cache is now stale
         hub.respond = () => ({ error: 'transient hub failure' });
         const fallback = await db.getCoinPriceUsd({ coin: 'BTC' });
         expect(fallback).to.equal(ORACLE_BTC_USD);   // prior good value reused, not null

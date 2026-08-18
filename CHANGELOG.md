@@ -42,6 +42,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Removed
 - The Font Awesome kit route, the vendored kit loader, and the `EXPLORER_FONTAWESOME_*` environment variables.
 
+## [0.10.0] - 2026-08-18
+
+### Added
+- The lists API returns the LIST memo.
+
+### Fixed
+- Code-review round fixes across the API and UI (two rounds, 21 files).
+
+### Security
+- Raised the brace-expansion and js-yaml dependency floors and the advisory guards that pin them.
+
 ## [0.9.0] - 2026-08-14
 
 First release of the XChain Platform release train. Every component in the train

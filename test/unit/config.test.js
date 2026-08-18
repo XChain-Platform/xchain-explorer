@@ -280,6 +280,33 @@ describe('config', function () {
             expect(result.COIN_AVAILABLE).to.deep.equal({});
         });
 
+        it('names an empty hub tree as reachable, not as unreachable', async function () {
+            // A hub that answers with {} is up and simply has no coin config yet, which
+            // is the normal state mid-install. Calling that "unreachable" sends operators
+            // after a network fault that does not exist.
+            class EmptyHubConnector {
+                async getAllConfig() { return {}; }
+            }
+            const config = proxyquire('../../src/config.js', {
+                'fs':                   fsStub,
+                'path':                 path,
+                './utility.js':         MockUtility,
+                './XChainHubConnector': EmptyHubConnector,
+                './config.json':        mockFileConfig
+            });
+            const warn = sinon.stub(console, 'warn');
+            let result;
+            try {
+                result = await config.getConfig('hub-host', false);
+            } finally {
+                warn.restore();
+            }
+            expect(result.COIN_AVAILABLE).to.deep.equal({});
+            const said = warn.args.map(a => String(a[0])).join(' | ');
+            expect(said).to.match(/reachable but serving no coin config/);
+            expect(said).to.not.match(/Hub unreachable/);
+        });
+
     });
 
     describe('onConfigChanged() / triggerConfigChanged()', function () {

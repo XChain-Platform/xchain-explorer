@@ -175,8 +175,17 @@ module.exports = {
                 // Detect an unusable hub response (null after all retries, or an
                 // empty object) up front so a hub outage never tears down a
                 // working config or hard-fails startup.
-                const hubReturnedNothing = configUtil.isNull(jsonConfig) ||
+                const hubUnreachable = configUtil.isNull(jsonConfig);
+                const hubReturnedNothing = hubUnreachable ||
                     (typeof jsonConfig === 'object' && Object.keys(jsonConfig).length === 0);
+
+                // A hub that answers with an empty tree is NOT down: it is up and has no
+                // coin config yet, which is the normal state while a stack is still being
+                // installed. Reporting both as "unreachable" sends operators after a
+                // network fault that does not exist.
+                const hubCause = hubUnreachable
+                    ? 'Hub unreachable (all endpoints failed after retries)'
+                    : 'Hub reachable but serving no coin config';
 
                 if (hubReturnedNothing){
                     // A transient blip during a periodic sync tick must not wipe
@@ -186,7 +195,7 @@ module.exports = {
                     // hub is down and the served config is now stale, instead of
                     // discovering it only when downstream DB queries start failing.
                     if (configCache){
-                        console.error('Hub unreachable: all endpoints failed after retries. Serving last-known-good cached config (may be stale until the hub recovers).');
+                        console.error(hubCause + '. Serving last-known-good cached config (may be stale until the hub recovers).');
                         return configCache;
                     }
 
@@ -197,13 +206,13 @@ module.exports = {
                     // shape, so skip the hub-shape transform below.
                     const diskConfig = loadConfigCacheFromDisk();
                     if (diskConfig){
-                        console.warn('Hub unreachable at startup; loading last-known-good config from disk cache (' + diskConfig.configs.length + ' entries)');
+                        console.warn(hubCause + ' at startup; loading last-known-good config from disk cache (' + diskConfig.configs.length + ' entries)');
                         jsonConfig = diskConfig;
                     } else {
                         // No cache anywhere (first-ever boot during an outage).
                         // Come up degraded with zero coins rather than crash;
                         // the sync loop will populate once the hub returns.
-                        console.warn('Hub unreachable at startup and no config cache available; starting in degraded mode (no coins configured)');
+                        console.warn(hubCause + ' at startup, and no config cache is available; starting in degraded mode (no coins configured). The sync loop retries every UPDATE_CONFIG_INTERVAL ms.');
                         lastObtainedConfigValue = JSON.stringify(null);
                         jsonConfig = {"configs":[]};
                     }

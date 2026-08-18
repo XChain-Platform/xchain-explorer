@@ -328,6 +328,43 @@ describe('config', function () {
             expect(callCount).to.equal(2);
         });
 
+        it('announces a config change only after the cache holds the NEW config', async function () {
+            // Subscribers re-read config through the cache (db.js setupConnectionPools
+            // calls getConfig() with cache defaulting to true). Announcing before
+            // configCache is replaced hands them the PREVIOUS config, so an explorer
+            // that cold-started with no coins rebuilt zero DB pools and served 503
+            // forever while every poll reported the coins arriving.
+            const hub = { calls: 0 };
+            class StagedHubConnector {
+                async getAllConfig() {
+                    hub.calls++;
+                    return hub.calls === 1 ? {} : { bitcoin: mockHubResponse.bitcoin };
+                }
+            }
+            const config = proxyquire('../../src/config.js', {
+                'fs':                   fsStub,
+                'path':                 path,
+                './utility.js':         MockUtility,
+                './XChainHubConnector': StagedHubConnector,
+                './config.json':        mockFileConfig
+            });
+            let seenBySubscriber = null;
+            config.onConfigChanged(async function () {
+                const seen = await config.getConfig();
+                seenBySubscriber = Object.keys(seen.COIN_AVAILABLE || {});
+            });
+            const warn = sinon.stub(console, 'warn');
+            try {
+                await config.getConfig('hub-host', false);          // cold start: no coins
+                await config.getConfig('hub-host', false);          // the poll that delivers them
+            } finally {
+                warn.restore();
+            }
+            await new Promise(r => setImmediate(r));
+            expect(seenBySubscriber, 'subscriber read a stale config').to.not.deep.equal([]);
+            expect(seenBySubscriber).to.include('BTC');
+        });
+
     });
 
     describe('startSync()', function () {

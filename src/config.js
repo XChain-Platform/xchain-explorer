@@ -164,6 +164,8 @@ module.exports = {
             
             const configUtil = new util();
             let jsonConfig = null
+            // Announced only after configCache is replaced below; see the trigger call.
+            let configChanged = false
 
             if (endpoints){
                 if (!hubConnector){
@@ -276,7 +278,10 @@ module.exports = {
                         if (newJsonConfig.length > 0)
                             persistConfigCache(jsonConfig);
 
-                        this.triggerConfigChanged();
+                        // Deferred to after `configCache = config`: subscribers re-read the
+                        // config through the CACHE (db.js setupConnectionPools), so firing here
+                        // hands them the PREVIOUS config and the rebuild silently does nothing.
+                        configChanged = true;
                     } else {
                         return configCache
                     }
@@ -382,6 +387,7 @@ module.exports = {
             }
             
             configCache = config
+            if(configChanged) this.triggerConfigChanged();
             return config;
         }
     },

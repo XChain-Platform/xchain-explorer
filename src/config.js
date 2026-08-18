@@ -172,6 +172,16 @@ module.exports = {
                 
                 jsonConfig = await hubConnector.getAllConfig()
 
+                // While the explorer serves no coins it is useless, and nothing in the
+                // log says whether each poll got nothing, got an empty tree, or got
+                // coins it then discarded. Records that, and only in that state.
+                if(!configCache || Object.keys(configCache['COIN_AVAILABLE'] || {}).length === 0){
+                    const polled = (jsonConfig && typeof jsonConfig === 'object') ? Object.keys(jsonConfig) : null;
+                    console.warn('Config poll while serving no coins: hub returned ' +
+                        (polled === null ? 'null' : polled.length + ' key(s) [' + polled.join(',') + ']') +
+                        '; next delta cursor ' + hubConnector.lastWatermark);
+                }
+
                 // Detect an unusable hub response (null after all retries, or an
                 // empty object) up front so a hub outage never tears down a
                 // working config or hard-fails startup.

@@ -154,7 +154,12 @@ class Database {
             // not reachable through the get->lowercase table mangle, so they page on the
             // preserved client cursor like the poll family. Both ORDER BY m.action_index,
             // which is getQueryOffsetSql's default cursor field, so no id-keyed entry.
-            'getBetFeeds','getBets'
+            'getBetFeeds','getBets',
+            // getCheckpoints -> state_checkpoints (hub-mirrored) is not reachable through
+            // the get->lowercase mangle either. It pages on the preserved client cursor;
+            // getQueryOffsetSql gives it its own m.block_index cursor field below (not
+            // m.id), since the list ORDERs BY the checkpointed height.
+            'getCheckpoints'
         ];
 
     }
@@ -957,6 +962,11 @@ class Database {
         // oracle_prices is the hub-mirrored user-published oracle row table; no action_index, keyed by m.id
         if(method=='getOraclePrices')
             sql = `m.id IS NOT NULL`;
+        // state_checkpoints is the hub-mirrored quorum-signed checkpoint table; no
+        // action_index, keyed by m.id (the cursor used for paging is m.block_index,
+        // set separately in getQueryOffsetSql; this anchor only opens the WHERE clause).
+        if(method=='getCheckpoints')
+            sql = `m.id IS NOT NULL`;
         // co-located hub capability/governance tables; no action_index, keyed by m.id
         if(['getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
             sql = `m.id IS NOT NULL`;
@@ -1209,6 +1219,12 @@ class Database {
                 field = 'b1.block_index';
             if(method=='getTokens')
                 field = 'm.id';
+            // state_checkpoints has no action_index, and unlike the id-keyed views below
+            // it is not keyed by m.id either: the list ORDERs BY m.block_index (the
+            // checkpointed height, one row per height after the MAX(checkpoint_seq)
+            // GROUP BY), so the cursor must compare that column, not insertion order.
+            if(method=='getCheckpoints')
+                field = 'm.block_index';
             // id-keyed list views: their main query ORDERs BY m.id (these tables have no
             // action_index cursor column, or a fan-out where action_index is not unique
             // per displayed row), so the paging cursor must compare m.id rather than the
@@ -7261,6 +7277,92 @@ class Database {
                      ORDER BY sc.block_index DESC
                      LIMIT ?`;
         return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...src.filterParams, Number(limit) || 10]));
+    }
+
+    // Detail-page load for ONE checkpointed height (highest checkpoint_seq wins,
+    // mirroring getCheckpointRows' blockIndex branch). Deliberately does NO signature
+    // verification: that is processCheckpointVerifyRequest's job (getCheckpointRows +
+    // the quorum predicates), a separate and more expensive path. This is the cheap
+    // read the detail page renders around, so it stays a plain keyed SELECT.
+    // config.data.search carries the requested height. Returned wrapped in a
+    // single-element array (null when not found), matching getBlock's convention for
+    // a getData-dispatched detail getter.
+    async getCheckpoint(config){
+        let src   = this._checkpointSource(config);
+        let query = `SELECT chain, network, block_index, block_hash, ledger_hash, actions_hash,
+                            contract_hash, checkpoint_seq, snapshot_block,
+                            state_root, state_root_version, block_merkle_root, block_merkle_version,
+                            validator_signatures, created_at
+                     FROM ${src.table}
+                     WHERE block_index = ?${src.filter}
+                     ORDER BY checkpoint_seq DESC LIMIT 1`;
+        let rows = this._normalizeCheckpointRows(
+            await this.doQuery(config, query, [Number(config.data.search), ...src.filterParams]));
+        return [(rows && rows.length) ? rows[0] : null];
+    }
+
+    // List quorum-signed checkpoints (DataTables paging leg, spec explorer-coverage-
+    // completion M2.1). Keeps getCheckpointRows' "latest checkpoint_seq per
+    // block_index" semantics (a reorged height is superseded by a fresh row at the
+    // same block_index, so MAX(checkpoint_seq) resolves the current one), but
+    // getCheckpointRows' own list branch GROUP BYs the WHOLE mirrored history to
+    // compute that per-height max, which cannot back a paged list view (a full-table
+    // aggregate on every page). Bound the raw rows fed into the GROUP BY instead: a
+    // duplicate checkpoint_seq for one height only arises from a rare split-brain
+    // resubmission, so a window many pages deep still resolves effectively every
+    // reachable height to one row, while the aggregate itself stops being a
+    // full-table scan. total/paging both report against that same bounded window
+    // rather than the unbounded eternity, so the two numbers stay consistent with
+    // what is actually reachable by paging.
+    async getCheckpoints(config){
+        let sql   = config.data.sql;
+        let src   = this._checkpointSource(config);
+        // 5000 raw rows (50x the platform's 100-row max list page) is generous
+        // enough to cover realistic checkpoint_seq fan-out per height while staying
+        // a bounded window rather than a full-history scan.
+        let groupWindow = 5000;
+        let latest = `(SELECT block_index, MAX(checkpoint_seq) AS max_seq
+                       FROM (
+                           SELECT block_index, checkpoint_seq
+                           FROM ${src.table}
+                           WHERE 1=1${src.filter}
+                           ORDER BY block_index DESC
+                           LIMIT ${groupWindow}
+                       ) recent
+                       GROUP BY block_index) latest`;
+        // Requalify the bare chain/network filter to the outer `m` alias, matching
+        // getCheckpointRows' scFilter convention; the join to `latest` alone is not
+        // enough to scope by coin, since checkpoint_seq is only unique WITHIN one
+        // (chain, network) pair (uq_chain_seq), not globally.
+        let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        ${src.table} m
+                        INNER JOIN ${latest} ON (latest.block_index=m.block_index AND latest.max_seq=m.checkpoint_seq)
+                    WHERE ` + sql.where.data + outerFilter;
+        let query = `SELECT
+                        m.block_index,
+                        m.created_at,
+                        m.checkpoint_seq,
+                        m.snapshot_block,
+                        m.state_root,
+                        m.block_merkle_root,
+                        JSON_LENGTH(m.validator_signatures) AS signer_count
+                    FROM
+                        ${src.table} m
+                        INNER JOIN ${latest} ON (latest.block_index=m.block_index AND latest.max_seq=m.checkpoint_seq)
+                    WHERE ` + sql.where.data + outerFilter + sql.where.offset + `
+                    ORDER BY m.block_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        // Non-redirect args shape (getCrossChainMatches precedent): the bounded
+        // derived table binds chain/network once (inside `latest`) and the outer
+        // WHERE binds them again, so filterParams appear twice in left-to-right
+        // order; getData()'s shared offset-args plumbing appends the cursor args
+        // (m.block_index comparisons) after these, and the count query reuses the
+        // SAME array since it has the identical two occurrences, no more.
+        let args = [...src.filterParams, ...src.filterParams];
+        return [query, args, count];
     }
 
     // ── SPV light-client proof serving (Phase 3, spec §8.1) ──────────────────

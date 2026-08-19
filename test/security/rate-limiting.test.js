@@ -47,6 +47,35 @@ describe('Security: Rate Limiting: compute-bound route limiters', function () {
         expect(explorerSource).to.match(/proof\/action\/:actionIndex',\s*actionProofLimiter/);
         expect(explorerSource).to.include('EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM');
     });
+
+    it('the balance-proof route carries the proof-tier limiter', function () {
+        // Same single SMT descent as the contract-state and locked-balance proofs,
+        // so it belongs at the proof cap; it sat at the platform default as a leftover.
+        expect(explorerSource).to.match(/proof\/balance\/:address\/:tick',\s*actionProofLimiter/);
+    });
+
+    it('the checkpoint list and range routes carry the checkpoint-list limiter', function () {
+        expect(explorerSource).to.match(/api\/checkpoints',\s*checkpointListLimiter/);
+        expect(explorerSource).to.match(/api\/checkpoints\/range',\s*checkpointListLimiter/);
+        expect(explorerSource).to.include('EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM');
+    });
+
+    it('the checkpoint verify route carries its own tighter limiter', function () {
+        // Verify runs Ed25519 once per signature over the qualifying validator set
+        // and is reachable from a button on the checkpoint detail page, so it must
+        // not share the looser list cap.
+        expect(explorerSource).to.match(/checkpoint\/:blockIndex\/verify',\s*checkpointVerifyLimiter/);
+        expect(explorerSource).to.include('EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM');
+    });
+
+    it('the three fee routes carry the fee-quote limiter', function () {
+        // Each is a JSON-RPC round trip into the colocated indexer, and the fees page
+        // puts a clickable quote sandbox on top of them.
+        expect(explorerSource).to.match(/api\/feequote',\s*feeQuoteLimiter/);
+        expect(explorerSource).to.match(/api\/oraclefeequote',\s*feeQuoteLimiter/);
+        expect(explorerSource).to.match(/api\/feeschedule',\s*feeQuoteLimiter/);
+        expect(explorerSource).to.include('EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM');
+    });
 });
 
 describe('Security: Rate Limiting: Body size limit', function () {

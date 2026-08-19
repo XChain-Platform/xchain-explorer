@@ -1332,7 +1332,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping','checkpoint','price_snapshot','coinpay_obligation'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -2181,6 +2181,92 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).html(isNull(local_action_index) ? '-' : formatLink('/' + coin + '/action/' + local_action_index, local_action_index));
                 $('td', row).eq(5).html(action_link);
             }
+            // Quorum-signed state checkpoint (hub-mirrored). No action row, so the last
+            // column drills into the checkpoint detail page by height rather than into an
+            // action, and signer_count is a plain count: the signature VERDICT costs an
+            // Ed25519 pass per signer and is only computed when the detail page's Verify
+            // control asks for it.
+            if(action=='checkpoint'){
+                let checkpoint_seq = data[3];
+                let snapshot_block = data[4];
+                let state_root     = data[5];
+                let merkle_root    = data[6];
+                let signer_count   = data[7];
+                $('td', row).eq(3).text(isNull(checkpoint_seq) ? '-' : checkpoint_seq);
+                $('td', row).eq(4).html(isNull(snapshot_block) ? '-' : formatLink('/' + coin + '/block/' + snapshot_block, numeral(snapshot_block).format(fmtInteger)));
+                $('td', row).eq(5).html(isNull(state_root) ? '-' : formatHash(state_root));
+                $('td', row).eq(6).html(isNull(merkle_root) ? '-' : formatHash(merkle_root));
+                $('td', row).eq(7).text(isNull(signer_count) ? '-' : signer_count);
+                $('td', row).eq(8).html(formatLink('/' + coin + '/checkpoint/' + block_index, 'view', null, true));
+            }
+            // Validator PBFT price round (hub-mirrored, id-keyed). reference_block names a
+            // height on reference_chain, which is not necessarily this coin's chain, so it
+            // stays plain text rather than becoming a local block link.
+            if(action=='price_snapshot'){
+                let block_timestamp = data[1];
+                let reference_block = data[2];
+                let reference_chain = data[3];
+                let coin_pair       = data[4];
+                let price           = data[5];
+                let validators      = data[6];
+                let round           = data[7];
+                let round_status    = data[8];
+                $('td', row).eq(1).html(formatLivestamp(block_timestamp));
+                $('td', row).eq(2).text(isNull(reference_block) ? '-' : numeral(reference_block).format(fmtInteger));
+                $('td', row).eq(3).text(isNull(reference_chain) ? '-' : reference_chain);
+                $('td', row).eq(4).text(isNull(coin_pair) ? '-' : coin_pair);
+                $('td', row).eq(5).text(isNull(price) ? '-' : numeral(price).format(fmtCurrency));
+                $('td', row).eq(6).text(isNull(validators) ? '-' : validators);
+                $('td', row).eq(7).text(isNull(round) ? '-' : round);
+                $('td', row).eq(8).html('<span class="badge text-bg-secondary">' + (round_status || '-') + '</span>');
+            }
+            // Contract-targeted stake delegation. deactivation_block is null while the
+            // delegation is live, which is the difference between a current delegation and
+            // a historical one, so it renders as a dash rather than being hidden.
+            if(action=='contract_delegation'){
+                let signing_pubkey  = data[4];
+                let contract_index  = data[5];
+                let tick            = data[6];
+                let activation      = data[7];
+                let deactivation    = data[8];
+                $('td', row).eq(4).html(isNull(signing_pubkey) ? '-' : formatHash(signing_pubkey));
+                $('td', row).eq(5).html(isNull(contract_index) ? '-' : formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(6).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+                $('td', row).eq(7).text(isNull(activation) ? '-' : numeral(activation).format(fmtInteger));
+                $('td', row).eq(8).text(isNull(deactivation) ? '-' : numeral(deactivation).format(fmtInteger));
+                $('td', row).eq(9).html(action_link);
+            }
+            // COINPAY settlement record. txid/vout name the specific output that paid THIS
+            // obligation, so one transaction legitimately appears on several rows.
+            if(action=='coinpay'){
+                let obligation = data[4];
+                let paid       = data[5];
+                let txid       = data[6];
+                let vout       = data[7];
+                $('td', row).eq(4).html(isNull(obligation) ? '-' : formatLink('/' + coin + '/action/' + obligation, obligation));
+                $('td', row).eq(5).html(isNull(paid) ? '-' : formatAmount(paid));
+                $('td', row).eq(6).html(isNull(txid) ? '-' : formatHash(txid));
+                $('td', row).eq(7).text(isNull(vout) ? '-' : vout);
+                $('td', row).eq(8).html(action_link);
+            }
+            // COINPAY obligation: who owes what native coin, expiring when. The row carries
+            // the LATEST status for the obligation, and no block time of its own (an
+            // ORDER_MATCH creates it, so eq(2) shows the payer instead of a timestamp).
+            if(action=='coinpay_obligation'){
+                let payer      = data[2];
+                let payee      = data[3];
+                let owed_coin  = data[4];
+                let owed       = data[5];
+                let expiration = data[6];
+                let pay_status = data[7];
+                $('td', row).eq(2).html(isNull(payer) ? '-' : formatLink('/' + coin + '/address/' + payer, payer));
+                $('td', row).eq(3).html(isNull(payee) ? '-' : formatLink('/' + coin + '/address/' + payee, payee));
+                $('td', row).eq(4).text(isNull(owed_coin) ? '-' : owed_coin);
+                $('td', row).eq(5).html(isNull(owed) ? '-' : formatAmount(owed));
+                $('td', row).eq(6).html(isNull(expiration) ? '-' : formatLink('/' + coin + '/block/' + expiration, numeral(expiration).format(fmtInteger)));
+                $('td', row).eq(7).html('<span class="badge text-bg-secondary">' + (pay_status || '-') + '</span>');
+                $('td', row).eq(8).html(action_link);
+            }
             // Per-validator per-capability qualification flags (hub-owned; id-keyed). qualified/
             // self_test_ok/enabled are 0/1 flags rendered as yes/no badges.
             if(action=='validator_capability'){
@@ -2321,7 +2407,64 @@ function loadApiData(coin, action, query, type, callback){
     });
 }
 
-// Handle converting null values in an object to empty strings 
+// Rendered state for a proof widget that did not get a proof. Tone follows the
+// reason: an unarmed height or a missing checkpoint is expected on a young chain
+// and reads as information, a stale mirror or a rate-limit as a warning, and only
+// an unexpected failure reads as an error.
+function proofNotice(tone, text){
+    return '<span class="badge text-bg-' + tone + '">' + escapeHtml(String(text)) + '</span>';
+}
+
+// Turn a proof route's refusal into something a reader can act on. The routes
+// answer typed codes rather than prose, and each one means a specific, normal
+// thing: 409 = the height is below the slot's arming boundary (or its block was
+// never checkpointed), 404 = no signed checkpoint covers this height yet, 503 =
+// the hub mirror is too stale to answer, 429 = the per-IP proof cap. Anything
+// else falls through to the server's own message.
+function proofRefusal(status, body){
+    let code = (body && body.code) ? String(body.code) : '';
+    let msg  = (body && body.error) ? String(body.error) : 'Proof unavailable';
+    if(status==429)
+        return ['warning', 'Too many proof requests, try again shortly'];
+    if(status==503)
+        return ['warning', 'Consensus data is stale on this node: ' + msg];
+    if(status==409)
+        return ['info', code=='ACTION_BLOCK_NOT_CHECKPOINTED'
+            ? 'Not provable yet: this action\'s block has no signed checkpoint'
+            : 'Not provable yet: ' + msg];
+    if(status==404)
+        return ['info', msg];
+    return ['danger', msg];
+}
+
+// Shared fetch + render for the SPV proof widgets. Deliberately NOT built on
+// loadApiData: that helper logs an error response and never calls back, and
+// rendering the refusal is the whole point of a proof widget. `render` receives
+// the parsed proof and returns the HTML for it; it is responsible for escaping
+// anything that came from the server.
+function loadProofWidget(url, target, render){
+    let $el = $(target);
+    if(!$el.length)
+        return;
+    $el.html('<span class="text-muted">Requesting proof...</span>');
+    $.ajax({ url: url, dataType: 'json' })
+        .done(function(o){
+            try {
+                $el.html(render(o));
+            } catch(e){
+                if(XC.debug)
+                    console.log('proof render failed for ' + url, e);
+                $el.html(proofNotice('danger', 'Could not render this proof'));
+            }
+        })
+        .fail(function(xhr){
+            let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+            let [tone, text] = proofRefusal(xhr ? xhr.status : 0, body);
+            $el.html(proofNotice(tone, text));
+        });
+}
+
+// Handle converting null values in an object to empty strings
 function null2string(obj){
     if(obj === null)
         return '';

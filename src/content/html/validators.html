@@ -2,6 +2,22 @@
 <div class="container mt-3">
     <div class="row">
 
+        <!-- SPV Validator-Set Proof: proves the oracle_publish/cross_chain signer
+             set + weights at a BTC snapshot height, bound to the BTC checkpoint at
+             that height. BTC-only (stakes_root is only committed on BTC), so on any
+             other coin this degrades to an explanation rather than a button that
+             would only ever 400. Fetched on click: it re-derives an SMT proof per
+             validator and is rate-limited (see spec §4 M2.2). -->
+        <div class="col-12 pb-3">
+            <div class="card">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-shield-halved"></i> Validator-Set Proof
+                    <span class="badge text-bg-light text-muted fw-normal">cryptographic proof against a signed checkpoint</span>
+                </div>
+                <div class="p-2" id="validator-set-proof-body"></div>
+            </div>
+        </div>
+
         <div class="col-12">
             <div class="card table-responsive">
                 <div class="card-title mb-0 p-1 fw-bold">
@@ -35,6 +51,25 @@
 </div>
 
 <script type="text/javascript">
+
+// Render for the SPV validator-set proof widget. Groups by capability
+// (oracle_publish, cross_chain) since the route proves both together.
+function renderValidatorSetProof(o){
+    let p    = o.proof;
+    let caps = Object.keys(p.capabilities || {});
+    let rows = caps.map(function(cap){
+        let c = p.capabilities[cap];
+        return '<div><strong>' + escapeHtml(cap) + '</strong>: ' + c.validators.length +
+            ' validator(s), total weight <strong>' + escapeHtml(String(c.total)) + '</strong></div>';
+    }).join('');
+    return '<div class="border rounded p-2">' +
+        '<span class="badge text-bg-success me-1">Proof returned</span>' +
+        '<div class="mt-1">Bound to checkpoint height ' + escapeHtml(String(p.height)) + '</div>' +
+        '<div>Stakes root: ' + formatHash(p.stakes_root, 20) + '</div>' +
+        (rows || '<div class="text-muted">No configured capability returned a snapshot</div>') +
+    '</div>';
+}
+
 $(document).ready(function() {
 
     XC.pageInfo.title       = 'Validators';
@@ -43,6 +78,32 @@ $(document).ready(function() {
     updatePageInfo();
 
     loadDatatablesData(XC.coin, 'validator', null, null);
+
+    // The route is BTC-only server-side (400 STAKES_BTC_ONLY); avoid handing
+    // out a button on other coins that could only ever refuse.
+    if(XC.coin === 'BTC'){
+        $('#validator-set-proof-body').html(
+            '<div class="row mb-2">' +
+                '<div class="col-md-4">' +
+                    '<label class="form-label mb-0 small text-muted">BTC snapshot block (height)</label>' +
+                    '<input type="text" class="form-control form-control-sm" id="validator-set-proof-height" placeholder="e.g. 962500">' +
+                '</div>' +
+            '</div>' +
+            '<button type="button" class="btn btn-sm btn-primary" id="validator-set-proof-btn">Request Proof</button>' +
+            '<div id="validator-set-proof-result" class="small mt-2"></div>'
+        );
+        $('#validator-set-proof-btn').on('click', function(){
+            let height = $.trim($('#validator-set-proof-height').val());
+            if(!/^[0-9]+$/.test(height)){
+                $('#validator-set-proof-result').html(proofNotice('warning', 'Enter a numeric BTC snapshot height'));
+                return;
+            }
+            loadProofWidget('/' + XC.coin + '/api/proof/validator-set?height=' + encodeURIComponent(height),
+                '#validator-set-proof-result', renderValidatorSetProof);
+        });
+    } else {
+        $('#validator-set-proof-body').html(proofNotice('info', 'Validator-set proofs are BTC-only (stakes_root is only committed on the BTC chain)'));
+    }
 
 });
 </script>

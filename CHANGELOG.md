@@ -7,12 +7,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- New State Checkpoints, Price Rounds, Contract Delegations, Coinpay Settlements and Coinpay Obligations pages, each linked from the menu.
+- A checkpoint detail page showing its roots and signers, with signature verification behind a button.
+- The Fees page now shows the live gas schedule and can request a fee quote.
+- SPV proof widgets on the address, action, validators and contract pages.
+- A public API route for a single state checkpoint.
 - New Actions, Mempool, Order Matches and Swap Matches pages, each linked from the menu.
 - Public API routes for block lists, search, and project rosters, which previously only the site's own pages could reach.
 - File lookups by name, and a matching database index.
 - History rows now name the BATCH they belong to, so clients can group a batch's actions.
 
 ### Fixed
+- The checkpoint, checkpoint-range, checkpoint-verify and balance-proof routes ran at the platform-wide request cap instead of a proof-tier one.
+- The fee schedule and the two fee-quote routes ran uncapped, now that a page can call them.
+- The Coinpay feeds returned rows the page could not render, because neither had a row mapping.
 - The Swap Matches route served the Swaps page, and the Markets route was declared twice.
 - The Cross-Chain Matches page requested a misspelled endpoint and always rendered empty; a new test pins every page's endpoint to a registered route.
 - The mempool endpoint returned nothing unless filtered by address or token.

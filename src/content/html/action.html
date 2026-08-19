@@ -74,6 +74,28 @@
                     </table>
                 </div>
             </div>
+
+            <!-- SPV Action Proof: a per-row block-content inclusion proof bound to
+                 the signed checkpoint that commits this action's block. Only
+                 answerable once the block is itself checkpointed, so on a young
+                 regtest chain the typed 409 refusal is the state actually seen.
+                 Fetched on click, not on load: Ed25519/checkpoint lookup is CPU-bound
+                 and rate-limited (see spec §4 M2.2). -->
+            <div class="card table-responsive mb-3">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#action-proof-body" aria-expanded="true" aria-controls="action-proof-body" id="action-proof-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-lg fa-shield-halved"></i> SPV Action Proof
+                        <span class="badge text-bg-light text-muted fw-normal">cryptographic proof against a signed checkpoint</span>
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="action-proof-body">
+                    <div class="p-2">
+                        <button type="button" class="btn btn-sm btn-primary" id="action-proof-btn" disabled>Request Proof</button>
+                        <div id="action-proof-result" class="small mt-2"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1891,6 +1913,20 @@
 </div>
 
 <script type="text/javascript">
+
+// Render for the SPV action-proof widget. leaf/merkle_proof are the raw
+// verification material for an SDK client; the reader-facing summary is what
+// was proved (this action, at this height) and what it binds to.
+function renderActionProof(o){
+    let p = o.proof;
+    return '<div class="border rounded p-2">' +
+        '<span class="badge text-bg-success me-1">Proof returned</span>' +
+        '<div class="mt-1">Action: <strong>' + escapeHtml(isNull(p.action) ? '(unknown)' : p.action) + '</strong> (index ' + escapeHtml(String(p.action_index)) + ')</div>' +
+        '<div>Bound to checkpoint height ' + escapeHtml(String(p.height)) + '</div>' +
+        '<div>Block merkle root: ' + formatHash(p.block_merkle_root, 20) + '</div>' +
+    '</div>';
+}
+
 $(document).ready(function(){
 
     // Build out a list of data panels for this page
@@ -1914,6 +1950,16 @@ $(document).ready(function(){
             XC.pageInfo.description = 'Learn about the ' + o.action + ' action on the XChain Platform. This page displays XChain platform information about the action index #' + o.action_index;
             XC.pageInfo.canonical   = '/' + XC.coin + '/transaction/' + XC.query;
             updatePageInfo();
+
+            // The proof route wants the numeric action_index, not the page's own
+            // :query (which may be a tx hash), so the button stays disabled until
+            // the action lookup above resolves it.
+            if(!isNull(o.action_index)){
+                $('#action-proof-btn').prop('disabled', false).on('click', function(){
+                    loadProofWidget('/' + XC.coin + '/api/proof/action/' + encodeURIComponent(o.action_index),
+                        '#action-proof-result', renderActionProof);
+                });
+            }
 
         });
 

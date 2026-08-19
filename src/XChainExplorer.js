@@ -204,6 +204,18 @@ class XChainExplorer {
                 '/{COIN}/controllers'         : 'controllers.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
                 '/{COIN}/anchors'             : 'anchors.html',
+                // Quorum-signed state checkpoints: the list is the light-client
+                // surface, the detail view renders one checkpoint's roots + signers
+                // and puts the CPU-bound re-verification behind a click (the
+                // /api/checkpoint/{BLOCK}/verify route, not this page's own load).
+                '/{COIN}/checkpoints'         : 'checkpoints.html',
+                '/{COIN}/checkpoint/{QUERY}'  : 'checkpoint.html',
+                '/{COIN}/price_snapshots'     : 'price_snapshots.html',
+                '/{COIN}/contract_delegations' : 'contract_delegations.html',
+                // COINPAY: `coinpays` are the settlement records, `coinpay_obligations`
+                // the who-owes-what-native-coin view an ORDER_MATCH creates.
+                '/{COIN}/coinpays'            : 'coinpays.html',
+                '/{COIN}/coinpay_obligations' : 'coinpay_obligations.html',
                 '/{COIN}/cross_chain_matches' : 'cross_chain_matches.html',
                 '/{COIN}/cross_chain_settlements' : 'cross_chain_settlements.html',
                 '/{COIN}/rewards'             : 'rewards.html',
@@ -384,6 +396,12 @@ class XChainExplorer {
                 // ANCHOR checkpoint list (anchor_actions, read-only)
                 '/{COIN}/api/anchors/{QUERY}/{TYPE}'           : ['getAnchors',           ['block', 'chain', 'network', 'status']],
                 '/{COIN}/api/anchors'                          : ['getAnchors'],
+                // Single checkpoint by block height, WITHOUT re-verification: the
+                // detail page's cheap load path. The signature check lives on the
+                // dedicated /api/checkpoint/{BLOCK}/verify express route (registered
+                // ahead of the catch-all, so the two never collide) because it runs
+                // per-call Ed25519 over the whole qualifying validator set.
+                '/{COIN}/api/checkpoint/{QUERY}'               : ['getCheckpoint',       'block'],
                 '/{COIN}/api/sends/{QUERY}/{TYPE}'             : ['getSends',            ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/sleeps/{QUERY}/{TYPE}'            : ['getSleeps',           ['block', 'address', 'token']],
                 '/{COIN}/api/swaps/{QUERY}/{TYPE}'             : ['getSwaps',            ['block', 'address', 'token']],
@@ -466,7 +484,18 @@ class XChainExplorer {
                 '/{COIN}/explorer/orders/{QUERY}/{TYPE}'                    : ['getOrders',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/projects/{QUERY}/{TYPE}'                  : ['getProjectTokens', ['roster']],
                 '/{COIN}/explorer/coinpays/{QUERY}/{TYPE}'                  : ['getCoinpays',     ['block', 'address']],
+                '/{COIN}/explorer/coinpays'                                 : ['getCoinpays'],
                 '/{COIN}/explorer/coinpay_obligations/{QUERY}/{TYPE}'       : ['getCoinpayObligations', ['block', 'address']],
+                '/{COIN}/explorer/coinpay_obligations'                      : ['getCoinpayObligations'],
+                // Feeds for the M2 list pages. price_snapshots / contract_delegations
+                // already had their /api routes; the /explorer counterpart is what a
+                // DataTables page pages over, and it needs a getPagingDataResults row
+                // mapping to go with it (the coinpay feeds above shipped without one).
+                '/{COIN}/explorer/checkpoints'                              : ['getCheckpoints'],
+                '/{COIN}/explorer/price_snapshots/{QUERY}/{TYPE}'           : ['getPriceSnapshots',      ['pair', 'round', 'status']],
+                '/{COIN}/explorer/price_snapshots'                          : ['getPriceSnapshots'],
+                '/{COIN}/explorer/contract_delegations/{QUERY}/{TYPE}'      : ['getContractDelegations', ['block', 'address', 'contract']],
+                '/{COIN}/explorer/contract_delegations'                     : ['getContractDelegations'],
                 '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address']],
                 '/{COIN}/explorer/executions/{QUERY}/{TYPE}'                 : ['getExecutions',   ['block', 'address', 'contract']],
                 '/{COIN}/explorer/deploy_chunks'                             : ['getDeployChunks'],
@@ -552,8 +581,22 @@ class XChainExplorer {
         // read-only feequote/feeschedule JSON-RPC, so the authoritative fee + oracle-price logic
         // stays single-sourced there. Registered before the wildcard so the matcher hits these
         // first. See xchain-documentation/concepts/GAS.md (client pre-validation).
-        this.app.get('/:coin/api/feequote',    (req, res) => { this.processFeeQuoteRequest(req, res); });
-        this.app.get('/:coin/api/oraclefeequote', (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
+        //
+        // All three carry a dedicated limiter rather than the platform default: each one
+        // is a JSON-RPC round trip to the indexer, so an uncapped caller amplifies into a
+        // second process, and the fees page now puts a clickable quote sandbox on top of
+        // them (spec explorer-coverage-completion M2.6). Same obligation the proof-tier
+        // routes carry, one tier looser because a quote is a lookup rather than a
+        // cryptographic recompute.
+        const feeQuoteLimiter = rateLimit({
+            windowMs:        60 * 1000,
+            limit:           parseInt(process.env.EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            message:         { error: 'Too many fee requests', code: 'RATE_LIMITED' }
+        });
+        this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { this.processFeeQuoteRequest(req, res); });
+        this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
         // POST sibling of the same pre-flight. Not a second endpoint: identical inputs,
         // identical verdict, different transport. A GET cannot carry the largest legal
@@ -580,7 +623,7 @@ class XChainExplorer {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
-        this.app.get('/:coin/api/feeschedule', (req, res) => { this.processFeeScheduleRequest(req, res); });
+        this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { this.processFeeScheduleRequest(req, res); });
 
         // Quorum-signed state checkpoints (the light-client verification surface).
         // /checkpoints lists the latest signed checkpoints for the coin's chain;
@@ -588,8 +631,29 @@ class XChainExplorer {
         // signatures server-side AND returns everything a client needs to verify
         // independently (canonical string, sigs, qualifying validator set).
         // Spec: xchain-documentation/protocol/actions/ANCHOR.md
-        this.app.get('/:coin/api/checkpoints', (req, res) => { this.processCheckpointsRequest(req, res); });
-        this.app.get('/:coin/api/checkpoint/:blockIndex/verify', (req, res) => { this.processCheckpointVerifyRequest(req, res); });
+        //
+        // Both carried the platform-wide 500rpm default until now, which the M2.2 row
+        // treats as the defect it is rather than a deliberate exemption. The list is a
+        // hub-mirror scan; verify re-runs Ed25519 once per signature over the qualifying
+        // validator set AND reads that set's capability snapshot, so it is proof-tier
+        // work and now sits behind a clickable button on the checkpoint detail page.
+        // Verify therefore gets the tighter of the two caps.
+        const checkpointListLimiter = rateLimit({
+            windowMs:        60 * 1000,
+            limit:           parseInt(process.env.EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM, 10) || 120,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            message:         { error: 'Too many checkpoint requests', code: 'RATE_LIMITED' }
+        });
+        const checkpointVerifyLimiter = rateLimit({
+            windowMs:        60 * 1000,
+            limit:           parseInt(process.env.EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 60,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            message:         { error: 'Too many checkpoint verification requests', code: 'RATE_LIMITED' }
+        });
+        this.app.get('/:coin/api/checkpoints', checkpointListLimiter, (req, res) => { this.processCheckpointsRequest(req, res); });
+        this.app.get('/:coin/api/checkpoint/:blockIndex/verify', checkpointVerifyLimiter, (req, res) => { this.processCheckpointVerifyRequest(req, res); });
         // Self-synced hub-mirror observability: bootstrap +
         // watermark-lag state per coin, {enabled:false} in externally-maintained mode.
         this.app.get('/:coin/api/hub-mirror/status', (req, res) => { this.processHubMirrorStatusRequest(req, res); });
@@ -624,19 +688,20 @@ class XChainExplorer {
             legacyHeaders:   false,
             message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
         });
-        this.app.get('/:coin/api/proof/balance/:address/:tick', (req, res) => { this.processBalanceProofRequest(req, res); });
-        this.app.get('/:coin/api/checkpoints/range', (req, res) => { this.processCheckpointsRangeRequest(req, res); });
+        // The balance proof is the same single-descent SMT shape as the contract-state and
+        // locked-balance proofs and now carries the same cap; it sat at the platform default
+        // as a leftover, not as an exemption. The checkpoint range is a bounded mirror read,
+        // so it takes the looser list tier its /checkpoints sibling uses.
+        this.app.get('/:coin/api/proof/balance/:address/:tick', actionProofLimiter, (req, res) => { this.processBalanceProofRequest(req, res); });
+        this.app.get('/:coin/api/checkpoints/range', checkpointListLimiter, (req, res) => { this.processCheckpointsRangeRequest(req, res); });
         this.app.get('/:coin/api/proof/action/:actionIndex', actionProofLimiter, (req, res) => { this.processActionProofRequest(req, res); });
         this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { this.processValidatorSetProofRequest(req, res); });
         // Contract-state proofs carry the action-proof limiter rather than running
         // uncapped: the handler is one 256-deep SMT descent (a sequential DB read
         // per non-empty level) plus two point reads, so it is a new unauthenticated
         // CPU/IO amplifier of the same class the action-proof cap exists for. It was
-        // a 501 stub until now and so had no limiter at all. NOTE for whoever
-        // revisits this: the balance proof is the same single-descent shape and is
-        // still uncapped beyond the platform default, which is a pre-existing gap
-        // rather than a deliberate exemption, and tightening it is an operational
-        // call rather than part of this change.
+        // a 501 stub until now and so had no limiter at all. The balance proof's
+        // matching gap, flagged here as a pre-existing one, is closed above.
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', actionProofLimiter, (req, res) => { this.processContractStateProofRequest(req, res); });
         // Locked-balance (XCHAIN_ESC) proofs are the same single-descent shape as
         // the contract-state proof and get the same cap for the same reason.
@@ -1369,6 +1434,34 @@ class XChainExplorer {
                     // word, not 0/1); the render badges it instead.
                     if(method=='getCrossChainMatches')
                         info = [count_reverse, info.snapshot_block, info.network, info.match_id, info.a_chain, info.a_tick, info.a_amount, info.b_chain, info.b_tick, info.b_amount, info.status, info.id];
+                    // Quorum-signed state checkpoints (hub-mirrored). No action row and no
+                    // 0/1 status, so block_index doubles as the paging cursor (LAST) and the
+                    // client renders this action in its no-color list. signer_count is the
+                    // signature count the list shows without verifying anything; the verdict
+                    // costs an Ed25519 pass per signer and lives behind the detail page's
+                    // Verify control instead.
+                    if(method=='getCheckpoints')
+                        info = [count_reverse, info.block_index, info.created_at, info.checkpoint_seq, info.snapshot_block, info.state_root, info.block_merkle_root, info.signer_count, info.block_index];
+                    // Validator PBFT COIN/FIAT price rounds (hub-mirrored, id-keyed). id is the
+                    // paging cursor (LAST); status is a round-lifecycle word, not 0/1, so this
+                    // action sits in the client's no-color list.
+                    if(method=='getPriceSnapshots')
+                        info = [count_reverse, info.block_timestamp, info.reference_block, info.reference_chain, info.coin_pair, info.price, info.validator_count, info.consensus_round, info.status, info.id];
+                    // Contract-targeted stake delegations. Carries both a 0/1 action status and
+                    // an action_index, so it takes the standard colored-row shape.
+                    if(method=='getContractDelegations')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.target_contract_index, info.tick, info.activation_block, info.deactivation_block, status, info.action_index];
+                    // COINPAY settlement records. obligation_action_index links the payment back
+                    // to the obligation it discharged; txid/vout name the specific output that
+                    // paid THAT obligation, which is why one transaction can appear on several rows.
+                    if(method=='getCoinpays')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.obligation_action_index, info.coin_amount, info.txid, info.vout, status, info.action_index];
+                    // COINPAY obligations: who owes what native coin, expiring when. The row is
+                    // the LATEST status per obligation (the query's MAX(action_index) join), and
+                    // coinpay_status is a lifecycle word rather than 0/1, so no color and no
+                    // block time column (the obligation is created by a match, not by its own tx).
+                    if(method=='getCoinpayObligations')
+                        info = [count_reverse, info.block_index, info.payer_address, info.payee_address, info.coin, info.coin_amount, info.expiration, info.coinpay_status, info.action_index];
                     // Cross-chain settlement leg (local action-chain row; no status column). action_index
                     // is the paging cursor (LAST) and links the local settlement action.
                     if(method=='getCrossChainSettlements')

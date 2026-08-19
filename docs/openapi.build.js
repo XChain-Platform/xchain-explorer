@@ -155,6 +155,9 @@ const ROUTES = [
     // ── Anchors ───────────────────────────────────────────────────────────
     ['/{COIN}/api/anchors/{QUERY}/{TYPE}', 'getAnchors', ['block', 'chain', 'network', 'status'], 'Checkpoints', 'ANCHOR state checkpoints, filtered by block/chain/network/status'],
     ['/{COIN}/api/anchors', 'getAnchors', null, 'Checkpoints', 'ANCHOR state checkpoints (cross-chain quorum-signed)'],
+    // The cheap read of one quorum-signed checkpoint. Its /verify sibling below is a
+    // separate hand-pinned route because it re-runs the signature check per call.
+    ['/{COIN}/api/checkpoint/{QUERY}', 'getCheckpoint', 'block', 'Checkpoints', 'One quorum-signed state checkpoint by block height (no signature re-verification)'],
     // ── Core ──────────────────────────────────────────────────────────────
     ['/{COIN}/api/status', 'getStatus', null, 'Network', 'Explorer status + chain config'],
     ['/{COIN}/api/actions', 'getActions', null, 'Core', 'Recent actions (all types)'],

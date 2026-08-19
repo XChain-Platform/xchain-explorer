@@ -2,6 +2,96 @@
 <div class="container mt-3">
     <div class="row">
 
+        <!-- Gas schedule reference: read-only proxy of the colocated indexer's
+             feeschedule JSON-RPC (native-coin gas units + current oracle prices). -->
+        <div class="col-12 pb-3">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-gas-pump"></i> Gas Schedule
+                </div>
+                <div class="p-2" id="fee-schedule-body">
+                    <div class="loading-data">Loading gas schedule...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fee quote sandbox: same query params processFeeQuoteRequest validates
+             (action required, params/source/feeOutputSats optional). GET only,
+             nothing is broadcast; mirrors the Read Contract widget's Run pattern. -->
+        <div class="col-12 pb-3">
+            <div class="card">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-calculator"></i> Fee Quote Sandbox
+                    <span class="badge text-bg-light text-muted fw-normal">read-only, nothing is broadcast</span>
+                </div>
+                <div class="p-2">
+                    <div class="text-muted small mb-2">Estimate the native-coin fee an action would owe at the current block, before broadcasting anything.</div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3">
+                            <label class="form-label mb-0 small text-muted">Action</label>
+                            <input type="text" class="form-control form-control-sm" id="fee-quote-action" placeholder="ISSUE">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label mb-0 small text-muted">Params (pipe-delimited, optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="fee-quote-params" placeholder="0|NEWTICK">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-0 small text-muted">Source address (optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="fee-quote-source" placeholder="source address">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-0 small text-muted">Fee output (sats, optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="fee-quote-feeoutputsats" placeholder="2000">
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" id="fee-quote-submit">Get Fee Quote</button>
+                    <div class="mt-2" id="fee-quote-result"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Oracle fee quote sandbox: same query params processOracleFeeQuoteRequest
+             validates (oracleAddress/giveTick/fiatCode required, the rest optional). -->
+        <div class="col-12 pb-3">
+            <div class="card">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-calculator"></i> Oracle Fee Quote Sandbox
+                    <span class="badge text-bg-light text-muted fw-normal">read-only, nothing is broadcast</span>
+                </div>
+                <div class="p-2">
+                    <div class="text-muted small mb-2">Estimate the native-coin usage fee a Mode B dispenser owes its oracle operator.</div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3">
+                            <label class="form-label mb-0 small text-muted">Oracle address</label>
+                            <input type="text" class="form-control form-control-sm" id="oracle-quote-address" placeholder="oracle operator address">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-0 small text-muted">Give tick</label>
+                            <input type="text" class="form-control form-control-sm" id="oracle-quote-givetick" placeholder="XCP">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-0 small text-muted">Fiat code</label>
+                            <input type="text" class="form-control form-control-sm" id="oracle-quote-fiatcode" value="USD">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-0 small text-muted">Give coin (optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="oracle-quote-givecoin" placeholder="native coin">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label mb-0 small text-muted">Get coin (optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="oracle-quote-getcoin" placeholder="native coin">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-0 small text-muted">Give escrow (optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="oracle-quote-giveescrow" placeholder="1000">
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" id="oracle-quote-submit">Get Oracle Fee Quote</button>
+                    <div class="mt-2" id="oracle-quote-result"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-12">
             <div class="card table-responsive">
                 <div class="card-title mb-0 p-1 fw-bold">
@@ -43,6 +133,195 @@ $(document).ready(function() {
 
     // Load all `address` actions
     loadDatatablesData(XC.coin, 'fee', null, null);
+
+    // --- Gas schedule reference -------------------------------------------------
+    //
+    // /api/feeschedule takes no query params, so it doesn't fit loadApiData's
+    // pluralizing action->endpoint helper (same reason contract.html fetches
+    // /api/contract/{idx} directly). Fetched once on load like the rest of this
+    // page; a 200 here always means a schedule was computed, so failures only
+    // reach the .fail() branch (unknown coin, indexer not configured, upstream
+    // error), matching processFeeScheduleRequest's status codes.
+    function renderGasSchedule(o){
+        let rows = [];
+        rows.push(['Native Fee', o.nativeFeeEnabled
+            ? '<span class="badge text-bg-success">Enabled</span>'
+            : '<span class="badge text-bg-secondary">Disabled</span>']);
+        rows.push(['Fee Destination', isNull(o.feeDestination) ? '-' :
+            formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.feeDestination), escapeHtml(o.feeDestination))]);
+        rows.push(['Gas Price', isNull(o.gasPrice) ? '-' : escapeHtml(String(o.gasPrice))]);
+        rows.push(['Tolerance', (isNull(o.toleranceMin) ? '-' : escapeHtml(String(o.toleranceMin))) +
+            ' to ' + (isNull(o.toleranceMax) ? '-' : escapeHtml(String(o.toleranceMax)))]);
+        rows.push(['Max Price Age', isNull(o.maxPriceAgeSeconds) ? '-' : numeral(o.maxPriceAgeSeconds).format('0,0') + 's']);
+        rows.push(['As Of Block', isNull(o.blockIndex) ? '-' : formatLink('/' + XC.coin + '/block/' + o.blockIndex, o.blockIndex)]);
+        if(!isNull(o.blockTime))
+            rows.push(['Block Time', o.blockTime + ' - ' + formatLivestamp(o.blockTime) + ' (' + moment.unix(o.blockTime).utcOffset(0).format() + ' GMT)']);
+        if(o.prices){
+            rows.push(['Oracle Prices', o.prices.available
+                ? '<span class="badge text-bg-success">Available</span>'
+                : '<span class="badge text-bg-warning">Unavailable</span>']);
+            if(!isNull(o.prices.xchainUsd)) rows.push(['XCHAIN / USD', escapeHtml(String(o.prices.xchainUsd))]);
+            if(!isNull(o.prices.coinUsd))   rows.push([XC.coin + ' / USD', escapeHtml(String(o.prices.coinUsd))]);
+            if(!isNull(o.prices.oracleRound)) rows.push(['Oracle Round', escapeHtml(String(o.prices.oracleRound))]);
+        }
+
+        let html = '<table class="table table-striped table-condensed table-sm mb-3" width="100%"><tbody>';
+        rows.forEach(function(r){
+            html += '<tr><th class="text-muted small" width="220">' + r[0] + '</th><td>' + r[1] + '</td></tr>';
+        });
+        html += '</tbody></table>';
+
+        // gasSchedule is a flat { COMPONENT: gasUnits } map (fixed keys the indexer
+        // owns, e.g. ISSUE, VM_EXECUTE_BASE); render every key it sends rather than
+        // hard-coding a list, so a new component shows up here without a page edit.
+        if(o.gasSchedule && typeof o.gasSchedule === 'object' && Object.keys(o.gasSchedule).length){
+            html += '<table class="table table-striped cell-border table-hover table-condensed mb-0" width="100%">' +
+                '<thead><tr class="info"><th>Component</th><th>Gas Units</th></tr></thead><tbody>';
+            Object.keys(o.gasSchedule).forEach(function(key){
+                html += '<tr><td>' + escapeHtml(key) + '</td><td>' + numeral(o.gasSchedule[key]).format('0,0') + '</td></tr>';
+            });
+            html += '</tbody></table>';
+        } else {
+            html += '<div class="text-muted small">No gas schedule components reported.</div>';
+        }
+
+        $('#fee-schedule-body').html(html);
+    }
+
+    $.getJSON('/' + XC.coin + '/api/feeschedule')
+        .done(function(o){ renderGasSchedule(o); })
+        .fail(function(xhr){
+            let e = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : ('request failed (' + xhr.status + ')');
+            $('#fee-schedule-body').html('<div class="text-danger">' + escapeHtml(e) + '</div>');
+        });
+
+    // --- Fee quote sandbox -------------------------------------------------------
+    //
+    // Renders whatever processFeeQuoteRequest sends back on a 200: `valid` may be
+    // false (e.g. an unknown TICK) without that being a route error, so every
+    // field is shown as data rather than treated as a failure. Route-level errors
+    // (missing/invalid action, upstream outage) are non-2xx and land in .fail().
+    function renderFeeQuoteResult(o){
+        let rows = [];
+        rows.push(['Action', isNull(o.action) ? '-' : escapeHtml(String(o.action))]);
+        rows.push(['Supported', o.supported ? 'Yes' : 'No']);
+        rows.push(['Valid', o.valid
+            ? '<span class="badge text-bg-success">Valid</span>'
+            : '<span class="badge text-bg-danger">Invalid</span>']);
+        if(!isNull(o.status))  rows.push(['Status', escapeHtml(String(o.status))]);
+        if(!isNull(o.error))   rows.push(['Detail', escapeHtml(String(o.error))]);
+        if(!isNull(o.xchainFee)) rows.push(['XCHAIN Fee', escapeHtml(String(o.xchainFee))]);
+        if(!isNull(o.requiredFeeNative)) rows.push(['Required Native Fee', escapeHtml(String(o.requiredFeeNative)) + ' ' + XC.coin]);
+        if(!isNull(o.requiredFeeSats))   rows.push(['Required Fee (sats)', numeral(o.requiredFeeSats).format('0,0')]);
+        if(!isNull(o.expectedNative))    rows.push(['Expected Native', escapeHtml(String(o.expectedNative)) + ' ' + XC.coin]);
+        if(!isNull(o.minAcceptable))     rows.push(['Min Acceptable', escapeHtml(String(o.minAcceptable)) + ' ' + XC.coin]);
+        if(!isNull(o.maxAcceptable))     rows.push(['Max Acceptable', escapeHtml(String(o.maxAcceptable)) + ' ' + XC.coin]);
+        if(!isNull(o.feeDestination))
+            rows.push(['Fee Destination', formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.feeDestination), escapeHtml(o.feeDestination))]);
+        if(!isNull(o.blockIndex))
+            rows.push(['As Of Block', formatLink('/' + XC.coin + '/block/' + o.blockIndex, o.blockIndex)]);
+        if(!isNull(o.oracleRound)) rows.push(['Oracle Round', escapeHtml(String(o.oracleRound))]);
+
+        let html = '<table class="table table-striped table-condensed table-sm mb-0" width="100%"><tbody>';
+        rows.forEach(function(r){
+            html += '<tr><th class="text-muted small" width="220">' + r[0] + '</th><td>' + r[1] + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        $('#fee-quote-result').html(html);
+    }
+
+    $('#fee-quote-submit').on('click', function(){
+        let btn    = $(this);
+        let out    = $('#fee-quote-result');
+        let action = $.trim($('#fee-quote-action').val());
+        if(!action){
+            out.html('<div class="text-danger">Action is required.</div>');
+            return;
+        }
+        let params        = $('#fee-quote-params').val();
+        let source        = $('#fee-quote-source').val();
+        let feeOutputSats = $('#fee-quote-feeoutputsats').val();
+        let qs = 'action=' + encodeURIComponent(action);
+        if(params)        qs += '&params=' + encodeURIComponent(params);
+        if(source)        qs += '&source=' + encodeURIComponent(source);
+        if(feeOutputSats) qs += '&feeOutputSats=' + encodeURIComponent(feeOutputSats);
+
+        btn.prop('disabled', true).text('Getting Quote...');
+        out.html('');
+        $.getJSON('/' + XC.coin + '/api/feequote?' + qs)
+            .done(function(o){ renderFeeQuoteResult(o); })
+            .fail(function(xhr){
+                let e = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : ('request failed (' + xhr.status + ')');
+                out.html('<div class="text-danger">' + escapeHtml(e) + '</div>');
+            })
+            .always(function(){
+                btn.prop('disabled', false).text('Get Fee Quote');
+            });
+    });
+
+    // --- Oracle fee quote sandbox -------------------------------------------------
+    //
+    // processOracleFeeQuoteRequest's 200 shape differs by outcome: a valid quote
+    // carries requiredFeeNative/requiredFeeSats/note, an invalid one carries only
+    // { valid:false, error }. Both are rendered; only non-2xx (missing/invalid
+    // params, upstream outage) goes through .fail().
+    function renderOracleQuoteResult(o){
+        if(o.valid === false){
+            $('#oracle-quote-result').html('<div class="alert alert-warning small mb-0" role="alert">' +
+                escapeHtml(o.error || 'Quote is not valid.') + '</div>');
+            return;
+        }
+        let rows = [];
+        rows.push(['Valid', '<span class="badge text-bg-success">Valid</span>']);
+        if(!isNull(o.oracleAddress))
+            rows.push(['Oracle Address', formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.oracleAddress), escapeHtml(o.oracleAddress))]);
+        if(!isNull(o.requiredFeeNative)) rows.push(['Required Native Fee', escapeHtml(String(o.requiredFeeNative)) + ' ' + XC.coin]);
+        if(!isNull(o.requiredFeeSats))   rows.push(['Required Fee (sats)', numeral(o.requiredFeeSats).format('0,0')]);
+        if(o.belowDust) rows.push(['Below Dust', 'Yes, no output required']);
+        if(!isNull(o.blockTime))
+            rows.push(['Quoted At', o.blockTime + ' - ' + formatLivestamp(o.blockTime) + ' (' + moment.unix(o.blockTime).utcOffset(0).format() + ' GMT)']);
+        if(!isNull(o.note)) rows.push(['Note', escapeHtml(String(o.note))]);
+
+        let html = '<table class="table table-striped table-condensed table-sm mb-0" width="100%"><tbody>';
+        rows.forEach(function(r){
+            html += '<tr><th class="text-muted small" width="220">' + r[0] + '</th><td>' + r[1] + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        $('#oracle-quote-result').html(html);
+    }
+
+    $('#oracle-quote-submit').on('click', function(){
+        let btn           = $(this);
+        let out           = $('#oracle-quote-result');
+        let oracleAddress = $.trim($('#oracle-quote-address').val());
+        let giveTick      = $.trim($('#oracle-quote-givetick').val());
+        let fiatCode      = $.trim($('#oracle-quote-fiatcode').val()) || 'USD';
+        if(!oracleAddress || !giveTick){
+            out.html('<div class="text-danger">Oracle address and give tick are required.</div>');
+            return;
+        }
+        let giveCoin   = $('#oracle-quote-givecoin').val();
+        let getCoin    = $('#oracle-quote-getcoin').val();
+        let giveEscrow = $('#oracle-quote-giveescrow').val();
+        let qs = 'oracleAddress=' + encodeURIComponent(oracleAddress) +
+                 '&giveTick='     + encodeURIComponent(giveTick) +
+                 '&fiatCode='     + encodeURIComponent(fiatCode);
+        if(giveCoin)   qs += '&giveCoin='   + encodeURIComponent(giveCoin);
+        if(getCoin)    qs += '&getCoin='    + encodeURIComponent(getCoin);
+        if(giveEscrow) qs += '&giveEscrow=' + encodeURIComponent(giveEscrow);
+
+        btn.prop('disabled', true).text('Getting Quote...');
+        out.html('');
+        $.getJSON('/' + XC.coin + '/api/oraclefeequote?' + qs)
+            .done(function(o){ renderOracleQuoteResult(o); })
+            .fail(function(xhr){
+                let e = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : ('request failed (' + xhr.status + ')');
+                out.html('<div class="text-danger">' + escapeHtml(e) + '</div>');
+            })
+            .always(function(){
+                btn.prop('disabled', false).text('Get Oracle Fee Quote');
+            });
+    });
 
 });
 </script>

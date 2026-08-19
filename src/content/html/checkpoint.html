@@ -1,0 +1,179 @@
+<!-- State Checkpoint detail (roots + signers, with on-demand signature verification) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12 col-lg-7">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-certificate"></i> Checkpoint at Block <span id="checkpoint-block"></span>
+                </div>
+                <div class="card-body p-2">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody id="checkpoint-fields">
+                            <tr><td class="text-muted">Loading checkpoint...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-user-shield"></i> Signers
+                </div>
+                <div class="card-body p-2" id="checkpoint-signers">
+                    <span class="text-muted">Loading signers...</span>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-list-check"></i> Verification
+                </div>
+                <div class="card-body p-2">
+                    <!-- Verification is a button rather than part of the page load: the route
+                         re-runs Ed25519 once per signature over the whole qualifying validator
+                         set, which is why it carries its own tighter rate limiter. -->
+                    <button class="btn btn-sm btn-primary" id="checkpoint-verify-btn">Verify Signatures</button>
+                    <div class="mt-2" id="checkpoint-verdict">
+                        <span class="text-muted small">Not verified yet. Verifying re-checks every signature against the validator set that qualified at the snapshot block.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Page-local escape, matching the pattern the other detail pages use. Every value
+    // below originates in the hub mirror, so nothing reaches the DOM unescaped.
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+
+    let dash = function(v){ return isNull(v) ? '-' : esc(v); };
+
+    let fieldRow = function(label, value){
+        return '<tr><th class="text-muted fw-normal" style="width:12rem;">' + esc(label) + '</th><td>' + value + '</td></tr>';
+    };
+
+    // A root plus the version that produced it. The version matters: a checkpoint past the
+    // commitment flag day that is missing either one verifies against the LEGACY rootless
+    // preimage instead, which the verify route reports as commitment_missing.
+    let rootRow = function(label, root, version){
+        if(isNull(root))
+            return fieldRow(label, '<span class="badge text-bg-warning">missing</span>');
+        return fieldRow(label, '<span class="font-monospace small">' + esc(root) + '</span>'
+            + (isNull(version) ? '' : ' <span class="badge text-bg-secondary">v' + esc(version) + '</span>'));
+    };
+
+    $('#checkpoint-block').text(XC.query);
+
+    XC.pageInfo.title       = 'Checkpoint at Block ' + XC.query;
+    XC.pageInfo.description = 'Quorum-signed state checkpoint at block ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/checkpoint/' + XC.query;
+    updatePageInfo();
+
+    // Cheap load path: this route reads one row and verifies nothing.
+    $.getJSON('/' + XC.coin + '/api/checkpoint/' + XC.query, function(o){
+        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : null;
+        if(!d){
+            $('#checkpoint-fields').html('<tr><td class="text-muted">No checkpoint was signed at this height.</td></tr>');
+            $('#checkpoint-signers').html('<span class="text-muted">No signers.</span>');
+            $('#checkpoint-verify-btn').prop('disabled', true);
+            return;
+        }
+
+        let html = '';
+        html += fieldRow('Chain',          dash(d.chain) + ' <span class="badge text-bg-secondary">' + dash(d.network) + '</span>');
+        html += fieldRow('Block',          formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0')));
+        html += fieldRow('Block Hash',     isNull(d.block_hash) ? '-' : '<span class="font-monospace small">' + esc(d.block_hash) + '</span>');
+        html += fieldRow('Checkpoint Seq', dash(d.checkpoint_seq));
+        html += fieldRow('Snapshot Block', isNull(d.snapshot_block) ? '-' : formatLink('/' + XC.coin + '/block/' + d.snapshot_block, numeral(d.snapshot_block).format('0,0')));
+        html += rootRow('State Root',        d.state_root,        d.state_root_version);
+        html += rootRow('Block Merkle Root', d.block_merkle_root, d.block_merkle_version);
+        html += fieldRow('Ledger Hash',   isNull(d.ledger_hash)   ? '-' : '<span class="font-monospace small">' + esc(d.ledger_hash) + '</span>');
+        html += fieldRow('Actions Hash',  isNull(d.actions_hash)  ? '-' : '<span class="font-monospace small">' + esc(d.actions_hash) + '</span>');
+        html += fieldRow('Contract Hash', isNull(d.contract_hash) ? '-' : '<span class="font-monospace small">' + esc(d.contract_hash) + '</span>');
+        html += fieldRow('Created',       isNull(d.created_at) ? '-' : formatLivestamp(d.created_at));
+        $('#checkpoint-fields').html(html);
+
+        // validator_signatures arrives normalized to an array, but a raw string can still
+        // reach here from an unnormalized mirror row, so both shapes are handled.
+        let sigs = d.validator_signatures;
+        if(typeof sigs === 'string'){
+            try { sigs = JSON.parse(sigs); } catch(e){ sigs = null; }
+        }
+        if(!Array.isArray(sigs) || sigs.length === 0){
+            $('#checkpoint-signers').html('<span class="badge text-bg-warning">No signatures attached</span>');
+            return;
+        }
+        let list = '<div class="small text-muted mb-1">' + sigs.length + ' signature' + (sigs.length == 1 ? '' : 's') + ' attached. Attached is not the same as valid; use Verify.</div>';
+        list += '<ul class="list-unstyled mb-0 small font-monospace">';
+        sigs.forEach(function(s){
+            list += '<li>' + esc((s && s.pubkey) ? s.pubkey : String(s)) + '</li>';
+        });
+        list += '</ul>';
+        $('#checkpoint-signers').html(list);
+    }).fail(function(xhr){
+        let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        let msg  = body.error ? body.error : 'Could not load this checkpoint';
+        $('#checkpoint-fields').html('<tr><td class="text-danger">' + esc(msg) + '</td></tr>');
+        $('#checkpoint-signers').html('<span class="text-muted">-</span>');
+        $('#checkpoint-verify-btn').prop('disabled', true);
+    });
+
+    $('#checkpoint-verify-btn').on('click', function(){
+        let btn = $(this);
+        btn.prop('disabled', true).text('Verifying...');
+        $.getJSON('/' + XC.coin + '/api/checkpoint/' + XC.query + '/verify', function(v){
+            let html = '';
+            if(v.verified){
+                html += '<div class="alert alert-success py-2 mb-2">Verified: a qualifying quorum signed this checkpoint.</div>';
+            } else {
+                // Why it failed is the useful part. A young or unstaked chain fails for a
+                // structural reason, not because someone forged a signature, and the three
+                // causes below are told apart so the page does not read as an alarm.
+                let why = 'The signatures present do not meet the quorum.';
+                if(v.commitment_missing)
+                    why = 'This checkpoint is past the commitment flag day but is missing a root or version field, so it cannot be verified against the current preimage.';
+                else if(!v.validators || v.validators.length === 0)
+                    why = 'No validator set qualified for oracle_publish at the snapshot block, so there is nothing to verify against on this chain yet.';
+                html += '<div class="alert alert-warning py-2 mb-2">Not verified. ' + esc(why) + '</div>';
+            }
+            html += '<table class="table table-sm table-borderless mb-2"><tbody>';
+            html += fieldRow('Valid Signatures', dash(v.valid_sigs));
+            html += fieldRow('Quorum Required',  dash(v.quorum));
+            html += fieldRow('Rule',             v.is_weighted ? 'Stake-weighted' : 'Signature count');
+            html += fieldRow('Qualifying Set',   (v.validators ? v.validators.length : 0) + ' validator(s)');
+            html += '</tbody></table>';
+            if(v.validators && v.validators.length){
+                html += '<div class="small text-muted mb-1">Qualifying validators at the snapshot block:</div>';
+                html += '<ul class="list-unstyled mb-2 small font-monospace">';
+                v.validators.forEach(function(x){
+                    // A null weight means a corrupt mirror row, and the server deliberately
+                    // carries the absence through rather than resolving it to zero, so it is
+                    // shown as unknown here rather than as a number.
+                    let w = isNull(x.weight) ? '<span class="badge text-bg-danger">weight unknown</span>' : esc(x.weight);
+                    html += '<li>' + esc(x.pubkey) + ' <span class="text-muted">' + w + '</span></li>';
+                });
+                html += '</ul>';
+            }
+            // The canonical string is what a client re-signs to check this independently
+            // rather than trusting the verdict above.
+            if(!isNull(v.canonical))
+                html += '<div class="small text-muted">Canonical signing string</div><pre class="mb-0 small">' + esc(v.canonical) + '</pre>';
+            $('#checkpoint-verdict').html(html);
+            btn.prop('disabled', false).text('Verify Signatures');
+        }).fail(function(xhr){
+            let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+            let [tone, text] = proofRefusal(xhr ? xhr.status : 0, body);
+            $('#checkpoint-verdict').html(proofNotice(tone, text));
+            btn.prop('disabled', false).text('Verify Signatures');
+        });
+    });
+
+});
+</script>

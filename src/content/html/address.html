@@ -95,6 +95,45 @@
     </div>
 </div>
 
+<!-- SPV Balance Proofs: spendable and locked balance, both keyed on this
+     address plus a token tick (protocol SPV spec §4.4 and the escrow sub-tree
+     spec §3 Stage B share the same response shape). The tick is not known
+     until a token is picked, so this is a plain input rather than a dropdown
+     seeded from the page's own data. Proof generation is Ed25519/SMT work
+     behind a dedicated rate limiter (see §4 M2.2), so it is fetched on
+     button click, never on page load. -->
+<div class="container">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#address-proof-body" aria-expanded="true" aria-controls="address-proof-body" id="address-proof-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-lg fa-shield-halved"></i> SPV Balance Proof
+                        <span class="badge text-bg-light text-muted fw-normal">cryptographic proof against a signed checkpoint</span>
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="address-proof-body">
+                    <div class="p-2">
+                        <div class="row mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label mb-0 small text-muted">Token tick</label>
+                                <input type="text" class="form-control form-control-sm" id="address-proof-tick" placeholder="e.g. XCHAIN">
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <button type="button" class="btn btn-sm btn-primary" id="address-proof-balance-btn">Prove Spendable Balance</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="address-proof-locked-btn">Prove Locked Balance</button>
+                        </div>
+                        <div id="address-proof-balance-result" class="small"></div>
+                        <div id="address-proof-locked-result" class="small mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Transactions -->
 <div class="container">
     <div class="row">
@@ -860,6 +899,43 @@
 
         // Activate the first tab by faking a click
         $('#tab-dropdown-balance').click();
+
+        // SPV balance proofs (spendable and locked share the same response
+        // shape: proof.amount is the authoritative AS-OF-checkpoint amount,
+        // non-inclusion in the SMT means zero). Bound to the tick the reader
+        // types in; there is no default tick for an address page.
+        function renderBalanceProof(o){
+            let p  = o.proof, cp = o.checkpoint;
+            let included = !isNull(p.smt_proof.leaf_value);
+            let staleBadge = (cp && cp.stale) ? ' <span class="badge text-bg-warning">stale, lag ' + escapeHtml(String(cp.lag)) + ' blocks</span>' : '';
+            return '<div class="border rounded p-2">' +
+                '<span class="badge text-bg-success me-1">Proof returned</span>' +
+                (included ? '<span class="badge text-bg-info">inclusion</span>' : '<span class="badge text-bg-secondary">non-inclusion (zero)</span>') +
+                '<div class="mt-1">Amount: <strong>' + escapeHtml(String(p.amount)) + '</strong> ' + escapeHtml(p.tick) + '</div>' +
+                '<div>Bound to checkpoint height ' + escapeHtml(String(p.height)) + staleBadge + '</div>' +
+                '<div>State root: ' + formatHash(p.state_root, 20) + '</div>' +
+            '</div>';
+        }
+
+        $('#address-proof-balance-btn').on('click', function(){
+            let tick = $.trim($('#address-proof-tick').val());
+            if(!tick){
+                $('#address-proof-balance-result').html(proofNotice('warning', 'Enter a token tick first'));
+                return;
+            }
+            loadProofWidget('/' + XC.coin + '/api/proof/balance/' + encodeURIComponent(XC.query) + '/' + encodeURIComponent(tick),
+                '#address-proof-balance-result', renderBalanceProof);
+        });
+
+        $('#address-proof-locked-btn').on('click', function(){
+            let tick = $.trim($('#address-proof-tick').val());
+            if(!tick){
+                $('#address-proof-locked-result').html(proofNotice('warning', 'Enter a token tick first'));
+                return;
+            }
+            loadProofWidget('/' + XC.coin + '/api/proof/locked-balance/' + encodeURIComponent(XC.query) + '/' + encodeURIComponent(tick),
+                '#address-proof-locked-result', renderBalanceProof);
+        });
 
     });
 </script>

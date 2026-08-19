@@ -111,7 +111,9 @@ const PROBE_ARGS = {
     getContractState:   { search: '1' },
     getContractBalance: { search: 'C:BTC:1' },
     // poll_results is keyed by the poll's creating action_index.
-    getPollResults:     { search: '1' }
+    getPollResults:     { search: '1' },
+    // A single state checkpoint is keyed by block height.
+    getCheckpoint:      { search: '1' }
 };
 
 // The canonical UTF-8 ACTION string the decoder writes to

@@ -38,7 +38,6 @@ const ckpt             = require('./checkpoint_commitment_activation.js');
 const ProofServer      = require('./proofServer.js');
 const rateLimit        = require('express-rate-limit');
 const vmQuery          = require('./vm-query.js');
-const fontawesomeKit   = require('./fontawesome-kit.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
 
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
@@ -515,11 +514,14 @@ class XChainExplorer {
             res.type('application/json').send(this.openapiSpec);
         });
 
-        // The Font Awesome kit is assembled per request from the vendored loader
-        // plus a deploy-time account config, because the kit token is a credential
-        // that must not sit in a public repo. Registered before the /js
-        // static mount so this route, not a file on disk, answers the request.
-        this.app.get('/js/fontawesome-kit.js', (req, res) => { fontawesomeKit.serve(req, res); });
+        // Font Awesome Free is self-hosted from the npm package so icons work on
+        // every deployment with no CDN, kit token, or per-deploy config. The CSS
+        // references ../webfonts/, so both directories mount under /fontawesome.
+        // test/unit/fontawesome-icons.test.js keeps template icon names inside
+        // the Free set (plus the v4 shims and the local xchain.css glyphs).
+        const faDir = path.dirname(require.resolve('@fortawesome/fontawesome-free/package.json'));
+        this.app.use('/fontawesome/css',      express.static(path.join(faDir, 'css')));
+        this.app.use('/fontawesome/webfonts', express.static(path.join(faDir, 'webfonts')));
 
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))

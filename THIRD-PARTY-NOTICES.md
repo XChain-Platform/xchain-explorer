@@ -25,7 +25,7 @@ npm dependencies are a separate matter and are summarized in [NOTICE.md](./NOTIC
 | `js/chart.umd.js` | [Chart.js](https://www.chartjs.org/) | 4.5.1 | MIT | (c) 2025 Chart.js Contributors |
 | `js/chartjs-adapter-moment.js` | [chartjs-adapter-moment](https://github.com/chartjs/chartjs-adapter-moment) | 1.0.1 | MIT | (c) 2022 chartjs-adapter-moment Contributors |
 | `js/chartjs-chart-financial.js` | [chartjs-chart-financial](https://github.com/chartjs/chartjs-chart-financial) | 0.2.1 | MIT | Copyright 2024 Chart.js Contributors |
-| `js/fontawesome-kit-loader.js` | [Font Awesome](https://fontawesome.com/) kit loader | kit build | icons CC-BY-4.0, fonts SIL OFL 1.1, code MIT; a Pro kit is under Font Awesome's commercial terms | Copyright (c) Fonticons, Inc. |
+| `@fortawesome/fontawesome-free` (npm dependency, served at `/fontawesome`) | [Font Awesome Free](https://fontawesome.com/) | 6.4.0 | icons CC-BY-4.0, fonts SIL OFL 1.1, code MIT | Copyright (c) Fonticons, Inc. |
 | `js/highlight.min.js` | [highlight.js](https://highlightjs.org/) | 11.11.1 | BSD-3-Clause | (c) 2006-2024 Josh Goebel and other contributors |
 | `js/jquery.dataTables.js` | [DataTables](https://datatables.net/) | 1.13.4 | MIT | (c) 2008-2023 SpryMedia Ltd |
 | `js/jquery.min.js` | [jQuery](https://jquery.com/) | 1.10.2 | MIT | (c) 2005, 2013 jQuery Foundation, Inc. |
@@ -144,10 +144,9 @@ specific language governing permissions and limitations under the License.
 
 ### Font Awesome
 
-The kit loader is Font Awesome code (MIT). Font Awesome Free icons are CC-BY-4.0
-and its fonts are SIL OFL 1.1; a Font Awesome Pro kit is governed by Font
-Awesome's commercial terms rather than an open-source license. See
-<https://fontawesome.com/license>.
+Font Awesome Free ships as the `@fortawesome/fontawesome-free` npm dependency
+and is served by the explorer itself at `/fontawesome`. Its icons are CC-BY-4.0,
+its fonts SIL OFL 1.1, and its code MIT. See <https://fontawesome.com/license/free>.
 
 ### QR Code trademark
 

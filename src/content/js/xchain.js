@@ -362,12 +362,12 @@ function formatAmount(amount=null){
 function formatLocks(locks=null){
     var lock = String(locks).split('|'),
         html = '';
-    if(lock[0]==1) html += '<i class="fa fa-coin pe-1"         title="Max Supply"></i>';
+    if(lock[0]==1) html += '<i class="fa fa-coins pe-1"         title="Max Supply"></i>';
     if(lock[1]==1) html += '<i class="fa fa-print pe-1"        title="Mint"></i>';
     if(lock[2]==1) html += '<i class="fa fa-bank pe-1"         title="Mint Supply"></i>';
     if(lock[3]==1) html += '<i class="fa fa-coins pe-1"        title="Max Mint"></i>';
     if(lock[4]==1) html += '<i class="fa fa-circle-info pe-1"  title="Description"></i>';
-    if(lock[5]==1) html += '<i class="fa fa-snooze pe-1"       title="Sleep"></i>';
+    if(lock[5]==1) html += '<i class="fa fa-bed pe-1"       title="Sleep"></i>';
     if(lock[6]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
     return html;
 }
@@ -1408,7 +1408,7 @@ function loadDatatablesData(coin, action, query, type){
                         if(name=='order_edits')   icon='fa-book';  
                         if(name=='order_matches') icon='fa-book';  
                         if(name=='sends')         icon='fa-send';  
-                        if(name=='sleeps')        icon='fa-snooze';  
+                        if(name=='sleeps')        icon='fa-bed';  
                         if(name=='swaps')         icon='fa-exchange';  
                         if(name=='swap_cancels')  icon='fa-exchange';  
                         if(name=='swap_edits')    icon='fa-exchange';  

@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+- Font Awesome is now self-hosted from the bundled Free package at `/fontawesome`, so icons work on every deployment with no CDN, account, or configuration.
+- Six Pro-only icon names were replaced with Free equivalents, enforced by a new unit test.
+- The Content Security Policy allows Cloudflare's RUM beacon so proxied deployments load without console errors.
+
+### Removed
+- The Font Awesome kit route, the vendored kit loader, and the `EXPLORER_FONTAWESOME_*` environment variables.
+
 ## [0.9.0] - 2026-08-14
 
 First release of the XChain Platform release train. Every component in the train

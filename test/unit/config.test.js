@@ -280,6 +280,33 @@ describe('config', function () {
             expect(result.COIN_AVAILABLE).to.deep.equal({});
         });
 
+        it('names an empty hub tree as reachable, not as unreachable', async function () {
+            // A hub that answers with {} is up and simply has no coin config yet, which
+            // is the normal state mid-install. Calling that "unreachable" sends operators
+            // after a network fault that does not exist.
+            class EmptyHubConnector {
+                async getAllConfig() { return {}; }
+            }
+            const config = proxyquire('../../src/config.js', {
+                'fs':                   fsStub,
+                'path':                 path,
+                './utility.js':         MockUtility,
+                './XChainHubConnector': EmptyHubConnector,
+                './config.json':        mockFileConfig
+            });
+            const warn = sinon.stub(console, 'warn');
+            let result;
+            try {
+                result = await config.getConfig('hub-host', false);
+            } finally {
+                warn.restore();
+            }
+            expect(result.COIN_AVAILABLE).to.deep.equal({});
+            const said = warn.args.map(a => String(a[0])).join(' | ');
+            expect(said).to.match(/reachable but serving no coin config/);
+            expect(said).to.not.match(/Hub unreachable/);
+        });
+
     });
 
     describe('onConfigChanged() / triggerConfigChanged()', function () {
@@ -299,6 +326,43 @@ describe('config', function () {
             config.onConfigChanged(function () { callCount++; });
             config.triggerConfigChanged();
             expect(callCount).to.equal(2);
+        });
+
+        it('announces a config change only after the cache holds the NEW config', async function () {
+            // Subscribers re-read config through the cache (db.js setupConnectionPools
+            // calls getConfig() with cache defaulting to true). Announcing before
+            // configCache is replaced hands them the PREVIOUS config, so an explorer
+            // that cold-started with no coins rebuilt zero DB pools and served 503
+            // forever while every poll reported the coins arriving.
+            const hub = { calls: 0 };
+            class StagedHubConnector {
+                async getAllConfig() {
+                    hub.calls++;
+                    return hub.calls === 1 ? {} : { bitcoin: mockHubResponse.bitcoin };
+                }
+            }
+            const config = proxyquire('../../src/config.js', {
+                'fs':                   fsStub,
+                'path':                 path,
+                './utility.js':         MockUtility,
+                './XChainHubConnector': StagedHubConnector,
+                './config.json':        mockFileConfig
+            });
+            let seenBySubscriber = null;
+            config.onConfigChanged(async function () {
+                const seen = await config.getConfig();
+                seenBySubscriber = Object.keys(seen.COIN_AVAILABLE || {});
+            });
+            const warn = sinon.stub(console, 'warn');
+            try {
+                await config.getConfig('hub-host', false);          // cold start: no coins
+                await config.getConfig('hub-host', false);          // the poll that delivers them
+            } finally {
+                warn.restore();
+            }
+            await new Promise(r => setImmediate(r));
+            expect(seenBySubscriber, 'subscriber read a stale config').to.not.deep.equal([]);
+            expect(seenBySubscriber).to.include('BTC');
         });
 
     });

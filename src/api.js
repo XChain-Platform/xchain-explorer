@@ -32,7 +32,6 @@ const WebSocketServer = require('./ws/WebSocketServer.js');
 const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
-const fontawesomeKit  = require('./fontawesome-kit.js');
 const concurrencyGate = require('./concurrencyGate.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
 
@@ -44,12 +43,6 @@ const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
-// Font Awesome origins are added to the CSP only when a kit is actually
-// configured for this deployment; see src/fontawesome-kit.js.
-const FA_KIT_ENABLED = fontawesomeKit.buildKitConfig(process.env) !== null;
-const FA_CONNECT_SRC = FA_KIT_ENABLED ? ["https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com", "https://kit.fontawesome.com"] : [];
-const FA_STYLE_SRC   = FA_KIT_ENABLED ? ["https://ka-p.fontawesome.com", "https://kit.fontawesome.com"] : [];
-const FA_FONT_SRC    = FA_KIT_ENABLED ? ["https://ka-f.fontawesome.com", "https://ka-p.fontawesome.com"] : [];
 
 async function startApi(){
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
@@ -72,23 +65,24 @@ async function startApi(){
             directives: {
                 // Default: only allow resources from self
                 defaultSrc:  ["'self'"],
-                // Inline scripts are required for per-page $(document).ready() blocks in HTML templates
-                scriptSrc:     ["'self'", "'unsafe-inline'"],
+                // Inline scripts are required for per-page $(document).ready() blocks in HTML
+                // templates. static.cloudflareinsights.com is Cloudflare's RUM beacon, which the
+                // edge auto-injects into proxied pages; blocking it logs a CSP violation on every
+                // page load. Deployments not behind Cloudflare never receive the script, so the
+                // allowance is inert for them.
+                scriptSrc:     ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"],
                 // Helmet sets script-src-attr: 'none' by default; override to allow inline event handlers required by jQuery
                 scriptSrcAttr: ["'unsafe-inline'"],
                 // Inline styles are required for Bootstrap components and HTML attribute styles
                 styleSrc:    ["'self'", "'unsafe-inline'"],
                 // data: URIs are required for QR code generation; https: allows external images in token descriptions
                 imgSrc:      ["'self'", "data:", "https:"],
-                // FontAwesome kit fetches CSS from ka-p.fontawesome.com and kit.fontawesome.com,
-                // and icon data from ka-f.fontawesome.com via XHR/fetch. The kit is only loaded
-                // when this deployment supplies a kit token, so a deployment running
-                // without one never has to allow those origins at all.
-                connectSrc:  ["'self'", "wss:", "ws:", ...FA_CONNECT_SRC],
-                // FontAwesome dynamically injects CSS from ka-p and kit subdomains
-                styleSrc:    ["'self'", "'unsafe-inline'", ...FA_STYLE_SRC],
-                // FontAwesome kit loads web fonts from ka-f.fontawesome.com
-                fontSrc:     ["'self'", ...FA_FONT_SRC],
+                // cloudflareinsights.com receives the RUM beacon's measurement POSTs
+                // (older beacon builds post cross-origin instead of to /cdn-cgi/rum).
+                connectSrc:  ["'self'", "wss:", "ws:", "https://cloudflareinsights.com"],
+                // Font Awesome is self-hosted at /fontawesome (CSS + webfonts served
+                // from the bundled Free package), so 'self' covers its fonts too.
+                fontSrc:     ["'self'"],
                 // Token descriptions can embed YouTube and SoundCloud players
                 frameSrc:    ["'self'", "https://www.youtube.com", "https://w.soundcloud.com"],
                 // Block all plugins (Flash, etc.)

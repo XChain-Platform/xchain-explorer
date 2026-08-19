@@ -37,7 +37,7 @@ export default {
       'test/unit/ActionManifestConformance.test.js',
       'test/unit/ConsensusPrimitiveConformance.test.js',
       'test/unit/HubMirrorClientConformance.test.js',
-      'test/unit/fontawesome-kit.test.js',
+      'test/unit/fontawesome-icons.test.js',
       'test/unit/jsonrpc-body-guard.test.js',
       'test/unit/openapi-coverage.test.js'
     ]

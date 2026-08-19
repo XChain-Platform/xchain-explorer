@@ -166,7 +166,6 @@ const ROUTES = [
     // methods and QUERY/{TYPE} shapes as the /explorer datatable routes, so a
     // third-party caller reproduces what the web UI's list/search pages show.
     ['/{COIN}/api/blocks', 'getBlocks', null, 'Core', 'Recent blocks, each with its per-action-type counts'],
-    ['/{COIN}/api/blocks/{QUERY}', 'getBlocks', 'block', 'Core', 'Blocks list filtered to a single block height/hash'],
     ['/{COIN}/api/search/{QUERY}', 'getSearch', 'search', 'Core', 'Site-wide search: per-category match totals only (no TYPE given, so no rows)',
         { schema: { $ref: '#/components/schemas/SearchResponse' },
           query: [{ name: 'limit', required: false,

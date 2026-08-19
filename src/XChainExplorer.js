@@ -402,8 +402,10 @@ class XChainExplorer {
                 // Public mirrors of internal /explorer feeds (spec explorer-coverage-completion M1.3-M1.5):
                 // list-all forms match as bare 3-segment api routes (infoType undefined), QUERY forms mirror
                 // the explorer namespace's shapes so third-party consumers get what the UI gets.
+                // List-all only. getBlocks appends no block predicate (the type=='block'
+                // filter lives in getHistory's branch), so a {QUERY} form would advertise
+                // a filter it silently ignores; single blocks have /{COIN}/api/block/{QUERY}.
                 '/{COIN}/api/blocks'                           : ['getBlocks'],
-                '/{COIN}/api/blocks/{QUERY}'                   : ['getBlocks',           'block'],
                 '/{COIN}/api/search/{QUERY}'                   : ['getSearch'],
                 '/{COIN}/api/search/{QUERY}/{TYPE}'            : ['getSearch',           ['address', 'broadcast', 'token', 'transaction']],
                 '/{COIN}/api/projects/{QUERY}/{TYPE}'          : ['getProjectTokens',    ['roster']],

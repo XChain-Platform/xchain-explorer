@@ -1,0 +1,50 @@
+<!-- Swap Matches -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-right-left"></i> Swap Matches
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-swap_match">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="asset-name">Action</th>
+                        <th class="">Details</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="6" class="loading-data">Loading swap match data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'Swap Matches';
+    XC.pageInfo.description = 'Learn about SWAP_MATCH actions on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network - This page displays a list of swap matches on the XChain platform';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/swap_matches';
+    updatePageInfo();
+
+    // No /explorer/swap_matches feed exists yet (swap_matches only has a
+    // non-DataTables /api lookup, and previously this route silently reused the
+    // swaps.html template, showing SWAP actions instead of matches); this reuses
+    // the history feed like the Actions page, whose getActionDetails() already
+    // renders SWAP_MATCH rows with their give/get legs when one appears.
+    loadDatatablesData(XC.coin, 'swap_match', null, null);
+
+});
+</script>

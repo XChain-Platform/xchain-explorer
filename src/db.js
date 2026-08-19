@@ -1170,6 +1170,17 @@ class Database {
                     sql += ' AND t3.tick=?';
                 }
             }
+            // getFiles 'name' mode (spec explorer-coverage-completion M1.7):
+            // discovery-by-filename. files.name is a plain VARCHAR column on the base
+            // `files` table (not interned like tick/address), and only 'token' routes
+            // getFiles to the mappings_files/interned-tick query shape above; every
+            // other type (including 'name') keeps the base `files m` FROM-clause where
+            // `m` already resolves to `files`, so `m.name` is index-friendly here: an
+            // exact-match equality on a plain column, no leading wildcard and no
+            // function wrapping the column, so a `files(name)` index (sibling migration
+            // in xchain-indexer, out of this surface) can serve it directly.
+            if(type=='name' && method=='getFiles')
+                sql += ' AND m.name=?';
         }
         return sql;
     }
@@ -2261,6 +2272,14 @@ class Database {
         let sql   = config.data.sql;
         let count = null;
         let query = null;
+        // type=='name' (M1.7) falls into the else branch below like
+        // block/address/list-all: it queries the base `files` table directly, not
+        // the interned mappings_files/tick join `type=='token'` uses. The actual
+        // `m.name=?` predicate is added by getQueryWhereSql (the shared WHERE
+        // builder every getXxx method routes through); nothing here needs to branch
+        // on it. Same column set as every other mode, gated-file columns included
+        // (gate_ticker/gate_min_amount/encryption_method/key_hash), so a by-name
+        // lookup discloses nothing block/address/list-all don't already return.
         if(config.data.type=='token'){
             count = `SELECT
                             count(*) as total
@@ -4235,7 +4254,7 @@ class Database {
     }
 
     //
-    // /{COIN}/api/mempool/{QUERY}/{TYPE}: unconfirmed actions read from the
+    // /{COIN}/api/mempool[/{QUERY}/{TYPE}]: unconfirmed actions read from the
     // colocated decoder DB (see getDecoderMempoolRows). Rows are PRE-VALIDATION
     // (the indexer can still reject them at confirmation), carry no destination
     // column, and the full decoded action string ships in `data`; clients with
@@ -4245,7 +4264,30 @@ class Database {
     // across field boundaries): TYPE=address matches the source OR any exact
     // pipe-segment of the action string (covers SEND destinations across
     // versions); TYPE=token matches any exact segment against the uppercased
-    // tick.
+    // tick. No TYPE (bare /api/mempool, or the /explorer/mempool list-all
+    // fallback) lists every decoded row (spec explorer-coverage-completion
+    // M1.2): the old code matched ONLY address/token and silently returned []
+    // for the list-all case, which is the bug this row fixes.
+    //
+    // PAGING (deliberate §8 exception, spec-approved): this is a direct-return
+    // method (getData's `typeof query === 'object'` branch), and the source is
+    // the decoder's mempool table, not an indexer action table: there is no
+    // action_index/id cursor column pre-confirmation for the standard SQL
+    // OFFSET/cursor machinery (getQueryOffsets/getQueryOffsetSql) to key off,
+    // and getDecoderMempoolRows already caps its read at one bounded window
+    // (500 rows, clamped in getDecoderMempoolRows itself) rather than scanning
+    // the whole table. Given that bounded window, paging is done here by a
+    // plain JS-side slice honoring sql.limit (computed by getQuery: the
+    // per-method max for /api, the DataTables page `length` for /explorer)
+    // and whichever offset numbering the caller already uses: `sql.apiOffset`
+    // for /api (page-based), or the raw DataTables `query.start` row offset
+    // for /explorer. The action_index next/prev/first/last cursor dance the
+    // other list feeds use does not apply here, since there is no cursor
+    // column to carry it on, so /explorer/mempool pages by plain numeric
+    // offset instead, which is safe specifically because the source window
+    // is already capped.
+    // `total` is the full filtered-match count (pre-slice), matching every
+    // other list feed's envelope semantics for recordsTotal/json.total.
     async getMempool(config){
         let search = String(config.data.search || '');
         let type   = String(config.data.type || '').toLowerCase();
@@ -4254,6 +4296,10 @@ class Database {
         for(let row of rows){
             let decoded = this.decodeMempoolRow(row);
             if(!decoded) continue;
+            if(!type){
+                out.push(decoded);
+                continue;
+            }
             let segments = decoded.data.split('|');
             let match = false;
             if(type=='address')
@@ -4262,7 +4308,19 @@ class Database {
                 match = segments.includes(search.toUpperCase());
             if(match) out.push(decoded);
         }
-        return [out, null, out.length];
+        let total = out.length;
+        let sql   = config.data.sql || {};
+        // Fall back to the full matched set when no request-shaped sql/limit is
+        // present (e.g. an internal caller building a minimal config), so this
+        // method never truncates output it wasn't asked to page.
+        let limit = (this.util.isInteger(Number(sql.limit)) && Number(sql.limit) > 0)
+            ? Number(sql.limit) : (total || 1);
+        let offset = 0;
+        if(config.type === 'api')
+            offset = Number(sql.apiOffset) || 0;
+        else if(config.type === 'explorer')
+            offset = Number(config.data.query && config.data.query.start) || 0;
+        return [out.slice(offset, offset + limit), null, total];
     }
 
     async getNetwork(config){
@@ -5310,6 +5368,26 @@ class Database {
                 args.push(start);
             }
         }
+        // parent_batch_action_index (spec explorer-coverage-completion M1.6):
+        // the indexer stores no parent column (batches is (action_index, status_id);
+        // every sub-command is its own root action), so parenthood is DERIVED here.
+        // A parent and its children share (tx_index, tx_vout) on `actions`; the parent
+        // is whichever of those rows also has an `actions.action_index` present in
+        // `batches`. This MUST stay a correlated scalar subquery in the select list,
+        // never a FROM-clause join: the outer query is SELECT DISTINCT over the whole
+        // row, and a join that multi-matches (one BATCH parent joined against N
+        // children sharing its tx_vout) would re-materialize duplicate action_index
+        // rows past the DISTINCT. A subquery returns exactly one scalar per outer row
+        // and does not change row cardinality, so DISTINCT still collapses correctly.
+        // `apx.action_index!=a1.action_index` is what makes the parent BATCH row's own
+        // value NULL (it would otherwise find itself); every non-batch row also comes
+        // back NULL because no sibling row in `batches` exists at all. EXPLAIN shape:
+        // apx is looked up via actions' own PK/unique index on action_index bounded by
+        // the outer row's tx_index/tx_vout (actions carries a plain index on tx_index,
+        // narrowing the scan to the handful of rows sharing one tx output), then
+        // filtered through batches' UNIQUE KEY on action_index (an eq_ref, not a scan);
+        // the whole subquery runs once per returned row, so cost scales with page size
+        // (sql.limit), not table size.
         if(total){
             query = `SELECT
                         DISTINCT(m.action_index) as action_index,
@@ -5317,7 +5395,16 @@ class Database {
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
-                        t1.tx_index            
+                        t1.tx_index,
+                        (
+                            SELECT bpx.action_index
+                            FROM actions apx
+                            INNER JOIN batches bpx ON (bpx.action_index=apx.action_index)
+                            WHERE apx.tx_index=a1.tx_index
+                                AND apx.tx_vout=a1.tx_vout
+                                AND apx.action_index!=a1.action_index
+                            LIMIT 1
+                        ) as parent_batch_action_index
                     FROM
                         mappings_actions m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)

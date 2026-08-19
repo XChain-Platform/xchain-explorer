@@ -1143,7 +1143,10 @@ function loadDatatablesData(coin, action, query, type){
     let endpoint = null;
     if(['history','search'].includes(action)){
         endpoint = action;
-    } else if(['address','batch'].includes(action)){
+    } else if(['address','batch','order_match','swap_match','cross_chain_match'].includes(action)){
+        // These take '-es', not '-s'; the three *_match names would otherwise build
+        // malformed endpoints ('cross_chain_matchs') whose ajax answers 404, which a
+        // page renders as an empty table rather than as an error.
         endpoint = action + 'es';
     } else if(action=='market-history'){
         endpoint = 'market';
@@ -2292,7 +2295,9 @@ function loadApiData(coin, action, query, type, callback){
     let endpoint = null;
     if(['history','block','network','token','action','status','transaction','market'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
-    } else if(['address','batch'].includes(action)){
+    } else if(['address','batch','order_match','swap_match','cross_chain_match'].includes(action)){
+        // These take '-es', not '-s'; the three *_match names would otherwise build
+        // malformed endpoints ('cross_chain_matchs') that answer 404.
         endpoint = action + 'es';
     } else {
         endpoint = action + 's';        

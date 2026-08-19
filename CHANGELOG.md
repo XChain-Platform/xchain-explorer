@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- New Actions, Mempool, Order Matches and Swap Matches pages, each linked from the menu.
+- Public API routes for block lists, search, and project rosters, which previously only the site's own pages could reach.
+- File lookups by name, and a matching database index.
+- History rows now name the BATCH they belong to, so clients can group a batch's actions.
+
+### Fixed
+- The Swap Matches route served the Swaps page, and the Markets route was declared twice.
+- The Cross-Chain Matches page requested a misspelled endpoint and always rendered empty; a new test pins every page's endpoint to a registered route.
+- The mempool endpoint returned nothing unless filtered by address or token.
+- The API reference omitted the contract-call endpoint, because its generator and coverage test only understood GET routes.
+
 ### Changed
 - Font Awesome is now self-hosted from the bundled Free package at `/fontawesome`, so icons work on every deployment with no CDN, account, or configuration.
 - Six Pro-only icon names were replaced with Free equivalents, enforced by a new unit test.

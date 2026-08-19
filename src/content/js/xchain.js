@@ -237,8 +237,11 @@ function setXChainParams(coin){
     // Set query and query type to a valid value based on path
     let type  = String(path[2]).toLowerCase();
     let query = path[path.length-1];
-    if(['block','address','token','action','transaction','contract','execution'].includes(type)){
-        if((['block','action','contract','execution'].includes(type) && isNumeric(query)) ||
+    // A detail page whose type is absent here gets XC.query = null and then requests
+    // its own API route with a literal 'null' segment, rendering as "not found" rather
+    // than failing visibly, so every new detail route has to be added in BOTH lists.
+    if(['block','address','token','action','transaction','contract','execution','checkpoint'].includes(type)){
+        if((['block','action','contract','execution','checkpoint'].includes(type) && isNumeric(query)) ||
            (type=='address' && isCryptoAddress(query)) ||
            (type=='token'   && typeof(query)=='string')){
             XC.type  = type;
@@ -2263,7 +2266,11 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(3).html(isNull(payee) ? '-' : formatLink('/' + coin + '/address/' + payee, payee));
                 $('td', row).eq(4).text(isNull(owed_coin) ? '-' : owed_coin);
                 $('td', row).eq(5).html(isNull(owed) ? '-' : formatAmount(owed));
-                $('td', row).eq(6).html(isNull(expiration) ? '-' : formatLink('/' + coin + '/block/' + expiration, numeral(expiration).format(fmtInteger)));
+                // expiration is a Unix TIMESTAMP (coinpay_obligations.expiration is a
+                // BIGINT of seconds), not a block height, so it must not be rendered as
+                // a block link: on regtest the value is nine digits against a tip in the
+                // thousands, and the link resolves to a block that cannot exist.
+                $('td', row).eq(6).html(isNull(expiration) ? '-' : formatLivestamp(expiration));
                 $('td', row).eq(7).html('<span class="badge text-bg-secondary">' + (pay_status || '-') + '</span>');
                 $('td', row).eq(8).html(action_link);
             }

@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - History rows now name the BATCH they belong to, so clients can group a batch's actions.
 
 ### Fixed
+- The checkpoint detail page showed "not found" for checkpoints that exist, because it never received the block height from the URL; a new test pins every detail route against the list of types the client reads.
+- The checkpoint detail page also misread the response shape of single-record API routes.
+- Coinpay obligations showed their expiry as a block link, when the value is a timestamp.
 - The checkpoint, checkpoint-range, checkpoint-verify and balance-proof routes ran at the platform-wide request cap instead of a proof-tier one.
 - The fee schedule and the two fee-quote routes ran uncapped, now that a page can call them.
 - The Coinpay feeds returned rows the page could not render, because neither had a row mapping.

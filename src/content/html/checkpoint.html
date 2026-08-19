@@ -78,7 +78,15 @@ $(document).ready(function() {
 
     // Cheap load path: this route reads one row and verifies nothing.
     $.getJSON('/' + XC.coin + '/api/checkpoint/' + XC.query, function(o){
-        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : null;
+        // Single-row API routes answer a BARE object here, not the {total, data}
+        // list envelope the plural routes use, so both shapes are accepted rather
+        // than assuming one: reading only `o.data` renders a real checkpoint as
+        // "not found", which is indistinguishable from an unsigned height.
+        let d = null;
+        if(o){
+            if(!isNull(o.data))            d = Array.isArray(o.data) ? o.data[0] : o.data;
+            else if(!isNull(o.block_index)) d = o;
+        }
         if(!d){
             $('#checkpoint-fields').html('<tr><td class="text-muted">No checkpoint was signed at this height.</td></tr>');
             $('#checkpoint-signers').html('<span class="text-muted">No signers.</span>');
@@ -145,8 +153,17 @@ $(document).ready(function() {
             }
             html += '<table class="table table-sm table-borderless mb-2"><tbody>';
             html += fieldRow('Valid Signatures', dash(v.valid_sigs));
-            html += fieldRow('Quorum Required',  dash(v.quorum));
-            html += fieldRow('Rule',             v.is_weighted ? 'Stake-weighted' : 'Signature count');
+            // The count quorum is NOT the operative threshold once stake weighting is
+            // active, so showing it there invites the reader to compare it against the
+            // signature count and conclude the verdict is wrong. Past the flag day a
+            // single large-stake signer can clear the predicate on its own, which is
+            // exactly what a regtest chain with one funded validator looks like.
+            if(v.is_weighted){
+                html += fieldRow('Rule', 'Stake-weighted: the VALID signers\' distinct stake sources must clear the source-deduped threshold, so the signature count alone does not decide this');
+            } else {
+                html += fieldRow('Rule',            'Signature count');
+                html += fieldRow('Quorum Required', dash(v.quorum));
+            }
             html += fieldRow('Qualifying Set',   (v.validators ? v.validators.length : 0) + ' validator(s)');
             html += '</tbody></table>';
             if(v.validators && v.validators.length){

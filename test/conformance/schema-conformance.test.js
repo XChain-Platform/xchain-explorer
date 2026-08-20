@@ -124,7 +124,17 @@ const PROBE_ARGS = {
     // poll_results is keyed by the poll's creating action_index.
     getPollResults:     { search: '1' },
     // A single state checkpoint is keyed by block height.
-    getCheckpoint:      { search: '1' }
+    getCheckpoint:      { search: '1' },
+    // The M4 detail compositions. Each resolves a subject first and returns null
+    // when it finds none, so on an empty schema this tier proves only that the
+    // IDENTITY query is legal; the composed legs behind it are not reached. That
+    // is a real limit of probing a composition rather than a builder, and it is
+    // why these methods also carry query-shape unit coverage: the two tiers
+    // answer different questions and neither substitutes for the other.
+    getValidator:       { search: '1' },
+    getAttestation:     { search: '1' },
+    getAnchor:          { search: '1' },
+    getAddressStaking:  { search: '1' }
 };
 
 // The canonical UTF-8 ACTION string the decoder writes to

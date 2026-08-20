@@ -1,0 +1,161 @@
+<!-- ATTEST attestation detail (one request_id: the v0 request, every v1 response
+     round, the v2 expiry state and any cross-chain relay legs) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-file-signature"></i> Attestation
+                    <span class="float-end" id="attestation-status-badge"></span>
+                </div>
+                <div class="card-body p-2">
+                    <div id="attestation-headline" class="mb-2 text-muted">Loading attestation...</div>
+                    <div id="attestation-lifecycle"></div>
+                </div>
+                <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                <tbody>
+                    <tr><th class="text-nowrap">Request ID</th><td id="attestation-request-id"></td></tr>
+                    <tr><th class="text-nowrap">Provider</th><td id="attestation-provider"></td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-inbox"></i> Request <span class="small text-muted fw-normal">ATTEST v0</span>
+                </div>
+                <div class="card-body p-2" id="attestation-request">
+                    <span class="text-muted">Loading request...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-reply"></i> Response <span class="small text-muted fw-normal">ATTEST v1</span>
+                </div>
+                <div class="card-body p-2" id="attestation-response">
+                    <span class="text-muted">Loading response...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-hourglass-end"></i> Expiry <span class="small text-muted fw-normal">ATTEST v2</span>
+                </div>
+                <div class="card-body p-2" id="attestation-expiry">
+                    <span class="text-muted">Loading expiry state...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-right-left"></i> Cross-Chain Relay <span class="small text-muted fw-normal">ATTEST v3/v4</span>
+                </div>
+                <div class="card-body p-2" id="attestation-relay">
+                    <span class="text-muted">Loading relay state...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-timeline"></i> Legs of this Attestation
+                </div>
+                <div class="card-body p-2" id="attestation-legs">
+                    <span class="text-muted">Loading legs...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Lifecycle / request / response / expiry / relay / leg renders live here so a
+     unit test can drive the real render path with stubbed endpoint payloads. -->
+<script type="text/javascript" src="/js/attestation-detail-render.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Page-local escape: the request id reaches this page as a raw path segment.
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+
+    // Every panel is filled from ONE composed read. The legs are rendered inline
+    // rather than through a datatable: no /explorer feed is registered for a
+    // single attestation round, and a round is a handful of rows by construction.
+    $.getJSON('/' + XC.coin + '/api/attestation/' + XC.query, function(o){
+        // Single-resource route: it answers a BARE object, not the {total,data}
+        // envelope the list routes use, so both shapes are accepted. Reading only
+        // `o.data` would render a real attestation as "not found", which a reader
+        // cannot tell from a bad request id.
+        let d = null;
+        if(o){
+            if(!isNull(o.data))            d = Array.isArray(o.data) ? o.data[0] : o.data;
+            else if(!isNull(o.request_id)) d = o;
+        }
+        if(!d){
+            // NOT FOUND is its own branch, not a page of blank placeholders.
+            $('#attestation-headline').html('<span class="text-muted" id="attestation-not-found">No attestation exists for this request id or action index.</span>');
+            $('#attestation-lifecycle').empty();
+            $('#attestation-status-badge').empty();
+            $('#attestation-request-id').html('<span class="text-muted">-</span>');
+            $('#attestation-provider').html('<span class="text-muted">-</span>');
+            $('#attestation-request').html('<span class="text-muted">-</span>');
+            $('#attestation-response').html('<span class="text-muted">-</span>');
+            $('#attestation-expiry').html('<span class="text-muted">-</span>');
+            $('#attestation-relay').html('<span class="text-muted">-</span>');
+            $('#attestation-legs').html('<span class="text-muted">-</span>');
+            return;
+        }
+
+        XC.pageInfo.title       = 'Attestation ' + XC.query;
+        XC.pageInfo.description = 'External-data attestation ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+        XC.pageInfo.canonical   = '/' + XC.coin + '/attestation/' + XC.query;
+        updatePageInfo();
+
+        let legs = Array.isArray(d.legs) ? d.legs : [];
+        $('#attestation-headline').html('<span id="attestation-leg-count">' + legs.length + '</span> leg'
+            + (legs.length === 1 ? '' : 's') + ' recorded for this request id.');
+        $('#attestation-status-badge').html(attStatusBadge(d));
+        $('#attestation-lifecycle').html(renderAttestationLifecycle(d));
+        $('#attestation-request-id').html('<span class="font-monospace small text-break" id="attestation-request-id-value">'
+            + esc(d.request_id) + '</span>');
+        $('#attestation-provider').html(isNull(d.provider_id)
+            ? '<span class="text-muted">-</span>'
+            : '<span id="attestation-provider-value">' + esc(d.provider_id) + '</span>');
+
+        $('#attestation-request').html(renderAttestationRequest(d));
+        $('#attestation-response').html(renderAttestationResponse(d));
+        $('#attestation-expiry').html(renderAttestationExpiry(d));
+        $('#attestation-relay').html(renderAttestationRelay(d));
+        $('#attestation-legs').html(renderAttestationLegs(d));
+
+    }).fail(function(xhr){
+        // getData's NOT_FOUND path answers 404 with {error, code:'NOT_FOUND'};
+        // any other failure carries its own error string. Both are shown rather
+        // than left as a page of loading placeholders.
+        let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        let msg  = body.error ? body.error : 'Could not load this attestation';
+        $('#attestation-headline').html('<span class="text-danger" id="attestation-load-error">' + esc(msg) + '</span>');
+        $('#attestation-lifecycle').empty();
+        $('#attestation-status-badge').empty();
+        $('#attestation-request-id').html('<span class="text-muted">-</span>');
+        $('#attestation-provider').html('<span class="text-muted">-</span>');
+        $('#attestation-request').html('<span class="text-muted">-</span>');
+        $('#attestation-response').html('<span class="text-muted">-</span>');
+        $('#attestation-expiry').html('<span class="text-muted">-</span>');
+        $('#attestation-relay').html('<span class="text-muted">-</span>');
+        $('#attestation-legs').html('<span class="text-muted">-</span>');
+    });
+
+});
+</script>

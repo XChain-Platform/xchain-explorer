@@ -1,0 +1,197 @@
+<!-- Validator detail: one signing key's identity, capabilities, stake, rewards, slashing, node proofs and attestation quality -->
+<style>
+/* Page chrome only. Every value is an existing --xc-* token; colour and spacing
+   come from Bootstrap utilities and contextual classes, so a skin can move this
+   page without touching markup. */
+.vd-label {
+    width: var(--xc-table-address-stats-th-width);
+}
+.validator-detail .vd-section:not(:last-child) {
+    padding-bottom: var(--xc-table-cell-padding);
+    border-bottom: var(--xc-table-border-width) solid var(--xc-table-border-color);
+}
+.validator-detail .vd-slash-family {
+    padding-left: var(--xc-table-cell-padding);
+    border-left: var(--xc-table-border-width) solid var(--xc-table-border-color);
+}
+.validator-detail .table-responsive {
+    min-width: var(--xc-cell-truncate-min-width);
+}
+</style>
+
+<div class="container mt-3 validator-detail">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-user-shield"></i> Validator
+                    <span class="font-monospace fw-normal small" id="validator-query"></span>
+                </div>
+                <div class="card-body p-2">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody id="validator-identity">
+                            <tr><td class="text-muted">Loading validator...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-list-check"></i> Capabilities
+                </div>
+                <div class="card-body p-2" id="validator-capabilities">
+                    <span class="text-muted">Loading capabilities...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-address-card"></i> Hub Registry
+                </div>
+                <div class="card-body p-2" id="validator-registry">
+                    <span class="text-muted">Loading registry...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-lock"></i> Stake
+                </div>
+                <div class="card-body p-2" id="validator-stake">
+                    <span class="text-muted">Loading stake...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-coins"></i> Rewards
+                </div>
+                <div class="card-body p-2" id="validator-rewards">
+                    <span class="text-muted">Loading rewards...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-key"></i> Delegation &amp; Rotation
+                </div>
+                <div class="card-body p-2" id="validator-delegations">
+                    <span class="text-muted">Loading delegation history...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-gavel"></i> Slashing
+                </div>
+                <!-- BOTH slash paths render here, as two separately counted
+                     families: one is consensus equivocation, the other a
+                     contract EXECUTE burn, and a merged list would describe
+                     neither exposure. -->
+                <div class="card-body p-2" id="validator-slashes">
+                    <span class="text-muted">Loading slash events...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-server"></i> Node Proofs
+                </div>
+                <div class="card-body p-2" id="validator-nodeproofs">
+                    <span class="text-muted">Loading node proofs...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-signature"></i> Attestation Quality
+                </div>
+                <div class="card-body p-2" id="validator-attestation">
+                    <span class="text-muted">Loading attestation counters...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript" src="/js/validator-detail-render.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Page-local escape, matching the pattern the other detail pages use.
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+
+    // Every panel says the same thing when the record does not resolve, so a
+    // reader never sees half a page of placeholders and reads them as data.
+    let blankAll = function(cls, msg){
+        $('#validator-identity').html('<tr><td class="' + cls + '">' + esc(msg) + '</td></tr>');
+        ['#validator-capabilities', '#validator-registry', '#validator-stake', '#validator-rewards',
+         '#validator-delegations', '#validator-slashes', '#validator-nodeproofs', '#validator-attestation']
+            .forEach(function(sel){ $(sel).html('<span class="text-muted">-</span>'); });
+    };
+
+    $('#validator-query').text(XC.query);
+
+    XC.pageInfo.title       = 'Validator ' + XC.query;
+    XC.pageInfo.description = 'Validator ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network - capabilities, stake, rewards, slashing, node proofs and attestation quality.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/validator/' + XC.query;
+    updatePageInfo();
+
+    // QUERY is EITHER a signing pubkey or a staking address; the server resolves
+    // both, so the page passes it through untouched rather than guessing.
+    $.getJSON('/' + XC.coin + '/api/validator/' + XC.query, function(o){
+        // Single-resource routes answer a BARE object, not the {total, data} list
+        // envelope the plural routes use, so both shapes are accepted rather than
+        // assuming one: reading only `o.data` renders a real validator as "not
+        // found", which is indistinguishable from an unknown key.
+        let d = null;
+        if(o){
+            if(!isNull(o.data))                d = Array.isArray(o.data) ? o.data[0] : o.data;
+            else if(!isNull(o.signing_pubkey)) d = o;
+        }
+        if(!d){
+            // Explicit not-found branch. A page of "-" placeholders would read as
+            // a validator that exists and has done nothing, which is a different
+            // and much more alarming claim.
+            blankAll('text-muted', 'No validator is recorded for this signing pubkey or address.');
+            return;
+        }
+
+        $('#validator-identity').html(renderValidatorIdentity(d));
+        $('#validator-registry').html(renderValidatorRegistry(d));
+        $('#validator-capabilities').html(renderValidatorCapabilities(d));
+        $('#validator-stake').html(renderValidatorStake(d));
+        $('#validator-rewards').html(renderValidatorRewards(d));
+        $('#validator-delegations').html(renderValidatorDelegations(d));
+        $('#validator-slashes').html(renderValidatorSlashes(d));
+        $('#validator-nodeproofs').html(renderValidatorNodeproofs(d));
+        $('#validator-attestation').html(renderValidatorAttestation(d));
+    }).fail(function(xhr){
+        // A hub outage answers here, and it is NOT the same as "not found": the
+        // server's own error text is shown rather than a page-invented one.
+        let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        let msg  = body.error ? body.error : 'Could not load this validator';
+        blankAll('text-danger', msg);
+    });
+
+});
+</script>

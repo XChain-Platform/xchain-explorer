@@ -1335,7 +1335,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','capability_snapshot','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping','checkpoint','commitment','anchor_reward_attestation','reorg','attest_validator_stat','price_snapshot','emission','coinpay_obligation'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','capability_snapshot','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping','checkpoint','commitment','anchor_reward_attestation','reorg','slash_proposal','attest_validator_stat','price_snapshot','emission','coinpay_obligation'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -2296,6 +2296,34 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(5).text(isNull(validator_count) ? '-' : validator_count);
                 $('td', row).eq(6).html('<span class="badge text-bg-' + (reorg_status=='confirmed' ? 'success' : 'danger') + '">' + escapeHtml(reorg_status || '-') + '</span>');
             }
+            // Federation slash proposal (hub-owned, id-keyed). These rows are
+            // EVIDENCE, not enforcement (platform ruling 2026-07-16), and a
+            // 'pending' row has not been adjudicated by anyone, so it is badged
+            // NEUTRAL and labelled 'unadjudicated' rather than painted in the
+            // failure colour: red on an unadjudicated accusation reads as a
+            // verdict. 'rejected' means the accusation was DISMISSED, so it is
+            // the cleared state, not a failure. evidence_hash is the sha256 of
+            // the evidence the hub holds (hashed hub-side, never served
+            // verbatim); it is shown so a holder of an evidence record can check
+            // it matches. The status word is renamed to avoid shadowing the
+            // positional `status` destructured at the top of createdRow.
+            if(action=='slash_proposal'){
+                let created_at       = data[1];
+                let validator_pubkey = data[2];
+                let offense_type     = data[3];
+                let round_number     = data[4];
+                let evidence_hash    = data[5];
+                let slash_status     = data[6];
+                let badges = { pending: 'secondary', approved: 'danger', rejected: 'success', expired: 'secondary' };
+                let labels = { pending: 'pending (unadjudicated)', approved: 'approved (penalty applied)', rejected: 'rejected (dismissed)', expired: 'expired' };
+                $('td', row).eq(1).html(isNull(created_at) ? '-' : formatLivestamp(created_at));
+                $('td', row).eq(2).html(isNull(validator_pubkey) ? '-' : formatHash(validator_pubkey));
+                $('td', row).eq(3).text(isNull(offense_type) ? '-' : String(offense_type).replace(/_/g, ' '));
+                $('td', row).eq(4).html(isNull(round_number) ? '-' : numeral(round_number).format(fmtInteger));
+                $('td', row).eq(5).html(isNull(evidence_hash) ? '-' : formatHash(evidence_hash, 24));
+                $('td', row).eq(6).html('<span class="badge text-bg-' + (badges[slash_status] || 'secondary') + '">' +
+                    escapeHtml(labels[slash_status] || slash_status || '-') + '</span>');
+            }
             // Contract-targeted stake delegation. deactivation_block is null while the
             // delegation is live, which is the difference between a current delegation and
             // a historical one, so it renders as a dash rather than being hidden.
@@ -3047,9 +3075,41 @@ function showVoteDetails(data){
         $('#info-vote .vote-end-block').html(isNull(data.end_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.end_block, numeral(data.end_block).format('0,0')));
         $('#info-vote .vote-quorum').text(isNull(data.quorum) ? '-' : data.quorum);
         $('#info-vote .vote-min-voters').text(isNull(data.min_voters) ? '-' : data.min_voters);
+        // The two remaining gate parameters (polls.sql): min_vote_balance is the dust
+        // floor a holder must clear to count toward min_voters, decide_threshold the
+        // supply fraction that arms an early decide. Both are inputs the quorum verdict
+        // below is judged against, so the verdict is uncheckable without them.
+        $('#info-vote .vote-min-vote-balance').text(isNull(data.min_vote_balance) ? '-' : formatAmount(data.min_vote_balance));
+        $('#info-vote .vote-decide-threshold').text(isNull(data.decide_threshold) ? '-' : data.decide_threshold);
         $('#info-vote .vote-poll-status').html('<span class="badge text-bg-' + pcls + '">' + (data.poll_status || '-') + '</span>');
         $('#info-vote .vote-winning-option').text(isNull(data.winning_option) ? '-' : data.winning_option);
+        // Frozen finalization detail. VOTE v2 measures the turnout and freezes it into
+        // the polls row (indexer finalizePoll) precisely so a terminal outcome stays
+        // auditable; the detail query has always selected it and nothing rendered it,
+        // so a poll badged 'failed_quorum' above named no gate and showed no turnout.
+        // Null until v2 lands, which is why an open poll dashes rather than reading 'no':
+        // TINYINT 0 is a measured miss, absent is not a measurement.
+        let yesNo = function(v){ return isNull(v) ? '-' : (Number(v) ? 'yes' : 'no'); };
+        $('#info-vote .vote-quorum-met').text(yesNo(data.quorum_met));
+        $('#info-vote .vote-min-voters-met').text(yesNo(data.min_voters_met));
+        $('#info-vote .vote-total-weight').text(isNull(data.total_weight) ? '-' : formatAmount(data.total_weight));
+        $('#info-vote .vote-total-voters').text(isNull(data.total_voters) ? '-' : numeral(data.total_voters).format('0,0'));
+        // fail_reason is the ENUM('quorum','min_voters','both') v2 stamps on a failure
+        // and leaves null on a pass, so '-' reads as "no gate failed" rather than unknown.
+        $('#info-vote .vote-fail-reason').text(isNull(data.fail_reason) ? '-' : data.fail_reason);
+        $('#info-vote .vote-decided-early').text(yesNo(data.decided_early));
+        // effective_close_block is the block weights were MEASURED at, which is end_block
+        // on a normal close and the crossing block on an early decide, so it is the one
+        // that explains the tally; resolved_block is when finalization went terminal.
+        $('#info-vote .vote-effective-close-block').html(isNull(data.effective_close_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.effective_close_block, numeral(data.effective_close_block).format('0,0')));
+        $('#info-vote .vote-resolved-block').html(isNull(data.resolved_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.resolved_block, numeral(data.resolved_block).format('0,0')));
+        $('#info-vote .vote-finalized-by').html(isNull(data.finalized_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.finalized_action_index, data.finalized_action_index));
         $('#info-vote .vote-deposit').html(isNull(data.deposit_amount) ? '-' : formatAmount(data.deposit_amount));
+        // Creation-deposit lifecycle: the refund target, and the ENUM('refunded',
+        // 'forfeited') outcome v2 stamps once the escrow is released. Rendered as the
+        // enum, never as a boolean - a forfeited deposit is not a "yes".
+        $('#info-vote .vote-deposit-address').html(isNull(data.deposit_address) ? '-' : formatLink('/' + XC.coin + '/address/' + data.deposit_address, data.deposit_address));
+        $('#info-vote .vote-deposit-resolved').text(isNull(data.deposit_resolved) ? '-' : data.deposit_resolved);
         // Binding poll: v2 finalize fires callback_method on the callback contract.
         if(!isNull(data.callback_contract_index))
             $('#info-vote .vote-callback').html(formatLink('/' + XC.coin + '/contract/' + data.callback_contract_index, data.callback_contract_index) + (isNull(data.callback_method) ? '' : '.' + data.callback_method));
@@ -3066,6 +3126,15 @@ function showVoteDetails(data){
             $('#info-vote .vote-callback-execute').html(formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
         else
             $('#info-vote .vote-callback-execute').text('-');
+        // The rest of the binding-poll contract: callback_on is ENUM('pass','always')
+        // (fire only on a finalized win, or on every finalization) and gas_escrow backs
+        // the injected EXECUTE. callback_params is developer-supplied on-chain JSON that
+        // afterMain has already parsed, so it is rendered as inert text through .text()
+        // and never through an HTML sink.
+        $('#info-vote .vote-callback-on').text(isNull(data.callback_on) ? '-' : data.callback_on);
+        $('#info-vote .vote-callback-params').text(isNull(data.callback_params) ? '-' :
+            (typeof data.callback_params === 'string' ? data.callback_params : JSON.stringify(data.callback_params)));
+        $('#info-vote .vote-gas-escrow').text(isNull(data.gas_escrow) ? '-' : formatAmount(data.gas_escrow));
         // Frozen per-option tally (poll_results). Empty until VOTE v2 finalizes.
         $.getJSON('/' + XC.coin + '/api/poll/' + data.action_index + '/results', function(res){
             let rows = (res && res.data) ? res.data : [];

@@ -15,7 +15,7 @@
  * XChain Explorer - Hub operational-state cache
  *
  * Serves the hub-LOCAL operational tables (validator_capabilities,
- * governance_proposals, governance_votes, reorg_attestations) over the hub's JSON-RPC surface
+ * governance_proposals, governance_votes, reorg_attestations, slash_proposals) over the hub's JSON-RPC surface
  * with a short TTL cache, instead of reading a co-located hub-owned MariaDB
  * schema. These tables are off-chain federation state that mutates in place
  * (vote upserts, proposal tallies), so they cannot ride the append-only
@@ -160,6 +160,19 @@ class HubOperationalCache {
                     out = out.filter(r => String(r.reorg_height) === String(reorg_height));
                 return out;
             });
+    }
+
+    // getslashproposals filters status and validator_pubkey SERVER-side (unlike
+    // getreorghistory, which has no filters at all and forces client-side
+    // narrowing), so both params ride the RPC and the cache key fragments per
+    // filter combination the same way getvalidatorcapabilities/getvotes already
+    // do. limit:500 matches the hub's own page cap (SlashDetector.MAX_PAGE), so
+    // the explorer never asks for more than the hub will serve. The rows the hub
+    // returns carry evidence_hash, never the verbatim evidence blob: that
+    // redaction is hub-side by design, because the hub's POST surface serves the
+    // same RPC to any caller.
+    getSlashProposals({ status, validator_pubkey } = {}){
+        return this.getRows('getslashproposals', { status, validator_pubkey, limit: 500 });
     }
 }
 

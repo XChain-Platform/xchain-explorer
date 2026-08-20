@@ -1,0 +1,74 @@
+<!-- Slash Proposals (federation slash evidence, hub-owned, M3.6) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <!-- Standing explanation, deliberately ABOVE the table and always
+                 visible: a reader who lands on a row must not read it as a
+                 finding of guilt (operator ruling 2026-08-20, and the
+                 2026-07-16 platform ruling recording these rows as evidence
+                 rather than enforcement). The wording also has to work when the
+                 table is EMPTY, which is the normal state on a federation that
+                 has never detected a fault, so the last sentence says what an
+                 empty table means instead of leaving it to read as a failure. -->
+            <div class="alert alert-info small" role="alert">
+                <i class="fa fa-circle-info fa-fw me-1"></i>
+                <strong>These are accusations, not verdicts.</strong>
+                A slash proposal is a record that the federation's detector observed
+                something it considers suspect from a validator, such as a price
+                submission outside the agreed band or a run of missed rounds. A row
+                marked <span class="badge text-bg-secondary">pending (unadjudicated)</span>
+                has <em>not</em> been ruled on by anyone: nobody has decided whether it
+                is correct, and the validator named on it has not been found to have
+                done anything wrong. A penalty can only ever be applied by a federation
+                governance vote, which is what moves a row off <em>pending</em>.
+                The underlying evidence is published as a SHA-256 hash rather than in
+                full, so that anyone already holding an evidence record can verify it
+                matches the one recorded here without the raw text of an unadjudicated
+                accusation being republished. This table lists every recorded proposal,
+                whatever its status; if it is empty, none have been recorded.
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-scale-balanced"></i> Slash Proposals
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-slash_proposal">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="time">Time</th>
+                        <th class="">Validator</th>
+                        <th class="">Offense</th>
+                        <th class="">Round</th>
+                        <th class="">Evidence Hash</th>
+                        <th class="">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="7" class="loading-data">Loading slash proposals...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Slash Proposals';
+    // Description carries the same caution as the on-page banner, because it is
+    // what a search engine or a link preview shows without the banner.
+    XC.pageInfo.description = 'Slash proposals recorded by the federation hub for the ' + XC.name + ' (' + XC.network + ') blockchain network on the XChain Platform. Pending rows are unadjudicated accusations held as evidence, not findings against a validator; only a passed governance vote applies a penalty.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/slash_proposals';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'slash_proposal', null, null);
+
+});
+</script>

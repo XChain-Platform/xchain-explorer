@@ -223,6 +223,7 @@ class XChainExplorer {
                 '/{COIN}/vote_delegations'    : 'vote_delegations.html',
                 '/{COIN}/attest_validator_stats' : 'attest_validator_stats.html',
                 '/{COIN}/reorgs'              : 'reorgs.html',
+                '/{COIN}/slash_proposals'     : 'slash_proposals.html',
                 // COINPAY: `coinpays` are the settlement records, `coinpay_obligations`
                 // the who-owes-what-native-coin view an ORDER_MATCH creates.
                 '/{COIN}/coinpays'            : 'coinpays.html',
@@ -376,6 +377,11 @@ class XChainExplorer {
                 // transports (the hub RPC returns every chain's history unfiltered).
                 '/{COIN}/api/reorgs/{QUERY}/{TYPE}'               : ['getReorgs',               ['status', 'block']],
                 '/{COIN}/api/reorgs'                              : ['getReorgs'],
+                // Federation slash proposals (hub-owned, platform-global: no chain
+                // axis, so no per-coin scope). Pending rows are UNADJUDICATED
+                // accusations; evidence is served as a hash, never verbatim.
+                '/{COIN}/api/slash_proposals/{QUERY}/{TYPE}'      : ['getSlashProposals',       ['status', 'pubkey']],
+                '/{COIN}/api/slash_proposals'                     : ['getSlashProposals'],
                 // Hub operational state (p2p peers, consensus key/value, config oracle, node
                 // telemetry). Hub-local, no on-chain action and no hub RPC surface, so served
                 // only from the mandatory co-located hub DB (id-keyed).
@@ -567,6 +573,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/governance_votes/{QUERY}/{TYPE}'          : ['getGovernanceVotes',       ['proposal', 'voter']],
                 '/{COIN}/explorer/reorgs/{QUERY}/{TYPE}'                    : ['getReorgs',                ['status', 'block']],
                 '/{COIN}/explorer/reorgs'                                   : ['getReorgs'],
+                '/{COIN}/explorer/slash_proposals/{QUERY}/{TYPE}'           : ['getSlashProposals',        ['status', 'pubkey']],
+                '/{COIN}/explorer/slash_proposals'                          : ['getSlashProposals'],
                 '/{COIN}/explorer/peers/{QUERY}/{TYPE}'                     : ['getPeers',                 ['validator']],
                 '/{COIN}/explorer/consensus_state/{QUERY}/{TYPE}'           : ['getConsensusState',        ['key']],
                 '/{COIN}/explorer/configs/{QUERY}/{TYPE}'                   : ['getConfigs',               ['coin', 'module']],
@@ -1564,6 +1572,16 @@ class XChainExplorer {
                     // rendering.
                     if(method=='getReorgs')
                         info = [count_reverse, info.reorg_timestamp, info.reorg_height, info.reorg_id, info.affected_chains, info.validator_count, info.status, info.id];
+                    // Federation slash proposals (hub-owned, id-keyed). id is the
+                    // paging cursor (LAST); status is a lifecycle word
+                    // ('pending'/'approved'/'rejected'/'expired'), not 0/1, so this
+                    // action sits in the client's no-color list. That exclusion is
+                    // load-bearing here rather than cosmetic: an UNADJUDICATED
+                    // accusation painted in the failure colour reads as a verdict.
+                    // evidence_hash is served in place of the verbatim evidence blob
+                    // (hashed hub-side; see db.js getSlashProposals).
+                    if(method=='getSlashProposals')
+                        info = [count_reverse, info.created_at, info.validator_pubkey, info.offense_type, info.round_number, info.evidence_hash, info.status, info.id];
                     // COINPAY settlement records. obligation_action_index links the payment back
                     // to the obligation it discharged; txid/vout name the specific output that
                     // paid THAT obligation, which is why one transaction can appear on several rows.

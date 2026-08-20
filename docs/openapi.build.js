@@ -172,6 +172,8 @@ const ROUTES = [
     ['/{COIN}/api/capability_snapshots', 'getCapabilitySnapshots', null, 'Checkpoints', 'Capability snapshot electorate: which signing keys carried which stake weight, per block'],
     ['/{COIN}/api/reorgs/{QUERY}/{TYPE}', 'getReorgs', ['status', 'block'], 'Checkpoints', 'Recorded chain reorgs for this coin, filtered'],
     ['/{COIN}/api/reorgs', 'getReorgs', null, 'Checkpoints', 'Recorded chain reorgs for this coin, most recent first (hub-owned)'],
+    ['/{COIN}/api/slash_proposals/{QUERY}/{TYPE}', 'getSlashProposals', ['status', 'pubkey'], 'Governance', 'Federation slash proposals, filtered by status or validator pubkey'],
+    ['/{COIN}/api/slash_proposals', 'getSlashProposals', null, 'Governance', 'Federation slash proposals (hub-owned). Pending rows are UNADJUDICATED accusations recorded as evidence, not findings; only a passed governance vote applies a penalty. Evidence is served as a SHA-256 hash, never verbatim'],
     // ── Core ──────────────────────────────────────────────────────────────
     ['/{COIN}/api/status', 'getStatus', null, 'Network', 'Explorer status + chain config'],
     ['/{COIN}/api/actions', 'getActions', null, 'Core', 'Recent actions (all types)'],

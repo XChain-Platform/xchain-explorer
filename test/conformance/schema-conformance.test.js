@@ -101,7 +101,13 @@ const HUB_LOCAL_TABLES = [
     // hub schema. Its primary transport is the getreorghistory RPC, but this tier
     // deliberately runs the NO_HUB shape, which is the only shape in which the
     // co-located SQL meets the real DDL.
-    'reorg_attestations.sql'
+    'reorg_attestations.sql',
+    // getSlashProposals' no-hub leg reads slash_proposals out of the same
+    // co-located hub schema. Its primary transport is the getslashproposals RPC,
+    // but this tier deliberately runs the NO_HUB shape, which is the only shape
+    // in which the co-located SQL meets the real DDL. It is also the only tier
+    // that proves SHA2(COALESCE(m.evidence,''), 256) is legal against it.
+    'slash_proposals.sql'
 ];
 
 // Per-method probe arguments for read paths whose WHERE clause binds a

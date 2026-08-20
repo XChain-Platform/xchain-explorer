@@ -152,7 +152,7 @@ class Database {
             'getCrossChainSettlements','getCrossChainMatches',
             'getSlashEvents','getCapabilitySlashEvents','getFullNodeVerifications',
             'getPriceSnapshots','getOraclePrices',
-            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes','getReorgs',
+            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes','getReorgs','getSlashProposals',
             'getPeers','getConsensusState','getConfigs','getTelemetryPings',
             'getPolls','getVotes','getVoteDelegations',
             // BET market/wager lists: getBetFeeds -> bet_feeds and getBets -> bets are
@@ -1006,6 +1006,10 @@ class Database {
         // keyed by m.id (same PK-cursor shape as the three tables above)
         if(method=='getReorgs')
             sql = `m.id IS NOT NULL`;
+        // slash_proposals is the hub-owned federation slash-evidence table; no
+        // action_index, keyed by m.id (same PK-cursor shape as the tables above)
+        if(method=='getSlashProposals')
+            sql = `m.id IS NOT NULL`;
         // co-located hub operational tables (p2p_peers/consensus_state/configs/telemetry_pings); keyed by m.id
         if(['getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
             sql = `m.id IS NOT NULL`;
@@ -1179,6 +1183,14 @@ class Database {
             // (reorg_height IS a block height).
             if(type=='status') sql += ' AND m.status=?';
             if(type=='block')  sql += ' AND m.reorg_height=?';
+        } else if(method=='getSlashProposals'){
+            // Platform-global table (no chain axis), so these are the only two
+            // filters, and they mirror the hub RPC's two server-side filters exactly
+            // so neither transport has to post-filter. No 'block' type: round_number
+            // is an oracle round (or an attestation pseudo-round), not a block height,
+            // and QUERY_DESC['block'] reads 'block height'.
+            if(type=='status') sql += ' AND m.status=?';
+            if(type=='pubkey') sql += ' AND m.validator_pubkey=?';
         } else if(method=='getEmissions'){
             // contract_emissions carries no contract_index of its own (it is reachable
             // only by joining through contract_executions on execution_index), so
@@ -1330,7 +1342,7 @@ class Database {
                 'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
                 'getPeers','getConsensusState','getConfigs','getTelemetryPings',
                 'getEmissions','getAttestValidatorStats','getCapabilitySnapshots',
-                'getAnchorRewardAttestations','getReorgs'].includes(method))
+                'getAnchorRewardAttestations','getReorgs','getSlashProposals'].includes(method))
                 field = 'm.id';
             if(action=='prev'){
                 sql = ` AND ` + field + ` > ?`;
@@ -7276,7 +7288,7 @@ class Database {
     // stay absent or null, never become the literal string "undefined".
     _normalizeHubOperationalRows(rows){
         const bigintKeys = ['id', 'qualified_at_block', 'activation_block',
-                            'reorg_height', 'reorg_timestamp'];
+                            'reorg_height', 'reorg_timestamp', 'round_number'];
         return (rows || []).map(r => {
             let out = { ...r };
             for(const k of bigintKeys)
@@ -9929,6 +9941,62 @@ class Database {
         let typeArgs = ['status','block'].includes(config.data.type) ? [config.data.search] : [];
         let args = [...typeArgs, chain];
         return [query, args, count];
+    }
+
+    // Federation slash proposals (hub-owned, id-keyed). Primary transport: hub
+    // JSON-RPC via HubOperationalCache over the hub's NEW unauthenticated
+    // getslashproposals RPC (added for this row alongside the hub-side evidence
+    // hashing). Unlike reorg_attestations there is NO chain column and none is
+    // missing: the offenses are federation-wide (oracle and attestation rounds are
+    // not per-chain, and a signing pubkey is one identity across every chain), so
+    // this table is platform-global like validator_capabilities/governance_* and
+    // binds no chain filter on either transport. Adding one later would empty this
+    // page permanently, since no row can ever carry a chain value to match.
+    //
+    // Rows with status 'pending' are UNADJUDICATED ACCUSATIONS: SlashDetector
+    // records evidence, and only a passed SLASH_PENALTY governance vote moves a row
+    // off 'pending' (SlashGovernance.applyFinalized). status is therefore carried on
+    // every row and rendered as its own labelled column, never as a row colour.
+    //
+    // The verbatim `evidence` blob is NEVER served on either leg. The RPC leg gets
+    // evidence_hash from the hub (SlashDetector.hashEvidence, sha256 of the stored
+    // text, the same digest SlashGovernance's voted evidence hash is built from);
+    // the co-located leg computes the identical digest in SQL. Hashing hub-side is
+    // the ruling's point: the hub's own POST surface serves this RPC to anyone, so
+    // explorer-side redaction alone would leak.
+    //
+    // A configured-but-unreachable hub fails loud past the stale ceiling
+    // (_hubOperationalOutage); the co-located read below serves only the no-hub
+    // deployment shape. type in {status, pubkey}, matching the hub RPC's two
+    // server-side filters exactly, so neither transport post-filters. No 'block'
+    // type: round_number is an oracle round (or an attestation pseudo-round), not a
+    // block height.
+    async getSlashProposals(config){
+        let ops = this.explorer.hubOperational;
+        if(ops && ops.enabled()){
+            let rows = await ops.getSlashProposals({
+                status:           config.data.type=='status' ? config.data.search : undefined,
+                validator_pubkey: config.data.type=='pubkey' ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+            this._hubOperationalOutage('slash_proposals');
+        }
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'slash_proposals');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.validator_pubkey,
+                        m.offense_type,
+                        m.round_number,
+                        SHA2(COALESCE(m.evidence,''), 256) AS evidence_hash,
+                        m.status,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     // ── Hub operational-state pages (p2p_peers / consensus_state / configs /

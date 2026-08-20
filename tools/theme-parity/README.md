@@ -56,21 +56,33 @@ every page, because `xchain.css` declares nothing that resolves per mode.
 regardless of which stylesheet won. This layer does differ between modes, so it
 is the one that can catch a dark-mode regression.
 
+**Layout-derived keys** (widths, heights, margins, offsets) are read
+layout-independently in both layers: `getComputedStyle` returns the USED
+value for these, which layout renegotiates against page content - an auto
+margin resolves to slack pixels, table auto-layout redistributes a declared
+column width by fractions of a pixel - so on a live chain they moved between
+captures with no CSS change. The rule layer resolves their DECLARED text
+through the element's custom properties (the mechanism state rules already
+use); the render census reads the Typed OM `computedStyleMap`, where an auto
+margin is still `auto`. The keys stay in the census: a real CSS change on
+them still flags (proven below), while content drift no longer can.
+
 Both layers are needed. The rule layer alone cannot see mode at all, so a
 dark-mode acceptance test riding on it would pass vacuously.
 
 ## The blind spot, stated plainly
 
-Across the six captured pages, only **77 of the 121** selectors in the two
-stylesheets are ever instantiated. The uncovered 44 include the whole
+Across the six captured pages, only **79 of the 120** selectors in the
+stylesheets are ever instantiated (re-measured on the tokenized tree). The
+uncovered 41 include the whole
 `.xc-chart*` family, the external-explorer glyphs, the `#transaction` detail
 table, and the row colours `xchain.js` applies only to non-valid or negative
 rows.
 
 A rule no page instantiates cannot be proven at runtime by any amount of
-capturing. That is why the static token-literal gate (frontier row 5) is a
-separate acceptance test rather than a nicety: it covers all 121 by reading the
-stylesheet, while this probe proves the 77 that actually render.
+capturing. That is why the static token-literal gate is a
+separate acceptance test rather than a nicety: it covers all 120 by reading the
+stylesheet, while this probe proves the 79 that actually render.
 
 ## Falsification record (2026-08-20)
 
@@ -86,6 +98,22 @@ The probe was broken deliberately before it was trusted:
   element, which the probe correctly ignores because it carries no `href`. The
   probe was right and the test was wrong; recorded because the same mistake
   would otherwise be made again.
+
+The layout-derived handling was driven and falsified the same way
+(2026-08-20), against the two false movements the acceptance run produced:
+
+- Hiding the home page's content resolved the footer's `mt-auto` slack from
+  0px to 1100px - the exact class of movement the old probe reported as a CSS
+  change - and the render hash did not move. Re-adding a REAL margin via a
+  stylesheet moved the hash and the diff named `.footer | margin-top`
+  (`auto` -> `10px`); removing it restored the hash exactly. (An injected
+  `<style>` is the right lever HERE: only the rule layer ignores href-less
+  styles - the render census reads whatever won, whatever its source.)
+- Widening a transaction-table cell swung `th.record`'s used width from
+  105.047px to 242.328px and the rule hash did not move, because the key now
+  records the declared `75px`. Changing the token feeding that width to 80px
+  moved the hash and named both `th.record | width` and `th.block | width`;
+  restoring the token restored the hash exactly.
 
 An earlier cut of the probe silently captured NOTHING and reported a clean
 0-key "parity proof": Chrome gives every `CSSStyleRule` an empty `.cssRules`

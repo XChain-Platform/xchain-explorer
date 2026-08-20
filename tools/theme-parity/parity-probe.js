@@ -43,6 +43,16 @@
  *           differ between light and dark, so it is the layer that can
  *           actually catch a dark-mode regression.
  *
+ * LAYOUT-DERIVED KEYS are the exception in both layers, and the reason is a
+ * class of false movement this probe once emitted: getComputedStyle returns
+ * the USED value for widths, heights, margins and offsets, which layout
+ * renegotiates against page content - an auto margin comes back as slack
+ * pixels, a declared 75px table column comes back redistributed by fractions
+ * of a pixel. On a live chain those values move between captures with no CSS
+ * change at all. The keys STAY in the census (deleting them would blind the
+ * probe to real CSS changes on those properties); their VALUES are read
+ * layout-independently instead - see the LAYOUT set below.
+ *
  * A note on the one non-obvious implementation detail: Chrome gives EVERY
  * CSSStyleRule an empty `.cssRules` list (CSS nesting), so a naive
  * `if (rule.cssRules) recurse` treats every plain rule as a group, walks its
@@ -88,6 +98,18 @@ window.__XC = (function () {
   const SHEET = /\/(xchain|xchain-charts)\.css|\/themes\//;
   const STATE = /:{1,2}(hover|visited|active|focus|focus-visible|focus-within|target)\b/;
   const ELEM  = /::(before|after|placeholder|marker|selection|first-line|first-letter)\b/;
+  // Properties whose getComputedStyle readback is the USED value, resolved by
+  // layout against page content: an auto margin comes back as slack pixels,
+  // and table auto-layout redistributes a declared cell width by fractions of
+  // a pixel. On a live chain that content moves between captures, so a
+  // used-value comparison reports CSS changes that never happened. These keys
+  // STAY in both layers but are read as layout-independent values instead:
+  // the rule layer resolves the DECLARED text through the element's custom
+  // properties (the same mechanism state rules already use), and the render
+  // census reads the Typed OM computedStyleMap, where an auto margin is still
+  // "auto" and a declared width is not renegotiated by layout.
+  const LAYOUT = new Set(['width','height','margin-top','margin-right','margin-bottom','margin-left',
+    'top','right','bottom','left']);
   const fp = o => { const s = Object.keys(o).sort().map(k => k+'='+o[k]).join('\n');
     let h = 5381; for (let i=0;i<s.length;i++) h = ((h*33)^s.charCodeAt(i))>>>0;
     return { hash: h.toString(16).padStart(8,'0'), keys: Object.keys(o).length }; };
@@ -106,7 +128,9 @@ window.__XC = (function () {
           // interaction, so resolve its DECLARED value through the element's own
           // custom properties instead. That survives tokenization, where the
           // declared text changes by design and a text comparison would false-alarm.
-          for (const p of props) snap[sel+' | '+p] = st
+          // Layout-derived properties take the same declared-value path: their
+          // computed readback is the used value, which drifts with content.
+          for (const p of props) snap[sel+' | '+p] = (st || LAYOUT.has(p))
             ? r.style.getPropertyValue(p).trim().replace(/var\(\s*(--[\w-]+)\s*(?:,([^)]*))?\)/g,
                 (m,n,fb) => cs.getPropertyValue(n).trim() || (fb||'').trim())
             : cs.getPropertyValue(p).trim();
@@ -122,7 +146,9 @@ window.__XC = (function () {
     for (const sel of A) { let el; try { el = document.querySelector(sel); } catch(e) {}
       if (!el) { o[sel+' | __absent'] = '1'; continue; }
       n++; const cs = getComputedStyle(el);
-      for (const p of P) o[sel+' | '+p] = cs.getPropertyValue(p).trim(); }
+      const cm = el.computedStyleMap && el.computedStyleMap();
+      for (const p of P) o[sel+' | '+p] = (LAYOUT.has(p) && cm)
+        ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); }
     return { o, n, total: A.length }; };
   return function capture(tag, phase) {
     const orig = document.documentElement.getAttribute('data-bs-theme'); const res = {};

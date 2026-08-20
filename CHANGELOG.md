@@ -32,6 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The API reference omitted the contract-call endpoint, because its generator and coverage test only understood GET routes.
 
 ### Changed
+- Project banners on token pages now span the full content width below the Token and Market Information cards, and a project's official-token count moved from a table row into an ownership banner there.
+- The Data menu's categories are reordered so each row's columns are similar heights, with green section headers and more space between rows.
 - Font Awesome is now self-hosted from the bundled Free package at `/fontawesome`, so icons work on every deployment with no CDN, account, or configuration.
 - Six Pro-only icon names were replaced with Free equivalents, enforced by a new unit test.
 - The Content Security Policy allows Cloudflare's RUM beacon so proxied deployments load without console errors.

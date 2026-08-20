@@ -4503,30 +4503,39 @@ function showTokenInfo(){
     // Basic Token Information
     $('.xchain-tick').text(o.info.tick);
 
-    // Project registry surfaces (protocol/Project_Registry.md).
+    // Project registry surfaces (protocol/Project_Registry.md). Both surfaces
+    // render as green banners in #project-banners, the full-width row under
+    // the Token Information / Market Information cards.
+    let projectBanners = '';
     // projects = registries whose current owner-attested roster includes this
-    // token → green banner that ALWAYS names the attesting project (the
-    // banner's weight comes from the project's identity, never a bare
-    // checkmark). Tick names are consensus-restricted but escaped anyway.
+    // token → banner that ALWAYS names the attesting project (the banner's
+    // weight comes from the project's identity, never a bare checkmark).
+    // Tick names are consensus-restricted but escaped anyway.
     if(o.projects && o.projects.length){
-        let html = '';
         o.projects.forEach(function(p){
             let name = escapeHtml(p.project);
-            html += '<div class="alert alert-success mb-1" role="alert">'
+            projectBanners += '<div class="alert alert-success mb-1" role="alert">'
                  +  '<i class="fa fa-certificate pe-1"></i>This token is an official token in the '
                  +  formatLink('/' + XC.coin + '/token/' + name, '<b>' + name + '</b>', p.project)
                  +  ' project.'
                  +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
                  +  '</div>';
         });
-        $('#project-banners').html(html).removeClass('d-none');
     }
     // registry = this token IS a project with an attested official-token
-    // roster → show the count and reveal the Official Tokens tab
+    // roster → ownership banner linking to the roster, and reveal the
+    // Official Tokens tab
     if(o.registry){
-        $('#registry-info').html('<a href="#" id="registry-link">' + numeral(o.registry.total).format('0,0') + ' official token' + (o.registry.total==1?'':'s') + '</a>');
-        $('#registry-row').removeClass('d-none');
+        projectBanners += '<div class="alert alert-success mb-1" role="alert">'
+             +  '<i class="fa fa-certificate pe-1"></i>This token is the owner of the <b>' + escapeHtml(o.info.tick) + '</b> project. '
+             +  '<a href="#" id="registry-link">View its ' + numeral(o.registry.total).format('0,0') + ' official token' + (o.registry.total==1?'':'s') + '</a>.'
+             +  '<a href="/' + XC.coin + '/action/' + Number(o.registry.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
+             +  '</div>';
         $('#tab-dropdown-project').removeClass('d-none');
+    }
+    if(projectBanners){
+        $('#project-banners').html(projectBanners).removeClass('d-none');
+        // The banner's roster link opens the Official Tokens tab
         $('#registry-link').click(function(e){
             e.preventDefault();
             $('#tab-dropdown-project').click();

@@ -46,6 +46,45 @@
     </div>
 </div>
 
+<!-- Commitments: this block's SPV roots (state_tree_roots), the state_checkpoints
+     row that covers them (if any), and the ANCHOR action that carried them
+     on-chain (if any). "Not yet checkpointed" / "Not yet anchored" are the
+     normal state near the tip (checkpoints cut on a cadence; ANCHOR batches
+     several heights), rendered as a neutral badge rather than an error or a
+     blank/broken section - see loadDatatablesData below. -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-xs-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-link"></i> Commitments
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-commitment">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Height</th>
+                        <th class="">Balances Root</th>
+                        <th class="">Stakes Root</th>
+                        <th class="">State Root</th>
+                        <th class="">Block Merkle Root</th>
+                        <th class="">Contract State Root</th>
+                        <th class="">Checkpoint</th>
+                        <th class="">Anchor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="9" class="loading-data">Loading commitments data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="text/javascript">
 $(document).ready(function(){
 
@@ -68,7 +107,12 @@ $(document).ready(function(){
         });
 
         // Load all `history` actions for the given block
-        loadDatatablesData(XC.coin, 'history', XC.query, 'block');        
+        loadDatatablesData(XC.coin, 'history', XC.query, 'block');
+
+        // Load this block's SPV commitments (state_tree_roots), decorated with
+        // the covering checkpoint and carrying ANCHOR when present. Bound to
+        // THIS block via type=block, same as the history table above.
+        loadDatatablesData(XC.coin, 'commitment', XC.query, 'block');
     }
 
 });

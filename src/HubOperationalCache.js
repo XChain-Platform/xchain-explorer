@@ -15,7 +15,7 @@
  * XChain Explorer - Hub operational-state cache
  *
  * Serves the hub-LOCAL operational tables (validator_capabilities,
- * governance_proposals, governance_votes) over the hub's JSON-RPC surface
+ * governance_proposals, governance_votes, reorg_attestations) over the hub's JSON-RPC surface
  * with a short TTL cache, instead of reading a co-located hub-owned MariaDB
  * schema. These tables are off-chain federation state that mutates in place
  * (vote upserts, proposal tallies), so they cannot ride the append-only
@@ -138,6 +138,28 @@ class HubOperationalCache {
 
     getGovernanceVotes({ proposal_id, voter_pubkey } = {}){
         return this.getRows('getvotes', { proposal_id, voter_pubkey, limit: 500 });
+    }
+
+    // getreorghistory has NO server-side filter beyond limit: the hub does
+    // `SELECT * FROM reorg_attestations ORDER BY created_at DESC LIMIT ?` with no
+    // WHERE clause at all, so chain scoping AND the optional status/reorg_height
+    // narrowing both happen here, client-side, after one cached fetch. This is
+    // deliberately the SAME cache entry for every coin/filter combination (the
+    // getRows cache key is built from {limit:500} only), so ten coins' pages share
+    // one hub round trip per TTL window rather than fragmenting the cache per chain.
+    getReorgHistory({ chain, status, reorg_height } = {}){
+        return this.getRows('getreorghistory', { limit: 500 })
+            .then(rows => {
+                if(!rows) return rows;
+                let out = rows;
+                if(chain !== undefined && chain !== null)
+                    out = out.filter(r => String(r.source_chain) === String(chain));
+                if(status !== undefined && status !== null)
+                    out = out.filter(r => String(r.status) === String(status));
+                if(reorg_height !== undefined && reorg_height !== null)
+                    out = out.filter(r => String(r.reorg_height) === String(reorg_height));
+                return out;
+            });
     }
 }
 

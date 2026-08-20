@@ -80,6 +80,8 @@ const ROUTES = [
     ['/{COIN}/api/executions/{QUERY}/{TYPE}', 'getExecutions', ['block', 'address', 'contract'], 'Contracts', 'Contract executions, filtered'],
     ['/{COIN}/api/executions', 'getExecutions', null, 'Contracts', 'Contract executions'],
     ['/{COIN}/api/execution/{QUERY}', 'getExecution', 'execution', 'Contracts', 'One execution (by action index)'],
+    ['/{COIN}/api/emissions/{QUERY}/{TYPE}', 'getEmissions', ['contract', 'execution', 'block'], 'Contracts', 'Contract action emissions, filtered'],
+    ['/{COIN}/api/emissions', 'getEmissions', null, 'Contracts', 'Contract action emissions (per-contract rollup across executions)'],
     ['/{COIN}/api/deploy_chunks', 'getDeployChunks', null, 'Contracts', 'Chunked DEPLOY (v4) carriers'],
     ['/{COIN}/api/deposits/{QUERY}/{TYPE}', 'getDeposits', ['block', 'address', 'source', 'contract'], 'Contracts', 'Contract deposits'],
     ['/{COIN}/api/withdrawals/{QUERY}/{TYPE}', 'getWithdrawals', ['block', 'address', 'source', 'contract'], 'Contracts', 'Contract withdrawals'],
@@ -134,6 +136,8 @@ const ROUTES = [
     ['/{COIN}/api/poll/{QUERY}/results', 'getPollResults', 'poll', 'Governance', 'Frozen per-option tally for a poll (empty until finalized)'],
     ['/{COIN}/api/votes/{QUERY}/{TYPE}', 'getVotes', ['address', 'poll', 'block'], 'Governance', 'VOTE ballots, filtered by voter/poll/block'],
     ['/{COIN}/api/votes', 'getVotes', null, 'Governance', 'VOTE ballots (v1; one row per voter per poll)'],
+    ['/{COIN}/api/vote_delegations/{QUERY}/{TYPE}', 'getVoteDelegations', ['tick', 'delegator', 'delegate', 'block'], 'Governance', 'VOTE v3 liquid-democracy delegations, filtered (live-only)'],
+    ['/{COIN}/api/vote_delegations', 'getVoteDelegations', null, 'Governance', 'VOTE v3 liquid-democracy delegations (live-only: revoked and re-pointed rows are excluded)'],
     // ── Betting (BET) ─────────────────────────────────────────────────────
     ['/{COIN}/api/bet_feeds/{QUERY}/{TYPE}', 'getBetFeeds', ['block', 'address', 'source', 'token', 'status'], 'Betting', 'BET markets, filtered by block/oracle/wager token/status'],
     ['/{COIN}/api/bet_feeds', 'getBetFeeds', null, 'Betting', 'BET markets (parimutuel; feed id = the creating action_index)'],
@@ -152,12 +156,22 @@ const ROUTES = [
     // ── Attestations ──────────────────────────────────────────────────────
     ['/{COIN}/api/attestations/{QUERY}/{TYPE}', 'getAttestations', ['block', 'address', 'contract'], 'Attestations', 'ATTEST requests/responses, filtered'],
     ['/{COIN}/api/attestations', 'getAttestations', null, 'Attestations', 'ATTEST v0 requests + v1 responses (incl. LLM attestations)'],
+    ['/{COIN}/api/attest_validator_stats/{QUERY}/{TYPE}', 'getAttestValidatorStats', ['pubkey', 'provider'], 'Attestations', 'Per-validator per-provider ATTEST accountability counters, filtered by validator or provider'],
+    ['/{COIN}/api/attest_validator_stats', 'getAttestValidatorStats', null, 'Attestations', 'Per-validator per-provider ATTEST accountability counters (fulfilled/missed/slashed + quality score)'],
     // ── Anchors ───────────────────────────────────────────────────────────
     ['/{COIN}/api/anchors/{QUERY}/{TYPE}', 'getAnchors', ['block', 'chain', 'network', 'status'], 'Checkpoints', 'ANCHOR state checkpoints, filtered by block/chain/network/status'],
     ['/{COIN}/api/anchors', 'getAnchors', null, 'Checkpoints', 'ANCHOR state checkpoints (cross-chain quorum-signed)'],
     // The cheap read of one quorum-signed checkpoint. Its /verify sibling below is a
     // separate hand-pinned route because it re-runs the signature check per call.
     ['/{COIN}/api/checkpoint/{QUERY}', 'getCheckpoint', 'block', 'Checkpoints', 'One quorum-signed state checkpoint by block height (no signature re-verification)'],
+    ['/{COIN}/api/commitments/{QUERY}/{TYPE}', 'getCommitments', ['block'], 'Checkpoints', 'Per-block SPV commitments, filtered by block'],
+    ['/{COIN}/api/commitments', 'getCommitments', null, 'Checkpoints', 'Per-block SPV commitments (state tree roots) with the covering checkpoint and carrying ANCHOR when present'],
+    ['/{COIN}/api/anchor_reward_attestations/{QUERY}/{TYPE}', 'getAnchorRewardAttestations', ['anchor', 'block', 'pubkey'], 'Checkpoints', 'Quorum-attested ANCHOR publisher rewards, filtered'],
+    ['/{COIN}/api/anchor_reward_attestations', 'getAnchorRewardAttestations', null, 'Checkpoints', 'Quorum-attested ANCHOR publisher rewards (hub-mirrored)'],
+    ['/{COIN}/api/capability_snapshots/{QUERY}/{TYPE}', 'getCapabilitySnapshots', ['capability', 'block', 'pubkey'], 'Checkpoints', 'Capability snapshot electorate rows (stake weight per key per capability at a snapshot block), filtered'],
+    ['/{COIN}/api/capability_snapshots', 'getCapabilitySnapshots', null, 'Checkpoints', 'Capability snapshot electorate: which signing keys carried which stake weight, per block'],
+    ['/{COIN}/api/reorgs/{QUERY}/{TYPE}', 'getReorgs', ['status', 'block'], 'Checkpoints', 'Recorded chain reorgs for this coin, filtered'],
+    ['/{COIN}/api/reorgs', 'getReorgs', null, 'Checkpoints', 'Recorded chain reorgs for this coin, most recent first (hub-owned)'],
     // ── Core ──────────────────────────────────────────────────────────────
     ['/{COIN}/api/status', 'getStatus', null, 'Network', 'Explorer status + chain config'],
     ['/{COIN}/api/actions', 'getActions', null, 'Core', 'Recent actions (all types)'],
@@ -402,6 +416,9 @@ const QUERY_DESC = {
     tx_hash: 'transaction hash', tx_index: 'transaction index',
     call_id: 'cross-chain call id (64-hex)',
     poll: 'poll id (the creating action_index)', tick: 'a token tick',
+    delegator: 'the delegating holder\'s XChain address', delegate: 'the recipient XChain address',
+    provider: 'attestation provider id (e.g. http_get)',
+    anchor: 'the mined DOGE anchor transaction id (doge_anchor_txid)',
     validator: 'validator id (peer)', key: 'consensus state key name',
     coin: 'coin symbol (e.g. BTC, LTC, DOGE)', module: 'service module name',
     event: 'telemetry event (install, update, start, heartbeat)',

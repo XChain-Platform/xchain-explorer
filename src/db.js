@@ -141,25 +141,32 @@ class Database {
         // (getQueryOffsetSql picks m.id vs m.action_index per method). We only need to
         // preserve the inbound client cursor so next/prev advance instead of resetting to
         // the newest page every time.
+        // The mangle is `method.toLowerCase().replace('get','')`, which never
+        // reinserts an underscore, so EVERY method over a multi-word table name
+        // belongs here regardless of which cursor column it uses:
+        // getContractDelegations ('contractdelegations' vs contract_delegations)
+        // is the standing proof, and it pages on the default action_index cursor.
         this.cursorPagedMethods = [
-            'getAnchors','getXcalls','getAttestations',
-            'getContractStakes','getContractUnstakes','getContractDelegations',
+            'getAnchors','getXcalls','getAttestations','getAttestValidatorStats',
+            'getContractStakes','getContractUnstakes','getContractDelegations','getEmissions',
             'getCrossChainSettlements','getCrossChainMatches',
             'getSlashEvents','getCapabilitySlashEvents','getFullNodeVerifications',
             'getPriceSnapshots','getOraclePrices',
-            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
+            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes','getReorgs',
             'getPeers','getConsensusState','getConfigs','getTelemetryPings',
-            'getPolls','getVotes',
+            'getPolls','getVotes','getVoteDelegations',
             // BET market/wager lists: getBetFeeds -> bet_feeds and getBets -> bets are
             // not reachable through the get->lowercase table mangle, so they page on the
             // preserved client cursor like the poll family. Both ORDER BY m.action_index,
             // which is getQueryOffsetSql's default cursor field, so no id-keyed entry.
             'getBetFeeds','getBets',
-            // getCheckpoints -> state_checkpoints (hub-mirrored) is not reachable through
-            // the get->lowercase mangle either. It pages on the preserved client cursor;
-            // getQueryOffsetSql gives it its own m.block_index cursor field below (not
-            // m.id), since the list ORDERs BY the checkpointed height.
-            'getCheckpoints'
+            // The checkpoint-schema family: state_checkpoints, capability_snapshots and
+            // anchor_reward_attestations are hub-mirrored and state_tree_roots is
+            // indexer-local, and none of the four is reachable through the mangle. They
+            // page on the preserved client cursor; getQueryOffsetSql gives getCheckpoints
+            // and getCommitments their own m.block_index cursor field below (not m.id),
+            // since both lists ORDER BY the committed height.
+            'getCheckpoints','getCapabilitySnapshots','getAnchorRewardAttestations','getCommitments'
         ];
 
     }
@@ -956,6 +963,18 @@ class Database {
         // price_snapshots is a materialized consensus-round table with no action_index; its PK is m.id
         if(method=='getPriceSnapshots')
             sql = `m.id IS NOT NULL`;
+        // contract_emissions carries no reliable action_index of its own (it is nullable
+        // for internal emissions such as SLASH, which move ledger state without minting a
+        // new on-wire action); its PK is m.id
+        if(method=='getEmissions')
+            sql = `m.id IS NOT NULL`;
+        // attest_validator_stats is an upsert-incremented counter rollup with no
+        // action_index; it gained a surrogate m.id (xchain-indexer migration
+        // 2026-08-19-attest-validator-stats-surrogate-id) precisely so it could be paged
+        // on a monotonic AND unique cursor, since last_updated_block ties whenever a
+        // whole ATTEST responsible set misses in one block
+        if(method=='getAttestValidatorStats')
+            sql = `m.id IS NOT NULL`;
         // cross_chain_matches is a standalone mirror of the hub's match table with no action_index; its PK is m.id
         if(method=='getCrossChainMatches')
             sql = `m.id IS NOT NULL`;
@@ -967,8 +986,25 @@ class Database {
         // set separately in getQueryOffsetSql; this anchor only opens the WHERE clause).
         if(method=='getCheckpoints')
             sql = `m.id IS NOT NULL`;
+        // capability_snapshots is the hub-mirrored historical electorate (which signing
+        // keys carried which stake weight at a snapshot block); no action_index, keyed by m.id
+        if(method=='getCapabilitySnapshots')
+            sql = `m.id IS NOT NULL`;
+        // anchor_reward_attestations is the hub-mirrored quorum-attested ANCHOR publisher
+        // reward record; no action_index, keyed by m.id
+        if(method=='getAnchorRewardAttestations')
+            sql = `m.id IS NOT NULL`;
+        // state_tree_roots is the indexer-local per-block SPV commitment row; no
+        // action_index, keyed by m.id (the paging cursor is m.block_index, set separately
+        // in getQueryOffsetSql, same shape as getCheckpoints)
+        if(method=='getCommitments')
+            sql = `m.id IS NOT NULL`;
         // co-located hub capability/governance tables; no action_index, keyed by m.id
         if(['getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
+            sql = `m.id IS NOT NULL`;
+        // reorg_attestations is the hub-mirrored cross-chain reorg record; no action_index,
+        // keyed by m.id (same PK-cursor shape as the three tables above)
+        if(method=='getReorgs')
             sql = `m.id IS NOT NULL`;
         // co-located hub operational tables (p2p_peers/consensus_state/configs/telemetry_pings); keyed by m.id
         if(['getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
@@ -1029,7 +1065,22 @@ class Database {
             // oracle_prices is a standalone hub-mirror table; filter on its own columns
             if(type=='token')   sql += ' AND m.tick=?';
             if(type=='address') sql += ' AND m.source_address=?';
+        } else if(method=='getAttestValidatorStats'){
+            // attest_validator_stats is a standalone counters table; filter on its own
+            // unique-key columns directly. No 'block' type: last_updated_block is a
+            // mutable "most recently touched" stamp, not a stable per-row block identity,
+            // so filtering on it would answer a question that drifts under the caller.
+            if(type=='pubkey')   sql += ' AND m.validator_pubkey=?';
+            if(type=='provider') sql += ' AND m.provider_id=?';
         } else if(method=='getValidatorCapabilities'){
+            if(type=='capability') sql += ' AND m.capability=?';
+            if(type=='pubkey')     sql += ' AND m.signing_pubkey=?';
+        } else if(method=='getCapabilitySnapshots'){
+            // capability_snapshots is the historical electorate: which signing keys
+            // carried which stake weight for a capability at a given snapshot block.
+            // 'block' answers the row's core question (electorate AT block N);
+            // 'capability' and 'pubkey' narrow the other two axes.
+            if(type=='block')      sql += ' AND m.snapshot_block=?';
             if(type=='capability') sql += ' AND m.capability=?';
             if(type=='pubkey')     sql += ' AND m.signing_pubkey=?';
         } else if(method=='getGovernanceProposals'){
@@ -1077,6 +1128,17 @@ class Database {
             if(type=='address') sql += ' AND a2.address=?';
             if(type=='poll')    sql += ' AND m.poll_index=?';
             if(type=='block')   sql += ' AND b1.block_index=?';
+        } else if(method=='getVoteDelegations'){
+            // vote_delegations (VOTE v3 liquid democracy) joins the actions/transactions/
+            // blocks chain via m.action_index like getContractDelegations. tick resolves
+            // through index_tickers (t3) on m.tick_id; delegator/delegate resolve through
+            // index_addresses (dgr/dg) on delegator_address_id/delegate_address_id. The
+            // latest-active-per-key exclusion lives in getVoteDelegations' own SQL (a
+            // correlated MAX), not here: this branch only narrows by the requested TYPE.
+            if(type=='tick')      sql += ' AND t3.tick=?';
+            if(type=='delegator') sql += ' AND dgr.address=?';
+            if(type=='delegate')  sql += ' AND dg.address=?';
+            if(type=='block')     sql += ' AND b1.block_index=?';
         } else if(method=='getBetFeeds'){
             // bet_feeds (BET format 0) joins the actions/transactions/blocks chain like
             // getPolls. tick joins index_tickers (pt) on the wager token; source is the
@@ -1109,6 +1171,25 @@ class Database {
             if(type=='match')  sql += ' AND m.match_id=?';
             if(type=='block')  sql += (method=='getCrossChainSettlements') ? ' AND m.block_index=?' : ' AND m.snapshot_block=?';
             if(type=='status' && method=='getCrossChainMatches') sql += ' AND m.status=?';
+        } else if(method=='getReorgs'){
+            // reorg_attestations is a hub-mirrored, cross-chain table; the mandatory
+            // per-coin chain scope is appended separately in getReorgs (matching
+            // getCrossChainMatches' network filter above), so this branch only narrows
+            // WITHIN that scope. 'block' reuses the platform-wide block-height type name
+            // (reorg_height IS a block height).
+            if(type=='status') sql += ' AND m.status=?';
+            if(type=='block')  sql += ' AND m.reorg_height=?';
+        } else if(method=='getEmissions'){
+            // contract_emissions carries no contract_index of its own (it is reachable
+            // only by joining through contract_executions on execution_index), so
+            // contract/block filter the joined `ce` alias. block_index lives on
+            // contract_executions directly, which is why this does NOT reuse the generic
+            // b1.block_index branch below (that one assumes an actions/blocks join this
+            // method does not make). 'execution' filters contract_emissions' own indexed
+            // execution_index column.
+            if(type=='contract')  sql += ' AND ce.contract_index=?';
+            if(type=='execution') sql += ' AND m.execution_index=?';
+            if(type=='block')     sql += ' AND ce.block_index=?';
         } else if(method=='getXcalls'){
             // xcalls joins the actions/transactions/blocks chain (b1 alias); filter on its own columns.
             // contract = the source contract that emitted the call (contract_index, now indexed).
@@ -1121,6 +1202,19 @@ class Database {
             if(type=='chain')   sql += ' AND m.chain=?';
             if(type=='network') sql += ' AND m.network=?';
             if(type=='status')  sql += ' AND s1.status=?';
+        } else if(method=='getAnchorRewardAttestations'){
+            // anchor_reward_attestations is a standalone hub-mirror table (no actions/
+            // transactions chain); filter on its own columns. 'anchor' answers "the rewards
+            // behind THIS ANCHOR transaction"; 'block' matches the table's own
+            // idx_snapshot_block (network, snapshot_block) key; 'pubkey' narrows to one
+            // elected publisher's reward history.
+            if(type=='anchor')  sql += ' AND m.doge_anchor_txid=?';
+            if(type=='block')   sql += ' AND m.snapshot_block=?';
+            if(type=='pubkey')  sql += ' AND m.publisher=?';
+        } else if(method=='getCommitments'){
+            // state_tree_roots has no actions/transactions/blocks chain; filter on its own
+            // column directly, matching getAnchors/getCrossChainMatches above.
+            if(type=='block') sql += ' AND m.block_index=?';
         } else if(method=='getXcall'){
             // single-call lifecycle keyed by the deterministic 64-hex call_id
             sql += ' AND m.call_id=?';
@@ -1223,7 +1317,9 @@ class Database {
             // it is not keyed by m.id either: the list ORDERs BY m.block_index (the
             // checkpointed height, one row per height after the MAX(checkpoint_seq)
             // GROUP BY), so the cursor must compare that column, not insertion order.
-            if(method=='getCheckpoints')
+            // state_tree_roots (getCommitments) has the same shape: no action_index, one
+            // row per height, and the list ORDERs BY m.block_index.
+            if(['getCheckpoints','getCommitments'].includes(method))
                 field = 'm.block_index';
             // id-keyed list views: their main query ORDERs BY m.id (these tables have no
             // action_index cursor column, or a fan-out where action_index is not unique
@@ -1232,7 +1328,9 @@ class Database {
             if(['getSlashEvents','getCapabilitySlashEvents','getOraclePrices',
                 'getFullNodeVerifications','getPriceSnapshots','getCrossChainMatches',
                 'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
-                'getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
+                'getPeers','getConsensusState','getConfigs','getTelemetryPings',
+                'getEmissions','getAttestValidatorStats','getCapabilitySnapshots',
+                'getAnchorRewardAttestations','getReorgs'].includes(method))
                 field = 'm.id';
             if(action=='prev'){
                 sql = ` AND ` + field + ` > ?`;
@@ -7080,10 +7178,21 @@ class Database {
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
             return { table: '`' + src.name + '`.state_checkpoints',
                      capTable: '`' + src.name + '`.capability_snapshots',
+                     // Quorum-attested ANCHOR publisher rewards (HUB_STATE_TABLES in
+                     // hub_db_sync.js, mirrored on the same terms as state_checkpoints).
+                     // Neither `table` nor `capTable`, so it gets a third accessor on the
+                     // same helper rather than a hand-built schema-qualified name, keeping
+                     // ONE place that knows the mirror's shape.
+                     rewardTable: '`' + src.name + '`.anchor_reward_attestations',
+                     // `filter`/`filterParams` scope `table` and `rewardTable`, which both
+                     // carry chain/network columns. They do NOT apply to `capTable`:
+                     // capability_snapshots is chain-agnostic (keyed by capability + BTC
+                     // snapshot block) and has no such columns - see getCapabilitySnapshots
+                     // and getCapabilitySnapshotRows, which bind none of these.
                      filter: ' AND chain = ? AND network = ?',
                      filterParams: [src.chain, src.network] };
         throw new Error('No co-located hub DB configured for coin ' + config.coin +
-            ': state_checkpoints / capability_snapshots are served only from the mandatory ' +
+            ': state_checkpoints / capability_snapshots / anchor_reward_attestations are served only from the mandatory ' +
             'co-located hub DB (config database.checkpoint, same host+credentials as the indexer DB), ' +
             'never from a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
@@ -7166,7 +7275,8 @@ class Database {
     // activation_block, governance_votes has neither): an absent or null column must
     // stay absent or null, never become the literal string "undefined".
     _normalizeHubOperationalRows(rows){
-        const bigintKeys = ['id', 'qualified_at_block', 'activation_block'];
+        const bigintKeys = ['id', 'qualified_at_block', 'activation_block',
+                            'reorg_height', 'reorg_timestamp'];
         return (rows || []).map(r => {
             let out = { ...r };
             for(const k of bigintKeys)
@@ -7376,6 +7486,57 @@ class Database {
         // cursor args after these, and the count query reuses the SAME array because
         // it carries the identical two occurrences and no cursor.
         let args = [...src.filterParams, ...latest.params];
+        return [query, args, count];
+    }
+
+    // List quorum-attested ANCHOR publisher-reward rows (hub-mirrored
+    // anchor_reward_attestations, one of HUB_STATE_TABLES in hub_db_sync.js, mirrored on
+    // the SAME terms as state_checkpoints: id-parity INSERT IGNORE, never retracted). Read
+    // from the same co-located checkpoint schema as getCheckpoints via
+    // _checkpointSource().rewardTable, NEVER through HubOperationalCache and never over a
+    // hub RPC: this is locally-mirrored transport, not an RPC-served cache with a TTL and
+    // a row cap. Unlike capability_snapshots (chain-agnostic), this table carries its own
+    // chain/network columns and its unique key is scoped by them, so src.filter/
+    // src.filterParams ARE bound here, first, exactly as getCheckpoints binds them.
+    //
+    // Placement note: the filter text leads and the optional TYPE clause follows, which is
+    // the reverse of getCheckpoints' literal order. getCheckpoints has no TYPE filter at
+    // all, so nothing there could land a client placeholder ahead of the filter's;
+    // here one could, which would break the args order.
+    //
+    // reward_amount (audit-only: the indexer credits a frozen protocol constant, never
+    // this wire value) and publisher_attestations (the raw quorum-signature JSON blob) are
+    // deliberately excluded from the list SELECT. type in {anchor, block, pubkey}.
+    async getAnchorRewardAttestations(config){
+        let sql   = config.data.sql;
+        let src   = this._checkpointSource(config);
+        let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        ${src.rewardTable} m
+                    WHERE 1=1` + outerFilter + ` AND ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.chain,
+                        m.network,
+                        m.reward_type,
+                        m.round_reference,
+                        m.snapshot_block,
+                        m.publisher,
+                        m.reward_amount,
+                        m.doge_anchor_txid,
+                        m.created_at
+                    FROM
+                        ${src.rewardTable} m
+                    WHERE 1=1` + outerFilter + ` AND ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        // filterParams (chain, network) come first, matching this table's own unique-key
+        // scoping; the type-bound placeholder getQueryWhereSql appends to sql.where.data
+        // follows, and only when a TYPE is actually set.
+        let typeArgs = ['anchor','block','pubkey'].includes(config.data.type) ? [config.data.search] : [];
+        let args = [...src.filterParams, ...typeArgs];
         return [query, args, count];
     }
 
@@ -7679,6 +7840,39 @@ class Database {
         let query = `SELECT signing_pubkey, amount, source FROM ${src.capTable}
                      WHERE capability = ? AND snapshot_block = ?`;
         return await this.doQuery(config, query, [String(capability), Number(snapshotBlock)]);
+    }
+
+    // The same historical electorate as a routed, paged LIST view: which signing keys
+    // carried which stake weight for a capability at a snapshot block. Sibling of
+    // getCapabilitySnapshotRows above (positional, two mandatory binds, no paging, used
+    // by the checkpoint-verify path) rather than a shared predicate: the two have
+    // different bind arity and column sets, and a bare list-all with no filter is a normal
+    // request here, which the raw reader's two-mandatory-arg contract must never acquire.
+    // Same getCheckpoints/getCheckpoint precedent.
+    //
+    // Never routed through HubOperationalCache and never an RPC call: capability_snapshots
+    // is not hub-RPC data, it is pushed into the co-located checkpoint-mirror schema
+    // out-of-band, so this list must answer with the hub completely unreachable. id-keyed
+    // (the paging cursor); capability_snapshots is chain-agnostic (no chain/network
+    // columns), so unlike getCheckpoints there is no src.filter/src.filterParams to bind.
+    async getCapabilitySnapshots(config){
+        let sql   = config.data.sql;
+        let src   = this._checkpointSource(config);
+        let count = `SELECT count(*) as total FROM ${src.capTable} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.snapshot_block,
+                        m.capability,
+                        m.signing_pubkey,
+                        m.amount,
+                        m.source,
+                        m.created_at
+                    FROM
+                        ${src.capTable} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     async getBlocksSince(config, sinceBlockIndex, limit) {
@@ -8376,6 +8570,45 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
+    }
+
+    // Get list of contract emissions (the per-CONTRACT rollup across every EXECUTE call
+    // against it). contract_emissions is keyed to the EXECUTION (execution_index = the
+    // EXECUTE action's action_index), not to the contract, so reaching contract_index
+    // requires joining through contract_executions; block_index lives on
+    // contract_executions directly, so the block filter and the timestamp join need no
+    // actions/blocks hop. Cursor is m.id: this table's own action_index is nullable for
+    // internal emissions (e.g. SLASH), so it cannot page reliably. type in
+    // {contract, execution, block}.
+    async getEmissions(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_emissions m
+                        INNER JOIN contract_executions ce ON (ce.action_index=m.execution_index)
+                        INNER JOIN blocks               b1 ON (b1.block_index=ce.block_index)
+                        LEFT  JOIN index_statuses        s1 ON (s1.id=ce.status_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.execution_index,
+                        ce.contract_index,
+                        m.position,
+                        m.emitted_action,
+                        m.action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        contract_emissions m
+                        INNER JOIN contract_executions ce ON (ce.action_index=m.execution_index)
+                        INNER JOIN blocks               b1 ON (b1.block_index=ce.block_index)
+                        LEFT  JOIN index_statuses        s1 ON (s1.id=ce.status_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     async getDeposits(config){
@@ -9277,6 +9510,108 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of VOTE v3 delegation rows (liquid democracy, type in {tick, delegator,
+    // delegate, block}). vote_delegations is an APPEND-ONLY event log: a holder can set,
+    // re-point, or clear (revoke) their standing per-token delegation, and every one of
+    // those actions writes a NEW row rather than mutating the old one, so a naive
+    // SELECT * shows every revoked/superseded delegation as if it were still live.
+    //
+    // The live delegation for a (tick_id, delegator) is its LATEST row (highest
+    // action_index), and only if that latest row is not a CLEAR (delegate_address_id IS
+    // NOT NULL). This mirrors xchain-indexer's Database#getActiveDelegations (which feeds
+    // getPollTally) exactly, minus its `block_index <= ?` bound: that bound answers "what
+    // was live AT some past height", which a poll close needs; this list answers "what is
+    // live now", so the bound is simply omitted. Every TYPE narrows WHICH keys are shown,
+    // never what "live" means.
+    //
+    // Implemented as a correlated MAX on the (tick_id, delegator_address_id) key, in the
+    // outer WHERE where the paging cursor also lives - never a GROUP BY over a "newest N
+    // rows" derived table, which is the defect class that a cursor applied OUTSIDE the
+    // window silently truncates.
+    async getVoteDelegations(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        vote_delegations m
+                        INNER JOIN actions            a1  ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1  ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1  ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_tickers      t3  ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses    dgr ON (dgr.id=m.delegator_address_id)
+                        LEFT  JOIN index_addresses    dg  ON (dg.id=m.delegate_address_id)
+                        LEFT  JOIN index_statuses     s1  ON (s1.id=m.status_id)
+                    WHERE
+                        m.action_index = (
+                            SELECT MAX(s.action_index) FROM vote_delegations s
+                            WHERE s.tick_id=m.tick_id AND s.delegator_address_id=m.delegator_address_id
+                        )
+                        AND m.delegate_address_id IS NOT NULL
+                        AND ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        t3.tick,
+                        dgr.address as delegator,
+                        dg.address as delegate,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        vote_delegations m
+                        INNER JOIN actions            a1  ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1  ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1  ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_tickers      t3  ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses    dgr ON (dgr.id=m.delegator_address_id)
+                        LEFT  JOIN index_addresses    dg  ON (dg.id=m.delegate_address_id)
+                        LEFT  JOIN index_statuses     s1  ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2  ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4  ON (a4.id=a1.action_id)
+                    WHERE
+                        m.action_index = (
+                            SELECT MAX(s.action_index) FROM vote_delegations s
+                            WHERE s.tick_id=m.tick_id AND s.delegator_address_id=m.delegator_address_id
+                        )
+                        AND m.delegate_address_id IS NOT NULL
+                        AND ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Per-validator per-provider ATTEST accountability rollup (indexer-owned counters).
+    // fulfilled_count/missed_count are live (incremented per verified signature and per
+    // expired-round absence by xchain-indexer's incrementAttestationValidatorStat);
+    // slashed_count and quality_score are Phase 4 columns the indexer defines and defaults
+    // to 0 but has no producer for yet. The table carries no action_index (rows are
+    // upsert-incremented counters, not action-chain rows); it pages on the surrogate m.id
+    // added for exactly this purpose, NOT on last_updated_block, which ties whenever a
+    // whole ATTEST responsible set misses in one block and so would split a keyset page
+    // boundary. type in {pubkey, provider}.
+    async getAttestValidatorStats(config){
+        let sql   = config.data.sql;
+        let count = `SELECT count(*) as total FROM attest_validator_stats m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.validator_pubkey,
+                        m.provider_id,
+                        m.fulfilled_count,
+                        m.missed_count,
+                        m.slashed_count,
+                        m.quality_score,
+                        m.last_updated_block
+                    FROM
+                        attest_validator_stats m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     // Get list of cross-chain MATCH records (type ∈ {match, block, status}; block = snapshot_block).
     // cross_chain_matches is a standalone mirror of the hub's finalized match table with no
     // actions/transactions chain, so no joins; ordered by the mirror cursor m.id.
@@ -9537,6 +9872,63 @@ class Database {
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // Cross-chain reorg attestations (hub-owned, id-keyed). Primary transport: hub
+    // JSON-RPC via HubOperationalCache over the hub's EXISTING unauthenticated
+    // getreorghistory RPC, so this row needs no new hub-side surface. Unlike the three
+    // tables above (platform-global, no per-chain column), reorg_attestations carries
+    // source_chain and getreorghistory returns EVERY chain's history with no server-side
+    // chain filter at all, so a per-coin page would otherwise leak another chain's
+    // reorgs. Both transports therefore scope to THIS coin's own chain: client-side
+    // inside HubOperationalCache.getReorgHistory (the established pattern for a param the
+    // hub RPC does not support server-side, see getGovernanceProposals' proposal_id), and
+    // via an explicit m.source_chain=? on the co-located leg, matching
+    // getCrossChainMatches' mandatory network filter.
+    //
+    // this.baseCoin[config.coin] (RBTC -> BTC) is the chain source rather than
+    // _checkpointSource().chain because it is populated for every configured coin whether
+    // or not a co-located checkpoint DB exists, so the RPC-only deployment shape still
+    // scopes correctly. A configured-but-unreachable hub still fails loud past the stale
+    // ceiling; the co-located read below serves only the no-hub shape.
+    // type in {status, block}; 'block' reuses the platform-wide type name (reorg_height IS
+    // a block height) rather than inventing 'height'.
+    async getReorgs(config){
+        let ops   = this.explorer.hubOperational;
+        let chain = this.baseCoin ? (this.baseCoin[config.coin] || config.coin) : config.coin;
+        if(ops && ops.enabled()){
+            let rows = await ops.getReorgHistory({
+                chain,
+                status:       config.data.type=='status' ? config.data.search : undefined,
+                reorg_height: config.data.type=='block'  ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+            this._hubOperationalOutage('reorg_attestations');
+        }
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'reorg_attestations');
+        // Mandatory per-coin chain scope, appended AFTER the optional type filter (the
+        // same placement getCrossChainMatches uses for its network filter), so the args
+        // stay [<type filter?>, chain] in strict left-to-right text order.
+        let chainFilter = ' AND m.source_chain=?';
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data + chainFilter;
+        let query = `SELECT
+                        m.id,
+                        m.reorg_id,
+                        m.source_chain,
+                        m.reorg_height,
+                        m.reorg_timestamp,
+                        m.affected_chains,
+                        m.validator_count,
+                        m.status,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + chainFilter + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        let typeArgs = ['status','block'].includes(config.data.type) ? [config.data.search] : [];
+        let args = [...typeArgs, chain];
+        return [query, args, count];
     }
 
     // ── Hub operational-state pages (p2p_peers / consensus_state / configs /
@@ -10363,6 +10755,78 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
+    }
+
+    // Per-block SPV commitments (state_tree_roots), decorated with the covering
+    // hub-mirrored state_checkpoints row (if any) and the local ANCHOR action that carried
+    // it (if any). The three legs live in three places and are not casually joinable:
+    // state_tree_roots is this coin's own indexer DB (no action chain, one row per block,
+    // unique on (chain, network, block_index)); state_checkpoints is the co-located
+    // hub-mirror schema reached via _checkpointSource, DB-qualified but on the SAME
+    // connection pool as the indexer DB (checkpointDb is registered ONLY when it shares
+    // host/port/user/pass with that pool), which is exactly what the co-location guarantee
+    // is FOR; anchor_actions is this same coin's own local indexer DB, parsed from the
+    // DOGE-only ANCHOR action, so on a non-DOGE deployment that leg is structurally always
+    // empty - the same limitation getAnchors already carries reading the same table.
+    //
+    // Both decoration legs are LEFT JOINs correlated on this row's own block_index, so a
+    // block with no covering checkpoint yet (normal near the tip: checkpoints cut on a
+    // cadence) or no carrying ANCHOR yet (anchoring batches several heights) comes back
+    // with those columns NULL rather than the row vanishing. _checkpointSource still
+    // throws when this coin has no co-located hub DB configured at ALL, which is a
+    // deployment misconfiguration and a different case entirely.
+    //
+    // Reuses the exact latest-per-height predicate getCheckpoints established rather than
+    // a third, differently-bounded checkpoint query, and applies the identical shape to
+    // the anchor leg's own latest-checkpoint_seq-per-height lookup.
+    async getCommitments(config){
+        let sql      = config.data.sql;
+        let src      = this._checkpointSource(config);
+        let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let latest   = this._latestCheckpointPredicate(src, 'sc');
+        // anchor_actions.chain/network name the CHECKPOINTED chain (the same convention
+        // state_checkpoints uses), not the chain the ANCHOR transaction landed on, so this
+        // coin's own (chain, network) identity is the correct filter here too: block_index
+        // alone is not unique across chains on the DOGE deployment, where one local table
+        // holds commitments for all three.
+        let anFilter = ' AND an.chain = ? AND an.network = ?';
+        let anLatest = ` AND an.checkpoint_seq = (SELECT MAX(a2.checkpoint_seq) FROM anchor_actions a2
+                           WHERE a2.block_index = an.block_index AND a2.chain = ? AND a2.network = ?)`;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        state_tree_roots m
+                        LEFT JOIN ${src.table} sc ON sc.block_index = m.block_index${scFilter}${latest.sql}
+                        LEFT JOIN anchor_actions an ON an.block_index = m.block_index${anFilter}${anLatest}
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.block_index,
+                        m.balances_root,
+                        m.stakes_root,
+                        m.state_root,
+                        m.block_merkle_root,
+                        m.contract_state_root,
+                        m.computed_at,
+                        sc.checkpoint_seq        AS checkpoint_seq,
+                        sc.snapshot_block        AS checkpoint_snapshot_block,
+                        sc.created_at            AS checkpoint_created_at,
+                        JSON_LENGTH(sc.validator_signatures) AS checkpoint_signer_count,
+                        an.action_index          AS anchor_action_index,
+                        an.version               AS anchor_version
+                    FROM
+                        state_tree_roots m
+                        LEFT JOIN ${src.table} sc ON sc.block_index = m.block_index${scFilter}${latest.sql}
+                        LEFT JOIN anchor_actions an ON an.block_index = m.block_index${anFilter}${anLatest}
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.block_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        // Left-to-right text order: both JOIN ON clauses (checkpoint filter + latest, then
+        // anchor filter + latest), then the WHERE type-bound value, which is present only
+        // when type='block' (getData's list-all null filter drops the trailing undefined on
+        // a bare request, so the placeholder count still lines up). count and list share
+        // IDENTICAL FROM+JOIN text, so this one array binds correctly against both.
+        let args = [...src.filterParams, ...latest.params, ...src.filterParams, ...src.filterParams, config.data.search];
+        return [query, args, count];
     }
 
     // Full XCALL lifecycle by call_id: the source request (xcalls) + the target-chain

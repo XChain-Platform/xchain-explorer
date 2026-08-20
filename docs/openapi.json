@@ -3328,6 +3328,117 @@
         }
       }
     },
+    "/{COIN}/api/emissions/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "emissions_query_type",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract action emissions, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index; execution = execution action index; block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "contract",
+                "execution",
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/emissions": {
+      "get": {
+        "operationId": "emissions",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract action emissions (per-contract rollup across executions)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/deploy_chunks": {
       "get": {
         "operationId": "deploy_chunks",
@@ -5997,6 +6108,118 @@
         }
       }
     },
+    "/{COIN}/api/vote_delegations/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "vote_delegations_query_type",
+        "tags": [
+          "Governance"
+        ],
+        "summary": "VOTE v3 liquid-democracy delegations, filtered (live-only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): tick = a token tick; delegator = the delegating holder's XChain address; delegate = the recipient XChain address; block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tick",
+                "delegator",
+                "delegate",
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/vote_delegations": {
+      "get": {
+        "operationId": "vote_delegations",
+        "tags": [
+          "Governance"
+        ],
+        "summary": "VOTE v3 liquid-democracy delegations (live-only: revoked and re-pointed rows are excluded)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/bet_feeds/{QUERY}/{TYPE}": {
       "get": {
         "operationId": "bet_feeds_query_type",
@@ -6798,6 +7021,116 @@
         }
       }
     },
+    "/{COIN}/api/attest_validator_stats/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "attest_validator_stats_query_type",
+        "tags": [
+          "Attestations"
+        ],
+        "summary": "Per-validator per-provider ATTEST accountability counters, filtered by validator or provider",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): pubkey = pubkey; provider = attestation provider id (e.g. http_get)"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pubkey",
+                "provider"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/attest_validator_stats": {
+      "get": {
+        "operationId": "attest_validator_stats",
+        "tags": [
+          "Attestations"
+        ],
+        "summary": "Per-validator per-provider ATTEST accountability counters (fulfilled/missed/slashed + quality score)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/anchors/{QUERY}/{TYPE}": {
       "get": {
         "operationId": "anchors_query_type",
@@ -6929,6 +7262,447 @@
               "type": "string"
             },
             "description": "The value to look up (interpreted per {TYPE}): block = block height"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/commitments/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "commitments_query_type",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Per-block SPV commitments, filtered by block",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/commitments": {
+      "get": {
+        "operationId": "commitments",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Per-block SPV commitments (state tree roots) with the covering checkpoint and carrying ANCHOR when present",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/anchor_reward_attestations/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "anchor_reward_attestations_query_type",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Quorum-attested ANCHOR publisher rewards, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): anchor = the mined DOGE anchor transaction id (doge_anchor_txid); block = block height; pubkey = pubkey"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "anchor",
+                "block",
+                "pubkey"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/anchor_reward_attestations": {
+      "get": {
+        "operationId": "anchor_reward_attestations",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Quorum-attested ANCHOR publisher rewards (hub-mirrored)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/capability_snapshots/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "capability_snapshots_query_type",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Capability snapshot electorate rows (stake weight per key per capability at a snapshot block), filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): capability = capability; block = block height; pubkey = pubkey"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "capability",
+                "block",
+                "pubkey"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/capability_snapshots": {
+      "get": {
+        "operationId": "capability_snapshots",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Capability snapshot electorate: which signing keys carried which stake weight, per block",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/reorgs/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "reorgs_query_type",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Recorded chain reorgs for this coin, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): status = lifecycle status; block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "status",
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/reorgs": {
+      "get": {
+        "operationId": "reorgs",
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Recorded chain reorgs for this coin, most recent first (hub-owned)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
           },
           {
             "$ref": "#/components/parameters/page"

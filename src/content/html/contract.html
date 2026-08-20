@@ -194,6 +194,41 @@
     </div>
 </div>
 
+<!-- Emissions this contract has produced across every EXECUTE call against it
+     (VM emit.execute / emit.send, plus internal ledger-only emissions such as
+     SLASH whose Child Action is null). The per-execution ordered list already
+     lives on the execution's own action detail page (contracts.js EXECUTE.afterMain);
+     this is the per-contract rollup joined through contract_executions. -->
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-satellite-dish"></i> Emissions
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-emission">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Execution</th>
+                        <th class="">Contract</th>
+                        <th class="">Position</th>
+                        <th class="">Emitted Action</th>
+                        <th class="">Child Action</th>
+                        <th class="">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="9" class="loading-data">Loading emission data...</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="text/javascript">
 $(document).ready(function() {
 
@@ -472,6 +507,10 @@ $(document).ready(function() {
 
     // Load stakes targeting this contract
     loadDatatablesData(XC.coin, 'contract_stake', XC.query, 'contract');
+
+    // Load emissions produced by this contract (per-contract rollup, joined
+    // through contract_executions since contract_emissions is keyed by execution).
+    loadDatatablesData(XC.coin, 'emission', XC.query, 'contract');
 
     // SPV contract-state proof. state_value null means the key has no leaf
     // (either never written or tombstoned); both read as non-inclusion here,

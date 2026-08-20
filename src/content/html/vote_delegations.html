@@ -1,0 +1,48 @@
+<!-- Vote Delegations (VOTE v3 liquid democracy: standing per-token weight delegation) -->
+<!-- Live-only list: the server's getVoteDelegations query already excludes every
+     revoked or re-pointed delegation (a correlated MAX per (tick_id, delegator) plus
+     a not-cleared filter), so every row this table receives IS the current delegation
+     for its tick/delegator pair - there is no client-side filtering to do here. -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-people-arrows"></i> Vote Delegations
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-vote_delegation">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Tick</th>
+                        <th class="address">Delegator</th>
+                        <th class="address">Delegate</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="7" class="loading-data">Loading vote delegation data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Vote Delegations';
+    XC.pageInfo.description = 'Standing VOTE v3 liquid-democracy delegations of voting weight, showing only the current (non-revoked, non-superseded) delegation per token holder, on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/vote_delegations';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'vote_delegation', null, null);
+
+});
+</script>

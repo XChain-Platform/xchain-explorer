@@ -96,7 +96,12 @@ const HUB_LOCAL_TABLES = [
     'p2p_peers.sql',
     'consensus_state.sql',
     'configs.sql',
-    'telemetry_pings.sql'
+    'telemetry_pings.sql',
+    // getReorgs' no-hub leg reads reorg_attestations out of the same co-located
+    // hub schema. Its primary transport is the getreorghistory RPC, but this tier
+    // deliberately runs the NO_HUB shape, which is the only shape in which the
+    // co-located SQL meets the real DDL.
+    'reorg_attestations.sql'
 ];
 
 // Per-method probe arguments for read paths whose WHERE clause binds a
@@ -408,7 +413,16 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             '/RBTC/api/governance_votes',
             '/RBTC/api/peers',
             '/RBTC/api/consensus_state',
-            '/RBTC/api/configs'
+            '/RBTC/api/configs',
+            // M3: four more callers of the same bare-request shape. commitments and
+            // anchor_reward_attestations carry unconditional _checkpointSource
+            // placeholders (the exact "phantom search seed drops a real placeholder"
+            // risk this test exists for), capability_snapshots binds none, and reorgs
+            // binds its own mandatory chain scope.
+            '/RBTC/api/commitments',
+            '/RBTC/api/anchor_reward_attestations',
+            '/RBTC/api/capability_snapshots',
+            '/RBTC/api/reorgs'
         ];
         const failures = [];
         for (const route of routes) {

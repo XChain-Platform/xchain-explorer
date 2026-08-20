@@ -1335,7 +1335,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping','checkpoint','price_snapshot','coinpay_obligation'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','capability_snapshot','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping','checkpoint','commitment','anchor_reward_attestation','reorg','attest_validator_stat','price_snapshot','emission','coinpay_obligation'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -2202,6 +2202,40 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).text(isNull(signer_count) ? '-' : signer_count);
                 $('td', row).eq(8).html(formatLink('/' + coin + '/checkpoint/' + block_index, 'view', null, true));
             }
+            // Per-block SPV commitments (state_tree_roots) plus the covering checkpoint and
+            // the ANCHOR that carried it. checkpoint_seq/anchor_action are null when this
+            // block has no covering checkpoint or carrying ANCHOR YET, which is the normal
+            // state near the tip (checkpoints cut on a cadence, ANCHOR batches several
+            // heights), so both render as a neutral badge rather than an error or a blank.
+            // Height is plain text rather than a self-link: this section always sits on the
+            // block it describes.
+            if(action=='commitment'){
+                let height              = data[1];
+                let balances_root       = data[2];
+                let stakes_root         = data[3];
+                let commit_state_root   = data[4];
+                let merkle_root         = data[5];
+                let contract_state_root = data[6];
+                let checkpoint_seq      = data[7];
+                let checkpoint_signers  = data[8];
+                let anchor_action       = data[9];
+                let anchor_version      = data[10];
+                $('td', row).eq(1).text(numeral(height).format(fmtInteger));
+                $('td', row).eq(2).html(formatHash(balances_root));
+                $('td', row).eq(3).html(formatHash(stakes_root));
+                $('td', row).eq(4).html(formatHash(commit_state_root));
+                $('td', row).eq(5).html(formatHash(merkle_root));
+                $('td', row).eq(6).html(isNull(contract_state_root) ? '<span class="text-muted">Not armed</span>' : formatHash(contract_state_root));
+                $('td', row).eq(7).html(isNull(checkpoint_seq)
+                    ? '<span class="badge text-bg-secondary">Not yet checkpointed</span>'
+                    : 'Seq ' + numeral(checkpoint_seq).format(fmtInteger) + ' &middot; ' +
+                      numeral(isNull(checkpoint_signers) ? 0 : checkpoint_signers).format(fmtInteger) + ' signers ' +
+                      formatLink('/' + coin + '/checkpoint/' + height, 'view', null, true));
+                $('td', row).eq(8).html(isNull(anchor_action)
+                    ? '<span class="badge text-bg-secondary">Not yet anchored</span>'
+                    : 'ANCHOR v' + numeral(anchor_version).format('0') + ' ' +
+                      formatLink('/' + coin + '/action/' + anchor_action, 'view', null, true));
+            }
             // Validator PBFT price round (hub-mirrored, id-keyed). reference_block names a
             // height on reference_chain, which is not necessarily this coin's chain, so it
             // stays plain text rather than becoming a local block link.
@@ -2223,6 +2257,45 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).text(isNull(round) ? '-' : round);
                 $('td', row).eq(8).html('<span class="badge text-bg-secondary">' + (round_status || '-') + '</span>');
             }
+            // Per-contract emission rollup. Execution and Child Action link to their own
+            // action detail pages; Child Action is null for an internal emission (e.g.
+            // SLASH) that moves ledger state without minting a new on-wire action.
+            if(action=='emission'){
+                let execution_index = data[3];
+                let contract_index  = data[4];
+                let position        = data[5];
+                let emitted_action  = data[6];
+                let child_action    = data[7];
+                let emission_status = data[8];
+                $('td', row).eq(3).html(isNull(execution_index) ? '-' : formatLink('/' + coin + '/action/' + execution_index, numeral(execution_index).format(fmtInteger)));
+                $('td', row).eq(4).html(isNull(contract_index) ? '-' : formatLink('/' + coin + '/contract/' + contract_index, contract_index));
+                $('td', row).eq(5).text(isNull(position) ? '-' : position);
+                $('td', row).eq(6).html(isNull(emitted_action) ? '-' : '<span class="badge text-bg-secondary">' + escapeHtml(emitted_action) + '</span>');
+                $('td', row).eq(7).html(isNull(child_action) ? '<span class="text-muted">internal</span>' : formatLink('/' + coin + '/action/' + child_action, numeral(child_action).format(fmtInteger)));
+                $('td', row).eq(8).html('<span class="badge text-bg-' + (emission_status=='valid' ? 'success' : 'danger') + '">' + escapeHtml(emission_status || '-') + '</span>');
+            }
+            // Cross-chain reorg attestation (hub-owned, id-keyed). reorg_height is THIS
+            // coin's own chain height (both transports scope to it), so it links to the
+            // local block page. reorg_timestamp is stored in MILLISECONDS, unlike
+            // price_snapshot's block_timestamp above, which is Unix seconds, so it is
+            // divided down before formatLivestamp. The status word is renamed here to avoid
+            // shadowing the positional `status` destructured at the top of createdRow.
+            if(action=='reorg'){
+                let reorg_timestamp = data[1];
+                let reorg_height    = data[2];
+                let reorg_id        = data[3];
+                let affected_chains = data[4];
+                let validator_count = data[5];
+                let reorg_status    = data[6];
+                let chains = [];
+                try { chains = JSON.parse(affected_chains) || []; } catch(e){ chains = []; }
+                $('td', row).eq(1).html(isNull(reorg_timestamp) ? '-' : formatLivestamp(Math.floor(reorg_timestamp / 1000)));
+                $('td', row).eq(2).html(isNull(reorg_height) ? '-' : formatLink('/' + coin + '/block/' + reorg_height, numeral(reorg_height).format(fmtInteger)));
+                $('td', row).eq(3).html(isNull(reorg_id) ? '-' : formatHash(reorg_id, 24));
+                $('td', row).eq(4).text(chains.length ? chains.join(', ') : '-');
+                $('td', row).eq(5).text(isNull(validator_count) ? '-' : validator_count);
+                $('td', row).eq(6).html('<span class="badge text-bg-' + (reorg_status=='confirmed' ? 'success' : 'danger') + '">' + escapeHtml(reorg_status || '-') + '</span>');
+            }
             // Contract-targeted stake delegation. deactivation_block is null while the
             // delegation is live, which is the difference between a current delegation and
             // a historical one, so it renders as a dash rather than being hidden.
@@ -2238,6 +2311,19 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).text(isNull(activation) ? '-' : numeral(activation).format(fmtInteger));
                 $('td', row).eq(8).text(isNull(deactivation) ? '-' : numeral(deactivation).format(fmtInteger));
                 $('td', row).eq(9).html(action_link);
+            }
+            // VOTE v3 liquid-democracy delegation. The row is already the LIVE delegation
+            // for its (tick, delegator): revoked and re-pointed rows are excluded
+            // server-side, never here. The trailing view button opens the VOTE v3 action
+            // detail, where the single-action join renders the delegation itself.
+            if(action=='vote_delegation'){
+                let tick      = data[3];
+                let delegator = data[4];
+                let delegate  = data[5];
+                $('td', row).eq(3).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+                $('td', row).eq(4).html(isNull(delegator) ? '-' : formatLink('/' + coin + '/address/' + delegator, delegator));
+                $('td', row).eq(5).html(isNull(delegate) ? '-' : formatLink('/' + coin + '/address/' + delegate, delegate));
+                $('td', row).eq(6).html(action_link);
             }
             // COINPAY settlement record. txid/vout name the specific output that paid THIS
             // obligation, so one transaction legitimately appears on several rows.
@@ -2292,6 +2378,47 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(5).html(yesno(self_test_ok));
                 $('td', row).eq(6).html(yesno(enabled));
                 $('td', row).eq(7).html(isNull(qual_block) ? '-' : formatLink('/' + coin + '/block/' + qual_block, numeral(qual_block).format(fmtInteger)));
+            }
+            // Capability snapshot (co-located checkpoint mirror; id-keyed): the HISTORICAL
+            // electorate behind the qualification view above. amount is a stake weight, not
+            // a token balance, so it is labelled rather than rendered as a bare number;
+            // source is the staking source the weight groups under, and is the empty string
+            // before stake-weighted-quorum activation, when only the qualifying count
+            // mattered.
+            if(action=='capability_snapshot'){
+                let snapshot_block = data[2];
+                let capability     = data[3];
+                let signing_pubkey = data[4];
+                let amount         = data[5];
+                let source_key     = data[6];
+                $('td', row).eq(1).html(formatLivestamp(data[1]));
+                $('td', row).eq(2).html(isNull(snapshot_block) ? '-' : formatLink('/' + coin + '/block/' + snapshot_block, numeral(snapshot_block).format(fmtInteger)));
+                $('td', row).eq(3).html('<span class="badge text-bg-info">' + escapeHtml(capability || '-') + '</span>');
+                $('td', row).eq(4).html(isNull(signing_pubkey) ? '-' : formatHash(signing_pubkey));
+                $('td', row).eq(5).html(isNull(amount) ? '-' : numeral(amount).format(fmtCoin) + ' stake weight');
+                $('td', row).eq(6).text(isNull(source_key) || source_key === '' ? '-' : source_key);
+            }
+            // Per-validator per-provider ATTEST accountability counters (indexer-owned; no
+            // action row, so no status badge and no action link - this sits in the no-color
+            // list above). slashed_count and quality_score are Phase 4 columns that read 0
+            // on every venue today (no producer yet), still surfaced so the column is ready
+            // when one ships.
+            if(action=='attest_validator_stat'){
+                let pubkey     = data[1];
+                let provider   = data[2];
+                let fulfilled  = data[3];
+                let missed     = data[4];
+                let slashed    = data[5];
+                let quality    = data[6];
+                let lastBlock  = data[7];
+                $('td', row).eq(1).html(formatHash(pubkey));
+                $('td', row).eq(2).html('<span class="badge text-bg-info">' + escapeHtml(provider || '-') + '</span>');
+                $('td', row).eq(3).text(isNull(fulfilled) ? '-' : numeral(fulfilled).format(fmtInteger));
+                $('td', row).eq(4).html('<span class="badge text-bg-' + (Number(missed) > 0 ? 'warning' : 'secondary') + '">' + (isNull(missed) ? '-' : numeral(missed).format(fmtInteger)) + '</span>');
+                $('td', row).eq(5).html('<span class="badge text-bg-' + (Number(slashed) > 0 ? 'danger' : 'secondary') + '">' + (isNull(slashed) ? '-' : numeral(slashed).format(fmtInteger)) + '</span>');
+                let qClass = (Number(quality) >= 0.9) ? 'success' : (Number(quality) >= 0.5) ? 'warning' : 'danger';
+                $('td', row).eq(6).html(isNull(quality) ? '-' : '<span class="badge text-bg-' + qClass + '">' + numeral(quality).format('0.0000') + '</span>');
+                $('td', row).eq(7).html(isNull(lastBlock) ? '-' : formatLink('/' + coin + '/block/' + lastBlock, numeral(lastBlock).format(fmtInteger)));
             }
             // Governance parameter proposal (hub-owned; id-keyed). proposal_id links the votes view.
             if(action=='governance_proposal'){

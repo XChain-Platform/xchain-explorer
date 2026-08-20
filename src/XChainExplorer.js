@@ -211,7 +211,13 @@ class XChainExplorer {
                 '/{COIN}/checkpoints'         : 'checkpoints.html',
                 '/{COIN}/checkpoint/{QUERY}'  : 'checkpoint.html',
                 '/{COIN}/price_snapshots'     : 'price_snapshots.html',
+                // The historical electorate behind those checkpoints: which signing keys
+                // carried which stake weight for a capability at each snapshot block.
+                '/{COIN}/capability_snapshots' : 'capability_snapshots.html',
                 '/{COIN}/contract_delegations' : 'contract_delegations.html',
+                '/{COIN}/vote_delegations'    : 'vote_delegations.html',
+                '/{COIN}/attest_validator_stats' : 'attest_validator_stats.html',
+                '/{COIN}/reorgs'              : 'reorgs.html',
                 // COINPAY: `coinpays` are the settlement records, `coinpay_obligations`
                 // the who-owes-what-native-coin view an ORDER_MATCH creates.
                 '/{COIN}/coinpays'            : 'coinpays.html',
@@ -311,6 +317,10 @@ class XChainExplorer {
                 '/{COIN}/api/executions/{QUERY}/{TYPE}'        : ['getExecutions',        ['block', 'address', 'contract']],
                 '/{COIN}/api/executions'                       : ['getExecutions'],
                 '/{COIN}/api/execution/{QUERY}'                : ['getExecution',          'execution'],
+                // Contract action emissions, rolled up per CONTRACT across every EXECUTE
+                // call against it (contract_emissions joined through contract_executions).
+                '/{COIN}/api/emissions/{QUERY}/{TYPE}'         : ['getEmissions',         ['contract', 'execution', 'block']],
+                '/{COIN}/api/emissions'                        : ['getEmissions'],
                 '/{COIN}/api/deploy_chunks'                    : ['getDeployChunks'],
                 '/{COIN}/api/deposits/{QUERY}/{TYPE}'          : ['getDeposits',          ['block', 'address', 'source', 'contract']],
                 '/{COIN}/api/withdrawals/{QUERY}/{TYPE}'       : ['getWithdrawals',       ['block', 'address', 'source', 'contract']],
@@ -329,6 +339,10 @@ class XChainExplorer {
                 '/{COIN}/api/contract_unstakes'                : ['getContractUnstakes'],
                 '/{COIN}/api/contract_delegations/{QUERY}/{TYPE}' : ['getContractDelegations', ['block', 'address', 'contract']],
                 '/{COIN}/api/contract_delegations'             : ['getContractDelegations'],
+                // VOTE v3 liquid-democracy delegations. Live-only: a delegation that was
+                // later re-pointed or cleared is excluded server-side, never listed as current.
+                '/{COIN}/api/vote_delegations/{QUERY}/{TYPE}'  : ['getVoteDelegations',   ['tick', 'delegator', 'delegate', 'block']],
+                '/{COIN}/api/vote_delegations'                 : ['getVoteDelegations'],
                 '/{COIN}/api/slash_events/{QUERY}/{TYPE}'      : ['getSlashEvents',       ['block', 'address', 'contract']],
                 '/{COIN}/api/slash_events'                     : ['getSlashEvents'],
                 // Capability staking lifecycle list views (UNSTAKE v0, DELEGATE v2/v3 revoke, COLLECT)
@@ -353,6 +367,10 @@ class XChainExplorer {
                 '/{COIN}/api/governance_proposals'                : ['getGovernanceProposals'],
                 '/{COIN}/api/governance_votes/{QUERY}/{TYPE}'      : ['getGovernanceVotes',       ['proposal', 'voter']],
                 '/{COIN}/api/governance_votes'                    : ['getGovernanceVotes'],
+                // Cross-chain reorg attestations, scoped to THIS coin's chain on both
+                // transports (the hub RPC returns every chain's history unfiltered).
+                '/{COIN}/api/reorgs/{QUERY}/{TYPE}'               : ['getReorgs',               ['status', 'block']],
+                '/{COIN}/api/reorgs'                              : ['getReorgs'],
                 // Hub operational state (p2p peers, consensus key/value, config oracle, node
                 // telemetry). Hub-local, no on-chain action and no hub RPC surface, so served
                 // only from the mandatory co-located hub DB (id-keyed).
@@ -376,6 +394,10 @@ class XChainExplorer {
                 // Attestation Endpoints (ATTEST v0 requests + v1 responses from the `attests` table)
                 '/{COIN}/api/attestations/{QUERY}/{TYPE}'      : ['getAttestations',      ['block', 'address', 'contract']],
                 '/{COIN}/api/attestations'                     : ['getAttestations'],
+                // Per-validator per-provider ATTEST accountability counters (fulfilled /
+                // missed / slashed + quality score). Indexer-owned, standalone, id-keyed.
+                '/{COIN}/api/attest_validator_stats/{QUERY}/{TYPE}' : ['getAttestValidatorStats', ['pubkey', 'provider']],
+                '/{COIN}/api/attest_validator_stats'           : ['getAttestValidatorStats'],
                 // VOTE governance endpoints (polls = VOTE v0, votes = v1 ballots, poll results
                 // = frozen VOTE v2 tally). Poll id IS the creating action_index.
                 '/{COIN}/api/polls/{QUERY}/{TYPE}'            : ['getPolls',            ['block', 'tick', 'status', 'source']],
@@ -402,6 +424,16 @@ class XChainExplorer {
                 // ahead of the catch-all, so the two never collide) because it runs
                 // per-call Ed25519 over the whole qualifying validator set.
                 '/{COIN}/api/checkpoint/{QUERY}'               : ['getCheckpoint',       'block'],
+                // The rest of the checkpoint/ANCHOR family, all read from the co-located
+                // mirror schema: the per-block SPV commitments a checkpoint signs over, the
+                // quorum-attested publisher rewards an ANCHOR pays, and the historical
+                // electorate those signatures verify against.
+                '/{COIN}/api/commitments/{QUERY}/{TYPE}'       : ['getCommitments',      ['block']],
+                '/{COIN}/api/commitments'                      : ['getCommitments'],
+                '/{COIN}/api/anchor_reward_attestations/{QUERY}/{TYPE}' : ['getAnchorRewardAttestations', ['anchor', 'block', 'pubkey']],
+                '/{COIN}/api/anchor_reward_attestations'       : ['getAnchorRewardAttestations'],
+                '/{COIN}/api/capability_snapshots/{QUERY}/{TYPE}' : ['getCapabilitySnapshots', ['capability', 'block', 'pubkey']],
+                '/{COIN}/api/capability_snapshots'             : ['getCapabilitySnapshots'],
                 '/{COIN}/api/sends/{QUERY}/{TYPE}'             : ['getSends',            ['block', 'address', 'source', 'destination', 'token']],
                 '/{COIN}/api/sleeps/{QUERY}/{TYPE}'            : ['getSleeps',           ['block', 'address', 'token']],
                 '/{COIN}/api/swaps/{QUERY}/{TYPE}'             : ['getSwaps',            ['block', 'address', 'token']],
@@ -496,8 +528,19 @@ class XChainExplorer {
                 '/{COIN}/explorer/price_snapshots'                          : ['getPriceSnapshots'],
                 '/{COIN}/explorer/contract_delegations/{QUERY}/{TYPE}'      : ['getContractDelegations', ['block', 'address', 'contract']],
                 '/{COIN}/explorer/contract_delegations'                     : ['getContractDelegations'],
+                '/{COIN}/explorer/vote_delegations/{QUERY}/{TYPE}'          : ['getVoteDelegations',     ['tick', 'delegator', 'delegate', 'block']],
+                '/{COIN}/explorer/vote_delegations'                         : ['getVoteDelegations'],
+                '/{COIN}/explorer/capability_snapshots/{QUERY}/{TYPE}'      : ['getCapabilitySnapshots', ['capability', 'block', 'pubkey']],
+                '/{COIN}/explorer/capability_snapshots'                     : ['getCapabilitySnapshots'],
+                // Registered ahead of its page: M4.6 renders anchor_reward_attestations,
+                // and the datatable-endpoint guard requires the feed to already agree with
+                // whatever loadDatatablesData the fragment eventually calls.
+                '/{COIN}/explorer/anchor_reward_attestations/{QUERY}/{TYPE}' : ['getAnchorRewardAttestations', ['anchor', 'block', 'pubkey']],
+                '/{COIN}/explorer/anchor_reward_attestations'                : ['getAnchorRewardAttestations'],
                 '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address']],
                 '/{COIN}/explorer/executions/{QUERY}/{TYPE}'                 : ['getExecutions',   ['block', 'address', 'contract']],
+                '/{COIN}/explorer/emissions/{QUERY}/{TYPE}'                  : ['getEmissions',    ['contract', 'execution', 'block']],
+                '/{COIN}/explorer/emissions'                                 : ['getEmissions'],
                 '/{COIN}/explorer/deploy_chunks'                             : ['getDeployChunks'],
                 '/{COIN}/explorer/deposits/{QUERY}/{TYPE}'                   : ['getDeposits',     ['block', 'address', 'contract']],
                 '/{COIN}/explorer/withdrawals/{QUERY}/{TYPE}'                : ['getWithdrawals',  ['block', 'address', 'contract']],
@@ -517,11 +560,15 @@ class XChainExplorer {
                 '/{COIN}/explorer/validator_capabilities/{QUERY}/{TYPE}'    : ['getValidatorCapabilities', ['capability', 'pubkey']],
                 '/{COIN}/explorer/governance_proposals/{QUERY}/{TYPE}'      : ['getGovernanceProposals',   ['status', 'parameter', 'proposal']],
                 '/{COIN}/explorer/governance_votes/{QUERY}/{TYPE}'          : ['getGovernanceVotes',       ['proposal', 'voter']],
+                '/{COIN}/explorer/reorgs/{QUERY}/{TYPE}'                    : ['getReorgs',                ['status', 'block']],
+                '/{COIN}/explorer/reorgs'                                   : ['getReorgs'],
                 '/{COIN}/explorer/peers/{QUERY}/{TYPE}'                     : ['getPeers',                 ['validator']],
                 '/{COIN}/explorer/consensus_state/{QUERY}/{TYPE}'           : ['getConsensusState',        ['key']],
                 '/{COIN}/explorer/configs/{QUERY}/{TYPE}'                   : ['getConfigs',               ['coin', 'module']],
                 '/{COIN}/explorer/telemetry_pings/{QUERY}/{TYPE}'           : ['getTelemetryPings',        ['event', 'install', 'country']],
                 '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
+                '/{COIN}/explorer/attest_validator_stats/{QUERY}/{TYPE}'    : ['getAttestValidatorStats', ['pubkey', 'provider']],
+                '/{COIN}/explorer/attest_validator_stats'                   : ['getAttestValidatorStats'],
                 '/{COIN}/explorer/bet_feeds/{QUERY}/{TYPE}'                 : ['getBetFeeds',     ['block', 'address', 'source', 'token', 'status']],
                 '/{COIN}/explorer/bets/{QUERY}/{TYPE}'                      : ['getBets',         ['block', 'address', 'feed', 'token', 'status']],
                 '/{COIN}/explorer/polls/{QUERY}/{TYPE}'                     : ['getPolls',        ['block', 'tick', 'status', 'source']],
@@ -529,6 +576,8 @@ class XChainExplorer {
                 '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
                 '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
                 '/{COIN}/explorer/anchors/{QUERY}/{TYPE}'                   : ['getAnchors',      ['block', 'chain', 'network', 'status']],
+                '/{COIN}/explorer/commitments/{QUERY}/{TYPE}'               : ['getCommitments',  ['block']],
+                '/{COIN}/explorer/commitments'                              : ['getCommitments'],
                 '/{COIN}/explorer/cross_chain_matches/{QUERY}/{TYPE}'       : ['getCrossChainMatches',     ['match', 'block', 'status']],
                 '/{COIN}/explorer/cross_chain_settlements/{QUERY}/{TYPE}'   : ['getCrossChainSettlements', ['match', 'block']],
                 '/{COIN}/explorer/prices/{QUERY}/{TYPE}'                    : ['getPrices',       ['block', 'address', 'source', 'token']],
@@ -1355,6 +1404,15 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.code_hash, info.api_version, info.cooldown_blocks, info.slash_destination, status, info.action_index];
                     if(method=='getExecutions')
                         info = [count_reverse, info.block_index, info.timestamp, info.contract_index, info.caller, info.method_name, info.gas_used, status, info.action_index];
+                    // Per-contract emission rollup (contract_emissions joined through
+                    // contract_executions). Cursor is m.id, since this table's own
+                    // action_index is nullable for internal emissions such as SLASH, so it
+                    // sits with the id-keyed views. status here is the parent EXECUTE's real
+                    // valid/invalid state rather than a lifecycle word, and is shown as text
+                    // instead of row color: coloring an emissions row would really be
+                    // recoloring the execution's outcome, on a row about something else.
+                    if(method=='getEmissions')
+                        info = [count_reverse, info.block_index, info.timestamp, info.execution_index, info.contract_index, info.position, info.emitted_action, info.action_index, info.status, info.id];
                     if(['getDeposits','getWithdrawals'].includes(method))
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.contract_index, info.tick, info.amount, status, info.action_index];
                     // Capability staking list pages. The raw stakes page keeps action_index LAST
@@ -1403,6 +1461,16 @@ class XChainExplorer {
                     // Attestation list page
                     if(method=='getAttestations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer];
+                    // Per-validator per-provider ATTEST accountability counters (indexer-owned,
+                    // id-keyed: the surrogate id is the paging cursor and stays LAST).
+                    // last_updated_block is the rendered freshness column and lands
+                    // second-to-last, where createdRow reads `status` positionally, so
+                    // attest_validator_stat sits in the client's no-color list rather than
+                    // having a numeric height read as a coloring flag. slashed_count and
+                    // quality_score are Phase 4 columns (0 until a producer exists) but are
+                    // still surfaced: the validator detail page needs the full counter set.
+                    if(method=='getAttestValidatorStats')
+                        info = [count_reverse, info.validator_pubkey, info.provider_id, info.fulfilled_count, info.missed_count, info.slashed_count, info.quality_score, info.last_updated_block, info.id];
                     // VOTE poll list page. poll_status (lifecycle enum), end_block (close
                     // height) and callback_contract_index (non-null = binding poll: the
                     // result fires a contract method) are rendered columns; status (0/1
@@ -1414,6 +1482,14 @@ class XChainExplorer {
                     // is the source. action_index stays LAST (paging cursor; links the ballot action).
                     if(method=='getVotes')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.poll_index, info.choice, info.share, status, info.action_index];
+                    // VOTE v3 liquid-democracy delegations. The row IS already the live
+                    // delegation for its (tick, delegator): getVoteDelegations' correlated MAX
+                    // excludes every superseded, re-pointed or cleared row before this runs, so
+                    // no further live/revoked filtering happens here. Carries a real 0/1 action
+                    // status and an action_index, so it takes the standard colored,
+                    // view-button row shape.
+                    if(method=='getVoteDelegations')
+                        info = [count_reverse, info.block_index, info.timestamp, info.tick, info.delegator, info.delegate, status, info.action_index];
                     // BET market list page. The feed id IS action_index, which stays LAST
                     // (the datatables client uses it as the paging offset cursor). Label is
                     // attacker-controlled and is escaped client-side before it reaches the DOM.
@@ -1442,6 +1518,31 @@ class XChainExplorer {
                     // Verify control instead.
                     if(method=='getCheckpoints')
                         info = [count_reverse, info.block_index, info.created_at, info.checkpoint_seq, info.snapshot_block, info.state_root, info.block_merkle_root, info.signer_count, info.block_index];
+                    // Per-block SPV commitments (state_tree_roots, id-keyed - no action_index).
+                    // The checkpoint_/anchor_ fields are NULL when this block has no covering
+                    // checkpoint yet or no carrying ANCHOR yet, both normal near the tip rather
+                    // than errors; the client renders those as a neutral pending badge.
+                    // m.block_index doubles as the paging cursor (LAST), same as getCheckpoints.
+                    if(method=='getCommitments')
+                        info = [count_reverse, info.block_index, info.balances_root, info.stakes_root, info.state_root, info.block_merkle_root, info.contract_state_root, info.checkpoint_seq, info.checkpoint_signer_count, info.anchor_action_index, info.anchor_version, info.block_index];
+                    // Quorum-attested ANCHOR publisher rewards (hub-mirrored, id-keyed; never
+                    // routed through HubOperationalCache - see _checkpointSource). id is the
+                    // paging cursor (LAST); doge_anchor_txid lands second-to-last, so
+                    // anchor_reward_attestation sits in the no-color exclusion list (it is the
+                    // mined DOGE transaction the reward is proof-bound to, not a status).
+                    // reward_amount (audit-only) and publisher_attestations (raw quorum JSON)
+                    // are deliberately not carried. This row has no page yet - M4.6 renders it -
+                    // but /api routes its json.data through here too.
+                    if(method=='getAnchorRewardAttestations')
+                        info = [count_reverse, info.created_at, info.chain, info.network, info.reward_type, info.round_reference, info.snapshot_block, info.publisher, info.doge_anchor_txid, info.id];
+                    // Capability snapshots: the historical electorate behind those checkpoints
+                    // (which signing key carried which stake weight for a capability at a
+                    // snapshot block). id is the paging cursor (LAST); source is second-to-last
+                    // and carries the staking source the weight groups under (empty before
+                    // stake-weighted-quorum activation), not a status, so this action is in the
+                    // client's no-color list.
+                    if(method=='getCapabilitySnapshots')
+                        info = [count_reverse, info.created_at, info.snapshot_block, info.capability, info.signing_pubkey, info.amount, info.source, info.id];
                     // Validator PBFT COIN/FIAT price rounds (hub-mirrored, id-keyed). id is the
                     // paging cursor (LAST); status is a round-lifecycle word, not 0/1, so this
                     // action sits in the client's no-color list.
@@ -1451,6 +1552,13 @@ class XChainExplorer {
                     // an action_index, so it takes the standard colored-row shape.
                     if(method=='getContractDelegations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.target_contract_index, info.tick, info.activation_block, info.deactivation_block, status, info.action_index];
+                    // Cross-chain reorg attestations (hub-owned, id-keyed). id is the paging
+                    // cursor (LAST); status is a lifecycle word ('confirmed'/'rejected'), not
+                    // 0/1, so this action sits in the client's no-color list. reorg_timestamp is
+                    // stored in MILLISECONDS by the hub, which the client divides down before
+                    // rendering.
+                    if(method=='getReorgs')
+                        info = [count_reverse, info.reorg_timestamp, info.reorg_height, info.reorg_id, info.affected_chains, info.validator_count, info.status, info.id];
                     // COINPAY settlement records. obligation_action_index links the payment back
                     // to the obligation it discharged; txid/vout name the specific output that
                     // paid THAT obligation, which is why one transaction can appear on several rows.

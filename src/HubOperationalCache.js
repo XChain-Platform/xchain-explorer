@@ -100,6 +100,16 @@ class HubOperationalCache {
             this._cache.set(key, { at: now, rows: result });
             return result;
         }
+        // A -32601 (Method not found) is a definitive answer from a live hub:
+        // this hub build does not serve the method. That is a capability gap,
+        // not an outage, so neither the stale-cache bridge below nor db.js's
+        // unreachable-past-ceiling diagnosis applies; both would misname a
+        // version mismatch as downtime.
+        let rpcErr = this.connector.lastRpcError;
+        if(rpcErr && Number(rpcErr.code) === -32601)
+            throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
+                'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
+                'upgrade it to a build that serves ' + method + '.');
         if(result && result.error)
             console.warn('Hub operational read ' + method + ' returned error: ' + result.error);
         // Hub unreachable or degraded: serve the last-known rows while they

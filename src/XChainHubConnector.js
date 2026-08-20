@@ -73,6 +73,12 @@ class XChainHubConnector {
         // endpoint so callers can report exactly what was tried and why, instead
         // of a bare null.
         this.lastFailures = [];
+        // JSON-RPC error object from the most recent _call() that got a definitive
+        // protocol-level answer (e.g. {code:-32601} from a hub build that does not
+        // serve the method). Distinct from lastFailures: the hub was reachable and
+        // refused the request, so callers can report a capability gap instead of
+        // an outage. null when the last call got a result or never got an answer.
+        this.lastRpcError = null;
         // Cached full config tree + its high-water mark (epoch seconds). The mark
         // is sent back as `since_updated_at` so the hub returns only rows changed
         // since the previous poll; the delta is merged into this cache and the
@@ -100,10 +106,15 @@ class XChainHubConnector {
         // retrying (a degraded DB may recover within the backoff window), and
         // only surface it if no endpoint comes back healthy.
         let degraded = null;
+        this.lastRpcError = null;
         for(let attempt = 1; attempt <= attempts; attempt++){
             // Reset each pass so lastFailures reflects the final attempt's
             // outcome rather than accumulating duplicates across retries.
             this.lastFailures = [];
+            // Endpoints this pass that answered with a JSON-RPC error body
+            // rather than a result: the hub was up and refused the request at
+            // the protocol layer, which is not the same signal as unreachable.
+            let rpcAnswered = 0;
             // Attach the hub API key when configured: getallconfigs is in the
             // hub's sensitive-read tier (its response carries DB credentials)
             // and 401s without it once HUB_API_KEY is set hub-side. Read
@@ -120,6 +131,18 @@ class XChainHubConnector {
                         this._lastGoodIdx = idx;
                         return response.data.result;
                     }
+                    if(response.data && response.data.error !== undefined){
+                        // Definitive JSON-RPC error answer over 2xx (the hub's
+                        // router answers -32601 this way for a method its build
+                        // does not serve). Record it and keep walking the pass:
+                        // a mixed-version fleet may still hold an endpoint that
+                        // serves the method.
+                        this.lastRpcError = response.data.error;
+                        rpcAnswered++;
+                        this.lastFailures.push(url + ' -> rpc ' +
+                            (this.lastRpcError.code !== undefined ? this.lastRpcError.code : '?') +
+                            ' ' + (this.lastRpcError.message || ''));
+                    }
                 } catch(err){
                     if(err.response && err.response.data && err.response.data.result !== undefined){
                         degraded = err.response.data.result;
@@ -129,6 +152,11 @@ class XChainHubConnector {
                     }
                 }
             }
+            // Every endpoint answered at the protocol layer (no endpoint was
+            // unreachable): the outcome is deterministic for this request, so
+            // backoff cannot change it and the unreachable warning below would
+            // misname a live hub as down. Give up without retrying.
+            if(rpcAnswered === this.urls.length) break;
             // All endpoints failed this pass. Back off before the next unless
             // this was the final attempt.
             if(attempt < attempts){

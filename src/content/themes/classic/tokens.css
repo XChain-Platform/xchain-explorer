@@ -1,0 +1,161 @@
+/*
+ * Design tokens for the classic theme.
+ *
+ * Every visual decision made by css/xchain.css and css/xchain-charts.css
+ * reads a token from this file, so a skin is exactly one tokens.css that
+ * redefines values and changes no markup and no JavaScript.
+ *
+ * DARK/LIGHT AUDIT. The explorer's own stylesheets own no value that
+ * resolves per mode: every mode-dependent surface on a page comes from
+ * Bootstrap's `--bs-*` variables, which `data-bs-theme` already switches.
+ * Tokens that must follow the mode therefore either layer over a `--bs-*`
+ * variable (the chart tooltip) or are redefined in the dark block at the
+ * bottom of this file (the chart empty-state). Everything else is
+ * mode-independent as it renders today and stays flat here; the footer bar
+ * in particular is dark in both modes, and this file preserves that rather
+ * than quietly changing it.
+ *
+ * Values are the ones that render today, moved verbatim. Two rules that
+ * happen to share a number keep separate tokens when they are separate
+ * decisions, so a skin can move one without dragging the other.
+ */
+
+:root {
+
+    /* Primitives shared across families */
+    --xc-space-none: 0px;
+    --xc-border-width-none: 0px;
+    --xc-radius-lg: 6px;
+
+    /* Main-menu glyphs (.fa-xchain and the per-chain / external-explorer icons) */
+    --xc-glyph-width: 20px;
+    --xc-glyph-height: 20px;
+    --xc-glyph-xchain-height: 18px;
+    --xc-glyph-xchain-offset-top: 2px;
+    --xc-glyph-coin-offset-top: 5px;
+    --xc-glyph-explorer-offset-top: 0px;
+
+    /* Footer bar. Dark in both modes by design, so these are flat values.
+       The two colors are written in rgb() rather than hex because the
+       :hover / :visited rules that read them are compared as declared text. */
+    --xc-footer-width: 100%;
+    --xc-footer-height: 50px;
+    --xc-footer-bg: #222;
+    --xc-footer-color: rgb(255, 255, 255);
+    --xc-footer-link-color: rgb(136, 136, 136);
+
+    /* Cell truncation: how wide a cell may grow before it ellipsizes */
+    --xc-cell-truncate-max-width: 200px;
+    --xc-cell-truncate-min-width: 5px;
+
+    /* DataTables chrome */
+    --xc-datatable-info-padding-top: 0em;
+    --xc-datatable-length-select-padding: 2px;
+    --xc-datatable-paginate-padding-y: 0em;
+    --xc-datatable-paginate-padding-x: 0.5em;
+    --xc-datatable-placeholder-padding-y: 20px;
+
+    /* Table borders and density */
+    --xc-table-border-width: 1px;
+    --xc-table-border-color: #ddd;
+    --xc-table-cell-padding: 5px;
+
+    /* Market page */
+    --xc-market-info-height: 100px;
+    --xc-market-header-height: 65px;
+    --xc-market-header-padding-top: 5px;
+    --xc-market-icons-width: 135px;
+    --xc-market-icons-margin-x: 5px;
+    --xc-market-name-font-size: 1.5em;
+    --xc-market-name-font-weight: bold;
+    --xc-market-name-line-height: 1.0em;
+    --xc-market-pair-margin-top: 5px;
+    --xc-market-description-margin: 5px;
+    --xc-market-stats-th-width: 120px;
+
+    /* Icon sizing utilities */
+    --xc-wrapicon-25-width: 25px;
+    --xc-wrapicon-25-margin-right: 5px;
+    --xc-icon-size-20: 20px;
+    --xc-icon-size-48: 48px;
+    --xc-icon-size-64: 64px;
+
+    /* Status row backgrounds, applied to rows by the client */
+    --xc-row-bg-danger: #EFC9CA;
+    --xc-row-bg-success: #E0F2DF;
+    --xc-row-bg-warning: #FFFAA0;
+
+    /* Fixed column widths, one per column class */
+    --xc-th-width-record: 75px;
+    --xc-th-width-time: 150px;
+    --xc-th-width-amount: 100px;
+    --xc-th-width-quantity: 250px;
+    --xc-th-width-quantity-small: 100px;
+    --xc-th-width-view: 50px;
+    --xc-th-width-transactions: 120px;
+    --xc-th-width-address: 320px;
+
+    /* Stat tables */
+    --xc-table-stats-th-width: 120px;
+    --xc-table-address-stats-th-width: 175px;
+
+    /* Token and lock detail tables */
+    --xc-token-info-th-width: 120px;
+    --xc-enhanced-token-info-th-width: 140px;
+    --xc-lock-info-th-width: 120px;
+
+    /* Custom-content warning panel */
+    --xc-custom-content-warning-height: 200px;
+    --xc-custom-content-warning-bg: #D0D0D0;
+    --xc-custom-content-warning-padding-top: 20px;
+    --xc-custom-content-danger-margin: 20px;
+    --xc-custom-content-viewer-width: 100%;
+
+    /* Terms of use and search-term highlighting */
+    --xc-terms-item-margin-bottom: 10px;
+    --xc-highlight-bg: yellow;
+    --xc-highlight-font-weight: bold;
+
+    /* Chart layer: container and toolbar */
+    --xc-chart-width: 100%;
+    --xc-chart-canvas-width: 100%;
+    --xc-chart-toolbar-gap: .35rem;
+    --xc-chart-toolbar-padding-top: .25rem;
+    --xc-chart-toolbar-padding-bottom: .4rem;
+    --xc-chart-btn-padding-y: .1rem;
+    --xc-chart-btn-padding-x: .4rem;
+    --xc-chart-btn-font-size: .75rem;
+
+    /* Chart empty state. The only explorer-owned color that follows the
+       mode; its dark value is at the bottom of this file. */
+    --xc-chart-nodata-min-height: 200px;
+    --xc-chart-nodata-font-size: 15px;
+    --xc-chart-nodata-font-weight: bold;
+    --xc-chart-nodata-color: #303030;
+
+    /* Chart tooltip. Its surface follows the mode through Bootstrap, which
+       is the honest source for body background, text and border color. */
+    --xc-chart-tooltip-z-index: 1080;
+    --xc-chart-tooltip-transition-duration: .1s;
+    --xc-chart-tooltip-padding-y: .4rem;
+    --xc-chart-tooltip-padding-x: .6rem;
+    --xc-chart-tooltip-border-width: 1px;
+    --xc-chart-tooltip-border-color: var(--bs-border-color, #ced4da);
+    --xc-chart-tooltip-radius: .25rem;
+    --xc-chart-tooltip-bg: var(--bs-body-bg, #fff);
+    --xc-chart-tooltip-color: var(--bs-body-color, #212529);
+    --xc-chart-tooltip-shadow: 0 .25rem .6rem rgba(0, 0, 0, .18);
+    --xc-chart-tooltip-font-size: .8125rem;
+    --xc-chart-tooltip-table-margin-top: .2rem;
+    --xc-chart-tooltip-cell-padding-x: .25rem;
+    --xc-chart-tooltip-separator-padding-x: .15rem;
+
+}
+
+/* Mode-dependent overrides. Values only: no rule in the stylesheets is
+   selected per mode, so a theme changes the mode by changing tokens. */
+[data-bs-theme="dark"] {
+
+    --xc-chart-nodata-color: #dee2e6;
+
+}

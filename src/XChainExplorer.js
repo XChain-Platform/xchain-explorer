@@ -46,24 +46,14 @@ const { renderPlatformSwitcher } = require('./platform_links.js');
 // miss, and keeps an unbounded path segment from reaching the proof descent.
 const CONTRACT_STATE_KEY_MAX_BYTES = 1024;
 
-// Upper bound on the `params` string the pre-flight proxy will forward, in
-// characters. It is the protocol's OWN ceiling on an action payload
-// (ENVELOPE_MAX_PAYLOAD; canonical source xchain-documentation/protocol/
-// constants.js, mirrored in xchain-decoder/src/protocol/constants.js), so this
-// proxy can never be the component that refuses an action the indexer would
-// have judged.
-//
-// It used to be a flat 8192 copied from the feequote route, which put the
-// ceiling precisely on the feature BATCH exists for: consensus caps a batch at
-// 250 sub-commands, and 250 realistic child issuances run to ~17,500
-// characters, so the LARGEST legal batches were exactly the ones that came back
-// `parameter too long` instead of a verdict.
-//
-// Raising it is safe because payload SIZE is not a work multiplier upstream:
-// the indexer dry-run is bounded by the 250-command cap, its 8-pending
-// admission window and its 10s timeout, so a longer string buys a caller no
-// extra compute. The bytes themselves are bounded per request here and per
-// minute by the POST route's own rate limiter.
+// Upper bound on the pre-flight `params` string, in characters: the protocol's
+// OWN ENVELOPE_MAX_PAYLOAD ceiling (xchain-documentation/protocol/constants.js,
+// mirrored in xchain-decoder), so this proxy is never the component that refuses
+// an action the indexer would have judged.
+
+// Payload SIZE is not a work multiplier upstream: the 250-command consensus cap,
+// the 8-pending admission window and the 10s timeout bound the indexer dry-run,
+// and the POST route's own rate limiter bounds the bytes per minute.
 const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
 
 // Upper bound on the `source` address string. Unchanged; an address is orders
@@ -203,12 +193,19 @@ class XChainExplorer {
                 '/{COIN}/deposits'            : 'deposits.html',
                 '/{COIN}/withdrawals'         : 'withdrawals.html',
                 '/{COIN}/validators'          : 'validators.html',
+                // One validator's whole record, resolvable by signing pubkey OR by address.
+                '/{COIN}/validator/{QUERY}'   : 'validator.html',
                 '/{COIN}/stakes'              : 'stakes.html',
                 '/{COIN}/contract_stakes'     : 'contract_stakes.html',
                 '/{COIN}/prices'              : 'prices.html',
                 '/{COIN}/controllers'         : 'controllers.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
                 '/{COIN}/anchors'             : 'anchors.html',
+                // An anchor carries TWO heights and both are correct: block_index is the
+                // CHECKPOINTED height, which is what the commitments join keys off, while
+                // the ANCHOR transaction itself landed at a later height. The page labels
+                // both, because hunting one by the other reads as "not yet anchored".
+                '/{COIN}/anchor/{QUERY}'      : 'anchor.html',
                 // Quorum-signed state checkpoints: the list is the light-client
                 // surface, the detail view renders one checkpoint's roots + signers
                 // and puts the CPU-bound re-verification behind a click (the
@@ -247,13 +244,21 @@ class XChainExplorer {
                 '/{COIN}/configs'            : 'configs.html',
                 '/{COIN}/telemetry_pings'    : 'telemetry_pings.html',
                 '/{COIN}/attestations'        : 'attestations.html',
+                // The attestation lifecycle across rows (v0 request, v1 response and its
+                // signatures, v2 expiry, relay legs), which the per-action view cannot show
+                // because each leg is its own action.
+                '/{COIN}/attestation/{QUERY}' : 'attestation.html',
                 '/{COIN}/bet_feeds'           : 'bet_feeds.html',
                 '/{COIN}/bets'                : 'bets.html',
                 '/{COIN}/bet_feed/{QUERY}'    : 'bet_feed.html',
                 '/{COIN}/oracle/{QUERY}'      : 'oracle.html',
                 '/{COIN}/polls'               : 'polls.html',
+                '/{COIN}/poll/{QUERY}'        : 'poll.html',
                 '/{COIN}/votes'               : 'votes.html',
                 '/{COIN}/xcalls'              : 'xcalls.html',
+                // Keyed by call_id, but declared {QUERY} like every other detail route so
+                // the detail-route/allowlist guard can see it.
+                '/{COIN}/xcall/{QUERY}'       : 'xcall.html',
                 '/{COIN}/sends'               : 'sends.html',
                 '/{COIN}/sleeps'              : 'sleeps.html',
                 '/{COIN}/swaps'               : 'swaps.html',
@@ -333,6 +338,16 @@ class XChainExplorer {
                 '/{COIN}/api/stakes/{QUERY}/{TYPE}'            : ['getStakes',            ['block', 'address', 'source']],
                 '/{COIN}/api/stakes'                           : ['getStakes'],
                 '/{COIN}/api/validators'                       : ['getValidators'],
+                // One validator's whole record in a single response, resolved by signing
+                // pubkey OR address. A composition, not a filter: the existing list methods
+                // have no pubkey type of their own (getValidators/getStakes/getSlashEvents
+                // each JOIN a pubkey column but expose only 'address'), so a page built
+                // from them alone could not answer by pubkey at all.
+                '/{COIN}/api/validator/{QUERY}'                : ['getValidator',         'validator'],
+                // The same composition scoped to ONE address, for the address page's
+                // staking panel: positions, cooldowns, the COLLECT trail and both slash
+                // families, instead of the six separate calls the page would otherwise make.
+                '/{COIN}/api/staking/{QUERY}'                  : ['getAddressStaking',    'address'],
                 '/{COIN}/api/delegations/{QUERY}/{TYPE}'       : ['getDelegations',       ['block', 'address', 'source']],
                 '/{COIN}/api/rewards/{QUERY}/{TYPE}'           : ['getValidatorRewards',  ['address', 'source']],
                 // Full-node possession-proof verdicts (NODEPROOF v0, read-only)
@@ -405,6 +420,11 @@ class XChainExplorer {
                 // Attestation Endpoints (ATTEST v0 requests + v1 responses from the `attests` table)
                 '/{COIN}/api/attestations/{QUERY}/{TYPE}'      : ['getAttestations',      ['block', 'address', 'contract']],
                 '/{COIN}/api/attestations'                     : ['getAttestations'],
+                // The attestation LIFECYCLE composed across its legs. Deliberately not a
+                // route onto getAttestationByActionIndex, which is a positional-arg point
+                // read the WS ChangeDetector owns; this reuses it internally instead, so
+                // that caller's signature stays untouched.
+                '/{COIN}/api/attestation/{QUERY}'              : ['getAttestation',       'attestation'],
                 // Per-validator per-provider ATTEST accountability counters (fulfilled /
                 // missed / slashed + quality score). Indexer-owned, standalone, id-keyed.
                 '/{COIN}/api/attest_validator_stats/{QUERY}/{TYPE}' : ['getAttestValidatorStats', ['pubkey', 'provider']],
@@ -429,6 +449,10 @@ class XChainExplorer {
                 // ANCHOR checkpoint list (anchor_actions, read-only)
                 '/{COIN}/api/anchors/{QUERY}/{TYPE}'           : ['getAnchors',           ['block', 'chain', 'network', 'status']],
                 '/{COIN}/api/anchors'                          : ['getAnchors'],
+                // One anchor composed with its chunks, covering checkpoint, publisher
+                // election and reward-attestation trail. A composition rather than a
+                // routing change: the trail spans the mirror schema, not anchor_actions.
+                '/{COIN}/api/anchor/{QUERY}'                   : ['getAnchor',            'anchor'],
                 // Single checkpoint by block height, WITHOUT re-verification: the
                 // detail page's cheap load path. The signature check lives on the
                 // dedicated /api/checkpoint/{BLOCK}/verify express route (registered
@@ -630,25 +654,20 @@ class XChainExplorer {
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
 
-        // Raw bytes for a FILE action. Gated files return their ciphertext as
-        // application/octet-stream (holders decrypt client-side; see
-        // xchain-documentation/protocol/TOKEN_GATED_CONTENT.md); non-gated files
-        // return the stored bytes from the colocated decoder DB, served inline
-        // only for safe media MIME types (this is how TIS `data_ref` entries
-        // resolve for NFT display; see protocol/NFT_Standard.md).
-        // Registered before the wildcard so the express route matcher hits this first.
+        // Raw bytes for a FILE action, registered before the wildcard so the matcher
+        // hits it first. Gated files return ciphertext as application/octet-stream for
+        // client-side decryption (protocol/TOKEN_GATED_CONTENT.md); non-gated files
+        // serve stored bytes inline only for safe media MIME types (NFT_Standard.md).
         this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processFileRawRequest(req, res); });
 
-        // Native-coin fee pre-flight + schedule. Thin proxies to the colocated indexer's
-        // read-only feequote/feeschedule JSON-RPC, so the authoritative fee + oracle-price logic
-        // stays single-sourced there. Registered before the wildcard so the matcher hits these
+        // Native-coin fee pre-flight + schedule: thin proxies to the colocated indexer's
+        // read-only feequote/feeschedule JSON-RPC, so fee and oracle-price logic stays
+        // single-sourced there. Registered before the wildcard so the matcher hits these
         // first. See xchain-documentation/concepts/GAS.md (client pre-validation).
-        //
-        // All three carry a dedicated limiter rather than the platform default: each one
-        // is a JSON-RPC round trip to the indexer, so an uncapped caller amplifies into a
-        // second process, and the fees page now puts a clickable quote sandbox on top of
-        // them (spec explorer-coverage-completion M2.6). Same obligation the proof-tier
-        // routes carry, one tier looser because a quote is a lookup rather than a
+
+        // All three carry a dedicated limiter, not the platform default: each is a
+        // JSON-RPC round trip, so an uncapped caller amplifies into a second process.
+        // One tier looser than the proof routes, a quote being a lookup rather than a
         // cryptographic recompute.
         const feeQuoteLimiter = rateLimit({
             windowMs:        60 * 1000,
@@ -660,18 +679,15 @@ class XChainExplorer {
         this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { this.processFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
-        // POST sibling of the same pre-flight. Not a second endpoint: identical inputs,
-        // identical verdict, different transport. A GET cannot carry the largest legal
-        // input at all - a 250-command BATCH is ~17,500 characters and Node refuses the
-        // request line with a bare 431 before any handler runs (max-http-header-size
-        // defaults to 16 KiB) - so the batches this surface exists to pre-flight are
-        // unreachable over the query string no matter how high the length cap goes.
-        // Small actions should keep using the GET, which stays memo-friendly and cacheable.
-        //
-        // The body parser is mounted per-route with its own ceiling because api.js applies a
-        // deliberately tight 10kb global json() to everything else; the rate limiter is
-        // per-route for the same reason the VM-call route has one, since this is the only
-        // unauthenticated surface on the explorer that accepts a body this large.
+        // POST sibling of the same pre-flight, not a second endpoint: identical inputs
+        // and verdict, different transport. A GET cannot carry the largest legal input
+        // at all, a 250-command BATCH running ~17,500 characters against Node's 16 KiB
+        // request line; small actions keep the GET, which stays cacheable.
+
+        // The body parser is mounted per-route because api.js applies a deliberately
+        // tight 10kb global json() to everything else, and the limiter is per-route
+        // because this is the only unauthenticated explorer surface taking a body
+        // this large.
         const preflightPostLimiter = rateLimit({
             windowMs:        60 * 1000,
             limit:           parseInt(process.env.EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM, 10) || 60,
@@ -687,19 +703,15 @@ class XChainExplorer {
             (req, res) => { this.processPreflightRequest(req, res); });
         this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { this.processFeeScheduleRequest(req, res); });
 
-        // Quorum-signed state checkpoints (the light-client verification surface).
-        // /checkpoints lists the latest signed checkpoints for the coin's chain;
-        // /checkpoint/:blockIndex/verify re-verifies the 2f+1 oracle_publish
-        // signatures server-side AND returns everything a client needs to verify
-        // independently (canonical string, sigs, qualifying validator set).
+        // Quorum-signed state checkpoints, the light-client verification surface.
+        // /checkpoints lists the coin chain's latest; /checkpoint/:blockIndex/verify
+        // re-verifies the 2f+1 oracle_publish signatures server-side AND returns what a
+        // client needs to verify independently (canonical string, sigs, qualifying set).
         // Spec: xchain-documentation/protocol/actions/ANCHOR.md
-        //
-        // Both carried the platform-wide 500rpm default until now, which the M2.2 row
-        // treats as the defect it is rather than a deliberate exemption. The list is a
-        // hub-mirror scan; verify re-runs Ed25519 once per signature over the qualifying
-        // validator set AND reads that set's capability snapshot, so it is proof-tier
-        // work and now sits behind a clickable button on the checkpoint detail page.
-        // Verify therefore gets the tighter of the two caps.
+
+        // The list is a hub-mirror scan; verify re-runs Ed25519 once per signature over
+        // the qualifying validator set and reads that set's capability snapshot, so it
+        // is proof-tier work and takes the tighter of the two caps.
         const checkpointListLimiter = rateLimit({
             windowMs:        60 * 1000,
             limit:           parseInt(process.env.EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM, 10) || 120,
@@ -720,16 +732,16 @@ class XChainExplorer {
         // watermark-lag state per coin, {enabled:false} in externally-maintained mode.
         this.app.get('/:coin/api/hub-mirror/status', (req, res) => { this.processHubMirrorStatusRequest(req, res); });
 
-        // SPV light-client proof endpoints (Phase 3, spec §8.1). Read-only; a client
+        // SPV light-client proof endpoints (Phase 3, spec §8.1). Read-only: a client
         // recomputes the proof locally and binds it to a quorum-signed checkpoint's
-        // committed state_root (never trusting this server's word). The balance proof
-        // + checkpoint range are live; action / validator-set / contract-state are
-        // balance + action + validator-set + contract-state proofs and the
-        // checkpoint range are all live. contract-state serves a real proof only at
-        // heights where the slot is armed and a typed 409 below them (see the
-        // handler). Merkle-proof recompute is CPU-bound per request
-        // (hashes every leaf in the target block), so cap it per-IP well below
-        // the platform-wide 500rpm default, mirroring the VM-call limiter's design.
+        // committed state_root, never trusting this server's word. Balance, action,
+        // validator-set and contract-state proofs plus the checkpoint range are live;
+        // contract-state serves a real proof only where the slot is armed at that
+        // height, and a typed 409 below it (see the handler).
+
+        // Merkle-proof recompute is CPU-bound per request (it hashes every leaf in the
+        // target block), so cap it per-IP well below the platform-wide 500rpm default,
+        // mirroring the VM-call limiter's design.
         const actionProofLimiter = rateLimit({
             windowMs:        60 * 1000,
             limit:           parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 60,
@@ -737,12 +749,10 @@ class XChainExplorer {
             legacyHeaders:   false,
             message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
         });
-        // The validator-set proof is the heaviest proof endpoint: its handler
-        // fans out over every capability and calls _prove once per validator (up
-        // to VALIDATOR_QUERY_LIMIT), each a 256-deep SMT descent issuing a
-        // sequential DB read per non-empty level, plus a per-capability indexer
-        // RPC. Worst case is ~2000 sequential SMT descents per request, so it
-        // gets its own tighter cap, below the action-proof limiter's.
+        // The validator-set proof is the heaviest endpoint: its handler calls _prove
+        // once per validator per capability (up to VALIDATOR_QUERY_LIMIT), each a
+        // 256-deep SMT descent reading the DB per non-empty level, plus an indexer RPC
+        // per capability. Worst case ~2000 descents, so it caps below the action tier.
         const validatorSetProofLimiter = rateLimit({
             windowMs:        60 * 1000,
             limit:           parseInt(process.env.EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM, 10) || 30,
@@ -750,30 +760,26 @@ class XChainExplorer {
             legacyHeaders:   false,
             message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
         });
-        // The balance proof is the same single-descent SMT shape as the contract-state and
-        // locked-balance proofs and now carries the same cap; it sat at the platform default
-        // as a leftover, not as an exemption. The checkpoint range is a bounded mirror read,
-        // so it takes the looser list tier its /checkpoints sibling uses.
+        // The balance proof is the same single-descent SMT shape as the contract-state
+        // and locked-balance proofs, so it carries the same cap. The checkpoint range
+        // is a bounded mirror read and takes its /checkpoints sibling's looser tier.
         this.app.get('/:coin/api/proof/balance/:address/:tick', actionProofLimiter, (req, res) => { this.processBalanceProofRequest(req, res); });
         this.app.get('/:coin/api/checkpoints/range', checkpointListLimiter, (req, res) => { this.processCheckpointsRangeRequest(req, res); });
         this.app.get('/:coin/api/proof/action/:actionIndex', actionProofLimiter, (req, res) => { this.processActionProofRequest(req, res); });
         this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { this.processValidatorSetProofRequest(req, res); });
         // Contract-state proofs carry the action-proof limiter rather than running
-        // uncapped: the handler is one 256-deep SMT descent (a sequential DB read
-        // per non-empty level) plus two point reads, so it is a new unauthenticated
-        // CPU/IO amplifier of the same class the action-proof cap exists for. It was
-        // a 501 stub until now and so had no limiter at all. The balance proof's
-        // matching gap, flagged here as a pre-existing one, is closed above.
+        // uncapped: the handler is one 256-deep SMT descent (a sequential DB read per
+        // non-empty level) plus two point reads, an unauthenticated CPU/IO amplifier
+        // of the same class the action-proof cap exists for.
         this.app.get('/:coin/api/proof/contract-state/:contractIndex/:key', actionProofLimiter, (req, res) => { this.processContractStateProofRequest(req, res); });
         // Locked-balance (XCHAIN_ESC) proofs are the same single-descent shape as
         // the contract-state proof and get the same cap for the same reason.
         this.app.get('/:coin/api/proof/locked-balance/:address/:tick', actionProofLimiter, (req, res) => { this.processLockedBalanceProofRequest(req, res); });
 
-        // Read-only contract simulation (the platform's eth_call): runs a
-        // method in a sandboxed xchain-vm against current state and discards
-        // all effects. Default-off (EXPLORER_VM_QUERY_ENABLED) and rate-limited
-        // far below the global cap because every call burns real CPU in the VM
-        // subprocess.
+        // Read-only contract simulation (the platform's eth_call): runs a method in a
+        // sandboxed xchain-vm against current state and discards all effects.
+        // Default-off (EXPLORER_VM_QUERY_ENABLED) and capped far below the global
+        // limit, since every call burns real CPU in the VM subprocess.
         const vmQueryLimiter = rateLimit({
             windowMs:        60 * 1000,
             limit:           parseInt(process.env.EXPLORER_VM_QUERY_RATE_LIMIT_RPM, 10) || 20,
@@ -783,22 +789,19 @@ class XChainExplorer {
         });
         this.app.post('/:coin/api/contract/:contractIndex/call', vmQueryLimiter, (req, res) => { this.processContractCallRequest(req, res); });
 
-        // Catch-all. Express 5 / path-to-regexp v8 rejects a bare '*' at startup.
-        // The wildcard must be braced ('/{*path}') to also match the bare root '/':
-        // unbraced '/*path' requires at least one trailing segment, so '/' fell through
-        // to the JSON-RPC router and returned a -32600 error instead of the coin index.
+        // Catch-all. Express 5 / path-to-regexp v8 rejects a bare '*' at startup, and
+        // the wildcard MUST be braced ('/{*path}') to match the bare root '/': the
+        // unbraced form requires a trailing segment, dropping '/' through to the
+        // JSON-RPC router as a -32600.
         this.app.get('/{*path}', (req, res) => { this.processRequest(req, res).catch(err => this._sendUnhandled(err, req, res)); });
 
         return urls;
     }
 
-    // Last-resort handler for a rejected processRequest promise. The catch-all
-    // route handler is fire-and-forget, so without this a throw anywhere in
-    // processRequest OUTSIDE its narrow db.getData try/catch (e.g. a hostile
-    // ?total= reaching bcsub, or a jsonStringify throw at the send sink) would
-    // surface as an unhandled rejection and terminate the process (Node default
-    // --unhandled-rejections=throw), a single-request DoS. Degrade to a 500
-    // instead. Kept minimal so it cannot itself throw.
+    // Last-resort handler for a rejected processRequest promise: the catch-all route
+    // is fire-and-forget, so a throw outside its narrow db.getData try/catch would
+    // terminate the process under Node's --unhandled-rejections=throw default, a
+    // single-request DoS. Degrade to a 500, and stay minimal so it cannot throw.
     _sendUnhandled(err, req, res){
         try {
             console.error('processRequest unhandled error for', req && req.path, '-', (err && err.message) ? err.message : err);
@@ -929,14 +932,14 @@ class XChainExplorer {
                     cfg.data.search2 = urlPath[4];
                     cfg.data.search3 = urlPath[6];
                 }
-            // Handle action matches. Require the route's segment count to match the
-            // request path so a shorter route can't swallow a deeper one, e.g.
-            // /contract/{QUERY} must NOT match /contract/{QUERY}/state (which would
-            // otherwise make the /state and /state/{TYPE} routes unreachable).
-            // The 5th-segment literal must also match when the route declares one
-            // (e.g. .../state vs .../balance); without this, two same-length routes
-            // sharing parts[1]/parts[2] are indistinguishable and the first-defined
-            // one wins, shadowing the other (the /balance route was unreachable).
+            // Require the route's segment COUNT to match the request path, so a shorter
+            // route cannot swallow a deeper one: /contract/{QUERY} must not match
+            // /contract/{QUERY}/state.
+
+            // The 5th-segment literal must match too when the route declares one
+            // (.../state vs .../balance): without it, two same-length routes sharing
+            // parts[1]/parts[2] are indistinguishable and the first-defined one wins,
+            // shadowing the other.
             } else if(!match && parts.length==urlPath.length && parts[1]==String(urlPath[1]).toLowerCase() &&
                 parts[2]==String(urlPath[2]).toLowerCase() &&
                 (this.util.isNull(parts[4]) || String(parts[4]).startsWith('{') || String(parts[4]).toLowerCase()==String(urlPath[4]).toLowerCase())){
@@ -1418,12 +1421,13 @@ class XChainExplorer {
                     if(method=='getExecutions')
                         info = [count_reverse, info.block_index, info.timestamp, info.contract_index, info.caller, info.method_name, info.gas_used, status, info.action_index];
                     // Per-contract emission rollup (contract_emissions joined through
-                    // contract_executions). Cursor is m.id, since this table's own
-                    // action_index is nullable for internal emissions such as SLASH, so it
-                    // sits with the id-keyed views. status here is the parent EXECUTE's real
-                    // valid/invalid state rather than a lifecycle word, and is shown as text
-                    // instead of row color: coloring an emissions row would really be
-                    // recoloring the execution's outcome, on a row about something else.
+                    // contract_executions). Cursor is m.id: this table's own action_index
+                    // is nullable for internal emissions such as SLASH, so it sits with
+                    // the id-keyed views.
+
+                    // status is the parent EXECUTE's real valid/invalid state, not a
+                    // lifecycle word, and renders as TEXT: coloring an emissions row would
+                    // recolor the execution's outcome on a row about something else.
                     if(method=='getEmissions')
                         info = [count_reverse, info.block_index, info.timestamp, info.execution_index, info.contract_index, info.position, info.emitted_action, info.action_index, info.status, info.id];
                     if(['getDeposits','getWithdrawals'].includes(method))
@@ -1432,13 +1436,15 @@ class XChainExplorer {
                     // (paging cursor).
                     if(method=='getStakes')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index];
-                    // The validators row carries the hub federation registry's
-                    // addr/chains/registration-status for the same signing pubkey (db.js
-                    // getData folds them on), so the on-chain active set and the hub registry
-                    // render as ONE table instead of a second federation page. Those columns
-                    // plus the activation/deactivation tails all sit BEFORE status/action_index:
-                    // the client reads status second-to-last and action_index last (view link +
-                    // paging cursor), so nothing may displace them.
+                    // The validators row carries the hub federation registry's addr /
+                    // chains / registration-status for the same signing pubkey (db.js
+                    // getData folds them on), so the on-chain active set and the hub
+                    // registry render as ONE table.
+
+                    // Those columns and the activation/deactivation tails all sit BEFORE
+                    // status/action_index: the client reads status second-to-last and
+                    // action_index last (view link + paging cursor), so nothing may
+                    // displace them.
                     if(method=='getValidators')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, info.hub_addr, info.hub_chains, info.hub_status, info.activation_block, info.deactivation_block, status, info.action_index];
                     if(method=='getDelegations')
@@ -1474,14 +1480,15 @@ class XChainExplorer {
                     // Attestation list page
                     if(method=='getAttestations')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer];
-                    // Per-validator per-provider ATTEST accountability counters (indexer-owned,
-                    // id-keyed: the surrogate id is the paging cursor and stays LAST).
-                    // last_updated_block is the rendered freshness column and lands
-                    // second-to-last, where createdRow reads `status` positionally, so
-                    // attest_validator_stat sits in the client's no-color list rather than
-                    // having a numeric height read as a coloring flag. slashed_count and
-                    // quality_score are Phase 4 columns (0 until a producer exists) but are
-                    // still surfaced: the validator detail page needs the full counter set.
+                    // Per-validator per-provider ATTEST accountability counters
+                    // (indexer-owned, id-keyed: the surrogate id is the paging cursor and
+                    // stays LAST).
+
+                    // last_updated_block is the freshness column and lands second-to-last,
+                    // where createdRow reads `status` positionally, so attest_validator_stat
+                    // sits in the client's no-color list rather than having a numeric height
+                    // read as a coloring flag. slashed_count and quality_score are Phase 4
+                    // columns, 0 until a producer exists, but stay surfaced.
                     if(method=='getAttestValidatorStats')
                         info = [count_reverse, info.validator_pubkey, info.provider_id, info.fulfilled_count, info.missed_count, info.slashed_count, info.quality_score, info.last_updated_block, info.id];
                     // VOTE poll list page. poll_status (lifecycle enum), end_block (close
@@ -1538,14 +1545,14 @@ class XChainExplorer {
                     // m.block_index doubles as the paging cursor (LAST), same as getCheckpoints.
                     if(method=='getCommitments')
                         info = [count_reverse, info.block_index, info.balances_root, info.stakes_root, info.state_root, info.block_merkle_root, info.contract_state_root, info.checkpoint_seq, info.checkpoint_signer_count, info.anchor_action_index, info.anchor_version, info.block_index];
-                    // Quorum-attested ANCHOR publisher rewards (hub-mirrored, id-keyed; never
-                    // routed through HubOperationalCache - see _checkpointSource). id is the
-                    // paging cursor (LAST); doge_anchor_txid lands second-to-last, so
-                    // anchor_reward_attestation sits in the no-color exclusion list (it is the
-                    // mined DOGE transaction the reward is proof-bound to, not a status).
-                    // reward_amount (audit-only) and publisher_attestations (raw quorum JSON)
-                    // are deliberately not carried. This row has no page yet - M4.6 renders it -
-                    // but /api routes its json.data through here too.
+                    // Quorum-attested ANCHOR publisher rewards (hub-mirrored, id-keyed,
+                    // never routed through HubOperationalCache; see _checkpointSource).
+                    // id is the paging cursor (LAST).
+
+                    // doge_anchor_txid lands second-to-last, so anchor_reward_attestation
+                    // sits in the no-color exclusion list: it is the mined DOGE transaction
+                    // the reward is proof-bound to, not a status. reward_amount (audit-only)
+                    // and publisher_attestations (raw quorum JSON) are not carried.
                     if(method=='getAnchorRewardAttestations')
                         info = [count_reverse, info.created_at, info.chain, info.network, info.reward_type, info.round_reference, info.snapshot_block, info.publisher, info.doge_anchor_txid, info.id];
                     // Capability snapshots: the historical electorate behind those checkpoints
@@ -1572,14 +1579,14 @@ class XChainExplorer {
                     // rendering.
                     if(method=='getReorgs')
                         info = [count_reverse, info.reorg_timestamp, info.reorg_height, info.reorg_id, info.affected_chains, info.validator_count, info.status, info.id];
-                    // Federation slash proposals (hub-owned, id-keyed). id is the
-                    // paging cursor (LAST); status is a lifecycle word
-                    // ('pending'/'approved'/'rejected'/'expired'), not 0/1, so this
-                    // action sits in the client's no-color list. That exclusion is
-                    // load-bearing here rather than cosmetic: an UNADJUDICATED
-                    // accusation painted in the failure colour reads as a verdict.
-                    // evidence_hash is served in place of the verbatim evidence blob
-                    // (hashed hub-side; see db.js getSlashProposals).
+                    // Federation slash proposals (hub-owned, id-keyed). id is the paging
+                    // cursor (LAST); evidence_hash is served in place of the verbatim
+                    // evidence blob (hashed hub-side; see db.js getSlashProposals).
+
+                    // status is a lifecycle word, not 0/1, so this action sits in the
+                    // client's no-color list. The exclusion is load-bearing, not
+                    // cosmetic: an UNADJUDICATED accusation painted in the failure
+                    // colour reads as a verdict.
                     if(method=='getSlashProposals')
                         info = [count_reverse, info.created_at, info.validator_pubkey, info.offense_type, info.round_number, info.evidence_hash, info.status, info.id];
                     // COINPAY settlement records. obligation_action_index links the payment back
@@ -1653,26 +1660,19 @@ class XChainExplorer {
     }
 
     /**********************************************************
-     * FILE content: raw bytes
+     * FILE content: GET /{COIN}/api/file/{ACTION_INDEX}/raw
      *
-     * GET /{COIN}/api/file/{ACTION_INDEX}/raw
+     * Gated FILE returns AES-256-GCM ciphertext (12-byte nonce || ciphertext
+     * || 16-byte tag) as octet-stream; holders decrypt client-side with a key
+     * delivered over an ECIES MESSAGE.
      *
-     * Gated FILE: returns the AES-256-GCM ciphertext bytes (12-byte
-     * nonce || ciphertext || 16-byte GCM tag) as octet-stream.
-     * Holders decrypt client-side after receiving the symmetric key
-     * via an ECIES MESSAGE.
+     * Non-gated FILE returns stored decoder-DB bytes, the resolution target
+     * for TIS `data_ref` entries. Those bytes are ATTACKER-CONTROLLED, so the
+     * declared MIME type is honored INLINE only for safe media types and
+     * everything else downloads as an attachment: serving or sniffing
+     * text/html from the explorer origin would be stored XSS.
      *
-     * Non-gated FILE: returns the stored bytes from the colocated
-     * decoder DB. This is the resolution target for TIS `data_ref`
-     * entries (`action:<index>`), so NFT-pattern tokens with fully
-     * on-chain artwork can render in the browser. The declared MIME
-     * type is honored INLINE only for safe media types; on-chain
-     * bytes are attacker-controlled, and serving them as text/html
-     * (or letting the browser sniff them into it) from the explorer
-     * origin would be stored XSS. Everything else downloads as an
-     * octet-stream attachment.
-     *
-     * Unknown action indexes (or an unreachable decoder DB) return 404.
+     * Unknown action indexes, or an unreachable decoder DB, return 404.
      *********************************************************/
     async processFileRawRequest(req, res){
         let coin = String(req.params.coin || '').toUpperCase();
@@ -1720,11 +1720,10 @@ class XChainExplorer {
             // with nosniff set it can't be coerced into a scriptable type.
             type=='application/json'
         );
-        // Transparent decompression (per the file-compression spec, Part B). COMPRESSION is derived
-        // from the stored ACTION STRING, never a parsed column (§5.1), and the
-        // read is fail-closed: on a lying field, a corrupt stream, or a tripped
-        // 150:1 ratio guard we serve the STORED bytes and say so in a header,
-        // rather than serving partial output or failing the request (§5.5).
+        // Transparent decompression (file-compression spec, Part B). COMPRESSION derives
+        // from the stored ACTION STRING, never a parsed column (§5.1), and the read is
+        // fail-closed: a lying field, a corrupt stream or a tripped 150:1 ratio guard
+        // serves the STORED bytes under a header rather than partial output (§5.5).
         let served;
         try {
             served = await compression.resolveServedBytes(file.raw_data, file.data);
@@ -1759,15 +1758,13 @@ class XChainExplorer {
         return res.send(served.bytes);
     }
 
-    // Staleness gate for consensus data served from a SELF-SYNCED checkpoint
-    // mirror. Only applies
-    // to coins whose mirror this process runs (HubMirrorSyncManager); the
-    // externally-maintained-schema mode is unaffected. Two tiers, per the
-    // operator decision on this feature: a mirror that has NEVER completed its
-    // REST bootstrap must fail loud (an empty mirror must read as an outage,
-    // not as an empty ledger), while a bootstrapped-but-lagging mirror serves
-    // with a mirror_lag_seconds annotation and warns past MIRROR_MAX_LAG_S,
-    // hard-failing only when MIRROR_LAG_FAIL_CLOSED=1 opts in.
+    // Staleness gate for consensus data served from a SELF-SYNCED checkpoint mirror,
+    // applying only to coins whose mirror this process runs (HubMirrorSyncManager).
+
+    // Two tiers: a mirror that has NEVER completed its REST bootstrap fails loud, an
+    // empty mirror having to read as an outage rather than an empty ledger, while a
+    // bootstrapped-but-lagging one serves with a mirror_lag_seconds annotation and
+    // hard-fails past MIRROR_MAX_LAG_S only when MIRROR_LAG_FAIL_CLOSED=1 opts in.
     _mirrorGate(coin){
         let mgr = this.hubMirrorSync;
         if(!mgr || !mgr.managesCoin(coin)) return { blocked: null, annotate: null };
@@ -1890,18 +1887,17 @@ class XChainExplorer {
                 if(this.util.ed25519Verify(canonical, sig, pk)){ seen.add(pk); validSigs++; validSigners.push(pk); }
             }
 
-            // Per-validator { pubkey, weight, source } so a client can re-derive the
-            // weighted verdict locally (weight = the key's stake amount; source = its
-            // stake-weight grouping key, empty string in the legacy count regime).
-            // A missing amount is carried through as null, NOT as '0'.
-            // capability_snapshots.amount is NOT NULL, so a null here means a corrupt
-            // mirror row - and resolving it to '0' would be the worst possible repair:
-            // the source stays in the quorum's dedupe map carrying no stake, so the
-            // denominator S shrinks while a signer keeps the full numerator and a
-            // smaller real stake clears 3*tally > 2*S. Carrying the absence through
-            // makes meetsStakeThreshold fail closed here AND in any client that
-            // re-derives the verdict from this same served set, instead of both of
-            // them agreeing on a laundered, quorate-looking answer.
+            // Per-validator { pubkey, weight, source } so a client re-derives the
+            // weighted verdict locally: weight is the key's stake amount, source its
+            // stake-weight grouping key (empty string in the legacy count regime).
+
+            // Carry a missing amount through as null, NEVER as '0'. Since
+            // capability_snapshots.amount is NOT NULL, a null means a corrupt mirror
+            // row, and resolving it to '0' keeps that source in the quorum's dedupe map
+            // carrying no stake: the denominator S shrinks while a signer keeps the full
+            // numerator, so a smaller real stake clears 3*tally > 2*S. Null makes
+            // meetsStakeThreshold fail closed here AND in any client re-deriving from
+            // this same served set.
             let validatorSet = validators.map(v => ({
                 pubkey: String(v.signing_pubkey).toLowerCase(),
                 weight: (v.amount === null || v.amount === undefined) ? null : String(v.amount),
@@ -2098,18 +2094,14 @@ class XChainExplorer {
         }
     }
 
-    // GET /{COIN}/api/proof/contract-state/{contractIndex}/{key}?height=H  (SPV spec §8.1)
-    //
-    // Serves a real proof at heights where contract_state_root is armed, and a typed
-    // 409 below them (an inert slot's EMPTY tree would "prove" every key absent).
-    //
-    // EVERY INPUT RULE BELOW RUNS BEFORE THE KEY REACHES ANY CRYPTO PRIMITIVE, which
-    // is the point of doing them here rather than deeper: merkle.joinFields THROWS on
-    // a 0x00-bearing field, so a hostile `%00` path segment would otherwise surface as
-    // a 500 from an unauthenticated request. Each rule is a 400 with its own code.
-    // A malformed escape (`%zz`) never gets this far at all -- Express decodes path
-    // params and rejects it before the route runs -- which is why there is no
-    // encoding rule here and why this handler must not decode anything itself.
+    // GET /{COIN}/api/proof/contract-state/{contractIndex}/{key}?height=H (SPV §8.1)
+    // Serves a real proof where contract_state_root is armed and a typed 409 below
+    // them, an inert slot's EMPTY tree otherwise "proving" every key absent.
+
+    // EVERY INPUT RULE BELOW RUNS BEFORE THE KEY REACHES ANY CRYPTO PRIMITIVE:
+    // merkle.joinFields THROWS on a 0x00-bearing field, so a hostile `%00` segment
+    // would surface as a 500 from an unauthenticated request. Each rule is a 400 with
+    // its own code, and none of them decode: Express rejects a malformed escape first.
     async processContractStateProofRequest(req, res){
         try {
             let coin = String(req.params.coin || '').toUpperCase();
@@ -2128,14 +2120,10 @@ class XChainExplorer {
                 return res.status(400).json({ error: 'contractIndex must be a non-negative integer',
                                               code: 'INVALID_CONTRACT_INDEX' });
 
-            // Express decodes :key for us, so this must NOT decode again. A second
-            // decodeURIComponent corrupts every key containing a percent sign: a
-            // client sends the key `a%41b` as `a%2541b`, Express hands over `a%41b`,
-            // and a second pass silently turns it into `aAb`, proving the WRONG KEY.
-            // A key ending in a bare `%` (sent as `%25`) threw outright, so a valid
-            // key was rejected. Express rejects a genuinely malformed escape (`%zz`)
-            // before the route runs, which is why the old INVALID_KEY_ENCODING branch
-            // could only ever fire on legitimate input.
+            // Express decodes :key already, so this must NOT decode again: a second
+            // decodeURIComponent corrupts every key holding a percent sign (`a%2541b`
+            // arrives as `a%41b` and becomes `aAb`, proving the WRONG KEY) and throws
+            // on one ending in a bare `%`. Express rejects a malformed escape itself.
             let key = req.params.key;
             if(key === undefined || key === null || key === '')
                 return res.status(400).json({ error: 'state key is required', code: 'MISSING_PARAMETER' });
@@ -2177,12 +2165,12 @@ class XChainExplorer {
 
     // GET /{COIN}/api/proof/locked-balance/{address}/{tick}?height=H
     // (SPV sub-tree spec §3 Stage B)
-    //
-    // The XCHAIN_ESC sibling of the balance proof: same params, same response
-    // shape, same checkpoint binding, PLUS the liveness refusal: below the
-    // escrow leaf's armed height a non-inclusion proof would verify against a
-    // balances_root that never covered the domain, so the endpoint returns a
-    // typed 409 instead of "proving" that nothing is locked.
+
+    // The XCHAIN_ESC sibling of the balance proof: same params, response shape and
+    // checkpoint binding, PLUS a liveness refusal. Below the escrow leaf's armed
+    // height a non-inclusion proof would verify against a balances_root that never
+    // covered the domain, so the endpoint answers a typed 409 rather than "proving"
+    // that nothing is locked.
     async processLockedBalanceProofRequest(req, res){
         try {
             let coin = String(req.params.coin || '').toUpperCase();
@@ -2238,13 +2226,11 @@ class XChainExplorer {
             if(!/^[0-9]+$/.test(String(contractIndex)))
                 return res.status(400).json({ error: 'Invalid contract index', code: 'INVALID_CONTRACT_INDEX' });
 
-            // Fail closed on a frozen replica, exactly as the catch-all data routes do.
-            // This route is hand-registered ahead of the catch-all, so it never passed
-            // through processRequest's gate: a simulation reads MUTABLE contract state,
-            // and on a stale replica it answered a "current state" question from state
-            // the replica can no longer vouch for, unannotated, while ordinary REST
-            // reads on the same coin were already returning COIN_DATA_STALE. Same coin
-            // key the pool check above and the catch-all both use.
+            // Fail closed on a frozen replica, as the catch-all data routes do. This
+            // route is hand-registered ahead of the catch-all, so it never passes through
+            // processRequest's gate, yet a simulation reads MUTABLE contract state and
+            // must not answer a "current state" question from state the replica cannot
+            // vouch for. Same coin key the pool check above and the catch-all use.
             if(await this.db.isCoinTipStale(coin))
                 return res.status(503).json({
                     error: 'Indexed data for this coin is stale beyond its maximum tip age; refusing to serve it as current.',
@@ -2344,20 +2330,16 @@ class XChainExplorer {
         }
     }
 
-    // Absorb the indexer's RETRYABLE busy answer on the fee-quote hop.
-    //
-    // The indexer time-boxes its wait for the block-processing transaction mutex and answers
-    // `busy: true, retryable: true` in milliseconds instead of queueing behind a whole block.
-    // Somebody has to do the retrying, and it cannot be the caller: the wallet reads this
-    // endpoint on every fee-bearing compose with no retry of its own, so a busy answer
-    // forwarded verbatim refuses the compose exactly the way the 502 it replaced did. This hop
-    // is where the overlap is cheap to absorb - it is colocated with the indexer, and a busy
-    // answer costs one round-trip.
-    //
-    // Only `busy && retryable` is retried: a real verdict (valid or invalid) is never re-asked,
-    // and neither is a transport failure, which the caller's catch still turns into a 502. The
-    // budget is a wall-clock deadline checked before each retry, so a genuinely saturated
-    // indexer still gets an answer to the client rather than an open request.
+    // Absorb the indexer's RETRYABLE busy answer on the fee-quote hop: it time-boxes
+    // its wait for the block-processing mutex and answers `busy, retryable` in
+    // milliseconds. The wallet reads this endpoint on every fee-bearing compose with no
+    // retry of its own, so forwarding busy verbatim refuses the compose. Absorbing it
+    // here is cheap, this hop being colocated with the indexer.
+
+    // Retry ONLY `busy && retryable`: a real verdict, valid or invalid, is never
+    // re-asked, and neither is a transport failure, which the caller's catch turns into
+    // a 502. The budget is a wall-clock deadline checked before each retry, so a
+    // saturated indexer still answers rather than holding the request open.
     async feeQuoteWithBusyRetry(connector, args){
         let budgetMs = parseInt(process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS, 10);
         if(!(budgetMs > 0)) budgetMs = 6000;
@@ -2372,14 +2354,13 @@ class XChainExplorer {
         return result;
     }
 
-    // Oracle usage fee quote for a Mode B dispenser (proxy to the colocated
-    // indexer's `oraclefeequote`). A dispenser naming an ORACLE_ADDRESS must carry a
-    // native-coin output paying the oracle operator; this tells a payer how much.
-    // GET /{COIN}/api/oraclefeequote?oracleAddress=..&giveTick=..&fiatCode=USD&giveEscrow=1000
-    //
-    // Same query-param hardening as processFeeQuoteRequest above: reject repeated keys,
-    // anchor every value, bound the lengths. None of these are type-checked on this hop,
-    // so an arbitrary-shape value would otherwise reach the indexer.
+    // Oracle usage fee quote for a Mode B dispenser, a proxy to the colocated indexer's
+    // `oraclefeequote`. A dispenser naming an ORACLE_ADDRESS must carry a native-coin
+    // output paying the oracle operator; this tells a payer how much.
+
+    // Same query-param hardening as processFeeQuoteRequest: reject repeated keys,
+    // anchor every value, bound the lengths. Nothing is type-checked on this hop, so an
+    // arbitrary-shape value would otherwise reach the indexer.
     async processOracleFeeQuoteRequest(req, res){
         try {
             let config = await this.configInfo.getConfig();
@@ -2420,18 +2401,14 @@ class XChainExplorer {
         }
     }
 
-    // Public validity-first pre-flight: "would the indexer accept this action?"
-    // Thin proxy to the indexer's `preflight` JSON-RPC (the height-keyed verdict memo lives
-    // indexer-side). Same input-validation shape as processFeeQuoteRequest: reject repeated
+    // Public validity-first pre-flight ("would the indexer accept this action?"), a
+    // thin proxy to the indexer's `preflight` JSON-RPC, whose height-keyed verdict memo
+    // lives there. Same validation shape as processFeeQuoteRequest: reject repeated
     // params, charset-check the action, cap param/source lengths.
-    //
-    // Serves BOTH registrations, because they are one endpoint over two transports and the
-    // verdict must not depend on which one the caller picked:
-    //   GET  /{COIN}/api/preflight?action=SEND&params=0|JDOG|1|addr&source=...
-    //   POST /{COIN}/api/preflight   {"action":"BATCH","params":"0|ISSUE|...;...","source":"..."}
-    // The POST exists because the largest legal input cannot ride a query string: a
-    // 250-command BATCH is ~17,500 characters and Node rejects the request line with a 431
-    // before any handler sees it. See the route registration for the full reasoning.
+
+    // Serves BOTH registrations, since they are one endpoint over two transports and
+    // the verdict must not depend on which the caller picked. The POST exists because
+    // the largest legal input cannot ride a query string; see the route registration.
     async processPreflightRequest(req, res){
         try {
             let config = await this.configInfo.getConfig();

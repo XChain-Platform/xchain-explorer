@@ -104,10 +104,9 @@ XC = {
         2: 'Remove'
     },
 
-    // List of supported message encryption methods
-    // Keys are the protocol's ENCRYPTION_METHOD enum, 1=ECIES / 2=ECDH / 3=AES
-    // (xchain-documentation/protocol/actions/message.md). The map used to start at ECDH and
-    // omit AES, so method 1 read as ECDH, method 2 as AES, and method 3 rendered blank.
+    // Supported message encryption methods. Keys are the protocol's
+    // ENCRYPTION_METHOD enum, 1=ECIES / 2=ECDH / 3=AES, and the map MUST start at
+    // 1 with none omitted (xchain-documentation/protocol/actions/message.md).
     encryption_methods: {
         1: 'Elliptic-Curve Integrated Encryption Scheme (ECIES)',
         2: 'Elliptic-Curve Diffie–Hellman (ECDH)',
@@ -240,9 +239,12 @@ function setXChainParams(coin){
     // A detail page whose type is absent here gets XC.query = null and then requests
     // its own API route with a literal 'null' segment, rendering as "not found" rather
     // than failing visibly, so every new detail route has to be added in BOTH lists.
-    if(['block','address','token','action','transaction','contract','execution','checkpoint'].includes(type)){
-        if((['block','action','contract','execution','checkpoint'].includes(type) && isNumeric(query)) ||
+    if(['block','address','token','action','transaction','contract','execution','checkpoint','xcall','attestation','poll','anchor'].includes(type)){
+        if((['block','action','contract','execution','checkpoint','poll','anchor','attestation'].includes(type) && isNumeric(query)) ||
            (type=='address' && isCryptoAddress(query)) ||
+           // A validator resolves by signing pubkey OR by staking address, and an xcall by
+           // its 64-hex call_id, so neither can use the numeric check above.
+           (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||
            (type=='token'   && typeof(query)=='string')){
             XC.type  = type;
             XC.query = query;
@@ -382,15 +384,6 @@ function isNftToken(decimals, lockMaxSupply){
     return Number(decimals)===0 && Number(lockMaxSupply)===1;
 }
 
-// (The NFT badge + token-page NFT Information panel were removed by
-// operator decision 2026-06-12, and the /nfts page was removed
-// 2026-06-13: the rigid DECIMALS=0+LOCK_MAX_SUPPLY=1 line excludes
-// decimal-supply tokens people still call NFTs, which isn't worth
-// defending. The server-side 'nft' getTokens filter (now orphaned
-// since neither UI consumer exists) was removed 2026-07-08; isNftToken
-// stays as the canonical client-side classification reference,
-// mirroring sdk.nft.isNft.)
-
 // Return path to the token icon
 function getTokenIcon(token){
     let icon = '/icon/' + XC.coin + '/' + XC.network + '/' + token + '.png';
@@ -411,14 +404,13 @@ function formatLink(url=null, text=null, icon=false, btn=false){
     return html;
 }
 
-// Return a truncated hex string (hash / pubkey / request_id) with a hover title
-// showing the full value. Keeps long 64/128-hex identifiers readable in tables.
-// The value is normally opaque hex, but callers pass on-chain hash-shaped fields
-// that are only hex on VALID rows: an INVALID-status ANCHOR (any address can
-// broadcast a malformed ANCHOR-format DOGE tx) persists its raw BLOCK_HASH etc.
-// verbatim, and this string reaches jQuery .html(). Escape both the truncated
-// body and the title attribute (a no-op on real hex) so a poisoned field can
-// never break out of the attribute or inject an element.
+// Return a truncated hex string (hash / pubkey / request_id) with the full value as
+// a hover title, keeping long 64/128-hex identifiers readable in tables.
+
+// Hash-shaped fields are only hex on VALID rows: an INVALID-status ANCHOR persists
+// its raw BLOCK_HASH verbatim, and this string reaches jQuery .html(). Escape both
+// the truncated body and the title attribute (a no-op on real hex) so a poisoned
+// field can never break out of the attribute or inject an element.
 function formatHash(hash, len=16){
     if(isNull(hash)) return '';
     let str = String(hash);
@@ -621,12 +613,10 @@ function bech32DecodeAddress(address){
     return { hrp: hrp, version: version };
 }
 
-// Handle validating that an address is a real crypto address for the current
-// chain + network (or any supported network when none is selected yet).
-// Verifies base58 structure + version byte and the full bech32/bech32m
-// checksum. The base58check double-SHA256 checksum is verified server-side
-// (no synchronous SHA-256 in the browser); a checksum typo here just yields
-// an empty lookup rather than a bad route.
+// Validate an address for the current chain + network (any supported one when none
+// is selected): base58 structure + version byte, and the full bech32/bech32m
+// checksum. The base58check double-SHA256 is verified SERVER-side, there being no
+// synchronous SHA-256 in the browser, so a typo here yields an empty lookup.
 function isCryptoAddress(address, chain, network){
     if(isNull(address))
         return false;
@@ -824,12 +814,10 @@ function setupCollapsibleHeaders(){
     $('.collapse-header').each(function(){ toggleCollapseContent($(this).attr('id'), true); });
 }
 
-// Basic Calculator (BC) math functions.
-// Coerce a value to a full-precision bignumber (matches the SDK/indexer canonical
-// bcnum). Returns a mathjs bignumber (NOT a JS double), so neither this nor the
-// bc* helpers below re-funnel a result through parseFloat (which truncates past
-// ~16 significant digits and emits scientific notation). Non-numeric / NaN /
-// Infinity inputs yield bignumber(0) rather than throwing, mirroring the SDK guard.
+// Coerce to a full-precision mathjs bignumber, NOT a JS double, matching the
+// SDK/indexer canonical bcnum: neither this nor the bc* helpers below may re-funnel a
+// result through parseFloat, which truncates past ~16 digits into scientific notation.
+// Non-numeric, NaN and Infinity yield bignumber(0) rather than throwing.
 function bcnum(num){
     let str = String(num).trim();
     if(str === 'NaN' || str === 'Infinity' || str === '-Infinity' || !isNumeric(num))
@@ -983,12 +971,10 @@ function getActionDetails(action, info){
     if(['DISPENSER', 'DISPENSE', 'DISPENSER_CLOSE', 'DISPENSER_CANCEL', 'DISPENSER_EXPIRE', 'DISPENSER_EDIT',
         'SWAP', 'SWAP_MATCH', 'SWAP_CANCEL', 'SWAP_EXPIRE', 'SWAP_EDIT',
         'ORDER', 'ORDER_MATCH', 'ORDER_CANCEL', 'ORDER_EXPIRE', 'ORDER_EDIT'].includes(action)){
-        // Namespace each leg by its OWN coin, not the broadcast chain. A CROSS_CHAIN_DEX
-        // order/swap/dispenser puts give and get on different networks, and the row already
-        // carries give_coin/get_coin (db.getActionSummaryData detailFields, and the
-        // action-detail markets/dispensers queries), so the page coin linked a remote token
-        // into the wrong namespace and labelled a remote native amount local.
-        // Fall back to the page coin for any subtype that omits the fields.
+        // Namespace each leg by its OWN coin (give_coin/get_coin), never the broadcast
+        // chain: a CROSS_CHAIN_DEX order/swap/dispenser puts give and get on different
+        // networks, so the page coin would link a remote token into the wrong namespace
+        // and label a remote native amount local. Fall back to it only where absent.
         let give_coin = info.give_coin || coin;
         let get_coin  = info.get_coin  || coin;
         html  = formatLinkAmount('/' + give_coin + '/token/' + info.give_tick, info.give_tick, info.give_tick, info.give_amount) + ' for ';
@@ -1012,12 +998,10 @@ function getActionDetails(action, info){
     }
     if(action=='LIST'){
         let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
-        // Read the type off the canonical map instead of a second inline copy: the copy was
-        // inverted against XC.list_types (1=Token, 2=Address), so every compact row called a
-        // token list an address list and vice versa. showListDetails already
-        // consumes the map, so this leaves one source of truth. An invalid edit row can carry a
-        // null type (the parent lookup failed and the row persisted anyway), so name that case
-        // rather than printing 'undefined'.
+        // Read the type off the canonical XC.list_types map, never a second inline copy:
+        // showListDetails consumes the map too, so this keeps one source of truth. An
+        // invalid edit row can carry a null type, the parent lookup having failed while
+        // the row persisted, so name that case rather than printing 'undefined'.
         let type2   = XC.list_types[info.type] || 'Unknown';
         html = action3 + ' ' + type2 + ' List';
     }
@@ -1880,13 +1864,13 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
-            // Validator / capability stake. eq(7)-eq(9) are the hub federation
-            // registry's view of the SAME signing pubkey (addr / served chains /
-            // registration status), folded onto the on-chain active set so this one page
-            // covers both. Registry strings are hub-supplied free text, so they render as
-            // TEXT, never as markup. A null status means no registry was reachable
-            // (unknown); 'unregistered' means the registry answered and does not list
-            // this pubkey.
+            // Validator / capability stake. eq(7)-eq(9) are the hub federation registry's
+            // view of the SAME signing pubkey (addr / served chains / registration
+            // status), folded onto the on-chain active set so one page covers both.
+
+            // Registry strings are hub-supplied free text and render as TEXT, never
+            // markup. A null status means no registry was reachable (unknown);
+            // 'unregistered' means the registry answered and does not list this pubkey.
             if(action=='validator'){
                 let pubkey     = data[4];
                 let version    = data[5];
@@ -2202,13 +2186,11 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(7).text(isNull(signer_count) ? '-' : signer_count);
                 $('td', row).eq(8).html(formatLink('/' + coin + '/checkpoint/' + block_index, 'view', null, true));
             }
-            // Per-block SPV commitments (state_tree_roots) plus the covering checkpoint and
-            // the ANCHOR that carried it. checkpoint_seq/anchor_action are null when this
-            // block has no covering checkpoint or carrying ANCHOR YET, which is the normal
-            // state near the tip (checkpoints cut on a cadence, ANCHOR batches several
-            // heights), so both render as a neutral badge rather than an error or a blank.
-            // Height is plain text rather than a self-link: this section always sits on the
-            // block it describes.
+            // Per-block SPV commitments (state_tree_roots) plus the covering checkpoint
+            // and the ANCHOR that carried it. checkpoint_seq/anchor_action are null when
+            // neither exists YET, the normal state near the tip, so both render as a
+            // neutral badge rather than an error or a blank. Height is plain text, this
+            // section always sitting on the block it describes.
             if(action=='commitment'){
                 let height              = data[1];
                 let balances_root       = data[2];
@@ -2296,17 +2278,15 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(5).text(isNull(validator_count) ? '-' : validator_count);
                 $('td', row).eq(6).html('<span class="badge text-bg-' + (reorg_status=='confirmed' ? 'success' : 'danger') + '">' + escapeHtml(reorg_status || '-') + '</span>');
             }
-            // Federation slash proposal (hub-owned, id-keyed). These rows are
-            // EVIDENCE, not enforcement (platform ruling 2026-07-16), and a
-            // 'pending' row has not been adjudicated by anyone, so it is badged
-            // NEUTRAL and labelled 'unadjudicated' rather than painted in the
-            // failure colour: red on an unadjudicated accusation reads as a
-            // verdict. 'rejected' means the accusation was DISMISSED, so it is
-            // the cleared state, not a failure. evidence_hash is the sha256 of
-            // the evidence the hub holds (hashed hub-side, never served
-            // verbatim); it is shown so a holder of an evidence record can check
-            // it matches. The status word is renamed to avoid shadowing the
-            // positional `status` destructured at the top of createdRow.
+            // Federation slash proposal (hub-owned, id-keyed). These rows are EVIDENCE,
+            // not enforcement, so 'pending' is badged NEUTRAL and labelled
+            // 'unadjudicated': red on an unadjudicated accusation reads as a verdict.
+            // 'rejected' means DISMISSED, the cleared state rather than a failure.
+
+            // evidence_hash is the sha256 of the evidence the hub holds, never served
+            // verbatim, and is shown so a holder of an evidence record can check it
+            // matches. The status word is renamed to avoid shadowing the positional
+            // `status` destructured at the top of createdRow.
             if(action=='slash_proposal'){
                 let created_at       = data[1];
                 let validator_pubkey = data[2];
@@ -3166,11 +3146,10 @@ function showVoteDetails(data){
     }
 }
 
-// Display BET action information. One action name over four formats, so branch on
-// bet_kind (set server-side in getActionData): 'feed' = format 0 market creation,
-// 'bet' = format 2 wager, 'cancel'/'resolve' = the row-less formats 1/3 that only
-// flip the parent feed.
-//
+// Display BET action information: one action name over four formats, so branch on
+// bet_kind (set server-side in getActionData). 'feed' is format 0 market creation,
+// 'bet' format 2 wager, 'cancel'/'resolve' the row-less formats 1/3.
+
 // RENDERING SAFETY (§11.1): LABEL, OUTCOMES and DETAILS are attacker-controlled
 // on-chain bytes. Everything derived from them goes through .text() or the
 // $('<div>').text(x).html() escape, DETAILS is shown strictly as inert data, and no
@@ -3421,10 +3400,9 @@ function showXcallDetails(data){
         return '<span class="badge text-bg-' + cls + '">' + (s || '-') + '</span>';
     };
     $('#info-xcall .xcall-call-id').html(formatHash(data.call_id, 32));
-    // Version badge: v0 = the cross-chain call request, v1 = the result-delivery
-    // marker (its data lives in cross_chain_call_callbacks, surfaced as
-    // callback_delivery below), v2 = the expire. v1 previously fell through to a
-    // blank 'Request (v0)' page.
+    // Version badge: v0 is the cross-chain call request, v1 the result-delivery marker
+    // (its data living in cross_chain_call_callbacks, surfaced as callback_delivery
+    // below), v2 the expire. All three need a branch; v1 has no request row of its own.
     let xcallV = Number(data.version);
     $('#info-xcall .xcall-version').html(
         xcallV === 2 ? '<span class="badge text-bg-secondary">Expire (v2)</span>' :
@@ -3440,14 +3418,11 @@ function showXcallDetails(data){
     $('#info-xcall .xcall-callback-method').text(isNull(data.callback_method) ? '-' : data.callback_method);
     $('#info-xcall .xcall-deadline').html(isNull(data.deadline_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deadline_block, numeral(data.deadline_block).format('0,0')));
     $('#info-xcall .xcall-request-status').html(statusBadge(data.request_status));
-    // The outcome as RECORDED ON THIS CHAIN (xcalls.result_status/result_payload/
-    // resolved_block). Not a duplicate of the execution block below: these three
-    // columns are what the indexer writes when it flips the request terminal, and
-    // they are the source the VM's xchain.crossChain.getCallResult reads, so this
-    // is the value a contract sees. The detail query has always selected them and
-    // the page never read them, which left the fetched consensus record invisible
-    // and unable to be compared against the mirrored execution record. Hidden as a
-    // group while the call is still pending, since none of the three is set then.
+    // The outcome as RECORDED ON THIS CHAIN (xcalls.result_status / result_payload /
+    // resolved_block), not a duplicate of the execution block below: the indexer writes
+    // these three when it flips the request terminal, and they are what the VM's
+    // xchain.crossChain.getCallResult reads, so this is the value a contract sees.
+    // Hidden as a group while the call is pending, none of the three being set then.
     let resolved = !isNull(data.result_status) || !isNull(data.resolved_block);
     $('#info-xcall .xcall-resolved-row').toggleClass('d-none', !resolved);
     if(resolved){
@@ -3811,14 +3786,10 @@ function showPriceDetails(data){
     $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
     $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
-    // PRICE v1 carries the oracle's own usage FEE as a decimal fraction (0 to 1,
-    // where 0.01 means 1%) plus an optional MEMO. The detail query selects both
-    // (action-detail/consensus.js: m.fee as oracle_fee, m1.memo) and this
-    // renderer used to read neither, so a user-submitted quote showed its fee
-    // nowhere on the explorer. The raw decimal leads because that is the wire
-    // value a DISPENSER's required oracle-fee output is computed from; the
-    // percent reading rides along for readability. v0 validator snapshots carry
-    // neither field and render '-' like every other absent value here.
+    // PRICE v1 carries the oracle's usage FEE as a decimal fraction (0.01 being 1%)
+    // plus an optional MEMO, both selected by the detail query. The raw decimal leads
+    // because it is the wire value a DISPENSER's required oracle-fee output is computed
+    // from; the percent rides along for readability. v0 snapshots carry neither.
     $('#info-price .price-oracle-fee').text(isNull(data.oracle_fee) ? '-'
         : data.oracle_fee + ' (' + numeral(Number(data.oracle_fee) * 100).format('0,0.[000000]') + '%)');
     $('#info-price .price-round').text(isNull(data.round_number) ? '-' : numeral(data.round_number).format('0,0'));
@@ -4358,13 +4329,13 @@ function showTokenContent(json){
             // URLs into the src attribute so a javascript:/data: URI can't land there.
             var safeImage = String(image);
             if(safeImage.startsWith('http://') || safeImage.startsWith('https://'))
-                // .attr() sets the attribute through the DOM API, not markup, so
-                // there is no HTML parser to later un-escape entities the way the
-                // video/audio src sinks above rely on. Strip (not entity-escape)
-                // the tag/attribute-breakout characters instead: a real URL is
-                // always percent-encoded and never carries a literal <, >, " or '
-                // (unlike '&', which legitimately separates query params), so a
-                // benign URL is unaffected while a payload loses its markup bytes.
+                // .attr() sets through the DOM API, not markup, so no HTML parser later
+                // un-escapes entities the way the video/audio src sinks above rely on.
+
+                // STRIP the tag/attribute-breakout characters rather than entity-escaping
+                // them: a real URL is percent-encoded and never carries a literal <, >, "
+                // or ' (unlike '&', which separates query params), so a benign URL is
+                // unaffected while a payload loses its markup bytes.
                 el.attr('src', safeImage.replace(/[<>"']/g, ''));
             el.show();
         }
@@ -4820,13 +4791,10 @@ function legacyJsonToXChainTIS(o){
     // Pass forward the HTML tag if it exists
     if(o.html)
         json.html = o.html;
-    // Token descriptions are untrusted on-chain free text and must NEVER be
-    // rendered as HTML. The old code did the opposite: it un-escaped the value
-    // and, on a denylist hit (<script/<iframe/onload), promoted the raw markup
-    // into json.html, which is injected via .html() at the token-detail body.
-    // a denylist is trivially bypassed (<img onerror>, <svg onload>, …). Reduce
-    // to plain text via the inert stripHtml; the render path then treats it as
-    // text. (Rich/HTML descriptions, if ever wanted, need a real sanitizer.)
+    // Token descriptions are untrusted on-chain free text and must NEVER reach an
+    // .html() sink: reduce to plain text through the inert stripHtml. A denylist is
+    // not an option here, being trivially bypassed (<img onerror>, <svg onload>);
+    // rich descriptions, if ever wanted, need a real sanitizer.
     if(json.description){
         json.description = stripHtml(String(json.description)).trim();
     }

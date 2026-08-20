@@ -1,0 +1,186 @@
+/*
+ * Design tokens for "skin-demo".
+ *
+ * A permanent test fixture, deliberately not offered in the theme nav. Its
+ * whole point is to prove Layer 1 (see the theme system spec, section 3.1):
+ * every visual decision xchain.css and xchain-charts.css make now reads a
+ * --xc-* token, so swapping this file in for themes/classic/tokens.css
+ * restyles the explorer with zero markup and zero JS changes. To load it,
+ * either point template.html's tokens.css <link> at
+ * /themes/skin-demo/tokens.css instead of /themes/classic/tokens.css, or
+ * request the page with the theme-selection mechanism once M3 adds one.
+ *
+ * Palette story: "Slate Ink" - a deep navy/slate footer and border family in
+ * place of classic's neutral grays, an amber highlight in place of pure
+ * yellow, softer pastel status tints, larger corner radii, and roomier
+ * table/tooltip padding. Every fixed layout dimension a page actually
+ * depends on (glyph and icon pixel sizes, the market page's fixed
+ * heights/widths, fixed table column widths, container heights) is carried
+ * over unchanged from classic on purpose - see the per-section notes below.
+ */
+
+:root {
+
+    /* Primitives shared across families. Both represent "zero"; a skin that
+       changed them off 0 would corrupt every declaration built on top of
+       "none", so they stay pinned like classic's. */
+    --xc-space-none: 0px;
+    --xc-border-width-none: 0px;
+    --xc-radius-lg: 10px;
+
+    /* Main-menu glyphs. Pixel sizes tied to the actual icon assets, so kept
+       at classic's values; resizing them wildly would clip or float the
+       glyphs against their menu row. */
+    --xc-glyph-width: 20px;
+    --xc-glyph-height: 20px;
+    --xc-glyph-xchain-height: 18px;
+    --xc-glyph-xchain-offset-top: 2px;
+    --xc-glyph-coin-offset-top: 5px;
+    --xc-glyph-explorer-offset-top: 0px;
+
+    /* Footer bar. Kept dark in both modes like classic (a deliberate design
+       choice, not a mode gap), recolored to a deep navy with a
+       slate-blue link tone that stays readable against it. Width/height are
+       structural (100% bar, fixed 50px row) and unchanged. */
+    --xc-footer-width: 100%;
+    --xc-footer-height: 50px;
+    --xc-footer-bg: #1b2436;
+    --xc-footer-color: rgb(255, 255, 255);
+    --xc-footer-link-color: rgb(154, 176, 209);
+
+    /* Cell truncation. Functional thresholds, not decoration; unchanged. */
+    --xc-cell-truncate-max-width: 200px;
+    --xc-cell-truncate-min-width: 5px;
+
+    /* DataTables chrome. Roomier than classic to match the table-density
+       story below; none of these are widths another rule depends on. */
+    --xc-datatable-info-padding-top: 0.25em;
+    --xc-datatable-length-select-padding: 4px;
+    --xc-datatable-paginate-padding-y: 0.15em;
+    --xc-datatable-paginate-padding-x: 0.6em;
+    --xc-datatable-placeholder-padding-y: 28px;
+
+    /* Table borders and density: thicker, cooler border and roomier cell
+       padding is the clearest at-a-glance signal the skin took effect. */
+    --xc-table-border-width: 2px;
+    --xc-table-border-color: #7c8db3;
+    --xc-table-cell-padding: 8px;
+
+    /* Market page. All fixed heights/widths here are structural - the
+       header/info panels and icon column are sized to these exactly, so
+       they carry over unchanged. Typography stays unchanged too: the name
+       sits in a 65px header with a 1.0em line-height, and a larger size or
+       looser line-height would overflow that fixed row. */
+    --xc-market-info-height: 100px;
+    --xc-market-header-height: 65px;
+    --xc-market-header-padding-top: 5px;
+    --xc-market-icons-width: 135px;
+    --xc-market-icons-margin-x: 5px;
+    --xc-market-name-font-size: 1.5em;
+    --xc-market-name-font-weight: bold;
+    --xc-market-name-line-height: 1.0em;
+    --xc-market-pair-margin-top: 5px;
+    --xc-market-description-margin: 5px;
+    --xc-market-stats-th-width: 120px;
+
+    /* Icon sizing utilities. Asset pixel dimensions, unchanged. */
+    --xc-wrapicon-25-width: 25px;
+    --xc-wrapicon-25-margin-right: 5px;
+    --xc-icon-size-20: 20px;
+    --xc-icon-size-48: 48px;
+    --xc-icon-size-64: 64px;
+
+    /* Status row backgrounds. Different hue family from classic (coral /
+       sage / gold vs. classic's pink / mint / yellow) but the same pastel
+       tone range, so they carry the same legibility behavior classic has
+       against table text in both modes. */
+    --xc-row-bg-danger: #F4C7C3;
+    --xc-row-bg-success: #D8ECD9;
+    --xc-row-bg-warning: #F5E2A8;
+
+    /* Fixed column widths. These are the ones the spec's own acceptance run
+       flagged as layout-sensitive (DataTables auto-layout redistributes any
+       remainder), so every value here is unchanged from classic. */
+    --xc-th-width-record: 75px;
+    --xc-th-width-time: 150px;
+    --xc-th-width-amount: 100px;
+    --xc-th-width-quantity: 250px;
+    --xc-th-width-quantity-small: 100px;
+    --xc-th-width-view: 50px;
+    --xc-th-width-transactions: 120px;
+    --xc-th-width-address: 320px;
+
+    /* Stat tables. Fixed label-column widths, unchanged. */
+    --xc-table-stats-th-width: 120px;
+    --xc-table-address-stats-th-width: 175px;
+
+    /* Token and lock detail tables. Fixed label-column widths, unchanged. */
+    --xc-token-info-th-width: 120px;
+    --xc-enhanced-token-info-th-width: 140px;
+    --xc-lock-info-th-width: 120px;
+
+    /* Custom-content warning panel. Height and full-width viewer are
+       structural containers, unchanged; only the panel's background moves
+       to the slate family for story consistency. */
+    --xc-custom-content-warning-height: 200px;
+    --xc-custom-content-warning-bg: #C9D2DE;
+    --xc-custom-content-warning-padding-top: 20px;
+    --xc-custom-content-danger-margin: 20px;
+    --xc-custom-content-viewer-width: 100%;
+
+    /* Terms of use and search-term highlighting. Highlight moves from pure
+       yellow to an amber that matches the accent story. */
+    --xc-terms-item-margin-bottom: 10px;
+    --xc-highlight-bg: #FFD873;
+    --xc-highlight-font-weight: bold;
+
+    /* Chart layer: container and toolbar. Width tokens are structural (the
+       canvas fills its container); toolbar spacing is nudged roomier. */
+    --xc-chart-width: 100%;
+    --xc-chart-canvas-width: 100%;
+    --xc-chart-toolbar-gap: .5rem;
+    --xc-chart-toolbar-padding-top: .3rem;
+    --xc-chart-toolbar-padding-bottom: .45rem;
+    --xc-chart-btn-padding-y: .15rem;
+    --xc-chart-btn-padding-x: .5rem;
+    --xc-chart-btn-font-size: .75rem;
+
+    /* Chart empty state. Container height and text size/weight are kept
+       (readability at a small size shouldn't shrink further); only the
+       color moves to the slate story. Dark value is at the bottom of this
+       file, same split classic uses. */
+    --xc-chart-nodata-min-height: 200px;
+    --xc-chart-nodata-font-size: 15px;
+    --xc-chart-nodata-font-weight: bold;
+    --xc-chart-nodata-color: #2d3548;
+
+    /* Chart tooltip. z-index is a stacking contract, not decoration, so it
+       stays exact. bg/color keep layering over Bootstrap's own surface
+       vars (the honest source for body background/text), with fallbacks
+       nudged to the slate story for the rare case those vars are unset. */
+    --xc-chart-tooltip-z-index: 1080;
+    --xc-chart-tooltip-transition-duration: .15s;
+    --xc-chart-tooltip-padding-y: .5rem;
+    --xc-chart-tooltip-padding-x: .75rem;
+    --xc-chart-tooltip-border-width: 2px;
+    --xc-chart-tooltip-border-color: var(--bs-border-color, #7c8db3);
+    --xc-chart-tooltip-radius: .5rem;
+    --xc-chart-tooltip-bg: var(--bs-body-bg, #f4f6fb);
+    --xc-chart-tooltip-color: var(--bs-body-color, #1b2436);
+    --xc-chart-tooltip-shadow: 0 .35rem .8rem rgba(27, 36, 54, .22);
+    --xc-chart-tooltip-font-size: .875rem;
+    --xc-chart-tooltip-table-margin-top: .25rem;
+    --xc-chart-tooltip-cell-padding-x: .3rem;
+    --xc-chart-tooltip-separator-padding-x: .2rem;
+
+}
+
+/* Mode-dependent overrides, same split classic uses: no rule in the
+   stylesheets is selected per mode, so the skin changes the mode by
+   redefining tokens here. Lightened for contrast against the dark surface
+   Bootstrap's own dark theme supplies. */
+[data-bs-theme="dark"] {
+
+    --xc-chart-nodata-color: #c3cbe0;
+
+}

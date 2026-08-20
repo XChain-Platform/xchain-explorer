@@ -134,6 +134,61 @@
     </div>
 </div>
 
+<!-- Address Staking (M4.5): the composed answer to the four questions the raw
+     tabs below cannot answer together - what is staked, what is cooling down
+     and WHEN IT RELEASES (in blocks, against the chain tip served in the same
+     response), what is claimable, and what has been slashed out from under
+     this address on EITHER slash path.
+
+     Hidden until the address has staking activity, matching the Controller
+     Bindings card above: most addresses stake nothing, and a permanently empty
+     staking card on every address page is noise that trains readers to skip
+     the one place a cooldown countdown appears. -->
+<style>
+.addr-staking-section + .addr-staking-section {
+    padding-top: var(--xc-table-cell-padding);
+    border-top: var(--xc-table-border-width) solid var(--xc-table-border-color);
+}
+.addr-staking-slash-family + .addr-staking-slash-family {
+    padding-top: var(--xc-table-cell-padding);
+    border-top: var(--xc-table-border-width) solid var(--xc-table-border-color);
+}
+</style>
+<div class="container" id="addr-staking-card" style="display:none;">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#addr-staking-body" aria-expanded="true" aria-controls="addr-staking-body" id="addr-staking-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-lg fa-lock"></i> Staking
+                        <span class="badge text-bg-light text-muted fw-normal">cooldowns count down in blocks, not time</span>
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="addr-staking-body">
+                    <div class="p-2 border-bottom" id="addr-staking-summary"></div>
+                    <div class="p-2 border-bottom">
+                        <div class="fw-bold small mb-2"><i class="fa fa-hourglass-half me-1"></i> Cooldowns</div>
+                        <div id="addr-staking-cooldowns"></div>
+                    </div>
+                    <div class="p-2 border-bottom">
+                        <div class="fw-bold small mb-2"><i class="fa fa-coins me-1"></i> Positions</div>
+                        <div id="addr-staking-positions"></div>
+                    </div>
+                    <div class="p-2 border-bottom">
+                        <div class="fw-bold small mb-2"><i class="fa fa-hand-holding-dollar me-1"></i> Rewards &amp; COLLECT trail</div>
+                        <div id="addr-staking-rewards"></div>
+                    </div>
+                    <div class="p-2">
+                        <div class="fw-bold small mb-2"><i class="fa fa-gavel me-1"></i> Slash exposure</div>
+                        <div id="addr-staking-slashes"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Transactions -->
 <div class="container">
     <div class="row">
@@ -935,6 +990,46 @@
             }
             loadProofWidget('/' + XC.coin + '/api/proof/locked-balance/' + encodeURIComponent(XC.query) + '/' + encodeURIComponent(tick),
                 '#address-proof-locked-result', renderBalanceProof);
+        });
+
+    });
+</script>
+
+<script type="text/javascript" src="/js/address-staking-render.js"></script>
+<script type="text/javascript">
+    $(document).ready(function(){
+
+        // The composed staking panel. Fetched on its own rather than through
+        // loadApiData: this is a single composed resource, and it must be able
+        // to fail without touching the tabs above, which serve every other
+        // address (staking is a minority of them).
+        $.getJSON('/' + XC.coin + '/api/staking/' + XC.query, function(o){
+            // Single-resource routes answer a BARE object; the plural routes
+            // answer the {total, data} envelope. Both are accepted, because
+            // reading only o.data would render a real staker's page as empty,
+            // which is indistinguishable from an address that stakes nothing.
+            let d = null;
+            if(o){
+                if(!isNull(o.data))          d = Array.isArray(o.data) ? o.data[0] : o.data;
+                else if(!isNull(o.address))  d = o;
+            }
+            // No staking activity at all: the card STAYS HIDDEN. It is not an
+            // error, and an empty card on the majority of address pages would
+            // bury the cooldown countdown on the pages that have one.
+            if(!d || !addrStakingHasActivity(d)) return;
+
+            $('#addr-staking-summary').html(renderAddressStakingSummary(d));
+            $('#addr-staking-cooldowns').html(renderAddressStakingCooldowns(d));
+            $('#addr-staking-positions').html(renderAddressStakingPositions(d));
+            $('#addr-staking-rewards').html(renderAddressStakingRewards(d));
+            $('#addr-staking-slashes').html(renderAddressStakingSlashes(d));
+            $('#addr-staking-card').show();
+        }).fail(function(){
+            // A failed staking fetch is CONTAINED here: the card stays hidden
+            // and every other panel on this page keeps working. Drawing an
+            // error banner would claim something about an address that in all
+            // likelihood has no staking history at all.
+            $('#addr-staking-card').hide();
         });
 
     });

@@ -256,7 +256,12 @@ function setXChainParams(coin){
         }
     } else if(type=='market'){
         XC.type  = type;
-        XC.query = path[3] + '/' + path[4];
+        // A market URL may omit its counter-tick (/{COIN}/market/{TICK}). Blind
+        // concatenation stringified the missing segment as the literal
+        // "undefined", which then flowed into the page title and an API request
+        // for a nonexistent 'undefined' ticker. Keep the single tick here; the
+        // market page resolves the counter via resolveMarketPair before use.
+        XC.query = isNull(path[4]) ? path[3] : path[3] + '/' + path[4];
     }
 }
 
@@ -2521,7 +2526,7 @@ function loadDatatablesData(coin, action, query, type){
 function loadApiData(coin, action, query, type, callback){
     // Set the API endpoint name based on the action
     let endpoint = null;
-    if(['history','block','network','token','action','status','transaction','market'].includes(action) || (action=='address' && type==null)){
+    if(['history','block','network','token','action','status','transaction','market','markets'].includes(action) || (action=='address' && type==null)){
         endpoint = action;
     } else if(['address','batch','order_match','swap_match','cross_chain_match'].includes(action)){
         // These take '-es', not '-s'; the three *_match names would otherwise build
@@ -4917,6 +4922,50 @@ function updatePageInfo(){
         $('meta[name="robots"]').attr('content',info.robots);
 }
 
+// Resolve the counter-tick of a market pair. A market URL may name only the
+// primary tick (/{COIN}/market/{TICK}); the counter then comes from the top
+// market listed for that tick, never from the missing path segment (an absent
+// segment would stringify as the literal "undefined"). A counter given in the
+// URL passes through unchanged. `fail` runs when no market exists for the
+// tick, so the page can say so rather than render a half-composed pair.
+function resolveMarketPair(tick1, tick2, done, fail){
+    if(!isNull(tick2)){
+        done(tick2);
+        return;
+    }
+    loadApiData(XC.coin, 'markets', tick1, null, function(o){
+        let list    = (o && o.data) ? o.data : [],
+            wanted  = String(tick1).toUpperCase(),
+            counter = null;
+        for(let idx in list){
+            // The list re-orients each pair around the searched tick, so take
+            // whichever side is not the tick we asked about.
+            let m = list[idx],
+                c = (String(m.tick1).toUpperCase()==wanted) ? m.tick2 : m.tick1;
+            if(!isNull(c) && String(c).toUpperCase()!=wanted){
+                counter = c;
+                break;
+            }
+        }
+        if(!isNull(counter)){
+            done(counter);
+        } else if(typeof fail==='function'){
+            fail();
+        }
+    });
+}
+
+// Render a visible failed-resolution state for a market page. Silently blank
+// panels (or a stringified "undefined") hide that the requested pair does not
+// exist on this chain, so the failure is stated in the title and the panels.
+function showMarketNotFound(tick){
+    XC.pageInfo.title = tick + ' Market Not Found';
+    updatePageInfo();
+    $('.market-name').text(tick + ' MARKET NOT FOUND');
+    $('.market-description').text('No market was found for ' + tick + ' on the ' + XC.name + ' (' + XC.network + ') blockchain network');
+    $('.loading-data').text('No market data available');
+}
+
 // Handle updating/displaying market information
 function loadMarket(market){
     updateMarketBasics(market);
@@ -4944,26 +4993,31 @@ function loadMarketChart(chart){
 // Request market data and update the header with this information
 function updateMarketBasics(market){
     loadApiData(XC.coin, 'market', market, null, function(o){
-        if(o){
-            // Update page with token names
-            $('.tick1-name').text(o.tick1);
-            $('.tick2-name').text(o.tick2);
-            // Update Market information header
-            $('#tokenIconLink1').attr('href','/' + XC.coin + '/token/' + o.tick1);
-            $('#tokenIconLink2').attr('href','/' + XC.coin + '/token/' + o.tick2);
-            $('#tokenIcon1').attr('src', getTokenIcon(o.tick1));
-            $('#tokenIcon2').attr('src', getTokenIcon(o.tick2));
-            $('#tokenLink1').attr('href', '/' + XC.coin + '/token/' + o.tick1);
-            $('#tokenLink2').attr('href', '/' + XC.coin + '/token/' + o.tick2);
-            $('#market-swap-button').attr('href', '/' + XC.coin + '/market/' + o.tick2 + '/' + o.tick1);
-            // Update Price information header
-            $('#tick1-price').text(formatAmount(bcformat(o.tick1_price,8)));
-            $('#tick1-24h-high').text(formatAmount(bcformat(o.tick1_24hr_high,8)));
-            $('#tick1-24h-low').text(formatAmount(bcformat(o.tick1_24hr_low,8)));
-            $('#tick1-24h-price').text(formatAmount(bcformat(o.tick1_24hr_price,8)));
-            $('#tick1-24h-change').text(formatAmount(bcformat(o.tick1_24hr_change,8)));
-            $('#tick1-24h-volume').text(formatAmount(bcformat(o.tick1_24hr_volume,8)));
+        // An answer without a resolvable pair (the API returns no row for an
+        // unknown pair) is a resolution failure; say so instead of leaving
+        // every panel on "Loading".
+        if(!o || isNull(o.tick2)){
+            showMarketNotFound(String(market).split('/')[0]);
+            return;
         }
+        // Update page with token names
+        $('.tick1-name').text(o.tick1);
+        $('.tick2-name').text(o.tick2);
+        // Update Market information header
+        $('#tokenIconLink1').attr('href','/' + XC.coin + '/token/' + o.tick1);
+        $('#tokenIconLink2').attr('href','/' + XC.coin + '/token/' + o.tick2);
+        $('#tokenIcon1').attr('src', getTokenIcon(o.tick1));
+        $('#tokenIcon2').attr('src', getTokenIcon(o.tick2));
+        $('#tokenLink1').attr('href', '/' + XC.coin + '/token/' + o.tick1);
+        $('#tokenLink2').attr('href', '/' + XC.coin + '/token/' + o.tick2);
+        $('#market-swap-button').attr('href', '/' + XC.coin + '/market/' + o.tick2 + '/' + o.tick1);
+        // Update Price information header
+        $('#tick1-price').text(formatAmount(bcformat(o.tick1_price,8)));
+        $('#tick1-24h-high').text(formatAmount(bcformat(o.tick1_24hr_high,8)));
+        $('#tick1-24h-low').text(formatAmount(bcformat(o.tick1_24hr_low,8)));
+        $('#tick1-24h-price').text(formatAmount(bcformat(o.tick1_24hr_price,8)));
+        $('#tick1-24h-change').text(formatAmount(bcformat(o.tick1_24hr_change,8)));
+        $('#tick1-24h-volume').text(formatAmount(bcformat(o.tick1_24hr_volume,8)));
     });
 }
 

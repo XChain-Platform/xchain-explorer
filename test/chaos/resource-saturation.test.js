@@ -181,7 +181,10 @@ describe('CE-RES-03: Event Loop Saturation', function () {
             requests:    [{ method: 'GET' }]
         });
 
-        // Sample event loop lag roughly mid-burst (5 s into a 10 s burst)
+        // Sample event loop lag roughly mid-burst (5 s into a 10 s burst).
+        // This delay is the sampling coordinate itself, not a wait for an
+        // event: "halfway through the burst" is a time, so there is nothing to
+        // poll for, and polling on the measured value would bias it.
         await new Promise(resolve => setTimeout(resolve, 5000));
         duringLag = await measureEventLoopLag();
         // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally

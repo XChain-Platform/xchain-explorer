@@ -58,23 +58,42 @@ describe('detail pages resolve XC.query', function () {
         expect(allowlistedTypes(), 'query-derivation allowlist not found in xchain.js').to.not.equal(null);
     });
 
-    it('every checkpoint-family detail route is in the client allowlist', function () {
-        // Scoped to the routes this suite's milestone added rather than to every
-        // detail route: several older pages (bet_feed, oracle) read XC.query while
-        // sitting outside the allowlist, which is a real pre-existing gap but not
-        // one to fail the build on until it is separately confirmed and fixed.
-        const allow = allowlistedTypes();
-        expect(detailRouteTypes().has('checkpoint'), 'checkpoint detail route missing').to.equal(true);
-        expect(allow.has('checkpoint'),
-            'checkpoint is a /{QUERY} detail route but is not in the XC.query allowlist, so the page would fetch /api/checkpoint/null').to.equal(true);
-    });
+    // Detail routes this guard holds to the allowlist. It is an opt-in list rather
+    // than "every detail route" because two OLDER pages (bet_feed, oracle) read
+    // XC.query while sitting outside the allowlist: a real pre-existing gap, but one
+    // to confirm and fix on its own evidence rather than to fail the build on here.
+    // Anything ADDED from M2 onward belongs in this list, so the gap cannot grow.
+    const COVERED = ['checkpoint', 'validator', 'xcall', 'attestation', 'poll', 'anchor'];
+
+    for (const type of COVERED) {
+        it('detail route ' + type + ' is in the client allowlist', function () {
+            expect(detailRouteTypes().has(type), type + ' detail route missing from urls.html').to.equal(true);
+            expect(allowlistedTypes().has(type),
+                type + ' is a /{QUERY} detail route but is not in the XC.query allowlist, so the page would fetch /api/' +
+                type + '/null and render "not found" on a record that exists').to.equal(true);
+        });
+    }
 
     it('numeric-id detail types validate their id', function () {
-        // checkpoint ids are block heights, so they belong in the numeric branch;
-        // without it a non-numeric segment would be passed through to the API.
+        // Block heights and action indices belong in the numeric branch; without it a
+        // non-numeric segment is passed straight through to the API.
         const inner = CLIENT.match(/if\(\(\[([^\]]*)\]\.includes\(type\) && isNumeric\(query\)\)/);
         expect(inner, 'numeric-id branch not found').to.not.equal(null);
         const numeric = inner[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
         expect(numeric).to.include('checkpoint');
+        // poll, anchor and attestation resolve by action index, so they are numeric too.
+        for (const type of ['poll', 'anchor', 'attestation'])
+            expect(numeric, type + ' resolves by action index and belongs in the numeric branch').to.include(type);
+    });
+
+    it('non-numeric detail types are validated some other way, not left unchecked', function () {
+        // validator (pubkey OR address) and xcall (64-hex call_id) cannot use the
+        // numeric check, so they need their own branch. Without one they would fall
+        // through with XC.query unset, which is the exact failure this file exists for.
+        const branch = CLIENT.match(/\(\[([^\]]*)\]\.includes\(type\) && typeof\(query\)=='string' && query\.length\)/);
+        expect(branch, 'no non-numeric validation branch found for pubkey/hash-keyed detail types').to.not.equal(null);
+        const nonNumeric = branch[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
+        expect(nonNumeric).to.include('validator');
+        expect(nonNumeric).to.include('xcall');
     });
 });

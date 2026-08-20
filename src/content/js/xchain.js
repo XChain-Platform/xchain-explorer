@@ -239,7 +239,7 @@ function setXChainParams(coin){
     // A detail page whose type is absent here gets XC.query = null and then requests
     // its own API route with a literal 'null' segment, rendering as "not found" rather
     // than failing visibly, so every new detail route has to be added in BOTH lists.
-    if(['block','address','token','action','transaction','contract','execution','checkpoint','xcall','attestation','poll','anchor'].includes(type)){
+    if(['block','address','token','action','transaction','contract','execution','checkpoint','validator','xcall','attestation','poll','anchor'].includes(type)){
         if((['block','action','contract','execution','checkpoint','poll','anchor','attestation'].includes(type) && isNumeric(query)) ||
            (type=='address' && isCryptoAddress(query)) ||
            // A validator resolves by signing pubkey OR by staking address, and an xcall by

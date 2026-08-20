@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.10.0] - 2026-08-18
 
 ### Added
 - New State Checkpoints, Price Rounds, Contract Delegations, Coinpay Settlements and Coinpay Obligations pages, each linked from the menu.
@@ -16,6 +16,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Public API routes for block lists, search, and project rosters, which previously only the site's own pages could reach.
 - File lookups by name, and a matching database index.
 - History rows now name the BATCH they belong to, so clients can group a batch's actions.
+- The lists API returns the LIST memo.
+
+### Changed
+- The escrow locked-balance leaf is armed on testnet from genesis, keeping the client's activation constant level with the fleet; mainnet is unchanged.
+- Project banners on token pages now span the full content width below the Token and Market Information cards, and a project's official-token count moved from a table row into an ownership banner there.
+- The Data menu's categories are reordered so each row's columns are similar heights, with green section headers and more space between rows.
+- Font Awesome is now self-hosted from the bundled Free package at `/fontawesome`, so icons work on every deployment with no CDN, account, or configuration.
+- Six Pro-only icon names were replaced with Free equivalents, enforced by a new unit test.
+- The Content Security Policy allows Cloudflare's RUM beacon so proxied deployments load without console errors.
+
+### Removed
+- The Font Awesome kit route, the vendored kit loader, and the `EXPLORER_FONTAWESOME_*` environment variables.
 
 ### Fixed
 - The Actions, Order Matches and Swap Matches feeds returned rows their pages could not render; a new test requires every registered feed to have a row mapping and forbids orphaned mappings.
@@ -31,23 +43,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Cross-Chain Matches page requested a misspelled endpoint and always rendered empty; a new test pins every page's endpoint to a registered route.
 - The mempool endpoint returned nothing unless filtered by address or token.
 - The API reference omitted the contract-call endpoint, because its generator and coverage test only understood GET routes.
-
-### Changed
-- Project banners on token pages now span the full content width below the Token and Market Information cards, and a project's official-token count moved from a table row into an ownership banner there.
-- The Data menu's categories are reordered so each row's columns are similar heights, with green section headers and more space between rows.
-- Font Awesome is now self-hosted from the bundled Free package at `/fontawesome`, so icons work on every deployment with no CDN, account, or configuration.
-- Six Pro-only icon names were replaced with Free equivalents, enforced by a new unit test.
-- The Content Security Policy allows Cloudflare's RUM beacon so proxied deployments load without console errors.
-
-### Removed
-- The Font Awesome kit route, the vendored kit loader, and the `EXPLORER_FONTAWESOME_*` environment variables.
-
-## [0.10.0] - 2026-08-18
-
-### Added
-- The lists API returns the LIST memo.
-
-### Fixed
 - Code-review round fixes across the API and UI (two rounds, 21 files).
 
 ### Security

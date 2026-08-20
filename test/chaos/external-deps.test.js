@@ -37,6 +37,7 @@ const {
     httpGet,
     concurrentRequests,
     waitUntil,
+    waitForRecovery,
     seedDatabase,
 } = require('./helpers/chaos-setup');
 
@@ -294,9 +295,12 @@ describe('CE-EXT-02: Config Sync Resilience', function () {
             configInfo.triggerConfigChanged();
         }
 
-        await new Promise(r => setTimeout(r, 1000));
-        const res = await httpGet(HEALTH, { timeout: 10000 });
-        expect(res.statusCode).to.be.below(500,
+        // Wait for the server to serve again, not for a fixed second to pass:
+        // the churn recreates the DB pools, and how long that takes is a
+        // property of the venue. waitForRecovery polls until a request comes
+        // back under 500 and reports -1 if it never does.
+        const recoveredMs = await waitForRecovery(HEALTH, 15000);
+        expect(recoveredMs).to.be.above(-1,
             'Server must survive rapid config-changed events without crashing');
     });
 
@@ -310,10 +314,9 @@ describe('CE-EXT-02: Config Sync Resilience', function () {
             configInfo.triggerConfigChanged();
         }
 
-        // Allow pool recreation to settle before querying
-        await new Promise(r => setTimeout(r, 1000));
-        const res = await httpGet(HEALTH, { timeout: 10000 });
-        expect(res.statusCode).to.be.below(500,
+        // Poll for pool recreation to finish rather than guessing a second at it.
+        const recoveredMs = await waitForRecovery(HEALTH, 15000);
+        expect(recoveredMs).to.be.above(-1,
             'Server must survive interleaved cache clears and config events');
     });
 

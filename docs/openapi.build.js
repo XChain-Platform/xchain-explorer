@@ -195,11 +195,21 @@ const ROUTES = [
     ['/{COIN}/api/blocks', 'getBlocks', null, 'Core', 'Recent blocks, each with its per-action-type counts'],
     ['/{COIN}/api/search/{QUERY}', 'getSearch', 'search', 'Core', 'Site-wide search: per-category match totals only (no TYPE given, so no rows)',
         { schema: { $ref: '#/components/schemas/SearchResponse' },
+          description: 'Search is a deliberate two-form contract, and this untyped form is the '
+            + 'counting half: it runs every category\'s match count and answers complete `totals` '
+            + 'with an empty `data` array, by design, never as a missing-results fault. The totals '
+            + 'are what a search UI needs first (which category tabs to offer and the count on '
+            + 'each badge) before any category is chosen. To get matching rows, call the typed '
+            + 'form /search/{QUERY}/{TYPE} with the category to expand.',
           query: [{ name: 'limit', required: false,
                     schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
                     description: 'Rows to return for the matched category; clamped server-side to 100' }] }],
     ['/{COIN}/api/search/{QUERY}/{TYPE}', 'getSearch', ['address', 'broadcast', 'token', 'transaction'], 'Core', 'Site-wide search, one category: matching rows plus the same per-category totals',
         { schema: { $ref: '#/components/schemas/SearchResponse' },
+          description: 'The row-returning half of the two-form search contract: `data` carries the '
+            + 'matching rows for TYPE, and `totals` still carries every category\'s match count '
+            + '(identical to the untyped /search/{QUERY} form), so a client can switch category '
+            + 'tabs without re-running the untyped call.',
           query: [{ name: 'limit', required: false,
                     schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
                     description: 'Rows to return for the matched category; clamped server-side to 100' }] }],
@@ -473,6 +483,7 @@ const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'get
 
 // `opts` (SPECIAL entries only) describes a route the table conventions cannot:
 // {query: [...]} its own query parameters instead of page/limit/sortorder,
+// {description} operation-level prose that does not fit the one-line summary,
 // {schema} a 200 body that is neither ListResponse nor ObjectResponse,
 // {responses} extra status codes (a null value DELETES a default one, for
 // routes that cannot emit it), and {response200} an entire 200 entry, for a
@@ -529,6 +540,9 @@ function operation([p, method, types, tag, summary], opts) {
         post.responses = Object.assign({}, responses, o.post.responses || {});
         item.post = post;
     }
+    // Attached to whichever operation exists, same as the SPECIAL description
+    // handling below: a {noGet} route has only `post`.
+    if (o.description) (item.get || item.post).description = o.description;
     return item;
 }
 

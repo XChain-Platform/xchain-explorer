@@ -156,7 +156,12 @@ class XChainExplorer {
                 'charts',
                 'images',
                 'json',
-                'js'
+                'js',
+                // Theme directories: a theme is
+                // a folder of static assets under content/themes/<name>/, starting with
+                // its tokens.css. Served like any other asset directory, so a skin needs
+                // no route of its own and a later composer can resolve names, not paths.
+                'themes'
             ],
 
             'html' : {

@@ -1,0 +1,24 @@
+{
+  "note": "Pre-tokenization parity baseline for the token milestone of the explorer theme and layout system. Captured BEFORE any token extraction; the same probe re-run after must reproduce every hash below.",
+  "captured": "2026-08-20",
+  "venue": "an RDOGE regtest explorer, reached over an SSH tunnel at localhost:18080",
+  "probe": "tools/theme-parity/parity-probe.js",
+  "layers": {
+    "rule": "every property DECLARED by an xchain.css / xchain-charts.css rule, read back as the computed value on the first element matching that rule's selector. Proves the stylesheet's own contribution is unchanged. Mode-independent by construction on the current tree: xchain.css declares no value that resolves differently per mode, which is itself the finding A4 exists to re-check after tokenization.",
+    "rend": "a fixed anchor census (31 selectors x 23 properties) read as computed values regardless of which stylesheet won. Proves the RENDERED result is unchanged, and it does differ per mode, so it is the layer that can actually see a dark/light regression."
+  },
+  "coverage": {
+    "selectorsInSheets": 121,
+    "selectorsExercised": 77,
+    "selectorsNeverMatched": 44,
+    "why": "44 selectors are not instantiated by any captured page: the whole .xc-chart* family (no fragment creates a chart), the external-explorer glyphs (.fa-mempool/.fa-blockstream/.fa-blockcypher/.fa-blockchair/.fa-litecoinspace/.fa-sochain), the #transaction detail table (its page rendered but the table never populated on this venue), the runtime-applied row colours (.bg-red/.bg-yellow, applied by xchain.js only for non-valid or negative rows), and a handful of one-off utility classes. Stated rather than hidden: the runtime layer cannot prove parity for a rule no page exercises, which is exactly why the static token-literal gate is a separate acceptance test and not a nicety."
+  },
+  "pages": {
+    "coin_home":   { "url": "/RDOGE",                                                                    "anchors": "20/31", "cssRules": 105, "rule": { "hash": "5a8f25a0", "keys": 160 }, "rend": { "light": "b36f4d09", "dark": "ce75169c", "keys": 471 } },
+    "address":     { "url": "/RDOGE/address/mntyPawzL4vBMMWZiV4V5s9DdnjMZJ56j5",                          "anchors": "19/31", "cssRules": 105, "rule": { "hash": "78fadb5b", "keys": 164 }, "rend": { "light": "f7826f52", "dark": "e460cc67", "keys": 449 } },
+    "token":       { "url": "/RDOGE/token/XCHAIN",                                                       "anchors": "11/31", "cssRules": 105, "rule": { "hash": "e6db4c19", "keys": 130 }, "rend": { "light": "8ae947f2", "dark": "54519032", "keys": 273 } },
+    "action":      { "url": "/RDOGE/action/990",                                                         "anchors": "19/31", "cssRules": 105, "rule": { "hash": "d6d69671", "keys": 144 }, "rend": { "light": "819e83af", "dark": "feb267da", "keys": 449 } },
+    "market":      { "url": "/RDOGE/market/XCHAIN",                                                      "anchors": "19/31", "cssRules": 105, "rule": { "hash": "759295a1", "keys": 172 }, "rend": { "light": "356415ed", "dark": "647edb2d", "keys": 449 } },
+    "transaction": { "url": "/RDOGE/transaction/e91441c218bf8b9c9b84c2e56db964094f6723aa0d8669715303c4d567e40f79", "anchors": "19/31", "cssRules": 105, "rule": { "hash": "aceeaaac", "keys": 145 }, "rend": { "light": "78537a2d", "dark": "aade5518", "keys": 449 } }
+  }
+}

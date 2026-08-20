@@ -8420,7 +8420,8 @@
           "503": {
             "$ref": "#/components/responses/CoinUnavailable"
           }
-        }
+        },
+        "description": "Search is a deliberate two-form contract, and this untyped form is the counting half: it runs every category's match count and answers complete `totals` with an empty `data` array, by design, never as a missing-results fault. The totals are what a search UI needs first (which category tabs to offer and the count on each badge) before any category is chosen. To get matching rows, call the typed form /search/{QUERY}/{TYPE} with the category to expand."
       }
     },
     "/{COIN}/api/search/{QUERY}/{TYPE}": {
@@ -8491,7 +8492,8 @@
           "503": {
             "$ref": "#/components/responses/CoinUnavailable"
           }
-        }
+        },
+        "description": "The row-returning half of the two-form search contract: `data` carries the matching rows for TYPE, and `totals` still carries every category's match count (identical to the untyped /search/{QUERY} form), so a client can switch category tabs without re-running the untyped call."
       }
     },
     "/{COIN}/api/credits/{QUERY}/{TYPE}": {

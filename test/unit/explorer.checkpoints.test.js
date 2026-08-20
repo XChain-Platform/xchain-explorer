@@ -572,16 +572,40 @@ describe('Database#getCheckpoints (M2.1 data leg)', () => {
         expect(offsetIdx).to.be.lessThan(orderIdx);
     });
 
-    it('the derived per-height GROUP BY table is bounded (not the whole mirrored history)', async () => {
+    it('picks the latest per height WITHOUT a GROUP BY over the mirror', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [query] = await db.getCheckpoints(checkpointsConfig());
-        // A bounded inner window: ORDER BY + LIMIT ahead of the GROUP BY, not a bare
-        // "GROUP BY block_index" over the whole table.
-        expect(query).to.match(/ORDER BY block_index DESC\s+LIMIT \d+\s*\)\s*recent\s*[\s\S]*?GROUP BY block_index/);
+        const [query, , count] = await db.getCheckpoints(checkpointsConfig());
+        // The earlier shape pre-selected a fixed window of raw rows and GROUPed it,
+        // which capped how deep paging could reach. Latest-per-height is now a
+        // correlated MAX on the unique key, so no GROUP BY may appear at all: a
+        // reintroduced one is either an unbounded scan or a windowed truncation.
+        expect(query).to.not.match(/GROUP BY/i);
+        expect(count).to.not.match(/GROUP BY/i);
+        expect(query).to.match(/checkpoint_seq = \(SELECT MAX\(s\.checkpoint_seq\)/);
     });
 
-    it('count and list both bind chain/network TWICE (bounded derived table + outer filter)', async () => {
+    it('the paging cursor is not scoped away by the latest-per-height lookup', async () => {
+        const db = makeRealDb();
+        db.checkpointDb = { ...HUB };
+        const [query] = await db.getCheckpoints(checkpointsConfig({
+            sql: {
+                order: 'DESC',
+                limit: 100,
+                where: { data: 'm.id IS NOT NULL', offset: ' AND m.block_index < ?', offsetArgs: [1000] }
+            }
+        }));
+        // The defect this guards: with the old derived table, the cursor applied only
+        // outside a window pinned to the tip, so pages below the window matched nothing.
+        // The cursor must sit in the same WHERE as the correlated predicate, and after
+        // it, because getData appends the cursor args last.
+        const cursorAt = query.indexOf('m.block_index < ?');
+        const latestAt = query.indexOf('checkpoint_seq = (SELECT MAX(');
+        expect(cursorAt, 'cursor predicate missing').to.be.greaterThan(-1);
+        expect(cursorAt, 'cursor must follow the correlated predicate').to.be.greaterThan(latestAt);
+    });
+
+    it('count and list both bind chain/network TWICE (outer filter + correlated subquery)', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
         const [, args] = await db.getCheckpoints(checkpointsConfig());

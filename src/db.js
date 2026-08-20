@@ -6982,7 +6982,12 @@ class Database {
                     LIMIT 1000`;
         let rows = await this.doQuery(config, query, [info.membership_action_index]);
         let data = {
-            tick:                    String(tick).toUpperCase(),
+            // Echo the tick exactly as it was looked up. Uppercasing it here while the
+            // lookup stays case-sensitive means the value handed back does not resolve:
+            // feed it into /api/project/{TICK} for any tick that is not already all
+            // upper case and the round trip 404s. The roster and /explorer routes were
+            // never affected, because neither echoes the tick.
+            tick:                    String(tick),
             roster_action_index:     info.roster_action_index,
             membership_action_index: info.membership_action_index,
             link_action_index:       info.link_action_index,
@@ -7264,19 +7269,21 @@ class Database {
                          ORDER BY checkpoint_seq DESC LIMIT 1`;
             return this._normalizeCheckpointRows(await this.doQuery(config, query, [Number(blockIndex), ...src.filterParams]));
         }
+        // Shares the latest-per-height rule with getCheckpoints rather than carrying a
+        // second list query with its own bounding. This branch backs the public
+        // /api/checkpoints route, so an unbounded whole-table GROUP BY here reaches
+        // further than the same mistake would in the internal feed.
         let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let latest   = this._latestCheckpointPredicate(src, 'sc');
         let query = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
                             sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block,
                             sc.state_root, sc.state_root_version, sc.block_merkle_root, sc.block_merkle_version,
                             sc.validator_signatures, sc.created_at
                      FROM ${src.table} sc
-                     JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq
-                           FROM ${src.table} WHERE 1=1${src.filter} GROUP BY block_index) t
-                       ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
-                     WHERE 1=1${scFilter}
+                     WHERE 1=1${scFilter}${latest.sql}
                      ORDER BY sc.block_index DESC
                      LIMIT ?`;
-        return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...src.filterParams, Number(limit) || 10]));
+        return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...latest.params, Number(limit) || 10]));
     }
 
     // Detail-page load for ONE checkpointed height (highest checkpoint_seq wins,
@@ -7314,33 +7321,43 @@ class Database {
     // full-table scan. total/paging both report against that same bounded window
     // rather than the unbounded eternity, so the two numbers stay consistent with
     // what is actually reachable by paging.
+    // "The latest checkpoint_seq at this height" as a correlated point lookup.
+    // Both checkpoint list queries need it and they must agree, so it is built
+    // once here rather than written twice with different bounding rules.
+    //
+    // This replaced a derived table that pre-selected a fixed window of raw rows
+    // and GROUPed it. That shape was wrong in two different ways: the window was
+    // pinned to the tip while the paging cursor was applied OUTSIDE it, so on a
+    // chain with more raw rows than the window, deep pages joined against a set
+    // that could not contain them and came back empty with a capped total; and
+    // the sibling query in getCheckpointRows had no window at all and grouped the
+    // whole table. The correlated form rides the (chain, checkpoint_seq) unique
+    // key one row at a time, so it needs no window, cannot truncate a page, and
+    // leaves the cursor in the outer WHERE where getData's arg assembly expects
+    // it (baseArgs first, offsetArgs appended last).
+    _latestCheckpointPredicate(src, alias){
+        let innerFilter = src.filter.replace(/\b(chain|network)\b/g, 's.$1');
+        return {
+            sql: ` AND ${alias}.checkpoint_seq = (SELECT MAX(s.checkpoint_seq)
+                       FROM ${src.table} s
+                       WHERE s.block_index = ${alias}.block_index${innerFilter})`,
+            params: [...src.filterParams]
+        };
+    }
+
     async getCheckpoints(config){
         let sql   = config.data.sql;
         let src   = this._checkpointSource(config);
-        // 5000 raw rows (50x the platform's 100-row max list page) is generous
-        // enough to cover realistic checkpoint_seq fan-out per height while staying
-        // a bounded window rather than a full-history scan.
-        let groupWindow = 5000;
-        let latest = `(SELECT block_index, MAX(checkpoint_seq) AS max_seq
-                       FROM (
-                           SELECT block_index, checkpoint_seq
-                           FROM ${src.table}
-                           WHERE 1=1${src.filter}
-                           ORDER BY block_index DESC
-                           LIMIT ${groupWindow}
-                       ) recent
-                       GROUP BY block_index) latest`;
-        // Requalify the bare chain/network filter to the outer `m` alias, matching
-        // getCheckpointRows' scFilter convention; the join to `latest` alone is not
-        // enough to scope by coin, since checkpoint_seq is only unique WITHIN one
-        // (chain, network) pair (uq_chain_seq), not globally.
+        // Requalify the bare chain/network filter to the `m` alias: the latest-per-
+        // height predicate alone is not enough to scope by coin, since checkpoint_seq
+        // is only unique WITHIN one (chain, network) pair (uq_chain_seq), not globally.
         let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
+        let latest      = this._latestCheckpointPredicate(src, 'm');
         let count = `SELECT
                         count(*) as total
                     FROM
                         ${src.table} m
-                        INNER JOIN ${latest} ON (latest.block_index=m.block_index AND latest.max_seq=m.checkpoint_seq)
-                    WHERE ` + sql.where.data + outerFilter;
+                    WHERE ` + sql.where.data + outerFilter + latest.sql;
         let query = `SELECT
                         m.block_index,
                         m.created_at,
@@ -7351,17 +7368,14 @@ class Database {
                         JSON_LENGTH(m.validator_signatures) AS signer_count
                     FROM
                         ${src.table} m
-                        INNER JOIN ${latest} ON (latest.block_index=m.block_index AND latest.max_seq=m.checkpoint_seq)
-                    WHERE ` + sql.where.data + outerFilter + sql.where.offset + `
+                    WHERE ` + sql.where.data + outerFilter + latest.sql + sql.where.offset + `
                     ORDER BY m.block_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-        // Non-redirect args shape (getCrossChainMatches precedent): the bounded
-        // derived table binds chain/network once (inside `latest`) and the outer
-        // WHERE binds them again, so filterParams appear twice in left-to-right
-        // order; getData()'s shared offset-args plumbing appends the cursor args
-        // (m.block_index comparisons) after these, and the count query reuses the
-        // SAME array since it has the identical two occurrences, no more.
-        let args = [...src.filterParams, ...src.filterParams];
+        // Placeholders in left-to-right text order: the outer chain/network filter,
+        // then the same pair inside the correlated subquery. getData() appends the
+        // cursor args after these, and the count query reuses the SAME array because
+        // it carries the identical two occurrences and no cursor.
+        let args = [...src.filterParams, ...latest.params];
         return [query, args, count];
     }
 

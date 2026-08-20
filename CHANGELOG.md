@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - History rows now name the BATCH they belong to, so clients can group a batch's actions.
 
 ### Fixed
+- Checkpoint lists could not page past a fixed window on long chains, and the public checkpoint endpoint grouped the whole table with no bound; both now share one query that needs neither.
+- A project lookup returned its ticker in upper case, so the value it handed back did not work when used again in a URL.
 - The checkpoint detail page showed "not found" for checkpoints that exist, because it never received the block height from the URL; a new test pins every detail route against the list of types the client reads.
 - The checkpoint detail page also misread the response shape of single-record API routes.
 - Coinpay obligations showed their expiry as a block link, when the value is a timestamp.

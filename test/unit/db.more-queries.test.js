@@ -1071,6 +1071,18 @@ describe('Database#getProject', () => {
         expect(data.members).to.have.length(1);
         expect(data.members[0].tick).to.equal('TOKENONE');
     });
+
+    it('echoes a mixed-case tick unchanged, so the value round-trips as a URL', async () => {
+        // Uppercasing the echo while the lookup stays case-sensitive makes the tick
+        // handed back 404 when fed into /api/project/{TICK} for any tick that is not
+        // already all upper case.
+        sinon.stub(db, 'getProjectRosterInfo').resolves({ roster_action_index: 73, membership_action_index: 73, link_action_index: 74, total: 0 });
+        sinon.stub(db, 'doQuery').resolves([]);
+        const config = makeActionConfig('getProject', 'token');
+        config.data.search = 'XCPROJ819a01';
+        const [data] = await db.getProject(config);
+        expect(data.tick).to.equal('XCPROJ819a01');
+    });
 });
 
 describe('Database#getProjectTokens', () => {

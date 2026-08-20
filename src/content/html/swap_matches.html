@@ -13,8 +13,8 @@
                         <th class="record">#</th>
                         <th class="block">Block</th>
                         <th class="time">Time</th>
-                        <th class="asset-name">Action</th>
-                        <th class="">Details</th>
+                        <th class="">Give Swap</th>
+                        <th class="">Get Swap</th>
                         <th class="view"></th>
                     </tr>
                 </thead>
@@ -39,11 +39,9 @@ $(document).ready(function() {
     XC.pageInfo.canonical   = '/' + XC.coin + '/swap_matches';
     updatePageInfo();
 
-    // No /explorer/swap_matches feed exists yet (swap_matches only has a
-    // non-DataTables /api lookup, and previously this route silently reused the
-    // swaps.html template, showing SWAP actions instead of matches); this reuses
-    // the history feed like the Actions page, whose getActionDetails() already
-    // renders SWAP_MATCH rows with their give/get legs when one appears.
+    // Served by the real /explorer/swap_matches feed. Each leg names its coin
+    // plus the matched SWAP's action index (a match row carries no ticks or
+    // amounts), so the table links the two swaps rather than token pages.
     loadDatatablesData(XC.coin, 'swap_match', null, null);
 
 });

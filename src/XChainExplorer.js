@@ -1378,6 +1378,13 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.code_hash, info.chunk_index, info.total_chunks, status, info.action_index];
                     if(method=='getHistory')
                         info = [count_reverse, info.block_index, info.timestamp, info.action, info.details, status, info.action_index];
+                    // Raw action list: one row per action with its type name and no
+                    // per-type detail object. The actions table has no status column,
+                    // so the action NAME lands second-to-last and the client keeps
+                    // this view in its no-color list. action_index stays LAST
+                    // (paging cursor).
+                    if(method=='getActions')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.action, info.action_index];
                     if(method=='getHolders')
                         info = [count, info.address, amount, percent, value, null];
                     // transfer (ownership-transfer destination, null for plain issues)
@@ -1407,6 +1414,16 @@ class XChainExplorer {
                     if(method=='getSwaps')
                         // give/get_ownership sit BEFORE status/action_index (invariant: action_index LAST).
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, info.give_ownership, info.get_ownership, status, info.action_index];
+                    // Matched order pairs. A match row names each leg by coin plus the
+                    // matched ORDER's action_index and carries no ticks of its own, so
+                    // the legs render as action links, not token links. status and
+                    // action_index stay LAST (row color + paging cursor).
+                    if(method=='getOrderMatches')
+                        info = [count_reverse, info.block_index, info.timestamp, info.give_coin, info.give_action_index, info.give_amount, info.get_coin, info.get_action_index, info.get_amount, info.settlement_type, status, info.action_index];
+                    // Matched swap pairs: the same two-leg shape minus the amount and
+                    // settlement-type columns, which a swap match does not carry.
+                    if(method=='getSwapMatches')
+                        info = [count_reverse, info.block_index, info.timestamp, info.give_coin, info.give_action_index, info.get_coin, info.get_action_index, status, info.action_index];
                     if(method=='getSweeps')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.orders, info.swaps, info.dispensers, status, info.action_index];
                     // NOTE: decimals sits BEFORE the trailing id; the datatables client

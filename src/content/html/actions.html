@@ -13,8 +13,8 @@
                         <th class="record">#</th>
                         <th class="block">Block</th>
                         <th class="time">Time</th>
+                        <th class="">Source</th>
                         <th class="asset-name">Action</th>
-                        <th class="">Details</th>
                         <th class="view"></th>
                     </tr>
                 </thead>
@@ -39,9 +39,9 @@ $(document).ready(function() {
     XC.pageInfo.canonical   = '/' + XC.coin + '/actions';
     updatePageInfo();
 
-    // No dedicated /explorer/actions feed exists (only a non-paginated /api/actions
-    // lookup); the history feed already carries every action type unfiltered, so it
-    // is the correct backing for a raw action list, same as the History page.
+    // Served by the raw /explorer/actions feed: one row per action with its
+    // source and type name. Per-type details live on each action's own page,
+    // which keeps this list cheap (no per-type detail joins).
     loadDatatablesData(XC.coin, 'action', null, null);
 
 });

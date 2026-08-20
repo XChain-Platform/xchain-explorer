@@ -1,0 +1,132 @@
+<!-- XCALL cross-chain call detail: the whole lifecycle of one call_id as a timeline -->
+<style>
+/* Timeline chrome only. Every value is an existing --xc-* token; spacing and
+   colour come from Bootstrap utilities and contextual classes, so a skin can
+   move this page without touching markup. */
+.xcall-timeline .xcall-phase {
+    position: relative;
+}
+.xcall-timeline .xcall-phase:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--xc-icon-size-20) / 2);
+    top: var(--xc-icon-size-20);
+    bottom: var(--xc-space-none);
+    border-left: var(--xc-table-border-width) solid var(--xc-table-border-color);
+}
+.xcall-timeline .xcall-marker {
+    flex: 0 0 var(--xc-icon-size-20);
+    width: var(--xc-icon-size-20);
+    height: var(--xc-icon-size-20);
+    padding: var(--xc-space-none);
+    border-radius: var(--xc-radius-lg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.xcall-timeline .xcall-phase-body {
+    flex: 1 1 auto;
+    min-width: var(--xc-cell-truncate-min-width);
+}
+.xcall-timeline .xcall-row-label,
+.xcall-header-label {
+    width: var(--xc-token-info-th-width);
+}
+</style>
+
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-link"></i> Cross-Chain Call
+                    <span class="font-monospace fw-normal small" id="xcall-call-id"></span>
+                    <span id="xcall-summary"></span>
+                </div>
+                <div class="card-body p-2">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody id="xcall-header">
+                            <tr><td class="text-muted">Loading cross-chain call...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-timeline"></i> Lifecycle
+                </div>
+                <div class="card-body p-2" id="xcall-timeline">
+                    <span class="text-muted">Loading lifecycle...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript" src="/js/xcall-timeline-render.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Page-local escape, matching the pattern the other detail pages use.
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+
+    let fieldRow = function(label, value){
+        // Label column width is a token (.xcall-header-label above), not an inline
+        // literal: this page is the first built on the token layer.
+        return '<tr><th class="text-muted fw-normal xcall-header-label">' + esc(label) + '</th><td>' + value + '</td></tr>';
+    };
+
+    $('#xcall-call-id').text(XC.query);
+
+    XC.pageInfo.title       = 'Cross-Chain Call ' + XC.query;
+    XC.pageInfo.description = 'Full lifecycle of cross-chain call (XCALL) ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network - request, target execution, callback delivery, settlement and deadline.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/xcall/' + XC.query;
+    updatePageInfo();
+
+    $.getJSON('/' + XC.coin + '/api/xcall/' + XC.query, function(o){
+        // Single-resource routes answer a BARE object, not the {total, data} list
+        // envelope the plural routes use, so both shapes are accepted rather than
+        // assuming one: reading only `o.data` renders a real call as "not found".
+        let d = null;
+        if(o){
+            if(!isNull(o.data))         d = Array.isArray(o.data) ? o.data[0] : o.data;
+            else if(!isNull(o.call_id)) d = o;
+        }
+        if(!d){
+            // Explicit not-found branch. A silent placeholder page would read as a
+            // call that exists but has no data yet, which is a different thing.
+            $('#xcall-header').html('<tr><td class="text-muted">No cross-chain call is recorded with this call ID.</td></tr>');
+            $('#xcall-timeline').html('<span class="text-muted">No lifecycle to show.</span>');
+            return;
+        }
+
+        let summary = xcallLifecycleSummary(d);
+        let chrome  = XCALL_PHASE_STATES[summary.state] || XCALL_PHASE_STATES.pending;
+        $('#xcall-summary').html('<span class="badge ms-1 ' + chrome.badge + '">' + esc(summary.text) + '</span>');
+
+        let html = '';
+        html += fieldRow('Call ID',      '<span class="font-monospace small">' + esc(d.call_id) + '</span>');
+        html += fieldRow('Block',        isNull(d.block_index) ? '-' : formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0')));
+        html += fieldRow('Time',         isNull(d.timestamp) ? '-' : formatLivestamp(d.timestamp));
+        html += fieldRow('Transaction',  isNull(d.tx_hash) ? '-' : formatLink('/' + XC.coin + '/transaction/' + d.tx_hash, formatHash(d.tx_hash, 32)));
+        html += fieldRow('Route',        esc(XC.coin) + ' <i class="fa fa-arrow-right-long"></i> ' + (isNull(d.target_chain) ? '-' : esc(d.target_chain)));
+        html += fieldRow('Method',       isNull(d.method) ? '-' : esc(d.method));
+        $('#xcall-header').html(html);
+
+        // Timeline derivation and render live in xcall-timeline-render.js so a test
+        // can drive the real path with a stubbed response.
+        $('#xcall-timeline').html(renderXcallTimeline(d));
+    }).fail(function(xhr){
+        let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        let msg  = body.error ? body.error : 'Could not load this cross-chain call';
+        $('#xcall-header').html('<tr><td class="text-danger">' + esc(msg) + '</td></tr>');
+        $('#xcall-timeline').html('<span class="text-muted">-</span>');
+    });
+
+});
+</script>

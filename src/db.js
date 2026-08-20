@@ -10969,6 +10969,915 @@ class Database {
         return [data];
     }
 
+    // ── M4 composed detail views (spec explorer-coverage-completion, rows 26/28/30/31) ──
+    //
+    // Four single-record compositions backing the M4 detail pages. They follow
+    // getXcall/getPoll: the method runs its own reads and returns [object] (null when the
+    // subject does not exist), so getData takes its `typeof query === 'object'` branch and
+    // the builder arg-assembly path (baseArgs then offsetArgs, count reusing baseArgs) never
+    // applies to them.
+    //
+    // NONE of them consume config.data.sql.where.data, and that is deliberate rather than an
+    // omission. A composition's spine and its sub-lists sit on different tables under
+    // different aliases, so one shared WHERE fragment cannot be correct for all of them;
+    // each leg carries its own predicate and binds its own args in strict left-to-right
+    // text order. The consequence worth knowing: these four need no getQueryWhereSql branch,
+    // so a route registered against any TYPE cannot 500 them with an unknown-column error.
+    //
+    // What they DO take from config.data.sql is `limit`, already clamped to
+    // 1..getMaxMethodResults() by getQuery, and EVERY sub-list interpolates it. An unbounded
+    // sub-list inside a composition pulls the same whole table a missing LIMIT pulls on a
+    // list route; it is only harder to see, because the response looks like one record.
+    _detailLimit(config){
+        let sql = config.data.sql;
+        return (sql && this.util.isNumeric(sql.limit)) ? Number(sql.limit) : 100;
+    }
+
+    // Composed VALIDATOR detail (M4.1). QUERY is EITHER the Ed25519 signing pubkey or the
+    // staking address: both name the same validator in circulation (/validators renders both
+    // columns, a hub registry entry is keyed by pubkey, a reward accrual and its COLLECT are
+    // keyed by address), so the page answers to either without the caller having to say
+    // which it holds.
+    //
+    // The QUERY is resolved to IDs FIRST, in two unique point reads, and only then does the
+    // spine touch `stakes`. The obvious one-query form (`WHERE a3.pubkey=? OR a2.address=?`
+    // over the joined aliases) reads correctly and scans the whole stakes table: an OR
+    // spanning two different joined tables leaves the optimizer no driving table but `stakes`
+    // itself. Resolving first puts the OR on two INDEXED columns of `stakes`
+    // (signing_pubkey_id, source_id), which index-merges. The single-predicate list legs
+    // below keep the joined-alias form: one null-rejecting equality lets the optimizer
+    // convert the LEFT JOIN and drive from the unique index, which an OR does not.
+    //
+    // Reward accounting is per-ADDRESS, not per-pubkey: validator_rewards accrues to
+    // (source_id, signing_pubkey_id) but reward_claims (the COLLECT trail) carries only
+    // source_id, so a claimable figure can only be stated for the staking address. Both
+    // totals are returned alongside the difference rather than the difference alone, because
+    // a negative remainder means ledger drift and has to stay visible instead of clamping.
+    //
+    // The capability leg follows the established hub DUAL PATH (getValidatorCapabilities):
+    // hub JSON-RPC first, the co-located hub schema only on a deployment with no hub
+    // endpoint at all, and a CONFIGURED hub unreachable past the stale ceiling throws
+    // through _hubOperationalOutage. That throw is not caught here: an outage rendered as
+    // "this validator qualified for nothing" is a false claim about consensus state.
+    async getValidator(config){
+        let limit  = this._detailLimit(config);
+        let search = config.data.search;
+        let pubkeyRow  = await this.doQuery(config,
+            'SELECT id FROM index_pubkeys WHERE pubkey=? LIMIT 1', [search]);
+        let addressRow = await this.doQuery(config,
+            'SELECT id FROM index_addresses WHERE address=? LIMIT 1', [search]);
+        let pubkeyId  = (pubkeyRow  && pubkeyRow.length)  ? Number(pubkeyRow[0].id)  : null;
+        let addressId = (addressRow && addressRow.length) ? Number(addressRow[0].id) : null;
+        // Neither name exists anywhere on this chain: answer without touching `stakes`.
+        if(pubkeyId === null && addressId === null)
+            return [null];
+        // Only the resolved side is bound, so a QUERY that is unambiguously one form
+        // never carries a dead placeholder against the other column's index.
+        let idClauses = [];
+        let idArgs    = [];
+        if(pubkeyId !== null){  idClauses.push('m.signing_pubkey_id=?'); idArgs.push(pubkeyId);  }
+        if(addressId !== null){ idClauses.push('m.source_id=?');         idArgs.push(addressId); }
+        // Identity spine. status='valid' matches getValidators' own active-set rule, so the
+        // page cannot resolve an identity off a rejected STAKE.
+        let identity = await this.doQuery(config,
+            `SELECT
+                a3.pubkey  as signing_pubkey,
+                a2.address as source,
+                m.action_index as stake_action_index,
+                m.version,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index
+            FROM
+                stakes m
+                LEFT JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE s1.status='valid' AND (` + idClauses.join(' OR ') + `)
+            ORDER BY m.action_index DESC
+            LIMIT 1`, idArgs);
+        if(!identity || !identity.length)
+            return [null];
+        let row    = identity[0];
+        let pubkey = row.signing_pubkey;
+        let source = row.source;
+
+        // Active stake: an aggregate over ONE pubkey's rows (signing_pubkey_id is indexed),
+        // never a GROUP BY across validators. deactivation_block IS NULL is what "still
+        // active" means on this ledger; a superseded row carries the height it stopped at.
+        let totals = await this.doQuery(config,
+            `SELECT
+                count(*) as position_count,
+                COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as active_stake
+            FROM
+                stakes m
+                LEFT JOIN index_pubkeys  a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+            WHERE s1.status='valid' AND a3.pubkey=? AND m.deactivation_block IS NULL`, [pubkey]);
+
+        let stakes = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                m.amount,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                stakes m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let unstakes = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.amount,
+                m.cooldown_end_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                unstakes m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let delegations = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a2.address as source,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                delegations m
+                INNER JOIN blocks           b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_addresses  a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys    a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses   s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        // Key revocations belong with the delegation history rather than in a section of
+        // their own: a DELEGATE v2/v3 revocation is the event that ENDS a delegated key's
+        // validity, and reading it apart from the delegation it ends inverts the meaning.
+        let revocations = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a2.address as source,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                stake_key_revocations m
+                INNER JOIN blocks           b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_addresses  a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys    a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses   s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        // Rotations name BOTH the key they replaced and the key they installed, so this key
+        // is on either side of the pair and both are matched. See the frontier note: neither
+        // pubkey column is indexed on contract_delegation_rotations today.
+        let rotations = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.target_table,
+                m.delegation_action_index,
+                m.stake_action_index,
+                pp.pubkey as prev_signing_pubkey,
+                np.pubkey as new_signing_pubkey,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                contract_delegation_rotations m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys pp ON (pp.id=m.prev_signing_pubkey_id)
+                LEFT  JOIN index_pubkeys np ON (np.id=m.new_signing_pubkey_id)
+            WHERE (pp.pubkey=? OR np.pubkey=?)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey, pubkey]);
+
+        let rewards = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.reward_type,
+                m.round_reference,
+                m.amount,
+                m.block_index,
+                m.derive_block_index,
+                b1.block_time as timestamp
+            FROM
+                validator_rewards m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys a3 ON (a3.id=m.signing_pubkey_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let claimable = await this._collectTrail(config, source, limit);
+
+        // Both slash families. capability_slash_events is the equivocation bond-burn against
+        // a CONSENSUS validator (keyed by the signing pubkey directly); slash_events is the
+        // contract-stake burn emitted by an EXECUTE (also keyed by the staker's pubkey). One
+        // family alone understates exposure, which is why the page carries both.
+        let capabilitySlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.slash_action_index,
+                m.capability,
+                m.equiv_key,
+                m.amount,
+                m.bounty_amount,
+                m.treasury_amount,
+                sub.address as submitter,
+                dst.address as destination,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                capability_slash_events m
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   a3  ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_addresses sub ON (sub.id=m.submitter_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let contractSlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.execution_index,
+                m.target_contract_index,
+                t3.tick,
+                m.amount,
+                dst.address as destination,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                slash_events m
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   a3  ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3  ON (t3.id=m.tick_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let nodeproofs = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.action_index,
+                m.challenge_id,
+                m.epoch_height,
+                m.target_height,
+                a3.address as staking_source,
+                m.passed,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                full_node_verifications m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   pk ON (pk.id=m.signing_pubkey_id)
+                LEFT  JOIN index_addresses a3 ON (a3.id=m.source_id)
+            WHERE pk.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        // Attestation quality is keyed by the RAW pubkey string (attest_validator_stats has
+        // no index_pubkeys id), one row per provider the validator serves.
+        let attestationQuality = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.validator_pubkey,
+                m.provider_id,
+                m.fulfilled_count,
+                m.missed_count,
+                m.slashed_count,
+                m.quality_score,
+                m.last_updated_block
+            FROM
+                attest_validator_stats m
+            WHERE m.validator_pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let capabilities = await this._validatorCapabilityRows(config, pubkey, limit);
+
+        // The hub registry decorates, never gates: getFederationRegistry returns null when
+        // no registry is reachable at all, and null means UNKNOWN, not "unregistered".
+        let registry = await this.getFederationRegistry(config);
+        let entry    = (registry && pubkey) ? registry[String(pubkey).toLowerCase()] : null;
+
+        return [{
+            query:              search,
+            signing_pubkey:     pubkey,
+            source:             source,
+            stake_action_index: row.stake_action_index,
+            version:            row.version,
+            activation_block:   row.activation_block,
+            deactivation_block: row.deactivation_block,
+            block_index:        row.block_index,
+            registry:           (entry) ? entry : null,
+            registry_known:     (registry !== null),
+            active_stake:       this.util.bcformat((totals && totals.length) ? totals[0].active_stake : 0, 8),
+            position_count:     (totals && totals.length) ? Number(totals[0].position_count) : 0,
+            capabilities:       capabilities,
+            stakes:             stakes      || [],
+            unstakes:           unstakes    || [],
+            delegations:        delegations || [],
+            revocations:        revocations || [],
+            rotations:          rotations   || [],
+            rewards:            rewards     || [],
+            rewards_total:      claimable.rewards_total,
+            collected_total:    claimable.collected_total,
+            claimable:          claimable.claimable,
+            collects:           claimable.collects,
+            capability_slash_events: capabilitySlashes || [],
+            slash_events:            contractSlashes   || [],
+            nodeproofs:              nodeproofs        || [],
+            attestation_quality:     attestationQuality || []
+        }];
+    }
+
+    // The COLLECT trail for ONE staking address, shared by the validator page and the
+    // address staking panel so the two can never disagree about what "claimable" means.
+    // Accrual (validator_rewards) minus claims (reward_claims), both summed in SQL over an
+    // indexed source_id lookup rather than over a fetched page, because a page-local sum
+    // would silently under-report the moment a validator has more rows than one page.
+    async _collectTrail(config, source, limit){
+        let accrued = await this.doQuery(config,
+            `SELECT COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as total
+             FROM validator_rewards m
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+             WHERE a2.address=?`, [source]);
+        let claimed = await this.doQuery(config,
+            `SELECT COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as total
+             FROM reward_claims m
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+             WHERE s1.status='valid' AND a2.address=?`, [source]);
+        let collects = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.amount,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                reward_claims m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [source]);
+        // One wire type for all three figures: a fixed-8 decimal STRING, matching how
+        // every other XCHAIN amount is serialized. The SQL sums come back at the CAST's
+        // 18 decimal places and bcsub returns a mathjs bignumber OBJECT, so both are
+        // formatted rather than passed through; an unformatted bignumber serializes as a
+        // mathjs envelope, not as a number a page can print.
+        let accruedTotal = (accrued && accrued.length) ? accrued[0].total : 0;
+        let claimedTotal = (claimed && claimed.length) ? claimed[0].total : 0;
+        return {
+            rewards_total:   this.util.bcformat(accruedTotal, 8),
+            collected_total: this.util.bcformat(claimedTotal, 8),
+            claimable:       this.util.bcformat(this.util.bcsub(accruedTotal, claimedTotal, 8), 8),
+            collects:        collects || []
+        };
+    }
+
+    // Per-capability qualification rows for ONE signing pubkey, on the same dual transport
+    // getValidatorCapabilities serves the list view over. Kept as its own helper so the
+    // composition cannot drift into a second, differently-degrading copy of that rule.
+    // The RPC leg filters server-side by signing_pubkey; an EMPTY array back is a legitimate
+    // "qualified for nothing", while a null past the stale ceiling is an OUTAGE and throws.
+    async _validatorCapabilityRows(config, pubkey, limit){
+        let ops = this.explorer ? this.explorer.hubOperational : null;
+        if(ops && ops.enabled()){
+            let rows = await ops.getValidatorCapabilities({ signing_pubkey: pubkey });
+            if(rows) return this._normalizeHubOperationalRows(rows.slice(0, limit));
+            this._hubOperationalOutage('validator_capabilities');
+        }
+        let src  = this._hubSource(config, 'validator_capabilities');
+        let rows = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.signing_pubkey,
+                m.capability,
+                m.qualified,
+                m.self_test_ok,
+                m.enabled,
+                m.qualified_at_block,
+                m.updated_at
+            FROM ${src.table} m
+            WHERE m.signing_pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+        return this._normalizeHubOperationalRows(rows || []);
+    }
+
+    // Composed ATTESTATION lifecycle (M4.3). QUERY is EITHER the 64-hex request_id (the
+    // correlation key every leg carries) or the action_index of any ATTEST action in the
+    // round. A numeric QUERY resolves through getAttestationByActionIndex, the positional-arg
+    // point read the WS ChangeDetector already owns: it is REUSED here rather than re-routed
+    // or reshaped, because the detector depends on its signature exactly as it stands.
+    //
+    // WHAT THE SCHEMA FORCED, and it contradicts the obvious reading of the lifecycle:
+    // ATTEST v2 (expire) writes NO ROW OF ITS OWN. It is system-synthesized, allocates an
+    // action_index with FORMAT 2, and then only FLIPS the v0 request row's request_status to
+    // 'expired' and stamps resolved_block (xchain-indexer attest.js _parseExpire). So the
+    // expiry leg below is DERIVED from the request row, not selected from a v2 row, and
+    // there is no v2 action_index to link to: nothing in `attests` records it.
+    //
+    // Relay legs (ATTEST v3/v4) likewise write ordinary version 0 / version 1 rows carrying
+    // origin_chain + origin_action_index, so they arrive in the same request_id read; the
+    // relay block below names them rather than issuing a second query for rows that are by
+    // construction on ANOTHER chain's indexer DB.
+    async getAttestation(config){
+        let limit  = this._detailLimit(config);
+        let search = config.data.search;
+        let requestId = null;
+        if(this.util.isNumeric(search)){
+            let seed = await this.getAttestationByActionIndex(config, Number(search));
+            if(!seed) return [null];
+            requestId = seed.request_id;
+        } else {
+            requestId = String(search || '').toLowerCase();
+        }
+        if(!requestId) return [null];
+
+        // Every leg of one round in one bounded read, oldest first so the caller renders the
+        // lifecycle in the order it happened. request_id+version is indexed.
+        let rows = await this.doQuery(config,
+            `SELECT
+                a4.action,
+                m.action_index,
+                a1.action_format,
+                m.version,
+                m.request_id,
+                m.provider_id,
+                m.contract_index,
+                a2.address as source,
+                fp.address as fee_payer,
+                m.payload,
+                m.callback_method,
+                m.callback_params_json,
+                m.redundancy,
+                m.deadline_block,
+                m.gas_escrow,
+                ft.tick as fee_tick,
+                m.fee_amount,
+                m.request_status,
+                m.resolved_block,
+                m.responsible_set_json,
+                m.origin_chain,
+                m.origin_action_index,
+                m.response_hash,
+                m.response_payload,
+                m.response_status,
+                m.meta,
+                m.validator_signatures,
+                m.callback_execute_action_index,
+                m.block_index,
+                b1.block_time as timestamp,
+                t2.hash as tx_hash,
+                t1.tx_index,
+                s1.status
+            FROM
+                attests m
+                LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
+                LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
+                LEFT JOIN blocks              b1 ON (b1.block_index=t1.block_index)
+                LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
+                LEFT JOIN index_tickers       ft ON (ft.id=m.fee_tick_id)
+                LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
+                LEFT JOIN index_transactions  t2 ON (t2.id=t1.tx_hash_id)
+                LEFT JOIN index_actions       a4 ON (a4.id=a1.action_id)
+            WHERE m.request_id=?
+            ORDER BY m.version ASC, m.action_index ASC
+            LIMIT ` + limit, [requestId]);
+        if(!rows || !rows.length) return [null];
+
+        let request  = rows.find(r => Number(r.version) === 0) || null;
+        let response = rows.find(r => Number(r.version) === 1) || null;
+        if(request){
+            try { request.callback_params = this.util.isNull(request.callback_params_json) ? null : JSON.parse(request.callback_params_json); }
+            catch(e){ request.callback_params = request.callback_params_json; }
+            // The responsible set was PINNED as-of the request block; it is the electorate a
+            // reader checks the response signatures against, so it is parsed, not echoed raw.
+            request.responsible_set = this._parseSignaturesArray(request.responsible_set_json);
+        }
+        if(response)
+            response.quorum_signatures = this._parseSignaturesArray(response.validator_signatures);
+
+        let status = (request) ? request.request_status : null;
+        return [{
+            query:      config.data.search,
+            request_id: requestId,
+            provider_id: rows[0].provider_id,
+            legs:       rows,
+            request:    request,
+            response:   response,
+            // Derived, because ATTEST v2 persists nothing. `expired` is the stored terminal
+            // state, never a clock comparison against deadline_block: a request past its
+            // deadline that the expiry sweep has not reached yet is still 'pending'.
+            expiry: {
+                request_status: status,
+                deadline_block: (request) ? request.deadline_block : null,
+                resolved_block: (request) ? request.resolved_block : null,
+                expired:        status === 'expired'
+            },
+            relay: {
+                is_relay:            !!(request && !this.util.isNull(request.origin_chain)),
+                origin_chain:        (request) ? request.origin_chain : null,
+                origin_action_index: (request) ? request.origin_action_index : null,
+                response_relayed:    !!(response && !this.util.isNull(response.origin_action_index))
+            },
+            callback_execute_action_index: (response) ? response.callback_execute_action_index : null
+        }];
+    }
+
+    // Composed ANCHOR detail (M4.5). QUERY is the ANCHOR's action_index, or the DOGE
+    // transaction hash it landed in. The two are told apart in JS rather than bound into one
+    // OR: action_index is a BIGINT column and a 64-hex hash compared against it is coerced,
+    // not matched, so an OR would answer 0 rows for the hash form without erroring.
+    //
+    // Three legs beyond the payload, and each reads a DIFFERENT source:
+    //   - the covering hub-mirror state_checkpoints row, through the SAME correlated
+    //     latest-checkpoint_seq-per-height predicate getCheckpoints/getCommitments use
+    //     (_latestCheckpointPredicate), never a fourth differently-bounded variant;
+    //   - the publisher ELECTION, from capability_snapshots at this anchor's snapshot_block.
+    //     That table is CHAIN-AGNOSTIC (no chain/network columns; its key is
+    //     snapshot_block+capability+signing_pubkey+source), so src.filter/filterParams are
+    //     deliberately NOT bound to it;
+    //   - the reward-attestation trail, from anchor_reward_attestations, which IS
+    //     chain-scoped (chain/network are in uq_reward_tuple), so the same src.filter IS
+    //     bound there, first, exactly as getAnchorRewardAttestations binds it.
+    // Getting that asymmetry backwards yields a query that is silently wrong rather than one
+    // that errors, in whichever direction the blanket rule was applied.
+    //
+    // archive_b64 is never selected. It is a MEDIUMTEXT gzip chunk with nothing legible in
+    // it; its LENGTH and crc32 are what a reader can actually check an archive against.
+    async getAnchor(config){
+        let limit  = this._detailLimit(config);
+        let search = config.data.search;
+        let numeric   = this.util.isNumeric(search);
+        let predicate = numeric ? 'm.action_index=?' : 't2.hash=?';
+        let key       = numeric ? Number(search) : String(search || '').toLowerCase();
+        let rows = await this.doQuery(config,
+            `SELECT
+                a4.action,
+                m.action_index,
+                a1.action_format,
+                m.version,
+                m.chain,
+                m.network,
+                m.block_index,
+                m.block_hash,
+                m.ledger_hash,
+                m.actions_hash,
+                m.contract_hash,
+                m.checkpoint_seq,
+                m.snapshot_block,
+                m.state_root,
+                m.state_root_version,
+                m.block_merkle_root,
+                m.block_merkle_version,
+                m.match_batch_seq,
+                m.match_count,
+                m.batch_crc32,
+                m.total_chunks,
+                m.chunk_index,
+                CHAR_LENGTH(m.archive_b64) as archive_b64_length,
+                m.validator_signatures,
+                m.publisher,
+                m.publisher_attestations,
+                m.block_index_doge,
+                b1.block_time as timestamp,
+                t2.hash as tx_hash,
+                t1.tx_index,
+                s1.status
+            FROM
+                anchor_actions m
+                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+            WHERE ` + predicate + `
+            ORDER BY m.action_index DESC
+            LIMIT 1`, [key]);
+        if(!rows || !rows.length) return [null];
+        let row = rows[0];
+        row.validator_signatures   = this._parseSignaturesArray(row.validator_signatures);
+        // The v4/v5/v6 XANCPUB tail is RAW WIRE transport, not the quorum-verified subset
+        // (anchor_actions.sql), so it is parsed for display and named as attestations to
+        // re-verify, never presented as a verified quorum.
+        row.publisher_attestations = this._parseSignaturesArray(row.publisher_attestations);
+
+        // Continuation chunks (v2) share the archive batch id. Bounded: a large archive
+        // splits into as many chunks as it needs, so this list has no natural ceiling.
+        let chunks = [];
+        if(!this.util.isNull(row.match_batch_seq))
+            chunks = await this.doQuery(config,
+                `SELECT
+                    m.action_index,
+                    m.version,
+                    m.chunk_index,
+                    m.total_chunks,
+                    CHAR_LENGTH(m.archive_b64) as archive_b64_length,
+                    m.block_index_doge,
+                    s1.status
+                FROM
+                    anchor_actions m
+                    LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                WHERE m.match_batch_seq=?
+                ORDER BY m.chunk_index ASC
+                LIMIT ` + limit, [row.match_batch_seq]) || [];
+
+        let src         = this._checkpointSource(config);
+        let scFilter    = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let latest      = this._latestCheckpointPredicate(src, 'sc');
+        // The anchor names the CHECKPOINTED height on the CHECKPOINTED chain, which is what
+        // state_checkpoints is keyed by too, so this coin's own (chain, network) identity is
+        // the right filter here (the same reasoning getCommitments' anchor leg carries).
+        let checkpoint = [];
+        if(!this.util.isNull(row.block_index))
+            checkpoint = await this.doQuery(config,
+                `SELECT
+                    sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash,
+                    sc.actions_hash, sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block,
+                    sc.state_root, sc.state_root_version, sc.block_merkle_root,
+                    sc.block_merkle_version, sc.validator_signatures, sc.created_at
+                FROM ${src.table} sc
+                WHERE sc.block_index = ?${scFilter}${latest.sql}
+                LIMIT 1`, [Number(row.block_index), ...src.filterParams, ...latest.params]) || [];
+
+        // Publisher election. capability_snapshots is CHAIN-AGNOSTIC: no chain/network
+        // filter is bound, matching getCapabilitySnapshots. 'oracle_publish' is the
+        // capability the publisher election draws its set from.
+        let electorate = [];
+        if(!this.util.isNull(row.snapshot_block))
+            electorate = await this.doQuery(config,
+                `SELECT
+                    m.signing_pubkey,
+                    m.amount,
+                    m.source
+                FROM ${src.capTable} m
+                WHERE m.snapshot_block=? AND m.capability=?
+                ORDER BY m.id ASC
+                LIMIT ` + limit, [Number(row.snapshot_block), 'oracle_publish']) || [];
+
+        // Reward trail. CHAIN-SCOPED, so filterParams lead. Correlated on the mined DOGE
+        // txid this anchor landed in, OR on the table's own natural key minus publisher
+        // (snapshot_block + the round this anchor closed: checkpoint_seq for a checkpoint
+        // anchor, match_batch_seq for an archive one).
+        let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
+        let rounds = [row.checkpoint_seq, row.match_batch_seq]
+            .filter(v => !this.util.isNull(v)).map(v => Number(v));
+        let rewardWhere = 'm.doge_anchor_txid=?';
+        let rewardArgs  = [...src.filterParams, row.tx_hash];
+        if(rounds.length && !this.util.isNull(row.snapshot_block)){
+            rewardWhere += ` OR (m.snapshot_block=? AND m.round_reference IN (${rounds.map(() => '?').join(',')}))`;
+            rewardArgs.push(Number(row.snapshot_block), ...rounds);
+        }
+        let rewards = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.chain,
+                m.network,
+                m.reward_type,
+                m.round_reference,
+                m.snapshot_block,
+                m.publisher,
+                m.reward_amount,
+                m.doge_anchor_txid,
+                m.created_at
+            FROM ${src.rewardTable} m
+            WHERE 1=1` + outerFilter + ` AND (` + rewardWhere + `)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, rewardArgs) || [];
+
+        row.chunks             = chunks;
+        row.checkpoint         = (checkpoint.length) ? this._normalizeCheckpointRows(checkpoint)[0] : null;
+        row.publisher_election = electorate;
+        row.reward_attestations = rewards;
+        return [row];
+    }
+
+    // Composed ADDRESS STAKING panel (M4.6). One address, four questions the raw tabs below
+    // it cannot answer together: what is staked, what is cooling down and when it matures,
+    // what is claimable, and what has been slashed out from under it.
+    //
+    // Maturity is computed against the indexer's own tip (getMaxBlockIndex), not wall clock,
+    // so every explorer host answers identically and the number matches the consensus rule
+    // that releases the funds.
+    //
+    // Slash exposure has to reach the address through the KEYS it staked with, because
+    // neither slash table carries an address of the slashed party: capability_slash_events
+    // and slash_events both name a signing pubkey. So each family is scoped by the pubkey set
+    // this address staked, drawn from the ledger that family actually burns from (`stakes`
+    // for the capability family, `contract_stakes` for the contract family). Scoping both
+    // from one ledger would over- or under-report, depending which one was picked.
+    async getAddressStaking(config){
+        let limit   = this._detailLimit(config);
+        let address = config.data.search;
+        if(this.util.isNull(address)) return [null];
+        let tip = await this.getMaxBlockIndex(config);
+
+        let positions = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                a3.pubkey as signing_pubkey,
+                m.target_contract_index,
+                t3.tick,
+                m.amount,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                contract_stakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        let capabilityPositions = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                a3.pubkey as signing_pubkey,
+                m.amount,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                stakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        let cooldowns = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a3.pubkey as signing_pubkey,
+                m.target_contract_index,
+                t3.tick,
+                m.amount,
+                m.cooldown_end_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                contract_unstakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        let capabilityCooldowns = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a3.pubkey as signing_pubkey,
+                m.amount,
+                m.cooldown_end_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                unstakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        for(let row of [...(cooldowns || []), ...(capabilityCooldowns || [])]){
+            let end = Number(row.cooldown_end_block);
+            row.blocks_remaining = Math.max(0, end - tip);
+            row.matured          = tip >= end;
+        }
+
+        let trail = await this._collectTrail(config, address, limit);
+        let rewards = await this.doQuery(config,
+            `SELECT
+                m.id,
+                a3.pubkey as signing_pubkey,
+                m.reward_type,
+                m.round_reference,
+                m.amount,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                validator_rewards m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+            WHERE a2.address=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [address]);
+
+        let capabilitySlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.slash_action_index,
+                pk.pubkey as slashed_pubkey,
+                m.capability,
+                m.equiv_key,
+                m.amount,
+                m.bounty_amount,
+                m.treasury_amount,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                capability_slash_events m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys pk ON (pk.id=m.signing_pubkey_id)
+            WHERE m.signing_pubkey_id IN (
+                SELECT s.signing_pubkey_id FROM stakes s
+                    INNER JOIN index_addresses sa ON (sa.id=s.source_id)
+                WHERE sa.address=?)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [address]);
+
+        let contractSlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.execution_index,
+                m.target_contract_index,
+                pk.pubkey as slashed_pubkey,
+                t3.tick,
+                m.amount,
+                dst.address as destination,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                slash_events m
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   pk  ON (pk.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3  ON (t3.id=m.tick_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
+            WHERE m.signing_pubkey_id IN (
+                SELECT cs.signing_pubkey_id FROM contract_stakes cs
+                    INNER JOIN index_addresses sa ON (sa.id=cs.source_id)
+                WHERE sa.address=?)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [address]);
+
+        return [{
+            address:              address,
+            chain_tip:            tip,
+            positions:            positions           || [],
+            capability_positions: capabilityPositions || [],
+            cooldowns:            cooldowns           || [],
+            capability_cooldowns: capabilityCooldowns || [],
+            rewards:              rewards             || [],
+            rewards_total:        trail.rewards_total,
+            collected_total:      trail.collected_total,
+            claimable:            trail.claimable,
+            collects:             trail.collects,
+            capability_slash_events: capabilitySlashes || [],
+            slash_events:            contractSlashes   || []
+        }];
+    }
+
     async getAttestationsSince(config, sinceBlockIndex, limit){
         let query = `SELECT
                         m.action_index,

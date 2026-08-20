@@ -1,0 +1,125 @@
+<!-- ANCHOR detail: one anchor's full payload plus its reward attribution.
+     QUERY is the ANCHOR's action_index or the DOGE transaction hash it landed in. -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-anchor"></i> Anchor <span id="anchor-heading"></span>
+                </div>
+                <div class="card-body p-2">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody id="anchor-identity">
+                            <tr><td class="text-muted">Loading anchor...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="row">
+
+        <div class="col-12 col-lg-6">
+
+            <!-- The two heights lead the page rather than sitting inside the payload
+                 table: telling the checkpointed height from the broadcast height is the
+                 single most misread thing about an anchor. -->
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-cubes"></i> Block Heights
+                </div>
+                <div class="card-body p-2" id="anchor-heights">
+                    <span class="text-muted">Loading heights...</span>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-certificate"></i> Checkpoint Payload
+                </div>
+                <div class="card-body p-2" id="anchor-checkpoint-payload">
+                    <span class="text-muted">Loading payload...</span>
+                </div>
+            </div>
+
+            <div class="card mb-3 d-none" id="anchor-archive-card">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-box-archive"></i> Match Archive
+                </div>
+                <div class="card-body p-2" id="anchor-archive-payload">
+                    <span class="text-muted">Loading archive...</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-12 col-lg-6">
+
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-link"></i> Covering Checkpoint
+                </div>
+                <div class="card-body p-2" id="anchor-covering-checkpoint">
+                    <span class="text-muted">Loading checkpoint...</span>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-user-shield"></i> Publisher Election
+                </div>
+                <div class="card-body p-2" id="anchor-election">
+                    <span class="text-muted">Loading election...</span>
+                </div>
+            </div>
+
+            <div class="card mb-3 table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-award"></i> Reward Attestation Trail
+                </div>
+                <div class="card-body p-2" id="anchor-rewards">
+                    <span class="text-muted">Loading rewards...</span>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript" src="/js/anchor-detail-render.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+    $('#anchor-heading').text(XC.query);
+
+    XC.pageInfo.title       = 'Anchor ' + XC.query;
+    XC.pageInfo.description = 'ANCHOR payload, publisher election and reward attestation trail for anchor ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/anchor/' + XC.query;
+    updatePageInfo();
+
+    $.getJSON('/' + XC.coin + '/api/anchor/' + XC.query, function(o){
+        // Single-row API routes answer a BARE object, not the {total, data}
+        // envelope the plural routes use, so both shapes are accepted rather than
+        // assuming one: reading only `o.data` renders a real anchor as "not
+        // found", which is indistinguishable from a height nobody anchored.
+        let d = null;
+        if(o){
+            if(!isNull(o.data))              d = Array.isArray(o.data) ? o.data[0] : o.data;
+            else if(!isNull(o.action_index)) d = o;
+        }
+        if(!d){
+            renderAnchorMessage('No anchor matches this action index or transaction hash.', 'muted');
+            return;
+        }
+        renderAnchorPage(d);
+    }).fail(function(xhr){
+        let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        let msg  = body.error ? body.error : 'Could not load this anchor';
+        renderAnchorMessage(msg, 'danger');
+    });
+
+});
+</script>

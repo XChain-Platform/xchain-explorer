@@ -89,6 +89,10 @@ const ROUTES = [
     ['/{COIN}/api/stakes/{QUERY}/{TYPE}', 'getStakes', ['block', 'address', 'source'], 'Staking', 'Capability stakes, filtered'],
     ['/{COIN}/api/stakes', 'getStakes', null, 'Staking', 'Capability stakes (validator staking)'],
     ['/{COIN}/api/validators', 'getValidators', null, 'Staking', 'Active validators and their capabilities'],
+    // Compositions, not filters: the list methods above expose only an address type, so
+    // neither of these could be assembled by a caller paging the plural routes.
+    ['/{COIN}/api/validator/{QUERY}', 'getValidator', 'validator', 'Staking', 'One validator by signing pubkey or address: identity, capabilities, stake, delegation and rotation history, rewards and COLLECT trail, both slash families, NODEPROOF history, attestation quality'],
+    ['/{COIN}/api/staking/{QUERY}', 'getAddressStaking', 'address', 'Staking', 'One address’s staking position: stakes, cooldowns measured against the indexer tip, rewards and COLLECT trail, and both slash families'],
     ['/{COIN}/api/delegations/{QUERY}/{TYPE}', 'getDelegations', ['block', 'address', 'source'], 'Staking', 'Signing-key delegations'],
     ['/{COIN}/api/rewards/{QUERY}/{TYPE}', 'getValidatorRewards', ['address', 'source'], 'Staking', 'Validator rewards (oracle/anchor/attestation)'],
     ['/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}', 'getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address'], 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0), filtered'],
@@ -158,9 +162,13 @@ const ROUTES = [
     ['/{COIN}/api/attestations', 'getAttestations', null, 'Attestations', 'ATTEST v0 requests + v1 responses (incl. LLM attestations)'],
     ['/{COIN}/api/attest_validator_stats/{QUERY}/{TYPE}', 'getAttestValidatorStats', ['pubkey', 'provider'], 'Attestations', 'Per-validator per-provider ATTEST accountability counters, filtered by validator or provider'],
     ['/{COIN}/api/attest_validator_stats', 'getAttestValidatorStats', null, 'Attestations', 'Per-validator per-provider ATTEST accountability counters (fulfilled/missed/slashed + quality score)'],
+    // The lifecycle composed across an attestation's legs. Expiry is DERIVED from the
+    // request row's stored status, because ATTEST v2 writes no row of its own.
+    ['/{COIN}/api/attestation/{QUERY}', 'getAttestation', 'attestation', 'Attestations', 'Full ATTEST lifecycle by request_id or action index (v0 request, v1 response and signatures, derived expiry, relay legs)'],
     // ── Anchors ───────────────────────────────────────────────────────────
     ['/{COIN}/api/anchors/{QUERY}/{TYPE}', 'getAnchors', ['block', 'chain', 'network', 'status'], 'Checkpoints', 'ANCHOR state checkpoints, filtered by block/chain/network/status'],
     ['/{COIN}/api/anchors', 'getAnchors', null, 'Checkpoints', 'ANCHOR state checkpoints (cross-chain quorum-signed)'],
+    ['/{COIN}/api/anchor/{QUERY}', 'getAnchor', 'anchor', 'Checkpoints', 'One ANCHOR by action index or DOGE tx hash, composed with its continuation chunks, covering checkpoint, publisher election and reward-attestation trail'],
     // The cheap read of one quorum-signed checkpoint. Its /verify sibling below is a
     // separate hand-pinned route because it re-runs the signature check per call.
     ['/{COIN}/api/checkpoint/{QUERY}', 'getCheckpoint', 'block', 'Checkpoints', 'One quorum-signed state checkpoint by block height (no signature re-verification)'],

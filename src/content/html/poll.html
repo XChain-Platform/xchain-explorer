@@ -1,0 +1,217 @@
+<!-- VOTE poll detail page (one polls row + quorum gates + tally + ballots + delegations) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-check-to-slot"></i> Poll <span id="poll-id"></span>
+                    <span class="float-end" id="poll-status-badge"></span>
+                </div>
+                <div class="card-body p-2">
+                    <div class="fs-5 mb-2" id="poll-question">Loading poll...</div>
+                    <div id="poll-outcome"></div>
+                </div>
+                <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                <tbody id="poll-fields">
+                    <tr><th width="175">Electorate</th><td id="poll-tick"></td></tr>
+                    <tr><th>Creator</th><td id="poll-creator"></td></tr>
+                    <tr><th>Closes</th><td id="poll-close"></td></tr>
+                    <tr><th>Tally Mode</th><td id="poll-modes"></td></tr>
+                    <tr><th>Selections Allowed</th><td id="poll-max-selections"></td></tr>
+                    <tr><th>Binding Call</th><td id="poll-binding"></td></tr>
+                    <tr><th>Deposit</th><td id="poll-deposit"></td></tr>
+                    <tr><th>Created</th><td id="poll-created"></td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-chart-simple"></i> Tally</div>
+                <div id="poll-tally" class="p-2">Loading tally...</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-gauge-high"></i> Quorum &amp; Participation</div>
+                <div id="poll-quorum" class="p-2">Loading quorum...</div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-people-arrows"></i> Delegated Voting Weight</div>
+                <div id="poll-delegations" class="p-2">Loading delegations...</div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-square-check"></i> Ballots Cast on this Poll</div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-vote">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Voter</th>
+                        <th class="">Poll</th>
+                        <th class="">Choice</th>
+                        <th class="">Share</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="8" class="loading-data">Loading ballot data...</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Tally / outcome / quorum / delegation renders live here so a unit test can
+     drive the real render path with stubbed endpoint payloads. -->
+<script type="text/javascript" src="/js/poll-tally-render.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // QUESTION and the option labels are attacker-controlled on-chain bytes;
+    // everything below reaches the DOM through .text() or this escape.
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+
+    $('#poll-id').text(XC.query);
+
+    // Ballots for this poll: a registered /explorer/votes/{query}/poll feed.
+    loadDatatablesData(XC.coin, 'vote', XC.query, 'poll');
+
+    // Single-resource route: it answers a BARE object, not the {total,data}
+    // envelope the list routes use, so both shapes are accepted. Reading only
+    // `o.data` would render a real poll as "not found", which is
+    // indistinguishable from a bad poll id.
+    $.getJSON('/' + XC.coin + '/api/poll/' + XC.query, function(o){
+        let d = null;
+        if(o){
+            if(!isNull(o.data))              d = Array.isArray(o.data) ? o.data[0] : o.data;
+            else if(!isNull(o.action_index)) d = o;
+        }
+        if(!d){
+            // NOT FOUND is its own branch, not a page full of blank placeholders.
+            $('#poll-question').html('<span class="text-muted" id="poll-not-found">No poll exists at this id.</span>');
+            $('#poll-outcome').empty();
+            $('#poll-tally').html('<span class="text-muted">-</span>');
+            $('#poll-quorum').html('<span class="text-muted">-</span>');
+            $('#poll-delegations').html('<span class="text-muted">-</span>');
+            return;
+        }
+
+        XC.pageInfo.title       = 'Poll ' + XC.query;
+        XC.pageInfo.description = 'Token-weighted governance poll ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+        XC.pageInfo.canonical   = '/' + XC.coin + '/poll/' + XC.query;
+        updatePageInfo();
+
+        $('#poll-question').text(isNull(d.question) ? '(no question recorded)' : d.question);
+        $('#poll-status-badge').html(pollStatusBadge(d));
+        $('#poll-outcome').html(renderPollOutcome(d));
+
+        // The electorate is the token whose holders may vote: the poll is
+        // weighted by balances of this tick, not by the coin.
+        $('#poll-tick').html(isNull(d.tick) ? '-'
+            : formatLink('/' + XC.coin + '/token/' + d.tick, d.tick) + ' <span class="small text-muted">holders of this token form the electorate</span>');
+        $('#poll-creator').html(isNull(d.source) ? '-' : formatLink('/' + XC.coin + '/address/' + d.source, d.source));
+        $('#poll-close').html(isNull(d.end_block) ? '-'
+            : formatLink('/' + XC.coin + '/block/' + d.end_block, numeral(d.end_block).format('0,0')));
+        $('#poll-modes').html(esc(isNull(d.tally_mode) ? '-' : d.tally_mode)
+            + (isNull(d.weight_mode) ? '' : ' <span class="badge text-bg-secondary">' + esc(d.weight_mode) + ' weight</span>'));
+        $('#poll-max-selections').text(isNull(d.max_selections) ? '-' : d.max_selections);
+
+        // A binding poll fires a contract method on its result; a non-binding
+        // one records an opinion and nothing else.
+        if(isNull(d.callback_contract_index)){
+            $('#poll-binding').html('<span class="text-muted">none - this poll records an opinion only</span>');
+        } else {
+            let call = formatLink('/' + XC.coin + '/contract/' + d.callback_contract_index, d.callback_contract_index)
+                     + (isNull(d.callback_method) ? '' : '.' + esc(d.callback_method) + '()');
+            if(!isNull(d.callback_on))            call += ' <span class="badge text-bg-secondary">on ' + esc(d.callback_on) + '</span>';
+            if(!isNull(d.callback_delay_blocks))  call += ' <span class="small text-muted">after ' + esc(d.callback_delay_blocks) + ' block(s)</span>';
+            if(!isNull(d.gas_escrow))             call += ' <span class="small text-muted">gas escrow ' + esc(d.gas_escrow) + '</span>';
+            if(!isNull(d.callback_execute_action_index))
+                call += '<br>Executed by ' + formatLink('/' + XC.coin + '/action/' + d.callback_execute_action_index, d.callback_execute_action_index);
+            if(d.callback_params != null)
+                call += '<div class="small text-muted mt-1">Params (inert data): ' + esc(JSON.stringify(d.callback_params)) + '</div>';
+            $('#poll-binding').html(call);
+        }
+
+        if(isNull(d.deposit_amount)){
+            $('#poll-deposit').html('<span class="text-muted">none</span>');
+        } else {
+            let dep = esc(d.deposit_amount);
+            if(!isNull(d.deposit_address))
+                dep += ' held at ' + formatLink('/' + XC.coin + '/address/' + d.deposit_address, d.deposit_address);
+            dep += isNull(d.deposit_resolved) || !Number(d.deposit_resolved)
+                ? ' <span class="badge text-bg-secondary">unresolved</span>'
+                : ' <span class="badge text-bg-success">resolved</span>';
+            $('#poll-deposit').html(dep);
+        }
+
+        $('#poll-created').html(formatLink('/' + XC.coin + '/action/' + d.action_index, d.action_index)
+            + (isNull(d.block_index) ? '' : ' in block ' + formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0')))
+            + (isNull(d.timestamp) ? '' : ' - ' + formatLivestamp(d.timestamp)));
+
+        $('#poll-quorum').html(renderPollQuorum(d));
+
+        // Tally: poll_results is the FROZEN per-option weight and exists only once
+        // the poll finalizes. Until then the ballots feed backs a provisional
+        // ballot count (never a weight), so both are fetched and the render picks.
+        $.getJSON('/' + XC.coin + '/api/poll/' + XC.query + '/results', function(ro){
+            let results = (ro && !isNull(ro.data)) ? ro.data : (Array.isArray(ro) ? ro : []);
+            if(Array.isArray(results) && results.length){
+                $('#poll-tally').html(renderPollTally(d, results, []));
+                return;
+            }
+            $.getJSON('/' + XC.coin + '/api/votes/' + XC.query + '/poll', function(vo){
+                let votes = (vo && !isNull(vo.data)) ? vo.data : (Array.isArray(vo) ? vo : []);
+                $('#poll-tally').html(renderPollTally(d, [], votes));
+            }).fail(function(){
+                $('#poll-tally').html(renderPollTally(d, [], []));
+            });
+        }).fail(function(xhr){
+            let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+            $('#poll-tally').html('<span class="text-danger">' + esc(body.error ? body.error : 'Could not load the tally') + '</span>');
+        });
+
+        // Standing delegations on the electorate token. getVoteDelegations already
+        // reduces the append-only log to the live row per (tick, delegator) and
+        // drops CLEARs, so this consumes it as the live set; renderPollDelegations
+        // still refuses to show a CLEAR row as live if one ever gets through.
+        if(isNull(d.tick)){
+            $('#poll-delegations').html('<span class="text-muted">-</span>');
+        } else {
+            $.getJSON('/' + XC.coin + '/api/vote_delegations/' + d.tick + '/tick', function(go){
+                let rows = (go && !isNull(go.data)) ? go.data : (Array.isArray(go) ? go : []);
+                $('#poll-delegations').html(renderPollDelegations(rows, d.tick));
+            }).fail(function(xhr){
+                let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+                $('#poll-delegations').html('<span class="text-danger">' + esc(body.error ? body.error : 'Could not load delegations') + '</span>');
+            });
+        }
+
+    }).fail(function(xhr){
+        // getData's NOT_FOUND path answers 404 with {error, code:'NOT_FOUND'};
+        // any other failure carries its own error string. Both are shown rather
+        // than left as a page of loading placeholders.
+        let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        let msg  = body.error ? body.error : 'Could not load this poll';
+        $('#poll-question').html('<span class="text-danger" id="poll-load-error">' + esc(msg) + '</span>');
+        $('#poll-outcome').empty();
+        $('#poll-tally').html('<span class="text-muted">-</span>');
+        $('#poll-quorum').html('<span class="text-muted">-</span>');
+        $('#poll-delegations').html('<span class="text-muted">-</span>');
+    });
+
+});
+</script>

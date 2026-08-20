@@ -13,14 +13,17 @@
                         <th class="record">#</th>
                         <th class="block">Block</th>
                         <th class="time">Time</th>
-                        <th class="asset-name">Action</th>
-                        <th class="">Details</th>
+                        <th class="">Give Order</th>
+                        <th class="">Give Amount</th>
+                        <th class="">Get Order</th>
+                        <th class="">Get Amount</th>
+                        <th class="">Settlement</th>
                         <th class="view"></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="6" class="loading-data">Loading order match data...</td>
+                        <td colspan="9" class="loading-data">Loading order match data...</td>
                     </tr>
                 </tbody>
                 </table>
@@ -39,10 +42,9 @@ $(document).ready(function() {
     XC.pageInfo.canonical   = '/' + XC.coin + '/order_matches';
     updatePageInfo();
 
-    // No /explorer/order_matches feed exists yet (order_matches only has a
-    // non-DataTables /api lookup), so this reuses the history feed like the
-    // Actions page; getActionDetails() already renders ORDER_MATCH rows with
-    // their give/get legs when one appears in the mixed action stream.
+    // Served by the real /explorer/order_matches feed. Each leg names its coin
+    // plus the matched ORDER's action index (a match row carries no ticks), so
+    // the table links the two orders rather than token pages.
     loadDatatablesData(XC.coin, 'order_match', null, null);
 
 });

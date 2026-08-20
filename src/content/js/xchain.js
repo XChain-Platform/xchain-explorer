@@ -1324,7 +1324,7 @@ function loadDatatablesData(coin, action, query, type){
             let block_link   = formatLink('/' + coin + '/block/' + block_index, numeral(block_index).format('0,0'));
             let source_link  = formatLink('/' + coin + '/address/' + source, source);
             // Set row to display to red or green based on status
-            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','capability_snapshot','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping','checkpoint','commitment','anchor_reward_attestation','reorg','slash_proposal','attest_validator_stat','price_snapshot','emission','coinpay_obligation'].includes(action)){
+            if(!['balance','credit','debit','token','project','block','fee','holder','search','market','market-history','slash_event','capability_slash_event','oracle_price','reward','cross_chain_match','cross_chain_settlement','validator_capability','capability_snapshot','governance_proposal','governance_vote','peer','consensus_state','config','telemetry_ping','checkpoint','commitment','anchor_reward_attestation','reorg','slash_proposal','attest_validator_stat','price_snapshot','emission','coinpay_obligation','action'].includes(action)){
                 var cls = (status==1) ? 'bg-green' : 'bg-red';
                 // For escrow, green=credit, red=debit
                 if(action=='escrow')
@@ -1788,6 +1788,40 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).text(formatAmount(amount3));
                 $('td', row).eq(7).html(formatLocks(locks));
                 $('td', row).eq(8).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+            }
+            // Raw action list: one row per action with its type name; no per-type
+            // details on this feed (they live on the action page). No status column
+            // on the actions table, so 'action' sits in the no-color list above.
+            if(action=='action'){
+                let action2 = data[4];
+                $('td', row).eq(4).html('<span class="badge text-bg-info">' + escapeHtml(String(action2 || '-')) + '</span>');
+                $('td', row).eq(5).html(action_link);
+            }
+            // Order match: each leg links the matched ORDER's action on its own coin
+            // (the match row carries coins and action indexes, not ticks).
+            if(action=='order_match'){
+                let give_coin  = data[3];
+                let give_index = data[4];
+                let get_coin   = data[6];
+                let get_index  = data[7];
+                let settlement = data[9];
+                $('td', row).eq(3).html(formatLink('/' + give_coin + '/action/' + give_index, give_coin + '-' + give_index));
+                $('td', row).eq(4).html(formatAmount(data[5]));
+                $('td', row).eq(5).html(formatLink('/' + get_coin + '/action/' + get_index, get_coin + '-' + get_index));
+                $('td', row).eq(6).html(formatAmount(data[8]));
+                $('td', row).eq(7).text(isNull(settlement) ? '-' : settlement);
+                $('td', row).eq(8).html(action_link);
+            }
+            // Swap match: same two-leg rendering minus the amount and settlement
+            // columns, which a swap match does not carry.
+            if(action=='swap_match'){
+                let give_coin  = data[3];
+                let give_index = data[4];
+                let get_coin   = data[5];
+                let get_index  = data[6];
+                $('td', row).eq(3).html(formatLink('/' + give_coin + '/action/' + give_index, give_coin + '-' + give_index));
+                $('td', row).eq(4).html(formatLink('/' + get_coin + '/action/' + get_index, get_coin + '-' + get_index));
+                $('td', row).eq(5).html(action_link);
             }
             // History
             if(action=='history'){

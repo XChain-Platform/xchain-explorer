@@ -231,6 +231,18 @@ describe('Database#getValidator (M4 composed validator detail)', () => {
         expect(con.args).to.deep.equal([PK]);
     });
 
+    it('describes a capability slash with the full superset columns (slashed key + submitter + destination)', async () => {
+        // Same row shape as getCapabilitySlashEvents and the address staking
+        // panel, so one slash reads identically wherever it surfaces.
+        const db = validatorDb();
+        db.getFederationRegistry = async () => null;
+        await db.getValidator(detailConfig('getValidator', PK));
+        const cap = findQuery(db, 'FROM capability_slash_events m');
+        expect(cap.query).to.include('as slashed_pubkey');
+        expect(cap.query).to.include('sub.address as submitter');
+        expect(cap.query).to.include('dst.address as destination');
+    });
+
     it('scopes the active-stake aggregate to ONE pubkey and to live rows, with no GROUP BY', async () => {
         const db = validatorDb();
         db.getFederationRegistry = async () => null;
@@ -581,6 +593,17 @@ describe('Database#getAddressStaking (M4 address staking panel)', () => {
         expect(con.query).to.not.include('FROM stakes s');
         expect(cap.args).to.deep.equal([ADDR]);
         expect(con.args).to.deep.equal([ADDR]);
+    });
+
+    it('describes a capability slash with the full superset columns (slashed key + submitter + destination)', async () => {
+        // Same row shape as getCapabilitySlashEvents and the validator page's
+        // slash leg, so one slash reads identically wherever it surfaces.
+        const db = stakingDb();
+        await db.getAddressStaking(detailConfig('getAddressStaking', ADDR));
+        const cap = findQuery(db, 'FROM capability_slash_events m');
+        expect(cap.query).to.include('pk.pubkey as slashed_pubkey');
+        expect(cap.query).to.include('sub.address as submitter');
+        expect(cap.query).to.include('dst.address as destination');
     });
 
     it('EVERY sub-list interpolates sql.limit; nothing but a scalar aggregate is unbounded', async () => {

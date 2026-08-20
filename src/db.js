@@ -10901,7 +10901,11 @@ class Database {
     // execution outcome (cross_chain_call_executions) + the source-chain callback
     // delivery (cross_chain_call_callbacks). The latter two are null until the call is
     // relayed/executed/delivered. Mirrors getContract's single-item return ([data]);
-    // data is null when the call_id is unknown.
+    // data is null when the call_id is unknown. A call_id can carry more than one
+    // xcalls row (rejected attempts index alongside the accepted request), so the
+    // read is pinned to the valid row, matching the indexer's authoritative
+    // by-call_id lookup; without the status bound the ORDER BY can surface an
+    // invalid row as the lifecycle.
     async getXcall(config){
         let data  = null;
         let sql   = config.data.sql;
@@ -10942,7 +10946,7 @@ class Database {
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + `
+                    WHERE ` + sql.where.data + ` AND s1.status='valid'
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
@@ -11195,11 +11199,15 @@ class Database {
         // Both slash families. capability_slash_events is the equivocation bond-burn against
         // a CONSENSUS validator (keyed by the signing pubkey directly); slash_events is the
         // contract-stake burn emitted by an EXECUTE (also keyed by the staker's pubkey). One
-        // family alone understates exposure, which is why the page carries both.
+        // family alone understates exposure, which is why the page carries both. The row
+        // shape matches getCapabilitySlashEvents and the address staking panel (slashed
+        // key + submitter + destination), so the same slash reads identically wherever
+        // it surfaces.
         let capabilitySlashes = await this.doQuery(config,
             `SELECT
                 m.id,
                 m.slash_action_index,
+                a3.pubkey as slashed_pubkey,
                 m.capability,
                 m.equiv_key,
                 m.amount,
@@ -11814,6 +11822,9 @@ class Database {
             ORDER BY m.id DESC
             LIMIT ` + limit, [address]);
 
+        // Row shape matches getCapabilitySlashEvents and the validator page's slash
+        // leg (slashed key + submitter + destination), so the same slash reads
+        // identically wherever it surfaces.
         let capabilitySlashes = await this.doQuery(config,
             `SELECT
                 m.id,
@@ -11824,12 +11835,16 @@ class Database {
                 m.amount,
                 m.bounty_amount,
                 m.treasury_amount,
+                sub.address as submitter,
+                dst.address as destination,
                 m.block_index,
                 b1.block_time as timestamp
             FROM
                 capability_slash_events m
-                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
-                LEFT  JOIN index_pubkeys pk ON (pk.id=m.signing_pubkey_id)
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   pk  ON (pk.id=m.signing_pubkey_id)
+                LEFT  JOIN index_addresses sub ON (sub.id=m.submitter_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
             WHERE m.signing_pubkey_id IN (
                 SELECT s.signing_pubkey_id FROM stakes s
                     INNER JOIN index_addresses sa ON (sa.id=s.source_id)

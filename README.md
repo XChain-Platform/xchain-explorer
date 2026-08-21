@@ -20,7 +20,7 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 
 - **60+ REST endpoints**: tokens, balances, transactions, market data, DEX state, addresses, blocks, files, staking, attestations, contracts, messages
 - **Four interfaces**: REST API, JSON-RPC 2.0, WebSocket real-time push, and a web block explorer served from the same process
-- **Multi-chain support**: Bitcoin, Litecoin, and Dogecoin on mainnet, testnet, and regtest (9 networks)
+- **Multi-chain support**: Bitcoin, Litecoin, and Dogecoin today on mainnet, testnet, and regtest (9 networks)
 - **Read-only by default**: only writes to the Indexer database when the optional icon downloader is enabled
 - **WebSocket API**: real-time push of blocks, actions, and lifecycle events with per-channel subscriptions and catch-up replay
 - **Config discovery**: fetches configuration from xchain-hub and refreshes every 60 seconds

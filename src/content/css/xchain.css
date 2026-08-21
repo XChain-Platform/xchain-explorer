@@ -12,156 +12,156 @@ body {
 .fa-xchain {
     background-image: url('../images/xchain-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 18px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-xchain-height);
     position: relative;
-    top: 2px;  
+    top: var(--xc-glyph-xchain-offset-top);  
 }
 .fa-xchain-bitcoin-mainnet {
     background-image: url('../images/bitcoin-mainnet-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-bitcoin-testnet {
     background-image: url('../images/bitcoin-testnet-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-bitcoin-regtest {
     background-image: url('../images/bitcoin-regtest-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-litecoin-mainnet {
     background-image: url('../images/litecoin-mainnet-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-litecoin-testnet {
     background-image: url('../images/litecoin-testnet-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-litecoin-regtest {
     background-image: url('../images/litecoin-regtest-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-dogecoin-mainnet {
     background-image: url('../images/dogecoin-mainnet-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-dogecoin-testnet {
     background-image: url('../images/dogecoin-testnet-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-xchain-dogecoin-regtest {
     background-image: url('../images/dogecoin-regtest-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 5px;  
+    top: var(--xc-glyph-coin-offset-top);  
 }
 .fa-mempool {
     background-image: url('../images/mempool-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 0px;  
+    top: var(--xc-glyph-explorer-offset-top);  
 }
 .fa-blockstream {
     background-image: url('../images/blockstream-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 0px;  
+    top: var(--xc-glyph-explorer-offset-top);  
 }
 .fa-blockcypher {
     background-image: url('../images/blockcypher-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 0px;  
+    top: var(--xc-glyph-explorer-offset-top);  
 }
 .fa-blockchair {
     background-image: url('../images/blockchair-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 0px;  
+    top: var(--xc-glyph-explorer-offset-top);  
 }
 .fa-litecoinspace {
     background-image: url('../images/litecoinspace-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 0px;  
+    top: var(--xc-glyph-explorer-offset-top);  
 }
 .fa-sochain {
     background-image: url('../images/sochain-icon-20.png');
     background-repeat: no-repeat;
-    width: 20px;
-    height: 20px;
+    width: var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
     position: relative;
-    top: 0px;  
+    top: var(--xc-glyph-explorer-offset-top);  
 }
 
 /* CSS for sticky footer (also requires html/)*/
 .footer {
 /*  position: absolute;*/
 /*  bottom: 0;*/
-  width: 100%;
+  width: var(--xc-footer-width);
   /* Set the fixed height of the footer here */
-   height: 50px;
-  color: #fff;
-  background-color: #222;
+   height: var(--xc-footer-height);
+  color: var(--xc-footer-color);
+  background-color: var(--xc-footer-bg);
 }
 .footer a,
 .footer a:visited {
-    color: #888;
+    color: var(--xc-footer-link-color);
 }
 .footer a:hover {
-    color: #fff;
+    color: var(--xc-footer-color);
     text-decoration: none;
 }
 
 /* CSS to auto-truncate header overflows */
 #address-stats td,
 #token-info td {
-    max-width: 200px;
-    min-width: 5px;
+    max-width: var(--xc-cell-truncate-max-width);
+    min-width: var(--xc-cell-truncate-min-width);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -170,8 +170,8 @@ body {
 /* CSS for datatables */
 .dataTables_wrapper th, 
 .dataTables_wrapper td {
-    max-width: 200px;
-    min-width: 5px;
+    max-width: var(--xc-cell-truncate-max-width);
+    min-width: var(--xc-cell-truncate-min-width);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -185,52 +185,52 @@ body {
 
 .dataTables_wrapper .dataTables_info,
 .dataTables_wrapper .dataTables_paginate {
-    padding-top: 0em !important;
+    padding-top: var(--xc-datatable-info-padding-top) !important;
 }
 .dataTables_wrapper .dataTables_length select {
-    padding: 2px ;
+    padding: var(--xc-datatable-length-select-padding) ;
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button {
-    padding: 0em 0.5em;
+    padding: var(--xc-datatable-paginate-padding-y) var(--xc-datatable-paginate-padding-x);
 }
 
 /* Force borders on datatables to look nice */
 table.dataTable.cell-border {
-    border-bottom: 1px solid #ddd !important;
+    border-bottom: var(--xc-table-border-width) solid var(--xc-table-border-color) !important;
 }
 table.dataTable.cell-border tbody tr:first-child td {
-    border-top: 1px solid #ddd !important;
+    border-top: var(--xc-table-border-width) solid var(--xc-table-border-color) !important;
 }
 table.dataTable.cell-border tbody tr td:first-child {
-    border-left-width: 0px;
+    border-left-width: var(--xc-border-width-none);
 }
 table.dataTable.cell-border tbody tr td:last-child {
-    border-right-width: 0px;
+    border-right-width: var(--xc-border-width-none);
 }
 
 /* Do not put border on 2nd from last field next to status field */
 table.dataTable.cell-border.view-button tbody tr td:nth-last-child(2){
-    border-right: 0px;
+    border-right: var(--xc-border-width-none);
 }
 
 table.dataTable thead th, 
 table.dataTable thead td,
 table.dataTable tbody th, 
 table.dataTable tbody td {
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-bottom: 1px;
-    border-top: 0px;
+    padding-top: var(--xc-table-cell-padding);
+    padding-bottom: var(--xc-table-cell-padding);
+    padding-left: var(--xc-table-cell-padding);
+    padding-right: var(--xc-table-cell-padding);
+    border-bottom: var(--xc-table-border-width);
+    border-top: var(--xc-border-width-none);
 }
 
 /* Set style for the `loading data` placeholder in datatables */
 td.loading-data {
     text-align: center !important;
-    padding-top: 20px !important;
-    padding-bottom: 20px !important;
+    padding-top: var(--xc-datatable-placeholder-padding-y) !important;
+    padding-bottom: var(--xc-datatable-placeholder-padding-y) !important;
 }
 
 /* Align values on the right side of the column */
@@ -250,53 +250,53 @@ td.loading-data {
 /* Align empty datatable messages in the center */
 .dataTables_empty {
     text-align: center !important;
-    padding-top: 20px !important;
-    padding-bottom: 20px !important;
+    padding-top: var(--xc-datatable-placeholder-padding-y) !important;
+    padding-bottom: var(--xc-datatable-placeholder-padding-y) !important;
 }
 
 /* Market information */
 #market-info {
-    height: 100px;
+    height: var(--xc-market-info-height);
 }
 .market-header {
-    padding-top: 5px;
-    height: 65px;
+    padding-top: var(--xc-market-header-padding-top);
+    height: var(--xc-market-header-height);
 }
 .market-icons {
-    width: 135px;
-    margin-left: 5px;
-    margin-right: 5px;
+    width: var(--xc-market-icons-width);
+    margin-left: var(--xc-market-icons-margin-x);
+    margin-right: var(--xc-market-icons-margin-x);
 }
 .market-header .market-name {
-    font-size: 1.5em;
-    font-weight: bold;
-    line-height: 1.0em;
+    font-size: var(--xc-market-name-font-size);
+    font-weight: var(--xc-market-name-font-weight);
+    line-height: var(--xc-market-name-line-height);
     white-space: nowrap;    
 }
 .market-pair {
-    margin-top: 5px;
+    margin-top: var(--xc-market-pair-margin-top);
 }
 .market-description {
-    margin-top: 5px;
-    margin-left: 5px;
+    margin-top: var(--xc-market-description-margin);
+    margin-left: var(--xc-market-description-margin);
 }
 .table-market-stats th,
 .table-market-stats2 th {
-    width: 120px;
+    width: var(--xc-market-stats-th-width);
     white-space: nowrap;
 }
 .table-market-stats th {
-    border-left: 0px !important;
+    border-left: var(--xc-border-width-none) !important;
 }
 .table-market-stats2 th {
-    border-left: 0px !important;
+    border-left: var(--xc-border-width-none) !important;
 }
 .table-market-stats2 td {
-    border-right: 0px !important;
+    border-right: var(--xc-border-width-none) !important;
 }
 .table-market-stats tr:last-child,
 .table-market-stats2 tr:last-child {
-    border-bottom: 0px !important;
+    border-bottom: var(--xc-border-width-none) !important;
 }
 
 
@@ -304,90 +304,90 @@ td.loading-data {
 /* Wrapper around icons to standardize the size and make content line up*/
 .wrapicon-25 {
     display: inline-block;
-    width: 25px !important;
-    margin-right: 5px;
+    width: var(--xc-wrapicon-25-width) !important;
+    margin-right: var(--xc-wrapicon-25-margin-right);
     text-align: center;
 }
 
 .icon-20 {
-    width: 20px;
-    height: 20px;
+    width: var(--xc-icon-size-20);
+    height: var(--xc-icon-size-20);
 }
 
 .icon-48 {
-    width: 48px;
-    height: 48px;
+    width: var(--xc-icon-size-48);
+    height: var(--xc-icon-size-48);
 }
 
 .icon-64 {
-    width: 64px;
-    height: 64px;
+    width: var(--xc-icon-size-64);
+    height: var(--xc-icon-size-64);
 }
 
 
 .bg-red,
 .bg-red td  {
-    background-color: #EFC9CA !important;
+    background-color: var(--xc-row-bg-danger) !important;
 }
 .bg-green,
 .bg-green td {
-    background-color: #E0F2DF !important;
+    background-color: var(--xc-row-bg-success) !important;
 }
 .bg-yellow,
 .bg-yellow td {
-    background-color: #FFFAA0 !important;
+    background-color: var(--xc-row-bg-warning) !important;
 }
 
 /* CSS Used to force heights of certain fields */
 th.record,
 th.block,
 th.rating {
-    width: 75px;
+    width: var(--xc-th-width-record);
 }
 th.time {
-    width: 150px;
+    width: var(--xc-th-width-time);
 }
 th.amount {
-    width: 100px;
+    width: var(--xc-th-width-amount);
 }
 th.quantity {
-    width: 250px;
+    width: var(--xc-th-width-quantity);
 }
 th.quantity-small {
-    width: 100px;
+    width: var(--xc-th-width-quantity-small);
 }
 th.view {
-    width: 50px;
+    width: var(--xc-th-width-view);
 }
 th.transactions {
-    width: 120px;
+    width: var(--xc-th-width-transactions);
 }
 th.address {
-    width: 320px;
+    width: var(--xc-th-width-address);
 }
 
 /* Homepage stats */
 .table-stats th {
-    width: 120px;
+    width: var(--xc-table-stats-th-width);
     white-space: nowrap;
 }
 .table-stats tr:last-child {
-    border-width: 0px !important;
+    border-width: var(--xc-border-width-none) !important;
 }
 .table-stats tr:last-child {
-    border-width: 0px !important;
+    border-width: var(--xc-border-width-none) !important;
 }
 
 /* Address page stats */
 .table-address-stats th {
-    width: 175px;
+    width: var(--xc-table-address-stats-th-width);
     white-space: nowrap;
 }
 .table-address-stats tr:last-child {
-    border-width: 0px !important;
+    border-width: var(--xc-border-width-none) !important;
 }
 .table-address-stats tr:last-child {
-    border-width: 0px !important;
+    border-width: var(--xc-border-width-none) !important;
 }
 
 /* Market Page */
@@ -398,14 +398,14 @@ th.address {
     white-space: nowrap;
 }
 #transaction tr th:first-child {
-    border-left-width: 0px !important;
+    border-left-width: var(--xc-border-width-none) !important;
 }
 #transaction tr td:last-child {
-    border-right-width: 0px !important;
+    border-right-width: var(--xc-border-width-none) !important;
 }
 #transaction tr:last-child th,
 #transaction tr:last-child td {
-    border-bottom-width: 0px !important;
+    border-bottom-width: var(--xc-border-width-none) !important;
 }
 
 /* Custom styles for enhanced asset info display */
@@ -415,12 +415,12 @@ table.enhanced-token-info {
 }
 
 table.token-info tr th {
-    width: 120px !important;
+    width: var(--xc-token-info-th-width) !important;
     text-transform: capitalize;
 }
 
 table.enhanced-token-info tr th {
-    width: 140px !important;
+    width: var(--xc-enhanced-token-info-th-width) !important;
     text-transform: capitalize;
 }
 
@@ -438,7 +438,7 @@ table.token-info-hide tr {
 }
 
 table.lock-info tr th {
-    width: 120px !important;
+    width: var(--xc-lock-info-th-width) !important;
 /*    background-color: #d9edf7 !important;*/
     text-transform: capitalize;
 }
@@ -449,34 +449,34 @@ table.lock-info tr td {
 }
 
 table.no-outer-borders tr th:first-child {
-    border-left-width: 0px !important;
+    border-left-width: var(--xc-border-width-none) !important;
 }
 table.no-outer-borders tr td:last-child {
-    border-right-width: 0px !important;
+    border-right-width: var(--xc-border-width-none) !important;
 }
 table.no-outer-borders tr:last-child {
-    border-bottom-width: 0px !important;
+    border-bottom-width: var(--xc-border-width-none) !important;
 }
 #assetExtendedDescription {
     white-space: normal;  
     overflow:  visible !important;
 }
 #customContentWarning {
-    height: 200px;
-    background-color: #D0D0D0; 
-    padding-top: 20px;
+    height: var(--xc-custom-content-warning-height);
+    background-color: var(--xc-custom-content-warning-bg); 
+    padding-top: var(--xc-custom-content-warning-padding-top);
 }
 #loadCustomContentButton {
-    margin:  0px;
+    margin:  var(--xc-space-none);
 }
 #customContentWarningDanger {
-    margin-top:  0px;
-    margin-bottom:  20px;
-    margin-left:  20px;
-    margin-right:  20px;
+    margin-top:  var(--xc-space-none);
+    margin-bottom:  var(--xc-custom-content-danger-margin);
+    margin-left:  var(--xc-custom-content-danger-margin);
+    margin-right:  var(--xc-custom-content-danger-margin);
 }
 #customContentViewer {
-    width:  100%;
+    width:  var(--xc-custom-content-viewer-width);
 }
 
 /* CSS used in terms of use */
@@ -484,19 +484,19 @@ table.no-outer-borders tr:last-child {
     list-style-type:upper-alpha;
 }
 .terms-of-use li {
-    margin-bottom: 10px;
+    margin-bottom: var(--xc-terms-item-margin-bottom);
 }
 
 .highlight-search-term {
-  background-color: yellow;
-  font-weight: bold;  
+  background-color: var(--xc-highlight-bg);
+  font-weight: var(--xc-highlight-font-weight);  
 }
 
 .rounded-corners {
-    border-top-left-radius: 6px !important;
-    border-top-right-radius: 6px !important;
-    border-bottom-left-radius: 6px !important;
-    border-bottom-right-radius: 6px !important;
+    border-top-left-radius: var(--xc-radius-lg) !important;
+    border-top-right-radius: var(--xc-radius-lg) !important;
+    border-bottom-left-radius: var(--xc-radius-lg) !important;
+    border-bottom-right-radius: var(--xc-radius-lg) !important;
 }
 
 .clear,

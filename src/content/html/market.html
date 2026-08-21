@@ -223,25 +223,39 @@ $(document).ready(function(){
     ];
 
     // Strip any HTML content from the pathname and split it up into its various parts
-    let path   = String(stripHtml(window.location.pathname)).split('/'),
-        market = path[3] + ' / ' + path[4];
+    let path = String(stripHtml(window.location.pathname)).split('/');
 
     // Store the tickers in a global object
     XC.tick1 = path[3];
     XC.tick2 = path[4];
 
-    // Update the page with SEO friendly info
-    XC.pageInfo.title       = market + ' Market Information';
-    XC.pageInfo.description = 'Learn about the ' + market + ' exchange pair on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network - This page displays XChain platform information for the ' + market + ' market including timeline, market depth, buy orders, sell orders, trade history, and more.';
-    XC.pageInfo.canonical   = '/' + XC.coin + '/market/' + XC.query;
-    updatePageInfo();
-
     // Initialize some placeholders
     XC.RAW_CHART_DATA  = [];
     XC.CHART_DATA      = [];
 
-    // Load the market data
-    loadMarket(XC.query);
+    // Resolve the counter-tick before composing anything that names the pair;
+    // a single-tick URL carries no fourth path segment, and reading it anyway
+    // printed the literal "undefined" into the title and description.
+    resolveMarketPair(XC.tick1, XC.tick2, function(tick2){
+
+        // Store the resolved pair for the data loaders and chart renderers
+        XC.tick2 = tick2;
+        XC.query = XC.tick1 + '/' + XC.tick2;
+        let market = XC.tick1 + ' / ' + XC.tick2;
+
+        // Update the page with SEO friendly info
+        XC.pageInfo.title       = market + ' Market Information';
+        XC.pageInfo.description = 'Learn about the ' + market + ' exchange pair on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network - This page displays XChain platform information for the ' + market + ' market including timeline, market depth, buy orders, sell orders, trade history, and more.';
+        XC.pageInfo.canonical   = '/' + XC.coin + '/market/' + XC.query;
+        updatePageInfo();
+
+        // Load the market data
+        loadMarket(XC.query);
+
+    }, function(){
+        // No market exists for this tick, so the counter cannot resolve
+        showMarketNotFound(XC.tick1);
+    });
 
     // Load the correct market chart
     var chart = ls.getItem('marketChart') || 'line';

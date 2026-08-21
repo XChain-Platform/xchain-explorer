@@ -38,7 +38,8 @@ const ROUTES = [
     ['/{COIN}/api/dispenser_edits/{QUERY}/{TYPE}', 'getDispenserEdits', ['block', 'address'], 'Dispensers', 'Dispenser edits'],
     ['/{COIN}/api/dispenses/{QUERY}/{TYPE}', 'getDispenses', ['block', 'address', 'source', 'destination', 'token', 'dispenser'], 'Dispensers', 'Dispenses (vending events: coin in, tokens out)'],
     ['/{COIN}/api/fees/{QUERY}/{TYPE}', 'getFees', ['block', 'address', 'source', 'destination', 'token'], 'Action history', 'Protocol fee payments'],
-    ['/{COIN}/api/files/{QUERY}/{TYPE}', 'getFiles', ['block', 'address', 'token'], 'Files', 'FILE actions (on-chain files, incl. token-gated)'],
+    // 'name' (by-discovery-name lookup) added alongside block/address/token (M1.7).
+    ['/{COIN}/api/files/{QUERY}/{TYPE}', 'getFiles', ['block', 'address', 'token', 'name'], 'Files', 'FILE actions (on-chain files, incl. token-gated)'],
     ['/{COIN}/api/issues/{QUERY}/{TYPE}', 'getIssues', ['block', 'address', 'token'], 'Tokens', 'ISSUE actions (token issuances)'],
     ['/{COIN}/api/links/{QUERY}/{TYPE}', 'getLinks', ['block', 'address'], 'Action history', 'LINK actions'],
     ['/{COIN}/api/lists/{QUERY}/{TYPE}', 'getLists', ['block', 'address'], 'Action history', 'LIST actions'],
@@ -79,6 +80,8 @@ const ROUTES = [
     ['/{COIN}/api/executions/{QUERY}/{TYPE}', 'getExecutions', ['block', 'address', 'contract'], 'Contracts', 'Contract executions, filtered'],
     ['/{COIN}/api/executions', 'getExecutions', null, 'Contracts', 'Contract executions'],
     ['/{COIN}/api/execution/{QUERY}', 'getExecution', 'execution', 'Contracts', 'One execution (by action index)'],
+    ['/{COIN}/api/emissions/{QUERY}/{TYPE}', 'getEmissions', ['contract', 'execution', 'block'], 'Contracts', 'Contract action emissions, filtered'],
+    ['/{COIN}/api/emissions', 'getEmissions', null, 'Contracts', 'Contract action emissions (per-contract rollup across executions)'],
     ['/{COIN}/api/deploy_chunks', 'getDeployChunks', null, 'Contracts', 'Chunked DEPLOY (v4) carriers'],
     ['/{COIN}/api/deposits/{QUERY}/{TYPE}', 'getDeposits', ['block', 'address', 'source', 'contract'], 'Contracts', 'Contract deposits'],
     ['/{COIN}/api/withdrawals/{QUERY}/{TYPE}', 'getWithdrawals', ['block', 'address', 'source', 'contract'], 'Contracts', 'Contract withdrawals'],
@@ -86,6 +89,10 @@ const ROUTES = [
     ['/{COIN}/api/stakes/{QUERY}/{TYPE}', 'getStakes', ['block', 'address', 'source'], 'Staking', 'Capability stakes, filtered'],
     ['/{COIN}/api/stakes', 'getStakes', null, 'Staking', 'Capability stakes (validator staking)'],
     ['/{COIN}/api/validators', 'getValidators', null, 'Staking', 'Active validators and their capabilities'],
+    // Compositions, not filters: the list methods above expose only an address type, so
+    // neither of these could be assembled by a caller paging the plural routes.
+    ['/{COIN}/api/validator/{QUERY}', 'getValidator', 'validator', 'Staking', 'One validator by signing pubkey or address: identity, capabilities, stake, delegation and rotation history, rewards and COLLECT trail, both slash families, NODEPROOF history, attestation quality'],
+    ['/{COIN}/api/staking/{QUERY}', 'getAddressStaking', 'address', 'Staking', 'One address’s staking position: stakes, cooldowns measured against the indexer tip, rewards and COLLECT trail, and both slash families'],
     ['/{COIN}/api/delegations/{QUERY}/{TYPE}', 'getDelegations', ['block', 'address', 'source'], 'Staking', 'Signing-key delegations'],
     ['/{COIN}/api/rewards/{QUERY}/{TYPE}', 'getValidatorRewards', ['address', 'source'], 'Staking', 'Validator rewards (oracle/anchor/attestation)'],
     ['/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}', 'getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address'], 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0), filtered'],
@@ -133,6 +140,8 @@ const ROUTES = [
     ['/{COIN}/api/poll/{QUERY}/results', 'getPollResults', 'poll', 'Governance', 'Frozen per-option tally for a poll (empty until finalized)'],
     ['/{COIN}/api/votes/{QUERY}/{TYPE}', 'getVotes', ['address', 'poll', 'block'], 'Governance', 'VOTE ballots, filtered by voter/poll/block'],
     ['/{COIN}/api/votes', 'getVotes', null, 'Governance', 'VOTE ballots (v1; one row per voter per poll)'],
+    ['/{COIN}/api/vote_delegations/{QUERY}/{TYPE}', 'getVoteDelegations', ['tick', 'delegator', 'delegate', 'block'], 'Governance', 'VOTE v3 liquid-democracy delegations, filtered (live-only)'],
+    ['/{COIN}/api/vote_delegations', 'getVoteDelegations', null, 'Governance', 'VOTE v3 liquid-democracy delegations (live-only: revoked and re-pointed rows are excluded)'],
     // ── Betting (BET) ─────────────────────────────────────────────────────
     ['/{COIN}/api/bet_feeds/{QUERY}/{TYPE}', 'getBetFeeds', ['block', 'address', 'source', 'token', 'status'], 'Betting', 'BET markets, filtered by block/oracle/wager token/status'],
     ['/{COIN}/api/bet_feeds', 'getBetFeeds', null, 'Betting', 'BET markets (parimutuel; feed id = the creating action_index)'],
@@ -151,9 +160,28 @@ const ROUTES = [
     // ── Attestations ──────────────────────────────────────────────────────
     ['/{COIN}/api/attestations/{QUERY}/{TYPE}', 'getAttestations', ['block', 'address', 'contract'], 'Attestations', 'ATTEST requests/responses, filtered'],
     ['/{COIN}/api/attestations', 'getAttestations', null, 'Attestations', 'ATTEST v0 requests + v1 responses (incl. LLM attestations)'],
+    ['/{COIN}/api/attest_validator_stats/{QUERY}/{TYPE}', 'getAttestValidatorStats', ['pubkey', 'provider'], 'Attestations', 'Per-validator per-provider ATTEST accountability counters, filtered by validator or provider'],
+    ['/{COIN}/api/attest_validator_stats', 'getAttestValidatorStats', null, 'Attestations', 'Per-validator per-provider ATTEST accountability counters (fulfilled/missed/slashed + quality score)'],
+    // The lifecycle composed across an attestation's legs. Expiry is DERIVED from the
+    // request row's stored status, because ATTEST v2 writes no row of its own.
+    ['/{COIN}/api/attestation/{QUERY}', 'getAttestation', 'attestation', 'Attestations', 'Full ATTEST lifecycle by request_id or action index (v0 request, v1 response and signatures, derived expiry, relay legs)'],
     // ── Anchors ───────────────────────────────────────────────────────────
     ['/{COIN}/api/anchors/{QUERY}/{TYPE}', 'getAnchors', ['block', 'chain', 'network', 'status'], 'Checkpoints', 'ANCHOR state checkpoints, filtered by block/chain/network/status'],
     ['/{COIN}/api/anchors', 'getAnchors', null, 'Checkpoints', 'ANCHOR state checkpoints (cross-chain quorum-signed)'],
+    ['/{COIN}/api/anchor/{QUERY}', 'getAnchor', 'anchor', 'Checkpoints', 'One ANCHOR by action index or DOGE tx hash, composed with its continuation chunks, covering checkpoint, publisher election and reward-attestation trail'],
+    // The cheap read of one quorum-signed checkpoint. Its /verify sibling below is a
+    // separate hand-pinned route because it re-runs the signature check per call.
+    ['/{COIN}/api/checkpoint/{QUERY}', 'getCheckpoint', 'block', 'Checkpoints', 'One quorum-signed state checkpoint by block height (no signature re-verification)'],
+    ['/{COIN}/api/commitments/{QUERY}/{TYPE}', 'getCommitments', ['block'], 'Checkpoints', 'Per-block SPV commitments, filtered by block'],
+    ['/{COIN}/api/commitments', 'getCommitments', null, 'Checkpoints', 'Per-block SPV commitments (state tree roots) with the covering checkpoint and carrying ANCHOR when present'],
+    ['/{COIN}/api/anchor_reward_attestations/{QUERY}/{TYPE}', 'getAnchorRewardAttestations', ['anchor', 'block', 'pubkey'], 'Checkpoints', 'Quorum-attested ANCHOR publisher rewards, filtered'],
+    ['/{COIN}/api/anchor_reward_attestations', 'getAnchorRewardAttestations', null, 'Checkpoints', 'Quorum-attested ANCHOR publisher rewards (hub-mirrored)'],
+    ['/{COIN}/api/capability_snapshots/{QUERY}/{TYPE}', 'getCapabilitySnapshots', ['capability', 'block', 'pubkey'], 'Checkpoints', 'Capability snapshot electorate rows (stake weight per key per capability at a snapshot block), filtered'],
+    ['/{COIN}/api/capability_snapshots', 'getCapabilitySnapshots', null, 'Checkpoints', 'Capability snapshot electorate: which signing keys carried which stake weight, per block'],
+    ['/{COIN}/api/reorgs/{QUERY}/{TYPE}', 'getReorgs', ['status', 'block'], 'Checkpoints', 'Recorded chain reorgs for this coin, filtered'],
+    ['/{COIN}/api/reorgs', 'getReorgs', null, 'Checkpoints', 'Recorded chain reorgs for this coin, most recent first (hub-owned)'],
+    ['/{COIN}/api/slash_proposals/{QUERY}/{TYPE}', 'getSlashProposals', ['status', 'pubkey'], 'Governance', 'Federation slash proposals, filtered by status or validator pubkey'],
+    ['/{COIN}/api/slash_proposals', 'getSlashProposals', null, 'Governance', 'Federation slash proposals (hub-owned). Pending rows are UNADJUDICATED accusations recorded as evidence, not findings; only a passed governance vote applies a penalty. Evidence is served as a SHA-256 hash, never verbatim'],
     // ── Core ──────────────────────────────────────────────────────────────
     ['/{COIN}/api/status', 'getStatus', null, 'Network', 'Explorer status + chain config'],
     ['/{COIN}/api/actions', 'getActions', null, 'Core', 'Recent actions (all types)'],
@@ -161,11 +189,38 @@ const ROUTES = [
     ['/{COIN}/api/address/{QUERY}', 'getAddress', 'address', 'Core', 'Address summary'],
     ['/{COIN}/api/balances/{QUERY}', 'getBalances', 'address', 'Core', 'Token balances for an address'],
     ['/{COIN}/api/block/{QUERY}', 'getBlock', 'block', 'Core', 'Block summary (by height or hash)'],
+    // Public mirrors of the internal /explorer feeds (M1.3/M1.4/M1.5): same getXxx
+    // methods and QUERY/{TYPE} shapes as the /explorer datatable routes, so a
+    // third-party caller reproduces what the web UI's list/search pages show.
+    ['/{COIN}/api/blocks', 'getBlocks', null, 'Core', 'Recent blocks, each with its per-action-type counts'],
+    ['/{COIN}/api/search/{QUERY}', 'getSearch', 'search', 'Core', 'Site-wide search: per-category match totals only (no TYPE given, so no rows)',
+        { schema: { $ref: '#/components/schemas/SearchResponse' },
+          description: 'Search is a deliberate two-form contract, and this untyped form is the '
+            + 'counting half: it runs every category\'s match count and answers complete `totals` '
+            + 'with an empty `data` array, by design, never as a missing-results fault. The totals '
+            + 'are what a search UI needs first (which category tabs to offer and the count on '
+            + 'each badge) before any category is chosen. To get matching rows, call the typed '
+            + 'form /search/{QUERY}/{TYPE} with the category to expand.',
+          query: [{ name: 'limit', required: false,
+                    schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+                    description: 'Rows to return for the matched category; clamped server-side to 100' }] }],
+    ['/{COIN}/api/search/{QUERY}/{TYPE}', 'getSearch', ['address', 'broadcast', 'token', 'transaction'], 'Core', 'Site-wide search, one category: matching rows plus the same per-category totals',
+        { schema: { $ref: '#/components/schemas/SearchResponse' },
+          description: 'The row-returning half of the two-form search contract: `data` carries the '
+            + 'matching rows for TYPE, and `totals` still carries every category\'s match count '
+            + '(identical to the untyped /search/{QUERY} form), so a client can switch category '
+            + 'tabs without re-running the untyped call.',
+          query: [{ name: 'limit', required: false,
+                    schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+                    description: 'Rows to return for the matched category; clamped server-side to 100' }] }],
     ['/{COIN}/api/credits/{QUERY}/{TYPE}', 'getCredits', ['block', 'address'], 'Core', 'Ledger credits'],
     ['/{COIN}/api/debits/{QUERY}/{TYPE}', 'getDebits', ['block', 'address'], 'Core', 'Ledger debits'],
     ['/{COIN}/api/escrows/{QUERY}/{TYPE}', 'getEscrows', ['block', 'address'], 'Core', 'Escrowed balances (orders/swaps/dispensers)'],
     ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token', 'recent'], 'Core', 'Combined action history'],
     ['/{COIN}/api/holders/{QUERY}', 'getHolders', 'token', 'Tokens', 'Holders of a token'],
+    // Bare form is unfiltered (every pending action); the QUERY/{TYPE} form below
+    // narrows to one address or token (M1.2).
+    ['/{COIN}/api/mempool', 'getMempool', null, 'Core', 'Unconfirmed (mempool) actions from the decoder, unfiltered. PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
     ['/{COIN}/api/mempool/{QUERY}/{TYPE}', 'getMempool', ['address', 'token'], 'Core', 'Unconfirmed (mempool) actions from the decoder. PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
     // Typed rather than left on the property-less ObjectResponse: a monitoring
     // dashboard reads network.block to gate its checkpoint-stall alert, so a
@@ -175,6 +230,7 @@ const ROUTES = [
         { schema: { $ref: '#/components/schemas/NetworkResponse' } }],
     ['/{COIN}/api/pubkey/{QUERY}', 'getPublicKey', 'address', 'Core', 'Known public key for an address'],
     ['/{COIN}/api/project/{QUERY}', 'getProject', 'token', 'Tokens', 'Project registry roster (official tokens of a project tick)'],
+    ['/{COIN}/api/projects/{QUERY}/{TYPE}', 'getProjectTokens', ['roster'], 'Tokens', 'Project registry roster, paginated list form (mirrors the explorer projects feed)'],
     ['/{COIN}/api/token/{QUERY}', 'getToken', 'token', 'Tokens', 'Token detail (supply, info, NFT/registry surfaces)'],
     ['/{COIN}/api/tokens/{QUERY}/{TYPE}', 'getTokens', ['block', 'address', 'token', 'subtoken'], 'Tokens', 'Token search'],
     ['/{COIN}/api/transaction/{QUERY}/{TYPE}', 'getTransaction', ['tx_hash', 'tx_index'], 'Core', 'Transaction lookup'],
@@ -325,6 +381,48 @@ const SPECIAL = [
     ['/{COIN}/api/proof/action/{ACTION_INDEX}', 'Proofs', 'SPV inclusion proof for an action against the committed state tree'],
     ['/{COIN}/api/proof/validator-set', 'Proofs', 'SPV proof of the BTC validator set at a snapshot height (stakes_root; BTC-only)'],
     ['/{COIN}/api/proof/contract-state/{CONTRACT_INDEX}/{KEY}', 'Proofs', 'SPV contract-state proof (not implemented in state_root_version 1; committed EMPTY per spec D1, returns 501)'],
+    // Registered with app.post() ONLY (src/XChainExplorer.js:653) -- no GET exists on
+    // this path, so {noGet} skips the table conventions' default GET operation rather
+    // than fabricating one. This was the gate's blind spot the M1.8 repair closes: the
+    // old app.get(-only extractor never saw a POST registration at all.
+    ['/{COIN}/api/contract/{CONTRACT_INDEX}/call', 'Contracts',
+        'Read-only contract method simulation (the platform\'s eth_call): runs a method in a '
+        + 'sandboxed xchain-vm against current state and discards all effects; nothing is ever '
+        + 'committed on-chain. Default-off (EXPLORER_VM_QUERY_ENABLED) and rate-limited, because '
+        + 'every call burns real CPU in a VM subprocess.',
+        null,
+        {
+            noGet: true,
+            schema: { $ref: '#/components/schemas/ContractCallResponse' },
+            // 404/400/503 are already in the shared default set and all three are genuinely
+            // emitted here (unknown coin / bad contract index / contract not found; malformed
+            // method or params; VM disabled, drifted, unavailable, or the coin's replica stale).
+            // Only the codes NOT in that default set are added.
+            responses: {
+                413: { description: 'Contract state exceeds the simulation size limit',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                429: { description: 'Too many concurrent simulations (globally or from this client); retry shortly',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            },
+            post: {
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    method: { type: 'string', maxLength: 64, description: 'Contract method name (wire limit: 64 bytes; no | or ; delimiter characters)' },
+                                    params: { type: 'array', items: { type: 'string' }, maxItems: 32, description: 'Method parameters as strings (wire limit: at most 32 entries of at most 1024 bytes each; no | delimiter)' },
+                                    caller: { type: 'string', maxLength: 128, description: 'Simulated caller address. Defaults to a synthetic non-address marker (eth_call-from-zero semantics), so a permissioned branch sees "not the admin" unless a real caller is supplied' },
+                                },
+                                required: ['method'],
+                            },
+                        },
+                    },
+                },
+            },
+        }],
 ];
 
 const QUERY_DESC = {
@@ -338,10 +436,18 @@ const QUERY_DESC = {
     tx_hash: 'transaction hash', tx_index: 'transaction index',
     call_id: 'cross-chain call id (64-hex)',
     poll: 'poll id (the creating action_index)', tick: 'a token tick',
+    delegator: 'the delegating holder\'s XChain address', delegate: 'the recipient XChain address',
+    provider: 'attestation provider id (e.g. http_get)',
+    anchor: 'the mined DOGE anchor transaction id (doge_anchor_txid)',
     validator: 'validator id (peer)', key: 'consensus state key name',
     coin: 'coin symbol (e.g. BTC, LTC, DOGE)', module: 'service module name',
     event: 'telemetry event (install, update, start, heartbeat)',
     install: 'anonymous install UUID', country: 'ISO-3166 country code',
+    search: 'free-text search term, minimum 3 characters (shorter terms return zero totals rather than erroring)',
+    roster: 'project tick (returns that project\'s token roster)',
+    name: 'FILE discovery name (by-name lookup)',
+    broadcast: 'a BROADCAST message or memo (substring match)',
+    transaction: 'a transaction hash (substring match)',
 };
 
 function opId(p) {
@@ -377,6 +483,7 @@ const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'get
 
 // `opts` (SPECIAL entries only) describes a route the table conventions cannot:
 // {query: [...]} its own query parameters instead of page/limit/sortorder,
+// {description} operation-level prose that does not fit the one-line summary,
 // {schema} a 200 body that is neither ListResponse nor ObjectResponse,
 // {responses} extra status codes (a null value DELETES a default one, for
 // routes that cannot emit it), and {response200} an entire 200 entry, for a
@@ -410,24 +517,32 @@ function operation([p, method, types, tag, summary], opts) {
         if (body === null) delete responses[code];
         else responses[code] = body;
     }
-    const item = {
-        get: {
+    const item = {};
+    // Routes are GET by default. {noGet} marks one registered with app.post() only
+    // (the contract-call simulation route): fabricating a GET here would document a
+    // method the server never handles on this path.
+    if (!o.noGet)
+        item.get = {
             operationId: opId(p), tags: [tag], summary,
             parameters: params,
             responses,
-        },
-    };
-    // {post} a second operation on the same path, for a route registered with both
-    // verbs. It INHERITS this operation's path parameters and status codes so the two
-    // can never document different failure sets, and adds its own requestBody plus any
-    // codes only the POST can emit (a body limit, its own rate limit). The table
-    // conventions describe GET-only routes, so this is opt-in per entry.
+        };
+    // {post} a second operation on the same path (routes registered with both verbs),
+    // or, with {noGet}, the ONLY operation. It INHERITS this route's path parameters
+    // and default status codes -- falling back to the same operationId/summary a GET
+    // would have used when {post} does not override them -- so GET and POST on one
+    // path can never document different failure sets, then adds its own requestBody
+    // plus any codes only the POST can emit (a body limit, its own rate limit). The
+    // table conventions describe GET-only routes, so this is opt-in per entry.
     if (o.post) {
-        const post = Object.assign({ tags: [tag] }, o.post);
+        const post = Object.assign({ operationId: opId(p), tags: [tag], summary }, o.post);
         post.parameters = pathParams(p, types);
         post.responses = Object.assign({}, responses, o.post.responses || {});
         item.post = post;
     }
+    // Attached to whichever operation exists, same as the SPECIAL description
+    // handling below: a {noGet} route has only `post`.
+    if (o.description) (item.get || item.post).description = o.description;
     return item;
 }
 
@@ -440,9 +555,10 @@ for (const [p, tag, summary, description, opts] of SPECIAL) {
     // Optional 4th element: prose that does not fit a one-line summary. Added
     // for oraclefeequote, whose entry had been hand-written into the generated
     // file WITH a description the generator could not express, so regenerating
-    // silently dropped it.
-    if (description) paths[p].get.description = description;
-    paths[p]['x-registered'] = 'express';   // direct app.get(), not the urls.api table
+    // silently dropped it. Attached to whichever operation exists: a {noGet} entry
+    // (contract-call) has only `post`, everything else here still only has `get`.
+    if (description) (paths[p].get || paths[p].post).description = description;
+    paths[p]['x-registered'] = 'express';   // direct app.get()/app.post(), not the urls.api table
 }
 
 const spec = {
@@ -571,6 +687,56 @@ const spec = {
                     mirror_lag_seconds: { type: ['integer', 'null'], description: 'Age of the mirror watermark (present only on /checkpoints)' },
                 },
                 required: ['checkpoints', 'count'],
+            },
+            // getSearch always runs all four category COUNT queries (so `totals` is
+            // complete on every call, typed or not) but only populates `data` when TYPE
+            // names the matched category; the untyped /search/{QUERY} form therefore
+            // always answers with an empty `data` and real `totals`.
+            SearchResponse: {
+                type: 'object',
+                properties: {
+                    data: { type: 'array', items: { type: 'object' },
+                        description: 'Matching rows for TYPE (empty on the untyped /search/{QUERY} form, which returns totals only)' },
+                    totals: {
+                        type: 'object',
+                        description: 'Match count per category, independent of which TYPE (if any) was requested',
+                        properties: {
+                            addresses:    { type: 'integer' },
+                            broadcasts:   { type: 'integer' },
+                            tokens:       { type: 'integer' },
+                            transactions: { type: 'integer' },
+                        },
+                        required: ['addresses', 'broadcasts', 'tokens', 'transactions'],
+                    },
+                },
+                required: ['data', 'totals'],
+            },
+            // vm-query.js simulate()'s result, reshaped by processContractCallRequest.
+            // `simulation` is spread out from the raw VM result with an explicit
+            // disclaimer key so no client can mistake a would-be effect for a
+            // committed one: the route reads MUTABLE contract state but writes nothing.
+            ContractCallResponse: {
+                type: 'object',
+                description: 'Result of a read-only contract method simulation. Nothing here was committed on-chain.',
+                properties: {
+                    success:     { type: 'boolean', description: 'Whether the simulated method completed without an on-chain-equivalent revert' },
+                    error:       { type: ['string', 'null'], description: 'Revert/error message when success is false; null otherwise' },
+                    gasUsed:     { type: 'integer', description: 'Gas consumed under the display-only gas schedule (informational; never fee-charged)' },
+                    returnValue: { description: 'The method\'s return value; shape depends on the contract' },
+                    logs:        { type: 'array', items: { type: 'object' }, description: 'Log/event entries the simulated call emitted' },
+                    simulation: {
+                        type: 'object',
+                        description: 'Disclosed would-be effects; nothing here was committed on-chain.',
+                        properties: {
+                            note:           { type: 'string', description: 'Fixed disclaimer: "read-only preview; nothing was committed on-chain"' },
+                            stateChanges:   { type: 'object', description: 'Contract state keys the call would have written' },
+                            stateDeletes:   { type: 'array', items: { type: 'string' }, description: 'Contract state keys the call would have deleted' },
+                            emittedActions: { type: 'array', items: { type: 'object' }, description: 'Cross-chain/emission actions the call would have queued' },
+                        },
+                        required: ['note'],
+                    },
+                },
+                required: ['success', 'simulation'],
             },
             // Mirrors xchain-indexer Actions.computePreflight(); `valid` is
             // nullable because "no verdict" is a distinct answer from "invalid".

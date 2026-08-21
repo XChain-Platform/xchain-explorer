@@ -33,6 +33,7 @@ const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
+const { createShutdown, createExplorerDrain } = require('./shutdown.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
 
 dotenv.config();
@@ -43,6 +44,17 @@ const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
+// Everything the shutdown drain has to take down, published from startApi() as it
+// is built. Module scope because the signal handler is registered at load, before
+// startApi() has run: a SIGTERM that lands during startup finds the pieces that
+// exist so far and skips the rest, which is the correct partial-boot behaviour.
+const runtime = {
+    httpServer:     null,
+    httpsServer:    null,
+    wsServer:       null,
+    changeDetector: null,
+    explorer:       null
+};
 
 async function startApi(){
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
@@ -233,6 +245,9 @@ async function startApi(){
     httpServer.listen(EXPLORER_API_PORT_HTTP, () => {
         console.log('HTTP  server listening on port', EXPLORER_API_PORT_HTTP);
     });
+    // Published as soon as it exists, not at the end of startApi(): a SIGTERM
+    // arriving mid-boot must still be able to close a listener already bound.
+    runtime.httpServer = httpServer;
 
     // Skipped when SSL files are absent (HTTP-only dev/regtest mode).
     let httpsServer = null;
@@ -245,13 +260,20 @@ async function startApi(){
         httpsServer.on('error', (err) => {
             console.warn('HTTPS server failed to listen on port ' + EXPLORER_API_PORT_HTTPS + ': ' + err.code + ' (' + err.message + '); continuing HTTP-only');
             httpsServer = null;
+            // Cleared here too: a listener that never bound must not be handed to
+            // the drain, which would wait on a close() callback that never fires.
+            runtime.httpsServer = null;
         });
         httpsServer.listen(EXPLORER_API_PORT_HTTPS, () => {
             console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTPS);
         });
+        runtime.httpsServer = httpsServer;
     }
 
     explorer = new XChainExplorer(app, configInfo);
+    // Published before init(): init() is what builds the pools, and a signal landing
+    // partway through it must still reach db.close() for whatever was built so far.
+    runtime.explorer = explorer;
     await explorer.init()
 
     // Schedule periodic refresh so new coin/network entries published by
@@ -318,6 +340,11 @@ async function startApi(){
         if (availableCoins.length > 0) {
             changeDetector.start(availableCoins);
         }
+
+        // Handed to the drain so subscribers get a clean 1001 close and the live-feed
+        // poll timer stops, instead of both dying with the process.
+        runtime.wsServer       = wsServer;
+        runtime.changeDetector = changeDetector;
     }
 }
 
@@ -345,13 +372,24 @@ if(vmQuery.isEnabled()){
             '. Check the deployed VM with bin/check-explorer-vm-drift.sh, refresh it, then restart.');
 }
 
-// Tear down the contract-simulation VM's subprocess worker before exit
-// (vm-query.js; no-op when the feature is off or never used). The worker also
-// exits on IPC disconnect, so this is belt-and-suspenders.
+// Graceful shutdown. node is PID 1 in the image, so `docker stop` delivers
+// SIGTERM here. This replaces a handler that tore down the VM worker and then
+// called process.exit(0) immediately: that dropped every in-flight HTTP request
+// and cut every WebSocket mid-frame, and it never closed the MariaDB pools. It
+// also never ran in production, because npm was PID 1 and swallowed the signal,
+// so it read as drain coverage while providing none.
+//
+// The drain is bounded by its own hard-exit timer (src/shutdown.js): installing
+// a handler removes node's default terminate, so a drain that hangs must still
+// end the process rather than linger until the supervisor's SIGKILL.
+// `runtime` is passed by reference and read when the drain RUNS, never captured
+// here: startApi() fills it in as each piece comes up, and this handler is
+// registered before any of them exist.
+runtime.configInfo = configInfo;
+runtime.vmQuery    = vmQuery;
+const shutdown = createShutdown({ drain: createExplorerDrain(runtime) });
 for (const sig of ['SIGTERM', 'SIGINT']) {
-    process.on(sig, () => {
-        vmQuery.shutdown().finally(() => process.exit(0));
-    });
+    process.on(sig, () => shutdown(sig));
 }
 
 startApi().catch(err => {

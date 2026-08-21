@@ -27,6 +27,35 @@ const poolSizing = require('./poolSizing');
 const listEditResolution = require('./list_edit_resolution_activation');
 const actionDetail = require('./action-detail');
 
+// The one field list every compact action summary projects (transaction and
+// history rows via getActionSummaryData, BATCH members via projectActionSummary).
+// Every field the client's getActionDetails reads must be here, or the summary
+// renders blank on one path while the full detail page works; the drift guard
+// (test/unit/db.action-summary-field-contract.test.js) pins the two against
+// each other, so a new summary branch adds its field here in the same change.
+const ACTION_SUMMARY_FIELDS = Object.freeze([
+    'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
+    'action_format', 'action_index',                                                                               // Action details
+    'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
+    'action_class', 'controller', 'unbind',                                                                        // Addresses (controller bind, v1)
+    'message', 'value', 'broadcast_action_index', 'broadcast_fee',                                                 // Broadcasts
+    'callback_tick', 'callback_amount',                                                                            // Callbacks
+    'dividend_tick',                                                                                               // Dividends
+    'name', 'title',                                                                                               // Files
+    'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                                  // Links
+    'list_action_index',                                                                                           // Lists
+    'encryption_method', 'plaintext_message',                                                                      // Messages
+    'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',                  // Orders, Swaps, Dispensers
+    'order_action_index',                                                                                          // Order (cancels, edits, expires)
+    'swap_action_index',                                                                                           // Swap  (cancels, edits, expires)
+    'dispenser_action_index',                                                                                      // Dispesnser (cancels, edits, expires)
+    'resume_block',                                                                                                // Sleep
+    'balances', 'ownerships', 'orders', 'swaps', 'dispensers',                                                     // Sweeps
+    'target_contract_index', 'cooldown_end_block', 'capability',                                                   // Staking (stake, unstake, delegate, slash)
+    'contract_index', 'method_name', 'cooldown_blocks', 'chunk_index', 'total_chunks',                             // Contracts (deploy, execute, deposit, withdraw)
+    'vote_kind'                                                                                                    // Governance
+]);
+
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
 // instance is no longer serving current data for a coin. Deliberately far above
 // every chain's normal inter-block gap (BTC ~10min): a fail-closed gate that
@@ -141,20 +170,32 @@ class Database {
         // (getQueryOffsetSql picks m.id vs m.action_index per method). We only need to
         // preserve the inbound client cursor so next/prev advance instead of resetting to
         // the newest page every time.
+        // The mangle is `method.toLowerCase().replace('get','')`, which never
+        // reinserts an underscore, so EVERY method over a multi-word table name
+        // belongs here regardless of which cursor column it uses:
+        // getContractDelegations ('contractdelegations' vs contract_delegations)
+        // is the standing proof, and it pages on the default action_index cursor.
         this.cursorPagedMethods = [
-            'getAnchors','getXcalls','getAttestations',
-            'getContractStakes','getContractUnstakes','getContractDelegations',
+            'getAnchors','getXcalls','getAttestations','getAttestValidatorStats',
+            'getContractStakes','getContractUnstakes','getContractDelegations','getEmissions',
             'getCrossChainSettlements','getCrossChainMatches',
             'getSlashEvents','getCapabilitySlashEvents','getFullNodeVerifications',
             'getPriceSnapshots','getOraclePrices',
-            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
+            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes','getReorgs','getSlashProposals',
             'getPeers','getConsensusState','getConfigs','getTelemetryPings',
-            'getPolls','getVotes',
+            'getPolls','getVotes','getVoteDelegations',
             // BET market/wager lists: getBetFeeds -> bet_feeds and getBets -> bets are
             // not reachable through the get->lowercase table mangle, so they page on the
             // preserved client cursor like the poll family. Both ORDER BY m.action_index,
             // which is getQueryOffsetSql's default cursor field, so no id-keyed entry.
-            'getBetFeeds','getBets'
+            'getBetFeeds','getBets',
+            // The checkpoint-schema family: state_checkpoints, capability_snapshots and
+            // anchor_reward_attestations are hub-mirrored and state_tree_roots is
+            // indexer-local, and none of the four is reachable through the mangle. They
+            // page on the preserved client cursor; getQueryOffsetSql gives getCheckpoints
+            // and getCommitments their own m.block_index cursor field below (not m.id),
+            // since both lists ORDER BY the committed height.
+            'getCheckpoints','getCapabilitySnapshots','getAnchorRewardAttestations','getCommitments'
         ];
 
     }
@@ -301,6 +342,18 @@ class Database {
                 try { await pool.end(); } catch(e){ /* best-effort */ }
             }
         }
+    }
+
+    // Release every pool this instance holds and leave the maps empty. Called from
+    // the process shutdown drain (src/shutdown.js), which is the only caller: a
+    // serving explorer holds its pools for its whole lifetime. Public wrapper over
+    // _endPools so the drain does not reach into a private method, and so the map
+    // list stays in ONE place - a future third pool map added to setupConnectionPools
+    // must be added to the _endPools call there, and this inherits it.
+    async close(){
+        await this._endPools([this.pools, this.decoderPools]);
+        this.pools        = {};
+        this.decoderPools = {};
     }
 
     async setupConnectionPools(){
@@ -951,14 +1004,52 @@ class Database {
         // price_snapshots is a materialized consensus-round table with no action_index; its PK is m.id
         if(method=='getPriceSnapshots')
             sql = `m.id IS NOT NULL`;
+        // contract_emissions carries no reliable action_index of its own (it is nullable
+        // for internal emissions such as SLASH, which move ledger state without minting a
+        // new on-wire action); its PK is m.id
+        if(method=='getEmissions')
+            sql = `m.id IS NOT NULL`;
+        // attest_validator_stats is an upsert-incremented counter rollup with no
+        // action_index; it gained a surrogate m.id (xchain-indexer migration
+        // 2026-08-19-attest-validator-stats-surrogate-id) precisely so it could be paged
+        // on a monotonic AND unique cursor, since last_updated_block ties whenever a
+        // whole ATTEST responsible set misses in one block
+        if(method=='getAttestValidatorStats')
+            sql = `m.id IS NOT NULL`;
         // cross_chain_matches is a standalone mirror of the hub's match table with no action_index; its PK is m.id
         if(method=='getCrossChainMatches')
             sql = `m.id IS NOT NULL`;
         // oracle_prices is the hub-mirrored user-published oracle row table; no action_index, keyed by m.id
         if(method=='getOraclePrices')
             sql = `m.id IS NOT NULL`;
+        // state_checkpoints is the hub-mirrored quorum-signed checkpoint table; no
+        // action_index, keyed by m.id (the cursor used for paging is m.block_index,
+        // set separately in getQueryOffsetSql; this anchor only opens the WHERE clause).
+        if(method=='getCheckpoints')
+            sql = `m.id IS NOT NULL`;
+        // capability_snapshots is the hub-mirrored historical electorate (which signing
+        // keys carried which stake weight at a snapshot block); no action_index, keyed by m.id
+        if(method=='getCapabilitySnapshots')
+            sql = `m.id IS NOT NULL`;
+        // anchor_reward_attestations is the hub-mirrored quorum-attested ANCHOR publisher
+        // reward record; no action_index, keyed by m.id
+        if(method=='getAnchorRewardAttestations')
+            sql = `m.id IS NOT NULL`;
+        // state_tree_roots is the indexer-local per-block SPV commitment row; no
+        // action_index, keyed by m.id (the paging cursor is m.block_index, set separately
+        // in getQueryOffsetSql, same shape as getCheckpoints)
+        if(method=='getCommitments')
+            sql = `m.id IS NOT NULL`;
         // co-located hub capability/governance tables; no action_index, keyed by m.id
         if(['getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes'].includes(method))
+            sql = `m.id IS NOT NULL`;
+        // reorg_attestations is the hub-mirrored cross-chain reorg record; no action_index,
+        // keyed by m.id (same PK-cursor shape as the three tables above)
+        if(method=='getReorgs')
+            sql = `m.id IS NOT NULL`;
+        // slash_proposals is the hub-owned federation slash-evidence table; no
+        // action_index, keyed by m.id (same PK-cursor shape as the tables above)
+        if(method=='getSlashProposals')
             sql = `m.id IS NOT NULL`;
         // co-located hub operational tables (p2p_peers/consensus_state/configs/telemetry_pings); keyed by m.id
         if(['getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
@@ -1019,7 +1110,22 @@ class Database {
             // oracle_prices is a standalone hub-mirror table; filter on its own columns
             if(type=='token')   sql += ' AND m.tick=?';
             if(type=='address') sql += ' AND m.source_address=?';
+        } else if(method=='getAttestValidatorStats'){
+            // attest_validator_stats is a standalone counters table; filter on its own
+            // unique-key columns directly. No 'block' type: last_updated_block is a
+            // mutable "most recently touched" stamp, not a stable per-row block identity,
+            // so filtering on it would answer a question that drifts under the caller.
+            if(type=='pubkey')   sql += ' AND m.validator_pubkey=?';
+            if(type=='provider') sql += ' AND m.provider_id=?';
         } else if(method=='getValidatorCapabilities'){
+            if(type=='capability') sql += ' AND m.capability=?';
+            if(type=='pubkey')     sql += ' AND m.signing_pubkey=?';
+        } else if(method=='getCapabilitySnapshots'){
+            // capability_snapshots is the historical electorate: which signing keys
+            // carried which stake weight for a capability at a given snapshot block.
+            // 'block' answers the row's core question (electorate AT block N);
+            // 'capability' and 'pubkey' narrow the other two axes.
+            if(type=='block')      sql += ' AND m.snapshot_block=?';
             if(type=='capability') sql += ' AND m.capability=?';
             if(type=='pubkey')     sql += ' AND m.signing_pubkey=?';
         } else if(method=='getGovernanceProposals'){
@@ -1067,6 +1173,17 @@ class Database {
             if(type=='address') sql += ' AND a2.address=?';
             if(type=='poll')    sql += ' AND m.poll_index=?';
             if(type=='block')   sql += ' AND b1.block_index=?';
+        } else if(method=='getVoteDelegations'){
+            // vote_delegations (VOTE v3 liquid democracy) joins the actions/transactions/
+            // blocks chain via m.action_index like getContractDelegations. tick resolves
+            // through index_tickers (t3) on m.tick_id; delegator/delegate resolve through
+            // index_addresses (dgr/dg) on delegator_address_id/delegate_address_id. The
+            // latest-active-per-key exclusion lives in getVoteDelegations' own SQL (a
+            // correlated MAX), not here: this branch only narrows by the requested TYPE.
+            if(type=='tick')      sql += ' AND t3.tick=?';
+            if(type=='delegator') sql += ' AND dgr.address=?';
+            if(type=='delegate')  sql += ' AND dg.address=?';
+            if(type=='block')     sql += ' AND b1.block_index=?';
         } else if(method=='getBetFeeds'){
             // bet_feeds (BET format 0) joins the actions/transactions/blocks chain like
             // getPolls. tick joins index_tickers (pt) on the wager token; source is the
@@ -1099,6 +1216,33 @@ class Database {
             if(type=='match')  sql += ' AND m.match_id=?';
             if(type=='block')  sql += (method=='getCrossChainSettlements') ? ' AND m.block_index=?' : ' AND m.snapshot_block=?';
             if(type=='status' && method=='getCrossChainMatches') sql += ' AND m.status=?';
+        } else if(method=='getReorgs'){
+            // reorg_attestations is a hub-mirrored, cross-chain table; the mandatory
+            // per-coin chain scope is appended separately in getReorgs (matching
+            // getCrossChainMatches' network filter above), so this branch only narrows
+            // WITHIN that scope. 'block' reuses the platform-wide block-height type name
+            // (reorg_height IS a block height).
+            if(type=='status') sql += ' AND m.status=?';
+            if(type=='block')  sql += ' AND m.reorg_height=?';
+        } else if(method=='getSlashProposals'){
+            // Platform-global table (no chain axis), so these are the only two
+            // filters, and they mirror the hub RPC's two server-side filters exactly
+            // so neither transport has to post-filter. No 'block' type: round_number
+            // is an oracle round (or an attestation pseudo-round), not a block height,
+            // and QUERY_DESC['block'] reads 'block height'.
+            if(type=='status') sql += ' AND m.status=?';
+            if(type=='pubkey') sql += ' AND m.validator_pubkey=?';
+        } else if(method=='getEmissions'){
+            // contract_emissions carries no contract_index of its own (it is reachable
+            // only by joining through contract_executions on execution_index), so
+            // contract/block filter the joined `ce` alias. block_index lives on
+            // contract_executions directly, which is why this does NOT reuse the generic
+            // b1.block_index branch below (that one assumes an actions/blocks join this
+            // method does not make). 'execution' filters contract_emissions' own indexed
+            // execution_index column.
+            if(type=='contract')  sql += ' AND ce.contract_index=?';
+            if(type=='execution') sql += ' AND m.execution_index=?';
+            if(type=='block')     sql += ' AND ce.block_index=?';
         } else if(method=='getXcalls'){
             // xcalls joins the actions/transactions/blocks chain (b1 alias); filter on its own columns.
             // contract = the source contract that emitted the call (contract_index, now indexed).
@@ -1111,6 +1255,19 @@ class Database {
             if(type=='chain')   sql += ' AND m.chain=?';
             if(type=='network') sql += ' AND m.network=?';
             if(type=='status')  sql += ' AND s1.status=?';
+        } else if(method=='getAnchorRewardAttestations'){
+            // anchor_reward_attestations is a standalone hub-mirror table (no actions/
+            // transactions chain); filter on its own columns. 'anchor' answers "the rewards
+            // behind THIS ANCHOR transaction"; 'block' matches the table's own
+            // idx_snapshot_block (network, snapshot_block) key; 'pubkey' narrows to one
+            // elected publisher's reward history.
+            if(type=='anchor')  sql += ' AND m.doge_anchor_txid=?';
+            if(type=='block')   sql += ' AND m.snapshot_block=?';
+            if(type=='pubkey')  sql += ' AND m.publisher=?';
+        } else if(method=='getCommitments'){
+            // state_tree_roots has no actions/transactions/blocks chain; filter on its own
+            // column directly, matching getAnchors/getCrossChainMatches above.
+            if(type=='block') sql += ' AND m.block_index=?';
         } else if(method=='getXcall'){
             // single-call lifecycle keyed by the deterministic 64-hex call_id
             sql += ' AND m.call_id=?';
@@ -1170,6 +1327,17 @@ class Database {
                     sql += ' AND t3.tick=?';
                 }
             }
+            // getFiles 'name' mode (spec explorer-coverage-completion M1.7):
+            // discovery-by-filename. files.name is a plain VARCHAR column on the base
+            // `files` table (not interned like tick/address), and only 'token' routes
+            // getFiles to the mappings_files/interned-tick query shape above; every
+            // other type (including 'name') keeps the base `files m` FROM-clause where
+            // `m` already resolves to `files`, so `m.name` is index-friendly here: an
+            // exact-match equality on a plain column, no leading wildcard and no
+            // function wrapping the column, so a `files(name)` index (sibling migration
+            // in xchain-indexer, out of this surface) can serve it directly.
+            if(type=='name' && method=='getFiles')
+                sql += ' AND m.name=?';
         }
         return sql;
     }
@@ -1198,6 +1366,14 @@ class Database {
                 field = 'b1.block_index';
             if(method=='getTokens')
                 field = 'm.id';
+            // state_checkpoints has no action_index, and unlike the id-keyed views below
+            // it is not keyed by m.id either: the list ORDERs BY m.block_index (the
+            // checkpointed height, one row per height after the MAX(checkpoint_seq)
+            // GROUP BY), so the cursor must compare that column, not insertion order.
+            // state_tree_roots (getCommitments) has the same shape: no action_index, one
+            // row per height, and the list ORDERs BY m.block_index.
+            if(['getCheckpoints','getCommitments'].includes(method))
+                field = 'm.block_index';
             // id-keyed list views: their main query ORDERs BY m.id (these tables have no
             // action_index cursor column, or a fan-out where action_index is not unique
             // per displayed row), so the paging cursor must compare m.id rather than the
@@ -1205,7 +1381,9 @@ class Database {
             if(['getSlashEvents','getCapabilitySlashEvents','getOraclePrices',
                 'getFullNodeVerifications','getPriceSnapshots','getCrossChainMatches',
                 'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
-                'getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
+                'getPeers','getConsensusState','getConfigs','getTelemetryPings',
+                'getEmissions','getAttestValidatorStats','getCapabilitySnapshots',
+                'getAnchorRewardAttestations','getReorgs','getSlashProposals'].includes(method))
                 field = 'm.id';
             if(action=='prev'){
                 sql = ` AND ` + field + ` > ?`;
@@ -2261,6 +2439,14 @@ class Database {
         let sql   = config.data.sql;
         let count = null;
         let query = null;
+        // type=='name' (M1.7) falls into the else branch below like
+        // block/address/list-all: it queries the base `files` table directly, not
+        // the interned mappings_files/tick join `type=='token'` uses. The actual
+        // `m.name=?` predicate is added by getQueryWhereSql (the shared WHERE
+        // builder every getXxx method routes through); nothing here needs to branch
+        // on it. Same column set as every other mode, gated-file columns included
+        // (gate_ticker/gate_min_amount/encryption_method/key_hash), so a by-name
+        // lookup discloses nothing block/address/list-all don't already return.
         if(config.data.type=='token'){
             count = `SELECT
                             count(*) as total
@@ -4235,17 +4421,41 @@ class Database {
     }
 
     //
-    // /{COIN}/api/mempool/{QUERY}/{TYPE}: unconfirmed actions read from the
+    // /{COIN}/api/mempool[/{QUERY}/{TYPE}]: unconfirmed actions read from the
     // colocated decoder DB (see getDecoderMempoolRows). Rows are PRE-VALIDATION
-    // (the indexer can still reject them at confirmation), carry no destination
-    // column, and the full decoded action string ships in `data`; clients with
-    // format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
+    // (the indexer can still reject them at confirmation), carry a destination
+    // column that is always NULL (see getDecoderMempoolRows: never read, never
+    // filtered on), and the full decoded action string ships in `data`; clients
+    // with format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
     // Filtering is a best-effort prefilter done in JS rather than in SQL (the
     // action string is one opaque pipe-joined column, so a LIKE would match
     // across field boundaries): TYPE=address matches the source OR any exact
     // pipe-segment of the action string (covers SEND destinations across
     // versions); TYPE=token matches any exact segment against the uppercased
-    // tick.
+    // tick. No TYPE (bare /api/mempool, or the /explorer/mempool list-all
+    // fallback) lists every decoded row (spec explorer-coverage-completion
+    // M1.2): the old code matched ONLY address/token and silently returned []
+    // for the list-all case, which is the bug this row fixes.
+    //
+    // PAGING (deliberate §8 exception, spec-approved): this is a direct-return
+    // method (getData's `typeof query === 'object'` branch), and the source is
+    // the decoder's mempool table, not an indexer action table: there is no
+    // action_index/id cursor column pre-confirmation for the standard SQL
+    // OFFSET/cursor machinery (getQueryOffsets/getQueryOffsetSql) to key off,
+    // and getDecoderMempoolRows already caps its read at one bounded window
+    // (500 rows, clamped in getDecoderMempoolRows itself) rather than scanning
+    // the whole table. Given that bounded window, paging is done here by a
+    // plain JS-side slice honoring sql.limit (computed by getQuery: the
+    // per-method max for /api, the DataTables page `length` for /explorer)
+    // and whichever offset numbering the caller already uses: `sql.apiOffset`
+    // for /api (page-based), or the raw DataTables `query.start` row offset
+    // for /explorer. The action_index next/prev/first/last cursor dance the
+    // other list feeds use does not apply here, since there is no cursor
+    // column to carry it on, so /explorer/mempool pages by plain numeric
+    // offset instead, which is safe specifically because the source window
+    // is already capped.
+    // `total` is the full filtered-match count (pre-slice), matching every
+    // other list feed's envelope semantics for recordsTotal/json.total.
     async getMempool(config){
         let search = String(config.data.search || '');
         let type   = String(config.data.type || '').toLowerCase();
@@ -4254,6 +4464,10 @@ class Database {
         for(let row of rows){
             let decoded = this.decodeMempoolRow(row);
             if(!decoded) continue;
+            if(!type){
+                out.push(decoded);
+                continue;
+            }
             let segments = decoded.data.split('|');
             let match = false;
             if(type=='address')
@@ -4262,7 +4476,19 @@ class Database {
                 match = segments.includes(search.toUpperCase());
             if(match) out.push(decoded);
         }
-        return [out, null, out.length];
+        let total = out.length;
+        let sql   = config.data.sql || {};
+        // Fall back to the full matched set when no request-shaped sql/limit is
+        // present (e.g. an internal caller building a minimal config), so this
+        // method never truncates output it wasn't asked to page.
+        let limit = (this.util.isInteger(Number(sql.limit)) && Number(sql.limit) > 0)
+            ? Number(sql.limit) : (total || 1);
+        let offset = 0;
+        if(config.type === 'api')
+            offset = Number(sql.apiOffset) || 0;
+        else if(config.type === 'explorer')
+            offset = Number(config.data.query && config.data.query.start) || 0;
+        return [out.slice(offset, offset + limit), null, total];
     }
 
     async getNetwork(config){
@@ -4566,8 +4792,25 @@ class Database {
                 // so we null them out and override health to 'node-stale' to make
                 // the outage visible on the /status page.
                 let tipStale = h && h.node_height_stale === true;
-                data.chain_tip[code]        = (h && !tipStale && h.chainTipBlock != null) ? h.chainTipBlock : null;
-                data.chain_lag_blocks[code] = (h && !tipStale && h.blockLag != null) ? Math.max(0, h.blockLag) : null;
+                // A decoder that has never completed getblockchaininfo reports
+                // chainTipBlock -1 and a negative blockLag (its -1 tip sentinel),
+                // and node_height_stale stays false because it never had a tip to
+                // freeze. Publish unknown as null: a -1 tip is not a height, and
+                // clamping the negative lag to 0 would read as "at the tip" for a
+                // decoder that cannot see the chain. Prefer the decoder's own
+                // null-when-unknown lag_blocks; fall back to blockLag for decoders
+                // that predate it, treating a negative value as unknown.
+                let tip = (h && !tipStale && typeof h.chainTipBlock === 'number' && h.chainTipBlock >= 0) ? h.chainTipBlock : null;
+                let lag = null;
+                if(h && !tipStale){
+                    if(Object.prototype.hasOwnProperty.call(h, 'lag_blocks')){
+                        lag = (typeof h.lag_blocks === 'number') ? h.lag_blocks : null;
+                    } else if(typeof h.blockLag === 'number' && h.blockLag >= 0){
+                        lag = h.blockLag;
+                    }
+                }
+                data.chain_tip[code]        = tip;
+                data.chain_lag_blocks[code] = lag;
                 data.decoder_health[code]   = tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable');
             } catch(e){
                 data.decoder_health[code] = 'unreachable';
@@ -5310,6 +5553,26 @@ class Database {
                 args.push(start);
             }
         }
+        // parent_batch_action_index (spec explorer-coverage-completion M1.6):
+        // the indexer stores no parent column (batches is (action_index, status_id);
+        // every sub-command is its own root action), so parenthood is DERIVED here.
+        // A parent and its children share (tx_index, tx_vout) on `actions`; the parent
+        // is whichever of those rows also has an `actions.action_index` present in
+        // `batches`. This MUST stay a correlated scalar subquery in the select list,
+        // never a FROM-clause join: the outer query is SELECT DISTINCT over the whole
+        // row, and a join that multi-matches (one BATCH parent joined against N
+        // children sharing its tx_vout) would re-materialize duplicate action_index
+        // rows past the DISTINCT. A subquery returns exactly one scalar per outer row
+        // and does not change row cardinality, so DISTINCT still collapses correctly.
+        // `apx.action_index!=a1.action_index` is what makes the parent BATCH row's own
+        // value NULL (it would otherwise find itself); every non-batch row also comes
+        // back NULL because no sibling row in `batches` exists at all. EXPLAIN shape:
+        // apx is looked up via actions' own PK/unique index on action_index bounded by
+        // the outer row's tx_index/tx_vout (actions carries a plain index on tx_index,
+        // narrowing the scan to the handful of rows sharing one tx output), then
+        // filtered through batches' UNIQUE KEY on action_index (an eq_ref, not a scan);
+        // the whole subquery runs once per returned row, so cost scales with page size
+        // (sql.limit), not table size.
         if(total){
             query = `SELECT
                         DISTINCT(m.action_index) as action_index,
@@ -5317,7 +5580,16 @@ class Database {
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
-                        t1.tx_index            
+                        t1.tx_index,
+                        (
+                            SELECT bpx.action_index
+                            FROM actions apx
+                            INNER JOIN batches bpx ON (bpx.action_index=apx.action_index)
+                            WHERE apx.tx_index=a1.tx_index
+                                AND apx.tx_vout=a1.tx_vout
+                                AND apx.action_index!=a1.action_index
+                            LIMIT 1
+                        ) as parent_batch_action_index
                     FROM
                         mappings_actions m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -5532,6 +5804,39 @@ class Database {
         return out;
     }
 
+    // Project one full getActionData payload onto the compact summary shape the
+    // client's getActionDetails renders: ACTION_SUMMARY_FIELDS copied onto a
+    // `details` object (false when none is present) plus the row status. SEND
+    // keeps its fields per destination under sends[], so the summary reads
+    // sends[0] for every field and takes its status when the payload has none.
+    // The transaction/history rows and the BATCH member table both go through
+    // here, so a field lands on every summary surface at once.
+    projectActionSummary(info){
+        let details = false;
+        let status  = info.status;
+        let send    = (info.action=='SEND' && Array.isArray(info.sends) && info.sends.length>0) ? info.sends[0] : null;
+        if(send && this.util.isNull(status))
+            status = send.status;
+        for(let name of ACTION_SUMMARY_FIELDS){
+            let found  = false;
+            let detail = false;
+            if(typeof info[name] !== 'undefined'){
+                found  = true;
+                detail = info[name];
+            }
+            if(send){
+                found  = true;
+                detail = send[name];
+            }
+            if(found){
+                if(!details)
+                    details = {};
+                details[name] = detail;
+            }
+        }
+        return { details, status };
+    }
+
     async getActionSummaryData(config, actions){
         // --- Performance note (Fix B / #3841) ---
         // The page's action rows are enriched via getActionDataBatch(), which resolves the
@@ -5543,51 +5848,10 @@ class Database {
         // --- End Fix B ---
         // Pre-resolve every row's action data once, keyed by action_index.
         let actionData = await this.getActionDataBatch(config, actions.map((a) => a.action_index));
-        // Minimal field set for history list items; full info is available per-action.
-        let detailFields = [
-            'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
-            'action_format',                                                                                               // Action details
-            'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
-            'action_class', 'controller', 'unbind',                                                                        // Addresses (controller bind, v1)
-            'message', 'value', 'broadcast_action_index', 'broadcast_fee',                                                 // Broadcasts
-            'callback_tick', 'callback_amount',                                                                            // Callbacks
-            'dividend_tick',                                                                                               // Dividends
-            'name', 'title',                                                                                               // Files
-            'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                                  // Links
-            'list_action_index',                                                                                           // Lists
-            'encryption_method', 'plaintext_message',                                                                      // Messages
-            'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',                  // Orders, Swaps, Dispensers
-            'order_action_index',                                                                                          // Order (cancels, edits, expires)
-            'swap_action_index',                                                                                           // Swap  (cancels, edits, expires)
-            'dispenser_action_index',                                                                                      // Dispesnser (cancels, edits, expires)
-            'resume_block',                                                                                                // Sleep
-            'balances', 'ownerships', 'orders', 'swaps', 'dispensers'                                                      // Sweeps
-        ];
         for(let data of actions){
             let info = actionData.get(Number(data.action_index));
-            data.status = info.status;
-            let details = false;
-            for(let name of detailFields){
-                let found  = false;
-                let detail = false;
-                if(typeof info[name] !== 'undefined'){
-                    found  = true;
-                    detail = info[name];
-                }
-                if(info.action=='SEND' && info.sends && info.sends.length>0){
-                    found = true;
-                    detail = info.sends[0][name];
-                    if(this.util.isNull(data.status))
-                        data.status = info.sends[0]['status'];
-                }
-                if(found){
-                    // If details object does not exist yet, create it
-                    if(!details)
-                        details = {};
-                    details[name] = detail;
-                }
-
-            }
+            let { details, status } = this.projectActionSummary(info);
+            data.status  = status;
             data.details = details;
         }
         // Slow-page observability (Fix B): warn when first-load latency is still high after
@@ -6406,11 +6670,15 @@ class Database {
     // tx hash and source address as raw string columns (tx_hash, source) rather
     // than FK ids into the decoder's index tables, so the row reads directly with
     // no joins. Rows are PRE-VALIDATION: the decoder writes whatever parses out of
-    // a mempool tx; the indexer may still reject it at confirmation time. The
-    // destination is not populated as a column; destinations live inside the
-    // decoded action string (`data`), which callers parse. Same access pattern +
-    // safety rules as getDecoderMempoolCount. Returns [] when the decoder DB isn't
-    // reachable.
+    // a mempool tx; the indexer may still reject it at confirmation time.
+    // mempool_transactions DOES declare a `destination` column (indexed as
+    // mempool_destination) and the decoder binds it on every insert, but the
+    // bound value is always NULL: XChainDecoder.parseTransaction's only success
+    // return hardcodes destination:null. Destinations live inside the decoded
+    // action string (`data`), which callers parse. Do NOT move getMempool's
+    // type=address filter onto that index: it would match zero rows. Same
+    // access pattern + safety rules as getDecoderMempoolCount. Returns [] when
+    // the decoder DB isn't reachable.
     //
     // ENCODING: mempool_transactions.data is a MEDIUMTEXT utf8mb4 column holding
     // the canonical UTF-8 ACTION string ("SEND|0|TICK|..."), the exact same
@@ -6424,8 +6692,13 @@ class Database {
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
         let max = Math.max(1, Math.min(Number(limit) || 200, 500));
         try {
+            // ORDER BY the unique-indexed tx_hash: the table has no primary key
+            // and the decoder rewrites it every cycle, so a bare LIMIT returns a
+            // scan-order subset that churns between polls. The ws mempool diff
+            // and /api/mempool paging both read this window as a stable snapshot.
             let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data ' +
                         'FROM `' + dbName + '`.mempool_transactions m ' +
+                        'ORDER BY m.tx_hash ' +
                         'LIMIT ' + max;
             let results = await this.doDecoderQuery(config, query, []);
             return results || [];
@@ -6879,7 +7152,12 @@ class Database {
                     LIMIT 1000`;
         let rows = await this.doQuery(config, query, [info.membership_action_index]);
         let data = {
-            tick:                    String(tick).toUpperCase(),
+            // Echo the tick exactly as it was looked up. Uppercasing it here while the
+            // lookup stays case-sensitive means the value handed back does not resolve:
+            // feed it into /api/project/{TICK} for any tick that is not already all
+            // upper case and the round trip 404s. The roster and /explorer routes were
+            // never affected, because neither echoes the tick.
+            tick:                    String(tick),
             roster_action_index:     info.roster_action_index,
             membership_action_index: info.membership_action_index,
             link_action_index:       info.link_action_index,
@@ -6972,10 +7250,21 @@ class Database {
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
             return { table: '`' + src.name + '`.state_checkpoints',
                      capTable: '`' + src.name + '`.capability_snapshots',
+                     // Quorum-attested ANCHOR publisher rewards (HUB_STATE_TABLES in
+                     // hub_db_sync.js, mirrored on the same terms as state_checkpoints).
+                     // Neither `table` nor `capTable`, so it gets a third accessor on the
+                     // same helper rather than a hand-built schema-qualified name, keeping
+                     // ONE place that knows the mirror's shape.
+                     rewardTable: '`' + src.name + '`.anchor_reward_attestations',
+                     // `filter`/`filterParams` scope `table` and `rewardTable`, which both
+                     // carry chain/network columns. They do NOT apply to `capTable`:
+                     // capability_snapshots is chain-agnostic (keyed by capability + BTC
+                     // snapshot block) and has no such columns - see getCapabilitySnapshots
+                     // and getCapabilitySnapshotRows, which bind none of these.
                      filter: ' AND chain = ? AND network = ?',
                      filterParams: [src.chain, src.network] };
         throw new Error('No co-located hub DB configured for coin ' + config.coin +
-            ': state_checkpoints / capability_snapshots are served only from the mandatory ' +
+            ': state_checkpoints / capability_snapshots / anchor_reward_attestations are served only from the mandatory ' +
             'co-located hub DB (config database.checkpoint, same host+credentials as the indexer DB), ' +
             'never from a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
@@ -7058,7 +7347,8 @@ class Database {
     // activation_block, governance_votes has neither): an absent or null column must
     // stay absent or null, never become the literal string "undefined".
     _normalizeHubOperationalRows(rows){
-        const bigintKeys = ['id', 'qualified_at_block', 'activation_block'];
+        const bigintKeys = ['id', 'qualified_at_block', 'activation_block',
+                            'reorg_height', 'reorg_timestamp', 'round_number'];
         return (rows || []).map(r => {
             let out = { ...r };
             for(const k of bigintKeys)
@@ -7161,19 +7451,165 @@ class Database {
                          ORDER BY checkpoint_seq DESC LIMIT 1`;
             return this._normalizeCheckpointRows(await this.doQuery(config, query, [Number(blockIndex), ...src.filterParams]));
         }
+        // Shares the latest-per-height rule with getCheckpoints rather than carrying a
+        // second list query with its own bounding. This branch backs the public
+        // /api/checkpoints route, so an unbounded whole-table GROUP BY here reaches
+        // further than the same mistake would in the internal feed.
         let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let latest   = this._latestCheckpointPredicate(src, 'sc');
         let query = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
                             sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block,
                             sc.state_root, sc.state_root_version, sc.block_merkle_root, sc.block_merkle_version,
                             sc.validator_signatures, sc.created_at
                      FROM ${src.table} sc
-                     JOIN (SELECT block_index, MAX(checkpoint_seq) AS max_seq
-                           FROM ${src.table} WHERE 1=1${src.filter} GROUP BY block_index) t
-                       ON t.block_index = sc.block_index AND t.max_seq = sc.checkpoint_seq
-                     WHERE 1=1${scFilter}
+                     WHERE 1=1${scFilter}${latest.sql}
                      ORDER BY sc.block_index DESC
                      LIMIT ?`;
-        return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...src.filterParams, Number(limit) || 10]));
+        return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...latest.params, Number(limit) || 10]));
+    }
+
+    // Detail-page load for ONE checkpointed height (highest checkpoint_seq wins,
+    // mirroring getCheckpointRows' blockIndex branch). Deliberately does NO signature
+    // verification: that is processCheckpointVerifyRequest's job (getCheckpointRows +
+    // the quorum predicates), a separate and more expensive path. This is the cheap
+    // read the detail page renders around, so it stays a plain keyed SELECT.
+    // config.data.search carries the requested height. Returned wrapped in a
+    // single-element array (null when not found), matching getBlock's convention for
+    // a getData-dispatched detail getter.
+    async getCheckpoint(config){
+        let src   = this._checkpointSource(config);
+        let query = `SELECT chain, network, block_index, block_hash, ledger_hash, actions_hash,
+                            contract_hash, checkpoint_seq, snapshot_block,
+                            state_root, state_root_version, block_merkle_root, block_merkle_version,
+                            validator_signatures, created_at
+                     FROM ${src.table}
+                     WHERE block_index = ?${src.filter}
+                     ORDER BY checkpoint_seq DESC LIMIT 1`;
+        let rows = this._normalizeCheckpointRows(
+            await this.doQuery(config, query, [Number(config.data.search), ...src.filterParams]));
+        return [(rows && rows.length) ? rows[0] : null];
+    }
+
+    // List quorum-signed checkpoints (DataTables paging leg, spec explorer-coverage-
+    // completion M2.1). Keeps getCheckpointRows' "latest checkpoint_seq per
+    // block_index" semantics (a reorged height is superseded by a fresh row at the
+    // same block_index, so MAX(checkpoint_seq) resolves the current one), but
+    // getCheckpointRows' own list branch GROUP BYs the WHOLE mirrored history to
+    // compute that per-height max, which cannot back a paged list view (a full-table
+    // aggregate on every page). Bound the raw rows fed into the GROUP BY instead: a
+    // duplicate checkpoint_seq for one height only arises from a rare split-brain
+    // resubmission, so a window many pages deep still resolves effectively every
+    // reachable height to one row, while the aggregate itself stops being a
+    // full-table scan. total/paging both report against that same bounded window
+    // rather than the unbounded eternity, so the two numbers stay consistent with
+    // what is actually reachable by paging.
+    // "The latest checkpoint_seq at this height" as a correlated point lookup.
+    // Both checkpoint list queries need it and they must agree, so it is built
+    // once here rather than written twice with different bounding rules.
+    //
+    // This replaced a derived table that pre-selected a fixed window of raw rows
+    // and GROUPed it. That shape was wrong in two different ways: the window was
+    // pinned to the tip while the paging cursor was applied OUTSIDE it, so on a
+    // chain with more raw rows than the window, deep pages joined against a set
+    // that could not contain them and came back empty with a capped total; and
+    // the sibling query in getCheckpointRows had no window at all and grouped the
+    // whole table. The correlated form rides the (chain, checkpoint_seq) unique
+    // key one row at a time, so it needs no window, cannot truncate a page, and
+    // leaves the cursor in the outer WHERE where getData's arg assembly expects
+    // it (baseArgs first, offsetArgs appended last).
+    _latestCheckpointPredicate(src, alias){
+        let innerFilter = src.filter.replace(/\b(chain|network)\b/g, 's.$1');
+        return {
+            sql: ` AND ${alias}.checkpoint_seq = (SELECT MAX(s.checkpoint_seq)
+                       FROM ${src.table} s
+                       WHERE s.block_index = ${alias}.block_index${innerFilter})`,
+            params: [...src.filterParams]
+        };
+    }
+
+    async getCheckpoints(config){
+        let sql   = config.data.sql;
+        let src   = this._checkpointSource(config);
+        // Requalify the bare chain/network filter to the `m` alias: the latest-per-
+        // height predicate alone is not enough to scope by coin, since checkpoint_seq
+        // is only unique WITHIN one (chain, network) pair (uq_chain_seq), not globally.
+        let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
+        let latest      = this._latestCheckpointPredicate(src, 'm');
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        ${src.table} m
+                    WHERE ` + sql.where.data + outerFilter + latest.sql;
+        let query = `SELECT
+                        m.block_index,
+                        m.created_at,
+                        m.checkpoint_seq,
+                        m.snapshot_block,
+                        m.state_root,
+                        m.block_merkle_root,
+                        JSON_LENGTH(m.validator_signatures) AS signer_count
+                    FROM
+                        ${src.table} m
+                    WHERE ` + sql.where.data + outerFilter + latest.sql + sql.where.offset + `
+                    ORDER BY m.block_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        // Placeholders in left-to-right text order: the outer chain/network filter,
+        // then the same pair inside the correlated subquery. getData() appends the
+        // cursor args after these, and the count query reuses the SAME array because
+        // it carries the identical two occurrences and no cursor.
+        let args = [...src.filterParams, ...latest.params];
+        return [query, args, count];
+    }
+
+    // List quorum-attested ANCHOR publisher-reward rows (hub-mirrored
+    // anchor_reward_attestations, one of HUB_STATE_TABLES in hub_db_sync.js, mirrored on
+    // the SAME terms as state_checkpoints: id-parity INSERT IGNORE, never retracted). Read
+    // from the same co-located checkpoint schema as getCheckpoints via
+    // _checkpointSource().rewardTable, NEVER through HubOperationalCache and never over a
+    // hub RPC: this is locally-mirrored transport, not an RPC-served cache with a TTL and
+    // a row cap. Unlike capability_snapshots (chain-agnostic), this table carries its own
+    // chain/network columns and its unique key is scoped by them, so src.filter/
+    // src.filterParams ARE bound here, first, exactly as getCheckpoints binds them.
+    //
+    // Placement note: the filter text leads and the optional TYPE clause follows, which is
+    // the reverse of getCheckpoints' literal order. getCheckpoints has no TYPE filter at
+    // all, so nothing there could land a client placeholder ahead of the filter's;
+    // here one could, which would break the args order.
+    //
+    // reward_amount (audit-only: the indexer credits a frozen protocol constant, never
+    // this wire value) and publisher_attestations (the raw quorum-signature JSON blob) are
+    // deliberately excluded from the list SELECT. type in {anchor, block, pubkey}.
+    async getAnchorRewardAttestations(config){
+        let sql   = config.data.sql;
+        let src   = this._checkpointSource(config);
+        let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        ${src.rewardTable} m
+                    WHERE 1=1` + outerFilter + ` AND ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.chain,
+                        m.network,
+                        m.reward_type,
+                        m.round_reference,
+                        m.snapshot_block,
+                        m.publisher,
+                        m.reward_amount,
+                        m.doge_anchor_txid,
+                        m.created_at
+                    FROM
+                        ${src.rewardTable} m
+                    WHERE 1=1` + outerFilter + ` AND ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        // filterParams (chain, network) come first, matching this table's own unique-key
+        // scoping; the type-bound placeholder getQueryWhereSql appends to sql.where.data
+        // follows, and only when a TYPE is actually set.
+        let typeArgs = ['anchor','block','pubkey'].includes(config.data.type) ? [config.data.search] : [];
+        let args = [...src.filterParams, ...typeArgs];
+        return [query, args, count];
     }
 
     // ── SPV light-client proof serving (Phase 3, spec §8.1) ──────────────────
@@ -7476,6 +7912,39 @@ class Database {
         let query = `SELECT signing_pubkey, amount, source FROM ${src.capTable}
                      WHERE capability = ? AND snapshot_block = ?`;
         return await this.doQuery(config, query, [String(capability), Number(snapshotBlock)]);
+    }
+
+    // The same historical electorate as a routed, paged LIST view: which signing keys
+    // carried which stake weight for a capability at a snapshot block. Sibling of
+    // getCapabilitySnapshotRows above (positional, two mandatory binds, no paging, used
+    // by the checkpoint-verify path) rather than a shared predicate: the two have
+    // different bind arity and column sets, and a bare list-all with no filter is a normal
+    // request here, which the raw reader's two-mandatory-arg contract must never acquire.
+    // Same getCheckpoints/getCheckpoint precedent.
+    //
+    // Never routed through HubOperationalCache and never an RPC call: capability_snapshots
+    // is not hub-RPC data, it is pushed into the co-located checkpoint-mirror schema
+    // out-of-band, so this list must answer with the hub completely unreachable. id-keyed
+    // (the paging cursor); capability_snapshots is chain-agnostic (no chain/network
+    // columns), so unlike getCheckpoints there is no src.filter/src.filterParams to bind.
+    async getCapabilitySnapshots(config){
+        let sql   = config.data.sql;
+        let src   = this._checkpointSource(config);
+        let count = `SELECT count(*) as total FROM ${src.capTable} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.snapshot_block,
+                        m.capability,
+                        m.signing_pubkey,
+                        m.amount,
+                        m.source,
+                        m.created_at
+                    FROM
+                        ${src.capTable} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     async getBlocksSince(config, sinceBlockIndex, limit) {
@@ -8173,6 +8642,45 @@ class Database {
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
+    }
+
+    // Get list of contract emissions (the per-CONTRACT rollup across every EXECUTE call
+    // against it). contract_emissions is keyed to the EXECUTION (execution_index = the
+    // EXECUTE action's action_index), not to the contract, so reaching contract_index
+    // requires joining through contract_executions; block_index lives on
+    // contract_executions directly, so the block filter and the timestamp join need no
+    // actions/blocks hop. Cursor is m.id: this table's own action_index is nullable for
+    // internal emissions (e.g. SLASH), so it cannot page reliably. type in
+    // {contract, execution, block}.
+    async getEmissions(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        contract_emissions m
+                        INNER JOIN contract_executions ce ON (ce.action_index=m.execution_index)
+                        INNER JOIN blocks               b1 ON (b1.block_index=ce.block_index)
+                        LEFT  JOIN index_statuses        s1 ON (s1.id=ce.status_id)
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.execution_index,
+                        ce.contract_index,
+                        m.position,
+                        m.emitted_action,
+                        m.action_index,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        s1.status
+                    FROM
+                        contract_emissions m
+                        INNER JOIN contract_executions ce ON (ce.action_index=m.execution_index)
+                        INNER JOIN blocks               b1 ON (b1.block_index=ce.block_index)
+                        LEFT  JOIN index_statuses        s1 ON (s1.id=ce.status_id)
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
     }
 
     async getDeposits(config){
@@ -9074,6 +9582,108 @@ class Database {
         return [query, null, count];
     }
 
+    // Get list of VOTE v3 delegation rows (liquid democracy, type in {tick, delegator,
+    // delegate, block}). vote_delegations is an APPEND-ONLY event log: a holder can set,
+    // re-point, or clear (revoke) their standing per-token delegation, and every one of
+    // those actions writes a NEW row rather than mutating the old one, so a naive
+    // SELECT * shows every revoked/superseded delegation as if it were still live.
+    //
+    // The live delegation for a (tick_id, delegator) is its LATEST row (highest
+    // action_index), and only if that latest row is not a CLEAR (delegate_address_id IS
+    // NOT NULL). This mirrors xchain-indexer's Database#getActiveDelegations (which feeds
+    // getPollTally) exactly, minus its `block_index <= ?` bound: that bound answers "what
+    // was live AT some past height", which a poll close needs; this list answers "what is
+    // live now", so the bound is simply omitted. Every TYPE narrows WHICH keys are shown,
+    // never what "live" means.
+    //
+    // Implemented as a correlated MAX on the (tick_id, delegator_address_id) key, in the
+    // outer WHERE where the paging cursor also lives - never a GROUP BY over a "newest N
+    // rows" derived table, which is the defect class that a cursor applied OUTSIDE the
+    // window silently truncates.
+    async getVoteDelegations(config){
+        let sql   = config.data.sql;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        vote_delegations m
+                        INNER JOIN actions            a1  ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1  ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1  ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_tickers      t3  ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses    dgr ON (dgr.id=m.delegator_address_id)
+                        LEFT  JOIN index_addresses    dg  ON (dg.id=m.delegate_address_id)
+                        LEFT  JOIN index_statuses     s1  ON (s1.id=m.status_id)
+                    WHERE
+                        m.action_index = (
+                            SELECT MAX(s.action_index) FROM vote_delegations s
+                            WHERE s.tick_id=m.tick_id AND s.delegator_address_id=m.delegator_address_id
+                        )
+                        AND m.delegate_address_id IS NOT NULL
+                        AND ` + sql.where.data;
+        let query = `SELECT
+                        a4.action,
+                        m.action_index,
+                        a1.action_format,
+                        t3.tick,
+                        dgr.address as delegator,
+                        dg.address as delegate,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        s1.status
+                    FROM
+                        vote_delegations m
+                        INNER JOIN actions            a1  ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1  ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1  ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_tickers      t3  ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_addresses    dgr ON (dgr.id=m.delegator_address_id)
+                        LEFT  JOIN index_addresses    dg  ON (dg.id=m.delegate_address_id)
+                        LEFT  JOIN index_statuses     s1  ON (s1.id=m.status_id)
+                        LEFT  JOIN index_transactions t2  ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_actions      a4  ON (a4.id=a1.action_id)
+                    WHERE
+                        m.action_index = (
+                            SELECT MAX(s.action_index) FROM vote_delegations s
+                            WHERE s.tick_id=m.tick_id AND s.delegator_address_id=m.delegator_address_id
+                        )
+                        AND m.delegate_address_id IS NOT NULL
+                        AND ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Per-validator per-provider ATTEST accountability rollup (indexer-owned counters).
+    // fulfilled_count/missed_count are live (incremented per verified signature and per
+    // expired-round absence by xchain-indexer's incrementAttestationValidatorStat);
+    // slashed_count and quality_score are Phase 4 columns the indexer defines and defaults
+    // to 0 but has no producer for yet. The table carries no action_index (rows are
+    // upsert-incremented counters, not action-chain rows); it pages on the surrogate m.id
+    // added for exactly this purpose, NOT on last_updated_block, which ties whenever a
+    // whole ATTEST responsible set misses in one block and so would split a keyset page
+    // boundary. type in {pubkey, provider}.
+    async getAttestValidatorStats(config){
+        let sql   = config.data.sql;
+        let count = `SELECT count(*) as total FROM attest_validator_stats m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.validator_pubkey,
+                        m.provider_id,
+                        m.fulfilled_count,
+                        m.missed_count,
+                        m.slashed_count,
+                        m.quality_score,
+                        m.last_updated_block
+                    FROM
+                        attest_validator_stats m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
     // Get list of cross-chain MATCH records (type ∈ {match, block, status}; block = snapshot_block).
     // cross_chain_matches is a standalone mirror of the hub's finalized match table with no
     // actions/transactions chain, so no joins; ordered by the mirror cursor m.id.
@@ -9328,6 +9938,119 @@ class Database {
                         m.proposal_id,
                         m.voter_pubkey,
                         m.vote,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Cross-chain reorg attestations (hub-owned, id-keyed). Primary transport: hub
+    // JSON-RPC via HubOperationalCache over the hub's EXISTING unauthenticated
+    // getreorghistory RPC, so this row needs no new hub-side surface. Unlike the three
+    // tables above (platform-global, no per-chain column), reorg_attestations carries
+    // source_chain and getreorghistory returns EVERY chain's history with no server-side
+    // chain filter at all, so a per-coin page would otherwise leak another chain's
+    // reorgs. Both transports therefore scope to THIS coin's own chain: client-side
+    // inside HubOperationalCache.getReorgHistory (the established pattern for a param the
+    // hub RPC does not support server-side, see getGovernanceProposals' proposal_id), and
+    // via an explicit m.source_chain=? on the co-located leg, matching
+    // getCrossChainMatches' mandatory network filter.
+    //
+    // this.baseCoin[config.coin] (RBTC -> BTC) is the chain source rather than
+    // _checkpointSource().chain because it is populated for every configured coin whether
+    // or not a co-located checkpoint DB exists, so the RPC-only deployment shape still
+    // scopes correctly. A configured-but-unreachable hub still fails loud past the stale
+    // ceiling; the co-located read below serves only the no-hub shape.
+    // type in {status, block}; 'block' reuses the platform-wide type name (reorg_height IS
+    // a block height) rather than inventing 'height'.
+    async getReorgs(config){
+        let ops   = this.explorer.hubOperational;
+        let chain = this.baseCoin ? (this.baseCoin[config.coin] || config.coin) : config.coin;
+        if(ops && ops.enabled()){
+            let rows = await ops.getReorgHistory({
+                chain,
+                status:       config.data.type=='status' ? config.data.search : undefined,
+                reorg_height: config.data.type=='block'  ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+            this._hubOperationalOutage('reorg_attestations');
+        }
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'reorg_attestations');
+        // Mandatory per-coin chain scope, appended AFTER the optional type filter (the
+        // same placement getCrossChainMatches uses for its network filter), so the args
+        // stay [<type filter?>, chain] in strict left-to-right text order.
+        let chainFilter = ' AND m.source_chain=?';
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data + chainFilter;
+        let query = `SELECT
+                        m.id,
+                        m.reorg_id,
+                        m.source_chain,
+                        m.reorg_height,
+                        m.reorg_timestamp,
+                        m.affected_chains,
+                        m.validator_count,
+                        m.status,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + chainFilter + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        let typeArgs = ['status','block'].includes(config.data.type) ? [config.data.search] : [];
+        let args = [...typeArgs, chain];
+        return [query, args, count];
+    }
+
+    // Federation slash proposals (hub-owned, id-keyed). Primary transport: hub
+    // JSON-RPC via HubOperationalCache over the hub's NEW unauthenticated
+    // getslashproposals RPC (added for this row alongside the hub-side evidence
+    // hashing). Unlike reorg_attestations there is NO chain column and none is
+    // missing: the offenses are federation-wide (oracle and attestation rounds are
+    // not per-chain, and a signing pubkey is one identity across every chain), so
+    // this table is platform-global like validator_capabilities/governance_* and
+    // binds no chain filter on either transport. Adding one later would empty this
+    // page permanently, since no row can ever carry a chain value to match.
+    //
+    // Rows with status 'pending' are UNADJUDICATED ACCUSATIONS: SlashDetector
+    // records evidence, and only a passed SLASH_PENALTY governance vote moves a row
+    // off 'pending' (SlashGovernance.applyFinalized). status is therefore carried on
+    // every row and rendered as its own labelled column, never as a row colour.
+    //
+    // The verbatim `evidence` blob is NEVER served on either leg. The RPC leg gets
+    // evidence_hash from the hub (SlashDetector.hashEvidence, sha256 of the stored
+    // text, the same digest SlashGovernance's voted evidence hash is built from);
+    // the co-located leg computes the identical digest in SQL. Hashing hub-side is
+    // the ruling's point: the hub's own POST surface serves this RPC to anyone, so
+    // explorer-side redaction alone would leak.
+    //
+    // A configured-but-unreachable hub fails loud past the stale ceiling
+    // (_hubOperationalOutage); the co-located read below serves only the no-hub
+    // deployment shape. type in {status, pubkey}, matching the hub RPC's two
+    // server-side filters exactly, so neither transport post-filters. No 'block'
+    // type: round_number is an oracle round (or an attestation pseudo-round), not a
+    // block height.
+    async getSlashProposals(config){
+        let ops = this.explorer.hubOperational;
+        if(ops && ops.enabled()){
+            let rows = await ops.getSlashProposals({
+                status:           config.data.type=='status' ? config.data.search : undefined,
+                validator_pubkey: config.data.type=='pubkey' ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+            this._hubOperationalOutage('slash_proposals');
+        }
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'slash_proposals');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.validator_pubkey,
+                        m.offense_type,
+                        m.round_number,
+                        SHA2(COALESCE(m.evidence,''), 256) AS evidence_hash,
+                        m.status,
                         m.created_at
                     FROM ${src.table} m
                     WHERE ` + sql.where.data + sql.where.offset + `
@@ -10162,11 +10885,87 @@ class Database {
         return [query, null, count];
     }
 
+    // Per-block SPV commitments (state_tree_roots), decorated with the covering
+    // hub-mirrored state_checkpoints row (if any) and the local ANCHOR action that carried
+    // it (if any). The three legs live in three places and are not casually joinable:
+    // state_tree_roots is this coin's own indexer DB (no action chain, one row per block,
+    // unique on (chain, network, block_index)); state_checkpoints is the co-located
+    // hub-mirror schema reached via _checkpointSource, DB-qualified but on the SAME
+    // connection pool as the indexer DB (checkpointDb is registered ONLY when it shares
+    // host/port/user/pass with that pool), which is exactly what the co-location guarantee
+    // is FOR; anchor_actions is this same coin's own local indexer DB, parsed from the
+    // DOGE-only ANCHOR action, so on a non-DOGE deployment that leg is structurally always
+    // empty - the same limitation getAnchors already carries reading the same table.
+    //
+    // Both decoration legs are LEFT JOINs correlated on this row's own block_index, so a
+    // block with no covering checkpoint yet (normal near the tip: checkpoints cut on a
+    // cadence) or no carrying ANCHOR yet (anchoring batches several heights) comes back
+    // with those columns NULL rather than the row vanishing. _checkpointSource still
+    // throws when this coin has no co-located hub DB configured at ALL, which is a
+    // deployment misconfiguration and a different case entirely.
+    //
+    // Reuses the exact latest-per-height predicate getCheckpoints established rather than
+    // a third, differently-bounded checkpoint query, and applies the identical shape to
+    // the anchor leg's own latest-checkpoint_seq-per-height lookup.
+    async getCommitments(config){
+        let sql      = config.data.sql;
+        let src      = this._checkpointSource(config);
+        let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let latest   = this._latestCheckpointPredicate(src, 'sc');
+        // anchor_actions.chain/network name the CHECKPOINTED chain (the same convention
+        // state_checkpoints uses), not the chain the ANCHOR transaction landed on, so this
+        // coin's own (chain, network) identity is the correct filter here too: block_index
+        // alone is not unique across chains on the DOGE deployment, where one local table
+        // holds commitments for all three.
+        let anFilter = ' AND an.chain = ? AND an.network = ?';
+        let anLatest = ` AND an.checkpoint_seq = (SELECT MAX(a2.checkpoint_seq) FROM anchor_actions a2
+                           WHERE a2.block_index = an.block_index AND a2.chain = ? AND a2.network = ?)`;
+        let count = `SELECT
+                        count(*) as total
+                    FROM
+                        state_tree_roots m
+                        LEFT JOIN ${src.table} sc ON sc.block_index = m.block_index${scFilter}${latest.sql}
+                        LEFT JOIN anchor_actions an ON an.block_index = m.block_index${anFilter}${anLatest}
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.block_index,
+                        m.balances_root,
+                        m.stakes_root,
+                        m.state_root,
+                        m.block_merkle_root,
+                        m.contract_state_root,
+                        m.computed_at,
+                        sc.checkpoint_seq        AS checkpoint_seq,
+                        sc.snapshot_block        AS checkpoint_snapshot_block,
+                        sc.created_at            AS checkpoint_created_at,
+                        JSON_LENGTH(sc.validator_signatures) AS checkpoint_signer_count,
+                        an.action_index          AS anchor_action_index,
+                        an.version               AS anchor_version
+                    FROM
+                        state_tree_roots m
+                        LEFT JOIN ${src.table} sc ON sc.block_index = m.block_index${scFilter}${latest.sql}
+                        LEFT JOIN anchor_actions an ON an.block_index = m.block_index${anFilter}${anLatest}
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.block_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        // Left-to-right text order: both JOIN ON clauses (checkpoint filter + latest, then
+        // anchor filter + latest), then the WHERE type-bound value, which is present only
+        // when type='block' (getData's list-all null filter drops the trailing undefined on
+        // a bare request, so the placeholder count still lines up). count and list share
+        // IDENTICAL FROM+JOIN text, so this one array binds correctly against both.
+        let args = [...src.filterParams, ...latest.params, ...src.filterParams, ...src.filterParams, config.data.search];
+        return [query, args, count];
+    }
+
     // Full XCALL lifecycle by call_id: the source request (xcalls) + the target-chain
     // execution outcome (cross_chain_call_executions) + the source-chain callback
     // delivery (cross_chain_call_callbacks). The latter two are null until the call is
     // relayed/executed/delivered. Mirrors getContract's single-item return ([data]);
-    // data is null when the call_id is unknown.
+    // data is null when the call_id is unknown. A call_id can carry more than one
+    // xcalls row (rejected attempts index alongside the accepted request), so the
+    // read is pinned to the valid row, matching the indexer's authoritative
+    // by-call_id lookup; without the status bound the ORDER BY can surface an
+    // invalid row as the lifecycle.
     async getXcall(config){
         let data  = null;
         let sql   = config.data.sql;
@@ -10207,7 +11006,7 @@ class Database {
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + `
+                    WHERE ` + sql.where.data + ` AND s1.status='valid'
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT 1`;
         let results = await this.doQuery(config, query, args);
@@ -10232,6 +11031,926 @@ class Database {
             data = row;
         }
         return [data];
+    }
+
+    // ── M4 composed detail views (spec explorer-coverage-completion, rows 26/28/30/31) ──
+    //
+    // Four single-record compositions backing the M4 detail pages. They follow
+    // getXcall/getPoll: the method runs its own reads and returns [object] (null when the
+    // subject does not exist), so getData takes its `typeof query === 'object'` branch and
+    // the builder arg-assembly path (baseArgs then offsetArgs, count reusing baseArgs) never
+    // applies to them.
+    //
+    // NONE of them consume config.data.sql.where.data, and that is deliberate rather than an
+    // omission. A composition's spine and its sub-lists sit on different tables under
+    // different aliases, so one shared WHERE fragment cannot be correct for all of them;
+    // each leg carries its own predicate and binds its own args in strict left-to-right
+    // text order. The consequence worth knowing: these four need no getQueryWhereSql branch,
+    // so a route registered against any TYPE cannot 500 them with an unknown-column error.
+    //
+    // What they DO take from config.data.sql is `limit`, already clamped to
+    // 1..getMaxMethodResults() by getQuery, and EVERY sub-list interpolates it. An unbounded
+    // sub-list inside a composition pulls the same whole table a missing LIMIT pulls on a
+    // list route; it is only harder to see, because the response looks like one record.
+    _detailLimit(config){
+        let sql = config.data.sql;
+        return (sql && this.util.isNumeric(sql.limit)) ? Number(sql.limit) : 100;
+    }
+
+    // Composed VALIDATOR detail (M4.1). QUERY is EITHER the Ed25519 signing pubkey or the
+    // staking address: both name the same validator in circulation (/validators renders both
+    // columns, a hub registry entry is keyed by pubkey, a reward accrual and its COLLECT are
+    // keyed by address), so the page answers to either without the caller having to say
+    // which it holds.
+    //
+    // The QUERY is resolved to IDs FIRST, in two unique point reads, and only then does the
+    // spine touch `stakes`. The obvious one-query form (`WHERE a3.pubkey=? OR a2.address=?`
+    // over the joined aliases) reads correctly and scans the whole stakes table: an OR
+    // spanning two different joined tables leaves the optimizer no driving table but `stakes`
+    // itself. Resolving first puts the OR on two INDEXED columns of `stakes`
+    // (signing_pubkey_id, source_id), which index-merges. The single-predicate list legs
+    // below keep the joined-alias form: one null-rejecting equality lets the optimizer
+    // convert the LEFT JOIN and drive from the unique index, which an OR does not.
+    //
+    // Reward accounting is per-ADDRESS, not per-pubkey: validator_rewards accrues to
+    // (source_id, signing_pubkey_id) but reward_claims (the COLLECT trail) carries only
+    // source_id, so a claimable figure can only be stated for the staking address. Both
+    // totals are returned alongside the difference rather than the difference alone, because
+    // a negative remainder means ledger drift and has to stay visible instead of clamping.
+    //
+    // The capability leg follows the established hub DUAL PATH (getValidatorCapabilities):
+    // hub JSON-RPC first, the co-located hub schema only on a deployment with no hub
+    // endpoint at all, and a CONFIGURED hub unreachable past the stale ceiling throws
+    // through _hubOperationalOutage. That throw is not caught here: an outage rendered as
+    // "this validator qualified for nothing" is a false claim about consensus state.
+    async getValidator(config){
+        let limit  = this._detailLimit(config);
+        let search = config.data.search;
+        let pubkeyRow  = await this.doQuery(config,
+            'SELECT id FROM index_pubkeys WHERE pubkey=? LIMIT 1', [search]);
+        let addressRow = await this.doQuery(config,
+            'SELECT id FROM index_addresses WHERE address=? LIMIT 1', [search]);
+        let pubkeyId  = (pubkeyRow  && pubkeyRow.length)  ? Number(pubkeyRow[0].id)  : null;
+        let addressId = (addressRow && addressRow.length) ? Number(addressRow[0].id) : null;
+        // Neither name exists anywhere on this chain: answer without touching `stakes`.
+        if(pubkeyId === null && addressId === null)
+            return [null];
+        // Only the resolved side is bound, so a QUERY that is unambiguously one form
+        // never carries a dead placeholder against the other column's index.
+        let idClauses = [];
+        let idArgs    = [];
+        if(pubkeyId !== null){  idClauses.push('m.signing_pubkey_id=?'); idArgs.push(pubkeyId);  }
+        if(addressId !== null){ idClauses.push('m.source_id=?');         idArgs.push(addressId); }
+        // Identity spine. status='valid' matches getValidators' own active-set rule, so the
+        // page cannot resolve an identity off a rejected STAKE.
+        let identity = await this.doQuery(config,
+            `SELECT
+                a3.pubkey  as signing_pubkey,
+                a2.address as source,
+                m.action_index as stake_action_index,
+                m.version,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index
+            FROM
+                stakes m
+                LEFT JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE s1.status='valid' AND (` + idClauses.join(' OR ') + `)
+            ORDER BY m.action_index DESC
+            LIMIT 1`, idArgs);
+        if(!identity || !identity.length)
+            return [null];
+        let row    = identity[0];
+        let pubkey = row.signing_pubkey;
+        let source = row.source;
+
+        // Active stake: an aggregate over ONE pubkey's rows (signing_pubkey_id is indexed),
+        // never a GROUP BY across validators. deactivation_block IS NULL is what "still
+        // active" means on this ledger; a superseded row carries the height it stopped at.
+        let totals = await this.doQuery(config,
+            `SELECT
+                count(*) as position_count,
+                COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as active_stake
+            FROM
+                stakes m
+                LEFT JOIN index_pubkeys  a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+            WHERE s1.status='valid' AND a3.pubkey=? AND m.deactivation_block IS NULL`, [pubkey]);
+
+        let stakes = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                m.amount,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                stakes m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let unstakes = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.amount,
+                m.cooldown_end_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                unstakes m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let delegations = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a2.address as source,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                delegations m
+                INNER JOIN blocks           b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_addresses  a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys    a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses   s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        // Key revocations belong with the delegation history rather than in a section of
+        // their own: a DELEGATE v2/v3 revocation is the event that ENDS a delegated key's
+        // validity, and reading it apart from the delegation it ends inverts the meaning.
+        let revocations = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a2.address as source,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                stake_key_revocations m
+                INNER JOIN blocks           b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_addresses  a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys    a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses   s1 ON (s1.id=m.status_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [pubkey]);
+
+        // Rotations name BOTH the key they replaced and the key they installed, so this key
+        // is on either side of the pair and both are matched. See the frontier note: neither
+        // pubkey column is indexed on contract_delegation_rotations today.
+        let rotations = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.target_table,
+                m.delegation_action_index,
+                m.stake_action_index,
+                pp.pubkey as prev_signing_pubkey,
+                np.pubkey as new_signing_pubkey,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                contract_delegation_rotations m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys pp ON (pp.id=m.prev_signing_pubkey_id)
+                LEFT  JOIN index_pubkeys np ON (np.id=m.new_signing_pubkey_id)
+            WHERE (pp.pubkey=? OR np.pubkey=?)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey, pubkey]);
+
+        let rewards = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.reward_type,
+                m.round_reference,
+                m.amount,
+                m.block_index,
+                m.derive_block_index,
+                b1.block_time as timestamp
+            FROM
+                validator_rewards m
+                INNER JOIN blocks        b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys a3 ON (a3.id=m.signing_pubkey_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let claimable = await this._collectTrail(config, source, limit);
+
+        // Both slash families. capability_slash_events is the equivocation bond-burn against
+        // a CONSENSUS validator (keyed by the signing pubkey directly); slash_events is the
+        // contract-stake burn emitted by an EXECUTE (also keyed by the staker's pubkey). One
+        // family alone understates exposure, which is why the page carries both. The row
+        // shape matches getCapabilitySlashEvents and the address staking panel (slashed
+        // key + submitter + destination), so the same slash reads identically wherever
+        // it surfaces.
+        let capabilitySlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.slash_action_index,
+                a3.pubkey as slashed_pubkey,
+                m.capability,
+                m.equiv_key,
+                m.amount,
+                m.bounty_amount,
+                m.treasury_amount,
+                sub.address as submitter,
+                dst.address as destination,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                capability_slash_events m
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   a3  ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_addresses sub ON (sub.id=m.submitter_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let contractSlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.execution_index,
+                m.target_contract_index,
+                t3.tick,
+                m.amount,
+                dst.address as destination,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                slash_events m
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   a3  ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3  ON (t3.id=m.tick_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
+            WHERE a3.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let nodeproofs = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.action_index,
+                m.challenge_id,
+                m.epoch_height,
+                m.target_height,
+                a3.address as staking_source,
+                m.passed,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                full_node_verifications m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   pk ON (pk.id=m.signing_pubkey_id)
+                LEFT  JOIN index_addresses a3 ON (a3.id=m.source_id)
+            WHERE pk.pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        // Attestation quality is keyed by the RAW pubkey string (attest_validator_stats has
+        // no index_pubkeys id), one row per provider the validator serves.
+        let attestationQuality = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.validator_pubkey,
+                m.provider_id,
+                m.fulfilled_count,
+                m.missed_count,
+                m.slashed_count,
+                m.quality_score,
+                m.last_updated_block
+            FROM
+                attest_validator_stats m
+            WHERE m.validator_pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+
+        let capabilities = await this._validatorCapabilityRows(config, pubkey, limit);
+
+        // The hub registry decorates, never gates: getFederationRegistry returns null when
+        // no registry is reachable at all, and null means UNKNOWN, not "unregistered".
+        let registry = await this.getFederationRegistry(config);
+        let entry    = (registry && pubkey) ? registry[String(pubkey).toLowerCase()] : null;
+
+        return [{
+            query:              search,
+            signing_pubkey:     pubkey,
+            source:             source,
+            stake_action_index: row.stake_action_index,
+            version:            row.version,
+            activation_block:   row.activation_block,
+            deactivation_block: row.deactivation_block,
+            block_index:        row.block_index,
+            registry:           (entry) ? entry : null,
+            registry_known:     (registry !== null),
+            active_stake:       this.util.bcformat((totals && totals.length) ? totals[0].active_stake : 0, 8),
+            position_count:     (totals && totals.length) ? Number(totals[0].position_count) : 0,
+            capabilities:       capabilities,
+            stakes:             stakes      || [],
+            unstakes:           unstakes    || [],
+            delegations:        delegations || [],
+            revocations:        revocations || [],
+            rotations:          rotations   || [],
+            rewards:            rewards     || [],
+            rewards_total:      claimable.rewards_total,
+            collected_total:    claimable.collected_total,
+            claimable:          claimable.claimable,
+            collects:           claimable.collects,
+            capability_slash_events: capabilitySlashes || [],
+            slash_events:            contractSlashes   || [],
+            nodeproofs:              nodeproofs        || [],
+            attestation_quality:     attestationQuality || []
+        }];
+    }
+
+    // The COLLECT trail for ONE staking address, shared by the validator page and the
+    // address staking panel so the two can never disagree about what "claimable" means.
+    // Accrual (validator_rewards) minus claims (reward_claims), both summed in SQL over an
+    // indexed source_id lookup rather than over a fetched page, because a page-local sum
+    // would silently under-report the moment a validator has more rows than one page.
+    async _collectTrail(config, source, limit){
+        let accrued = await this.doQuery(config,
+            `SELECT COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as total
+             FROM validator_rewards m
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+             WHERE a2.address=?`, [source]);
+        let claimed = await this.doQuery(config,
+            `SELECT COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as total
+             FROM reward_claims m
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+             WHERE s1.status='valid' AND a2.address=?`, [source]);
+        let collects = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.amount,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                reward_claims m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [source]);
+        // One wire type for all three figures: a fixed-8 decimal STRING, matching how
+        // every other XCHAIN amount is serialized. The SQL sums come back at the CAST's
+        // 18 decimal places and bcsub returns a mathjs bignumber OBJECT, so both are
+        // formatted rather than passed through; an unformatted bignumber serializes as a
+        // mathjs envelope, not as a number a page can print.
+        let accruedTotal = (accrued && accrued.length) ? accrued[0].total : 0;
+        let claimedTotal = (claimed && claimed.length) ? claimed[0].total : 0;
+        return {
+            rewards_total:   this.util.bcformat(accruedTotal, 8),
+            collected_total: this.util.bcformat(claimedTotal, 8),
+            claimable:       this.util.bcformat(this.util.bcsub(accruedTotal, claimedTotal, 8), 8),
+            collects:        collects || []
+        };
+    }
+
+    // Per-capability qualification rows for ONE signing pubkey, on the same dual transport
+    // getValidatorCapabilities serves the list view over. Kept as its own helper so the
+    // composition cannot drift into a second, differently-degrading copy of that rule.
+    // The RPC leg filters server-side by signing_pubkey; an EMPTY array back is a legitimate
+    // "qualified for nothing", while a null past the stale ceiling is an OUTAGE and throws.
+    async _validatorCapabilityRows(config, pubkey, limit){
+        let ops = this.explorer ? this.explorer.hubOperational : null;
+        if(ops && ops.enabled()){
+            let rows = await ops.getValidatorCapabilities({ signing_pubkey: pubkey });
+            if(rows) return this._normalizeHubOperationalRows(rows.slice(0, limit));
+            this._hubOperationalOutage('validator_capabilities');
+        }
+        let src  = this._hubSource(config, 'validator_capabilities');
+        let rows = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.signing_pubkey,
+                m.capability,
+                m.qualified,
+                m.self_test_ok,
+                m.enabled,
+                m.qualified_at_block,
+                m.updated_at
+            FROM ${src.table} m
+            WHERE m.signing_pubkey=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [pubkey]);
+        return this._normalizeHubOperationalRows(rows || []);
+    }
+
+    // Composed ATTESTATION lifecycle (M4.3). QUERY is EITHER the 64-hex request_id (the
+    // correlation key every leg carries) or the action_index of any ATTEST action in the
+    // round. A numeric QUERY resolves through getAttestationByActionIndex, the positional-arg
+    // point read the WS ChangeDetector already owns: it is REUSED here rather than re-routed
+    // or reshaped, because the detector depends on its signature exactly as it stands.
+    //
+    // WHAT THE SCHEMA FORCED, and it contradicts the obvious reading of the lifecycle:
+    // ATTEST v2 (expire) writes NO ROW OF ITS OWN. It is system-synthesized, allocates an
+    // action_index with FORMAT 2, and then only FLIPS the v0 request row's request_status to
+    // 'expired' and stamps resolved_block (xchain-indexer attest.js _parseExpire). So the
+    // expiry leg below is DERIVED from the request row, not selected from a v2 row, and
+    // there is no v2 action_index to link to: nothing in `attests` records it.
+    //
+    // Relay legs (ATTEST v3/v4) likewise write ordinary version 0 / version 1 rows carrying
+    // origin_chain + origin_action_index, so they arrive in the same request_id read; the
+    // relay block below names them rather than issuing a second query for rows that are by
+    // construction on ANOTHER chain's indexer DB.
+    async getAttestation(config){
+        let limit  = this._detailLimit(config);
+        let search = config.data.search;
+        let requestId = null;
+        if(this.util.isNumeric(search)){
+            let seed = await this.getAttestationByActionIndex(config, Number(search));
+            if(!seed) return [null];
+            requestId = seed.request_id;
+        } else {
+            requestId = String(search || '').toLowerCase();
+        }
+        if(!requestId) return [null];
+
+        // Every leg of one round in one bounded read, oldest first so the caller renders the
+        // lifecycle in the order it happened. request_id+version is indexed.
+        let rows = await this.doQuery(config,
+            `SELECT
+                a4.action,
+                m.action_index,
+                a1.action_format,
+                m.version,
+                m.request_id,
+                m.provider_id,
+                m.contract_index,
+                a2.address as source,
+                fp.address as fee_payer,
+                m.payload,
+                m.callback_method,
+                m.callback_params_json,
+                m.redundancy,
+                m.deadline_block,
+                m.gas_escrow,
+                ft.tick as fee_tick,
+                m.fee_amount,
+                m.request_status,
+                m.resolved_block,
+                m.responsible_set_json,
+                m.origin_chain,
+                m.origin_action_index,
+                m.response_hash,
+                m.response_payload,
+                m.response_status,
+                m.meta,
+                m.validator_signatures,
+                m.callback_execute_action_index,
+                m.block_index,
+                b1.block_time as timestamp,
+                t2.hash as tx_hash,
+                t1.tx_index,
+                s1.status
+            FROM
+                attests m
+                LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
+                LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
+                LEFT JOIN blocks              b1 ON (b1.block_index=t1.block_index)
+                LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
+                LEFT JOIN index_tickers       ft ON (ft.id=m.fee_tick_id)
+                LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
+                LEFT JOIN index_transactions  t2 ON (t2.id=t1.tx_hash_id)
+                LEFT JOIN index_actions       a4 ON (a4.id=a1.action_id)
+            WHERE m.request_id=?
+            ORDER BY m.version ASC, m.action_index ASC
+            LIMIT ` + limit, [requestId]);
+        if(!rows || !rows.length) return [null];
+
+        let request  = rows.find(r => Number(r.version) === 0) || null;
+        let response = rows.find(r => Number(r.version) === 1) || null;
+        if(request){
+            try { request.callback_params = this.util.isNull(request.callback_params_json) ? null : JSON.parse(request.callback_params_json); }
+            catch(e){ request.callback_params = request.callback_params_json; }
+            // The responsible set was PINNED as-of the request block; it is the electorate a
+            // reader checks the response signatures against, so it is parsed, not echoed raw.
+            request.responsible_set = this._parseSignaturesArray(request.responsible_set_json);
+        }
+        if(response)
+            response.quorum_signatures = this._parseSignaturesArray(response.validator_signatures);
+
+        let status = (request) ? request.request_status : null;
+        return [{
+            query:      config.data.search,
+            request_id: requestId,
+            provider_id: rows[0].provider_id,
+            legs:       rows,
+            request:    request,
+            response:   response,
+            // Derived, because ATTEST v2 persists nothing. `expired` is the stored terminal
+            // state, never a clock comparison against deadline_block: a request past its
+            // deadline that the expiry sweep has not reached yet is still 'pending'.
+            expiry: {
+                request_status: status,
+                deadline_block: (request) ? request.deadline_block : null,
+                resolved_block: (request) ? request.resolved_block : null,
+                expired:        status === 'expired'
+            },
+            relay: {
+                is_relay:            !!(request && !this.util.isNull(request.origin_chain)),
+                origin_chain:        (request) ? request.origin_chain : null,
+                origin_action_index: (request) ? request.origin_action_index : null,
+                response_relayed:    !!(response && !this.util.isNull(response.origin_action_index))
+            },
+            callback_execute_action_index: (response) ? response.callback_execute_action_index : null
+        }];
+    }
+
+    // Composed ANCHOR detail (M4.5). QUERY is the ANCHOR's action_index, or the DOGE
+    // transaction hash it landed in. The two are told apart in JS rather than bound into one
+    // OR: action_index is a BIGINT column and a 64-hex hash compared against it is coerced,
+    // not matched, so an OR would answer 0 rows for the hash form without erroring.
+    //
+    // Three legs beyond the payload, and each reads a DIFFERENT source:
+    //   - the covering hub-mirror state_checkpoints row, through the SAME correlated
+    //     latest-checkpoint_seq-per-height predicate getCheckpoints/getCommitments use
+    //     (_latestCheckpointPredicate), never a fourth differently-bounded variant;
+    //   - the publisher ELECTION, from capability_snapshots at this anchor's snapshot_block.
+    //     That table is CHAIN-AGNOSTIC (no chain/network columns; its key is
+    //     snapshot_block+capability+signing_pubkey+source), so src.filter/filterParams are
+    //     deliberately NOT bound to it;
+    //   - the reward-attestation trail, from anchor_reward_attestations, which IS
+    //     chain-scoped (chain/network are in uq_reward_tuple), so the same src.filter IS
+    //     bound there, first, exactly as getAnchorRewardAttestations binds it.
+    // Getting that asymmetry backwards yields a query that is silently wrong rather than one
+    // that errors, in whichever direction the blanket rule was applied.
+    //
+    // archive_b64 is never selected. It is a MEDIUMTEXT gzip chunk with nothing legible in
+    // it; its LENGTH and crc32 are what a reader can actually check an archive against.
+    async getAnchor(config){
+        let limit  = this._detailLimit(config);
+        let search = config.data.search;
+        let numeric   = this.util.isNumeric(search);
+        let predicate = numeric ? 'm.action_index=?' : 't2.hash=?';
+        let key       = numeric ? Number(search) : String(search || '').toLowerCase();
+        let rows = await this.doQuery(config,
+            `SELECT
+                a4.action,
+                m.action_index,
+                a1.action_format,
+                m.version,
+                m.chain,
+                m.network,
+                m.block_index,
+                m.block_hash,
+                m.ledger_hash,
+                m.actions_hash,
+                m.contract_hash,
+                m.checkpoint_seq,
+                m.snapshot_block,
+                m.state_root,
+                m.state_root_version,
+                m.block_merkle_root,
+                m.block_merkle_version,
+                m.match_batch_seq,
+                m.match_count,
+                m.batch_crc32,
+                m.total_chunks,
+                m.chunk_index,
+                CHAR_LENGTH(m.archive_b64) as archive_b64_length,
+                m.validator_signatures,
+                m.publisher,
+                m.publisher_attestations,
+                m.block_index_doge,
+                b1.block_time as timestamp,
+                t2.hash as tx_hash,
+                t1.tx_index,
+                s1.status
+            FROM
+                anchor_actions m
+                INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+            WHERE ` + predicate + `
+            ORDER BY m.action_index DESC
+            LIMIT 1`, [key]);
+        if(!rows || !rows.length) return [null];
+        let row = rows[0];
+        row.validator_signatures   = this._parseSignaturesArray(row.validator_signatures);
+        // The v4/v5/v6 XANCPUB tail is RAW WIRE transport, not the quorum-verified subset
+        // (anchor_actions.sql), so it is parsed for display and named as attestations to
+        // re-verify, never presented as a verified quorum.
+        row.publisher_attestations = this._parseSignaturesArray(row.publisher_attestations);
+
+        // Continuation chunks (v2) share the archive batch id. Bounded: a large archive
+        // splits into as many chunks as it needs, so this list has no natural ceiling.
+        let chunks = [];
+        if(!this.util.isNull(row.match_batch_seq))
+            chunks = await this.doQuery(config,
+                `SELECT
+                    m.action_index,
+                    m.version,
+                    m.chunk_index,
+                    m.total_chunks,
+                    CHAR_LENGTH(m.archive_b64) as archive_b64_length,
+                    m.block_index_doge,
+                    s1.status
+                FROM
+                    anchor_actions m
+                    LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                WHERE m.match_batch_seq=?
+                ORDER BY m.chunk_index ASC
+                LIMIT ` + limit, [row.match_batch_seq]) || [];
+
+        let src         = this._checkpointSource(config);
+        let scFilter    = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
+        let latest      = this._latestCheckpointPredicate(src, 'sc');
+        // The anchor names the CHECKPOINTED height on the CHECKPOINTED chain, which is what
+        // state_checkpoints is keyed by too, so this coin's own (chain, network) identity is
+        // the right filter here (the same reasoning getCommitments' anchor leg carries).
+        let checkpoint = [];
+        if(!this.util.isNull(row.block_index))
+            checkpoint = await this.doQuery(config,
+                `SELECT
+                    sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash,
+                    sc.actions_hash, sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block,
+                    sc.state_root, sc.state_root_version, sc.block_merkle_root,
+                    sc.block_merkle_version, sc.validator_signatures, sc.created_at
+                FROM ${src.table} sc
+                WHERE sc.block_index = ?${scFilter}${latest.sql}
+                LIMIT 1`, [Number(row.block_index), ...src.filterParams, ...latest.params]) || [];
+
+        // Publisher election. capability_snapshots is CHAIN-AGNOSTIC: no chain/network
+        // filter is bound, matching getCapabilitySnapshots. 'oracle_publish' is the
+        // capability the publisher election draws its set from.
+        let electorate = [];
+        if(!this.util.isNull(row.snapshot_block))
+            electorate = await this.doQuery(config,
+                `SELECT
+                    m.signing_pubkey,
+                    m.amount,
+                    m.source
+                FROM ${src.capTable} m
+                WHERE m.snapshot_block=? AND m.capability=?
+                ORDER BY m.id ASC
+                LIMIT ` + limit, [Number(row.snapshot_block), 'oracle_publish']) || [];
+
+        // Reward trail. CHAIN-SCOPED, so filterParams lead. Correlated on the mined DOGE
+        // txid this anchor landed in, OR on the table's own natural key minus publisher
+        // (snapshot_block + the round this anchor closed: checkpoint_seq for a checkpoint
+        // anchor, match_batch_seq for an archive one).
+        let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
+        let rounds = [row.checkpoint_seq, row.match_batch_seq]
+            .filter(v => !this.util.isNull(v)).map(v => Number(v));
+        let rewardWhere = 'm.doge_anchor_txid=?';
+        let rewardArgs  = [...src.filterParams, row.tx_hash];
+        if(rounds.length && !this.util.isNull(row.snapshot_block)){
+            rewardWhere += ` OR (m.snapshot_block=? AND m.round_reference IN (${rounds.map(() => '?').join(',')}))`;
+            rewardArgs.push(Number(row.snapshot_block), ...rounds);
+        }
+        let rewards = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.chain,
+                m.network,
+                m.reward_type,
+                m.round_reference,
+                m.snapshot_block,
+                m.publisher,
+                m.reward_amount,
+                m.doge_anchor_txid,
+                m.created_at
+            FROM ${src.rewardTable} m
+            WHERE 1=1` + outerFilter + ` AND (` + rewardWhere + `)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, rewardArgs) || [];
+
+        row.chunks             = chunks;
+        row.checkpoint         = (checkpoint.length) ? this._normalizeCheckpointRows(checkpoint)[0] : null;
+        row.publisher_election = electorate;
+        row.reward_attestations = rewards;
+        return [row];
+    }
+
+    // Composed ADDRESS STAKING panel (M4.6). One address, four questions the raw tabs below
+    // it cannot answer together: what is staked, what is cooling down and when it matures,
+    // what is claimable, and what has been slashed out from under it.
+    //
+    // Maturity is computed against the indexer's own tip (getMaxBlockIndex), not wall clock,
+    // so every explorer host answers identically and the number matches the consensus rule
+    // that releases the funds.
+    //
+    // Slash exposure has to reach the address through the KEYS it staked with, because
+    // neither slash table carries an address of the slashed party: capability_slash_events
+    // and slash_events both name a signing pubkey. So each family is scoped by the pubkey set
+    // this address staked, drawn from the ledger that family actually burns from (`stakes`
+    // for the capability family, `contract_stakes` for the contract family). Scoping both
+    // from one ledger would over- or under-report, depending which one was picked.
+    async getAddressStaking(config){
+        let limit   = this._detailLimit(config);
+        let address = config.data.search;
+        if(this.util.isNull(address)) return [null];
+        let tip = await this.getMaxBlockIndex(config);
+
+        let positions = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                a3.pubkey as signing_pubkey,
+                m.target_contract_index,
+                t3.tick,
+                m.amount,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                contract_stakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        let capabilityPositions = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                a3.pubkey as signing_pubkey,
+                m.amount,
+                m.activation_block,
+                m.deactivation_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                stakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        let cooldowns = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a3.pubkey as signing_pubkey,
+                m.target_contract_index,
+                t3.tick,
+                m.amount,
+                m.cooldown_end_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                contract_unstakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        let capabilityCooldowns = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                a3.pubkey as signing_pubkey,
+                m.amount,
+                m.cooldown_end_block,
+                m.block_index,
+                b1.block_time as timestamp,
+                s1.status
+            FROM
+                unstakes m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+                LEFT  JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE a2.address=?
+            ORDER BY m.action_index DESC
+            LIMIT ` + limit, [address]);
+
+        for(let row of [...(cooldowns || []), ...(capabilityCooldowns || [])]){
+            let end = Number(row.cooldown_end_block);
+            row.blocks_remaining = Math.max(0, end - tip);
+            row.matured          = tip >= end;
+        }
+
+        let trail = await this._collectTrail(config, address, limit);
+        let rewards = await this.doQuery(config,
+            `SELECT
+                m.id,
+                a3.pubkey as signing_pubkey,
+                m.reward_type,
+                m.round_reference,
+                m.amount,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                validator_rewards m
+                INNER JOIN blocks          b1 ON (b1.block_index=m.block_index)
+                INNER JOIN index_addresses a2 ON (a2.id=m.source_id)
+                LEFT  JOIN index_pubkeys   a3 ON (a3.id=m.signing_pubkey_id)
+            WHERE a2.address=?
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [address]);
+
+        // Row shape matches getCapabilitySlashEvents and the validator page's slash
+        // leg (slashed key + submitter + destination), so the same slash reads
+        // identically wherever it surfaces.
+        let capabilitySlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.slash_action_index,
+                pk.pubkey as slashed_pubkey,
+                m.capability,
+                m.equiv_key,
+                m.amount,
+                m.bounty_amount,
+                m.treasury_amount,
+                sub.address as submitter,
+                dst.address as destination,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                capability_slash_events m
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   pk  ON (pk.id=m.signing_pubkey_id)
+                LEFT  JOIN index_addresses sub ON (sub.id=m.submitter_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
+            WHERE m.signing_pubkey_id IN (
+                SELECT s.signing_pubkey_id FROM stakes s
+                    INNER JOIN index_addresses sa ON (sa.id=s.source_id)
+                WHERE sa.address=?)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [address]);
+
+        let contractSlashes = await this.doQuery(config,
+            `SELECT
+                m.id,
+                m.execution_index,
+                m.target_contract_index,
+                pk.pubkey as slashed_pubkey,
+                t3.tick,
+                m.amount,
+                dst.address as destination,
+                m.block_index,
+                b1.block_time as timestamp
+            FROM
+                slash_events m
+                INNER JOIN blocks          b1  ON (b1.block_index=m.block_index)
+                LEFT  JOIN index_pubkeys   pk  ON (pk.id=m.signing_pubkey_id)
+                LEFT  JOIN index_tickers   t3  ON (t3.id=m.tick_id)
+                LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
+            WHERE m.signing_pubkey_id IN (
+                SELECT cs.signing_pubkey_id FROM contract_stakes cs
+                    INNER JOIN index_addresses sa ON (sa.id=cs.source_id)
+                WHERE sa.address=?)
+            ORDER BY m.id DESC
+            LIMIT ` + limit, [address]);
+
+        return [{
+            address:              address,
+            chain_tip:            tip,
+            positions:            positions           || [],
+            capability_positions: capabilityPositions || [],
+            cooldowns:            cooldowns           || [],
+            capability_cooldowns: capabilityCooldowns || [],
+            rewards:              rewards             || [],
+            rewards_total:        trail.rewards_total,
+            collected_total:      trail.collected_total,
+            claimable:            trail.claimable,
+            collects:             trail.collects,
+            capability_slash_events: capabilitySlashes || [],
+            slash_events:            contractSlashes   || []
+        }];
     }
 
     async getAttestationsSince(config, sinceBlockIndex, limit){
@@ -10281,3 +12000,4 @@ class Database {
 
 module.exports = Database;
 module.exports.DbQueryError = DbQueryError;
+module.exports.ACTION_SUMMARY_FIELDS = ACTION_SUMMARY_FIELDS;

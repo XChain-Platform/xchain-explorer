@@ -79,6 +79,10 @@ const configChangedEmisor = new EventTarget();
 // Set to true after the first 'changed' event fires so late subscribers
 // registered after startSync() has already ticked get an immediate replay.
 let configChangedFired = false;
+// Interval handle for the periodic hub-config refresh, retained so stopSync()
+// can clear it during the shutdown drain (src/shutdown.js). Null when sync was
+// never started, which is the standalone NO_HUB case.
+let syncTimer = null;
 
 // Path to the on-disk last-known-good config cache. When the hub is
 // unreachable at startup, this lets the explorer come up serving the last
@@ -133,10 +137,24 @@ module.exports = {
         // tick (e.g. a hub blip) would otherwise surface as an unhandled
         // promise rejection (fatal in Node 15+). Swallow it, log, and keep
         // serving the in-memory cache until the hub recovers.
-        setInterval(() => {
+        //
+        // The handle is retained (and any prior one cleared, so a re-start replaces
+        // rather than doubles the ticker) because the shutdown drain must stop it:
+        // a tick landing mid-drain refetches hub config and emits 'changed', which
+        // rebuilds the very connection pools the drain is closing.
+        this.stopSync();
+        syncTimer = setInterval(() => {
             this.getConfig(endpoints, false) //cache=false to replace the current cache
                 .catch(err => console.warn('Config sync tick failed; continuing with cached config: ' + (err && err.message || err)));
         }, UPDATE_CONFIG_INTERVAL);
+    },
+
+    // Stop the periodic hub-config refresh. Idempotent, and a no-op when sync was
+    // never started (standalone NO_HUB mode never calls startSync).
+    stopSync: function(){
+        if(!syncTimer) return;
+        clearInterval(syncTimer);
+        syncTimer = null;
     },
 
     // Handle returning the current indexer configuration

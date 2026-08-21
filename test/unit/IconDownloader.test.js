@@ -16,14 +16,34 @@ const proxyquire = require('proxyquire').noCallThru();
 const path       = require('path');
 
 /**
- * Build a child_process.exec stub that calls its callback based on the
+ * Flatten one child_process.execFile call back into the single command string
+ * the handlers and assertions in this file match on. IconDownloader spawns via
+ * execFile(bin, argv, opts, cb) so there is no shell to escape and Node's
+ * timeout signals the binary itself; the argv shape is an implementation
+ * detail these tests should not have to spell out element by element.
+ */
+function execCmdText(call) {
+    const argv = Array.isArray(call.args[1]) ? call.args[1] : [];
+    return [call.args[0]].concat(argv).join(' ');
+}
+
+/**
+ * Build a child_process.execFile stub that calls its callback based on the
  * result map: { [cmdSubstring]: result }.  result = null means success with
  * empty stdout/stderr; result = Error means failure; result = {stdout,stderr}
- * means success with those values.
+ * means success with those values. The substring is matched against the
+ * flattened `bin arg arg ...` text, so the handlers read the same as they did
+ * when this spawned through a shell.
  */
 function makeExecStub(handlers) {
     // handlers: array of [predicateFn | string, resultOrError]
-    return sinon.stub().callsFake(function(cmd, cb) {
+    return sinon.stub().callsFake(function(file, args, opts, cb) {
+        // execFile's callback is the last argument whatever the arity; promisify
+        // always passes (file, args, opts, cb), but keep the shorter forms working
+        // so a test can call the stub directly.
+        if (typeof args === 'function')      { cb = args; args = []; opts = {}; }
+        else if (typeof opts === 'function') { cb = opts; opts = {}; }
+        const cmd = [file].concat(Array.isArray(args) ? args : []).join(' ');
         for (const [pred, result] of (handlers || [])) {
             const match = typeof pred === 'function' ? pred(cmd) : cmd.includes(pred);
             if (match) {
@@ -88,7 +108,10 @@ function makeStubs(opts) {
 
     if (opts.sniffMimeReject) {
         // Override to always error on mime sniff
-        execStub.callsFake(function(cmd, cb) {
+        execStub.callsFake(function(file, args, opts, cb) {
+            if (typeof args === 'function')      { cb = args; args = []; }
+            else if (typeof opts === 'function') { cb = opts; }
+            const cmd = [file].concat(Array.isArray(args) ? args : []).join(' ');
             if (cmd.includes('--mime-type')) {
                 cb(new Error('file command failed'));
             } else {
@@ -103,6 +126,12 @@ function makeStubs(opts) {
     return { axiosStub, fsStub, fspStub, execStub, resolveDescriptionToSource, selectIconUrlFromCip25Json };
 }
 
+// The `action:` grammar is NOT stubbed: it is shared source text that the module
+// embeds in the re-stale SQL, and a stubbed copy here would let the SQL and the
+// real resolver drift apart without a test noticing - which is the whole failure
+// the shared constant exists to prevent.
+const { ACTION_REF_PATTERN } = require('../../src/IconResolver.js');
+
 /**
  * Load IconDownloader through proxyquire using the provided stubs.
  */
@@ -111,10 +140,11 @@ function loadIconDownloader(stubs) {
         'axios':          stubs.axiosStub,
         'fs':             stubs.fsStub,
         'fs/promises':    stubs.fspStub,
-        'child_process':  { exec: stubs.execStub },
+        'child_process':  { execFile: stubs.execStub },
         './IconResolver': {
             resolveDescriptionToSource: stubs.resolveDescriptionToSource,
             selectIconUrlFromCip25Json: stubs.selectIconUrlFromCip25Json,
+            ACTION_REF_PATTERN,
         },
     });
 }
@@ -557,12 +587,13 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            const conn = makeMockConn([[], []]);
+            const conn = makeMockConn([[], [], []]);
             await d._discover(conn);
 
-            expect(conn.query.callCount).to.equal(2);
+            expect(conn.query.callCount).to.equal(3);
             const firstSql  = conn.query.firstCall.args[0];
             const secondSql = conn.query.secondCall.args[0];
+            const thirdSql  = conn.query.thirdCall.args[0];
 
             expect(firstSql).to.include('INSERT IGNORE INTO icons');
             expect(firstSql).to.include('pending');
@@ -570,6 +601,160 @@ describe('IconDownloader', function () {
             expect(secondSql).to.include('UPDATE icons');
             expect(secondSql).to.include('stale');
             expect(secondSql).to.include('<=>');
+
+            // The one-shot re-stale for tokens marked icon-less before the resolver
+            // learned the on-chain `action:` scheme. Description-hash drift (the second
+            // statement) never reaches them: an on-chain TIS description is usually
+            // description-locked, so without this the fix is invisible on every existing
+            // row. Its predicate is the resolver's own grammar rather than an
+            // `action:` prefix test, which is what keeps it one-shot (#5290, below).
+            expect(thirdSql).to.include('UPDATE icons');
+            expect(thirdSql).to.include('stale');
+            expect(thirdSql).to.include('icon_hash IS NULL');
+            expect(thirdSql).to.include("REGEXP '" + ACTION_REF_PATTERN + "'");
+            expect(thirdSql).to.not.include("LIKE 'action:%'");
+
+            // The binary conversion is load-bearing, not cosmetic: under the
+            // column's own utf8mb4_general_ci collation, LOWER() folds U+0130 into
+            // plain 'i' and widens the predicate past anything the resolver can
+            // resolve (#5290). Proven against a real engine in
+            // test/conformance/icon-restale-predicate.test.js.
+            expect(thirdSql).to.include('CONVERT(TRIM(t.description) USING binary)');
+            expect(thirdSql, 'no case folding may sit between the column and the grammar')
+                .to.not.match(/LOWER\s*\(/i);
+        });
+    });
+
+    // #5290: the one-shot re-stale has to be ONE-shot. It selects rows in the
+    // terminal ok-with-no-icon state, which is exactly the state _processToken
+    // writes for a description that resolves to no source at all - so a predicate
+    // any wider than the resolver's own grammar re-stales those same rows on every
+    // cycle for as long as the token exists: a permanent write loop on the
+    // indexer-owned icons table, plus permanent occupancy of the batch queue,
+    // mintable by anyone who can issue a token described `action:` plus anything.
+    describe('_discover(): the action: re-stale is one-shot', function () {
+
+        // Probed against the live resolver: each is PREFIXED with `action:` and
+        // resolves to null, so none of them may ever be selected for a re-stale.
+        // The U+0130 spellings are the attacker-mintable ones this suite once
+        // waved through; see the model's own caveat below.
+        const UNRESOLVABLE = [
+            'action:foo', 'action:BTC:', 'action:', 'action:12a',
+            'action:XYZ:5', 'action:0x10', 'action: 12', 'Action:hello',
+            'ACTİON:12', 'ACTİON:BTC:5', 'actİon:12', 'actıon:12',
+        ];
+        const RESOLVABLE = ['action:12', 'action:BTC:5', 'ACTION:DOGE:9', '  action:7  '];
+
+        const realResolve = require('../../src/IconResolver.js').resolveDescriptionToSource;
+
+        /**
+         * Read the re-stale predicate out of the SQL the module actually emits and
+         * evaluate it the way the server would, so these assertions bind to the
+         * shipped statement rather than to a copy of it.
+         *
+         * THIS IS A MODEL OF MariaDB, NOT MariaDB, and the distinction is not
+         * academic: the previous model evaluated the predicate as
+         * `re.test(desc.trim().toLowerCase())` to stand in for LOWER(TRIM(...)),
+         * and JavaScript's toLowerCase() is not MariaDB's LOWER(). MariaDB folds
+         * U+0130 to plain 'i'; toLowerCase() expands it to 'i' plus a COMBINING DOT
+         * ABOVE, which does not match the grammar. So the model reported "not
+         * selected" for `ACTİON:12` while the database selected it, and #5290 passed
+         * this suite twice while still looping in production.
+         *
+         * What makes the model sound now is that the shipped predicate no longer
+         * asks either engine to fold case: ACTION_REF_PATTERN spells both cases out
+         * and the SQL matches under CONVERT(... USING binary), so the only remaining
+         * gaps between this function and the server are the two below, both of which
+         * make the model select AT LEAST what the database does - the safe direction
+         * for a "must never select" assertion:
+         *
+         *   - SQL TRIM() strips only spaces where String#trim() strips all
+         *     whitespace, so the model trims to ASCII spaces to match.
+         *   - MariaDB's PCRE `$` also matches before one trailing newline, which JS
+         *     `$` does not, so the model tries that spelling too.
+         *
+         * The engine itself answers this question in
+         * test/conformance/icon-restale-predicate.test.js, which runs the shipped
+         * statement against a real MariaDB over every Unicode scalar value. When the
+         * two tiers ever disagree, the conformance tier is right.
+         */
+        async function restalePredicate() {
+            const stubs = makeStubs();
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            const conn = makeMockConn([[], [], []]);
+            await d._discover(conn);
+            const sql = conn.query.thirdCall.args[0];
+            const m = /CONVERT\(TRIM\(t\.description\) USING binary\)\s+REGEXP\s+'([^']+)'/.exec(sql);
+            expect(m, 'the re-stale must test the WHOLE description against a regexp, ' +
+                'under a binary collation so no case folding can widen it:\n' + sql)
+                .to.not.equal(null);
+            expect(sql, 'LOWER() is not /i; emulating one with the other is what #5290 was')
+                .to.not.match(/LOWER\s*\(/i);
+            const re = new RegExp(m[1]);
+            const sqlTrim = s => String(s).replace(/^ +/, '').replace(/ +$/, '');
+            return desc => {
+                const t = sqlTrim(desc);
+                return re.test(t) || re.test(t.replace(/\n$/, ''));
+            };
+        }
+
+        it('never selects a description the resolver cannot resolve', async function () {
+            const selects = await restalePredicate();
+            for (const desc of UNRESOLVABLE) {
+                expect(realResolve(desc), `${desc} must resolve to no source`).to.equal(null);
+                expect(selects(desc), `${desc} resolves to nothing, so re-staling it loops forever`)
+                    .to.equal(false);
+            }
+        });
+
+        it('still selects every description the resolver does resolve', async function () {
+            const selects = await restalePredicate();
+            for (const desc of RESOLVABLE) {
+                expect(realResolve(desc).scheme, `${desc} must resolve`).to.equal('action');
+                expect(selects(desc), `${desc} resolves, so the fix must reach its row`)
+                    .to.equal(true);
+            }
+        });
+
+        it('leaves an unresolvable action:-prefixed row un-staled on every cycle', async function () {
+            const selects = await restalePredicate();
+
+            // One icons row per probe, in the terminal state the pipeline leaves them
+            // in before this round's fix: status ok, icon_hash NULL.
+            const table = UNRESOLVABLE.map((description, i) => ({
+                icon_id: i + 1, description, status: 'ok', icon_hash: null,
+            }));
+            const runRestale = () => {
+                for (const row of table) {
+                    if (row.status === 'ok' && row.icon_hash === null && selects(row.description)) {
+                        row.status = 'stale';
+                    }
+                }
+                return table.filter(r => r.status === 'stale').map(r => r.description);
+            };
+
+            // Cycle 1.
+            expect(runRestale()).to.deep.equal([]);
+
+            // And these rows really do sit in the state the statement selects on:
+            // drive each one through _processToken and watch it take the terminal
+            // ok-with-null-icon_hash path. That is the loop's other half.
+            const stubs = makeStubs({ resolveDescriptionToSource: sinon.stub().callsFake(realResolve) });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            for (const row of table) {
+                const conn = { query: sinon.stub().resolves([]), release: sinon.stub().resolves() };
+                await d._processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' },
+                    { icon_id: row.icon_id, attempts: 0, description: row.description, tick: 'TOK' + row.icon_id });
+                expect(conn.query.callCount).to.equal(1);
+                const [sql, params] = conn.query.firstCall.args;
+                expect(sql).to.include("status='ok'");
+                expect(params[2], 'icon_hash stays NULL: the state the re-stale selects').to.equal(null);
+            }
+
+            // Cycle 2: the rows are back in that state, and are still not selected.
+            expect(runRestale()).to.deep.equal([]);
         });
     });
 
@@ -1262,6 +1447,101 @@ describe('IconDownloader', function () {
         });
     });
 
+    // The on-chain TIS scheme the token page resolves (actionRefToRawPath in
+    // content/js/xchain.js). Its bytes are the FILE action's stored bytes in the
+    // colocated decoder DB, read the way the /{COIN}/api/file/{index}/raw route reads
+    // them, so nothing here opens a socket.
+    //
+    // The load-bearing property is the FAILURE shape, not the happy path: answering
+    // "no source" for an unreadable FILE would put the row on _processToken's terminal
+    // _markOk path, where only a description change can ever revive it, and getFileRaw
+    // returns null for a decoder DB that is merely unreachable exactly as it does for a
+    // FILE that does not exist. So every failure throws into the retry backoff instead.
+    describe('_fetchSourceBytes(): action scheme', function () {
+
+        // An explorer whose DB layer answers like the real one, with per-test overrides.
+        function makeActionDownloader(dbOverrides, pools) {
+            const stubs = makeStubs();
+            const IconDownloader = loadIconDownloader(stubs);
+            const explorer = makeExplorer(undefined, pools !== undefined ? pools : {
+                BTC:   { pool: makeMockPool(makeMockConn([])) },
+                RDOGE: { pool: makeMockPool(makeMockConn([])) },
+            });
+            explorer.db.getGatedFileRaw = sinon.stub().resolves([]);
+            explorer.db.getFileRaw      = sinon.stub().resolves(null);
+            Object.assign(explorer.db, dbOverrides || {});
+            return { d: new IconDownloader(explorer), explorer };
+        }
+
+        const FLAVOR = { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' };
+
+        it('returns the FILE bytes when they are not a JSON document', async function () {
+            const { d, explorer } = makeActionDownloader({
+                getFileRaw: sinon.stub().resolves({ raw_data: Buffer.from('PNGBYTES'), data: 'FILE|0|x', type: 'image/png' }),
+            });
+            const out = await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '42' }, 2, FLAVOR);
+            expect(out.toString()).to.equal('PNGBYTES');
+            expect(explorer.db.getFileRaw.firstCall.args[0]).to.deep.equal({ coin: 'BTC', data: {} });
+            expect(explorer.db.getFileRaw.firstCall.args[1]).to.equal('42');
+        });
+
+        it('decodes the inline base64 image out of an on-chain TIS document', async function () {
+            const tis = JSON.stringify({ images: [{ type: 'icon', size: '64x64', data: 'data:image/png;base64,aGVsbG8=' }] });
+            const stubs = makeStubs();
+            // The picker is stubbed in this file, so mirror what the real one returns.
+            stubs.selectIconUrlFromCip25Json = sinon.stub().returns('data:image/png;base64,aGVsbG8=');
+            const IconDownloader = loadIconDownloader(stubs);
+            const explorer = makeExplorer();
+            explorer.db.getGatedFileRaw = sinon.stub().resolves([]);
+            explorer.db.getFileRaw = sinon.stub().resolves({ raw_data: Buffer.from(tis), data: 'FILE|0|x', type: 'application/json' });
+            const d = new IconDownloader(explorer);
+
+            const out = await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '7' }, 2, FLAVOR);
+            expect(out.toString()).to.equal('hello');
+            expect(stubs.axiosStub.get.called).to.equal(false, 'an on-chain icon must cost no egress');
+        });
+
+        it('throws rather than answering no-source when the FILE is unreadable here', async function () {
+            const { d } = makeActionDownloader({ getFileRaw: sinon.stub().resolves(null) });
+            let threw = null;
+            try { await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '9' }, 2, FLAVOR); }
+            catch (e) { threw = e; }
+            expect(threw).to.be.an('error');
+            expect(threw.message).to.include('no readable bytes');
+        });
+
+        it('throws on a token-gated FILE, whose stored bytes are ciphertext', async function () {
+            const { d } = makeActionDownloader({
+                getGatedFileRaw: sinon.stub().resolves([{ raw_data: Buffer.from('CIPHER') }]),
+            });
+            let threw = null;
+            try { await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '9' }, 2, FLAVOR); }
+            catch (e) { threw = e; }
+            expect(threw).to.be.an('error');
+            expect(threw.message).to.include('token-gated');
+        });
+
+        it('resolves a sibling-chain ref against this flavor network tier', async function () {
+            const { d, explorer } = makeActionDownloader({
+                getFileRaw: sinon.stub().resolves({ raw_data: Buffer.from('PNGBYTES'), data: 'FILE|0|x', type: 'image/png' }),
+            });
+            // A regtest BTC flavor naming DOGE means RDOGE, the same rule the page's
+            // actionRefToRawPath applies to the current chain's tier.
+            await d._fetchSourceBytes({ scheme: 'action', coin: 'DOGE', index: '3' }, 2,
+                { coin: 'BTC', network: 'regtest', poolKey: 'RBTC' });
+            expect(explorer.db.getFileRaw.firstCall.args[0].coin).to.equal('RDOGE');
+        });
+
+        it('throws when the sibling chain has no pool on this instance', async function () {
+            const { d } = makeActionDownloader({}, { BTC: { pool: makeMockPool(makeMockConn([])) } });
+            let threw = null;
+            try { await d._fetchSourceBytes({ scheme: 'action', coin: 'LTC', index: '3' }, 2, FLAVOR); }
+            catch (e) { threw = e; }
+            expect(threw).to.be.an('error');
+            expect(threw.message).to.include('no pool configured for LTC');
+        });
+    });
+
     describe('_writeIcon()', function () {
         function makeWriteIconDownloader(execHandlers, fspOverrides) {
             const fspStub = {
@@ -1299,13 +1579,13 @@ describe('IconDownloader', function () {
             expect(fspStub.writeFile.callCount).to.equal(1);
             expect(fspStub.writeFile.firstCall.args[1]).to.deep.equal(bytes);
 
-            const sniffCall = execStub.getCalls().find(c => c.args[0].includes('--mime-type'));
+            const sniffCall = execStub.getCalls().find(c => execCmdText(c).includes('--mime-type'));
             expect(sniffCall).to.not.equal(undefined);
 
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(convertCall).to.not.equal(undefined);
-            expect(convertCall.args[0]).to.include('64x64!');
-            expect(convertCall.args[0]).to.include('-format png');
+            expect(execCmdText(convertCall)).to.include('64x64!');
+            expect(execCmdText(convertCall)).to.include('-format png');
 
             expect(fspStub.readFile.callCount).to.equal(1);
             expect(fspStub.readFile.firstCall.args[0]).to.equal(iconPath);
@@ -1376,8 +1656,8 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             await d._writeIcon(Buffer.from('GIFDATA'), '/tmp/out.png');
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            expect(convertCall.args[0]).to.include('[0]');
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(execCmdText(convertCall)).to.include('[0]');
         });
 
         // SVG never reaches convert: ImageMagick's SVG renderer dereferences
@@ -1394,7 +1674,7 @@ describe('IconDownloader', function () {
             } catch (e) {
                 expect(e.message).to.include("unsupported mime 'image/svg+xml'");
             }
-            expect(execStub.getCalls().find(c => c.args[0].includes('-resize'))).to.equal(undefined);
+            expect(execStub.getCalls().find(c => execCmdText(c).includes('-resize'))).to.equal(undefined);
         });
 
         it('uses [0] frame selector for WebP mime type', async function () {
@@ -1403,8 +1683,8 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             await d._writeIcon(Buffer.from('WEBPDATA'), '/tmp/out.png');
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            expect(convertCall.args[0]).to.include('[0]');
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(execCmdText(convertCall)).to.include('[0]');
         });
 
         it('does NOT use [0] frame selector for JPEG', async function () {
@@ -1413,8 +1693,78 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             await d._writeIcon(Buffer.from('JPEGDATA'), '/tmp/out.png');
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            expect(convertCall.args[0]).to.not.match(/\[0\]/);
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(execCmdText(convertCall)).to.not.match(/\[0\]/);
+        });
+
+        // These bytes come from on-chain token descriptions, so both subprocesses
+        // are attacker-fed. maxBytes caps the download and never the decode, and
+        // runOnce holds the _running guard for the whole pass, so an unbounded
+        // convert turns one hostile issuance into a host OOM or a pipeline that is
+        // stalled for every coin until restart.
+        it('bounds convert with a wall-clock timeout and a SIGKILL', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            d.cfg.convertTimeoutMs = 12345;
+            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(convertCall.args[2]).to.include({ timeout: 12345, killSignal: 'SIGKILL' });
+        });
+
+        it('bounds the mime sniff the same way, so a hung `file` cannot wedge the pass', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            d.cfg.convertTimeoutMs = 12345;
+            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+
+            const sniffCall = execStub.getCalls().find(c => execCmdText(c).includes('--mime-type'));
+            expect(sniffCall.args[2]).to.include({ timeout: 12345, killSignal: 'SIGKILL' });
+        });
+
+        it('caps ImageMagick pixel-cache allocation with -limit before the input file', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            const argv  = convertCall.args[1];
+            const pairs = [];
+            argv.forEach((a, i) => { if (a === '-limit') pairs.push(argv[i + 1] + ' ' + argv[i + 2]); });
+            expect(pairs).to.have.members(['memory 256MiB', 'map 256MiB', 'disk 0']);
+
+            // Order is load-bearing: ImageMagick applies settings left to right, so a
+            // -limit after the filename does not bound the read that allocates.
+            const lastLimit = argv.lastIndexOf('-limit');
+            const srcIdx    = argv.findIndex(a => String(a).startsWith('/') && !String(a).endsWith('out.png'));
+            expect(srcIdx).to.be.greaterThan(-1);
+            expect(lastLimit).to.be.lessThan(srcIdx);
+        });
+
+        it('reports a timeout kill as a timeout, so the row records why it failed', async function () {
+            const killed  = new Error('Command failed');
+            killed.killed = true;
+            killed.signal = 'SIGKILL';
+            const { d } = makeWriteIconDownloader([
+                ['--mime-type', { stdout: 'image/png\n', stderr: '' }],
+                ['-resize',     killed],
+            ]);
+            d.cfg.convertTimeoutMs = 777;
+            try {
+                await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+                throw new Error('should have thrown');
+            } catch (e) {
+                expect(e.message).to.include('convert failed: timed out after 777ms');
+            }
+        });
+
+        it('spawns convert without a shell, so no argv element needs escaping', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            await d._writeIcon(Buffer.from('PNGBYTES'), "/tmp/it's odd.png");
+
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(convertCall.args[0]).to.equal('/usr/bin/convert');
+            expect(convertCall.args[1]).to.be.an('array');
+            // The path travels as one argv element, unquoted: there is no shell to
+            // re-split it, which is what makes the removed shellEscape unnecessary.
+            expect(convertCall.args[1]).to.include("/tmp/it's odd.png");
         });
     });
 
@@ -1462,10 +1812,12 @@ describe('IconDownloader', function () {
                 query:   sinon.stub(),
                 release: sinon.stub().resolves(),
             };
-            // First two calls: _discover; third call: SELECT
+            // First three calls: _discover (insert, description-drift re-stale, action:
+            // one-shot re-stale); fourth call: SELECT
             conn.query.onCall(0).resolves([]);
             conn.query.onCall(1).resolves([]);
-            conn.query.onCall(2).resolves(rows);
+            conn.query.onCall(2).resolves([]);
+            conn.query.onCall(3).resolves(rows);
 
             const pool = makeMockPool(conn);
             const flavor = { coin: 'BTC', network: 'mainnet', pool };
@@ -1516,9 +1868,12 @@ describe('IconDownloader', function () {
                 query:   sinon.stub(),
                 release: sinon.stub().resolves(),
             };
+            // First three calls: _discover (insert, description-drift re-stale, action:
+            // one-shot re-stale); fourth call: SELECT
             conn.query.onCall(0).resolves([]);
             conn.query.onCall(1).resolves([]);
-            conn.query.onCall(2).resolves(rows);
+            conn.query.onCall(2).resolves([]);
+            conn.query.onCall(3).resolves(rows);
 
             const pool = makeMockPool(conn);
             const flavor = { coin: 'BTC', network: 'mainnet', pool };

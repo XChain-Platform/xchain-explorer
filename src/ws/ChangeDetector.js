@@ -76,7 +76,9 @@ class ChangeDetector extends EventEmitter {
 
         // Track the unconfirmed (decoder mempool) snapshot per coin. Keyed by
         // tx_hash: the mempool table has no monotonic index, so each poll
-        // diffs the full (capped) snapshot against the previous one.
+        // diffs the tx_hash-ordered (capped) window against the previous one;
+        // see _checkMempoolForCoin for what a saturated window does and does
+        // not prove.
         this.mempoolState = {};
 
         // Polling timer reference
@@ -163,17 +165,27 @@ class ChangeDetector extends EventEmitter {
         const state = this.mempoolState[coin];
         if (!state) return;
 
-        const rows = await this.db.getDecoderMempoolRows({ coin }, 500);
+        const WINDOW = 500;
+        const rows = await this.db.getDecoderMempoolRows({ coin }, WINDOW);
         const current = new Set();
         const decodedNew = [];
+        let maxHash = null;
         for (const row of rows) {
             if (!row || !row.tx_hash) continue;
             current.add(row.tx_hash);
+            const key = String(row.tx_hash).toLowerCase();
+            if (maxHash === null || key > maxHash) maxHash = key;
             if (!state.seenHashes.has(row.tx_hash)) {
                 const decoded = this.db.decodeMempoolRow(row);
                 if (decoded) decodedNew.push(decoded);
             }
         }
+        // The read is ORDER BY tx_hash LIMIT 500 (getDecoderMempoolRows). When the
+        // window came back full the table may hold more rows than it covers, and
+        // an already-seen hash sorting above the largest hash read was never
+        // looked at: its absence proves nothing. Only a hash at or below that
+        // bound is known gone. A short window covers the whole table.
+        const covered = (rows.length >= WINDOW) ? maxHash : null;
 
         // First poll: seed without emitting (mirrors block/action init)
         if (!state.initialized) {
@@ -185,11 +197,18 @@ class ChangeDetector extends EventEmitter {
         for (const decoded of decodedNew)
             this.emit('mempool_action', coin, decoded);
 
-        for (const hash of state.seenHashes)
-            if (!current.has(hash))
-                this.emit('mempool_removed', coin, { tx_hash: hash });
+        const next = current;
+        for (const hash of state.seenHashes) {
+            if (current.has(hash)) continue;
+            if (covered !== null && String(hash).toLowerCase() > covered) {
+                // Out of the window's range: carry forward, unknown rather than gone.
+                next.add(hash);
+                continue;
+            }
+            this.emit('mempool_removed', coin, { tx_hash: hash });
+        }
 
-        state.seenHashes = current;
+        state.seenHashes = next;
     }
 
     async _checkCoin(coin) {

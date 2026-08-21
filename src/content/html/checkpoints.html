@@ -1,0 +1,51 @@
+<!-- State Checkpoints (quorum-signed state_checkpoints, hub-mirrored) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-certificate"></i> State Checkpoints
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-checkpoint">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Seq</th>
+                        <th class="block">Snapshot Block</th>
+                        <th class="">State Root</th>
+                        <th class="">Block Merkle Root</th>
+                        <th class="">Signers</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="9" class="loading-data">Loading checkpoint data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+            <div class="small text-muted mt-2">
+                Signers is the number of signatures attached to the checkpoint. Whether those
+                signatures actually verify against the qualifying validator set is a separate
+                question, answered per checkpoint on its detail page.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'State Checkpoints';
+    XC.pageInfo.description = 'Quorum-signed state checkpoints (the light-client verification surface) on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/checkpoints';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'checkpoint', null, null);
+
+});
+</script>

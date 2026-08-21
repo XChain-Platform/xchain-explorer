@@ -96,7 +96,18 @@ const HUB_LOCAL_TABLES = [
     'p2p_peers.sql',
     'consensus_state.sql',
     'configs.sql',
-    'telemetry_pings.sql'
+    'telemetry_pings.sql',
+    // getReorgs' no-hub leg reads reorg_attestations out of the same co-located
+    // hub schema. Its primary transport is the getreorghistory RPC, but this tier
+    // deliberately runs the NO_HUB shape, which is the only shape in which the
+    // co-located SQL meets the real DDL.
+    'reorg_attestations.sql',
+    // getSlashProposals' no-hub leg reads slash_proposals out of the same
+    // co-located hub schema. Its primary transport is the getslashproposals RPC,
+    // but this tier deliberately runs the NO_HUB shape, which is the only shape
+    // in which the co-located SQL meets the real DDL. It is also the only tier
+    // that proves SHA2(COALESCE(m.evidence,''), 256) is legal against it.
+    'slash_proposals.sql'
 ];
 
 // Per-method probe arguments for read paths whose WHERE clause binds a
@@ -111,7 +122,19 @@ const PROBE_ARGS = {
     getContractState:   { search: '1' },
     getContractBalance: { search: 'C:BTC:1' },
     // poll_results is keyed by the poll's creating action_index.
-    getPollResults:     { search: '1' }
+    getPollResults:     { search: '1' },
+    // A single state checkpoint is keyed by block height.
+    getCheckpoint:      { search: '1' },
+    // The M4 detail compositions. Each resolves a subject first and returns null
+    // when it finds none, so on an empty schema this tier proves only that the
+    // IDENTITY query is legal; the composed legs behind it are not reached. That
+    // is a real limit of probing a composition rather than a builder, and it is
+    // why these methods also carry query-shape unit coverage: the two tiers
+    // answer different questions and neither substitutes for the other.
+    getValidator:       { search: '1' },
+    getAttestation:     { search: '1' },
+    getAnchor:          { search: '1' },
+    getAddressStaking:  { search: '1' }
 };
 
 // The canonical UTF-8 ACTION string the decoder writes to
@@ -406,7 +429,16 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             '/RBTC/api/governance_votes',
             '/RBTC/api/peers',
             '/RBTC/api/consensus_state',
-            '/RBTC/api/configs'
+            '/RBTC/api/configs',
+            // M3: four more callers of the same bare-request shape. commitments and
+            // anchor_reward_attestations carry unconditional _checkpointSource
+            // placeholders (the exact "phantom search seed drops a real placeholder"
+            // risk this test exists for), capability_snapshots binds none, and reorgs
+            // binds its own mandatory chain scope.
+            '/RBTC/api/commitments',
+            '/RBTC/api/anchor_reward_attestations',
+            '/RBTC/api/capability_snapshots',
+            '/RBTC/api/reorgs'
         ];
         const failures = [];
         for (const route of routes) {
@@ -508,8 +540,11 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             // Seeded as the canonical UTF-8 ACTION string, which is what the
             // decoder's mempool path writes; this row is byte-identical
             // to the `transactions.data` value its confirmed twin would carry.
+            // destination is NULL as in production: the decoder binds the column
+            // on every insert but parseTransaction never sets it (see the
+            // getDecoderMempoolRows contract note in src/db.js).
             await conn.query('INSERT INTO mempool_transactions (tx_hash, source, destination, amount, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
-                ['conf-mempool-tx-1', 'bcrt1qconformance', 'bcrt1qconformance', 0, 500, MEMPOOL_ACTION_STRING]);
+                ['conf-mempool-tx-1', 'bcrt1qconformance', null, 0, 500, MEMPOOL_ACTION_STRING]);
         } finally {
             conn.release();
         }

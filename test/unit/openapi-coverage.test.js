@@ -33,11 +33,14 @@ function sourceApiRoutes() {
     return out;
 }
 
-// app.get('/:coin/api/...') registrations, normalized to the spec's
-// template style (:coin -> {COIN}, :actionIndex -> {ACTION_INDEX}).
+// app.get('/:coin/api/...') and app.post('/:coin/api/...') registrations,
+// normalized to the spec's template style (:coin -> {COIN}, :actionIndex ->
+// {ACTION_INDEX}). Both verbs, because a route can be registered POST-only
+// (the contract-call simulation route carries no GET at all), which a
+// GET-only extractor cannot see (row M1.8).
 function sourceSpecialRoutes() {
     const out = new Set();
-    for (const m of SRC.matchAll(/app\.get\('(\/:coin\/api\/[^']*)'/g)) {
+    for (const m of SRC.matchAll(/app\.(?:get|post)\('(\/:coin\/api\/[^']*)'/g)) {
         out.add(m[1].replace(/:([A-Za-z]+)/g, (_s, name) =>
             '{' + name.replace(/([A-Z])/g, '_$1').toUpperCase() + '}'));
     }
@@ -70,14 +73,20 @@ describe('openapi.json route coverage', () => {
     });
 
     it('every path has operationId, tag, summary, and error responses', () => {
+        // Method-agnostic: a path documents GET, POST, or both (the contract-call
+        // simulation route is POST-only), so this checks whichever operations are
+        // actually present rather than assuming def.get exists.
         for (const [p, def] of Object.entries(SPEC.paths)) {
-            const op = def.get;
-            expect(op, `${p} must define GET`).to.exist;
-            expect(op.operationId, `${p} operationId`).to.be.a('string').and.not.empty;
-            expect(op.tags, `${p} tags`).to.be.an('array').with.lengthOf(1);
-            expect(op.summary, `${p} summary`).to.be.a('string').and.not.empty;
-            expect(op.responses['200'], `${p} 200 response`).to.exist;
-            expect(op.responses['400'], `${p} 400 response`).to.exist;
+            const methods = ['get', 'post'].filter((m) => def[m]);
+            expect(methods.length, `${p} must define GET and/or POST`).to.be.greaterThan(0);
+            for (const m of methods) {
+                const op = def[m];
+                expect(op.operationId, `${p} ${m} operationId`).to.be.a('string').and.not.empty;
+                expect(op.tags, `${p} ${m} tags`).to.be.an('array').with.lengthOf(1);
+                expect(op.summary, `${p} ${m} summary`).to.be.a('string').and.not.empty;
+                expect(op.responses['200'], `${p} ${m} 200 response`).to.exist;
+                expect(op.responses['400'], `${p} ${m} 400 response`).to.exist;
+            }
         }
     });
 
@@ -106,7 +115,13 @@ describe('openapi.json route coverage', () => {
     });
 
     it('operationIds are unique', () => {
-        const ids = Object.values(SPEC.paths).map((d) => d.get.operationId);
+        // d.get.operationId alone TypeErrors on a POST-only path (contract-call has no
+        // GET), and would also miss a genuine GET+POST collision, so collect both.
+        const ids = [];
+        for (const d of Object.values(SPEC.paths)) {
+            if (d.get)  ids.push(d.get.operationId);
+            if (d.post) ids.push(d.post.operationId);
+        }
         expect(new Set(ids).size).to.equal(ids.length);
     });
 

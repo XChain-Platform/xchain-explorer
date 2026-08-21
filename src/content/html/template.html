@@ -17,6 +17,7 @@
     <link type="image/ico" rel="icon"       href="/images/favicon.ico">
     <link type="text/css"  rel="stylesheet" href="/css/bootstrap.min.css">
     <link type="text/css"  rel="stylesheet" href="/css/jquery.dataTables.min.css">
+    <link type="text/css"  rel="stylesheet" href="/themes/classic/tokens.css">
     <link type="text/css"  rel="stylesheet" href="/css/xchain-charts.css">
     <link type="text/css"  rel="stylesheet" href="/css/swagger-ui.css" />
     <link type="text/css"  rel="stylesheet" href="/css/highlight-github.min.css">
@@ -38,9 +39,10 @@
         /* Grouped "Data" mega-menu: the protocol exposes 50+ views; lay them out as labelled
            columns by spec category instead of one long scrolling list. */
         .xc-navmega{ width:max-content; max-width:min(1040px,95vw); }
-        .xc-navmega-grid{ display:grid; grid-template-columns:repeat(4,minmax(185px,1fr)); gap:.15rem 1rem; align-items:start; }
-        .xc-navmega .dropdown-header{ font-size:.68rem; letter-spacing:.04em; padding:.3rem .5rem .15rem; opacity:.7;
-            text-transform:uppercase; font-weight:700; border-bottom:1px solid var(--bs-border-color); margin-bottom:.1rem; }
+        .xc-navmega-grid{ display:grid; grid-template-columns:repeat(4,minmax(185px,1fr)); gap:1rem; align-items:start; }
+        .xc-navmega .dropdown-header{ font-size:.68rem; letter-spacing:.04em; padding:.3rem .5rem .15rem;
+            text-transform:uppercase; font-weight:700; color:var(--bs-success);
+            border-bottom:1px solid rgba(var(--bs-success-rgb),.4); margin-bottom:.1rem; }
         .xc-navmega .dropdown-item{ padding:.22rem .5rem; font-size:.875rem; }
         .xc-navmega .dropdown-item .fa{ opacity:.75; }
         @media (max-width:991px){ .xc-navmega-grid{ grid-template-columns:repeat(2,minmax(160px,1fr)); }
@@ -91,32 +93,6 @@
                                     <a class="dropdown-item rounded" href="/{COIN}/callbacks" title="XChain Callbacks"><i class="fa fa-recycle fa-fw me-2"></i>Callbacks</a>
                                 </div>
                                 <div class="xc-navmega-group">
-                                    <h6 class="dropdown-header">Transfers</h6>
-                                    <a class="dropdown-item rounded" href="/{COIN}/sends" title="XChain Sends"><i class="fa fa-send fa-fw me-2"></i>Sends</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/sweeps" title="XChain Sweeps"><i class="fa fa-truck fa-fw me-2"></i>Sweeps</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/airdrops" title="XChain Airdrops"><i class="fa fa-parachute-box fa-fw me-2"></i>Airdrops</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/dividends" title="XChain Dividends"><i class="fa fa-sitemap fa-fw me-2"></i>Dividends</a>
-                                </div>
-                                <div class="xc-navmega-group">
-                                    <h6 class="dropdown-header">Trading</h6>
-                                    <a class="dropdown-item rounded" href="/{COIN}/markets" title="XChain Markets"><i class="fa fa-money-bill-trend-up fa-fw me-2"></i>Markets</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/orders" title="XChain Orders"><i class="fa fa-book fa-fw me-2"></i>Orders</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/swaps" title="XChain Swaps"><i class="fa fa-exchange fa-fw me-2"></i>Swaps</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/dispensers" title="XChain Dispensers"><i class="fa fa-arrows-h fa-fw me-2"></i>Dispensers</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/dispenses" title="XChain Dispenses"><i class="fa fa-hand-holding-heart fa-fw me-2"></i>Dispenses</a>
-                                </div>
-                                <div class="xc-navmega-group">
-                                    <h6 class="dropdown-header">Betting</h6>
-                                    <a class="dropdown-item rounded" href="/{COIN}/bet_feeds" title="XChain Betting Markets"><i class="fa fa-dice fa-fw me-2"></i>Markets</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/bets" title="XChain Bets"><i class="fa fa-coins fa-fw me-2"></i>Bets</a>
-                                </div>
-                                <div class="xc-navmega-group">
-                                    <h6 class="dropdown-header">Data &amp; Communications</h6>
-                                    <a class="dropdown-item rounded" href="/{COIN}/broadcasts" title="XChain Broadcasts"><i class="fa fa-bullhorn fa-fw me-2"></i>Broadcasts</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/messages" title="XChain Messages"><i class="fa fa-message fa-fw me-2"></i>Messages</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/files" title="XChain Files"><i class="fa fa-file fa-fw me-2"></i>Files</a>
-                                </div>
-                                <div class="xc-navmega-group">
                                     <h6 class="dropdown-header">Smart Contracts</h6>
                                     <a class="dropdown-item rounded" href="/{COIN}/contracts" title="XChain Contracts"><i class="fa fa-file-code fa-fw me-2"></i>Contracts</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/deploy_chunks" title="XChain Deploy Chunks"><i class="fa fa-puzzle-piece fa-fw me-2"></i>Deploy Chunks</a>
@@ -125,15 +101,10 @@
                                     <a class="dropdown-item rounded" href="/{COIN}/withdrawals" title="XChain Withdrawals"><i class="fa fa-arrow-up fa-fw me-2"></i>Withdrawals</a>
                                 </div>
                                 <div class="xc-navmega-group">
-                                    <h6 class="dropdown-header">Cross-Chain</h6>
-                                    <a class="dropdown-item rounded" href="/{COIN}/xcalls" title="XChain Cross-Chain Calls"><i class="fa fa-share-alt fa-fw me-2"></i>Cross-Chain Calls</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/cross_chain_matches" title="XChain Cross-Chain Matches"><i class="fa fa-arrow-right-arrow-left fa-fw me-2"></i>Cross-Chain Matches</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/cross_chain_settlements" title="XChain Cross-Chain Settlements"><i class="fa fa-handshake fa-fw me-2"></i>Cross-Chain Settlements</a>
-                                </div>
-                                <div class="xc-navmega-group">
                                     <h6 class="dropdown-header">Oracles</h6>
                                     <a class="dropdown-item rounded" href="/{COIN}/prices" title="XChain Prices"><i class="fa fa-tags fa-fw me-2"></i>Prices</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/oracle_prices" title="XChain Oracle Prices"><i class="fa fa-chart-line fa-fw me-2"></i>Oracle Prices</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/price_snapshots" title="XChain Price Rounds"><i class="fa fa-chart-line fa-fw me-2"></i>Price Rounds</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/attestations" title="XChain Attestations"><i class="fa fa-certificate fa-fw me-2"></i>Attestations</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/anchors" title="XChain Anchors"><i class="fa fa-anchor fa-fw me-2"></i>Anchors</a>
                                 </div>
@@ -141,27 +112,16 @@
                                     <h6 class="dropdown-header">Governance</h6>
                                     <a class="dropdown-item rounded" href="/{COIN}/polls" title="XChain Governance Polls"><i class="fa fa-check-to-slot fa-fw me-2"></i>Polls</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/votes" title="XChain Governance Ballots"><i class="fa fa-square-check fa-fw me-2"></i>Ballots</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/vote_delegations" title="XChain Vote Delegations"><i class="fa fa-people-arrows fa-fw me-2"></i>Vote Delegations</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/governance_proposals" title="XChain Governance Proposals"><i class="fa fa-landmark fa-fw me-2"></i>Governance Proposals</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/governance_votes" title="XChain Governance Votes"><i class="fa fa-check-to-slot fa-fw me-2"></i>Governance Votes</a>
                                 </div>
                                 <div class="xc-navmega-group">
-                                    <h6 class="dropdown-header">Staking</h6>
-                                    <a class="dropdown-item rounded" href="/{COIN}/stakes" title="XChain Stakes"><i class="fa fa-lock fa-fw me-2"></i>Stakes</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/unstakes" title="XChain Unstakes"><i class="fa fa-unlock fa-fw me-2"></i>Unstakes</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/delegations" title="XChain Delegations"><i class="fa fa-key fa-fw me-2"></i>Delegations</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/delegation_revocations" title="XChain Delegation Revocations"><i class="fa fa-key fa-fw me-2"></i>Delegation Revocations</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/collects" title="XChain Reward Claims"><i class="fa fa-hand-holding-dollar fa-fw me-2"></i>Reward Claims</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/contract_stakes" title="XChain Contract Stakes"><i class="fa fa-lock fa-fw me-2"></i>Contract Stakes</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/contract_unstakes" title="XChain Contract Unstakes"><i class="fa fa-unlock fa-fw me-2"></i>Contract Unstakes</a>
-                                </div>
-                                <div class="xc-navmega-group">
-                                    <h6 class="dropdown-header">Validators &amp; Consensus</h6>
-                                    <a class="dropdown-item rounded" href="/{COIN}/validators" title="XChain Validators"><i class="fa fa-user-shield fa-fw me-2"></i>Validators</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/validator_capabilities" title="XChain Validator Capabilities"><i class="fa fa-list-check fa-fw me-2"></i>Validator Capabilities</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/rewards" title="XChain Validator Rewards"><i class="fa fa-coins fa-fw me-2"></i>Validator Rewards</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/full_node_verifications" title="XChain Full-Node Verifications"><i class="fa fa-server fa-fw me-2"></i>Full-Node Verifications</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/slash_events" title="XChain Slash Events"><i class="fa fa-gavel fa-fw me-2"></i>Slash Events</a>
-                                    <a class="dropdown-item rounded" href="/{COIN}/capability_slash_events" title="XChain Capability Slashes"><i class="fa fa-gavel fa-fw me-2"></i>Capability Slashes</a>
+                                    <h6 class="dropdown-header">Transfers</h6>
+                                    <a class="dropdown-item rounded" href="/{COIN}/sends" title="XChain Sends"><i class="fa fa-send fa-fw me-2"></i>Sends</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/sweeps" title="XChain Sweeps"><i class="fa fa-truck fa-fw me-2"></i>Sweeps</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/airdrops" title="XChain Airdrops"><i class="fa fa-parachute-box fa-fw me-2"></i>Airdrops</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/dividends" title="XChain Dividends"><i class="fa fa-sitemap fa-fw me-2"></i>Dividends</a>
                                 </div>
                                 <div class="xc-navmega-group">
                                     <h6 class="dropdown-header">Network</h6>
@@ -171,8 +131,59 @@
                                     <a class="dropdown-item rounded" href="/{COIN}/telemetry_pings" title="XChain Node Telemetry"><i class="fa fa-satellite-dish fa-fw me-2"></i>Node Telemetry</a>
                                 </div>
                                 <div class="xc-navmega-group">
+                                    <h6 class="dropdown-header">Data &amp; Communications</h6>
+                                    <a class="dropdown-item rounded" href="/{COIN}/broadcasts" title="XChain Broadcasts"><i class="fa fa-bullhorn fa-fw me-2"></i>Broadcasts</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/messages" title="XChain Messages"><i class="fa fa-message fa-fw me-2"></i>Messages</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/files" title="XChain Files"><i class="fa fa-file fa-fw me-2"></i>Files</a>
+                                </div>
+                                <div class="xc-navmega-group">
+                                    <h6 class="dropdown-header">Cross-Chain</h6>
+                                    <a class="dropdown-item rounded" href="/{COIN}/xcalls" title="XChain Cross-Chain Calls"><i class="fa fa-share-alt fa-fw me-2"></i>Cross-Chain Calls</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/cross_chain_matches" title="XChain Cross-Chain Matches"><i class="fa fa-arrow-right-arrow-left fa-fw me-2"></i>Cross-Chain Matches</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/cross_chain_settlements" title="XChain Cross-Chain Settlements"><i class="fa fa-handshake fa-fw me-2"></i>Cross-Chain Settlements</a>
+                                </div>
+                                <div class="xc-navmega-group">
+                                    <h6 class="dropdown-header">Trading</h6>
+                                    <a class="dropdown-item rounded" href="/{COIN}/markets" title="XChain Markets"><i class="fa fa-money-bill-trend-up fa-fw me-2"></i>Markets</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/orders" title="XChain Orders"><i class="fa fa-book fa-fw me-2"></i>Orders</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/order_matches" title="XChain Order Matches"><i class="fa fa-handshake fa-fw me-2"></i>Order Matches</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/coinpay_obligations" title="XChain COINPAY Obligations"><i class="fa fa-coins fa-fw me-2"></i>Coinpay Obligations</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/coinpays" title="XChain COINPAY Settlements"><i class="fa fa-hand-holding-dollar fa-fw me-2"></i>Coinpay Settlements</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/swaps" title="XChain Swaps"><i class="fa fa-exchange fa-fw me-2"></i>Swaps</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/swap_matches" title="XChain Swap Matches"><i class="fa fa-right-left fa-fw me-2"></i>Swap Matches</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/dispensers" title="XChain Dispensers"><i class="fa fa-arrows-h fa-fw me-2"></i>Dispensers</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/dispenses" title="XChain Dispenses"><i class="fa fa-hand-holding-heart fa-fw me-2"></i>Dispenses</a>
+                                </div>
+                                <div class="xc-navmega-group">
+                                    <h6 class="dropdown-header">Staking</h6>
+                                    <a class="dropdown-item rounded" href="/{COIN}/stakes" title="XChain Stakes"><i class="fa fa-lock fa-fw me-2"></i>Stakes</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/unstakes" title="XChain Unstakes"><i class="fa fa-unlock fa-fw me-2"></i>Unstakes</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/delegations" title="XChain Delegations"><i class="fa fa-key fa-fw me-2"></i>Delegations</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/contract_delegations" title="XChain Contract Delegations"><i class="fa fa-key fa-fw me-2"></i>Contract Delegations</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/delegation_revocations" title="XChain Delegation Revocations"><i class="fa fa-key fa-fw me-2"></i>Delegation Revocations</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/collects" title="XChain Reward Claims"><i class="fa fa-hand-holding-dollar fa-fw me-2"></i>Reward Claims</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/contract_stakes" title="XChain Contract Stakes"><i class="fa fa-lock fa-fw me-2"></i>Contract Stakes</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/contract_unstakes" title="XChain Contract Unstakes"><i class="fa fa-unlock fa-fw me-2"></i>Contract Unstakes</a>
+                                </div>
+                                <div class="xc-navmega-group">
+                                    <h6 class="dropdown-header">Validators &amp; Consensus</h6>
+                                    <a class="dropdown-item rounded" href="/{COIN}/validators" title="XChain Validators"><i class="fa fa-user-shield fa-fw me-2"></i>Validators</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/validator_capabilities" title="XChain Validator Capabilities"><i class="fa fa-list-check fa-fw me-2"></i>Validator Capabilities</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/capability_snapshots" title="XChain Capability Snapshots"><i class="fa fa-users fa-fw me-2"></i>Capability Snapshots</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/checkpoints" title="XChain State Checkpoints"><i class="fa fa-certificate fa-fw me-2"></i>State Checkpoints</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/reorgs" title="XChain Reorg History"><i class="fa fa-code-branch fa-fw me-2"></i>Reorg History</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/rewards" title="XChain Validator Rewards"><i class="fa fa-coins fa-fw me-2"></i>Validator Rewards</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/full_node_verifications" title="XChain Full-Node Verifications"><i class="fa fa-server fa-fw me-2"></i>Full-Node Verifications</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/slash_events" title="XChain Slash Events"><i class="fa fa-gavel fa-fw me-2"></i>Slash Events</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/capability_slash_events" title="XChain Capability Slashes"><i class="fa fa-gavel fa-fw me-2"></i>Capability Slashes</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/slash_proposals" title="XChain Slash Proposals"><i class="fa fa-scale-balanced fa-fw me-2"></i>Slash Proposals</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/attest_validator_stats" title="XChain Attestation Validator Stats"><i class="fa fa-shield-halved fa-fw me-2"></i>Attestation Validator Stats</a>
+                                </div>
+                                <div class="xc-navmega-group">
                                     <h6 class="dropdown-header">Utility</h6>
                                     <a class="dropdown-item rounded" href="/{COIN}/blocks" title="XChain Blocks"><i class="fa fa-cube fa-fw me-2"></i>Blocks</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/actions" title="XChain Actions"><i class="fa fa-bolt fa-fw me-2"></i>Actions</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/mempool" title="XChain Mempool"><i class="fa fa-hourglass-half fa-fw me-2"></i>Mempool</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/addresses" title="XChain Addresses"><i class="fa fa-gears fa-fw me-2"></i>Addresses</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/lists" title="XChain Lists"><i class="fa fa-list fa-fw me-2"></i>Lists</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/links" title="XChain Links"><i class="fa fa-link fa-fw me-2"></i>Links</a>
@@ -180,6 +191,11 @@
                                     <a class="dropdown-item rounded" href="/{COIN}/sleeps" title="XChain Sleeps"><i class="fa fa-bed fa-fw me-2"></i>Sleeps</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/fees" title="XChain Fees"><i class="fa fa-cent-sign fa-fw me-2"></i>Fees</a>
                                     <a class="dropdown-item rounded" href="/{COIN}/controllers" title="XChain Controller Bindings"><i class="fa fa-shield fa-fw me-2"></i>Controller Bindings</a>
+                                </div>
+                                <div class="xc-navmega-group">
+                                    <h6 class="dropdown-header">Betting</h6>
+                                    <a class="dropdown-item rounded" href="/{COIN}/bet_feeds" title="XChain Betting Markets"><i class="fa fa-dice fa-fw me-2"></i>Markets</a>
+                                    <a class="dropdown-item rounded" href="/{COIN}/bets" title="XChain Bets"><i class="fa fa-coins fa-fw me-2"></i>Bets</a>
                                 </div>
                             </div>
                         </div>

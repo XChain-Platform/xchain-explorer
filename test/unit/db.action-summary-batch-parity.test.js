@@ -38,34 +38,13 @@ const util         = new Utility(configInfo);
 const mockExplorer = { configInfo, util };
 const Database     = proxyquire('../../src/db.js', { mariadb: { createPool: () => ({}) } });
 
-// The exact detailFields set the production method projects, copied verbatim so the
-// reference oldPath below mirrors the pre-refactor loop field-for-field.
-//
-// The copy is hand-maintained, so it goes stale the moment db.js adds a field, and it
-// then fails as a PARITY break rather than as "the reference list drifted". Adding
-// `broadcast_fee` (aliasing the broadcast's own fee so a BATCH child row stops
-// reading BROADCAST's overwritten data.fee) turned this suite red with the field
-// present on the batched side and absent here. Keep the two lists identical whenever
-// db.js changes.
-const detailFields = [
-    'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',
-    'action_format',
-    'fee_preference', 'require_memo', 'dispenser_preference',
-    'action_class', 'controller', 'unbind',
-    'message', 'value', 'broadcast_action_index', 'broadcast_fee',
-    'callback_tick', 'callback_amount',
-    'dividend_tick',
-    'name', 'title',
-    'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',
-    'list_action_index',
-    'encryption_method', 'plaintext_message',
-    'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',
-    'order_action_index',
-    'swap_action_index',
-    'dispenser_action_index',
-    'resume_block',
-    'balances', 'ownerships', 'orders', 'swaps', 'dispensers'
-];
+// The field set the production projection copies is the shipped list itself
+// (db.js exports it), so the reference oldPath below mirrors the pre-refactor loop
+// field-for-field without a hand-maintained copy that goes stale when db.js adds
+// a field (a verbatim copy here once turned this suite red as a PARITY break when
+// `broadcast_fee` landed on the batched side only). What stays pinned is the LOOP
+// shape: per-field copy, SEND read through sends[0], sends[0].status fallback.
+const detailFields = Database.ACTION_SUMMARY_FIELDS;
 
 // Verbatim copy of the pre-refactor per-row enrichment loop (the "old path").
 function oldPath(actions, getActionData) {

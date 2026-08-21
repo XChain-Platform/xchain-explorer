@@ -37,10 +37,6 @@ async function timedGet(urlPath) {
     return { ...res, elapsed: Date.now() - start };
 }
 
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // ---------------------------------------------------------------------------
 // Suite setup / teardown
 // ---------------------------------------------------------------------------
@@ -95,9 +91,16 @@ describe('CE-NET-01: Full Network Partition', function () {
     });
 
     it('should recover after the partition is lifted', async function () {
-        // Ensure partition is active before measuring recovery
         await faults.dbDown();
-        await sleep(5000);
+
+        // Ensure the partition is actually in effect before measuring recovery.
+        // Driving requests through it is what forces the pool to discover the
+        // dead connections, so wait for those requests to settle instead of
+        // sleeping a fixed 5 s: the observation ends as soon as it is real, and
+        // a hang shows up as an unsettled request rather than as a passing test.
+        const during = await concurrentRequests(TEST_PATH, 5, { timeout: 5000 });
+        expect(during.responses.length + during.errors.length)
+            .to.equal(5, 'requests fired into the partition must all settle');
 
         const partitionLifted = Date.now();
         await faults.dbUp();
@@ -113,7 +116,11 @@ describe('CE-NET-01: Full Network Partition', function () {
     it('should still accept new TCP connections after recovery (process never died)', async function () {
         // Partition, recover, then confirm the server is fully alive
         await faults.dbDown();
-        await sleep(2000);
+        // Same as above: let real traffic prove the partition took hold rather
+        // than sleeping 2 s and assuming it did.
+        const during = await concurrentRequests(TEST_PATH, 5, { timeout: 5000 });
+        expect(during.responses.length + during.errors.length)
+            .to.equal(5, 'requests fired into the partition must all settle');
         await faults.dbUp();
 
         await waitForRecovery(TEST_PATH, 20000);

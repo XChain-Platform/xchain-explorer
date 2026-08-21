@@ -361,7 +361,13 @@ const SWAP = {
                 ORDER BY action_index ASC`;
         return { query, query2, query3 };
     },
-    afterMain:   shared.applyOfferState,
+    // ORDER corrects the seeded remaining from order_matches; a swap has no fills
+    // table to subtract (cross_settle writes no swap_matches row, cancel/expire
+    // write none), so its escrow-gone signal is the terminal status alone.
+    async afterMain(ctx, data) {
+        await shared.applyOfferState(ctx, data);
+        shared.applyTerminalOfferState(data);
+    },
     afterQuery2: shared.applyOfferListEdits,
 };
 

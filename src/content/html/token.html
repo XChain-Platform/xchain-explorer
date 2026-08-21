@@ -42,16 +42,8 @@
                         <th>Owner</th>
                         <td id="owner"></td>
                     </tr>
-                    <tr id="registry-row" class="d-none">
-                        <th>Official&nbsp;Tokens</th>
-                        <td id="registry-info"></td>
-                    </tr>
                     </tbody>
                     </table>
-                    <!-- Project-registry membership banner (protocol/Project_Registry.md).
-                         Shown when this token appears on a project's current
-                         owner-attested roster. Always names the attesting project. -->
-                    <div id="project-banners" class="d-none p-2 pb-1"></div>
                 </div>
             </div>
         </div>
@@ -102,9 +94,19 @@
                     </tbody>
                     </table>
                 </div>
-            </div>        
+            </div>
         </div>
 
+    </div>
+
+    <!-- Project-registry banners (protocol/Project_Registry.md). Full-width
+         under the Token/Market Information cards: membership banners when this
+         token is on a project's current owner-attested roster, an ownership
+         banner when this token IS a project with an attested roster. -->
+    <div class="row">
+        <div class="col-12">
+            <div id="project-banners" class="d-none pt-3"></div>
+        </div>
     </div>
 </div>
 

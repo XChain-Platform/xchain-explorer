@@ -1372,6 +1372,16 @@ describe('Database#getXcall', () => {
         expect(captured[2]).to.include('cross_chain_call_callbacks');
     });
 
+    it('pins the lifecycle read to the VALID row, matching the indexer authority', async () => {
+        // call_id is not unique in xcalls (rejected attempts index alongside the
+        // accepted request), so the single-row read must carry the status bound
+        // or the ORDER BY can surface an invalid row as the lifecycle.
+        const config = makeActionConfig('getXcall', 'call_id');
+        await db.getXcall(config);
+        expect(captured[0]).to.include("s1.status='valid'");
+        expect(captured[0]).to.include('m.call_id');
+    });
+
     it('attaches execution + callback_delivery sub-objects to the returned row', async () => {
         const config = makeActionConfig('getXcall', 'call_id');
         const [data] = await db.getXcall(config);

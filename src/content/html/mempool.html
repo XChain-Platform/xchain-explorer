@@ -1,0 +1,136 @@
+<!-- Mempool -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-hourglass-half"></i> Mempool
+                    <span class="float-end fw-normal small" id="mempool-total"></span>
+                </div>
+                <div class="p-2 small text-muted" id="mempool-note">
+                    Unconfirmed actions read directly from this coin's mempool. These are
+                    PRE-VALIDATION: the indexer may still reject a row shown here once its
+                    transaction confirms.
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-mempool">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="">Tx Hash</th>
+                        <th class="">Action</th>
+                        <th class="address">Source</th>
+                        <th class="">Payload</th>
+                    </tr>
+                </thead>
+                <tbody id="mempool-rows">
+                    <tr>
+                        <td colspan="5" class="loading-data">Loading mempool data...</td>
+                    </tr>
+                </tbody>
+                </table>
+                <div class="p-2 text-center">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="mempool-prev" disabled>
+                        <i class="fa fa-chevron-left"></i> Prev
+                    </button>
+                    <span class="mx-2 small" id="mempool-page-status">Page 1</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="mempool-next" disabled>
+                        Next <i class="fa fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Update the page with SEO friendly info
+    XC.pageInfo.title       = 'Mempool';
+    XC.pageInfo.description = 'Unconfirmed actions currently sitting in the ' + XC.name + ' (' + XC.network + ') mempool on the XChain Platform - pre-validation, read straight from the coin\'s mempool.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/mempool';
+    updatePageInfo();
+
+    // Not built on the shared DataTables server-side helper (loadDatatablesData in
+    // xchain.js): that helper's row rendering is a per-method array-column mapper
+    // (getPagingDataResults in XChainExplorer.js) that has no entry for getMempool,
+    // and mempool rows carry no action_index, so the next/prev/first/last
+    // action_index cursor dance every other list page relies on does not apply here
+    // (see db.js#getMempool's paging comment). This page instead talks to the plain
+    // /api/mempool route directly and pages by numeric page number, matching the
+    // bounded (500-row) window the server slices from.
+    const PER_PAGE = 25;
+    let page = 1;
+    let lastTotal = 0;
+
+    function renderRow(row){
+        let tr = document.createElement('tr');
+        let tds = [
+            '',
+            (row.tx_hash) ? formatHash(row.tx_hash, 20) : '-',
+            escapeHtml(row.action),
+            (row.source) ? formatLink('/' + XC.coin + '/address/' + encodeURIComponent(row.source), escapeHtml(row.source)) : '-',
+            (row.data) ? formatHash(row.data, 48) : '-'
+        ];
+        return tds;
+    }
+
+    function updatePager(total){
+        lastTotal = total;
+        let pages = Math.max(1, Math.ceil(total / PER_PAGE));
+        $('#mempool-page-status').text('Page ' + page + ' of ' + pages);
+        $('#mempool-prev').prop('disabled', page <= 1);
+        $('#mempool-next').prop('disabled', (page * PER_PAGE) >= total);
+        $('#mempool-total').text(numeral(total).format('0,0') + ' unconfirmed');
+    }
+
+    function load(){
+        $('#mempool-rows').html('<tr><td colspan="5" class="loading-data">Loading mempool data...</td></tr>');
+        $.getJSON('/' + XC.coin + '/api/mempool?page=' + page + '&limit=' + PER_PAGE, function(o){
+            if(o.error){
+                console.log('mempool: caught error=', o.error);
+                $('#mempool-rows').html('<tr><td colspan="5">Unable to load mempool data.</td></tr>');
+                return;
+            }
+            let rows  = (o.data) ? o.data : [];
+            let total = (isNumeric(o.total)) ? Number(o.total) : rows.length;
+            if(rows.length === 0){
+                $('#mempool-rows').html('<tr><td colspan="5">No unconfirmed actions right now.</td></tr>');
+            } else {
+                let start = ((page - 1) * PER_PAGE) + 1;
+                let html  = '';
+                rows.forEach(function(row, idx){
+                    let cols = renderRow(row);
+                    cols[0] = start + idx;
+                    html += '<tr><td>' + cols[0] + '</td><td>' + cols[1] + '</td><td>' + cols[2] + '</td><td>' + cols[3] + '</td><td>' + cols[4] + '</td></tr>';
+                });
+                $('#mempool-rows').html(html);
+            }
+            updatePager(total);
+        });
+    }
+
+    $('#mempool-prev').on('click', function(){
+        if(page > 1){
+            page--;
+            load();
+        }
+    });
+    $('#mempool-next').on('click', function(){
+        if((page * PER_PAGE) < lastTotal){
+            page++;
+            load();
+        }
+    });
+
+    load();
+
+    // Modest live refresh: the mempool empties and fills within seconds, so a
+    // static one-time load goes stale almost immediately. Reload only the
+    // currently viewed page on a light interval (mirrors the 15s TTL
+    // getDecoderMempoolCount/getFeeEstimate already use for this same live data).
+    setInterval(load, 15000);
+
+});
+</script>

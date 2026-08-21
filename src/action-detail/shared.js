@@ -42,6 +42,25 @@ async function applyOfferState({ db, config, action_index, type }, data) {
     }
 }
 
+// Statuses after which an offer's escrow is gone: settled (swap_match and
+// cross_settle both write 'complete'), cancelled (swap cancel, sweep), expired.
+// 'cancelling' / 'expiring' are still in flight (indexer rollback treats them
+// so), hence a whitelist and never the negation of 'open'.
+const TERMINAL_OFFER_STATUSES = Object.freeze(['complete', 'cancelled', 'expired']);
+
+// Swaps settle atomically (no partial fills, no swap_matches subtraction like
+// ORDER's), so once the state is terminal nothing remains in escrow and the
+// seeded give/get remaining must read 0 instead of the original amounts.
+function applyTerminalOfferState(data) {
+    let state = data && data.state;
+    if(!state || !TERMINAL_OFFER_STATUSES.includes(String(state.status)))
+        return;
+    if(Object.prototype.hasOwnProperty.call(state, 'give_remaining'))
+        state.give_remaining = '0';
+    if(Object.prototype.hasOwnProperty.call(state, 'get_remaining'))
+        state.get_remaining = '0';
+}
+
 // The allow/block list edits and the expiration an ORDER / SWAP / DISPENSER has
 // accumulated since it was created. Shared by all three because the rows have
 // the same shape; only DISPENSER gates an edit on the activation delay.
@@ -206,4 +225,4 @@ async function prefetchLedgerEffects(db, config, indexesByEffect) {
     return out;
 }
 
-module.exports = { applyOfferState, applyOfferListEdits, deblankBaseline, attachLedgerEffects, prefetchLedgerEffects };
+module.exports = { applyOfferState, applyTerminalOfferState, TERMINAL_OFFER_STATUSES, applyOfferListEdits, deblankBaseline, attachLedgerEffects, prefetchLedgerEffects };

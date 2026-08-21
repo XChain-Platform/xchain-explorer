@@ -9,12 +9,12 @@
 
 .xc-chart {
     position: relative;
-    width: 100%;
+    width: var(--xc-chart-width);
 }
 
 .xc-chart-canvas {
     position: relative;
-    width: 100%;
+    width: var(--xc-chart-canvas-width);
 }
 
 .xc-chart-toolbar {
@@ -22,8 +22,8 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: .35rem;
-    padding: .25rem 0 .4rem;
+    gap: var(--xc-chart-toolbar-gap);
+    padding: var(--xc-chart-toolbar-padding-top) var(--xc-space-none) var(--xc-chart-toolbar-padding-bottom);
 }
 
 .xc-chart-ranges {
@@ -31,54 +31,50 @@
 }
 
 .xc-chart-btn {
-    --bs-btn-padding-y: .1rem;
-    --bs-btn-padding-x: .4rem;
-    --bs-btn-font-size: .75rem;
+    --bs-btn-padding-y: var(--xc-chart-btn-padding-y);
+    --bs-btn-padding-x: var(--xc-chart-btn-padding-x);
+    --bs-btn-font-size: var(--xc-chart-btn-font-size);
 }
 
 .xc-chart-nodata {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 200px;
-    font-weight: bold;
-    font-size: 15px;
-    color: #303030;
-}
-
-[data-bs-theme="dark"] .xc-chart-nodata {
-    color: #dee2e6;
+    min-height: var(--xc-chart-nodata-min-height);
+    font-weight: var(--xc-chart-nodata-font-weight);
+    font-size: var(--xc-chart-nodata-font-size);
+    color: var(--xc-chart-nodata-color);
 }
 
 /* Floating tooltip. Appended to <body> so it is never clipped by the
    table-responsive scroll container the market panels live in. */
 .xc-chart-tooltip {
     position: absolute;
-    z-index: 1080;
+    z-index: var(--xc-chart-tooltip-z-index);
     pointer-events: none;
     opacity: 0;
-    transition: opacity .1s ease;
-    padding: .4rem .6rem;
-    border: 1px solid var(--bs-border-color, #ced4da);
-    border-radius: .25rem;
-    background: var(--bs-body-bg, #fff);
-    color: var(--bs-body-color, #212529);
-    box-shadow: 0 .25rem .6rem rgba(0, 0, 0, .18);
-    font-size: .8125rem;
+    transition: opacity var(--xc-chart-tooltip-transition-duration) ease;
+    padding: var(--xc-chart-tooltip-padding-y) var(--xc-chart-tooltip-padding-x);
+    border: var(--xc-chart-tooltip-border-width) solid var(--xc-chart-tooltip-border-color);
+    border-radius: var(--xc-chart-tooltip-radius);
+    background: var(--xc-chart-tooltip-bg);
+    color: var(--xc-chart-tooltip-color);
+    box-shadow: var(--xc-chart-tooltip-shadow);
+    font-size: var(--xc-chart-tooltip-font-size);
     white-space: nowrap;
 }
 
 .xc-chart-tooltip-table {
-    margin: .2rem 0 0;
+    margin: var(--xc-chart-tooltip-table-margin-top) var(--xc-space-none) var(--xc-space-none);
     border-collapse: collapse;
 }
 
 .xc-chart-tooltip-table td {
-    padding: 0 .25rem;
+    padding: var(--xc-space-none) var(--xc-chart-tooltip-cell-padding-x);
 }
 
 .xc-chart-tooltip-table td.separator {
-    padding: 0 .15rem;
+    padding: var(--xc-space-none) var(--xc-chart-tooltip-separator-padding-x);
 }
 
 .xc-chart-tooltip-table td.text-right {
@@ -86,5 +82,5 @@
 }
 
 .xc-chart-tooltip-table tr.border-top-1 td {
-    border-top: 1px solid var(--bs-border-color, #ced4da);
+    border-top: var(--xc-chart-tooltip-border-width) solid var(--xc-chart-tooltip-border-color);
 }

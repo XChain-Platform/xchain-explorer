@@ -126,6 +126,43 @@
     </div>
 </div>
 
+<!-- Contract State Proof (SPV): a keyed inclusion/non-inclusion proof against
+     the checkpoint-height contract_state_root. State keys are author-chosen
+     strings the contract writes via setState; the page has no listing of them
+     (methods/ABI describe calls, not stored keys), so this is a free-text
+     input rather than a dropdown, matching the Read Contract card's own
+     manual-method fallback. Below the slot's armed height the route refuses
+     with a typed 409 (CONTRACT_STATE_NOT_COMMITTED) instead of "proving"
+     absence against an empty tree; on a young regtest chain that refusal is
+     the state actually seen. Fetched on click, not on load (see spec §4 M2.2). -->
+<div class="container">
+    <div class="row">
+        <div class="col-12 pb-3">
+            <div class="card">
+                <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#contract-state-proof-body" aria-expanded="true" aria-controls="contract-state-proof-body" id="contract-state-proof-header">
+                    <div class="card-title mb-0 p-1 fw-bold">
+                        <i class="fa fa-lg fa-shield-halved"></i> Contract State Proof
+                        <span class="badge text-bg-light text-muted fw-normal">cryptographic proof against a signed checkpoint</span>
+                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                    </div>
+                </a>
+                <div class="collapse show" id="contract-state-proof-body">
+                    <div class="p-2">
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label mb-0 small text-muted">State key (the string this contract wrote via setState)</label>
+                                <input type="text" class="form-control form-control-sm" id="contract-state-proof-key" placeholder="key">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary" id="contract-state-proof-btn">Request Proof</button>
+                        <div id="contract-state-proof-result" class="small mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Stakes targeting this contract -->
 <div class="container">
     <div class="row">
@@ -150,6 +187,41 @@
                 </thead>
                 <tbody>
                     <tr><td colspan="9" class="loading-data">Loading contract stake data...</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Emissions this contract has produced across every EXECUTE call against it
+     (VM emit.execute / emit.send, plus internal ledger-only emissions such as
+     SLASH whose Child Action is null). The per-execution ordered list already
+     lives on the execution's own action detail page (contracts.js EXECUTE.afterMain);
+     this is the per-contract rollup joined through contract_executions. -->
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-satellite-dish"></i> Emissions
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-emission">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Execution</th>
+                        <th class="">Contract</th>
+                        <th class="">Position</th>
+                        <th class="">Emitted Action</th>
+                        <th class="">Child Action</th>
+                        <th class="">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="9" class="loading-data">Loading emission data...</td></tr>
                 </tbody>
                 </table>
             </div>
@@ -435,6 +507,35 @@ $(document).ready(function() {
 
     // Load stakes targeting this contract
     loadDatatablesData(XC.coin, 'contract_stake', XC.query, 'contract');
+
+    // Load emissions produced by this contract (per-contract rollup, joined
+    // through contract_executions since contract_emissions is keyed by execution).
+    loadDatatablesData(XC.coin, 'emission', XC.query, 'contract');
+
+    // SPV contract-state proof. state_value null means the key has no leaf
+    // (either never written or tombstoned); both read as non-inclusion here,
+    // exactly as the commitment itself cannot tell them apart.
+    function renderContractStateProof(o){
+        let p        = o.proof;
+        let included = !isNull(p.state_value);
+        return '<div class="border rounded p-2">' +
+            '<span class="badge text-bg-success me-1">Proof returned</span>' +
+            (included ? '<span class="badge text-bg-info">key present</span>' : '<span class="badge text-bg-secondary">non-inclusion (no such key)</span>') +
+            (included ? '<div class="mt-1">Value: <code>' + escapeHtml(String(p.state_value)) + '</code></div>' : '') +
+            '<div>Bound to checkpoint height ' + escapeHtml(String(p.height)) + '</div>' +
+            '<div>Contract state root: ' + formatHash(p.contract_state_root, 20) + '</div>' +
+        '</div>';
+    }
+
+    $('#contract-state-proof-btn').on('click', function(){
+        let key = $('#contract-state-proof-key').val();
+        if(!key){
+            $('#contract-state-proof-result').html(proofNotice('warning', 'Enter a state key first'));
+            return;
+        }
+        loadProofWidget('/' + XC.coin + '/api/proof/contract-state/' + encodeURIComponent(XC.query) + '/' + encodeURIComponent(key),
+            '#contract-state-proof-result', renderContractStateProof);
+    });
 
 });
 </script>

@@ -79,6 +79,9 @@ describe('decoder mempool surface', () => {
             // The column is text, so it must not be aliased (or read) as hex.
             expect(sql).to.not.include('data_hex');
             expect(sql).to.include('LIMIT 500');
+            // No primary key and the decoder rewrites the table every cycle: the
+            // window must be keyed on the unique tx_hash index to be a stable snapshot.
+            expect(sql).to.match(/ORDER BY m\.tx_hash\s+LIMIT 500/);
         });
 
         it('returns [] on query failure (decoder DB unreachable)', async () => {
@@ -183,6 +186,46 @@ describe('decoder mempool surface', () => {
             await cd._checkMempoolForCoin('RBTC');                 // seed
             await cd._checkMempoolForCoin('RBTC');                 // SEND_ROW gone
             expect(removed).to.deep.equal(['aa11']);
+        });
+
+        // The read is ORDER BY tx_hash LIMIT 500. A full window does not cover the
+        // table, so an already-seen hash above the largest hash read is unknown,
+        // not gone: no false mempool_removed, and no re-announce when it returns.
+        it('does not emit mempool_removed for a hash above a saturated window, and carries it forward', async () => {
+            const mk = (i) => ({ tx_hash: 'h' + String(i).padStart(4, '0'), source: 's', data: 'MINT|0|TOK|1' });
+            const first  = Array.from({ length: 500 }, (_, i) => mk(i * 2));        // h0000..h0998
+            const shifted = Array.from({ length: 500 }, (_, i) => mk(i));           // h0000..h0499 (new low hashes arrived)
+            const db = mkDb([]);
+            db.getDecoderMempoolRows = sinon.stub();
+            db.getDecoderMempoolRows.onCall(0).resolves(first);
+            db.getDecoderMempoolRows.onCall(1).resolves(shifted);
+            db.getDecoderMempoolRows.onCall(2).resolves(first);
+            const cd = mkDetector(db);
+            const removed = [], seen = [];
+            cd.on('mempool_removed', (c, r) => removed.push(r.tx_hash));
+            cd.on('mempool_action',  (c, r) => seen.push(r.tx_hash));
+            await cd._checkMempoolForCoin('RBTC');                 // seed
+            await cd._checkMempoolForCoin('RBTC');                 // window shifted down
+            expect(removed).to.deep.equal([]);                     // h0500..h0998 fell above the window, not gone
+            expect(seen.length).to.equal(250);                     // the odd low hashes are genuinely new
+            await cd._checkMempoolForCoin('RBTC');                 // window shifts back over them
+            expect(seen.length).to.equal(250);                     // carried forward: not re-announced
+            // The odd hashes h0001..h0499 now sort below the covered bound and are absent: gone.
+            expect(removed.length).to.equal(250);
+            expect(removed.every((h) => Number(h.slice(1)) % 2 === 1)).to.equal(true);
+        });
+
+        it('emits mempool_removed for every missing hash when the window is short of the cap', async () => {
+            const db = mkDb([]);
+            db.getDecoderMempoolRows = sinon.stub();
+            db.getDecoderMempoolRows.onCall(0).resolves([SEND_ROW, MINT_ROW, TRASH_ROW]);
+            db.getDecoderMempoolRows.onCall(1).resolves([SEND_ROW]);
+            const cd = mkDetector(db);
+            const removed = [];
+            cd.on('mempool_removed', (c, r) => removed.push(r.tx_hash));
+            await cd._checkMempoolForCoin('RBTC');
+            await cd._checkMempoolForCoin('RBTC');
+            expect(removed.sort()).to.deep.equal(['bb22', 'cc33']);
         });
 
         it('skips garbage rows without breaking the diff', async () => {

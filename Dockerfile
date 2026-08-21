@@ -18,4 +18,11 @@ RUN npm ci --omit=dev
 COPY ./src /XChainExplorer/src
 COPY ./docs /XChainExplorer/docs
 
-CMD ["npm", "run", "api"]
+# Exec-form node, not `npm run api` (which is this exact command). npm builds an
+# npm -> sh -c -> node tree and no wrapper forwards signals, so `docker stop`
+# kills npm while node is never told anything (measured on the regtest encoder,
+# xchain-encoder/Dockerfile) and src/api.js's SIGTERM/SIGINT VM-worker teardown
+# never runs. Dropping the npm wrapper also drops the npm_package_* env vars,
+# which XChainExplorer.js reads for the version it reports on the WebSocket
+# WELCOME frame; that read falls back to package.json for this launch path.
+CMD ["node", "./src/api.js"]

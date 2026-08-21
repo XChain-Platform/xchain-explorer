@@ -30,10 +30,20 @@ const configInfo = createConfigInfoStub();
 const util       = new Utility(configInfo);
 
 // Load HubOperationalCache with a stubbed connector class so no HTTP happens.
-function loadCache({ callResult, env = {} } = {}) {
+// `rpc` is a mutable box: set rpc.error to emulate the connector recording a
+// definitive JSON-RPC error answer (lastRpcError) for the calls that follow.
+function loadCache({ callResult, rpcError, env = {} } = {}) {
     const callStub = sinon.stub().resolves(callResult === undefined ? [] : callResult);
+    const rpc = { error: rpcError || null };
     class FakeConnector {
-        constructor(endpoints) { this.urls = endpoints; this._call = callStub; }
+        constructor(endpoints) {
+            this.urls = endpoints;
+            this.lastRpcError = null;
+            this._call = (...args) => {
+                this.lastRpcError = rpc.error;
+                return callStub(...args);
+            };
+        }
     }
     FakeConnector.parseEndpoints = () =>
         ['1', 'true', 'yes'].includes(String(env.NO_HUB || '').toLowerCase())
@@ -53,7 +63,7 @@ function loadCache({ callResult, env = {} } = {}) {
         if (saved[k] === undefined) delete process.env[k];
         else process.env[k] = saved[k];
     }
-    return { cache, callStub };
+    return { cache, callStub, rpc };
 }
 
 describe('HubOperationalCache', function () {
@@ -131,6 +141,63 @@ describe('HubOperationalCache', function () {
         it('treats an {error} RPC body as a failure (stale-or-null path)', async function () {
             const { cache } = loadCache({ callResult: { error: 'governance not active' } });
             expect(await cache.getRows('getproposals', {})).to.equal(null);
+        });
+    });
+
+    // A -32601 answer means the hub is UP but its build does not serve the
+    // method: a capability gap, never an outage. It must name itself accurately
+    // and stay out of both outage paths (stale-serving and the unreachable
+    // diagnosis); every other failure keeps the outage path exactly as is.
+    describe('getRows() -32601 method-unsupported answers', function () {
+        it('throws a distinct method-unsupported error instead of returning null', async function () {
+            const { cache } = loadCache({
+                callResult: null,
+                rpcError: { code: -32601, message: 'Method not found' }
+            });
+            let err = null;
+            try { await cache.getRows('getslashproposals', {}); }
+            catch (e) { err = e; }
+            expect(err, 'a -32601 was degraded into the outage null').to.be.an('error');
+            expect(err.message).to.contain('getslashproposals');
+            expect(err.message).to.contain('-32601');
+            expect(err.message).to.contain('not supported');
+            expect(err.message).to.not.contain('unreachable');
+        });
+
+        it('does not serve stale cached rows over a -32601 answer', async function () {
+            const clock = sinon.useFakeTimers();
+            try {
+                const { cache, callStub, rpc } = loadCache({
+                    callResult: [{ id: 7 }],
+                    env: { EXPLORER_HUB_CACHE_MS: '1000' }
+                });
+                await cache.getRows('getproposals', {});
+                callStub.resolves(null);
+                rpc.error = { code: -32601, message: 'Method not found' };
+                clock.tick(5000);
+                let err = null;
+                try { await cache.getRows('getproposals', {}); }
+                catch (e) { err = e; }
+                expect(err, 'stale rows papered over a method-unsupported answer').to.be.an('error');
+                expect(err.message).to.contain('-32601');
+            } finally { clock.restore(); }
+        });
+
+        it('a non-32601 JSON-RPC error still takes the outage path unchanged', async function () {
+            const { cache } = loadCache({
+                callResult: null,
+                rpcError: { code: -32000, message: 'internal error' }
+            });
+            expect(await cache.getRows('getproposals', {})).to.equal(null);
+        });
+
+        it('a fresh cache hit is still served without consulting the connector', async function () {
+            const { cache, callStub, rpc } = loadCache({ callResult: [{ id: 1 }] });
+            await cache.getRows('getvotes', { proposal_id: 'p' });
+            rpc.error = { code: -32601, message: 'Method not found' };
+            const rows = await cache.getRows('getvotes', { proposal_id: 'p' });
+            expect(rows).to.deep.equal([{ id: 1 }]);
+            expect(callStub.callCount).to.equal(1);
         });
     });
 
@@ -276,6 +343,21 @@ describe('db.js RPC-first operational reads', function () {
                 expect(err.message).to.not.contain('XChain_Hub');
             });
         }
+
+        it('propagates a method-unsupported throw as-is, never rewritten into the outage error', async function () {
+            const unsupported = new Error("Hub JSON-RPC method 'getvalidatorcapabilities' is not supported "
+                + 'by the configured hub (JSON-RPC -32601 Method not found).');
+            const ops = { enabled: () => true, staleMaxMs: 600000,
+                          getValidatorCapabilities: sinon.stub().rejects(unsupported) };
+            const db  = makeDb(ops);
+            db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
+            let err = null;
+            try { await db.getValidatorCapabilities(listConfig('getValidatorCapabilities')); }
+            catch (e) { err = e; }
+            expect(err).to.be.an('error');
+            expect(err.message).to.contain('-32601');
+            expect(err.message).to.not.contain('Hub unreachable');
+        });
 
         it('reports the configured stale ceiling in the outage error', async function () {
             const ops = { enabled: () => true, staleMaxMs: 90000, getGovernanceVotes: sinon.stub().resolves(null) };

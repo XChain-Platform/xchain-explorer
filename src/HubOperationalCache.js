@@ -15,7 +15,7 @@
  * XChain Explorer - Hub operational-state cache
  *
  * Serves the hub-LOCAL operational tables (validator_capabilities,
- * governance_proposals, governance_votes) over the hub's JSON-RPC surface
+ * governance_proposals, governance_votes, reorg_attestations, slash_proposals) over the hub's JSON-RPC surface
  * with a short TTL cache, instead of reading a co-located hub-owned MariaDB
  * schema. These tables are off-chain federation state that mutates in place
  * (vote upserts, proposal tallies), so they cannot ride the append-only
@@ -100,6 +100,16 @@ class HubOperationalCache {
             this._cache.set(key, { at: now, rows: result });
             return result;
         }
+        // A -32601 (Method not found) is a definitive answer from a live hub:
+        // this hub build does not serve the method. That is a capability gap,
+        // not an outage, so neither the stale-cache bridge below nor db.js's
+        // unreachable-past-ceiling diagnosis applies; both would misname a
+        // version mismatch as downtime.
+        let rpcErr = this.connector.lastRpcError;
+        if(rpcErr && Number(rpcErr.code) === -32601)
+            throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
+                'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
+                'upgrade it to a build that serves ' + method + '.');
         if(result && result.error)
             console.warn('Hub operational read ' + method + ' returned error: ' + result.error);
         // Hub unreachable or degraded: serve the last-known rows while they
@@ -138,6 +148,41 @@ class HubOperationalCache {
 
     getGovernanceVotes({ proposal_id, voter_pubkey } = {}){
         return this.getRows('getvotes', { proposal_id, voter_pubkey, limit: 500 });
+    }
+
+    // getreorghistory has NO server-side filter beyond limit: the hub does
+    // `SELECT * FROM reorg_attestations ORDER BY created_at DESC LIMIT ?` with no
+    // WHERE clause at all, so chain scoping AND the optional status/reorg_height
+    // narrowing both happen here, client-side, after one cached fetch. This is
+    // deliberately the SAME cache entry for every coin/filter combination (the
+    // getRows cache key is built from {limit:500} only), so ten coins' pages share
+    // one hub round trip per TTL window rather than fragmenting the cache per chain.
+    getReorgHistory({ chain, status, reorg_height } = {}){
+        return this.getRows('getreorghistory', { limit: 500 })
+            .then(rows => {
+                if(!rows) return rows;
+                let out = rows;
+                if(chain !== undefined && chain !== null)
+                    out = out.filter(r => String(r.source_chain) === String(chain));
+                if(status !== undefined && status !== null)
+                    out = out.filter(r => String(r.status) === String(status));
+                if(reorg_height !== undefined && reorg_height !== null)
+                    out = out.filter(r => String(r.reorg_height) === String(reorg_height));
+                return out;
+            });
+    }
+
+    // getslashproposals filters status and validator_pubkey SERVER-side (unlike
+    // getreorghistory, which has no filters at all and forces client-side
+    // narrowing), so both params ride the RPC and the cache key fragments per
+    // filter combination the same way getvalidatorcapabilities/getvotes already
+    // do. limit:500 matches the hub's own page cap (SlashDetector.MAX_PAGE), so
+    // the explorer never asks for more than the hub will serve. The rows the hub
+    // returns carry evidence_hash, never the verbatim evidence blob: that
+    // redaction is hub-side by design, because the hub's POST surface serves the
+    // same RPC to any caller.
+    getSlashProposals({ status, validator_pubkey } = {}){
+        return this.getRows('getslashproposals', { status, validator_pubkey, limit: 500 });
     }
 }
 

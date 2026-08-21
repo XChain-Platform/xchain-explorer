@@ -58,12 +58,29 @@ describe('detail pages resolve XC.query', function () {
         expect(allowlistedTypes(), 'query-derivation allowlist not found in xchain.js').to.not.equal(null);
     });
 
-    // Detail routes this guard holds to the allowlist. It is an opt-in list rather
-    // than "every detail route" because two OLDER pages (bet_feed, oracle) read
-    // XC.query while sitting outside the allowlist: a real pre-existing gap, but one
-    // to confirm and fix on its own evidence rather than to fail the build on here.
-    // Anything ADDED from M2 onward belongs in this list, so the gap cannot grow.
-    const COVERED = ['checkpoint', 'validator', 'xcall', 'attestation', 'poll', 'anchor'];
+    // The guard is EXHAUSTIVE over the live route table, not an opt-in list. Two
+    // older pages (bet_feed, oracle) read XC.query from outside the allowlist and
+    // were confirmed dead on arrival; both are in the allowlist now, so
+    // there is no gap left to grandfather and no way for a new one to be added quietly.
+    // EXEMPT carries the routes that legitimately never read XC.query, each with its
+    // reason; anything else that appears in urls.html has to resolve XC.query.
+    const EXEMPT = {
+        // dispenser.html carries no XC.query reference at all: the server substitutes
+        // {QUERY} into the served fragment, so the client never derives the id.
+        dispenser: 'server-side {QUERY} substitution; the page reads no XC.query',
+        // market is set by its own derivation branch right after this one, because a
+        // market URL may omit its counter-tick and needs two path segments joined.
+        market: 'derived by the dedicated market branch, deliberately outside the allowlist'
+    };
+    const COVERED = [...detailRouteTypes()].filter(t => !(t in EXEMPT)).sort();
+
+    it('every exemption still names a live detail route', function () {
+        // A stale exemption silently shrinks the guard, which is the failure this file
+        // exists to prevent, so the exemptions are pinned to the route table too.
+        for (const type of Object.keys(EXEMPT))
+            expect(detailRouteTypes().has(type),
+                type + ' is exempted here but is no longer a /{QUERY} detail route; drop the exemption').to.equal(true);
+    });
 
     for (const type of COVERED) {
         it('detail route ' + type + ' is in the client allowlist', function () {
@@ -81,9 +98,22 @@ describe('detail pages resolve XC.query', function () {
         expect(inner, 'numeric-id branch not found').to.not.equal(null);
         const numeric = inner[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
         expect(numeric).to.include('checkpoint');
-        // poll, anchor and attestation resolve by action index, so they are numeric too.
-        for (const type of ['poll', 'anchor', 'attestation'])
+        // poll, anchor, attestation and bet_feed all resolve by action index, so they are
+        // numeric too (getBetFeedInfo binds the feed id to m.action_index).
+        for (const type of ['poll', 'anchor', 'attestation', 'bet_feed'])
             expect(numeric, type + ' resolves by action index and belongs in the numeric branch').to.include(type);
+    });
+
+    it('address-keyed detail types are validated as addresses', function () {
+        // oracle is a per-address track record: db.getOracleStats binds the segment to
+        // a2.address, and db's id lookup resolves type 'oracle' through index_addresses
+        // exactly like 'address', so it shares the isCryptoAddress branch rather than
+        // falling through unvalidated.
+        const branch = CLIENT.match(/\(\[([^\]]*)\]\.includes\(type\) && isCryptoAddress\(query\)\)/);
+        expect(branch, 'no isCryptoAddress branch found for address-keyed detail types').to.not.equal(null);
+        const byAddress = branch[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
+        expect(byAddress).to.include('address');
+        expect(byAddress).to.include('oracle');
     });
 
     it('non-numeric detail types are validated some other way, not left unchecked', function () {

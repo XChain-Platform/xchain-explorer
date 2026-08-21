@@ -81,8 +81,14 @@ class XChainExplorer {
 
     constructor(app, configInfo){
 
-        this.version = process.env.npm_package_version;
-        this.name    = process.env.npm_package_name;
+        // npm_package_* exists only under `npm run`; the container now launches
+        // node directly (Dockerfile CMD, exec form, so node is PID 1 and gets
+        // SIGTERM). Without this fallback the WebSocket WELCOME frame would
+        // report the hardcoded '1.0.0' default (ws/WebSocketServer.js) to every
+        // client instead of the real version. Env stays first so the test
+        // launchers that pin it keep deciding.
+        this.version = process.env.npm_package_version || require('../package.json').version;
+        this.name    = process.env.npm_package_name    || require('../package.json').name;
 
         this.app = app;
 

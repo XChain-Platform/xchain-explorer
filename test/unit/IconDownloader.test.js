@@ -16,14 +16,34 @@ const proxyquire = require('proxyquire').noCallThru();
 const path       = require('path');
 
 /**
- * Build a child_process.exec stub that calls its callback based on the
+ * Flatten one child_process.execFile call back into the single command string
+ * the handlers and assertions in this file match on. IconDownloader spawns via
+ * execFile(bin, argv, opts, cb) so there is no shell to escape and Node's
+ * timeout signals the binary itself; the argv shape is an implementation
+ * detail these tests should not have to spell out element by element.
+ */
+function execCmdText(call) {
+    const argv = Array.isArray(call.args[1]) ? call.args[1] : [];
+    return [call.args[0]].concat(argv).join(' ');
+}
+
+/**
+ * Build a child_process.execFile stub that calls its callback based on the
  * result map: { [cmdSubstring]: result }.  result = null means success with
  * empty stdout/stderr; result = Error means failure; result = {stdout,stderr}
- * means success with those values.
+ * means success with those values. The substring is matched against the
+ * flattened `bin arg arg ...` text, so the handlers read the same as they did
+ * when this spawned through a shell.
  */
 function makeExecStub(handlers) {
     // handlers: array of [predicateFn | string, resultOrError]
-    return sinon.stub().callsFake(function(cmd, cb) {
+    return sinon.stub().callsFake(function(file, args, opts, cb) {
+        // execFile's callback is the last argument whatever the arity; promisify
+        // always passes (file, args, opts, cb), but keep the shorter forms working
+        // so a test can call the stub directly.
+        if (typeof args === 'function')      { cb = args; args = []; opts = {}; }
+        else if (typeof opts === 'function') { cb = opts; opts = {}; }
+        const cmd = [file].concat(Array.isArray(args) ? args : []).join(' ');
         for (const [pred, result] of (handlers || [])) {
             const match = typeof pred === 'function' ? pred(cmd) : cmd.includes(pred);
             if (match) {
@@ -88,7 +108,10 @@ function makeStubs(opts) {
 
     if (opts.sniffMimeReject) {
         // Override to always error on mime sniff
-        execStub.callsFake(function(cmd, cb) {
+        execStub.callsFake(function(file, args, opts, cb) {
+            if (typeof args === 'function')      { cb = args; args = []; }
+            else if (typeof opts === 'function') { cb = opts; }
+            const cmd = [file].concat(Array.isArray(args) ? args : []).join(' ');
             if (cmd.includes('--mime-type')) {
                 cb(new Error('file command failed'));
             } else {
@@ -111,7 +134,7 @@ function loadIconDownloader(stubs) {
         'axios':          stubs.axiosStub,
         'fs':             stubs.fsStub,
         'fs/promises':    stubs.fspStub,
-        'child_process':  { exec: stubs.execStub },
+        'child_process':  { execFile: stubs.execStub },
         './IconResolver': {
             resolveDescriptionToSource: stubs.resolveDescriptionToSource,
             selectIconUrlFromCip25Json: stubs.selectIconUrlFromCip25Json,
@@ -1299,13 +1322,13 @@ describe('IconDownloader', function () {
             expect(fspStub.writeFile.callCount).to.equal(1);
             expect(fspStub.writeFile.firstCall.args[1]).to.deep.equal(bytes);
 
-            const sniffCall = execStub.getCalls().find(c => c.args[0].includes('--mime-type'));
+            const sniffCall = execStub.getCalls().find(c => execCmdText(c).includes('--mime-type'));
             expect(sniffCall).to.not.equal(undefined);
 
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(convertCall).to.not.equal(undefined);
-            expect(convertCall.args[0]).to.include('64x64!');
-            expect(convertCall.args[0]).to.include('-format png');
+            expect(execCmdText(convertCall)).to.include('64x64!');
+            expect(execCmdText(convertCall)).to.include('-format png');
 
             expect(fspStub.readFile.callCount).to.equal(1);
             expect(fspStub.readFile.firstCall.args[0]).to.equal(iconPath);
@@ -1376,8 +1399,8 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             await d._writeIcon(Buffer.from('GIFDATA'), '/tmp/out.png');
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            expect(convertCall.args[0]).to.include('[0]');
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(execCmdText(convertCall)).to.include('[0]');
         });
 
         // SVG never reaches convert: ImageMagick's SVG renderer dereferences
@@ -1394,7 +1417,7 @@ describe('IconDownloader', function () {
             } catch (e) {
                 expect(e.message).to.include("unsupported mime 'image/svg+xml'");
             }
-            expect(execStub.getCalls().find(c => c.args[0].includes('-resize'))).to.equal(undefined);
+            expect(execStub.getCalls().find(c => execCmdText(c).includes('-resize'))).to.equal(undefined);
         });
 
         it('uses [0] frame selector for WebP mime type', async function () {
@@ -1403,8 +1426,8 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             await d._writeIcon(Buffer.from('WEBPDATA'), '/tmp/out.png');
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            expect(convertCall.args[0]).to.include('[0]');
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(execCmdText(convertCall)).to.include('[0]');
         });
 
         it('does NOT use [0] frame selector for JPEG', async function () {
@@ -1413,8 +1436,78 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             await d._writeIcon(Buffer.from('JPEGDATA'), '/tmp/out.png');
-            const convertCall = execStub.getCalls().find(c => c.args[0].includes('-resize'));
-            expect(convertCall.args[0]).to.not.match(/\[0\]/);
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(execCmdText(convertCall)).to.not.match(/\[0\]/);
+        });
+
+        // These bytes come from on-chain token descriptions, so both subprocesses
+        // are attacker-fed. maxBytes caps the download and never the decode, and
+        // runOnce holds the _running guard for the whole pass, so an unbounded
+        // convert turns one hostile issuance into a host OOM or a pipeline that is
+        // stalled for every coin until restart.
+        it('bounds convert with a wall-clock timeout and a SIGKILL', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            d.cfg.convertTimeoutMs = 12345;
+            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(convertCall.args[2]).to.include({ timeout: 12345, killSignal: 'SIGKILL' });
+        });
+
+        it('bounds the mime sniff the same way, so a hung `file` cannot wedge the pass', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            d.cfg.convertTimeoutMs = 12345;
+            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+
+            const sniffCall = execStub.getCalls().find(c => execCmdText(c).includes('--mime-type'));
+            expect(sniffCall.args[2]).to.include({ timeout: 12345, killSignal: 'SIGKILL' });
+        });
+
+        it('caps ImageMagick pixel-cache allocation with -limit before the input file', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            const argv  = convertCall.args[1];
+            const pairs = [];
+            argv.forEach((a, i) => { if (a === '-limit') pairs.push(argv[i + 1] + ' ' + argv[i + 2]); });
+            expect(pairs).to.have.members(['memory 256MiB', 'map 256MiB', 'disk 0']);
+
+            // Order is load-bearing: ImageMagick applies settings left to right, so a
+            // -limit after the filename does not bound the read that allocates.
+            const lastLimit = argv.lastIndexOf('-limit');
+            const srcIdx    = argv.findIndex(a => String(a).startsWith('/') && !String(a).endsWith('out.png'));
+            expect(srcIdx).to.be.greaterThan(-1);
+            expect(lastLimit).to.be.lessThan(srcIdx);
+        });
+
+        it('reports a timeout kill as a timeout, so the row records why it failed', async function () {
+            const killed  = new Error('Command failed');
+            killed.killed = true;
+            killed.signal = 'SIGKILL';
+            const { d } = makeWriteIconDownloader([
+                ['--mime-type', { stdout: 'image/png\n', stderr: '' }],
+                ['-resize',     killed],
+            ]);
+            d.cfg.convertTimeoutMs = 777;
+            try {
+                await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+                throw new Error('should have thrown');
+            } catch (e) {
+                expect(e.message).to.include('convert failed: timed out after 777ms');
+            }
+        });
+
+        it('spawns convert without a shell, so no argv element needs escaping', async function () {
+            const { d, execStub } = makeWriteIconDownloader();
+            await d._writeIcon(Buffer.from('PNGBYTES'), "/tmp/it's odd.png");
+
+            const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
+            expect(convertCall.args[0]).to.equal('/usr/bin/convert');
+            expect(convertCall.args[1]).to.be.an('array');
+            // The path travels as one argv element, unquoted: there is no shell to
+            // re-split it, which is what makes the removed shellEscape unnecessary.
+            expect(convertCall.args[1]).to.include("/tmp/it's odd.png");
         });
     });
 

@@ -222,6 +222,51 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
         assert.strictEqual(v.reason, 'ESCROW_LEAF_NOT_COMMITTED');
     });
 
+    // A MID-CHAIN arming, which is what BTC:regtest really carries (11200 in the
+    // shipped map) and what mainnet must eventually carry. The verifier gates on
+    // the height the CALLER hands it, never the served label, so at a mid-chain
+    // arming the two call shapes answer differently on purpose: with no trusted
+    // height the gate reads 0 and refuses, with one it clears. That pair is the
+    // contract the indexer's Stage B live-chain harness depends on
+    // (bin/verify-armed-locked-balance-proof.js), pinned here because this is the
+    // repo where the server and the SDK verifier actually meet.
+    it('a MID-CHAIN arming needs the trusted height; the served label alone is refused', async function () {
+        if (!light) return this.skip();
+        armExplorer();
+        sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = HEIGHT;
+        const { server, stateRoot } = makeVenue();
+        const r = await server.lockedBalanceProof({ coin: COIN }, CHAIN, NET, ADDR, TICK, HEIGHT);
+        assert.ok(!r.error, 'server (armed) serves: ' + r.error);
+        assert.strictEqual(light.verifyLockedBalanceProof(r.proof, stateRoot, CHAIN, NET).reason,
+                           'ESCROW_LEAF_NOT_COMMITTED');
+        const ok = light.verifyLockedBalanceProof(r.proof, stateRoot, CHAIN, NET, null, HEIGHT);
+        assert.strictEqual(ok.reason, null);
+        assert.strictEqual(ok.verified, true);
+        assert.strictEqual(ok.amount, M.canonicalAmount(LOCKED));
+        // And a proof RELABELLED off that height is refused on the binding, which
+        // is the property moving the gate off proof.height exists to add.
+        const relabelled = Object.assign({}, r.proof, { height: HEIGHT + 5 });
+        assert.strictEqual(
+            light.verifyLockedBalanceProof(relabelled, stateRoot, CHAIN, NET, null, HEIGHT).reason,
+            'PROOF_HEIGHT_MISMATCH');
+    });
+
+    // The trusted height comes off a BIGINT block_index column, so BigInt is a
+    // shape real callers pass: the indexer harness reads it straight from the
+    // state_tree_roots row that also supplies state_root. It must gate exactly as
+    // the Number does, or that harness refuses a chain where nothing is wrong.
+    it('a BigInt trusted height gates identically to the Number', async function () {
+        if (!light) return this.skip();
+        armExplorer();
+        sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = HEIGHT;
+        const { server, stateRoot } = makeVenue();
+        const r = await server.lockedBalanceProof({ coin: COIN }, CHAIN, NET, ADDR, TICK, HEIGHT);
+        const v = light.verifyLockedBalanceProof(r.proof, stateRoot, CHAIN, NET, null, BigInt(HEIGHT));
+        assert.strictEqual(v.reason, null);
+        assert.strictEqual(v.verified, true);
+        assert.strictEqual(v.amount, M.canonicalAmount(LOCKED));
+    });
+
     it('the two balances_root leaf domains cannot answer for each other', async function () {
         if (!light) return this.skip();
         armExplorer(); armSdk();

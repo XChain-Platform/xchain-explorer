@@ -142,6 +142,18 @@ const BATCH = {
         let indexes  = results.map((row) => Number(row.action_index));
         let byIndex  = await db.getActionDataBatch(config, indexes);
         data.actions = indexes.map((idx) => byIndex.get(idx));
+        // Stamp the same compact summary the transaction/history rows carry, so the
+        // member table renders through one projection instead of reading the full
+        // payload flat (a SEND keeps tick/amount/destination/status under sends[],
+        // which rendered blank). The key is `summary`, never `details`: a BET feed
+        // member already carries its raw base64 DETAILS string on that key.
+        for(let member of data.actions){
+            if(!member || typeof member !== 'object') continue;
+            let { details, status } = db.projectActionSummary(member);
+            member.summary = details;
+            if(db.util.isNull(member.status))
+                member.status = status;
+        }
     },
 };
 
@@ -357,6 +369,7 @@ const LIST = {
                     b1.block_time as timestamp,
                     t2.hash as tx_hash,
                     t1.tx_index,
+                    m1.memo,
                     s1.status
                 FROM
                     lists l1
@@ -365,9 +378,10 @@ const LIST = {
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_memos        m1 ON (m1.id=l1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=l1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                WHERE 
+                WHERE
                     l1.action_index=?
                 LIMIT 1`;
         // List

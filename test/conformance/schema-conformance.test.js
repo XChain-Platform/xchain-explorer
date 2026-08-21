@@ -540,8 +540,11 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             // Seeded as the canonical UTF-8 ACTION string, which is what the
             // decoder's mempool path writes; this row is byte-identical
             // to the `transactions.data` value its confirmed twin would carry.
+            // destination is NULL as in production: the decoder binds the column
+            // on every insert but parseTransaction never sets it (see the
+            // getDecoderMempoolRows contract note in src/db.js).
             await conn.query('INSERT INTO mempool_transactions (tx_hash, source, destination, amount, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
-                ['conf-mempool-tx-1', 'bcrt1qconformance', 'bcrt1qconformance', 0, 500, MEMPOOL_ACTION_STRING]);
+                ['conf-mempool-tx-1', 'bcrt1qconformance', null, 0, 500, MEMPOOL_ACTION_STRING]);
         } finally {
             conn.release();
         }

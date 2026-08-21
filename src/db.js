@@ -27,6 +27,35 @@ const poolSizing = require('./poolSizing');
 const listEditResolution = require('./list_edit_resolution_activation');
 const actionDetail = require('./action-detail');
 
+// The one field list every compact action summary projects (transaction and
+// history rows via getActionSummaryData, BATCH members via projectActionSummary).
+// Every field the client's getActionDetails reads must be here, or the summary
+// renders blank on one path while the full detail page works; the drift guard
+// (test/unit/db.action-summary-field-contract.test.js) pins the two against
+// each other, so a new summary branch adds its field here in the same change.
+const ACTION_SUMMARY_FIELDS = Object.freeze([
+    'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
+    'action_format', 'action_index',                                                                               // Action details
+    'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
+    'action_class', 'controller', 'unbind',                                                                        // Addresses (controller bind, v1)
+    'message', 'value', 'broadcast_action_index', 'broadcast_fee',                                                 // Broadcasts
+    'callback_tick', 'callback_amount',                                                                            // Callbacks
+    'dividend_tick',                                                                                               // Dividends
+    'name', 'title',                                                                                               // Files
+    'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                                  // Links
+    'list_action_index',                                                                                           // Lists
+    'encryption_method', 'plaintext_message',                                                                      // Messages
+    'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',                  // Orders, Swaps, Dispensers
+    'order_action_index',                                                                                          // Order (cancels, edits, expires)
+    'swap_action_index',                                                                                           // Swap  (cancels, edits, expires)
+    'dispenser_action_index',                                                                                      // Dispesnser (cancels, edits, expires)
+    'resume_block',                                                                                                // Sleep
+    'balances', 'ownerships', 'orders', 'swaps', 'dispensers',                                                     // Sweeps
+    'target_contract_index', 'cooldown_end_block', 'capability',                                                   // Staking (stake, unstake, delegate, slash)
+    'contract_index', 'method_name', 'cooldown_blocks', 'chunk_index', 'total_chunks',                             // Contracts (deploy, execute, deposit, withdraw)
+    'vote_kind'                                                                                                    // Governance
+]);
+
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
 // instance is no longer serving current data for a coin. Deliberately far above
 // every chain's normal inter-block gap (BTC ~10min): a fail-closed gate that
@@ -313,6 +342,18 @@ class Database {
                 try { await pool.end(); } catch(e){ /* best-effort */ }
             }
         }
+    }
+
+    // Release every pool this instance holds and leave the maps empty. Called from
+    // the process shutdown drain (src/shutdown.js), which is the only caller: a
+    // serving explorer holds its pools for its whole lifetime. Public wrapper over
+    // _endPools so the drain does not reach into a private method, and so the map
+    // list stays in ONE place - a future third pool map added to setupConnectionPools
+    // must be added to the _endPools call there, and this inherits it.
+    async close(){
+        await this._endPools([this.pools, this.decoderPools]);
+        this.pools        = {};
+        this.decoderPools = {};
     }
 
     async setupConnectionPools(){
@@ -4382,9 +4423,10 @@ class Database {
     //
     // /{COIN}/api/mempool[/{QUERY}/{TYPE}]: unconfirmed actions read from the
     // colocated decoder DB (see getDecoderMempoolRows). Rows are PRE-VALIDATION
-    // (the indexer can still reject them at confirmation), carry no destination
-    // column, and the full decoded action string ships in `data`; clients with
-    // format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
+    // (the indexer can still reject them at confirmation), carry a destination
+    // column that is always NULL (see getDecoderMempoolRows: never read, never
+    // filtered on), and the full decoded action string ships in `data`; clients
+    // with format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
     // Filtering is a best-effort prefilter done in JS rather than in SQL (the
     // action string is one opaque pipe-joined column, so a LIKE would match
     // across field boundaries): TYPE=address matches the source OR any exact
@@ -4750,8 +4792,25 @@ class Database {
                 // so we null them out and override health to 'node-stale' to make
                 // the outage visible on the /status page.
                 let tipStale = h && h.node_height_stale === true;
-                data.chain_tip[code]        = (h && !tipStale && h.chainTipBlock != null) ? h.chainTipBlock : null;
-                data.chain_lag_blocks[code] = (h && !tipStale && h.blockLag != null) ? Math.max(0, h.blockLag) : null;
+                // A decoder that has never completed getblockchaininfo reports
+                // chainTipBlock -1 and a negative blockLag (its -1 tip sentinel),
+                // and node_height_stale stays false because it never had a tip to
+                // freeze. Publish unknown as null: a -1 tip is not a height, and
+                // clamping the negative lag to 0 would read as "at the tip" for a
+                // decoder that cannot see the chain. Prefer the decoder's own
+                // null-when-unknown lag_blocks; fall back to blockLag for decoders
+                // that predate it, treating a negative value as unknown.
+                let tip = (h && !tipStale && typeof h.chainTipBlock === 'number' && h.chainTipBlock >= 0) ? h.chainTipBlock : null;
+                let lag = null;
+                if(h && !tipStale){
+                    if(Object.prototype.hasOwnProperty.call(h, 'lag_blocks')){
+                        lag = (typeof h.lag_blocks === 'number') ? h.lag_blocks : null;
+                    } else if(typeof h.blockLag === 'number' && h.blockLag >= 0){
+                        lag = h.blockLag;
+                    }
+                }
+                data.chain_tip[code]        = tip;
+                data.chain_lag_blocks[code] = lag;
                 data.decoder_health[code]   = tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable');
             } catch(e){
                 data.decoder_health[code] = 'unreachable';
@@ -5745,6 +5804,39 @@ class Database {
         return out;
     }
 
+    // Project one full getActionData payload onto the compact summary shape the
+    // client's getActionDetails renders: ACTION_SUMMARY_FIELDS copied onto a
+    // `details` object (false when none is present) plus the row status. SEND
+    // keeps its fields per destination under sends[], so the summary reads
+    // sends[0] for every field and takes its status when the payload has none.
+    // The transaction/history rows and the BATCH member table both go through
+    // here, so a field lands on every summary surface at once.
+    projectActionSummary(info){
+        let details = false;
+        let status  = info.status;
+        let send    = (info.action=='SEND' && Array.isArray(info.sends) && info.sends.length>0) ? info.sends[0] : null;
+        if(send && this.util.isNull(status))
+            status = send.status;
+        for(let name of ACTION_SUMMARY_FIELDS){
+            let found  = false;
+            let detail = false;
+            if(typeof info[name] !== 'undefined'){
+                found  = true;
+                detail = info[name];
+            }
+            if(send){
+                found  = true;
+                detail = send[name];
+            }
+            if(found){
+                if(!details)
+                    details = {};
+                details[name] = detail;
+            }
+        }
+        return { details, status };
+    }
+
     async getActionSummaryData(config, actions){
         // --- Performance note (Fix B / #3841) ---
         // The page's action rows are enriched via getActionDataBatch(), which resolves the
@@ -5756,51 +5848,10 @@ class Database {
         // --- End Fix B ---
         // Pre-resolve every row's action data once, keyed by action_index.
         let actionData = await this.getActionDataBatch(config, actions.map((a) => a.action_index));
-        // Minimal field set for history list items; full info is available per-action.
-        let detailFields = [
-            'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
-            'action_format',                                                                                               // Action details
-            'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
-            'action_class', 'controller', 'unbind',                                                                        // Addresses (controller bind, v1)
-            'message', 'value', 'broadcast_action_index', 'broadcast_fee',                                                 // Broadcasts
-            'callback_tick', 'callback_amount',                                                                            // Callbacks
-            'dividend_tick',                                                                                               // Dividends
-            'name', 'title',                                                                                               // Files
-            'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                                  // Links
-            'list_action_index',                                                                                           // Lists
-            'encryption_method', 'plaintext_message',                                                                      // Messages
-            'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',                  // Orders, Swaps, Dispensers
-            'order_action_index',                                                                                          // Order (cancels, edits, expires)
-            'swap_action_index',                                                                                           // Swap  (cancels, edits, expires)
-            'dispenser_action_index',                                                                                      // Dispesnser (cancels, edits, expires)
-            'resume_block',                                                                                                // Sleep
-            'balances', 'ownerships', 'orders', 'swaps', 'dispensers'                                                      // Sweeps
-        ];
         for(let data of actions){
             let info = actionData.get(Number(data.action_index));
-            data.status = info.status;
-            let details = false;
-            for(let name of detailFields){
-                let found  = false;
-                let detail = false;
-                if(typeof info[name] !== 'undefined'){
-                    found  = true;
-                    detail = info[name];
-                }
-                if(info.action=='SEND' && info.sends && info.sends.length>0){
-                    found = true;
-                    detail = info.sends[0][name];
-                    if(this.util.isNull(data.status))
-                        data.status = info.sends[0]['status'];
-                }
-                if(found){
-                    // If details object does not exist yet, create it
-                    if(!details)
-                        details = {};
-                    details[name] = detail;
-                }
-
-            }
+            let { details, status } = this.projectActionSummary(info);
+            data.status  = status;
             data.details = details;
         }
         // Slow-page observability (Fix B): warn when first-load latency is still high after
@@ -6619,11 +6670,15 @@ class Database {
     // tx hash and source address as raw string columns (tx_hash, source) rather
     // than FK ids into the decoder's index tables, so the row reads directly with
     // no joins. Rows are PRE-VALIDATION: the decoder writes whatever parses out of
-    // a mempool tx; the indexer may still reject it at confirmation time. The
-    // destination is not populated as a column; destinations live inside the
-    // decoded action string (`data`), which callers parse. Same access pattern +
-    // safety rules as getDecoderMempoolCount. Returns [] when the decoder DB isn't
-    // reachable.
+    // a mempool tx; the indexer may still reject it at confirmation time.
+    // mempool_transactions DOES declare a `destination` column (indexed as
+    // mempool_destination) and the decoder binds it on every insert, but the
+    // bound value is always NULL: XChainDecoder.parseTransaction's only success
+    // return hardcodes destination:null. Destinations live inside the decoded
+    // action string (`data`), which callers parse. Do NOT move getMempool's
+    // type=address filter onto that index: it would match zero rows. Same
+    // access pattern + safety rules as getDecoderMempoolCount. Returns [] when
+    // the decoder DB isn't reachable.
     //
     // ENCODING: mempool_transactions.data is a MEDIUMTEXT utf8mb4 column holding
     // the canonical UTF-8 ACTION string ("SEND|0|TICK|..."), the exact same
@@ -6637,8 +6692,13 @@ class Database {
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
         let max = Math.max(1, Math.min(Number(limit) || 200, 500));
         try {
+            // ORDER BY the unique-indexed tx_hash: the table has no primary key
+            // and the decoder rewrites it every cycle, so a bare LIMIT returns a
+            // scan-order subset that churns between polls. The ws mempool diff
+            // and /api/mempool paging both read this window as a stable snapshot.
             let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data ' +
                         'FROM `' + dbName + '`.mempool_transactions m ' +
+                        'ORDER BY m.tx_hash ' +
                         'LIMIT ' + max;
             let results = await this.doDecoderQuery(config, query, []);
             return results || [];
@@ -11940,3 +12000,4 @@ class Database {
 
 module.exports = Database;
 module.exports.DbQueryError = DbQueryError;
+module.exports.ACTION_SUMMARY_FIELDS = ACTION_SUMMARY_FIELDS;

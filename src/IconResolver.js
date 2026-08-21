@@ -33,6 +33,40 @@
 // gateway is a two-file change, here and there.
 const IPFS_GATEWAY = 'https://ipfsc.crystalsuite.com/';
 
+// The `action:` on-chain TIS reference grammar, written once in a dialect both
+// consumers read: this file compiles it as a JS regex, and the icon worker embeds
+// the same source text in a SQL REGEXP (the one-shot re-stale in
+// IconDownloader._discover). Plain capture groups rather than `(?:`, so the one
+// string is legal to both engines; the language it matches is exactly the page's
+// actionRefToRawPath regex.
+//
+// Shared rather than copied because the two have to agree or the worker LOOPS: a
+// re-stale predicate wider than this grammar (a bare `LIKE 'action:%'`) selects
+// rows whose description resolves to no source at all, and those land straight
+// back on _processToken's terminal ok-with-no-icon state, to be re-staled again
+// on the next cycle, forever (#5290).
+//
+// CASE IS SPELT OUT, never delegated to a case-folding operator on either side,
+// and that is the load-bearing property. The obvious spelling - a lower-case
+// pattern read by JS under /i and by SQL under LOWER() - silently makes the two
+// engines accept DIFFERENT languages, because /i and LOWER() are different
+// functions. JS's non-unicode /i canonicalises via toUpperCase and leaves U+0130
+// (LATIN CAPITAL LETTER I WITH DOT ABOVE) alone, while MariaDB's utf8mb4 LOWER()
+// applies the Unicode simple mapping and folds U+0130 to plain 'i'. So `ACTİON:12`
+// resolved to null here and MATCHED there: selected for re-stale, resolvable by
+// nobody, re-staled forever, and mintable by anyone, since token descriptions are
+// attacker-controlled on-chain data. Swept on MariaDB 10.11 and 11.4 against a
+// real utf8mb4 column, U+0130 is the ONLY codepoint in all of Unicode whose
+// LOWER() output is one of this grammar's letters (#5290).
+//
+// With the classes explicit there is no folding operator left to disagree about:
+// no /i here, and the worker matches under CONVERT(... USING binary) so the SQL
+// side is ASCII-exact too. Adding a letter to this pattern means adding BOTH its
+// cases; a bare letter would silently become case-sensitive on both sides.
+const ACTION_REF_PATTERN =
+    '^[Aa][Cc][Tt][Ii][Oo][Nn]:(([Bb][Tt][Cc]|[Ll][Tt][Cc]|[Dd][Oo][Gg][Ee]):)?([0-9]+)$';
+const ACTION_REF_RE      = new RegExp(ACTION_REF_PATTERN);
+
 /**
  * Classify a token description into an icon source.
  *
@@ -47,11 +81,32 @@ const IPFS_GATEWAY = 'https://ipfsc.crystalsuite.com/';
  *   { scheme: 'imgur',       url:  'https://i.imgur.com/<image>' }
  *   { scheme: 'json_url',    url:  'https://.../something.json' }
  *   { scheme: 'image_url',   url:  'https://.../something.png' }
+ *   { scheme: 'action', coin: 'BTC'|null, index: '<action_index>' }
+ *
+ * The `action` descriptor is the odd one out: it carries no URL, because the
+ * bytes are not on the network at all. They are the FILE action's stored bytes in
+ * the colocated decoder DB, the same bytes the token page fetches same-origin
+ * from /{COIN}/api/file/{index}/raw. The caller reads them (IconDownloader), not
+ * this classifier, which still makes no calls of any kind.
  */
 function resolveDescriptionToSource(description){
     if(typeof description !== 'string') return null;
     const desc = description.trim();
     if(desc === '') return null;
+
+    // 0. action:<index> / action:<COIN>:<index>: an on-chain TIS document, the
+    // format the platform's own Token_Information_Standard promotes. The token
+    // page resolves it live (actionRefToRawPath in content/js/xchain.js), and this
+    // file's whole contract is to pick the source that page would, so it has to
+    // match the page's regex exactly: same three sibling tickers, same digits-only
+    // index, and the sibling coin's network tier supplied by the caller (which
+    // knows the flavor) rather than guessed here. Placed FIRST because it is an
+    // exact-form match, so no later branch can shadow it. ACTION_REF_RE is the
+    // shared grammar the icon worker's re-stale predicate also compiles, so the
+    // two can never disagree about what "an action: description" is.
+    const act = ACTION_REF_RE.exec(desc);
+    if(act)
+        return { scheme: 'action', coin: act[2] ? act[2].toUpperCase() : null, index: act[3] };
 
     // 1. stamp:base64data: embedded image bytes
     if(/^stamp:/i.test(desc)){
@@ -185,7 +240,16 @@ function selectIconUrlFromCip25Json(json){
     // is more specific than "image" when both exist, so it wins.
     const j = (json.icon) ? Object.assign({}, json, { image: json.icon }) : json;
 
-    const images = Array.isArray(j.images) ? j.images : [];
+    // TIS `data_ref` takes precedence over `data` on the same entry, which is what the
+    // page does (resolveTisDataRefs in content/js/xchain.js overwrites `data` with the
+    // resolved ref before any picker runs). Applied to every JSON lane, not just the
+    // action: one, because the page applies it to every TIS document it fetches however
+    // it reached it, and this file's contract is to pick what the page would.
+    const images = (Array.isArray(j.images) ? j.images : []).map(img => {
+        if(!img || typeof img !== 'object') return img;
+        if(typeof img.data_ref !== 'string' || img.data_ref.trim() === '') return img;
+        return Object.assign({}, img, { data: img.data_ref });
+    });
 
     // 1. 64x64 icon (what the page takes first, and the size we render at)
     for(const img of images){
@@ -276,4 +340,5 @@ module.exports = {
     resolveDescriptionToSource,
     selectIconUrlFromCip25Json,
     rewriteSchemeUrl,
+    ACTION_REF_PATTERN,
 };

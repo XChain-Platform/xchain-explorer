@@ -49,10 +49,16 @@ const os      = require('os');
 const path    = require('path');
 const dns     = require('dns');
 const netmod  = require('net');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { makeSafeLookup, isPrivateAddress } = require('./ssrf-guard');
-const execAsync = promisify(exec);
+// execFile, not exec: both subprocesses below are handed attacker-influenced
+// input (a tmp path this process chose, and image bytes from an on-chain
+// description). Without a shell there is no word-splitting to escape, and,
+// more importantly for the hang below, Node's `timeout` signals the binary
+// itself rather than an intervening /bin/sh that could leave the real process
+// orphaned and still grinding.
+const execFileAsync = promisify(execFile);
 
 const { resolveDescriptionToSource, selectIconUrlFromCip25Json } = require('./IconResolver');
 
@@ -71,6 +77,24 @@ const DEFAULTS = {
     maxAttempts:     4,
     recursionLimit:  2,
     convertBin:      '/usr/bin/convert',
+    // Wall-clock ceiling on each subprocess. maxBytes caps the DOWNLOAD, never
+    // the DECODE, so a well-formed ~5MB raster declaring enormous dimensions
+    // still costs ImageMagick minutes of grinding. runOnce holds the _running
+    // re-entrancy guard for the whole pass, so one such image would otherwise
+    // stall the icon pipeline for every coin and network until the process is
+    // restarted. On expiry Node SIGKILLs the child and _writeIcon fails the row
+    // into the normal backoff path.
+    convertTimeoutMs: 20000,
+    // ImageMagick pixel-cache ceilings, passed as -limit on every invocation.
+    // The service ships no policy.xml, so these argv limits are the only bound
+    // on IM's allocation: a 5MB PNG declaring 50000x50000 decodes to tens of
+    // gigabytes of pixel buffer otherwise. disk 0 makes the overflow fail fast
+    // instead of thrashing a temp file. Only memory/map/disk are used because
+    // they exist in every IM6 and IM7 build; an unrecognized -limit resource
+    // type aborts the conversion, which would take every icon down with it.
+    convertMemoryLimit: '256MiB',
+    convertMapLimit:    '256MiB',
+    convertDiskLimit:   '0',
 };
 
 // Raster formats only. SVG is deliberately absent: these bytes come from
@@ -473,7 +497,7 @@ class IconDownloader {
         await fsp.writeFile(tmp, bytes);
 
         let mime;
-        try { mime = await sniffMime(tmp); }
+        try { mime = await sniffMime(tmp, this.cfg.convertTimeoutMs); }
         catch (e){
             await safeUnlink(tmp);
             throw new Error('mime sniff failed');
@@ -488,11 +512,32 @@ class IconDownloader {
         const srcArg          = needsFirstFrame ? `${tmp}[0]` : tmp;
         const size            = this.cfg.iconSize;
 
+        // -limit precedes the input on purpose: ImageMagick applies settings in
+        // command-line order, so a limit placed after the filename does not bound
+        // the read that allocates the pixel cache.
+        const convertArgs = [
+            '-limit', 'memory', String(this.cfg.convertMemoryLimit),
+            '-limit', 'map',    String(this.cfg.convertMapLimit),
+            '-limit', 'disk',   String(this.cfg.convertDiskLimit),
+            srcArg,
+            '-resize', `${size}x${size}!`,
+            '-format', 'png',
+            iconPath,
+        ];
+
         try {
-            await execAsync(`${shellEscape(this.cfg.convertBin)} ${shellEscape(srcArg)} -resize ${size}x${size}! -format png ${shellEscape(iconPath)}`);
+            await execFileAsync(this.cfg.convertBin, convertArgs, {
+                timeout:    this.cfg.convertTimeoutMs,
+                killSignal: 'SIGKILL',
+            });
         } catch (e){
             await safeUnlink(tmp);
-            throw new Error('convert failed: ' + (e.stderr || e.message || ''));
+            // A timeout kill leaves stderr empty and the message unhelpful, so name
+            // it: the row's last_error is the only place this is visible.
+            const killed = (e.killed === true || e.signal === 'SIGKILL');
+            throw new Error('convert failed: ' + (killed
+                ? `timed out after ${this.cfg.convertTimeoutMs}ms`
+                : (e.stderr || e.message || '')));
         }
         await safeUnlink(tmp);
 
@@ -576,17 +621,19 @@ function truncate(s, n){
     return s.length > n ? s.slice(0, n) : s;
 }
 
-function shellEscape(s){
-    return `'${String(s).replace(/'/g, "'\\''")}'`;
-}
-
 async function safeUnlink(p){
     try { await fsp.unlink(p); } catch (e) { /* ignore */ }
 }
 
-// MIME sniff via the `file` command (works without adding a dependency)
-async function sniffMime(filePath){
-    const { stdout } = await execAsync(`file --mime-type -b ${shellEscape(filePath)}`);
+// MIME sniff via the `file` command (works without adding a dependency).
+// Bounded like the conversion below it: `file` reads the same hostile bytes,
+// and a sniff that never returns wedges the whole pass just as a hung convert
+// does, because runOnce holds _running until _processToken resolves.
+async function sniffMime(filePath, timeoutMs){
+    const { stdout } = await execFileAsync('file', ['--mime-type', '-b', filePath], {
+        timeout:    timeoutMs,
+        killSignal: 'SIGKILL',
+    });
     return stdout.trim();
 }
 

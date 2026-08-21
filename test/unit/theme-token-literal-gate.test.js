@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 // Static companion to tools/theme-parity/parity-probe.js. That probe diffs
 // computed styles on live pages, but only 77 of the 121 selectors in these
@@ -13,6 +14,11 @@ const path = require('node:path');
 const CSS_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'css');
 const TOKENS_FILE = path.join(__dirname, '..', '..', 'src', 'content', 'themes', 'classic', 'tokens.css');
 const CSS_FILES = ['xchain.css', 'xchain-charts.css'];
+// The probe itself, addressed as data. Nothing else in the repo parses this
+// file: the explorer's CSP forbids eval, so it is pasted into a devtools
+// console by hand, and a syntax error or a renamed global would surface only
+// mid-investigation on a live venue.
+const PROBE_FILE = path.join(__dirname, '..', '..', 'tools/theme-parity/parity-probe.js');
 
 // Strip /* ... */ comments but keep every newline, so a later offset-to-line
 // count still lines up with the original file. A commented-out declaration
@@ -219,5 +225,36 @@ describe('theme token-literal gate (M1 A3)', () => {
       }
     }
     assert.deepEqual(missing, [], missing.join('\n'));
+  });
+});
+
+describe('theme parity probe (static contract)', () => {
+  const probe = fs.readFileSync(PROBE_FILE, 'utf8');
+
+  it('parses as JavaScript', () => {
+    // Compile only. new vm.Script never runs the body, so the window and
+    // document the probe needs are not required here; what is being proven is
+    // that the one file no runner ever loads is still syntactically valid.
+    assert.doesNotThrow(
+      () => new vm.Script(probe, { filename: PROBE_FILE }),
+      'parity-probe.js no longer parses; a paste into the console would fail',
+    );
+  });
+
+  it('still exposes the __XC global the run instructions paste against', () => {
+    assert.match(probe, /window\.__XC\s*=/,
+      'tools/theme-parity/README.md documents __XC(tag, phase); the probe must define it');
+  });
+
+  it('still recognizes both stylesheets this gate scans', () => {
+    // The probe derives its rule layer from the sheets its SHEET pattern
+    // admits, so a stylesheet renamed out of that pattern makes the probe
+    // report a clean parity run over nothing at all.
+    const m = probe.match(/const\s+SHEET\s*=\s*(\/(?:[^/\\\n]|\\.)+\/[a-z]*)/);
+    assert.ok(m, 'the probe no longer declares a SHEET pattern in the expected form');
+    const sheetRe = new RegExp(m[1].slice(1, m[1].lastIndexOf('/')));
+    const unseen = CSS_FILES.filter((name) => !sheetRe.test(`/content/css/${name}`));
+    assert.deepEqual(unseen, [],
+      `the probe's SHEET pattern skips: ${unseen.join(', ')}`);
   });
 });

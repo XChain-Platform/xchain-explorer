@@ -1519,6 +1519,48 @@ describe('Database#getStatus decoder health aggregation', () => {
         }
     });
 
+    // A decoder that has never reached its coin node reports the -1 tip sentinel
+    // and a negative blockLag; neither is a real height or gap, so both publish
+    // as null rather than chain_tip=-1 / chain_lag_blocks=0 ("at the tip").
+    it('nulls chain_tip / chain_lag_blocks for the decoder -1 never-polled sentinel', async () => {
+        process.env.DECODER_API_URL = 'http://decoder:3001';
+        sinon.stub(axios, 'post').resolves({
+            data: { result: { status: 'healthy', chainTipBlock: -1, blockLag: -900501, lag_blocks: null } }
+        });
+        const [data] = await db.getStatus(cfg());
+        const codes = Object.keys(data.decoder_health);
+        expect(codes.length).to.be.greaterThan(0);
+        for (const code of codes) {
+            expect(data.decoder_health[code]).to.equal('healthy');
+            expect(data.chain_tip[code]).to.be.null;
+            expect(data.chain_lag_blocks[code]).to.be.null;
+        }
+    });
+
+    it('prefers the decoder lag_blocks field over blockLag when present', async () => {
+        process.env.DECODER_API_URL = 'http://decoder:3001';
+        sinon.stub(axios, 'post').resolves({
+            data: { result: { status: 'healthy', chainTipBlock: 900500, blockLag: 7, lag_blocks: 7 } }
+        });
+        const [data] = await db.getStatus(cfg());
+        for (const code of Object.keys(data.decoder_health)) {
+            expect(data.chain_tip[code]).to.equal(900500);
+            expect(data.chain_lag_blocks[code]).to.equal(7);
+        }
+    });
+
+    it('treats a negative blockLag from a decoder without lag_blocks as unknown, never 0', async () => {
+        process.env.DECODER_API_URL = 'http://decoder:3001';
+        sinon.stub(axios, 'post').resolves({
+            data: { result: { status: 'healthy', chainTipBlock: -1, blockLag: -42 } }
+        });
+        const [data] = await db.getStatus(cfg());
+        for (const code of Object.keys(data.decoder_health)) {
+            expect(data.chain_tip[code]).to.be.null;
+            expect(data.chain_lag_blocks[code]).to.be.null;
+        }
+    });
+
     it('reports decoder_health=unreachable (null fields) when the health call fails', async () => {
         process.env.DECODER_API_URL = 'http://decoder:3001';
         sinon.stub(axios, 'post').rejects(new Error('ECONNREFUSED'));

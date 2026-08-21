@@ -472,6 +472,65 @@ describe('XChainHubConnector', function () {
             expect(c.lastWatermark).to.equal(2000);
             expect(c._watermarkEndpointIdx).to.equal(1);
         });
+
+        it('treats a regressed hub watermark as a hub reset: alarms, drops the cache and re-fetches the full tree', async function () {
+            // Hub restored from an older snapshot: its MAX(updated_at) watermark goes
+            // BACKWARDS. The delta against the lost-window cursor cannot carry rows the
+            // restored hub holds at an older updated_at, and the upsert-only merge would
+            // serve the lost-window value forever while config.js stamps the fetch fresh.
+            const axiosStub = makeAxiosStub();
+            // Poll 1: full tree, watermark 5000, cached value from the soon-to-be-lost window.
+            axiosStub.post.onCall(0).resolves({ data: { result: {
+                configs: { BTC: { mainnet: { 'xchain-indexer': { name: 'lost-window' } } } }, seq: 5, watermark: 5000
+            } } });
+            // Poll 2: delta at 4999 comes back empty with a LOWER watermark (3000).
+            axiosStub.post.onCall(1).resolves({ data: { result: { configs: {}, seq: 3, watermark: 3000 } } });
+            // Re-fetch at since 0: the restored hub's full tree.
+            axiosStub.post.onCall(2).resolves({ data: { result: {
+                configs: { BTC: { mainnet: { 'xchain-indexer': { name: 'restored' } } } }, seq: 3, watermark: 3000
+            } } });
+            const Connector = loadConnector(axiosStub);
+            let c = new Connector('localhost', 3000);
+            await c.getAllConfig();
+            expect(c.lastWatermark).to.equal(5000);
+
+            const errStub = sinon.stub(console, 'error');
+            let second;
+            try {
+                second = await c.getAllConfig();
+            } finally {
+                errStub.restore();
+            }
+            expect(axiosStub.post.getCall(1).args[1].params.since_updated_at).to.equal(4999);
+            expect(axiosStub.post.getCall(2).args[1].params.since_updated_at).to.equal(0);
+            // Replaced, not merged: the lost-window value is gone.
+            expect(second.BTC.mainnet['xchain-indexer'].name).to.equal('restored');
+            expect(c.lastWatermark).to.equal(3000);
+            expect(c.lastSeq).to.equal(3);
+            expect(errStub.calledWithMatch(/HUB CONFIG REGRESSION/)).to.equal(true);
+
+            // Poll 3: steady state resumes as a delta against the new watermark.
+            axiosStub.post.onCall(3).resolves({ data: { result: { configs: {}, seq: 3, watermark: 3000 } } });
+            await c.getAllConfig();
+            expect(axiosStub.post.getCall(3).args[1].params.since_updated_at).to.equal(2999);
+            expect(axiosStub.post.callCount).to.equal(4);
+        });
+
+        it('an equal (re-delivered) watermark is not a regression: no re-fetch, delta merged', async function () {
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.onCall(0).resolves({ data: { result: {
+                configs: { BTC: { mainnet: { fees: { a: '1' } } } }, seq: 1, watermark: 1000
+            } } });
+            axiosStub.post.onCall(1).resolves({ data: { result: {
+                configs: { BTC: { mainnet: { fees: { b: '2' } } } }, seq: 1, watermark: 1000
+            } } });
+            const Connector = loadConnector(axiosStub);
+            let c = new Connector('localhost', 3000);
+            await c.getAllConfig();
+            let second = await c.getAllConfig();
+            expect(second.BTC.mainnet.fees).to.deep.equal({ a: '1', b: '2' });
+            expect(axiosStub.post.callCount).to.equal(2);
+        });
     });
 
     // A JSON-RPC error body over HTTP 2xx is a definitive protocol-level answer

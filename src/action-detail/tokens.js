@@ -83,10 +83,30 @@ const DESTROY = {
                     LEFT  JOIN index_statuses     s1 ON (s1.id=d1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN index_tickers      t3 ON (t3.id=d1.tick_id)
-                WHERE 
+                WHERE
                     d1.action_index=?
                 LIMIT 1`;
+        // destroys.action_index is non-unique (one row per multi-destroy leg,
+        // indexer migration 2026-08-15), so the LIMIT 1 header above carries an
+        // arbitrary leg; read every leg the way SEND does. No primary key on
+        // destroys, so order by the leg identity for a stable list.
+        query2 = `SELECT
+                    t1.tick,
+                    d1.amount,
+                    m1.memo,
+                    s1.status
+                FROM
+                    destroys d1
+                    LEFT  JOIN index_tickers      t1 ON (t1.id=d1.tick_id)
+                    LEFT  JOIN index_memos        m1 ON (m1.id=d1.memo_id)
+                    LEFT  JOIN index_statuses     s1 ON (s1.id=d1.status_id)
+                WHERE
+                    d1.action_index=?
+                ORDER BY d1.tick_id, d1.memo_id`;
         return { query, query2, query3 };
+    },
+    afterQuery2(ctx, data, results) {
+        data.destroys = results;
     },
 };
 

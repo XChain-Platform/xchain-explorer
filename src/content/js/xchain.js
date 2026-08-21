@@ -1037,8 +1037,24 @@ function getActionDetails(action, info){
     if(action=='MINT')
         html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
     if(action=='SEND'){
-        html += formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount) + ' to ';
-        html += formatLink('/' + coin + '/address/' + info.destination, info.destination);
+        // A SEND detail payload keeps tick/amount/destination per destination under
+        // sends[]; the summary producers flatten sends[0], but tolerate the nested
+        // shape too so a raw payload never renders as ' to ' plus an empty link.
+        let sends = (isNull(info.tick) && isNull(info.destination) && Array.isArray(info.sends)) ? info.sends : null;
+        if(sends && sends.length > 1){
+            let sameTick = sends.every((s) => s.tick == sends[0].tick);
+            if(sameTick){
+                let total = sends.reduce((sum, s) => bcadd(sum, s.amount), '0');
+                html += formatLinkAmount('/' + coin + '/token/' + sends[0].tick, sends[0].tick, sends[0].tick, total) + ' to ';
+            } else {
+                html += 'Multiple tokens to ';
+            }
+            html += sends.length + ' recipients';
+        } else {
+            let send = (sends && sends.length === 1) ? sends[0] : info;
+            html += formatLinkAmount('/' + coin + '/token/' + send.tick, send.tick, send.tick, send.amount) + ' to ';
+            html += formatLink('/' + coin + '/address/' + send.destination, send.destination);
+        }
     }
     if(action=='SWEEP'){
         html += formatLink('/' + coin + '/address/' + info.source, info.source) + ' to ';
@@ -2863,9 +2879,11 @@ function showDividendDetails(data){
 
 // Display DESTROY action information
 function showDestroyDetails(data){
-    $('#info-destroy .destroy-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    $('#info-destroy .destroy-amount').html(formatAmount(data.amount));
-    $('#info-destroy .destroy-memo').text(data.memo);
+    // A multi-destroy burns one leg per `destroys` row; render every leg.
+    // Fall back to the header fields (one leg) for a payload without `destroys`.
+    let legs = (data.destroys && data.destroys.length) ? data.destroys
+             : [{ tick: data.tick, amount: data.amount, memo: data.memo, status: data.status }];
+    showActionDatatable('destroy', legs);
 }
 
 // Display DISPENSER action information
@@ -3569,6 +3587,7 @@ function showListDetails(data){
     $('#info-list .list-type').text(type);
     $('#info-list .list-edit-type').text(edit);
     $('#info-list .list-action-index').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
+    $('#info-list .list-memo').text((data.memo == null) ? '' : data.memo);
     // Add header columns
     $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
     $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');
@@ -3881,13 +3900,16 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
         data.forEach(function(info, idx){
             var cls = (info.status=='valid') ? 'bg-green' : 'bg-red';
             if(['actions','batch'].includes(type)){
-                // Only the SUMMARY shape nests under `.details` (getActionSummaryData
-                // builds that object for the transaction actions table). A batch's
-                // member rows are full getActionData payloads with their fields flat,
-                // and a BET feed member keeps the raw attacker-supplied base64 DETAILS
-                // string on that same key, so a truthiness test handed getActionDetails
-                // a string instead of the action info. Require an object.
-                let details = (info.details && typeof info.details === 'object') ? info.details : info;
+                // The transaction actions table nests its summary under `.details`
+                // (getActionSummaryData) and a BATCH member carries the same projection
+                // under `.summary` (misc.js BATCH.afterQuery2), both built by
+                // db.projectActionSummary. A BET feed member keeps the raw
+                // attacker-supplied base64 DETAILS string on the `.details` key, so a
+                // truthiness test handed getActionDetails a string instead of the action
+                // info. Require an object on either key, else fall back to the flat row.
+                let details = (info.summary && typeof info.summary === 'object') ? info.summary
+                            : (info.details && typeof info.details === 'object') ? info.details
+                            : info;
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, formatAmount(info.action_index)) + '</td>';
@@ -3920,6 +3942,14 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
                 html += '    <td>' + formatAmount(info.amount) + '</td>';
                 html += '    <td>' + info.status + '</td>';
+                html += '</tr>';
+            } else if(type=='destroy'){
+                html += '<tr class="' + cls + '">'
+                html += '    <td>' + (idx+1) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+                html += '    <td>' + formatAmount(info.amount) + '</td>';
+                html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
+                html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
                 html += '</tr>';
             } else {
                 html += '<tr>'

@@ -188,12 +188,14 @@ class XChainHubConnector {
         let sentCursor     = this.lastWatermark;
         // The hub reads its watermark BEFORE it reads the config rows, so a row
         // committed after that read but stamped in the SAME epoch-second as the
-        // returned watermark would fall outside a strict `since_updated_at > cursor`
-        // boundary forever (the cursor already advanced past it). Send the cursor
-        // one second behind the stored watermark so that boundary second is always
-        // re-fetched; mergeConfigDelta's upsert-only merge makes re-receiving it a
-        // harmless no-op. 0 still means "send me the full tree" (initial fetch,
-        // post-restart, or a hub too old to report a watermark).
+        // returned watermark is only delivered because the hub's cursor is now
+        // inclusive (`since_updated_at >= cursor`, item #2265); an older hub compared
+        // `>` and stranded that row forever (the cursor had already advanced past it).
+        // Keep sending the cursor one second behind the stored watermark so the
+        // boundary second is re-fetched against either hub generation (do not
+        // "simplify" the - 1 away); mergeConfigDelta's upsert-only merge makes
+        // re-receiving it a harmless no-op. 0 still means "send me the full tree"
+        // (initial fetch, post-restart, or a hub too old to report a watermark).
         let deltaCursor = this.lastWatermark > 0 ? this.lastWatermark - 1 : 0;
         let result = await this._call({
             jsonrpc: '2.0',
@@ -241,14 +243,55 @@ class XChainHubConnector {
         // path): return null so config.js keeps last-known-good config with an honest
         // staleness signal. Scoped to the exact envelope shape (a bare `error` string, no
         // `configs`) so a legitimate config tree can never match.
-        if(result && typeof result === 'object' && typeof result.error === 'string' && !result.configs){
+        let errorEnvelope = (r) => r && typeof r === 'object' && typeof r.error === 'string' && !r.configs;
+        if(errorEnvelope(result)){
             console.warn('Hub reachable but reported a config-DB read error; cannot fetch config. Falling back to cached config.');
             return null;
+        }
+        // Hub restart / restore from an older snapshot: the same endpoint now serves a
+        // seq or watermark BELOW the last one it gave us. The delta we asked for (cursor
+        // from the lost window) cannot carry rows the restored hub holds at an OLDER
+        // updated_at, and mergeConfigDelta only upserts, so merging it would serve
+        // lost-window values forever while config.js stamps hubConfigFetchedAt fresh.
+        // Mirror the indexer's HUB CONFIG REGRESSION handling: alarm (a hub that lost
+        // config state is an operator event), drop the cache, reset the cursor and
+        // re-fetch the full tree once, exactly as the failover block above does.
+        if(this.lastWatermark > 0 && this.configs && this._hubConfigRegressed(result)){
+            console.error('XChainHubConnector: HUB CONFIG REGRESSION: hub served seq ' + (Number(result.seq) || 0) +
+                          '/watermark ' + (Number(result.watermark) || 0) + ', below last-seen ' + this.lastSeq +
+                          '/' + this.lastWatermark +
+                          ' (hub restart or restore from an older snapshot); discarding cached config and re-fetching the full tree.');
+            this.lastWatermark = 0;
+            this.configs       = null;
+            result = await this._call({
+                jsonrpc: '2.0',
+                method:  'getallconfigs',
+                params:  { since_updated_at: 0 },
+                id:      1
+            });
+            if(result === null || degraded(result) || errorEnvelope(result)){
+                console.warn('Hub full re-fetch after config regression failed; falling back to cached config until the next poll.');
+                return null;
+            }
         }
         this.configs = this._applyConfigResult(result);
         // Bind the (possibly advanced) cursor to the endpoint that answered.
         this._watermarkEndpointIdx = this._lastGoodIdx;
         return this.configs;
+    }
+
+    // True when a watermarked envelope from the cursor's own endpoint reports a
+    // seq or watermark BELOW the last one it served us (hub restart / restore
+    // from an older snapshot). A missing watermark is the full tree (handled by
+    // _applyConfigResult) and a zero watermark means an empty configs table, so
+    // neither counts; the next poll re-fetches in full either way.
+    _hubConfigRegressed(result){
+        let wrapped = result && typeof result === 'object' && result.configs && typeof result.configs === 'object' && ('seq' in result);
+        if(!wrapped || result.watermark === undefined || result.watermark === null) return false;
+        let watermark = Number(result.watermark) || 0;
+        let seq       = Number(result.seq) || 0;
+        return (watermark > 0 && watermark < this.lastWatermark) ||
+               ((this.lastSeq || 0) > 0 && seq < this.lastSeq);
     }
 
     // Fold a getallconfigs result into this.configs and return the full nested

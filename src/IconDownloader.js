@@ -60,7 +60,19 @@ const { makeSafeLookup, isPrivateAddress } = require('./ssrf-guard');
 // orphaned and still grinding.
 const execFileAsync = promisify(execFile);
 
-const { resolveDescriptionToSource, selectIconUrlFromCip25Json } = require('./IconResolver');
+const {
+    resolveDescriptionToSource,
+    selectIconUrlFromCip25Json,
+    // The resolver's own `action:` grammar, borrowed as SQL-REGEXP source by the
+    // one-shot re-stale in _discover so that predicate can never select a row this
+    // module cannot resolve.
+    ACTION_REF_PATTERN,
+} = require('./IconResolver');
+// The same decompression the live /{COIN}/api/file/{index}/raw route applies
+// (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
+// identical bytes the token page renders from. Contractually non-throwing: it
+// reports storedForm rather than handing back partial output.
+const compression = require('./compression.js');
 
 // Shared SSRF lookup shim: rejects fetches whose hostname resolves to a
 // private/internal/metadata address. Built once at module load.
@@ -284,6 +296,63 @@ class IconDownloader {
                  i.next_retry_at = NULL
              WHERE NOT (MD5(t.description) <=> i.description_hash)`
         );
+
+        // (c) Re-stale the tokens the resolver gives up on without this branch. Absent
+        // the `action:` scheme here, an on-chain TIS description resolves to no source
+        // and is marked ok-with-no-icon, which is TERMINAL: (b) only re-evaluates when
+        // the description CHANGES, and these descriptions are usually description-locked,
+        // so the fix would be invisible on every token that already has a row.
+        //
+        // The predicate is the RESOLVER'S OWN grammar (ACTION_REF_PATTERN), never a
+        // prefix test. That is what makes this one-shot rather than a permanent write
+        // loop on the indexer-owned table: a description merely starting with `action:`
+        // (`action:foo`, `action:BTC:`, `action:12a`) resolves to NOTHING, so
+        // _processToken marks it ok-with-no-icon again, which is precisely the state this
+        // statement selects, and a wider predicate would re-stale it on every cycle for as
+        // long as the token exists - mintable by anyone who can issue a token with such a
+        // description (#5290). Every description this predicate CAN select resolves to an
+        // `action` source, and from there the row can only leave with an icon_hash or, on
+        // any read failure, as 'failed' in the retry backoff; neither is re-selectable. So
+        // after one pass this matches nothing.
+        //
+        // CONVERT(... USING binary) is what holds that invariant, and it is not
+        // decoration. Sharing the pattern text is NOT by itself enough to keep the two
+        // engines agreeing: the first cut of this statement wrapped the column in LOWER()
+        // to emulate a JS /i, and LOWER() is not /i. MariaDB's utf8mb4 LOWER() folds
+        // U+0130 to plain 'i' where JS leaves it alone, so `ACTİON:12` matched HERE and
+        // resolved to null THERE - selected, unresolvable, re-staled forever, and mintable,
+        // since descriptions are attacker-controlled on-chain data. Dropping to a binary
+        // collation removes the engine's case-folding from the comparison entirely, and
+        // ACTION_REF_PATTERN spells both cases of every letter out, so what matches here is
+        // the ASCII language and nothing else. Swept on MariaDB 10.11 and 11.4 against a
+        // real utf8mb4 tokens.description: every Unicode scalar value at each grammar slot,
+        // zero non-ASCII selections, and every string this does select resolves.
+        //
+        // Do NOT reintroduce LOWER(), and do not "simplify" this to a COLLATE clause:
+        // tokens.description is utf8mb4 in the indexer DDL while the surrounding tables are
+        // utf8mb3, so a named `COLLATE utf8_bin` is a charset error waiting for whichever
+        // deployment has the other one. CONVERT-to-binary is charset-agnostic.
+        //
+        // Residual slack, both in the SAFE direction (SQL may select a little LESS than the
+        // resolver accepts, never more): SQL TRIM() strips only spaces where String#trim()
+        // strips all whitespace, and MariaDB's PCRE `$` also matches before one trailing
+        // newline, which the resolver's own .trim() removes before it ever matches.
+        //
+        // Cost: unlike a `LIKE 'action:%'`, a REGEXP over a wrapped column cannot use an
+        // index on t.description, but the icons-side conjuncts already reduce this to the
+        // handful of rows still sitting at ok-with-no-icon, and after the first pass the
+        // statement updates nothing at all.
+        // SHARED-WRITE EXCEPTION (#3752): UPDATE on the indexer-owned `icons` table.
+        await conn.query(
+            `UPDATE icons i
+             JOIN tokens t ON t.id = i.token_id
+             SET i.status = 'stale',
+                 i.attempts = 0,
+                 i.next_retry_at = NULL
+             WHERE i.status = 'ok'
+               AND i.icon_hash IS NULL
+               AND CONVERT(TRIM(t.description) USING binary) REGEXP '${ACTION_REF_PATTERN}'`
+        );
     }
 
     /******************************************************************
@@ -306,7 +375,7 @@ class IconDownloader {
 
         let bytes;
         try {
-            bytes = await this._fetchSourceBytes(src, this.cfg.recursionLimit);
+            bytes = await this._fetchSourceBytes(src, this.cfg.recursionLimit, flavor);
         } catch (e){
             await this._markFailure(conn, row.icon_id, row.attempts + 1, truncate(e.message, 255));
             this._log(`    ✗ ${tick} (${src.scheme}): ${e.message}`);
@@ -353,12 +422,44 @@ class IconDownloader {
 
     /******************************************************************
      * Resolver-aware fetch. May recurse for json_url -> image_url.
+     *
+     * `flavor` is the (coin, network, poolKey) pair the row belongs to. Only the
+     * `action` scheme needs it, because that scheme's bytes are read from a
+     * colocated decoder DB rather than fetched over the network; every other
+     * branch ignores it, and it rides through the recursion so a TIS document
+     * reached from one flavor resolves its nested refs against the same one.
      *****************************************************************/
 
-    async _fetchSourceBytes(src, depth){
+    async _fetchSourceBytes(src, depth, flavor){
         if(depth < 0) throw new Error('recursion limit hit');
 
         switch(src.scheme){
+            case 'action': {
+                const bytes = await this._fetchActionFileBytes(src, flavor);
+                // An on-chain TIS document, or the image itself. Same order the
+                // json_url branch below uses: try JSON, fall back to raw bytes and
+                // let _writeIcon sniff the type out of them.
+                let json = null;
+                try { json = JSON.parse(bytes.toString('utf8')); } catch (e) {}
+                if(json && typeof json === 'object'){
+                    const picked = selectIconUrlFromCip25Json(json);
+                    if(!picked) throw new Error('action: JSON has no usable image');
+                    // A TIS entry's image is normally inline base64 rather than a URL,
+                    // so decode it here. The ord branch does the same for the same
+                    // reason; the generic URL lanes cannot fetch a data: URL at all.
+                    const inline = /^data:[^;,]*;base64,(.*)$/i.exec(picked);
+                    if(inline){
+                        const buf = Buffer.from(inline[1], 'base64');
+                        if(!buf.length) throw new Error('action: empty after base64 decode');
+                        return buf;
+                    }
+                    let next = resolveDescriptionToSource(picked);
+                    if(!next) next = { scheme: 'image_url', url: picked };
+                    return await this._fetchSourceBytes(next, depth - 1, flavor);
+                }
+                return bytes;
+            }
+
             case 'stamp': {
                 const buf = Buffer.from(src.data, 'base64');
                 if(!buf.length) throw new Error('stamp: empty after base64 decode');
@@ -397,7 +498,7 @@ class IconDownloader {
                     if(!picked) throw new Error(`${src.scheme}: JSON has no usable image`);
                     let next = resolveDescriptionToSource(picked);
                     if(!next) next = { scheme: 'image_url', url: picked };
-                    return await this._fetchSourceBytes(next, depth - 1);
+                    return await this._fetchSourceBytes(next, depth - 1, flavor);
                 }
 
                 // Not JSON: return raw bytes; _writeIcon sniffs MIME from
@@ -416,6 +517,68 @@ class IconDownloader {
                 return resp.body;
             }
         }
+    }
+
+    /******************************************************************
+     * Read an `action:` FILE's bytes from the colocated decoder DB.
+     *
+     * This is the one source in the pipeline that opens no socket: the bytes are
+     * the ones the token page fetches same-origin from
+     * /{COIN}/api/file/{index}/raw, and this reads them the way that route does
+     * (getGatedFileRaw first, then getFileRaw, then resolveServedBytes). No
+     * network means no SSRF surface, so _rejectPrivateLiteral has nothing to
+     * relax.
+     *
+     * EVERY failure here THROWS, deliberately. The caller turns a throw into
+     * _markFailure, which retries with backoff; the alternative shape - answering
+     * "no source" - lands in _markOk and is TERMINAL until the (usually
+     * description-locked) description changes. A decoder DB that is briefly
+     * unreachable, or a FILE this node has not indexed yet, must not permanently
+     * mark a token icon-less, and getFileRaw answers null for a miss and for an
+     * unreachable decoder DB alike, so a null can never be read as a verdict.
+     *****************************************************************/
+
+    async _fetchActionFileBytes(src, flavor){
+        if(!flavor || !flavor.poolKey)
+            throw new Error('action: no flavor context to resolve the FILE against');
+        const db = this.explorer && this.explorer.db;
+        if(!db || typeof db.getFileRaw !== 'function')
+            throw new Error('action: explorer DB layer unavailable');
+
+        // Same rule the page's actionRefToRawPath applies: a sibling-chain ref names a
+        // BASE ticker and inherits THIS flavor's network tier (T testnet, R regtest),
+        // because a ref is only ever emitted alongside the chain it was written on.
+        let poolKey = flavor.poolKey;
+        if(src.coin){
+            const tier = (/^([TR])(?:BTC|LTC|DOGE)$/.exec(flavor.poolKey) || [])[1] || '';
+            poolKey = tier + src.coin;
+        }
+        const pools = db.pools || {};
+        if(!pools[poolKey])
+            throw new Error('action: no pool configured for ' + poolKey + ' on this instance');
+
+        const config = { coin: poolKey, data: {} };
+        // Token-gated FILEs are stored as AES-GCM ciphertext and only a key holder can
+        // read them, so there is no icon to render. Thrown rather than marked no-source
+        // so the row lands in the normal backoff and retires as 'failed' after
+        // maxAttempts, instead of taking the terminal path a transient miss shares.
+        const gated = await db.getGatedFileRaw(config, src.index);
+        if(gated && gated.length && gated[0] && gated[0].raw_data)
+            throw new Error('action: FILE ' + poolKey + ':' + src.index + ' is token-gated ciphertext');
+
+        const file = await db.getFileRaw(config, src.index);
+        if(!file || !file.raw_data)
+            throw new Error('action: FILE ' + poolKey + ':' + src.index +
+                ' has no readable bytes here (unknown action, or decoder DB unreachable)');
+
+        const served = await compression.resolveServedBytes(file.raw_data, file.data);
+        // storedForm means the bytes are NOT the original file (a lying COMPRESSION
+        // field, a corrupt stream, or the ratio guard). The route hands those to a
+        // client under a header; an icon renderer has nothing to do with them.
+        if(served.storedForm)
+            throw new Error('action: stored bytes are not the original file (' +
+                String(served.error || 'UNKNOWN') + ')');
+        return served.bytes;
     }
 
     // The egress-policy gate for this pipeline: both checks an icon URL must pass

@@ -488,20 +488,17 @@
 
                         <!-- DESTROY Action -->
                         <div class="d-none" id="info-destroy">
-                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-destroy">
+                            <thead>
+                                <tr class="info">
+                                    <th class="record">#</th>
+                                    <th class="token">Token</th>
+                                    <th class="quantity">Amount</th>
+                                    <th class="memo">Memo</th>
+                                    <th class="status">Status</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                            <tr>
-                                <th width="155">Token</th>
-                                <td class="destroy-tick"></td>
-                            </tr>
-                            <tr>
-                                <th>Amount</th>
-                                <td class="destroy-amount"></td>
-                            </tr>
-                            <tr>
-                                <th>Memo</th>
-                                <td class="destroy-memo"></td>
-                            </tr>
                             </tbody>
                             </table>
                         </div>
@@ -1083,6 +1080,10 @@
                             <tr>
                                 <th>List Action Index</th>
                                 <td class="list-action-index"></td>
+                            </tr>
+                            <tr>
+                                <th>Memo</th>
+                                <td class="list-memo"></td>
                             </tr>
                             <tr class="list-membership-row d-none">
                                 <th>Membership Set By</th>

@@ -6738,7 +6738,14 @@ class Database {
         const hit = this._mempoolCountCache[config.coin];
         if(hit && (now - hit.t) < ttl) return hit.v;
         try {
-            let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions';
+            // Action-carrying rows only. mempool_transactions holds a row for
+            // EVERY mempool tx the decoder saw, with `data` blanked to '' when
+            // the tx carried no valid ACTION (nearly all of them on a public
+            // chain), so a bare COUNT(*) publishes the node's whole mempool as
+            // the XChain unconfirmed count. Matches what the feed renders,
+            // since decodeMempoolRow drops the same rows.
+            let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions' +
+                          " WHERE data IS NOT NULL AND data != ''";
             let results = await this.doDecoderQuery(config, query, []);
             if (results && results.length && results[0].count !== null){
                 const v = Number(results[0].count);
@@ -6791,9 +6798,14 @@ class Database {
             // and /api/mempool paging both read this window as a stable snapshot.
             // first_seen: UNIX_TIMESTAMP so both paths hand callers the same
             // integer-seconds representation the decoder API serves.
+            // Action-carrying rows only (same filter + rationale as
+            // getDecoderMempoolCount): an unfiltered window fills all 500 slots
+            // with actionless rows on a busy chain and renders an empty feed
+            // while real pending actions sit deeper in the table.
             let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data, ' +
                         'UNIX_TIMESTAMP(m.first_seen) AS first_seen ' +
                         'FROM `' + dbName + '`.mempool_transactions m ' +
+                        "WHERE m.data IS NOT NULL AND m.data != '' " +
                         'ORDER BY m.tx_hash ' +
                         'LIMIT ' + max;
             let results = await this.doDecoderQuery(config, query, []);
@@ -6809,6 +6821,7 @@ class Database {
                 try {
                     let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data ' +
                                 'FROM `' + dbName + '`.mempool_transactions m ' +
+                                "WHERE m.data IS NOT NULL AND m.data != '' " +
                                 'ORDER BY m.tx_hash ' +
                                 'LIMIT ' + max;
                     let results = await this.doDecoderQuery(config, query, []);

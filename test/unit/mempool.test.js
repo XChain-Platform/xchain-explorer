@@ -82,6 +82,11 @@ describe('decoder mempool surface', () => {
             // No primary key and the decoder rewrites the table every cycle: the
             // window must be keyed on the unique tx_hash index to be a stable snapshot.
             expect(sql).to.match(/ORDER BY m\.tx_hash\s+LIMIT 500/);
+            // Action-carrying rows only. The table holds a row for EVERY mempool
+            // tx the decoder saw, with data blanked to '' when it carried no
+            // valid ACTION, so an unfiltered window fills all 500 slots with
+            // actionless rows on a busy chain and renders an empty feed.
+            expect(sql).to.match(/WHERE m\.data IS NOT NULL AND m\.data != ''/);
         });
 
         it('returns [] on query failure (decoder DB unreachable)', async () => {
@@ -227,6 +232,20 @@ describe('decoder mempool surface', () => {
             sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ nonsense: true });
             const rows = await db.getDecoderMempoolRows({ coin: 'RBTC' }, 10);
             expect(rows).to.deep.equal([SEND_ROW]);
+        });
+    });
+
+    describe('db.getDecoderMempoolCount', () => {
+        it('counts only action-carrying rows, not the whole node mempool', async () => {
+            // mempool_transactions holds a row for EVERY mempool tx the decoder
+            // observed; `data` is '' when the tx carried no valid ACTION. A bare
+            // COUNT(*) therefore publishes the node's entire mempool as the
+            // XChain unconfirmed count (measured on BTC testnet: 32 of 32 rows
+            // actionless), disagreeing with the feed, which drops those rows.
+            const db = mkDb([{ count: 3 }]);
+            db.decoderApiUrl = {};
+            expect(await db.getDecoderMempoolCount({ coin: 'RBTC' })).to.equal(3);
+            expect(db.doQuery.firstCall.args[1]).to.match(/WHERE data IS NOT NULL AND data != ''/);
         });
     });
 

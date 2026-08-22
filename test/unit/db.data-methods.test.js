@@ -850,11 +850,14 @@ describe('Database#getNetwork', () => {
         sinon.stub(db, 'getMaxBlockTime').resolves(1700000000);
 
         const [data] = await db.getNetwork(cfg());
-        expect(data.network).to.have.keys(['block', 'time', 'unconfirmed']);
+        expect(data.network).to.have.keys(['block', 'time', 'unconfirmed', 'unconfirmed_node']);
         expect(data.network.block).to.equal(800000);
         expect(data.network.time).to.equal(1700000000);
         // Mempool isn't indexed yet, so unconfirmed is 0 rather than a fake value.
         expect(data.network.unconfirmed).to.equal(0);
+        // No decoder API endpoint resolves here, so the node's total mempool
+        // size is unknowable and must publish as null, never a fake 0.
+        expect(data.network.unconfirmed_node).to.equal(null);
     });
 
     it('resolves coin name + symbol from the per-coin chain config', async () => {

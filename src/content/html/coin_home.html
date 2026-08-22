@@ -850,7 +850,18 @@ $(document).ready(function(){
                 $('#total-' + action).text(numeral(o.totals[action]).format('0,0'));
             // Update network information
             $('#network-block-index').text(numeral(o.network.block).format('0,0'));
-            $('#network-unconfirmed').text(numeral(o.network.unconfirmed).format('0,0'));
+            // Unconfirmed: the node's TOTAL mempool size first, then the
+            // XChain-carrying subset ("<node> / <xchain>"), linked to the
+            // mempool page. unconfirmed_node is null on deployments with no
+            // decoder API endpoint; show just the XChain count there.
+            var unconfirmedXchain = numeral(o.network.unconfirmed).format('0,0');
+            var unconfirmedText   = unconfirmedXchain;
+            var unconfirmedTitle  = unconfirmedXchain + ' unconfirmed XChain transactions';
+            if(isNumeric(o.network.unconfirmed_node)){
+                unconfirmedText  = numeral(o.network.unconfirmed_node).format('0,0') + ' / ' + unconfirmedXchain;
+                unconfirmedTitle = numeral(o.network.unconfirmed_node).format('0,0') + ' unconfirmed ' + XC.name + ' transactions / ' + unconfirmedTitle;
+            }
+            $('#network-unconfirmed').html('<a href="/' + XC.coin + '/mempool" class="text-decoration-none" title="' + unconfirmedTitle + '">' + unconfirmedText + '</a>');
             // Determine USD price per satoshi and update fee information
             var fee_sat  = (o.coin.price.usd / 100000000);
             var feeUnit  = { 'BTC': 'sats/vB', 'LTC': 'lits/byte', 'DOGE': 'koinu/byte' }[XC.chain] || 'sats/byte';

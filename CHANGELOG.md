@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- Mempool data is read live from each coin's decoder API when an endpoint is configured, so explorers serving from synced replicas can show pending transactions.
+- The network API and homepage report the node's total unconfirmed count beside the XChain unconfirmed count, linked to the mempool page.
+
+### Changed
+- The mempool page uses the same Block / Time / Action / Details columns as history, showing when each pending action was first seen.
+
 ## [0.10.0] - 2026-08-18
 
 ### Added

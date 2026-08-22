@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.10.0] - 2026-08-18
 
 ### Added
 - New State Checkpoints, Price Rounds, Contract Delegations, Coinpay Settlements and Coinpay Obligations pages, each linked from the menu.
@@ -16,6 +16,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Public API routes for block lists, search, and project rosters, which previously only the site's own pages could reach.
 - File lookups by name, and a matching database index.
 - History rows now name the BATCH they belong to, so clients can group a batch's actions.
+- The lists API returns the LIST memo.
+- Detail pages for validators, XCALLs, attestations, polls and anchors, with the composition endpoints behind them, so records the explorer already listed can be read whole.
+- Seven read surfaces for platform data that had none: contract emissions per contract, vote delegations, per-validator attestation counters, the historical capability electorate, reorg history, anchor reward attestations, and a per-block commitments section.
+- A slash proposals page and API, presenting each row as a labelled unadjudicated accusation rather than a verdict, and failing loud instead of rendering an empty table when the hub cannot be reached.
+- A staking panel on the address page with positions, cooldown countdowns, the reward and COLLECT trail, and both slash families; it hides itself on an address with no staking activity.
+- The explorer's visual decisions live in a loadable theme token file, with theme directories served as static assets.
+- The OpenAPI spec spells out the two-form search contract.
+
+### Changed
+- The escrow locked-balance leaf is armed on testnet from genesis, keeping the client's activation constant level with the fleet; mainnet is unchanged.
+- The contract state sub-root is armed from genesis on every testnet, matching the indexer twin; mainnet is unchanged.
+- Project banners on token pages now span the full content width below the Token and Market Information cards, and a project's official-token count moved from a table row into an ownership banner there.
+- The Data menu's categories are reordered so each row's columns are similar heights, with green section headers and more space between rows.
+- Font Awesome is now self-hosted from the bundled Free package at `/fontawesome`, so icons work on every deployment with no CDN, account, or configuration.
+- Six Pro-only icon names were replaced with Free equivalents, enforced by a new unit test.
+- The Content Security Policy allows Cloudflare's RUM beacon so proxied deployments load without console errors.
+
+### Removed
+- The Font Awesome kit route, the vendored kit loader, and the `EXPLORER_FONTAWESOME_*` environment variables.
 
 ### Fixed
 - The Actions, Order Matches and Swap Matches feeds returned rows their pages could not render; a new test requires every registered feed to have a row mapping and forbids orphaned mappings.
@@ -31,16 +50,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Cross-Chain Matches page requested a misspelled endpoint and always rendered empty; a new test pins every page's endpoint to a registered route.
 - The mempool endpoint returned nothing unless filtered by address or token.
 - The API reference omitted the contract-call endpoint, because its generator and coverage test only understood GET routes.
+- A token whose icon is named by an on-chain scheme is resolved instead of being marked permanently icon-less, and the re-stale predicate that reaches those rows no longer selects descriptions the resolver rejects, which had let attacker-chosen text re-stale forever.
+- One shared summary projection feeds transaction rows, history rows and BATCH members, so a field lands on every surface at once, and a settled swap shows its terminal state.
+- `/api/status` no longer clamps an unknown decoder lag to zero and reports a synced signal it cannot support.
+- DESTROY detail reads one row per leg, LIST detail reads the memo column the feed already reads, and the mempool window is ordered and window-aware so a saturated read cannot emit false removals.
+- The hub-config delta consumer refuses a regressed watermark.
+- The validator detail route was missing from the client's query allowlist, so an existing validator rendered as "not found"; the route guard now covers every detail page instead of only the checkpoint one.
+- The XCALL lifecycle and the slash row shape render from valid rows on both pages, and a vote poll's finalization detail renders.
+- A missing hub method is reported as its own error rather than as an outage.
+- The market counter-tick resolves instead of printing undefined.
+- Mirror push generation is fenced against being lowered.
+- Code-review round fixes across the API and UI (two rounds, 21 files).
+- SIGTERM drains rather than dropping in-flight requests.
 
-### Changed
-- Project banners on token pages now span the full content width below the Token and Market Information cards, and a project's official-token count moved from a table row into an ownership banner there.
-- The Data menu's categories are reordered so each row's columns are similar heights, with green section headers and more space between rows.
-- Font Awesome is now self-hosted from the bundled Free package at `/fontawesome`, so icons work on every deployment with no CDN, account, or configuration.
-- Six Pro-only icon names were replaced with Free equivalents, enforced by a new unit test.
-- The Content Security Policy allows Cloudflare's RUM beacon so proxied deployments load without console errors.
-
-### Removed
-- The Font Awesome kit route, the vendored kit loader, and the `EXPLORER_FONTAWESOME_*` environment variables.
+### Security
+- Raised the brace-expansion and js-yaml dependency floors and the advisory guards that pin them.
 
 ## [0.9.0] - 2026-08-14
 

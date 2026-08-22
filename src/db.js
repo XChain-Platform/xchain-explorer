@@ -4520,8 +4520,11 @@ class Database {
         // Real indexer tip + last-block time for this coin (same source as /status).
         let block       = await this.getMaxBlockIndex(config);
         let blockTime   = await this.getMaxBlockTime(config);
-        // Real unconfirmed (mempool) count from the decoder DB's mempool_transactions.
-        let unconfirmed = await this.getDecoderMempoolCount(config);
+        // Real unconfirmed (mempool) count from the decoder API/DB (XChain-carrying
+        // txs), plus the coin node's TOTAL mempool size (any tx), which only the
+        // decoder API can report (null when it isn't configured/reachable).
+        let unconfirmed     = await this.getDecoderMempoolCount(config);
+        let unconfirmedNode = await this.getNodeMempoolCount(config);
         // Live fee tiers from this coin's encoder (estimatesmartfee), cached.
         let fee = await this.getFeeEstimate(config);
         // Live USD price from the xchain-hub oracle (mainnet coins only; null for
@@ -4535,9 +4538,13 @@ class Database {
             network: {
                 block : block,
                 time  : blockTime,
-                // Real mempool size: count of the decoder DB's mempool_transactions
-                // for this coin (0 if the decoder DB isn't reachable from here).
+                // Real mempool size: count of unconfirmed XChain-carrying txs for
+                // this coin (0 if neither the decoder API nor DB is reachable).
                 unconfirmed: unconfirmed,
+                // The coin node's TOTAL mempool tx count (XChain or not), from
+                // the decoder API. null when no decoder API resolves for this
+                // coin (a DB-only deployment cannot know it); clients hide it.
+                unconfirmed_node: unconfirmedNode,
             },
             // Suggested fee tiers (sat/vByte) from this coin's encoder, which reads
             // the node's estimatesmartfee. Falls back to {1,2,3} when no encoder is
@@ -6628,7 +6635,86 @@ class Database {
         return null;
     }
 
-    // Count of unconfirmed (mempool) transactions for this coin, read from the
+    // Split a route code (TBTC / RDOGE / BTC) into { coin, network } using the
+    // loaded config's COIN_PREFIXES/COIN_NETWORKS. Returns null when the code
+    // doesn't parse (config momentarily unavailable, or an unknown base coin).
+    async _parseCoinCode(code){
+        try {
+            let full     = await this.configInfo.getConfig();
+            let networks = full['COIN_NETWORKS'] || {};
+            let prefixes = full['COIN_PREFIXES'] || { mainnet: '', testnet: 'T', regtest: 'R' };
+            let upper    = String(code || '').toUpperCase();
+            // Non-empty prefixes (T/R) first so 'TBTC' isn't read as a mainnet
+            // coin named 'TBTC' (same rule as getStatus's parseCode).
+            for(let network in prefixes){
+                let p = prefixes[network];
+                if(p && upper.startsWith(p)){
+                    let base = upper.slice(p.length);
+                    if(networks[base]) return { coin: base, network };
+                }
+            }
+            if(networks[upper]) return { coin: upper, network: 'mainnet' };
+        } catch(e){ /* fall through to null */ }
+        return null;
+    }
+
+    // Live mempool snapshot over the decoder's JSON-RPC API (getmempool), the
+    // ONLY live-mempool path for an explorer serving from synced replicas:
+    // mempool_transactions is deliberately excluded from xchain-sync replication
+    // (node-local, non-deterministic), so on a replica deployment the colocated
+    // decoder-DB reads below see a permanently empty table. When a decoder API
+    // endpoint resolves for the coin (DECODER_API_URL_<COIN>_<NETWORK> >
+    // config-derived decoderApiUrl > DECODER_API_URL, same chain as /status's
+    // decoder_health), this snapshot is preferred by the mempool readers; a
+    // deployment with no endpoint (e.g. a single-box regtest stack whose decoder
+    // DB is truly colocated) falls back to the direct DB path unchanged.
+    // Cached per coin for MEMPOOL_COUNT_CACHE_MS (default 15s), stale-served on
+    // fetch failure for one extra TTL so one decoder hiccup doesn't blank the
+    // homepage counter. Returns { node_tx_count, total, rows } or null when
+    // unconfigured/unreachable with nothing cached.
+    async _getDecoderMempoolSnapshot(config){
+        const code = config.coin;
+        const ttl  = parseInt(process.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
+        const now  = Date.now();
+        this._mempoolApiCache = this._mempoolApiCache || {};
+        const hit = this._mempoolApiCache[code];
+        if(hit && (now - hit.t) < ttl) return hit.v;
+        let parsed = await this._parseCoinCode(code);
+        let url    = DecoderConnector.resolveDecoderUrl(
+                        parsed ? parsed.coin    : null,
+                        parsed ? parsed.network : null,
+                        (this.decoderApiUrl || {})[code] || null);
+        if(!url) return null;
+        try {
+            let r = await new DecoderConnector(url).getmempool(500);
+            let v = (r && Array.isArray(r.rows)) ? {
+                node_tx_count: (typeof r.node_tx_count === 'number' && r.node_tx_count >= 0) ? r.node_tx_count : null,
+                total:         Number(r.total) || 0,
+                rows:          r.rows
+            } : null;
+            this._mempoolApiCache[code] = { t: now, v };
+            return v;
+        } catch(e){
+            console.warn('_getDecoderMempoolSnapshot: decoder mempool unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            // Serve the stale snapshot once more; refresh the clock so a dead
+            // decoder is retried once per TTL, not on every request.
+            this._mempoolApiCache[code] = { t: now, v: (hit && hit.v) || null };
+            return (hit && hit.v) || null;
+        }
+    }
+
+    // The coin node's TOTAL mempool tx count (XChain-carrying or not), from the
+    // decoder API snapshot. null when no decoder API is configured/reachable or
+    // the decoder hasn't completed a mempool poll yet: the DB paths below cannot
+    // know this number (the decoder DB only holds the XChain-carrying subset),
+    // so there is deliberately no fallback and callers render null as absent.
+    async getNodeMempoolCount(config){
+        let snap = await this._getDecoderMempoolSnapshot(config);
+        return (snap && typeof snap.node_tx_count === 'number') ? snap.node_tx_count : null;
+    }
+
+    // Count of unconfirmed (mempool) transactions for this coin: the decoder
+    // API snapshot when one resolves (see _getDecoderMempoolSnapshot), else the
     // decoder DB's mempool_transactions table. Same access pattern + safety as
     // getDecoderTip (DB-qualified query on the indexer pool; only works when the
     // decoder DB shares the indexer's server/credentials). Returns 0 when the
@@ -6639,6 +6725,8 @@ class Database {
     // is a full-scan the public read path can be made to repeat on every hit.
     // A stale prior value is served when the query fails mid-flight.
     async getDecoderMempoolCount(config) {
+        let snap = await this._getDecoderMempoolSnapshot(config);
+        if(snap) return snap.total;
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return 0;
         // dbName is config-derived, not client input, but database identifiers
@@ -6650,7 +6738,14 @@ class Database {
         const hit = this._mempoolCountCache[config.coin];
         if(hit && (now - hit.t) < ttl) return hit.v;
         try {
-            let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions';
+            // Action-carrying rows only. mempool_transactions holds a row for
+            // EVERY mempool tx the decoder saw, with `data` blanked to '' when
+            // the tx carried no valid ACTION (nearly all of them on a public
+            // chain), so a bare COUNT(*) publishes the node's whole mempool as
+            // the XChain unconfirmed count. Matches what the feed renders,
+            // since decodeMempoolRow drops the same rows.
+            let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions' +
+                          " WHERE data IS NOT NULL AND data != ''";
             let results = await this.doDecoderQuery(config, query, []);
             if (results && results.length && results[0].count !== null){
                 const v = Number(results[0].count);
@@ -6687,22 +6782,55 @@ class Database {
     // test/unit/mempoolPayloadRepresentation.test.js (uuid:26220713); this read
     // and decodeMempoolRow below are the other half of it.
     async getDecoderMempoolRows(config, limit) {
+        let max = Math.max(1, Math.min(Number(limit) || 200, 500));
+        // Live path first: the decoder API snapshot (see _getDecoderMempoolSnapshot).
+        // Its rows carry the same tx_hash/source/data shape this method's DB path
+        // returns, plus first_seen (unix seconds, from the decoder's own table).
+        let snap = await this._getDecoderMempoolSnapshot(config);
+        if(snap) return snap.rows.slice(0, max);
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return [];
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
-        let max = Math.max(1, Math.min(Number(limit) || 200, 500));
         try {
             // ORDER BY the unique-indexed tx_hash: the table has no primary key
             // and the decoder rewrites it every cycle, so a bare LIMIT returns a
             // scan-order subset that churns between polls. The ws mempool diff
             // and /api/mempool paging both read this window as a stable snapshot.
-            let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data ' +
+            // first_seen: UNIX_TIMESTAMP so both paths hand callers the same
+            // integer-seconds representation the decoder API serves.
+            // Action-carrying rows only (same filter + rationale as
+            // getDecoderMempoolCount): an unfiltered window fills all 500 slots
+            // with actionless rows on a busy chain and renders an empty feed
+            // while real pending actions sit deeper in the table.
+            let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data, ' +
+                        'UNIX_TIMESTAMP(m.first_seen) AS first_seen ' +
                         'FROM `' + dbName + '`.mempool_transactions m ' +
+                        "WHERE m.data IS NOT NULL AND m.data != '' " +
                         'ORDER BY m.tx_hash ' +
                         'LIMIT ' + max;
             let results = await this.doDecoderQuery(config, query, []);
             return results || [];
         } catch(e){
+            // errno 1054: a decoder DB from before the 2026-08-22-mempool-first-seen
+            // migration has no first_seen column. Retry without it (Time renders
+            // as absent) instead of blanking the whole feed until the decoder
+            // restarts and auto-applies its migration. doQuery wraps the driver
+            // error in DbQueryError with the original on `cause`, so check both.
+            let errno = (e && e.errno) || (e && e.cause && e.cause.errno);
+            if(errno == 1054){
+                try {
+                    let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data ' +
+                                'FROM `' + dbName + '`.mempool_transactions m ' +
+                                "WHERE m.data IS NOT NULL AND m.data != '' " +
+                                'ORDER BY m.tx_hash ' +
+                                'LIMIT ' + max;
+                    let results = await this.doDecoderQuery(config, query, []);
+                    return results || [];
+                } catch(e2){
+                    console.warn('getDecoderMempoolRows: mempool rows unavailable for ' + config.coin + ': ' + (e2 && e2.message ? e2.message : e2));
+                    return [];
+                }
+            }
             console.warn('getDecoderMempoolRows: mempool rows unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
         }
         return [];
@@ -6731,7 +6859,10 @@ class Database {
                 tx_hash: row.tx_hash || null,
                 source:  row.source || null,
                 action:  action,
-                data:    text
+                data:    text,
+                // Unix seconds when the decoder first observed the tx in its
+                // node's mempool; null against a pre-first_seen decoder DB.
+                first_seen: this.util.isNumeric(row.first_seen) ? Number(row.first_seen) : null
             };
         } catch(e){
             return null;

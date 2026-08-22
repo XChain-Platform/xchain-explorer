@@ -10846,7 +10846,14 @@
               },
               "unconfirmed": {
                 "type": "integer",
-                "description": "Mempool depth from the decoder DB (0 when unreachable)"
+                "description": "Unconfirmed XChain-carrying transactions (decoder API or DB; 0 when unreachable)"
+              },
+              "unconfirmed_node": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "The coin node's TOTAL mempool tx count (XChain or not), from the decoder API; null when no decoder API endpoint is configured/reachable"
               }
             },
             "required": [

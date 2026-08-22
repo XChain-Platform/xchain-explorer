@@ -17,10 +17,10 @@
                 <thead>
                     <tr class="info">
                         <th class="record">#</th>
-                        <th class="">Tx Hash</th>
-                        <th class="">Action</th>
-                        <th class="address">Source</th>
-                        <th class="">Payload</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="asset-name">Action</th>
+                        <th class="">Details</th>
                     </tr>
                 </thead>
                 <tbody id="mempool-rows">
@@ -60,20 +60,38 @@ $(document).ready(function() {
     // (see db.js#getMempool's paging comment). This page instead talks to the plain
     // /api/mempool route directly and pages by numeric page number, matching the
     // bounded (500-row) window the server slices from.
+    //
+    // Columns mirror the history feed (Block / Time / Action / Details) so pending
+    // and confirmed activity read the same way: Block is a Pending placeholder
+    // (there is no block yet), Time is when the serving decoder first observed the
+    // tx in its node's mempool, and Details carries the source address plus the
+    // decoded ACTION payload (there is no per-type summary object pre-validation,
+    // so the payload string is the details).
     const PER_PAGE = 25;
     let page = 1;
     let lastTotal = 0;
 
     function renderRow(row){
-        let tr = document.createElement('tr');
-        let tds = [
+        let time = (isNumeric(row.first_seen)) ? formatLivestamp(row.first_seen) : '-';
+        let details = '';
+        if(row.source)
+            details += formatLink('/' + XC.coin + '/address/' + encodeURIComponent(row.source), formatHash(row.source, 16)) + ' ';
+        if(row.data)
+            details += '<span class="font-monospace small" title="' + escapeHtml(row.data) + '">' + escapeHtml(truncateData(row.data)) + '</span>';
+        if(row.tx_hash)
+            details += ' <span class="text-muted small nowrap" title="' + escapeHtml(row.tx_hash) + '">tx ' + formatHash(row.tx_hash, 12) + '</span>';
+        return [
             '',
-            (row.tx_hash) ? formatHash(row.tx_hash, 20) : '-',
+            '<span class="text-muted">Pending</span>',
+            time,
             escapeHtml(row.action),
-            (row.source) ? formatLink('/' + XC.coin + '/address/' + encodeURIComponent(row.source), escapeHtml(row.source)) : '-',
-            (row.data) ? formatHash(row.data, 48) : '-'
+            details || '-'
         ];
-        return tds;
+    }
+
+    function truncateData(data){
+        let s = String(data);
+        return (s.length > 64) ? s.substring(0, 64) + '…' : s;
     }
 
     function updatePager(total){
@@ -86,7 +104,6 @@ $(document).ready(function() {
     }
 
     function load(){
-        $('#mempool-rows').html('<tr><td colspan="5" class="loading-data">Loading mempool data...</td></tr>');
         $.getJSON('/' + XC.coin + '/api/mempool?page=' + page + '&limit=' + PER_PAGE, function(o){
             if(o.error){
                 console.log('mempool: caught error=', o.error);

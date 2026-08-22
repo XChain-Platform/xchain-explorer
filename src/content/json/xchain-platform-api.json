@@ -3507,6 +3507,12 @@
                             },
                             "unconfirmed": {
                                 "type": "integer"
+                            },
+                            "unconfirmed_node": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             }
                         }
                     },

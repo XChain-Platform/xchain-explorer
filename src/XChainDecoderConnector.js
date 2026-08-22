@@ -76,6 +76,16 @@ class XChainDecoderConnector {
     async health(){
         return this._call('health', {});
     }
+
+    // Live mempool snapshot from the decoder: node_tx_count (the coin node's
+    // TOTAL mempool size, XChain or not; -1 before the decoder's first poll),
+    // total (XChain-carrying rows), and up to `limit` (max 500) rows of
+    // {tx_hash, source, data, first_seen}. This is the ONLY live-mempool path
+    // for an explorer serving from synced replicas: mempool_transactions is
+    // deliberately excluded from xchain-sync replication.
+    async getmempool(limit){
+        return this._call('getmempool', { limit: limit });
+    }
 }
 
 module.exports = XChainDecoderConnector;

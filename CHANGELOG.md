@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- The bundled consensus pin is verified at API boot, so a host carrying a drifted coin registry halts instead of serving from it.
+- The hub-served coin consensus hashes are cross-checked against the local registry, logging a mismatch as a transport-integrity signal.
 - Mempool data is read live from each coin's decoder API when an endpoint is configured, so explorers serving from synced replicas can show pending transactions.
 - The network API and homepage report the node's total unconfirmed count beside the XChain unconfirmed count, linked to the mempool page.
 

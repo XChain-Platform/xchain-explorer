@@ -35,6 +35,7 @@ const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
 const { createShutdown, createExplorerDrain } = require('./shutdown.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
+const coins           = require('./coins');
 
 dotenv.config();
 
@@ -57,6 +58,16 @@ const runtime = {
 };
 
 async function startApi(){
+    // Verify the bundled coin files against CONSENSUS_CONFIG_PIN before the hub
+    // config fetch, the DB pool, the proof server or any route exists. The
+    // explorer answers proof-liveness questions and serves burn/gas/protocol
+    // addresses straight out of this pinned consensus subset, so a bundle that
+    // drifted on THIS host must halt rather than answer from a registry nobody
+    // verified. CI hashes the checkout, never the running artifact. All networks
+    // (the XChainHub.start form) because the explorer bundles and serves all
+    // three. A null pin (mainnet, pre-arm) skips; a mismatch throws, uncaught.
+    for(const net of coins.NETWORKS) coins.verifyConsensusPin(net);
+
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
 
     const app = express();

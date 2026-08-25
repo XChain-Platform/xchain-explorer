@@ -3013,6 +3013,34 @@
                             "type": ["integer", "null"]
                         }
                     },
+                    "indexer_state": {
+                        "type": "object",
+                        "description": "Why the indexer trails the decoder, keyed by coin ticker. 'live' when decoder_lag_blocks is 0; 'future_block_wait' when the next block (last_block + 1) carries a block_time dated ahead of this host's clock, meaning no node on the chain may commit it yet and the pause is consensus rather than failure; 'behind' when that next block is already admissible and still uncommitted, which is the state worth alerting on; null when it cannot be determined. Read this field, NOT tip_future_seconds, to tell a deliberate wait apart from a wedge: tip_future_seconds describes the block the indexer has already committed, which is always past-dated, so it reads 0 for the whole duration of a future_block_wait. Chains with lax timestamp rules (Bitcoin testnet4 rides the 20-minute minimum-difficulty rule, stamping blocks about 1201s apart into the future) sit in future_block_wait as their steady state. Only coins this instance measures appear here.",
+                        "additionalProperties": {
+                            "type": ["string", "null"]
+                        }
+                    },
+                    "next_block_time": {
+                        "type": "object",
+                        "description": "The decoder's recorded block_time (unix seconds) for the next block the indexer must commit (last_block + 1), keyed by coin ticker. Read from the decoder DB because the indexer has not committed that block yet. null when the indexer is at the decoder tip, the decoder DB is unreachable, or that block carries no usable timestamp. Only coins this instance measures appear here.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "next_block_future_seconds": {
+                        "type": "object",
+                        "description": "Seconds the next block to be committed is dated AHEAD of this host's clock, keyed by coin ticker; 0 when it is not ahead, null when unknown. This is the honest measure of a consensus wait, and the value tip_future_seconds is often mistaken for. Only coins this instance measures appear here.",
+                        "additionalProperties": {
+                            "type": ["integer", "null"]
+                        }
+                    },
+                    "indexer_wait_clears_at": {
+                        "type": "object",
+                        "description": "ISO-8601 instant at which a 'future_block_wait' ends for that coin, i.e. when this host's clock reaches the next block's timestamp and the block becomes committable, keyed by coin ticker. null in every other state. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
+                        "additionalProperties": {
+                            "type": ["string", "null"]
+                        }
+                    },
                     "stale": {
                         "type": "object",
                         "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate), and also true when tip_future_seconds has passed that coin's max future skew. Fails closed, so a missing or unreadable block_time also reads true. A true entry is removed from 'available' and left in 'supported'. Only coins this instance measures appear here.",

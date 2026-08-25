@@ -412,15 +412,26 @@ describe('decoder mempool surface', () => {
         const decoderSrc  = path.join(decoderRoot, 'src', 'XChainDecoder.js');
         const hasDecoder  = fs.existsSync(decoderSrc);
 
-        it('the decoder-canonical stored form is what the explorer reader parses', function () {
-            if (!hasDecoder) this.skip();
-            let canonicalizeActionPayload;
+        // The decoder's module tree is loaded here rather than inside the first case.
+        // A synchronous require of it costs seconds on a cold venue, and mocha charges
+        // that to whichever case runs first, so the file reddened on the clock with a
+        // "Timeout exceeded" against a cross-repo parity assertion that had not moved.
+        // A hook with its own budget absorbs the load; raising a per-test timeout would
+        // only move the same cost somewhere else.
+        let canonicalizeActionPayload = null;
+        let decoderLoadFailed = false;
+        before(function () {
+            if (!hasDecoder) return;
+            this.timeout(60000);
             try {
                 ({ canonicalizeActionPayload } = require(decoderSrc));
             } catch (e) {
-                this.skip();                       // sibling checkout without installed deps
-                return;
+                decoderLoadFailed = true;          // sibling checkout without installed deps
             }
+        });
+
+        it('the decoder-canonical stored form is what the explorer reader parses', function () {
+            if (!hasDecoder || decoderLoadFailed) this.skip();
             const strict = new TextDecoder('utf-8', { fatal: true });
             const db = mkDb([]);
             const SAMPLES = [

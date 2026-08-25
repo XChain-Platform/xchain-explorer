@@ -1423,12 +1423,17 @@ CREATE TABLE validator_rewards (
     signing_pubkey_id   BIGINT UNSIGNED NOT NULL,        -- FK to index_pubkeys
     reward_type         VARCHAR(20) NOT NULL,            -- 'oracle_base', 'attest_fee', 'anchor_<chain>', ...
     round_reference     BIGINT UNSIGNED,                 -- round number or attestation ref
+    round_qualifier     BIGINT UNSIGNED NOT NULL DEFAULT 0, -- snapshot_block for 'anchor_archive', 0 otherwise; part of the reward's UNIQUE identity
     amount              VARCHAR(250) NOT NULL,
     block_index         BIGINT UNSIGNED NOT NULL,
     derive_block_index  BIGINT UNSIGNED DEFAULT NULL     -- creating block of a derived anchor/archive reward; rollback's second scoping key
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
-CREATE UNIQUE INDEX reward_unique     ON validator_rewards (source_id, signing_pubkey_id, reward_type, round_reference);
+-- round_qualifier belongs in the key, not only in the table: without it a reissued
+-- MATCH_BATCH_SEQ round_reference collides across two snapshots, which is the exact
+-- dedup failure the indexer migration exists to close. A fixture that dedups more
+-- loosely than production hides that class of bug rather than reproducing it.
+CREATE UNIQUE INDEX reward_unique     ON validator_rewards (source_id, signing_pubkey_id, reward_type, round_reference, round_qualifier);
 CREATE        INDEX source_id         ON validator_rewards (source_id);
 
 DROP TABLE IF EXISTS attests;

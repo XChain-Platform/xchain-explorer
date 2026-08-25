@@ -299,4 +299,33 @@ describe('IconResolver.selectIconUrlFromCip25Json: TIS data_ref', function(){
         expect(selectIconUrlFromCip25Json({ images: [{ type: 'icon', data_ref: 'action:BTC:12' }] }))
             .to.equal('action:BTC:12');
     });
+
+    // The page substitutes only a RESOLVED action ref (actionRefToRawPath returns false
+    // for everything else), and the spec defines data_ref as an on-chain FILE action
+    // reference. TIS documents are attacker-mintable, so an ungated substitution let a
+    // token point this downloader at a different image than the page renders.
+    it('ignores a URL-shaped data_ref and keeps the entry data, as the page does', function(){
+        const json = { images: [{ type: 'icon', size: '64x64', data: 'https://good/x.png', data_ref: 'https://other/y.png' }] };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://good/x.png');
+    });
+    it('ignores a garbage data_ref and keeps the entry data', function(){
+        const json = { images: [{ type: 'icon', data: 'https://good/x.png', data_ref: 'not-a-ref' }] };
+        expect(selectIconUrlFromCip25Json(json)).to.equal('https://good/x.png');
+    });
+    it('never returns a raw non-action data_ref when the entry has no data', function(){
+        expect(selectIconUrlFromCip25Json({ images: [{ type: 'icon', data_ref: 'https://other/y.png' }] }))
+            .to.equal(null);
+        expect(selectIconUrlFromCip25Json({ images: [{ type: 'icon', data_ref: 'action:' }] }))
+            .to.equal(null);
+    });
+    it('still substitutes an upper-case action ref, matching the page regex', function(){
+        expect(selectIconUrlFromCip25Json({ images: [{ type: 'icon', data: 'https://x/a.png', data_ref: 'ACTION:9' }] }))
+            .to.equal('ACTION:9');
+        expect(selectIconUrlFromCip25Json({ images: [{ type: 'icon', data: 'https://x/a.png', data_ref: 'Action:Doge:9' }] }))
+            .to.equal('Action:Doge:9');
+    });
+    it('trims a padded action ref instead of substituting the whitespace', function(){
+        expect(selectIconUrlFromCip25Json({ images: [{ type: 'icon', data: 'https://x/a.png', data_ref: '  action:9  ' }] }))
+            .to.equal('action:9');
+    });
 });

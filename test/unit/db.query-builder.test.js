@@ -631,3 +631,46 @@ describe('getQuery() API OFFSET cap', function () {
         expect(config.data.sql.apiOffset).to.equal(0);
     });
 });
+
+describe('getQuery() explorer start guard', function () {
+    // The explorer branch is selected by the TOP-LEVEL config.type, not data.type, so
+    // these build the config directly rather than through cfg(). getBalances is one of
+    // the fetch-and-slice methods whose sql.limit is start+length, and getQueryOffsets
+    // returns early for it, so no DB is touched.
+    function explorerConfig(query) {
+        return makeConfig({ type: 'explorer', data: { method: 'getBalances', type: null, query } });
+    }
+    function makeDbWithProbe() {
+        const db = makeDb();
+        db.getBalances = () => ['SELECT 1', [], 0];
+        return db;
+    }
+
+    // sql.limit is string-concatenated into `LIMIT ` + sql.limit at ~40 sites, so a
+    // NaN here is `LIMIT NaN`: a rejected query, answered 5xx on an unauthenticated
+    // read route. Pre-guard these two cases produced the string "NaN".
+    ['abc', '7junk', '1e999'].forEach((bad) => {
+        it(`falls back to start=0 for a non-finite ?start=${JSON.stringify(bad)}`, async function () {
+            const db = makeDbWithProbe();
+            const config = explorerConfig({ start: bad, length: '10' });
+            await db.getQuery(config);
+            expect(Number.isFinite(Number(config.data.sql.limit))).to.equal(true);
+            expect(Number(config.data.sql.limit)).to.equal(10);
+        });
+    });
+
+    it('falls back to start=0 for a repeated (array-valued) ?start=', async function () {
+        const db = makeDbWithProbe();
+        const config = explorerConfig({ start: ['1', '2'], length: '10' });
+        await db.getQuery(config);
+        expect(Number.isFinite(Number(config.data.sql.limit))).to.equal(true);
+        expect(Number(config.data.sql.limit)).to.equal(10);
+    });
+
+    it('leaves normal paging alone', async function () {
+        const db = makeDbWithProbe();
+        const config = explorerConfig({ start: '50', length: '10' });
+        await db.getQuery(config);
+        expect(Number(config.data.sql.limit)).to.equal(60);
+    });
+});

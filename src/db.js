@@ -859,7 +859,15 @@ class Database {
             let start  = (q.start) ? q.start : 0;
             let length = (q.length) ? q.length : 10;
             let action = (q.action) ? q.action : false;
-            start  = Math.max(0, Number(start));
+            // Same Number.isFinite fallback `length` and `total` already carry, and for
+            // the same reason: a non-numeric or repeated `?start=` is NaN, Math.max(0,NaN)
+            // is NaN, and the fetch-and-slice branch below concatenates it into the LIMIT
+            // clause as `LIMIT NaN` (a rejected query, so 5xx on an unauthenticated read
+            // route). Fall back to 0, not to the 100000 ceiling: the row slice reads the
+            // RAW query.start, so a page fetched for an unusable start is discarded anyway.
+            start  = Number(start);
+            if(!Number.isFinite(start)) start = 0;
+            start  = Math.max(0, start);
             if(!Number.isFinite(Number(length))) length = 10;
             length = Math.max(1, Math.min(Number(length), max));
             if(['getHolders','getBalances'].includes(data.method) && ['prev','last'].includes(action))

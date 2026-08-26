@@ -584,6 +584,108 @@ describe('Database tip-freshness gate', () => {
         });
     });
 
+    // A consensus wait and a wedge look identical from outside, and shipping only
+    // tip_future_seconds meant they stayed identical: that field measures the block
+    // already COMMITTED, which is always past-dated, so it reads 0 for the entire
+    // duration of the wait it appears to describe. An external report read a
+    // steady-state testnet4 future-stamp wait as a stuck indexer on exactly that
+    // evidence. These pin the discriminator that can actually tell them apart.
+    describe('#getStatus indexer-state discriminator', () => {
+        // Puts the indexer `lag` blocks behind the decoder with its own tip dated
+        // `tipAgeSec` in the PAST, which is the only shape this state ever has.
+        function laggingBy(lag, tipAgeSec = 60) {
+            poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - tipAgeSec);
+            sinon.stub(db, 'getMaxBlockIndex').resolves(850);
+            sinon.stub(db, 'getDecoderTip').resolves(850 + lag);
+        }
+
+        it('labels a future-dated next block as a consensus wait and says when it clears', async () => {
+            laggingBy(12);
+            const nextTime = Math.floor(Date.now() / 1000) + 1195;
+            sinon.stub(db, 'getDecoderBlockTime').resolves(nextTime);
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.indexer_state['RBTC']).to.equal('future_block_wait');
+            expect(data.next_block_time['RBTC']).to.equal(nextTime);
+            expect(data.next_block_future_seconds['RBTC']).to.be.within(1185, 1195);
+            expect(data.indexer_wait_clears_at['RBTC']).to.equal(new Date(nextTime * 1000).toISOString());
+        });
+
+        it('reads the block being WAITED ON, not the one already committed', async () => {
+            laggingBy(12);
+            const stub = sinon.stub(db, 'getDecoderBlockTime').resolves(Math.floor(Date.now() / 1000) + 600);
+            await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(stub.calledWith(sinon.match({ coin: 'RBTC' }), 851)).to.equal(true);
+        });
+
+        // The regression this whole field exists for: during a real wait the OLD
+        // field reads a perfectly healthy 0. If this ever passes with a non-zero
+        // tip_future_seconds, the discriminator has stopped being necessary and the
+        // reasoning in the schema needs revisiting.
+        it('stays honest while tip_future_seconds reads 0 through the same wait', async () => {
+            laggingBy(12);
+            sinon.stub(db, 'getDecoderBlockTime').resolves(Math.floor(Date.now() / 1000) + 1195);
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.tip_future_seconds['RBTC']).to.equal(0);
+            expect(data.indexer_state['RBTC']).to.equal('future_block_wait');
+            expect(data.next_block_future_seconds['RBTC']).to.be.above(0);
+        });
+
+        it('calls a next block that is already admissible `behind`, with no clearing time', async () => {
+            laggingBy(12);
+            sinon.stub(db, 'getDecoderBlockTime').resolves(Math.floor(Date.now() / 1000) - 30);
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.indexer_state['RBTC']).to.equal('behind');
+            expect(data.next_block_future_seconds['RBTC']).to.equal(0);
+            expect(data.indexer_wait_clears_at['RBTC']).to.equal(null);
+        });
+
+        it('reports `live` with no next-block fields when the indexer is at the decoder tip', async () => {
+            laggingBy(0);
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.indexer_state['RBTC']).to.equal('live');
+            expect(data.next_block_time['RBTC']).to.equal(null);
+            expect(data.indexer_wait_clears_at['RBTC']).to.equal(null);
+        });
+
+        it('degrades to null rather than guessing when the decoder block_time is unreadable', async () => {
+            laggingBy(12);
+            sinon.stub(db, 'getDecoderBlockTime').resolves(null);
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.indexer_state['RBTC']).to.equal(null);
+            expect(data.next_block_time['RBTC']).to.equal(null);
+            expect(data.next_block_future_seconds['RBTC']).to.equal(null);
+        });
+    });
+
+    describe('#getDecoderBlockTime', () => {
+        it('returns null for an unknown or unsafe decoder DB name instead of querying', async () => {
+            const q = sinon.stub(db, 'doDecoderQuery').resolves([{ block_time: 123 }]);
+            db.decoderDb = {};
+            expect(await db.getDecoderBlockTime({ coin: 'BTC' }, 5)).to.equal(null);
+            db.decoderDb = { BTC: 'bad name; DROP TABLE' };
+            expect(await db.getDecoderBlockTime({ coin: 'BTC' }, 5)).to.equal(null);
+            expect(q.called).to.equal(false);
+        });
+
+        it('binds the height rather than interpolating it', async () => {
+            db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
+            const q = sinon.stub(db, 'doDecoderQuery').resolves([{ block_time: 1787694027 }]);
+            expect(await db.getDecoderBlockTime({ coin: 'BTC' }, 851)).to.equal(1787694027);
+            expect(q.firstCall.args[1]).to.match(/block_index = \?/);
+            expect(q.firstCall.args[2]).to.deep.equal([851]);
+        });
+
+        it('returns null on a non-numeric height, a missing row, or a failed read', async () => {
+            db.decoderDb = { BTC: 'XChain_BTC_Mainnet_Decoder' };
+            const q = sinon.stub(db, 'doDecoderQuery').resolves([]);
+            expect(await db.getDecoderBlockTime({ coin: 'BTC' }, 'abc')).to.equal(null);
+            expect(q.called).to.equal(false);
+            expect(await db.getDecoderBlockTime({ coin: 'BTC' }, 851)).to.equal(null);
+            q.rejects(new Error('no cross-DB grant'));
+            expect(await db.getDecoderBlockTime({ coin: 'BTC' }, 851)).to.equal(null);
+        });
+    });
+
     // The published schema is the contract third parties code against, and it is
     // served as a static asset that no other suite compares to the producer. That is
     // how it kept describing `available` as a fixed config echo for the whole life of
@@ -626,6 +728,27 @@ describe('Database tip-freshness gate', () => {
             expect(status.properties.tip_future_seconds.description).to.match(/EXPLORER_TIP_MAX_FUTURE_SKEW_S/);
             expect(status.properties.tip_future_seconds.additionalProperties.type)
                 .to.deep.equal(['integer', 'null']);
+        });
+
+        it('documents the three indexer_state values and points readers away from tip_future_seconds', () => {
+            const d = status.properties.indexer_state.description;
+            expect(d).to.match(/future_block_wait/);
+            expect(d).to.match(/'live'/);
+            expect(d).to.match(/'behind'/);
+            // The trap that produced the false report: say plainly that the older
+            // field cannot answer this, or the next integrator repeats it.
+            expect(d).to.match(/tip_future_seconds/);
+            expect(d).to.match(/reads 0|always past-dated/i);
+            expect(status.properties.indexer_state.additionalProperties.type)
+                .to.deep.equal(['string', 'null']);
+        });
+
+        it('documents the next-block fields as measuring the block being waited on', () => {
+            expect(status.properties.next_block_time.description).to.match(/last_block \+ 1/);
+            expect(status.properties.next_block_future_seconds.description).to.match(/ahead/i);
+            expect(status.properties.indexer_wait_clears_at.description).to.match(/ISO-8601/);
+            expect(status.properties.indexer_wait_clears_at.additionalProperties.type)
+                .to.deep.equal(['string', 'null']);
         });
     });
 

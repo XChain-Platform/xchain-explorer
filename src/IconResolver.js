@@ -240,15 +240,26 @@ function selectIconUrlFromCip25Json(json){
     // is more specific than "image" when both exist, so it wins.
     const j = (json.icon) ? Object.assign({}, json, { image: json.icon }) : json;
 
-    // TIS `data_ref` takes precedence over `data` on the same entry, which is what the
-    // page does (resolveTisDataRefs in content/js/xchain.js overwrites `data` with the
-    // resolved ref before any picker runs). Applied to every JSON lane, not just the
-    // action: one, because the page applies it to every TIS document it fetches however
-    // it reached it, and this file's contract is to pick what the page would.
+    // TIS `data_ref` takes precedence over `data` on the same entry ONLY when it is a
+    // real action reference, which is what the page does: resolveTisDataRefs
+    // (content/js/xchain.js) overwrites `data` only when actionRefToRawPath RESOLVES
+    // the ref, and that returns false for anything outside the action: grammar. The
+    // spec agrees (token-information-standard.md: data_ref is a reference to an
+    // on-chain FILE action by ACTION_INDEX), so a URL-shaped or garbage data_ref is not
+    // a ref at all and must leave `data` alone. TIS documents are attacker-supplied
+    // on-chain bytes: substituting any non-empty string let a minted token make this
+    // downloader cache a different image than the page renders, or drive the row to a
+    // permanent `failed` on an unfetchable ref while the page rendered fine.
+    // ACTION_REF_RE spells its case classes out rather than using /i (#5290), which is
+    // ASCII-exact and therefore equivalent to the page's /i regex over this alphabet.
+    // Applied to every JSON lane, not just the action: one, because the page applies it
+    // to every TIS document it fetches however it reached it.
     const images = (Array.isArray(j.images) ? j.images : []).map(img => {
         if(!img || typeof img !== 'object') return img;
-        if(typeof img.data_ref !== 'string' || img.data_ref.trim() === '') return img;
-        return Object.assign({}, img, { data: img.data_ref });
+        if(typeof img.data_ref !== 'string') return img;
+        const ref = img.data_ref.trim();
+        if(ref === '' || !ACTION_REF_RE.test(ref)) return img;
+        return Object.assign({}, img, { data: ref });
     });
 
     // 1. 64x64 icon (what the page takes first, and the size we render at)

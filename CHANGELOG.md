@@ -4,14 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.11.0] - 2026-08-25
 
 ### Added
+- The bundled consensus pin is verified at API boot, so a host carrying a drifted coin registry halts instead of serving from it.
+- The hub-served coin consensus hashes are cross-checked against the local registry, logging a mismatch as a transport-integrity signal.
 - Mempool data is read live from each coin's decoder API when an endpoint is configured, so explorers serving from synced replicas can show pending transactions.
 - The network API and homepage report the node's total unconfirmed count beside the XChain unconfirmed count, linked to the mempool page.
+- The status endpoint says why the indexer trails and when the wait clears, so a deliberate pause for a block stamped in the future is no longer indistinguishable from a stuck indexer.
 
 ### Changed
 - The mempool page uses the same Block / Time / Action / Details columns as history, showing when each pending action was first seen.
+- Updated the BTC mainnet validator reward pool address.
+- Moved the BTC, LTC and DOGE testnet genesis start points forward to just under the live chain tip and regenerated the consensus pin, so the public testnet launches with no pre-announcement test history.
+
+### Fixed
+- The icon resolver now only treats a TIS data_ref as a reference when it matches the on-chain action grammar, so attacker-chosen token metadata can no longer swap in a different cached image or leave an icon permanently unresolved.
+- A malformed or repeated pagination start parameter no longer breaks the request; it now falls back to the beginning of the list instead of erroring.
+- Mempool counts and feeds now include only action-carrying rows, instead of every pending transaction the node's mempool holds.
+- Cumulative log-shipper metrics are now registered as counters instead of gauges, so rate-based monitoring queries over them are no longer undefined.
 
 ## [0.10.0] - 2026-08-18
 

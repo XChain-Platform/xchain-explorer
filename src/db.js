@@ -859,7 +859,15 @@ class Database {
             let start  = (q.start) ? q.start : 0;
             let length = (q.length) ? q.length : 10;
             let action = (q.action) ? q.action : false;
-            start  = Math.max(0, Number(start));
+            // Same Number.isFinite fallback `length` and `total` already carry, and for
+            // the same reason: a non-numeric or repeated `?start=` is NaN, Math.max(0,NaN)
+            // is NaN, and the fetch-and-slice branch below concatenates it into the LIMIT
+            // clause as `LIMIT NaN` (a rejected query, so 5xx on an unauthenticated read
+            // route). Fall back to 0, not to the 100000 ceiling: the row slice reads the
+            // RAW query.start, so a page fetched for an unusable start is discarded anyway.
+            start  = Number(start);
+            if(!Number.isFinite(start)) start = 0;
+            start  = Math.max(0, start);
             if(!Number.isFinite(Number(length))) length = 10;
             length = Math.max(1, Math.min(Number(length), max));
             if(['getHolders','getBalances'].includes(data.method) && ['prev','last'].includes(action))
@@ -4680,6 +4688,21 @@ class Database {
             // that skew is the thing an operator has to fix. null when block_time
             // is missing or unreadable, the same as tip_age_seconds.
             tip_future_seconds: {},
+            // Why the indexer trails, for consumers that must tell a consensus wait
+            // apart from a wedge. tip_future_seconds cannot answer this: it measures
+            // the block already committed, which is always past-dated, so it reads 0
+            // throughout the wait. These measure the block being WAITED ON instead.
+            // indexer_state: 'live' (lag 0), 'future_block_wait' (the next block is
+            // dated ahead of this host's clock, so no node may commit it yet and the
+            // pause is consensus, not failure), 'behind' (the next block is
+            // admissible now and still uncommitted, the state worth paging on), or
+            // null when it cannot be determined. indexer_wait_clears_at is the
+            // instant a future_block_wait ends, so a UI can show a countdown instead
+            // of an apparently lost transaction.
+            indexer_state:               {},
+            next_block_time:             {},
+            next_block_future_seconds:   {},
+            indexer_wait_clears_at:      {},
             stale:           {},
             // Durable consensus-divergence halt xchain-sync records into the same
             // replica DB this pool serves (sync_halt, cleared_at IS NULL = active).
@@ -4737,6 +4760,39 @@ class Database {
                                     ? (nowSec - Number(tipSec)) : null;
                 data.tip_age_seconds[coin]    = (tipDelta === null) ? null : Math.max(0, tipDelta);
                 data.tip_future_seconds[coin] = (tipDelta === null) ? null : Math.max(0, -tipDelta);
+                // Why the indexer is behind, not just that it is. A chain whose
+                // timestamps are systematically future-dated (Bitcoin testnet4 rides
+                // the 20-minute min-difficulty rule, stamping each block ~1201s after
+                // its parent) makes the indexer hold every block until wall clock
+                // reaches that block's OWN stamp. From outside that is
+                // indistinguishable from a wedge, and it was misread as one. The
+                // deciding value is the NEXT block's stamp: if it is still in the
+                // future, no healthy node anywhere could have committed it yet.
+                data.next_block_time[coin]            = null;
+                data.next_block_future_seconds[coin]  = null;
+                data.indexer_wait_clears_at[coin]     = null;
+                data.indexer_state[coin]              = null;
+                let lag = data.decoder_lag_blocks[coin];
+                if (lag === 0) {
+                    data.indexer_state[coin] = 'live';
+                } else if (lag !== null && Number.isFinite(Number(data.last_block[coin]))) {
+                    let nextTime = await this.getDecoderBlockTime({ coin, data: {} }, Number(data.last_block[coin]) + 1);
+                    data.next_block_time[coin] = nextTime;
+                    if (nextTime !== null) {
+                        let ahead = nextTime - nowSec;
+                        data.next_block_future_seconds[coin] = Math.max(0, ahead);
+                        if (ahead > 0) {
+                            // Waiting by consensus, and we can say exactly when it ends.
+                            data.indexer_state[coin]          = 'future_block_wait';
+                            data.indexer_wait_clears_at[coin] = new Date(nextTime * 1000).toISOString();
+                        } else {
+                            // The next block is admissible NOW and still uncommitted:
+                            // genuinely behind. This is the state that deserves alarm,
+                            // and the one a future-stamp wait was being mistaken for.
+                            data.indexer_state[coin] = 'behind';
+                        }
+                    }
+                }
                 data.stale[coin] = this.isTipStale(coin, tipSec, nowSec);
                 if (data.stale[coin]) delete data.available[coin];
                 // Published beside stale, not folded into the gate: available already
@@ -6631,6 +6687,30 @@ class Database {
         } catch(e){
             // Decoder DB unreachable, missing, or no cross-DB grant: omit the tip.
             console.warn('getDecoderTip: decoder tip unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
+        }
+        return null;
+    }
+
+    // Read the decoder's recorded block_time for ONE height. Exists to answer a
+    // question tip_future_seconds structurally cannot: that field is derived from
+    // the newest block the indexer has already COMMITTED, which is by definition
+    // past-dated, so it reads 0 during the exact condition it looks like it would
+    // reveal. The block that decides whether the indexer is waiting or wedged is
+    // the NEXT one (last_block + 1), which only the decoder DB has, because the
+    // indexer has not committed it yet. Same degradation contract as
+    // getDecoderTip: null when the DB name is unknown, unsafe, or the read fails.
+    async getDecoderBlockTime(config, height) {
+        let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
+        if(this.util.isNull(dbName)) return null;
+        if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return null;
+        if(!Number.isFinite(Number(height))) return null;
+        try {
+            let query   = 'SELECT block_time FROM `' + dbName + '`.blocks WHERE block_index = ? LIMIT 1';
+            let results = await this.doDecoderQuery(config, query, [Number(height)]);
+            if (results && results.length && results[0].block_time !== null)
+                return Number(results[0].block_time);
+        } catch(e){
+            console.warn('getDecoderBlockTime: decoder block_time unavailable for ' + config.coin + ' at ' + height + ': ' + (e && e.message ? e.message : e));
         }
         return null;
     }

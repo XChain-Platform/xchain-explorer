@@ -497,6 +497,44 @@ function formatTransactionLink(tx){
     $('#tx-hash').html(html);
 }
 
+// DataTables' DEFAULT error mode is a native alert(), and a native alert is the
+// worst possible channel for a feed failure. It blocks the render loop, it blocks
+// every subsequent event on the page (so anything driving the browser goes dead
+// mid-run), and once it is dismissed it leaves no record behind: the reader is
+// left with a page that "just hung" and no way to learn why. That is exactly how
+// a 503 on the search feed presented, and diagnosing it took a detour through
+// curl because the page itself could say nothing.
+//
+// Route the same information somewhere it can actually be read instead: the
+// console (durable, capturable, and greppable), plus a non-blocking message in
+// the table's own body so a human sees that THIS table failed rather than
+// wondering why it is empty. Nothing freezes and the rest of the page still
+// renders, which is the behavior a partial outage should have.
+if(typeof $ !== 'undefined' && $.fn && $.fn.dataTable){
+    $.fn.dataTable.ext.errMode = function(settings, helpPage, message){
+        var table = (settings && settings.nTable) ? settings.nTable : null;
+        var id    = (table && table.id) ? table.id : 'unknown';
+        var url   = (settings && settings.sAjaxSource) ? settings.sAjaxSource
+                  : (settings && settings.ajax) ? settings.ajax : '(no ajax source)';
+        // console.error, not console.log: this IS an error, and error-only console
+        // filters are how these get noticed at all.
+        console.error('[XChain] DataTables feed failed  table=' + id +
+                      '  source=' + url + '  detail=' + message);
+        if(table){
+            var cols = $('thead th', table).length || 1;
+            $('tbody', table).html(
+                $('<tr>').append(
+                    $('<td>').attr('colspan', cols)
+                             .addClass('text-center text-danger')
+                             // .text(), never .html(): `message` can carry server
+                             // text and must never become markup.
+                             .text('Could not load this data. See the browser console for details.')
+                )
+            );
+        }
+    };
+}
+
 // Quick function to get a status from an object
 function getTransactionStatus(rec, depth=1){
     if(rec.status) 

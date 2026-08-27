@@ -94,6 +94,14 @@ class DbQueryError extends Error {
     }
 }
 
+// An ACTION's source is `actions.source_id`, never `transactions.source_id`. The two agree
+// for every user action, and DISAGREE for a VM emission: the indexer stores the emitting
+// contract's derived address on the action row (xchain-indexer db.js createActionIndex,
+// execute.js processEmission) while the transaction still belongs to the human who sent the
+// EXECUTE. Reading the transaction there renders a real address that is the WRONG one, which
+// no reader can catch by eye. Every query below therefore resolves source through
+// COALESCE(<actions alias>.source_id, t1.source_id); the fallback covers system/synthetic
+// actions (expiries, completion UNSTAKEs), which are created with no SOURCE at all.
 class Database {
 
     constructor(explorer){
@@ -1163,7 +1171,7 @@ class Database {
         } else if(method=='getPolls'){
             // polls (VOTE v0) joins the actions/transactions/blocks chain (b1 via t1) like
             // getAttestations. tick joins index_tickers (pt) on m.tick_id; source is the poll
-            // creator (a2 via t1.source_id); status filters the poll lifecycle enum directly.
+            // creator (a2 via the action source); status filters the poll lifecycle enum directly.
             if(type=='block')  sql += ' AND b1.block_index=?';
             if(type=='tick')   sql += ' AND pt.tick=?';
             if(type=='status') sql += ' AND m.poll_status=?';
@@ -1177,7 +1185,7 @@ class Database {
             sql += ' AND m.poll_index=?';
         } else if(method=='getVotes'){
             // votes (VOTE v1 ballots) joins the actions/transactions/blocks chain; the voter IS
-            // the source that cast the ballot (a2 via t1.source_id), so address filters on a2.
+            // the source that cast the ballot (a2 via the action source), so address filters on a2.
             if(type=='address') sql += ' AND a2.address=?';
             if(type=='poll')    sql += ' AND m.poll_index=?';
             if(type=='block')   sql += ' AND b1.block_index=?';
@@ -1195,7 +1203,7 @@ class Database {
         } else if(method=='getBetFeeds'){
             // bet_feeds (BET format 0) joins the actions/transactions/blocks chain like
             // getPolls. tick joins index_tickers (pt) on the wager token; source is the
-            // oracle that created the feed (a2 via t1.source_id); status filters the
+            // oracle that created the feed (a2 via the action source); status filters the
             // STORED feed lifecycle enum through index_statuses (fs), never a clock
             // recomputation. 'address' is an alias of 'source' here because a feed has
             // exactly one participating address of its own (the oracle); bettors are
@@ -1210,7 +1218,7 @@ class Database {
             sql += ' AND m.action_index=?';
         } else if(method=='getBets'){
             // bets (BET format 2 ballots-equivalent) joins the actions/transactions/blocks
-            // chain; the bettor IS the source that placed the wager (a2 via t1.source_id).
+            // chain; the bettor IS the source that placed the wager (a2 via the action source).
             // 'feed' filters to one market, matching getVotes' 'poll'.
             if(type=='address') sql += ' AND a2.address=?';
             if(type=='feed')    sql += ' AND m.feed_action_index=?';
@@ -1448,7 +1456,7 @@ class Database {
             }
             if(type=='address'){
                 if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
-                    where = ` AND (t1.source_id=? OR m.destination_id=?)`;
+                    where = ` AND (COALESCE(a1.source_id, t1.source_id)=? OR m.destination_id=?)`;
                     whereArgs.push(id, id);
                 } else if(['getTokens'].includes(method)){
                     where = ` AND m.owner_id=?`;
@@ -1463,7 +1471,11 @@ class Database {
                     where = ` AND m.type_id=2 AND m.id=?`;
                     whereArgs.push(id);
                 } else {
-                    where = ` AND t1.source_id=?`;
+                    // Paging boundaries must filter on the same source the row query joins on
+                    // (the ACTION's own source, falling back to the transaction's), or an
+                    // emitted action pages differently from how it lists. Every boundary query
+                    // below joins `actions a1`, so the alias is always in scope here.
+                    where = ` AND COALESCE(a1.source_id, t1.source_id)=?`;
                     whereArgs.push(id);
                 }
             } else if(type=='oracle'){
@@ -1755,7 +1767,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1780,7 +1792,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1800,7 +1812,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1826,7 +1838,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1847,7 +1859,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -1867,7 +1879,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -1886,7 +1898,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1912,7 +1924,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1932,7 +1944,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1959,7 +1971,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1981,7 +1993,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2006,7 +2018,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2032,7 +2044,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2069,7 +2081,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_addresses    a5 ON (a5.id=m.oracle_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -2095,7 +2107,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2118,7 +2130,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2193,7 +2205,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2220,7 +2232,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2242,7 +2254,7 @@ class Database {
                         INNER JOIN orders             o1 ON (o1.action_index=m.dispenser_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -2262,7 +2274,7 @@ class Database {
                         INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -2350,7 +2362,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2377,7 +2389,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2399,7 +2411,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -2432,7 +2444,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -2464,7 +2476,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2496,7 +2508,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2515,7 +2527,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2545,7 +2557,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2568,7 +2580,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2617,7 +2629,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2641,7 +2653,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2669,7 +2681,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2691,7 +2703,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2716,7 +2728,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2740,7 +2752,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2767,7 +2779,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2791,7 +2803,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2818,7 +2830,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2844,7 +2856,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2884,7 +2896,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2909,7 +2921,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2932,7 +2944,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2952,7 +2964,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2978,7 +2990,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3000,7 +3012,7 @@ class Database {
                         INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -3020,7 +3032,7 @@ class Database {
                         INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -3091,7 +3103,7 @@ class Database {
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
@@ -3113,7 +3125,7 @@ class Database {
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
@@ -3211,7 +3223,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3238,7 +3250,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3260,7 +3272,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3286,7 +3298,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3311,7 +3323,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3352,7 +3364,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3380,7 +3392,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3403,7 +3415,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3423,7 +3435,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3449,7 +3461,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3471,7 +3483,7 @@ class Database {
                         INNER JOIN orders             o1 ON (o1.action_index=m.swap_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -3491,7 +3503,7 @@ class Database {
                         INNER JOIN swaps              s2 ON (s2.action_index=m.swap_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -3555,7 +3567,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3584,7 +3596,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -4121,7 +4133,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_actions      a1 ON (a1.id=m.action_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(m.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + extra + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
@@ -5041,8 +5053,52 @@ class Database {
             // attack surface (a poll nobody sees is a poll nobody out-votes), so
             // open polls surface on the token itself, binding polls flagged.
             data.open_polls = await this.getTokenOpenPolls(config, data.info.tick);
+            // Files LINKed to this token (the NFT pattern: LINK v0 binds a FILE action to a
+            // token's ISSUE). The Files TAB already lists these, but the info column - the
+            // part of the page a reader actually looks at for what a token IS - said "No
+            // additional information is available" beside a token carrying on-chain artwork.
+            // Same rows the tab reads (mappings_files), so nothing new is indexed.
+            data.linked_files = await this.getTokenLinkedFiles(config, data.info.tick);
         }
         return [data];
+    }
+
+    // Files LINKed to a token, newest link first. `title`/`name`/`type` drive the token
+    // page's Linked Files card and its artwork pick; `gated` tells the page a file's bytes
+    // are gated behind a token balance, so it can say so instead of offering a raw link
+    // that will refuse. Capped: this feeds an info card, not a paged list.
+    async getTokenLinkedFiles(config, tick){
+        if(this.util.isNull(tick)) return [];
+        let rows = await this.doQuery(config,
+            `SELECT
+                f1.action_index,
+                f1.name,
+                f1.title,
+                t3.type,
+                b1.block_index,
+                (gf.action_index IS NOT NULL) as gated
+            FROM
+                mappings_files m
+                INNER JOIN index_tickers      t4 ON (t4.id=m.id AND t4.tick=?)
+                INNER JOIN files              f1 ON (f1.action_index=m.action_index)
+                INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
+                INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id AND s1.status='valid')
+                INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                LEFT  JOIN gated_files        gf ON (gf.action_index=f1.action_index)
+            WHERE
+                m.type_id=1
+            ORDER BY m.action_index DESC
+            LIMIT 10`, [tick]);
+        if(!rows || !rows.length) return [];
+        return rows.map(r => ({
+            action_index: Number(r.action_index),
+            name:         r.name,
+            title:        r.title,
+            type:         r.type,
+            block_index:  Number(r.block_index),
+            gated:        Number(r.gated) === 1
+        }));
     }
 
     async getTransaction(config){
@@ -5513,6 +5569,47 @@ class Database {
             if(rows && rows.length)
                 Object.assign(data, rows[0]);
         }
+        // Emission provenance, for EVERY action type. A VM-emitted action has no wire string
+        // of its own - it was never on the wire - so `tx_data` on its detail row is the PARENT
+        // EXECUTE's string. Read alone on a per-action page that says "Transaction Data", it
+        // reads as this action's own data, and it is the field this campaign cross-checks
+        // rendered values against. No synthetic string is composed here: inventing a wire form
+        // that was never broadcast would be worse than the ambiguity. Instead the page is told
+        // where the action came from, so it can label the parent's string as the parent's.
+        // Two steps on purpose. Almost no action is an emission, so the common path asks
+        // contract_emissions alone (keyed on action_index) and stops; only a real hit pays
+        // for the execution lookup. A single joined query would have every action detail
+        // touching contract_executions, which is also what a chunk carrier must never do.
+        data.emitted_by = null;
+        let emitted = await this.doQuery(config,
+            `SELECT
+                e.execution_index,
+                e.position
+            FROM
+                contract_emissions e
+            WHERE
+                e.action_index=?
+            LIMIT 1`, [action_index]);
+        if(emitted && emitted.length){
+            data.emitted_by = {
+                execution_index: emitted[0].execution_index,
+                position:        emitted[0].position,
+                contract_index:  null,
+                caller:          null
+            };
+            let parent = await this.doQuery(config,
+                `SELECT
+                    m.contract_index,
+                    a1.address as caller
+                FROM
+                    contract_executions m
+                    LEFT  JOIN index_addresses a1 ON (a1.id=m.caller_id)
+                WHERE
+                    m.action_index=?
+                LIMIT 1`, [emitted[0].execution_index]);
+            if(parent && parent.length)
+                Object.assign(data.emitted_by, parent[0]);
+        }
     }
 
     // Get fee information for a given action_index
@@ -5539,7 +5636,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE 
                         f1.action_index=?`;
@@ -5822,7 +5919,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE
                         f1.action_index IN (${ph})`;
@@ -6223,7 +6320,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
                         INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
                         INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
@@ -6488,7 +6585,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
                         INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
                         INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
@@ -8530,7 +8627,7 @@ class Database {
                         bet_feeds m
                         INNER JOIN actions         a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers   pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses  fs ON (fs.id=m.feed_status_id)
                     WHERE
@@ -8550,7 +8647,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -8574,7 +8671,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -8615,7 +8712,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -9696,7 +9793,7 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -9724,7 +9821,7 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
@@ -10466,7 +10563,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -10499,7 +10596,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
                         LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -10524,7 +10621,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -10564,7 +10661,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -10657,7 +10754,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    dep ON (dep.id=m.deposit_address_id)
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -10714,7 +10811,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -10738,7 +10835,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -10751,7 +10848,7 @@ class Database {
     // List BET markets (bet_feeds, one row per BET format 0 create-feed action).
     // Joins the actions/transactions/blocks chain like getPolls; the feed id IS the
     // creating action_index. tick joins index_tickers (pt) on m.tick_id (the wager
-    // token); source is the oracle that created the feed (a2 via t1.source_id);
+    // token); source is the oracle that created the feed (a2 via the action source);
     // status filters the stored feed lifecycle enum through index_statuses (fs).
     // feed_status is STORED rather than derived, so the list never recomputes a
     // close from the wall clock (the §5 backdating property E11 pins).
@@ -10762,7 +10859,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
@@ -10849,7 +10946,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
@@ -10956,7 +11053,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     bs ON (bs.id=m.bet_status_id)
@@ -11001,7 +11098,7 @@ class Database {
                         bet_feeds m
                         INNER JOIN actions         a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses  fs ON (fs.id=m.feed_status_id)
                     WHERE a2.address=?
                     GROUP BY fs.status`;
@@ -11091,7 +11188,7 @@ class Database {
                         INNER JOIN bet_resolves    br ON (br.action_index=c.action_index)
                         INNER JOIN actions         a1 ON (a1.action_index=br.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses ra ON (ra.id=t1.source_id)
+                        LEFT  JOIN index_addresses ra ON (ra.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses ca ON (ca.id=c.address_id)
                         LEFT  JOIN index_tickers   tk ON (tk.id=c.tick_id)
                     WHERE ca.address=? AND ra.address=?
@@ -11127,7 +11224,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -11161,7 +11258,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -11347,7 +11444,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -11877,7 +11974,7 @@ class Database {
                 LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
                 LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
                 LEFT JOIN blocks              b1 ON (b1.block_index=t1.block_index)
-                LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                LEFT JOIN index_addresses     a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                 LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
                 LEFT JOIN index_tickers       ft ON (ft.id=m.fee_tick_id)
                 LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
@@ -12317,7 +12414,7 @@ class Database {
                         attests m
                         LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
                         LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                        LEFT JOIN index_addresses     a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
                         LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
                     WHERE

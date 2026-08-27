@@ -1021,15 +1021,22 @@ function getActionDetails(action, info){
         // NOT info.fee: for a BATCH child `info` is a full getActionData result whose fee
         // slot is overwritten with the protocol-fee record, and bcmul on that object threw
         // and aborted the whole member-table render (same fix applied at the other call site).
-        let percent = (isNumeric(info.broadcast_fee)) ? bcmul(info.broadcast_fee, 100, 2) : '';
+        // FEE is an OPTIONAL wire field on BROADCAST v1/v2 (xchain-indexer broadcast.js: a
+        // null FEE is not an error), so a feed broadcast without one stores NULL. Emitting
+        // the label anyway printed a bare `Fee: %` with nothing in front of it. Build the
+        // whole clause here so it disappears when there is no fee to state, rather than
+        // guessing at 0% - a fee this action never declared.
+        let percent = (isNumeric(info.broadcast_fee))
+            ? ' <b>Fee:</b> ' + bcmul(info.broadcast_fee, 100, 2) + '%'
+            : '';
         // info.message / info.value are BROADCAST free text (on-chain,
         // attacker-controlled) and this html is injected via .html(). Escape them.
         if(info.action_format==0){
             html += escapeHtml(info.message);
         } else if(info.action_format==1){
-            html += '<b>Oracle:</b> ' + escapeHtml(info.message) + ' = ' + formatAmount(info.value) + ' <b>Fee:</b> ' + percent + '%';;
+            html += '<b>Oracle:</b> ' + escapeHtml(info.message) + ' = ' + formatAmount(info.value) + percent;
         } else if(info.action_format==2){
-            html += '<b>Feed:</b> ' + escapeHtml(info.message) + ' <b>Fee:</b> ' + percent + '%';
+            html += '<b>Feed:</b> ' + escapeHtml(info.message) + percent;
         } else if(info.action_format==3){
             html += '<b>Feed Results:</b> ' + formatLink('/' + coin + '/action/' + info.broadcast_action_index, info.broadcast_action_index) + ' <b>Result:</b> ' + escapeHtml(String(info.value));
         }
@@ -2790,6 +2797,23 @@ function showTransactionDetails(){
     $('#action-status').text(status);    
     $('#source').html(source);
     $('#tx-data').text(tx_data);
+    // A VM-emitted action never had a wire string of its own, so `tx_data` here is the
+    // string of the EXECUTE that emitted it. Say so, and name the parent, rather than
+    // letting "Transaction Data" imply this action was broadcast in that form.
+    if(o.emitted_by && isNumeric(o.emitted_by.execution_index)){
+        let parent   = formatLink('/' + XC.coin + '/action/' + o.emitted_by.execution_index, formatAmount(o.emitted_by.execution_index));
+        let html     = 'EXECUTE ' + parent;
+        if(isNumeric(o.emitted_by.contract_index))
+            html += ' on contract ' + formatLink('/' + XC.coin + '/contract/' + o.emitted_by.contract_index, formatAmount(o.emitted_by.contract_index));
+        if(isNumeric(o.emitted_by.position))
+            html += ' (emission #' + numeral(Number(o.emitted_by.position) + 1).format(0,0) + ')';
+        $('#emitted-by').html(html);
+        $('#emitted-by-row').show();
+        $('#tx-data-label').text('Transaction Data (emitting EXECUTE)');
+    } else {
+        $('#emitted-by-row').hide();
+        $('#tx-data-label').text('Transaction Data');
+    }
     $('#timestamp').html(formatLivestamp(o.timestamp) + ' (' + moment.unix(o.timestamp).utcOffset(0).format() + ' GMT)');
     // Add links to block explorers next to transaction hash
     if(o.tx_hash){
@@ -4615,6 +4639,32 @@ function showTokenContent(json){
 // into a table body, revealing the card when at least one binding is gating.
 // `controllers` is the API's `controllers` array; bodyId/cardId are element ids.
 // Each row: action class, linked guard contract, cooldown, Active/Unbinding badge.
+// Render the files a token has LINKed to itself (LINK v0, the NFT pattern) into a table
+// body, revealing the card only when the token actually carries one. `files` is getToken's
+// linked_files array. A GATED file's bytes need a token balance, so it is labelled rather
+// than offered as a raw link that would refuse the reader.
+function renderLinkedFiles(files, bodyId, cardId){
+    if(!files || !files.length)
+        return;
+    let html = '';
+    files.forEach(function(f){
+        let idx   = Number(f.action_index);
+        let raw   = f.gated
+            ? '<span class="badge text-bg-secondary">gated</span>'
+            : '<a href="/' + XC.coin + '/file/' + idx + '/raw" target="_blank">raw bytes</a>';
+        // title/name/type are on-chain, author-controlled free text; escape all three.
+        html += '<tr>'
+             +  '<td>' + formatLink('/' + XC.coin + '/action/' + idx, escapeHtml(nullToBlank(f.title))) + '</td>'
+             +  '<td>' + escapeHtml(nullToBlank(f.name)) + '</td>'
+             +  '<td>' + escapeHtml(nullToBlank(f.type)) + '</td>'
+             +  '<td>' + numeral(Number(f.block_index)).format(0,0) + '</td>'
+             +  '<td>' + raw + '</td>'
+             +  '</tr>';
+    });
+    $('#' + bodyId).html(html);
+    $('#' + cardId).show();
+}
+
 function renderControllerBindings(controllers, bodyId, cardId){
     if(!controllers || !controllers.length)
         return;
@@ -4719,6 +4769,11 @@ function showTokenInfo(){
 
     // Open governance polls over this token. Hidden until at least one is open.
     renderOpenPolls(o.open_polls, 'token-governance-body', 'token-governance-card');
+
+    // Files LINKed to this token (the NFT pattern). The Files tab already lists them, but
+    // a reader looking at the info column was told "No additional information is available"
+    // beside a token carrying on-chain artwork, so the link had no surface where it counts.
+    renderLinkedFiles(o.linked_files, 'token-linked-files-body', 'token-linked-files-card');
 
     $('#supply').text(formatAmount(o.supply.current));
     $('#max-supply').text(formatAmount(o.supply.max));

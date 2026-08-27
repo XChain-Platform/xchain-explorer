@@ -49,7 +49,18 @@ function bootPage(){
         url: 'https://xchain.test/RDOGE/action/1211'
     });
     const win = dom.window;
-    win.numeral = function(v){ return { format: function(){ return String(v); } }; };
+    // Behaves like the shipped numeral: format(pattern) only. A stub that swallowed any
+    // arguments once certified a call site written as .format(0,0), which the real numeral
+    // rejects with "roundingFunction is not a function" - green here, broken on the page.
+    win.numeral = function(v){
+        return { format: function(pattern, rounding){
+            if(pattern !== undefined && typeof pattern !== "string")
+                throw new TypeError("numeral format pattern must be a string, got " + typeof pattern);
+            if(rounding !== undefined && typeof rounding !== "function")
+                throw new TypeError("roundingFunction is not a function");
+            return String(v);
+        } };
+    };
     win.moment  = function(){ return { utcOffset: function(){ return { format: function(){ return ''; } }; } }; };
     win.moment.unix = win.moment;
     win.eval(fs.readFileSync(JQUERY, 'utf8'));

@@ -1191,6 +1191,41 @@ CREATE        INDEX contract_index ON contract_executions (contract_index);
 CREATE        INDEX caller_id      ON contract_executions (caller_id);
 CREATE        INDEX block_index    ON contract_executions (block_index);
 
+-- The actions a contract call emitted. Every action detail reads this to learn whether
+-- it was emitted rather than broadcast, so a schema without it fails the whole page and
+-- not just the EXECUTE view that already queried it. Mirrors
+-- xchain-indexer/src/sql/contract_emissions.sql.
+DROP TABLE IF EXISTS contract_emissions;
+CREATE TABLE contract_emissions (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    execution_index     BIGINT UNSIGNED NOT NULL,
+    emitted_action      VARCHAR(20) NOT NULL,
+    action_index        BIGINT UNSIGNED NULL,
+    position            INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX execution_index ON contract_emissions (execution_index);
+CREATE INDEX action_index    ON contract_emissions (action_index);
+
+-- Gated FILE v1 metadata. Every surface that lists a token's files LEFT JOINs this to
+-- say whether the bytes are gated, so its absence 500s the token page and the files
+-- feed alike. Mirrors xchain-indexer/src/sql/gated_files.sql.
+DROP TABLE IF EXISTS gated_files;
+CREATE TABLE gated_files (
+    action_index        BIGINT UNSIGNED NOT NULL,
+    gate_ticker         VARCHAR(250) NOT NULL,
+    encryption_method   TINYINT UNSIGNED NOT NULL,
+    key_hash            CHAR(64) NOT NULL,
+    publisher_address   VARCHAR(255) NOT NULL DEFAULT '',
+    gate_min_amount     VARCHAR(40) NULL,
+    status_id           BIGINT UNSIGNED,
+    raw_data            MEDIUMBLOB
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index          ON gated_files (action_index);
+CREATE        INDEX gate_ticker_key_hash  ON gated_files (gate_ticker, key_hash);
+CREATE        INDEX gate_ticker_status_id ON gated_files (gate_ticker, status_id);
+
 -- ============================================================
 -- Action tables required by getBlocks' per-block UNION count
 -- (this.actionTables). Mirror the xchain-indexer source-of-truth

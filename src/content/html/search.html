@@ -169,7 +169,16 @@
 
         // Parse in the url params and populate the XChain params
         const urlParams = new URLSearchParams(window.location.search);
-        XC.coin  = (!isNull(urlParams.get('coin'))) ? urlParams.get('coin') : 'BTC';
+        // Coin precedence: ?coin=, then the COIN ALREADY IN THE ROUTE (/RDOGE/search),
+        // then BTC. This page used to skip the middle step and hardcode BTC, while the
+        // shared initializer in xchain.js has always honored the route. The result was
+        // that /{COIN}/search queried BTC no matter which coin the reader was browsing,
+        // so on any explorer that does not serve BTC every search feed came back 503
+        // COIN_NOT_AVAILABLE. getXChainParam returns null for a non-coin first segment,
+        // so the bare /search route still falls through to BTC as before.
+        const routeCoin = getXChainParam(window.location.pathname.split('/')[1], 'coin');
+        XC.coin  = (!isNull(urlParams.get('coin'))) ? urlParams.get('coin')
+                 : (!isNull(routeCoin)) ? routeCoin : 'BTC';
 
         // Set the xchain params based on the coin
         setXChainParams(XC.coin);

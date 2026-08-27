@@ -802,7 +802,10 @@
                             <tr class="deploy-contract-row"><th>Staking</th><td class="deploy-stakeable"></td></tr>
                             <tr class="deploy-staking-row"><th>Cooldown</th><td class="deploy-cooldown"></td></tr>
                             <tr class="deploy-staking-row"><th>Slash Destination</th><td class="deploy-slash"></td></tr>
+                            <tr class="deploy-execution-row d-none"><th>Method</th><td class="deploy-method"></td></tr>
+                            <tr class="deploy-execution-row d-none"><th>Gas Used</th><td class="deploy-gas"></td></tr>
                             <tr class="deploy-chunk-row d-none"><th>Chunk</th><td class="deploy-chunk"></td></tr>
+                            <tr class="deploy-chunk-row d-none"><th>Code Part</th><td class="deploy-code-part" style="overflow-wrap: anywhere;"></td></tr>
                             </tbody>
                             </table>
                         </div>
@@ -1033,7 +1036,32 @@
                                 <td class="issue-lock-callback"></td>
                             </tr>
                             </tbody>
-                            </table>                            
+                            </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0 d-none issue-controller-card" width="100%">
+                            <thead>
+                            <tr>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-link"></i> Controller</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <th width="150">Controller</th>
+                                <td class="issue-controller"></td>
+                            </tr>
+                            <tr>
+                                <th>Action Class</th>
+                                <td class="issue-action-class"></td>
+                            </tr>
+                            <tr>
+                                <th>Cooldown Blocks</th>
+                                <td class="issue-cooldown-blocks"></td>
+                            </tr>
+                            <tr>
+                                <th>Binding</th>
+                                <td class="issue-unbind"></td>
+                            </tr>
+                            </tbody>
+                            </table>
                         </div>
 
                         <!-- LINK Action -->

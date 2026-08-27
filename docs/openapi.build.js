@@ -218,6 +218,10 @@ const ROUTES = [
     ['/{COIN}/api/escrows/{QUERY}/{TYPE}', 'getEscrows', ['block', 'address'], 'Core', 'Escrowed balances (orders/swaps/dispensers)'],
     ['/{COIN}/api/history/{QUERY}/{TYPE}', 'getHistory', ['block', 'address', 'token', 'recent'], 'Core', 'Combined action history'],
     ['/{COIN}/api/holders/{QUERY}', 'getHolders', 'token', 'Tokens', 'Holders of a token'],
+    // Registered in both forms on purpose. A holders query is only ever by token,
+    // but the client appends the query type to every feed url it builds, so the
+    // token page asks for /holders/{TICK}/token; without this the tab 404s.
+    ['/{COIN}/api/holders/{QUERY}/{TYPE}', 'getHolders', ['token'], 'Tokens', 'Holders of a token (the {TYPE} segment is always `token`)'],
     // Bare form is unfiltered (every pending action); the QUERY/{TYPE} form below
     // narrows to one address or token (M1.2).
     ['/{COIN}/api/mempool', 'getMempool', null, 'Core', 'Unconfirmed (mempool) actions from the decoder, unfiltered. PRE-VALIDATION: the indexer may still reject them; rows carry the raw decoded action string in `data` for clients to parse'],
@@ -644,7 +648,11 @@ const spec = {
                         properties: {
                             block:       { type: 'integer', description: 'Indexer tip height' },
                             time:        { type: 'integer', description: 'Unix time of the tip block (0 when the chain is empty)' },
-                            unconfirmed: { type: 'integer', description: 'Mempool depth from the decoder DB (0 when unreachable)' },
+                            unconfirmed: { type: 'integer', description: 'Unconfirmed XChain-carrying transactions (decoder API or DB; 0 when unreachable)' },
+                            // The coin node's whole mempool, not just our share of it. Null rather
+                            // than 0 on a deployment with no decoder API, because "we cannot see it"
+                            // and "there is nothing there" are different answers for a reader.
+                            unconfirmed_node: { type: ['integer', 'null'], description: 'The coin node\'s TOTAL mempool tx count (XChain or not), from the decoder API; null when no decoder API endpoint is configured/reachable' },
                         },
                         required: ['block', 'time', 'unconfirmed'],
                     },

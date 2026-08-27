@@ -8815,6 +8815,71 @@
         }
       }
     },
+    "/{COIN}/api/holders/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "holders_query_type",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Holders of a token (the {TYPE} segment is always `token`)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/mempool": {
       "get": {
         "operationId": "mempool",

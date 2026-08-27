@@ -511,6 +511,18 @@ function isNull(value){
     return (value === null || value === undefined || value==='');
 }
 
+// Make a value safe to hand to jQuery's .text(). jQuery (1.10.2, the build this
+// app ships) does NOT treat an absent value as "no text": .text(null) stringifies
+// it and writes the literal four characters "null" into the element, and
+// .text(undefined) is read as the GETTER, so the element silently keeps whatever
+// it already held. The /explorer feeds deliver real JS nulls for every column the
+// indexer is allowed to leave NULL (a BROADCAST v3 carries no MESSAGE, a LINK
+// carries no MEMO, and so on), so those values go through here and render as an
+// empty cell, which is what "the action does not carry this field" looks like.
+// Note .html() is NOT affected: jQuery empties the element for a null value.
+function nullToBlank(value){
+    return isNull(value) ? '' : value;
+}
 
 // Determine if a value is numeric
 function isNumeric(value){
@@ -1443,7 +1455,9 @@ function loadDatatablesData(coin, action, query, type){
                 message = data[4];
                 value   = data[5];
                 fee     = data[6];
-                $('td', row).eq(4).text(message);
+                // broadcasts.message is nullable and BROADCAST v3 legitimately carries
+                // no MESSAGE, so the cell must read empty rather than "null".
+                $('td', row).eq(4).text(nullToBlank(message));
                 var fmt = (String(value).indexOf('.')==-1) ? fmtInteger : fmtCoin;
                 $('td', row).eq(5).html(numeral(value).format(fmt));
                 $('td', row).eq(6).html(fee);
@@ -1655,7 +1669,9 @@ function loadDatatablesData(coin, action, query, type){
                 memo        = data[8];
                 $('td', row).eq(4).html(formatLink('/' + coin1 + '/action/' + coin1_index, coin1 + '-' + coin1_index));
                 $('td', row).eq(5).html(formatLink('/' + coin2 + '/action/' + coin2_index, coin2 + '-' + coin2_index));
-                $('td', row).eq(6).text(memo);
+                // memo reaches the feed through a LEFT JOIN on index_memos, so it is
+                // null for the (common) LINK that carries no memo.
+                $('td', row).eq(6).text(nullToBlank(memo));
                 $('td', row).eq(7).html(action_link);
             }
             // List
@@ -1909,7 +1925,9 @@ function loadDatatablesData(coin, action, query, type){
                 let gas            = data[6];
                 $('td', row).eq(3).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
                 $('td', row).eq(4).html(formatLink('/' + coin + '/address/' + caller, caller));
-                $('td', row).eq(5).text(method);
+                // contract_executions.method_name is nullable (an EXECUTE that names no
+                // method still records a row, with its gas), so blank it rather than "null".
+                $('td', row).eq(5).text(nullToBlank(method));
                 $('td', row).eq(6).html(numeral(gas).format(fmtInteger));
                 $('td', row).eq(7).html(formatLink('/' + coin + '/execution/' + action_index, 'view', null, true));
             }
@@ -2014,7 +2032,10 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(4).html((version == 0) ? '<span class="badge text-bg-secondary">Request</span>' : '<span class="badge text-bg-primary">Response</span>');
                 $('td', row).eq(5).text(provider);
                 $('td', row).eq(6).html(formatLink('/' + coin + '/action/' + action_index, formatHash(request_id)));
-                $('td', row).eq(7).text((version == 0) ? request_status : response_status);
+                // Both attests.request_status and attests.response_status are nullable
+                // ENUMs with no default; each row fills only the one for its version, and
+                // an unresolved row leaves even that one NULL.
+                $('td', row).eq(7).text(nullToBlank((version == 0) ? request_status : response_status));
                 $('td', row).eq(8).html(action_link);
             }
             // VOTE poll (polls table; token-weighted governance, VOTE v0). eq(4) token,

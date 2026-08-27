@@ -92,7 +92,23 @@ describe('token page: files LINKed to the token', function(){
     it('offers the raw bytes of a plain file', function(){
         const win = bootPage();
         win.renderLinkedFiles([PLAIN], 'token-linked-files-body', 'token-linked-files-card');
-        expect(win.jQuery('#token-linked-files-body').html()).to.contain('/RDOGE/file/1184/raw');
+        expect(win.jQuery('#token-linked-files-body').html()).to.contain('/RDOGE/api/file/1184/raw');
+    });
+
+    it('links the raw bytes at the route the server actually registers', function(){
+        // Asserting a hand-written URL string proves only that the string is what was
+        // written: the first version of this card linked /{COIN}/file/{idx}/raw, which
+        // has no route at all and served the 404 HTML shell. Check the shape against
+        // XChainExplorer's own route table instead.
+        const server = fs.readFileSync(path.resolve(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+        const route  = server.match(/get\('([^']*api\/file\/:actionIndex\/raw)'/);
+        expect(route, 'the raw-file route moved or was renamed').to.not.equal(null);
+        const expected = route[1].replace(':coin', 'RDOGE').replace(':actionIndex', '1184');
+        const win = bootPage();
+        win.renderLinkedFiles([PLAIN], 'token-linked-files-body', 'token-linked-files-card');
+        expect(win.jQuery('#token-linked-files-body a[href="' + expected + '"]').length,
+            'the card links ' + expected.replace('1184', '{idx}') + ' nowhere')
+            .to.equal(1);
     });
 
     it('labels a gated file instead of offering a raw link that would refuse', function(){
@@ -100,7 +116,7 @@ describe('token page: files LINKed to the token', function(){
         win.renderLinkedFiles([GATED], 'token-linked-files-body', 'token-linked-files-card');
         const html = win.jQuery('#token-linked-files-body').html();
         expect(html).to.contain('gated');
-        expect(html, 'no raw link for a gated file').to.not.contain('/RDOGE/file/1186/raw');
+        expect(html, 'no raw link for a gated file').to.not.contain('/RDOGE/api/file/1186/raw');
     });
 
     it('stays hidden for a token with no linked file', function(){

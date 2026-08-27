@@ -4651,7 +4651,10 @@ function renderLinkedFiles(files, bodyId, cardId){
         let idx   = Number(f.action_index);
         let raw   = f.gated
             ? '<span class="badge text-bg-secondary">gated</span>'
-            : '<a href="/' + XC.coin + '/file/' + idx + '/raw" target="_blank">raw bytes</a>';
+            // The bytes are served from the API route (XChainExplorer.js registers
+            // /:coin/api/file/:actionIndex/raw); there is no page-level /file/ route, and
+            // linking one 404s with the HTML shell rather than the file.
+            : '<a href="/' + XC.coin + '/api/file/' + idx + '/raw" target="_blank">raw bytes</a>';
         // title/name/type are on-chain, author-controlled free text; escape all three.
         html += '<tr>'
              +  '<td>' + formatLink('/' + XC.coin + '/action/' + idx, escapeHtml(nullToBlank(f.title))) + '</td>'

@@ -2806,7 +2806,7 @@ function showTransactionDetails(){
         if(isNumeric(o.emitted_by.contract_index))
             html += ' on contract ' + formatLink('/' + XC.coin + '/contract/' + o.emitted_by.contract_index, formatAmount(o.emitted_by.contract_index));
         if(isNumeric(o.emitted_by.position))
-            html += ' (emission #' + numeral(Number(o.emitted_by.position) + 1).format(0,0) + ')';
+            html += ' (emission #' + numeral(Number(o.emitted_by.position) + 1).format('0,0') + ')';
         $('#emitted-by').html(html);
         $('#emitted-by-row').show();
         $('#tx-data-label').text('Transaction Data (emitting EXECUTE)');
@@ -4657,7 +4657,7 @@ function renderLinkedFiles(files, bodyId, cardId){
              +  '<td>' + formatLink('/' + XC.coin + '/action/' + idx, escapeHtml(nullToBlank(f.title))) + '</td>'
              +  '<td>' + escapeHtml(nullToBlank(f.name)) + '</td>'
              +  '<td>' + escapeHtml(nullToBlank(f.type)) + '</td>'
-             +  '<td>' + numeral(Number(f.block_index)).format(0,0) + '</td>'
+             +  '<td>' + numeral(Number(f.block_index)).format('0,0') + '</td>'
              +  '<td>' + raw + '</td>'
              +  '</tr>';
     });

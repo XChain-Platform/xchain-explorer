@@ -505,6 +505,13 @@ class XChainExplorer {
                 '/{COIN}/api/escrows/{QUERY}/{TYPE}'           : ['getEscrows',          ['block', 'address']],
                 '/{COIN}/api/history/{QUERY}/{TYPE}'           : ['getHistory',          ['block', 'address', 'token', 'recent']],
                 '/{COIN}/api/holders/{QUERY}'                  : ['getHolders',          'token'],
+                // The client appends the query TYPE to every feed url it builds, so the
+                // token page asked for /holders/{TICK}/token and got a 404 while the
+                // holder tab sat empty. A holders query is only ever by token, so the
+                // segment is redundant, but registering it is how `search` (just above)
+                // already handles the same shape. Client-side special-casing would have
+                // to be repeated for every caller instead.
+                '/{COIN}/api/holders/{QUERY}/{TYPE}'           : ['getHolders',          'token'],
                 '/{COIN}/api/mempool'                          : ['getMempool'],
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
                 '/{COIN}/api/network'                          : ['getNetwork'],   
@@ -544,6 +551,9 @@ class XChainExplorer {
                 '/{COIN}/explorer/fees/{QUERY}/{TYPE}'                      : ['getFees',         ['block', 'address', 'token']],
                 '/{COIN}/explorer/files/{QUERY}/{TYPE}'                     : ['getFiles',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/holders/{QUERY}'                          : ['getHolders',      'token'],
+                // See the /api/holders note above: this is the route the token page's
+                // Holders tab actually requests.
+                '/{COIN}/explorer/holders/{QUERY}/{TYPE}'                   : ['getHolders',      'token'],
                 '/{COIN}/explorer/history/{QUERY}/{TYPE}'                   : ['getHistory',      ['block', 'address', 'token', 'recent']],
                 '/{COIN}/explorer/issues/{QUERY}/{TYPE}'                    : ['getIssues',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/links/{QUERY}/{TYPE}'                     : ['getLinks',        ['block', 'address', 'token']],

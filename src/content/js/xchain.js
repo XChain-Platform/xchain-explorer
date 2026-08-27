@@ -522,8 +522,15 @@ if(typeof $ !== 'undefined' && $.fn && $.fn.dataTable){
     $.fn.dataTable.ext.errMode = function(settings, helpPage, message){
         var table = (settings && settings.nTable) ? settings.nTable : null;
         var id    = (table && table.id) ? table.id : 'unknown';
+        // `ajax` is a string on some tables and a CONFIG OBJECT on others; printing
+        // the object yields "[object Object]", which tells the reader nothing and
+        // defeats the whole point of logging the source. Dig the url out either way.
+        var ajax  = (settings && settings.ajax) ? settings.ajax : null;
         var url   = (settings && settings.sAjaxSource) ? settings.sAjaxSource
-                  : (settings && settings.ajax) ? settings.ajax : '(no ajax source)';
+                  : (typeof ajax === 'string') ? ajax
+                  : (ajax && typeof ajax === 'object' && ajax.url) ? ajax.url
+                  : (typeof ajax === 'function') ? '(ajax is a function)'
+                  : '(no ajax source)';
         // console.error, not console.log: this IS an error, and error-only console
         // filters are how these get noticed at all.
         console.error('[XChain] DataTables feed failed  table=' + id +

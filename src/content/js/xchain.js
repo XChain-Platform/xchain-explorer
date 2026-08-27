@@ -3478,6 +3478,14 @@ function showDeployDetails(data){
         let idx = isNull(data.chunk_index) ? '?' : (Number(data.chunk_index) + 1);
         let total = isNull(data.total_chunks) ? '?' : data.total_chunks;
         $('#info-deploy .deploy-chunk').text('Code chunk ' + idx + ' of ' + total);
+        // The base64 code slice is the payload this carrier exists to publish, and it
+        // was the one v4 wire field with nowhere to render. Shown truncated with its
+        // full length: a part runs to a MEDIUMTEXT of code, and this row is a summary
+        // of the chunk, not a code viewer (the assembled source lives on /contract/).
+        let part = isNull(data.code_part) ? '' : String(data.code_part);
+        $('#info-deploy .deploy-code-part').text(part.length > 96
+            ? part.slice(0, 96) + '… (' + numeral(part.length).format('0,0') + ' chars)'
+            : part);
         return;
     }
     $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + data.action_index, data.action_index));
@@ -3488,6 +3496,16 @@ function showDeployDetails(data){
     if(stakeable){
         $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');
         $('#info-deploy .deploy-slash').html(isNull(data.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + data.slash_destination, data.slash_destination));
+    }
+    // A DEPLOY runs the contract's constructor, and that gas is recorded on the
+    // contract_executions row rather than as a protocol fee row, so a deployer's
+    // cost is invisible in the Fee tab and has to render here instead.
+    let hasGas = !isNull(data.gas_used);
+    $('#info-deploy .deploy-execution-row').toggleClass('d-none', !hasGas);
+    if(hasGas){
+        $('#info-deploy .deploy-method').text(isNull(data.method_name) ? '-' : data.method_name);
+        $('#info-deploy .deploy-gas').text(numeral(data.gas_used).format('0,0') +
+            (isNull(data.gas_limit) ? '' : ' / ' + numeral(data.gas_limit).format('0,0')));
     }
 }
 
@@ -3645,7 +3663,25 @@ function showIssueDetails(data){
     $('#info-issue .issue-lock-mint-supply').text(data.lock_mint_supply);
     $('#info-issue .issue-lock-description').text(data.lock_description);
     $('#info-issue .issue-lock-sleep').text(data.lock_sleep);
-    $('#info-issue .issue-lock-callback').text(data.lock_callback);    
+    $('#info-issue .issue-lock-callback').text(data.lock_callback);
+    // ISSUE v6 binds (or unbinds) a guard contract as the token's controller for one
+    // action class. Those four wire fields are null on every other ISSUE format, so
+    // the card is shown only for format 6 rather than adding four blank rows to the
+    // v0-v5 shape; without it a v6 action page had nothing binding-specific at all.
+    let isController = (Number(data.action_format) === 6);
+    $('#info-issue .issue-controller-card').toggleClass('d-none', !isController);
+    if(isController){
+        $('#info-issue .issue-controller').html(isNull(data.controller) ? '-' :
+            formatLink('/' + XC.coin + '/contract/' + data.controller, data.controller));
+        $('#info-issue .issue-action-class').text(isNull(data.action_class) ? '-' : data.action_class);
+        $('#info-issue .issue-cooldown-blocks').text(isNull(data.cooldown_blocks) ? '-' :
+            numeral(data.cooldown_blocks).format('0,0') + ' blocks');
+        // Bind and unbind are the same wire format and differ only in this flag, so it
+        // is rendered as the row's headline rather than a bare 0/1.
+        $('#info-issue .issue-unbind').html(Number(data.unbind) === 1
+            ? '<span class="badge text-bg-warning text-dark">Unbind</span>'
+            : '<span class="badge text-bg-info text-white">Bind</span>');
+    }
 }
 
 // Display LINK action information

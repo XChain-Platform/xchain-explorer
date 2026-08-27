@@ -163,6 +163,39 @@
     </div>
 </div>
 
+<!-- Executions against this contract (constructor row plus every EXECUTE call).
+     Mirrors the standalone Executions page's table exactly (same columns, same
+     'execution' datatype) so the shared createdRow handler in xchain.js renders
+     it without any per-page branching. -->
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-play"></i> Executions
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-execution">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="">Contract</th>
+                        <th class="address">Caller</th>
+                        <th class="">Method</th>
+                        <th class="quantity">Gas Used</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="8" class="loading-data">Loading execution data...</td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Stakes targeting this contract -->
 <div class="container">
     <div class="row">
@@ -504,6 +537,11 @@ $(document).ready(function() {
 
         $('#contract-write-card').show();
     }
+
+    // Load executions against this contract (constructor row plus every EXECUTE
+    // call), reusing the same 'execution' datatype and 'contract' filter type
+    // the standalone Executions page's search box uses.
+    loadDatatablesData(XC.coin, 'execution', XC.query, 'contract');
 
     // Load stakes targeting this contract
     loadDatatablesData(XC.coin, 'contract_stake', XC.query, 'contract');

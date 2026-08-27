@@ -131,3 +131,30 @@ describe('list-page cells fed a null feed column', function () {
     });
 
 });
+
+// The same visible defect (the word "null" in a cell) reached by a DIFFERENT
+// route, so the helper above cannot catch it: by the time the value arrives at
+// .text() it is already the four-character string, formatted by formatAmount.
+// Measured live on /RDOGE/issues, where Max Supply and Max Mint are both nullable
+// and both read "null" on 8 rows each.
+describe('formatAmount fed an absent amount', function () {
+
+    it('returns empty for null and undefined, not the word null', function () {
+        const { win } = bootClient();
+        expect(win.formatAmount(null), 'formatAmount(null)').to.equal('');
+        expect(win.formatAmount(undefined), 'formatAmount(undefined)').to.equal('');
+        expect(win.formatAmount(), 'formatAmount() with no argument').to.equal('');
+    });
+
+    // The guard must not touch real values. 0 is the one that matters: it is
+    // falsy, it is a legitimate amount, and isNull(0) is false so it must survive.
+    it('leaves real amounts alone, zero included', function () {
+        const { win } = bootClient();
+        expect(win.formatAmount(0), 'zero must still render').to.equal('0');
+        expect(win.formatAmount('0'), 'string zero must still render').to.equal('0');
+        expect(win.formatAmount(1000), 'thousands separator').to.equal('1,000');
+        expect(win.formatAmount('1234567.89'), 'separators with decimals').to.equal('1,234,567.89');
+        expect(win.formatAmount('0.00002000'), 'small decimal amount').to.equal('0.00002000');
+    });
+
+});

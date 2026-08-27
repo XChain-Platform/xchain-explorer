@@ -228,4 +228,37 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
                 'raw code_part leaked onto the paged list');
         });
     });
+
+    describe('emission provenance', function () {
+
+        it('asks contract_emissions ONCE for a whole page, not once per action', async function () {
+            const db = makeDb('BROADCAST', []);
+            await db.getEmissionProvenanceBatch({ coin: 'DOGE' }, [1, 2, 3, 4, 5]);
+            const asked = db.calls.filter(c => c.sql.includes('contract_emissions'));
+            assert.strictEqual(asked.length, 1,
+                'the emission leg fanned out per action; a page of N actions costs N queries');
+            assert.deepStrictEqual(asked[0].args, [1, 2, 3, 4, 5],
+                'the batch did not carry the whole index set');
+        });
+
+        it('never touches contract_executions when the page holds no emission', async function () {
+            const db = makeDb('BROADCAST', []);
+            await db.getEmissionProvenanceBatch({ coin: 'DOGE' }, [1, 2, 3]);
+            assert.ok(!db.calls.some(c => c.sql.includes('contract_executions')),
+                'the parent lookup ran for a page with nothing emitted in it');
+        });
+
+        it('resolves the emitting contract and caller for the emissions it does find', async function () {
+            const db = makeDb('BROADCAST', [
+                ['contract_emissions',  [{ action_index: 1211, execution_index: 1210, position: 0 }]],
+                ['contract_executions', [{ action_index: 1210, contract_index: 1209, caller: 'myAzbja' }]],
+            ]);
+            const out = await db.getEmissionProvenanceBatch({ coin: 'DOGE' }, [1211, 1212]);
+            assert.deepStrictEqual(out.get(1211), {
+                execution_index: 1210, position: 0, contract_index: 1209, caller: 'myAzbja'
+            });
+            // Absence is the answer for an action that was broadcast normally.
+            assert.strictEqual(out.has(1212), false);
+        });
+    });
 });

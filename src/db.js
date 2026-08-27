@@ -5454,7 +5454,7 @@ class Database {
             }
             if(handler.afterQueries)
                 await handler.afterQueries(ctx, data);
-            await this.attachActionDetailSupplements(config, type, action_index, data);
+            await this.attachActionDetailSupplements(config, type, action_index, data, pre);
             await actionDetail.attachLedgerEffects(this, config, action_index, data, handler.effects, (pre) ? pre.effects : null);
             if(handler.afterEffects)
                 await handler.afterEffects(ctx, data);
@@ -5494,7 +5494,7 @@ class Database {
     // variant field already follows). All three source tables are append-only and
     // reorg rollback deletes their rows, so the values are as cache-safe as the
     // rest of the action payload.
-    async attachActionDetailSupplements(config, type, action_index, data){
+    async attachActionDetailSupplements(config, type, action_index, data, pre){
         let fmt = this.util.isNull(data.action_format) ? null : Number(data.action_format);
         if(type=='ISSUE'){
             // ISSUE v6 = controller bind/unbind (ISSUE|6|TICK|CONTROLLER|ACTION_CLASS|
@@ -5576,39 +5576,17 @@ class Database {
         // rendered values against. No synthetic string is composed here: inventing a wire form
         // that was never broadcast would be worse than the ambiguity. Instead the page is told
         // where the action came from, so it can label the parent's string as the parent's.
-        // Two steps on purpose. Almost no action is an emission, so the common path asks
-        // contract_emissions alone (keyed on action_index) and stops; only a real hit pays
-        // for the execution lookup. A single joined query would have every action detail
-        // touching contract_executions, which is also what a chunk carrier must never do.
+        // A page-level prefetch resolves this leg for the whole index set at once; asking
+        // per-action here put the page back above the per-index query ceiling that
+        // action-preload-parity guards. The single-index path falls through to the batch
+        // helper with a set of one, so both paths return the identical shape.
         data.emitted_by = null;
-        let emitted = await this.doQuery(config,
-            `SELECT
-                e.execution_index,
-                e.position
-            FROM
-                contract_emissions e
-            WHERE
-                e.action_index=?
-            LIMIT 1`, [action_index]);
-        if(emitted && emitted.length){
-            data.emitted_by = {
-                execution_index: emitted[0].execution_index,
-                position:        emitted[0].position,
-                contract_index:  null,
-                caller:          null
-            };
-            let parent = await this.doQuery(config,
-                `SELECT
-                    m.contract_index,
-                    a1.address as caller
-                FROM
-                    contract_executions m
-                    LEFT  JOIN index_addresses a1 ON (a1.id=m.caller_id)
-                WHERE
-                    m.action_index=?
-                LIMIT 1`, [emitted[0].execution_index]);
-            if(parent && parent.length)
-                Object.assign(data.emitted_by, parent[0]);
+        let key = Number(action_index);
+        if(pre && pre.emitted && pre.indexes && pre.indexes.has(key)){
+            data.emitted_by = pre.emitted.has(key) ? pre.emitted.get(key) : null;
+        } else {
+            let one = await this.getEmissionProvenanceBatch(config, [key]);
+            data.emitted_by = one.has(key) ? one.get(key) : null;
         }
     }
 
@@ -5975,11 +5953,12 @@ class Database {
         let idxs = (action_indexes || []).map((i) => Number(i));
         if(!idxs.length) return null;
         let preload = {
-            indexes: new Set(idxs),
-            types:   new Map(),
-            fees:    new Map(),
-            txs:     new Map(),
-            effects: null
+            indexes:  new Set(idxs),
+            types:    new Map(),
+            fees:     new Map(),
+            txs:      new Map(),
+            emitted:  new Map(),
+            effects:  null
         };
         let meta          = await this.getActionMetaBatch(config, idxs);
         let effectIndexes = { credits: [], debits: [], escrows: [] };
@@ -6004,7 +5983,59 @@ class Database {
         for(let idx of typed)
             preload.fees.set(idx, fees.has(idx) ? fees.get(idx) : null);
         preload.txs = await this.getTransactionDataBatch(config, hashes);
+        // Emission provenance is a shared leg like the fee and tx legs: identical in shape
+        // for every action, so it runs ONCE over the page instead of once per action.
+        // Asking per-action put the page's per-index query count back above the ceiling
+        // action-preload-parity guards.
+        preload.emitted = await this.getEmissionProvenanceBatch(config, typed);
         return preload;
+    }
+
+    // Emission provenance for a SET of action indexes, in two queries rather than two per
+    // action. Almost no action is an emission, so the second query runs only for the few
+    // that are - and on a page with none it does not run at all. Returns a Map of
+    // action_index -> { execution_index, position, contract_index, caller }, containing only
+    // the indexes that ARE emissions; absence means "broadcast normally".
+    async getEmissionProvenanceBatch(config, action_indexes){
+        let out  = new Map();
+        let idxs = (action_indexes || []).map((i) => Number(i)).filter((i) => !isNaN(i));
+        if(!idxs.length) return out;
+        let holes = idxs.map(() => '?').join(',');
+        let rows  = await this.doQuery(config,
+            `SELECT
+                e.action_index,
+                e.execution_index,
+                e.position
+            FROM
+                contract_emissions e
+            WHERE
+                e.action_index IN (${holes})`, idxs);
+        if(!rows || !rows.length) return out;
+        for(let r of rows)
+            out.set(Number(r.action_index), {
+                execution_index: r.execution_index,
+                position:        r.position,
+                contract_index:  null,
+                caller:          null
+            });
+        let parents = [...new Set([...out.values()].map((v) => Number(v.execution_index)))];
+        let pHoles  = parents.map(() => '?').join(',');
+        let pRows   = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.contract_index,
+                a1.address as caller
+            FROM
+                contract_executions m
+                LEFT  JOIN index_addresses a1 ON (a1.id=m.caller_id)
+            WHERE
+                m.action_index IN (${pHoles})`, parents);
+        let byExec = new Map((pRows || []).map((r) => [Number(r.action_index), r]));
+        for(let v of out.values()){
+            let p = byExec.get(Number(v.execution_index));
+            if(p){ v.contract_index = p.contract_index; v.caller = p.caller; }
+        }
+        return out;
     }
 
     // Batch-load getActionData for a set of action indexes (Fix B / #3841). Resolves the

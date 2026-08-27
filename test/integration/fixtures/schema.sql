@@ -1303,8 +1303,14 @@ CREATE TABLE prices (
     round_timestamp     BIGINT UNSIGNED,                  -- block_time of triggering BTC block
     pair_count          SMALLINT UNSIGNED,                -- number of COIN/FIAT pairs
     pairs_json          TEXT,                             -- JSON array [{pair, price}, ...]
-    sig_count           SMALLINT UNSIGNED,                -- number of PBFT signatures
-    sigs_json           TEXT,                             -- JSON array [{pubkey, sig}, ...]
+    sig_count           SMALLINT UNSIGNED,                -- number of PBFT signatures (NULL on a v2 row; see rounds_json)
+    sigs_json           TEXT,                             -- JSON array [{pubkey, sig}, ...]; carries the BATCH signature set on a v2 row
+    -- v2 fields (validator BATCH snapshot: one signed action carrying an hourly
+    -- window of full round bodies). NULL on a v0/v1 row.
+    batch_first_round   BIGINT UNSIGNED,                  -- FIRST_ROUND of the batch window (v2 only; NULL on a v0/v1 row)
+    batch_last_round    BIGINT UNSIGNED,                  -- LAST_ROUND of the batch window (v2 only; NULL on a v0/v1 row)
+    round_count         SMALLINT UNSIGNED,                -- number of rounds carried by this batch (v2 only)
+    rounds_json         TEXT,                             -- JSON array of the batch per-round bodies [{round, timestamp, btc_block_height, pairs}, ...] (v2 only)
     coin_id             BIGINT UNSIGNED,                  -- FK to index_coins (which chain's token)
     tick_id             BIGINT UNSIGNED,                  -- FK to index_tickers (token name)
     fiat_id             BIGINT UNSIGNED,                  -- FK to index_fiats (currency code)

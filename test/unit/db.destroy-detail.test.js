@@ -81,11 +81,15 @@ describe('DESTROY action detail @regression', function () {
         assert.strictEqual(data.memo, 'first');
     });
 
-    it('issues an unlimited, ordered leg query after the header', async function () {
+    // Refuse a sort key: destroys records no leg position, so ordering by
+    // tick_id reorders the legs against the transaction. Action 1183, broadcast
+    // CAMPB then XCHAIN, read back XCHAIN first under such a sort.
+    it('issues an unlimited leg query that does not reorder the legs', async function () {
         const db = makeDb();
         await db.getActionData(config, ACTION);
         const legQuery = db.queries.find((q) => q.includes('FROM') && q.includes('destroys d1') && !q.includes('LIMIT 1'));
         assert.ok(legQuery, 'a second destroys query must run');
-        assert.ok(/ORDER BY/.test(legQuery), 'legs must come back in a stable order (destroys has no primary key)');
+        assert.ok(!/ORDER BY/i.test(legQuery),
+                  'a sort key here silently contradicts the transaction (see RDOGE action 1183)');
     });
 });

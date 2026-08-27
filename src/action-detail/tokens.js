@@ -86,10 +86,9 @@ const DESTROY = {
                 WHERE
                     d1.action_index=?
                 LIMIT 1`;
-        // destroys.action_index is non-unique (one row per multi-destroy leg,
-        // indexer migration 2026-08-15), so the LIMIT 1 header above carries an
-        // arbitrary leg; read every leg the way SEND does. No primary key on
-        // destroys, so order by the leg identity for a stable list.
+        // Read every leg: action_index is non-unique here (one row per leg) so
+        // the LIMIT 1 header above carries an arbitrary one. Take NO ORDER BY:
+        // destroys records no leg position, so a sort reorders the wire.
         query2 = `SELECT
                     t1.tick,
                     d1.amount,
@@ -101,8 +100,7 @@ const DESTROY = {
                     LEFT  JOIN index_memos        m1 ON (m1.id=d1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=d1.status_id)
                 WHERE
-                    d1.action_index=?
-                ORDER BY d1.tick_id, d1.memo_id`;
+                    d1.action_index=?`;
         return { query, query2, query3 };
     },
     afterQuery2(ctx, data, results) {

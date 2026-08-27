@@ -1418,8 +1418,11 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.type, info.price, info.amount, null, info.action_index];
                     if(method=='getMessages')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.plaintext_message, info.encrypted_message, status, info.action_index];
+                    // Carry destination in the slot getSends uses, before
+                    // status/action_index, so the client's length-relative
+                    // status and paging-offset extraction keeps working.
                     if(method=='getMints')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.destination, status, info.action_index];
                     if(method=='getOrders')
                         // give/get_ownership sit BEFORE status/action_index (invariant: action_index LAST).
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, info.give_ownership, info.get_ownership, status, info.action_index];

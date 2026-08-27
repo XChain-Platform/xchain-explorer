@@ -1779,11 +1779,18 @@ function loadDatatablesData(coin, action, query, type){
             }
             // Mint
             if(action=='mint'){
-                token  = data[4];
-                amount = data[5];
+                token       = data[4];
+                amount      = data[5];
+                destination = data[6];
                 $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
-                $('td', row).eq(6).html(action_link);
+                // Write the cell either way: a MINT's DESTINATION is optional, and
+                // skipping it leaves the raw feed value DataTables rendered, which
+                // for a null column is the word "null".
+                $('td', row).eq(6).html(isNull(destination)
+                    ? ''
+                    : formatLink('/' + coin + '/address/' + destination, destination));
+                $('td', row).eq(7).html(action_link);
             }
             // Order
             if(action=='order'){
@@ -4057,7 +4064,11 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.destination, info.destination) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
                 html += '    <td>' + formatAmount(info.amount) + '</td>';
-                html += '    <td>' + info.status + '</td>';
+                // SEND v3 carries a MEMO per leg, so it belongs beside the leg it
+                // describes rather than only inside the raw transaction data.
+                // Escaped and null-guarded exactly as the destroy legs are.
+                html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
+                html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
                 html += '</tr>';
             } else if(type=='destroy'){
                 html += '<tr class="' + cls + '">'

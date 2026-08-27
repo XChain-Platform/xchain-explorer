@@ -1,4 +1,6 @@
-<!-- Betting oracle track record (v0 reputation: per-address, unbonded) -->
+<!-- Oracle track record (v0 reputation: per-address, unbonded). Two halves:
+     betting markets (bet_feeds) and PRICE v1 publishes (hub-mirrored
+     oracle_prices) - an address can be either kind of oracle, or both. -->
 <div class="container mt-3">
     <div class="row">
 
@@ -23,6 +25,21 @@
         </div>
 
         <div class="col-12">
+            <div class="card table-responsive mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-chart-line"></i> Price Oracle <span id="price-oracle-address-title"></span>
+                </div>
+                <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                <tbody>
+                    <tr><th width="175">Price Publishes</th><td id="oracle-price-publishes"></td></tr>
+                    <tr><th>Pairs Published</th><td id="oracle-price-pairs"></td></tr>
+                    <tr><th>Last Publish</th><td id="oracle-price-last"></td></tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12">
             <!-- The §5 caveat is REQUIRED on this page, not optional decoration: an
                  empty history means unknown, not safe. -->
             <div class="alert alert-warning" role="alert">
@@ -33,6 +50,30 @@
                 <em>unknown</em>, not <em>safe</em>. There is no bonding, slashing, or
                 deposit behind a betting market: if an oracle never resolves, bettors get
                 their stakes back after the refund window, but nothing else is guaranteed.
+            </div>
+        </div>
+
+        <div class="col-12 mb-3">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold"><i class="fa fa-lg fa-chart-line"></i> Price Publishes by this Oracle</div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-oracle_price">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="time">Time</th>
+                        <th class="">Chain</th>
+                        <th class="address">Source</th>
+                        <th class="token">Token</th>
+                        <th class="">Fiat</th>
+                        <th class="quantity">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="7" class="loading-data">Loading oracle price data...</td>
+                    </tr>
+                </tbody>
+                </table>
             </div>
         </div>
 
@@ -71,10 +112,14 @@ $(document).ready(function() {
     updatePageInfo();
 
     $('#oracle-address-title').text(XC.query);
+    $('#price-oracle-address-title').text(XC.query);
     $('#oracle-address').html(formatLink('/' + XC.coin + '/address/' + XC.query, XC.query));
 
     $.getJSON('/' + XC.coin + '/api/oracle/' + XC.query, function(o){
-        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : null;
+        // The /api response is the record itself (flat, `runtime` appended); a
+        // {data:...} envelope is tolerated but is not what the endpoint returns.
+        // Reading only o.data left every count rendering as zero whatever the API said.
+        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : (o || null);
         let c = (d && d.counts) ? d.counts : {};
         let n = function(v){ return numeral(v || 0).format('0,0'); };
         $('#oracle-total').text(d ? n(d.total_feeds) : '0');
@@ -103,7 +148,39 @@ $(document).ready(function() {
             $wrap.append($('<div class="text-muted small">').text('Oracle fee plus rounding remainder, paid on settlement only.'));
             $('#oracle-fees').empty().append($wrap);
         }
+
+        // PRICE v1 track record (d.price). null = this node cannot serve the
+        // hub-mirrored oracle_prices table, which is "unknown", not "none".
+        let p = (d && d.price) ? d.price : null;
+        if(!p){
+            $('#oracle-price-publishes').text(d && d.price === null ? 'Unavailable on this node' : '0');
+            $('#oracle-price-pairs').text('None');
+            $('#oracle-price-last').text('-');
+        } else {
+            $('#oracle-price-publishes').text(n(p.total_publishes));
+            let pairs = Array.isArray(p.pairs) ? p.pairs : [];
+            if(!pairs.length){
+                $('#oracle-price-pairs').text('None');
+                $('#oracle-price-last').text('-');
+            } else {
+                // TICK is a user-created token name and so attacker-controlled: every
+                // pair reaches the DOM only through .text().
+                let $wrap = $('<div>');
+                pairs.forEach(function(pr){
+                    $wrap.append($('<div>').text(String(pr.coin) + '/' + String(pr.tick) + '/' + String(pr.fiat)
+                        + ' (' + n(pr.publishes) + (Number(pr.publishes) === 1 ? ' publish' : ' publishes') + ')'));
+                });
+                $('#oracle-price-pairs').empty().append($wrap);
+                let last = pairs.reduce(function(acc, pr){
+                    return (pr.last_publish != null && (acc === null || Number(pr.last_publish) > acc)) ? Number(pr.last_publish) : acc;
+                }, null);
+                $('#oracle-price-last').html(last === null ? '-' : formatLivestamp(last));
+            }
+        }
     });
+
+    // Every price round this address has published (PRICE v1, hub-mirrored)
+    loadDatatablesData(XC.coin, 'oracle_price', XC.query, 'address');
 
     // Every market this address has created
     loadDatatablesData(XC.coin, 'bet_feed', XC.query, 'source');

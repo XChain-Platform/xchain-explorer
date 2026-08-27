@@ -5398,6 +5398,7 @@ class Database {
             }
             if(handler.afterQueries)
                 await handler.afterQueries(ctx, data);
+            await this.attachActionDetailSupplements(config, type, action_index, data);
             await actionDetail.attachLedgerEffects(this, config, action_index, data, handler.effects, (pre) ? pre.effects : null);
             if(handler.afterEffects)
                 await handler.afterEffects(ctx, data);
@@ -5427,6 +5428,91 @@ class Database {
         if(this._isCacheableAction(data))
             this._cacheSet(this._actionDataCache, this._cacheKey(config.coin, action_index), structuredClone(data));
         return data;
+    }
+
+    // Wire-carried fields the per-type detail handlers cannot select because they
+    // live in a SIBLING event table, not the handler's primary table. The action
+    // detail is the page that exists to render what the wire format carried, so a
+    // field the indexer stores must appear here, populated on the variant that
+    // carries it and present-as-null on the others (the shape every other ISSUE
+    // variant field already follows). All three source tables are append-only and
+    // reorg rollback deletes their rows, so the values are as cache-safe as the
+    // rest of the action payload.
+    async attachActionDetailSupplements(config, type, action_index, data){
+        let fmt = this.util.isNull(data.action_format) ? null : Number(data.action_format);
+        if(type=='ISSUE'){
+            // ISSUE v6 = controller bind/unbind (ISSUE|6|TICK|CONTROLLER|ACTION_CLASS|
+            // COOLDOWN_BLOCKS|UNBIND). The event row is written to token_controllers,
+            // never to `issues`, so without this the four wire fields vanished from
+            // the API row while /api/controllers showed them.
+            data.controller      = null;
+            data.action_class    = null;
+            data.cooldown_blocks = null;
+            data.unbind          = null;
+            if(fmt === 6){
+                let rows = await this.doQuery(config,
+                    `SELECT
+                        c.contract_index as controller,
+                        c.action_class,
+                        c.cooldown_blocks,
+                        c.is_unbind as unbind
+                    FROM
+                        token_controllers c
+                    WHERE
+                        c.action_index=?
+                    LIMIT 1`, [action_index]);
+                // No row = the bind/unbind never applied (invalid action, or rolled
+                // back); the keys stay null rather than being reparsed from tx_data.
+                if(rows && rows.length)
+                    Object.assign(data, rows[0]);
+            }
+        }
+        if(type=='DEPLOY' && fmt === 4){
+            // v4 chunk carrier: CODE_PART is a first-class wire field and this page
+            // is the only surface that can show the payload. The full slice rides
+            // the single-action row only; list rows carry code_part_length instead
+            // (getDeployChunks), because a MEDIUMTEXT slice per row is too heavy for
+            // a paged list.
+            data.code_part        = null;
+            data.code_part_length = null;
+            let rows = await this.doQuery(config,
+                `SELECT
+                    m.code_part,
+                    CHAR_LENGTH(m.code_part) as code_part_length
+                FROM
+                    deploy_chunks m
+                WHERE
+                    m.action_index=?
+                LIMIT 1`, [action_index]);
+            if(rows && rows.length){
+                data.code_part        = rows[0].code_part;
+                data.code_part_length = this.util.isNull(rows[0].code_part_length) ? null : Number(rows[0].code_part_length);
+            }
+        }
+        if(type=='DEPLOY' && fmt !== null && fmt !== 4){
+            // v0-v3 deploy: the constructor run is billed like any EXECUTE and the
+            // indexer records it in contract_executions, but the detail row showed
+            // no gas at all, hiding the deployer's cost. Surface the recorded gas
+            // plus the execution linkage (contract_index / method_name); this reads
+            // existing execution rows only and invents no fee artifacts.
+            data.contract_index = null;
+            data.method_name    = null;
+            data.gas_used       = null;
+            data.gas_limit      = null;
+            let rows = await this.doQuery(config,
+                `SELECT
+                    m.contract_index,
+                    m.method_name,
+                    m.gas_used,
+                    m.gas_limit
+                FROM
+                    contract_executions m
+                WHERE
+                    m.action_index=?
+                LIMIT 1`, [action_index]);
+            if(rows && rows.length)
+                Object.assign(data, rows[0]);
+        }
     }
 
     // Get fee information for a given action_index
@@ -9428,8 +9514,10 @@ class Database {
     // assembler reassembles the VALID chunks of a (source, code_hash) group into the final contract
     // source (DEPLOY.md); the assembled contract itself appears under Contracts. This list surfaces
     // each on-chain carrier (its chunk position + group size + status). code_part (the base64 slice)
-    // is intentionally NOT selected; it is large and only the assembler needs it. Not in actionTables
-    // (sibling of getExecutions); serves the newest page ordered by m.action_index DESC.
+    // is intentionally NOT selected on list rows; it is a MEDIUMTEXT payload too heavy for a paged
+    // list. Rows carry code_part_length instead, and the full slice rides the single-action surface
+    // (attachActionDetailSupplements). Not in actionTables (sibling of getExecutions); serves the
+    // newest page ordered by m.action_index DESC.
     async getDeployChunks(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9452,6 +9540,7 @@ class Database {
                         m.code_hash,
                         m.chunk_index,
                         m.total_chunks,
+                        CHAR_LENGTH(m.code_part) as code_part_length,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -10927,9 +11016,54 @@ class Database {
         // derived by the caller so the market list and the oracle page agree.
         let active = counts.open + counts.closed;
         let fees   = await this.getOracleFeesEarned(config, config.data.search);
+        let price  = await this.getOraclePriceRecord(config, config.data.search);
         return [{ address: config.data.search, total_feeds: total, active_feeds: active,
-                  counts, fees_earned: fees,
+                  counts, fees_earned: fees, price,
                   reputation_caveat: 'Per-address record with no bonding; addresses are free to create, so an empty history means unknown, not safe.' }];
+    }
+
+    // PRICE v1 half of the per-address oracle track record. A price publisher is an
+    // oracle too, but its rounds land in the hub-mirrored oracle_prices table, not
+    // bet_feeds, so the stats above are blind to it and the page reported an active
+    // publisher as all zeros. Aggregated per published pair (COIN/TICK/FIAT) with
+    // the round counts and publish window; the individual rounds are served by
+    // getOraclePrices. Returns null (a "cannot know", distinct from the zero-pair
+    // record {total_publishes:0, pairs:[]}) when this node has no co-located hub DB:
+    // oracle_prices is mirror-only and the betting record must still answer.
+    async getOraclePriceRecord(config, address){
+        let src = null;
+        try {
+            src = this._oracleMirrorSource(config, 'oracle_prices');
+        } catch(e) {
+            return null;
+        }
+        let rows = await this.doQuery(config,
+            `SELECT
+                m.coin,
+                m.tick,
+                m.fiat,
+                count(*) as publishes,
+                MIN(m.block_time) as first_publish,
+                MAX(m.block_time) as last_publish
+            FROM
+                ${src.table} m
+            WHERE
+                m.source_address=?
+            GROUP BY m.coin, m.tick, m.fiat
+            ORDER BY last_publish DESC`, [address]) || [];
+        let record = { total_publishes: 0, pairs: [] };
+        for(const r of rows){
+            // Counts and epoch times can arrive as BigInt; normalize so the JSON is
+            // plain numbers (values are far below 2^53).
+            let publishes = Number(r.publishes);
+            record.total_publishes += publishes;
+            record.pairs.push({
+                coin: r.coin, tick: r.tick, fiat: r.fiat, publishes,
+                first_publish: this.util.isNull(r.first_publish) ? null : Number(r.first_publish),
+                last_publish:  this.util.isNull(r.last_publish)  ? null : Number(r.last_publish)
+            });
+        }
+        return record;
     }
 
     // What an oracle has actually EARNED, per wager token (§11.1's "fees earned").

@@ -1230,7 +1230,9 @@ describe('Database#getToken', () => {
         // projects/registry resolve to []/null with no baseCoin map (un-inited db).
         // controllers surfaces active controller bindings ([] with no pool/tick id).
         // open_polls lists the token's currently-open governance polls.
-        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry', 'controllers', 'open_polls']);
+        // linked_files lists the FILEs LINKed to the token (the NFT pattern), so the
+        // info column can show on-chain artwork instead of "no additional information".
+        expect(data).to.have.keys(['info', 'callback', 'market', 'lists', 'locks', 'mints', 'supply', 'projects', 'registry', 'controllers', 'open_polls', 'linked_files']);
         expect(data.projects).to.deep.equal([]);
         expect(data.registry).to.equal(null);
         expect(data.controllers).to.deep.equal([]);

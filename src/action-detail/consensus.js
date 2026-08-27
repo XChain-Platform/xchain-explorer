@@ -137,7 +137,7 @@ const ATTEST = {
                     INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
                     LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -198,7 +198,7 @@ const NODEPROOF = {
                     INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                    LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                 WHERE

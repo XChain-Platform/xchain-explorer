@@ -91,8 +91,13 @@ describe('Betting oracle fees earned @regression', function () {
         // else's market into reported fee income.
         assert.ok(/WHERE ca\.address=\? AND ra\.address=\?/.test(call.sql),
             'the credited-address = resolver identity test is gone from the fees query');
-        assert.ok(call.sql.includes('ra ON (ra.id=t1.source_id)'),
-            'the resolver address is no longer resolved from the resolve tx source');
+        // The resolver is the SOURCE of the resolve action. That is actions.source_id,
+        // which equals the transaction sender for a user resolve and names the emitting
+        // contract when a contract resolves the market - the transaction there belongs to
+        // whoever called it, who is not the oracle. The fallback keeps system/synthetic
+        // resolves (which store no SOURCE) resolving exactly as they did before.
+        assert.ok(call.sql.includes('ra ON (ra.id=COALESCE(a1.source_id, t1.source_id))'),
+            'the resolver address is no longer resolved from the resolve action source');
         assert.deepStrictEqual(call.args, [ORACLE, ORACLE]);
     });
 

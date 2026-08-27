@@ -1416,10 +1416,16 @@ function loadDatatablesData(coin, action, query, type){
             $('td', row).eq(3).html(source_link);
             // Address
             if(action=='address'){
-                txt = (data[4]==1) ? 'Destroy' : 'Donate';
-                $('td', row).eq(4).html(txt);
-                txt = (data[5]==1) ? 'True' : 'False';
-                $('td', row).eq(5).html(txt);
+                // A null here means the action does not CARRY this field at all, not
+                // that the field is set to the falsy option. An ADDRESS v1 (controller
+                // bind/unbind) carries NONE of the v0 preferences, and the old
+                // ternaries collapsed "absent" into "Donate"/"False", so every v1 row
+                // displayed preferences it had never set. That is worse than rendering
+                // nothing: it is plausible and wrong, so it cannot be spotted by eye.
+                // Measured on RDOGE: actions 1157 and 1159 return fee_preference null
+                // and require_memo null, and both rows read "Donate"/"False".
+                $('td', row).eq(4).text(isNull(data[4]) ? '-' : ((data[4]==1) ? 'Destroy' : 'Donate'));
+                $('td', row).eq(5).text(isNull(data[5]) ? '-' : ((data[5]==1) ? 'True'    : 'False'));
                 $('td', row).eq(6).html(action_link);
             }
             // Airdrop

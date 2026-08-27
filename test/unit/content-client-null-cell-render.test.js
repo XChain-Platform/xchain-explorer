@@ -137,6 +137,36 @@ describe('list-page cells fed a null feed column', function () {
 // .text() it is already the four-character string, formatted by formatAmount.
 // Measured live on /RDOGE/issues, where Max Supply and Max Mint are both nullable
 // and both read "null" on 8 rows each.
+// A nastier variant of the same class. Here the absent value was not rendered as
+// "null" but silently collapsed into the FALSY option of a two-way choice, so an
+// ADDRESS v1 (controller bind/unbind, which carries none of the v0 preferences)
+// displayed "Donate"/"False" as though it had set them. Plausible and wrong is
+// worse than blank, because no reader can spot it.
+describe('ADDRESS list row whose action carries no preferences', function () {
+
+    it('shows a dash, not a fabricated default, when the fields are absent', function () {
+        // getAddresses feed shape: count, block, timestamp, source, fee_preference,
+        // require_memo, <view>, status, action_index. A v1 row nulls 4 and 5.
+        const cells = renderRow('address', [1, 2869, 1756200000, 'mwXyz', null, null, '', 1, 1157], 7);
+        expect(cells[4], 'Fee Preference invented a value').to.equal('-');
+        expect(cells[5], 'Require Memo invented a value').to.equal('-');
+    });
+
+    it('still renders real v0 preferences', function () {
+        const cells = renderRow('address', [1, 2840, 1756200000, 'mwXyz', '1', '1', '', 1, 1132], 7);
+        expect(cells[4], 'fee_preference 1 is Destroy').to.equal('Destroy');
+        expect(cells[5], 'require_memo 1 is True').to.equal('True');
+    });
+
+    // 0 is a REAL setting (Donate / False), not an absent one, and must not become a dash.
+    it('treats an explicit zero as a real setting', function () {
+        const cells = renderRow('address', [1, 2840, 1756200000, 'mwXyz', '0', '0', '', 1, 1133], 7);
+        expect(cells[4], 'fee_preference 0 is Donate').to.equal('Donate');
+        expect(cells[5], 'require_memo 0 is False').to.equal('False');
+    });
+
+});
+
 describe('formatAmount fed an absent amount', function () {
 
     it('returns empty for null and undefined, not the word null', function () {

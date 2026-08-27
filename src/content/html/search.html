@@ -214,9 +214,14 @@
             });
         });
 
-        // Update the page with SEO friendly info
-        XC.pageInfo.title       = 'Search for `' + XC.query + '`';
-        XC.pageInfo.description = 'Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform search results for `' + XC.query + '`.';
+        // Update the page with SEO friendly info. Reaching this page with no
+        // query at all is legitimate (the bare /search route), and concatenating
+        // a null query names it: the title read "Search for `null`" and the same
+        // word went into the meta description that search engines index.
+        XC.pageInfo.title       = isNull(XC.query) ? 'Search' : ('Search for `' + XC.query + '`');
+        XC.pageInfo.description = isNull(XC.query)
+            ? ('Search the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network by address, token, transaction or broadcast.')
+            : ('Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform search results for `' + XC.query + '`.');
         XC.pageInfo.canonical   = '/search?' + window.location.search;
         updatePageInfo();
 

@@ -363,6 +363,14 @@ function updateTheme(mode){
 
 // Return nice display string for token amount
 function formatAmount(amount=null){
+    // An absent amount is not a number to format, it is nothing to show. Without
+    // this, String(null) is "null", whose length clears the >=4 test, the digit
+    // regex matches nothing, and the literal word "null" is returned and rendered
+    // into the cell (measured on /RDOGE/issues: Max Supply and Max Mint, both
+    // nullable columns, showed "null" on 8 rows each). Guarded on isNull, so 0 is
+    // untouched (isNull(0) is false) and '' already returned '' by the old path.
+    if(isNull(amount))
+        return '';
     var str = String(amount).split('.');
     if(str[0].length>=4)
         str[0] = str[0].replace(/(\d)(?=(\d{3})+$)/g, '$1,');

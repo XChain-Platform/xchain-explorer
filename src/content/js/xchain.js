@@ -4984,6 +4984,12 @@ function isNetworkAvailable(coin, callback){
 
 // Handle wrapping search terms in a span to highlight the term
 function highlightSearchTerm(term, text){
+    // A nullable column reaches here as a real null (a BROADCAST v3 carries no
+    // message, a v0 carries no memo, a token can have no description), and
+    // String(null) is the four-character word "null", so an absent value would
+    // render as that text. Same defect class as the nullToBlank cells, by a
+    // third route: blank it before the coercion below can name it.
+    if(isNull(text)) return '';
     // This result is inserted via .html() on the list pages, and `text` is
     // untrusted on-chain content (memo / message / description). Escape it
     // first so the only markup we introduce is the highlight <span>. Without

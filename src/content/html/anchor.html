@@ -21,6 +21,24 @@
     </div>
     <div class="row">
 
+        <!-- A v7 ANCHOR is a BUNDLE: one transaction per network per cycle carrying
+             every checkpointed chain as its own section. The per-chain table is
+             full width and leads the payload cards, because on a bundle it IS the
+             payload; it stays hidden on every single-checkpoint version. -->
+        <div class="col-12">
+            <div class="card mb-3 d-none table-responsive" id="anchor-sections-card">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-layer-group"></i> Bundle Sections
+                </div>
+                <div class="card-body p-2" id="anchor-sections">
+                    <span class="text-muted">Loading sections...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="row">
+
         <div class="col-12 col-lg-6">
 
             <!-- The two heights lead the page rather than sitting inside the payload

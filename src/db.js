@@ -11680,6 +11680,14 @@ class Database {
     // List ANCHOR checkpoint records from anchor_actions. Joins the
     // actions/transactions/blocks chain like getAttestations/getXcalls.
     // type in {block, chain, network, status}.
+    //
+    // A v7 BUNDLE is N sibling rows sharing one action_index, one per checkpointed
+    // chain, each carrying its own chain/block_index/checkpoint_seq/roots. That is
+    // exactly why the bundle was stored one row per section: every per-chain reader,
+    // this list and its `chain` filter included, keeps working unchanged and simply
+    // lists the section rows. section_index is projected so a reader can tell two
+    // sections of one bundle apart, and it breaks the ORDER BY tie the shared
+    // action_index would otherwise leave to the server.
     async getAnchors(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -11696,6 +11704,7 @@ class Database {
         let query = `SELECT
                         a4.action,
                         m.action_index,
+                        m.section_index,
                         a1.action_format,
                         m.version,
                         m.chain,
@@ -11731,7 +11740,7 @@ class Database {
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY m.action_index ` + sql.order + `, m.section_index ASC
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -12464,6 +12473,7 @@ class Database {
             `SELECT
                 a4.action,
                 m.action_index,
+                m.section_index,
                 a1.action_format,
                 m.version,
                 m.chain,
@@ -12502,7 +12512,7 @@ class Database {
                 LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                 LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
             WHERE ` + predicate + `
-            ORDER BY m.action_index DESC
+            ORDER BY m.action_index DESC, m.section_index ASC
             LIMIT 1`, [key]);
         if(!rows || !rows.length) return [null];
         let row = rows[0];
@@ -12511,6 +12521,59 @@ class Database {
         // (anchor_actions.sql), so it is parsed for display and named as attestations to
         // re-verify, never presented as a verified quorum.
         row.publisher_attestations = this._parseSignaturesArray(row.publisher_attestations);
+
+        // A v7 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
+        // N sibling rows sharing one action_index at section_index 0..N-1. Each row holds
+        // its OWN chain, block_index, checkpoint_seq, roots and validator signatures; the
+        // bundle-level fields (version, network, publisher, publisher_attestations, status,
+        // txid, the DOGE block it landed in) are denormalized identically onto every row,
+        // which is why the spine above can serve as the header no matter which section it
+        // matched. Archive rows (v1/v2/v6) and every retired per-chain version stay at
+        // section_index 0, so they take no second query at all.
+        //
+        // snapshot_block on the header is the BUNDLE's block, the MAX over the sections: a
+        // chain that lagged rides at its own older SECTION_SNAPSHOT_BLOCK, but the election
+        // and the publisher attestation were both drawn at the MAX. Reading section 0's
+        // block as the bundle's would look the electorate up at the wrong height.
+        row.sections      = [];
+        row.section_count = 1;
+        if(Number(row.version) === 7){
+            let sections = await this.doQuery(config,
+                `SELECT
+                    m.section_index,
+                    m.chain,
+                    m.network,
+                    m.block_index,
+                    m.block_hash,
+                    m.ledger_hash,
+                    m.actions_hash,
+                    m.contract_hash,
+                    m.checkpoint_seq,
+                    m.snapshot_block,
+                    m.state_root,
+                    m.state_root_version,
+                    m.block_merkle_root,
+                    m.block_merkle_version,
+                    m.validator_signatures,
+                    s1.status
+                FROM
+                    anchor_actions m
+                    LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                WHERE m.action_index=?
+                ORDER BY m.section_index ASC
+                LIMIT ` + limit, [Number(row.action_index)]) || [];
+            row.sections = sections.map(s => {
+                s.validator_signatures = this._parseSignaturesArray(s.validator_signatures);
+                return s;
+            });
+            if(row.sections.length){
+                row.section_count = row.sections.length;
+                let blocks = row.sections
+                    .map(s => this.util.isNull(s.snapshot_block) ? null : Number(s.snapshot_block))
+                    .filter(v => v !== null);
+                if(blocks.length) row.snapshot_block = Math.max(...blocks);
+            }
+        }
 
         // Continuation chunks (v2) share the archive batch id. Bounded: a large archive
         // splits into as many chunks as it needs, so this list has no natural ceiling.
@@ -12538,8 +12601,17 @@ class Database {
         // The anchor names the CHECKPOINTED height on the CHECKPOINTED chain, which is what
         // state_checkpoints is keyed by too, so this coin's own (chain, network) identity is
         // the right filter here (the same reasoning getCommitments' anchor leg carries).
+        //
+        // A BUNDLE carries several chains at once, so the height to look up is THIS coin's
+        // own section, not whichever section the spine happened to match. Keying a
+        // chain-filtered mirror query by another chain's height cannot error: it returns
+        // zero rows, and the page then reads a perfectly good bundle as uncovered.
+        let localSection = row.sections.find(s =>
+            String(s.chain || '').toUpperCase() === String(src.filterParams[0] || '').toUpperCase()) || null;
+        let coveredHeight = localSection ? localSection.block_index : row.block_index;
+        row.local_section_index = localSection ? localSection.section_index : null;
         let checkpoint = [];
-        if(!this.util.isNull(row.block_index))
+        if(!this.util.isNull(coveredHeight))
             checkpoint = await this.doQuery(config,
                 `SELECT
                     sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash,
@@ -12548,7 +12620,7 @@ class Database {
                     sc.block_merkle_version, sc.validator_signatures, sc.created_at
                 FROM ${src.table} sc
                 WHERE sc.block_index = ?${scFilter}${latest.sql}
-                LIMIT 1`, [Number(row.block_index), ...src.filterParams, ...latest.params]) || [];
+                LIMIT 1`, [Number(coveredHeight), ...src.filterParams, ...latest.params]) || [];
 
         // Publisher election. capability_snapshots is CHAIN-AGNOSTIC: no chain/network
         // filter is bound, matching getCapabilitySnapshots. 'oracle_publish' is the
@@ -12568,9 +12640,12 @@ class Database {
         // Reward trail. CHAIN-SCOPED, so filterParams lead. Correlated on the mined DOGE
         // txid this anchor landed in, OR on the table's own natural key minus publisher
         // (snapshot_block + the round this anchor closed: checkpoint_seq for a checkpoint
-        // anchor, match_batch_seq for an archive one).
+        // anchor, match_batch_seq for an archive one, the SNAPSHOT BLOCK itself for a v7
+        // bundle, whose single anchor_bundle reward is keyed round_reference =
+        // SNAPSHOT_BLOCK rather than to any one section's checkpoint_seq).
         let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
-        let rounds = [row.checkpoint_seq, row.match_batch_seq]
+        let rounds = [row.checkpoint_seq, row.match_batch_seq,
+                      (Number(row.version) === 7) ? row.snapshot_block : null]
             .filter(v => !this.util.isNull(v)).map(v => Number(v));
         let rewardWhere = 'm.doge_anchor_txid=?';
         let rewardArgs  = [...src.filterParams, row.tx_hash];

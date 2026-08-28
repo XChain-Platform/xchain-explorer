@@ -416,6 +416,11 @@ function getTokenIcon(token){
 function formatLink(url=null, text=null, icon=false, btn=false){
     var html = '',
         cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
+    // A url whose last segment stringified a missing value is not a destination:
+    // render the label alone rather than a dead link. ORDER/SWAP/DISPENSER use an
+    // empty tick to mean the native coin, which built hrefs ending in /token/null.
+    if(/\/(null|undefined)$/.test(String(url)))
+        return (text) ? String(text) : '';
         html += '<a href="' + url + '" class="' + cls + '">';
     if(icon && !isNull(icon))
         html += '<img src="' + getTokenIcon(icon) + '" class="icon-20 ms-1 me-1">';

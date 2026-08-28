@@ -44,10 +44,10 @@ function mkDb(rows) {
     db.decoderDb = { RBTC: 'XChain_BTC_Decoder' };
     db.doQuery = sinon.stub().resolves(rows);
     // getMempool TYPE=address forward-resolves the queried address to its index
-    // id (to match compacted `^<id>` destinations). Stub it here so the shared
-    // doQuery stub is not asked to answer two different queries; the compacted
-    // path has its own tests in db.mempool-address-refs.test.js.
-    db.getAddressId = sinon.stub().resolves(null);
+    // id (byte-exactly, to match compacted `^<id>` destinations). Stub it here so
+    // the shared doQuery stub is not asked to answer two different queries; the
+    // compacted path has its own tests in db.mempool-address-refs.test.js.
+    db.getExactAddressId = sinon.stub().resolves(null);
     return db;
 }
 

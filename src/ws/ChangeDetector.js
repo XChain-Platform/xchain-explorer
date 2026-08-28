@@ -78,9 +78,10 @@ class ChangeDetector extends EventEmitter {
         // tx_hash: the mempool table has no monotonic index, so each poll
         // diffs the tx_hash-ordered (capped) window against the previous one;
         // see _checkMempoolForCoin for what a saturated window does and does
-        // not prove. The value is `{source, data}` (the RAW action string, not
-        // a party list) so a removal can name the tx's parties after its row is
-        // already gone from the table; see the emit in _checkMempoolForCoin.
+        // not prove. The value is `{source, action, data}` (`data` being the RAW
+        // action string, not a party list) so a removal can name the tx's parties
+        // and its action family after its row is already gone from the table; see
+        // the emit in _checkMempoolForCoin.
         this.mempoolState = {};
 
         // Polling timer reference
@@ -160,7 +161,7 @@ class ChangeDetector extends EventEmitter {
     // Diff the decoder-DB mempool snapshot against the last poll. New rows emit
     // `mempool_action` (decoded: tx_hash/source/action/data/first_seen); rows that
     // left the mempool (confirmed or evicted; we can't tell which) emit
-    // `mempool_removed` carrying {tx_hash, source, data} recovered from the
+    // `mempool_removed` carrying {tx_hash, source, action, data} recovered from the
     // per-coin seenHashes Map. The Map stores the RAW action string rather than a
     // pre-computed party list because the subscriber set lives in ChannelManager,
     // which only the Broadcaster can reach: the removal path re-runs the shared
@@ -192,12 +193,17 @@ class ChangeDetector extends EventEmitter {
             }
             const decoded = this.db.decodeMempoolRow(row);
             if (decoded) decodedNew.push(decoded);
-            // Remember source + the raw action string even for a row that did not
-            // decode (garbage / rejected-ACTION sentinel): it emits no
+            // Remember source + action name + the raw action string even for a row
+            // that did not decode (garbage / rejected-ACTION sentinel): it emits no
             // mempool_action, but its disappearance still emits mempool_removed,
             // and the removal frame's shape must not depend on decodability.
+            // `action` is the name decodeMempoolRow already normalized out of the
+            // first segment (trimmed, uppercased, validated), so the removal names
+            // the same family its mempool_action did, character for character. An
+            // undecodable row keeps action null: it has no family to claim.
             current.set(row.tx_hash, {
                 source: (decoded && decoded.source) || row.source || null,
+                action: decoded ? decoded.action : null,
                 data:   decoded ? decoded.data : null
             });
         }
@@ -226,14 +232,17 @@ class ChangeDetector extends EventEmitter {
                 next.set(hash, parties);
                 continue;
             }
-            // Carry the tx's source and raw action string on the removal so the
-            // Broadcaster can fan the frame out to the same address channels its
-            // mempool_action reached. The row itself is gone from the table by
-            // now, so this remembered pair is the only surviving evidence of who
-            // the tx involved.
+            // Carry the tx's source, action name and raw action string on the
+            // removal so the Broadcaster can fan the frame out to the same address
+            // channels its mempool_action reached, and so a subscriber filtering by
+            // `types` can be offered the removal of an action family it asked for.
+            // The row itself is gone from the table by now, so this remembered
+            // triple is the only surviving evidence of what the tx was and who it
+            // involved.
             this.emit('mempool_removed', coin, {
                 tx_hash: hash,
                 source:  (parties && parties.source) || null,
+                action:  (parties && parties.action) || null,
                 data:    (parties && parties.data)   || null
             });
         }

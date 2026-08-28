@@ -61,7 +61,7 @@ class Broadcaster {
         this._mempoolTails = new Map(); // coin -> promise tail
 
         // Per-coin address -> index-id memo for the mempool fan-out.
-        // db.getAddressId caches only NON-null results (a never-indexed address is
+        // db.getExactAddressId caches only NON-null results (a never-indexed address is
         // re-queried every call), so without this a single subscribed address that
         // has never been indexed would cost one DB read PER MEMPOOL ROW: a 500-row
         // burst against N subscribed addresses would be O(N * 500) queries. Memoize
@@ -146,7 +146,20 @@ class Broadcaster {
         // `source` is additive (spec M1.1): without it a removal cannot be routed
         // to an address channel at all, so a wallet could show a pending entry the
         // network had already dropped with no event to reconcile it away.
-        const base = { tx_hash: row.tx_hash || null, source: row.source || null };
+        //
+        // `action` is additive too, and is what makes this frame survive a `types`
+        // filter: _passesFilter resolves an action name before falling back to the
+        // literal event type, so a frame with no name is only ever matched by
+        // types:['MEMPOOL_REMOVED'] and a subscriber filtering on families
+        // (types:['SEND']) would get the MEMPOOL_ACTION and never its removal,
+        // leaving a pending entry with nothing to reconcile it away. Null for a row
+        // that never decoded, which claims no family and reaches only a subscriber
+        // asking for the type itself or filtering on nothing.
+        const base = {
+            tx_hash: row.tx_hash || null,
+            source:  row.source  || null,
+            action:  row.action  || null
+        };
 
         // Same matcher as the action path, re-run against CURRENT subscribers
         // rather than a set remembered at action time, so a client that subscribed
@@ -209,6 +222,14 @@ class Broadcaster {
     // alternative is re-querying a broken DB once per row per address, and the cost
     // of the memo is that compacted destinations for that address go unmatched
     // until the next block, which is the same degradation as running without M1.1.
+    //
+    // The lookup is db.getExactAddressId, the BYTE-EXACT resolver, never the
+    // case-insensitive db.getAddressId: index_addresses is a ci table, so the ci
+    // resolver answers a wrong-case subscription with the id of the address it
+    // resembles and this fan-out would deliver that address's pending payments to
+    // the wrong subscriber. A db that cannot resolve exactly resolves to null here,
+    // which costs compacted `^<id>` matching and keeps literal matching, rather
+    // than falling back to a lookup that routes frames to strangers.
     async _resolveAddressId(coin, address) {
         let memo = this._addressIdMemo.get(coin);
         if (!memo) {
@@ -220,8 +241,8 @@ class Broadcaster {
         let id = null;
         try {
             const db = this.wsServer.explorer && this.wsServer.explorer.db;
-            if (db && typeof db.getAddressId === 'function')
-                id = await db.getAddressId({ coin }, address);
+            if (db && typeof db.getExactAddressId === 'function')
+                id = await db.getExactAddressId({ coin }, address);
         } catch (e) {
             id = null;
         }

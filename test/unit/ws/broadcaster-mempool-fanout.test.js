@@ -39,7 +39,7 @@ const Utility        = require('../../../src/utility.js');
 function mkDb(idMap) {
     const db = Object.create(Database.prototype);
     db.util  = new Utility();
-    db.getAddressId = sinon.stub().callsFake(async (config, address) =>
+    db.getExactAddressId = sinon.stub().callsFake(async (config, address) =>
         Object.prototype.hasOwnProperty.call(idMap || {}, address) ? idMap[address] : null);
     return db;
 }
@@ -239,7 +239,7 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
         const venue = mkVenue({ destAddr: 42 });
         const dest  = subscribeAddress(venue, 2, 'destAddr');
         let calls = 0;
-        venue.db.getAddressId = async () => {
+        venue.db.getExactAddressId = async () => {
             calls++;
             if (calls === 1) await new Promise((resolve) => setTimeout(resolve, 20));
             return 42;
@@ -269,9 +269,9 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
             }
             await settle(venue);
 
-            // O(N subscribed addresses), not O(N * 500 rows). getAddressId caches
+            // O(N subscribed addresses), not O(N * 500 rows). getExactAddressId caches
             // only non-null results, so the null memo is what makes this bounded.
-            expect(venue.db.getAddressId.callCount).to.equal(2);
+            expect(venue.db.getExactAddressId.callCount).to.equal(2);
         });
 
         it('costs zero DB reads when the coin has no address subscribers', async () => {
@@ -283,7 +283,7 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
             venue.changeDetector.emit('mempool_action', 'RBTC', ACTION_ROW);
             await settle(venue);
 
-            expect(venue.db.getAddressId.called).to.equal(false);
+            expect(venue.db.getExactAddressId.called).to.equal(false);
             expect(frames(global)).to.have.lengthOf(1);
         });
 
@@ -295,7 +295,7 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
             venue.changeDetector.emit('mempool_action', 'RBTC', ACTION_ROW);
             await settle(venue);
             expect(dest.ws.send.called).to.equal(false);            // no id yet: ^42 cannot match
-            expect(venue.db.getAddressId.callCount).to.equal(1);
+            expect(venue.db.getExactAddressId.callCount).to.equal(1);
 
             // The address gets indexed; the block that did it also clears the memo.
             ids.destAddr = 42;
@@ -303,14 +303,14 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
 
             venue.changeDetector.emit('mempool_action', 'RBTC', ACTION_ROW);
             await settle(venue);
-            expect(venue.db.getAddressId.callCount).to.equal(2);
+            expect(venue.db.getExactAddressId.callCount).to.equal(2);
             expect(frames(dest).map((f) => f.data.destinations)).to.deep.equal([['destAddr']]);
         });
     });
 
     it('survives a db-layer id lookup failure by falling back to literal matching', async () => {
         const venue = mkVenue({});
-        venue.db.getAddressId = sinon.stub().rejects(new Error('db down'));
+        venue.db.getExactAddressId = sinon.stub().rejects(new Error('db down'));
         const literal = subscribeAddress(venue, 1, 'literalDest');
         const compact = subscribeAddress(venue, 2, 'destAddr');
 

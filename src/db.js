@@ -11358,15 +11358,35 @@ class Database {
             }
             row.pools    = await this.getBetFeedPools(config, row.action_index);
             row.timeline = await this.getBetFeedTimeline(config, row.action_index, row.closed_block);
+            // The outcome a finished market resolved to; the feed row itself has none.
+            row.winning_outcome = await this.getBetFeedWinningOutcome(config, row.action_index);
             data = row;
         }
         return data;
     }
 
-    // Per-outcome pool totals for one feed. Sums ONLY bet_status='open' rows, which
-    // is the normative settlement pool predicate (§7): a bet that already took a
-    // terminal credit must never be counted again. Returned per outcome index so a
-    // market page can show implied odds without re-deriving the predicate.
+    // Return the outcome an honoured resolve settled to, else null. Only a valid
+    // resolve counts: an invalid row stores the outcome the oracle CLAIMED and settles
+    // nothing. Resolve is terminal, so at most one row can apply.
+    async getBetFeedWinningOutcome(config, feedIndex){
+        let query = `SELECT
+                        br.outcome
+                    FROM
+                        bet_resolves br
+                        LEFT JOIN index_statuses bs ON (bs.id=br.status_id)
+                    WHERE
+                        br.feed_action_index=?
+                        AND bs.status='valid'
+                    ORDER BY br.action_index DESC
+                    LIMIT 1`;
+        let rows = await this.doQuery(config, query, [feedIndex]);
+        if(!rows || !rows.length || this.util.isNull(rows[0].outcome)) return null;
+        return Number(rows[0].outcome);
+    }
+
+    // Sum every bet that escrowed; invalid rows escrowed nothing and are the only
+    // exclusion. This is a display aggregation, NOT the settlement predicate (which
+    // counts open rows alone); no consensus path reads it.
     async getBetFeedPools(config, feedIndex){
         let query = `SELECT
                         m.outcome,
@@ -11377,11 +11397,15 @@ class Database {
                         LEFT JOIN index_statuses bs ON (bs.id=m.bet_status_id)
                     WHERE
                         m.feed_action_index=?
-                        AND bs.status='open'
+                        AND bs.status <> 'invalid'
                     GROUP BY m.outcome
                     ORDER BY m.outcome ASC`;
-        let rows = await this.doQuery(config, query, [feedIndex]);
-        return rows || [];
+        let rows = await this.doQuery(config, query, [feedIndex]) || [];
+        // Trim the 18-place tail a DECIMAL sum leaves on a token with fewer decimals.
+        // Display only; no consensus path reads this.
+        return rows.map(r => ({ outcome: Number(r.outcome),
+                                bet_count: Number(r.bet_count),
+                                pool: this.trimAmountTail(r.pool) }));
     }
 
     // Status timeline for one feed. bet_feed_statuses is action-scoped, so it carries

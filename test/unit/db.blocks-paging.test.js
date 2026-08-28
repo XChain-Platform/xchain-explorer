@@ -111,3 +111,51 @@ describe('blocks paging: a blocks listing pages over blocks, not over actions', 
         assert.ok(/\bactions\b/.test(sql), 'a sends listing stopped joining actions');
     });
 });
+
+describe('blocks feed: every placeholder it emits is bound', function(){
+
+    // The boundary fix above got the feed past its first 500 and straight into a second:
+    // `AND b1.block_index < ?` reached MariaDB as literal text, because getBlocks builds and
+    // runs its own queries instead of returning [query, args] to the shared path where every
+    // other list method has its offset args threaded in. Driving the page after the deploy is
+    // what found it; the unit suite was green over both faults.
+    function makeBlocksDb(){
+        const configInfo = createConfigInfoStub();
+        const util       = new Utility(configInfo);
+        const db         = new Database({ configInfo, util });
+        db.calls = [];
+        db.doQuery = async (cfg, sql, args) => {
+            db.calls.push({ sql: String(sql), args });
+            return /count\(\*\)/.test(String(sql)) ? [{ total: 7 }] : [];
+        };
+        return db;
+    }
+
+    const blocksCfg = () => ({
+        coin: 'DOGE',
+        data: { method: 'getBlocks', sql: {
+            where: { data: 'b1.block_index IS NOT NULL', offset: ' AND b1.block_index < ?', offsetArgs: [4200] },
+            order: 'DESC', limit: '10'
+        } }
+    });
+
+    it('binds one argument for every ? it puts in the query', async function(){
+        const db = makeBlocksDb();
+        await db.getBlocks(blocksCfg());
+        for (const call of db.calls) {
+            const holes = (call.sql.match(/\?/g) || []).length;
+            const bound = (call.args || []).length;
+            assert.strictEqual(bound, holes,
+                `${holes} placeholder(s), ${bound} argument(s) bound - MariaDB answers a ` +
+                `syntax error, not an empty page:\n${call.sql}`);
+        }
+    });
+
+    it('passes the paging cursor through to the row query', async function(){
+        const db = makeBlocksDb();
+        await db.getBlocks(blocksCfg());
+        const row = db.calls.find(c => /block_time/.test(c.sql));
+        assert.ok(row, 'no row query was issued');
+        assert.deepStrictEqual(row.args, [4200], 'the paging cursor never reached the query');
+    });
+});

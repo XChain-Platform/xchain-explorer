@@ -52,6 +52,28 @@ class Broadcaster {
         this._statsTails  = new Map(); // coin -> promise tail
         this._newestBlock = new Map(); // coin -> highest block_index seen
 
+        // MEMPOOL_ACTION / MEMPOOL_REMOVED ordering state, same problem and same
+        // shape as _statsTails above: both mempool handlers now await a DB-backed
+        // address-id resolution, while ChangeDetector's emit is synchronous and
+        // awaits nothing, so a poll that emits an action and (for another tx) a
+        // removal could otherwise deliver the removal first. One tail per coin
+        // keeps the frames in the order the detector produced them.
+        this._mempoolTails = new Map(); // coin -> promise tail
+
+        // Per-coin address -> index-id memo for the mempool fan-out.
+        // db.getAddressId caches only NON-null results (a never-indexed address is
+        // re-queried every call), so without this a single subscribed address that
+        // has never been indexed would cost one DB read PER MEMPOOL ROW: a 500-row
+        // burst against N subscribed addresses would be O(N * 500) queries. Memoize
+        // the null too and the same burst is O(N).
+        // Invalidation: cleared per coin on the block signal (_onBlock) rather than
+        // on a timer. An index id only ever changes meaning at a block boundary
+        // (the indexer reassigns ids on a reorg, and a never-indexed address gets
+        // its first id when its tx confirms), which is exactly when a block arrives,
+        // so a per-block clear is a superset of the db layer's own reorg-generation
+        // invalidation and needs no clock.
+        this._addressIdMemo = new Map(); // coin -> Map<address, id|null>
+
         // Wire up ChangeDetector events
         this.changeDetector.on('block',           (coin, block)  => this._onBlock(coin, block));
         this.changeDetector.on('action',          (coin, action) => this._onAction(coin, action));
@@ -65,44 +87,147 @@ class Broadcaster {
     // PRE-VALIDATION: the indexer can still reject them at confirmation,
     // so the payload deliberately carries the raw decoded action string
     // (`data`) for clients to parse, and no validity claim.
+    // Queued on the per-coin serial chain because the fan-out below awaits
+    // address-id resolution (see _mempoolTails in the constructor).
     _onMempoolAction(coin, row) {
-        const info = COIN_MAP[coin];
-        if (!info) return;
-
-        const event = {
-            type:      'MEMPOOL_ACTION',
-            chain:     info.chain,
-            network:   info.network,
-            timestamp: Date.now(),
-            data: {
-                tx_hash: row.tx_hash || null,
-                source:  row.source  || null,
-                action:  row.action  || null,
-                data:    row.data    || null
-            }
-        };
-
-        // Global mempool channel + the source's address channel (destinations
-        // live inside the undecoded action fields; clients parse those).
-        this._broadcastToChannel(coin, 'mempool', event, row);
-        if (row.source)
-            this._broadcastToChannel(coin, 'address', event, row, row.source);
+        this._queueMempoolFrame(coin, () => this._emitMempoolAction(coin, row));
     }
 
     // Handle a tx leaving the mempool. Confirmed and evicted are indistinguishable
     // here; subscribers reconcile against confirmed NEW_ACTION events.
     _onMempoolRemoved(coin, row) {
+        this._queueMempoolFrame(coin, () => this._emitMempoolRemoved(coin, row));
+    }
+
+    // Append one mempool frame emission to this coin's serial chain. The catch
+    // keeps a failed emission from poisoning the chain for later frames, matching
+    // the NETWORK_STATS tail in _onBlock.
+    _queueMempoolFrame(coin, fn) {
+        const tail = this._mempoolTails.get(coin) || Promise.resolve();
+        this._mempoolTails.set(coin, tail.then(fn).catch(() => {}));
+    }
+
+    async _emitMempoolAction(coin, row) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
-        const event = {
-            type:      'MEMPOOL_REMOVED',
+        const base = {
+            tx_hash: row.tx_hash || null,
+            source:  row.source  || null,
+            action:  row.action  || null,
+            data:    row.data    || null,
+            // Unix seconds the decoder first saw the tx; null against a
+            // pre-first_seen decoder DB. Additive (spec M1.1): the wallet needs a
+            // real observation time, because a client-stamped one cannot survive
+            // a reconnect replay or tell a fresh tx from an hour-old one.
+            first_seen: (row.first_seen === undefined) ? null : row.first_seen
+        };
+
+        const destinations = await this._matchMempoolDestinations(coin, row);
+
+        // Address-channel frame carries `destinations`; the global frame does NOT
+        // (I-43): the matched set is derived from THIS server's subscriber list, so
+        // on the global channel it would either be empty for everyone or leak which
+        // addresses other clients watch.
+        const addressEvent = this._mempoolEvent('MEMPOOL_ACTION', info,
+            Object.assign({}, base, { destinations: destinations }));
+        if (row.source)
+            this._broadcastToChannel(coin, 'address', addressEvent, row, row.source);
+        for (const destination of destinations)
+            this._broadcastToChannel(coin, 'address', addressEvent, row, destination);
+
+        this._broadcastToChannel(coin, 'mempool', this._mempoolEvent('MEMPOOL_ACTION', info, base), row);
+    }
+
+    async _emitMempoolRemoved(coin, row) {
+        const info = COIN_MAP[coin];
+        if (!info) return;
+
+        // `source` is additive (spec M1.1): without it a removal cannot be routed
+        // to an address channel at all, so a wallet could show a pending entry the
+        // network had already dropped with no event to reconcile it away.
+        const base = { tx_hash: row.tx_hash || null, source: row.source || null };
+
+        // Same matcher as the action path, re-run against CURRENT subscribers
+        // rather than a set remembered at action time, so a client that subscribed
+        // between the two frames still gets the removal (I-44).
+        const destinations = await this._matchMempoolDestinations(coin, row);
+
+        const addressEvent = this._mempoolEvent('MEMPOOL_REMOVED', info,
+            Object.assign({}, base, { destinations: destinations }));
+        if (row.source)
+            this._broadcastToChannel(coin, 'address', addressEvent, row, row.source);
+        for (const destination of destinations)
+            this._broadcastToChannel(coin, 'address', addressEvent, row, destination);
+
+        this._broadcastToChannel(coin, 'mempool', this._mempoolEvent('MEMPOOL_REMOVED', info, base), row);
+    }
+
+    _mempoolEvent(type, info, data) {
+        return {
+            type:      type,
             chain:     info.chain,
             network:   info.network,
             timestamp: Date.now(),
-            data:      { tx_hash: row.tx_hash || null }
+            data:      data
         };
-        this._broadcastToChannel(coin, 'mempool', event, row);
+    }
+
+    // Which SUBSCRIBED addresses does this mempool row pay, besides its source?
+    // Returns the matched literal addresses (a `^<id>` segment resolves back to
+    // the literal address of the subscriber it matched), which is what the
+    // address-channel frames carry as `destinations`.
+    //
+    // The source is excluded: it has its own routing above, and `destinations` is
+    // the "other parties" list. Matching is delegated to db.mempoolRowMatchesAddress
+    // so this path and the REST prefilter can never disagree about who a tx affects.
+    async _matchMempoolDestinations(coin, row) {
+        const channelManager = this.wsServer && this.wsServer.channelManager;
+        if (!channelManager || typeof channelManager.getSubscribedAddresses !== 'function') return [];
+        // No address subscribers for this coin means every _broadcastToChannel to an
+        // address channel would early-return anyway, so skip the id work entirely:
+        // an unwatched coin costs zero DB reads per mempool row.
+        const addresses = channelManager.getSubscribedAddresses(coin);
+        if (!addresses || addresses.size === 0) return [];
+
+        const db = this.wsServer.explorer && this.wsServer.explorer.db;
+        if (!db || typeof db.mempoolRowMatchesAddress !== 'function') return [];
+
+        const matched = [];
+        for (const address of addresses) {
+            if (address === row.source) continue;
+            const addressId = await this._resolveAddressId(coin, address);
+            if (db.mempoolRowMatchesAddress(row, address, addressId))
+                matched.push(address);
+        }
+        return matched;
+    }
+
+    // Address -> index id for the mempool fan-out, memoized per coin including
+    // null results (see _addressIdMemo in the constructor for why null matters and
+    // how the memo is invalidated). A thrown lookup is memoized as null too: the
+    // alternative is re-querying a broken DB once per row per address, and the cost
+    // of the memo is that compacted destinations for that address go unmatched
+    // until the next block, which is the same degradation as running without M1.1.
+    async _resolveAddressId(coin, address) {
+        let memo = this._addressIdMemo.get(coin);
+        if (!memo) {
+            memo = new Map();
+            this._addressIdMemo.set(coin, memo);
+        }
+        if (memo.has(address)) return memo.get(address);
+
+        let id = null;
+        try {
+            const db = this.wsServer.explorer && this.wsServer.explorer.db;
+            if (db && typeof db.getAddressId === 'function')
+                id = await db.getAddressId({ coin }, address);
+        } catch (e) {
+            id = null;
+        }
+        if (id === undefined) id = null;
+        memo.set(address, id);
+        return id;
     }
 
     // Handle new block from ChangeDetector. NEW_BLOCK is broadcast synchronously
@@ -112,6 +237,12 @@ class Broadcaster {
     _onBlock(coin, block) {
         const info = COIN_MAP[coin];
         if (!info) return;
+
+        // A block is the only moment an address's index id can change meaning (a
+        // reorg reassigns ids; a never-indexed address gets its first one when its
+        // tx confirms), so drop this coin's mempool address-id memo here. See
+        // _addressIdMemo in the constructor.
+        this._addressIdMemo.delete(coin);
 
         const event = {
             type:      'NEW_BLOCK',
@@ -193,20 +324,40 @@ class Broadcaster {
                 // while the catch-up replay path already omits it. Emitting an
                 // always-null field advertises destination routing we cannot
                 // honor; drop it so live and replay shapes match and clients do
-                // not rely on it. (Address-channel routing below still reads the
-                // raw action.destination directly, inert while it stays null.)
-                status:       action.status        || null
+                // not rely on it. The PLURAL `destinations` below replaces it and is
+                // what address-channel routing now reads.
+                status:       action.status        || null,
+                // Additive (spec M1.4): the recipients of this action, resolved by
+                // db.getActionsSince across the eight destination-bearing families.
+                // Same field name and semantics as the mempool frames, so a client
+                // reads one shape whether the tx is pending or confirmed.
+                //
+                // Unlike the mempool frames, this set is NOT derived from this
+                // server's subscriber list (I-43 does not apply): it is public chain
+                // data read from the indexer DB, so it belongs on EVERY channel the
+                // frame reaches, the global `actions` channel included. It leaks
+                // nothing a block explorer does not already publish.
+                //
+                // Always an array. db.getActionsSince guarantees the key on every
+                // row and degrades a failed lookup to [], and the fallback here
+                // covers a row reaching us from anywhere else (a test double, a
+                // future producer), so no subscriber ever has to null-check.
+                destinations: Array.isArray(action.destinations) ? action.destinations : []
             }
         };
 
         this._broadcastToChannel(coin, 'actions', event, action);
 
-        // Also broadcast to address channel if the source/destination is subscribed
-        if (action.source) {
-            this._broadcastToChannel(coin, 'address', event, action, action.source);
-        }
-        if (action.destination && action.destination !== action.source) {
-            this._broadcastToChannel(coin, 'address', event, action, action.destination);
+        // Also broadcast to the address channel of every party to the action. The
+        // `seen` set is what keeps a client subscribed to an address that is BOTH
+        // source and destination (a sweep back to yourself, a multi-output SEND with
+        // change) from receiving the same frame twice; it also absorbs a repeated
+        // destination should one ever survive the dedupe in db.js.
+        const seen = new Set();
+        for (const address of [action.source, ...event.data.destinations]) {
+            if (!address || seen.has(address)) continue;
+            seen.add(address);
+            this._broadcastToChannel(coin, 'address', event, action, address);
         }
     }
 

@@ -79,6 +79,45 @@ const TIP_MAX_FUTURE_SKEW_DEFAULT_S = 7200;
 // gate costs no extra query on a busy explorer.
 const TIP_STALE_CACHE_TTL_MS = 15000;
 
+// The action families that carry a real RECIPIENT, and the column on each that
+// points back at the action (decision I-46, measured against xchain-indexer/src/sql).
+// Backs getActionsSince's `destinations` (spec wallet-unconfirmed-and-sounds M1.4).
+//
+// Two things here are load-bearing and easy to get wrong:
+//
+//   - `contracts` is DELIBERATELY ABSENT. It carries `slash_destination_id`, not
+//     `destination_id`, and that column is DEPLOY-time slash ROUTING CONFIG, not a
+//     recipient of anything. Including it would fan "you received something" out to
+//     every address a contract merely names in its deploy, which is the opposite of
+//     what the wallet's incoming-receipt notification means. It is also the only
+//     destination-ish column not named `destination_id`, which is how a naive grep
+//     sweeps it back in; do not add it.
+//   - Three of the join keys are NOT `action_index`. `slash_events` keys on
+//     `execution_index` (FK to contract_executions.action_index) and
+//     `capability_slash_events` on `slash_action_index` (FK to actions.action_index).
+//     Joining either on `action_index` silently matches nothing, since neither table
+//     has that column at all.
+//
+// `sends.action_index` is a NON-unique index on purpose: a multi-output SEND is
+// several rows sharing one action_index, and every one of their destinations must
+// reach the wire. That is why the lookup below collects a LIST per action rather
+// than a single value.
+//
+// These table/column names are compile-time literals interpolated as SQL
+// IDENTIFIERS (a placeholder cannot bind an identifier). No caller can reach them:
+// nothing outside this constant is ever spliced into the query, and every VALUE is
+// still bound with `?`.
+const ACTION_DESTINATION_FAMILIES = [
+    { table: 'sends',                   key: 'action_index'       },
+    { table: 'sweeps',                  key: 'action_index'       },
+    { table: 'dispenses',               key: 'action_index'       },
+    { table: 'mints',                   key: 'action_index'       },
+    { table: 'messages',                key: 'action_index'       },
+    { table: 'fees',                    key: 'action_index'       },
+    { table: 'slash_events',            key: 'execution_index'    },
+    { table: 'capability_slash_events', key: 'slash_action_index' }
+];
+
 // Raised by doQuery when the underlying query genuinely FAILED (connection
 // unavailable after retries, or the DB rejected the statement), as opposed to
 // succeeding with an empty result set. The request layer maps it to a 5xx so a
@@ -4102,6 +4141,27 @@ class Database {
      * /{COIN}/api/status                     getStatus
      * /{COIN}/api/token/{QUERY}              getToken        token
      * /{COIN}/api/transaction/{QUERY}/{TYPE} getTransaction  tx_hash, tx_index
+     *
+     * -----------------------------------------------------------------
+     * /api/mempool TYPE=address: accepted matching limitations
+     * -----------------------------------------------------------------
+     * The address filter is a LAYOUT-FREE segment scan over the decoded
+     * action string (mempoolRowMatchesAddress), not a per-action-format
+     * parser: only SEND has a documented output layout, and a mempool row is
+     * pre-validation, so there is no format-aware parse to trust here. Two
+     * consequences ship as accepted limitations rather than bugs:
+     *
+     *   - False positives. Any exact pipe-segment equal to the queried
+     *     address matches, including a segment that is not a destination at
+     *     all (a memo whose text happens to be that address).
+     *   - Best-effort non-SEND semantics. For every action family other than
+     *     SEND, a match means "this address appears in this action", not
+     *     "this action pays this address".
+     *
+     * Compacted destinations ARE matched: the SDK writes destinations as
+     * `^<id>` index references by default, so the queried address is
+     * forward-resolved to its index id once per request (cached getAddressId)
+     * and `^<id>` segments count as hits alongside the literal address.
      ******************************************************************/
 
     async getAction(config){
@@ -4469,7 +4529,10 @@ class Database {
     // action string is one opaque pipe-joined column, so a LIKE would match
     // across field boundaries): TYPE=address matches the source OR any exact
     // pipe-segment of the action string (covers SEND destinations across
-    // versions); TYPE=token matches any exact segment against the uppercased
+    // versions) OR the `^<id>` reference the SDK compacts that address to by
+    // default (see mempoolRowMatchesAddress and the accepted-limitations note
+    // in the endpoint header above); TYPE=token matches any exact segment
+    // against the uppercased
     // tick. No TYPE (bare /api/mempool, or the /explorer/mempool list-all
     // fallback) lists every decoded row (spec explorer-coverage-completion
     // M1.2): the old code matched ONLY address/token and silently returned []
@@ -4499,6 +4562,18 @@ class Database {
         let type   = String(config.data.type || '').toLowerCase();
         let rows   = await this.getDecoderMempoolRows(config, 500);
         let out    = [];
+        // Resolve the queried address to its index id ONCE per request, not once
+        // per row: getAddressId is cached (per coin + reorg generation), but the
+        // window is up to 500 rows and a cache miss is a real query. Null when the
+        // address was never indexed, which is exactly when the SDK cannot compact
+        // it either, so the literal branch below still matches it.
+        let addressId = null;
+        if(type=='address' && search.length){
+            // A failed id read degrades to literal-only matching (the pre-M1.1
+            // behavior) rather than failing the whole mempool request.
+            try { addressId = await this.getAddressId(config, search); }
+            catch(e){ addressId = null; }
+        }
         for(let row of rows){
             let decoded = this.decodeMempoolRow(row);
             if(!decoded) continue;
@@ -4506,12 +4581,11 @@ class Database {
                 out.push(decoded);
                 continue;
             }
-            let segments = decoded.data.split('|');
             let match = false;
             if(type=='address')
-                match = (decoded.source===search) || segments.includes(search);
+                match = this.mempoolRowMatchesAddress(decoded, search, addressId);
             if(type=='token')
-                match = segments.includes(search.toUpperCase());
+                match = this.mempoolSegments(decoded).includes(search.toUpperCase());
             if(match) out.push(decoded);
         }
         let total = out.length;
@@ -7191,6 +7265,47 @@ class Database {
         }
     }
 
+    // Split a decoded mempool row's action string into its pipe-joined segments.
+    // Deliberately layout-free: the field map differs per action family and only
+    // SEND has a documented one, so every consumer scans segments instead of
+    // reading positions. Returns [] for a row with no action string (the
+    // ChangeDetector's removal path carries `data: null` for a row that never
+    // decoded), so callers never have to null-check first.
+    mempoolSegments(decoded) {
+        if(!decoded || this.util.isNull(decoded.data)) return [];
+        let text = Buffer.isBuffer(decoded.data) ? decoded.data.toString('utf8') : String(decoded.data);
+        return text.split('|');
+    }
+
+    // Does this decoded mempool row involve `address`? THE one matcher for
+    // "who does this unconfirmed tx affect", shared by the REST prefilter
+    // (getMempool TYPE=address) and the WS fan-out (Broadcaster mempool
+    // frames). Sharing it is the point: the poll and the live event must never
+    // disagree about the parties to a tx, or a wallet sees a pending row that
+    // no event ever removes (or the reverse).
+    //
+    // `addressId` is the address's index id from the CACHED getAddressId, or
+    // null when it has none. It is what makes a compacted destination match:
+    // the SDK writes destinations as `^<id>` references by default
+    // (addressResolver), so without this branch an incoming pending payment to
+    // an address that already holds an index id is invisible on both surfaces. Resolution
+    // is FORWARD (address -> id) on purpose; no id -> address lookup exists in
+    // the explorer and none is needed, since both call sites hold the address.
+    //
+    // Known false-positive class, accepted: a non-destination segment (a memo)
+    // whose text equals the address matches. See the accepted-limitations note
+    // in the /api/mempool endpoint header.
+    mempoolRowMatchesAddress(decoded, address, addressId) {
+        if(!decoded || this.util.isNull(address)) return false;
+        let search = String(address);
+        if(!search.length) return false;
+        if(decoded.source === search) return true;
+        let segments = this.mempoolSegments(decoded);
+        if(segments.includes(search)) return true;
+        if(this.util.isNull(addressId)) return false;
+        return segments.includes('^' + String(addressId));
+    }
+
     // Suggested fee tiers (sat/vByte) for this coin, fetched from its encoder's
     // `estimatefee` JSON-RPC method (which reads the node's estimatesmartfee).
     // The explorer is DB-only and can't reach a node, so it asks the encoder.
@@ -8461,7 +8576,159 @@ class Database {
                     ORDER BY a1.action_index ASC
                     LIMIT ?`;
         let results = await this.doQuery(config, query, [sinceActionIndex, limit]);
-        return results || [];
+        if(!results || !results.length) return [];
+        // Destinations are attached in a SECOND pass rather than joined into the
+        // query above, because eight LEFT JOINs would multiply the feed's rows (a
+        // multi-output SEND would emit one NEW_ACTION per output) and the feed's
+        // LIMIT is a limit on ACTIONS, not on output rows. See
+        // _attachActionDestinations for the batch shape and its failure mode.
+        await this._attachActionDestinations(config, results);
+        return results;
+    }
+
+    // Fill `destinations: string[]` on every row of a getActionsSince batch, in
+    // place. Backs NEW_ACTION's additive destinations field (spec M1.4): the feed
+    // has never selected a destination column, so the Broadcaster's destination
+    // routing branch has been permanently inert and the wallet's incoming-receipt
+    // notification has never fired for anyone.
+    //
+    // SHAPE: ONE round trip for the whole batch, a UNION ALL over the eight
+    // destination-bearing families (ACTION_DESTINATION_FAMILIES) filtered by the
+    // action_index values ACTUALLY FETCHED. This feed drives the 5s ChangeDetector
+    // poll, so a per-row lookup would cost up to `limit` (100) round trips every
+    // five seconds per coin; a per-family lookup would cost eight. The IN list is
+    // built from the fetched rows rather than from the cursor range, so a catch-up
+    // burst binds exactly as many parameters as it has actions (<= limit * 8), and
+    // an EMPTY batch issues no query at all.
+    //
+    // FAILURE MODE, deliberately soft: a failed lookup degrades every row to
+    // `destinations: []` and the actions still ship. There is scar tissue here. A
+    // prior `s1.id=a1.status_id` join against a column that does not exist threw
+    // ER_BAD_FIELD_ERROR and SILENTLY killed the entire WebSocket action feed,
+    // because getActionsSince returned [] every poll while the detector's cursor
+    // kept advancing past the actions nobody ever saw (see the note on the query
+    // above). An enrichment must never be able to do that again: destinations are a
+    // nice-to-have on a frame whose delivery is not.
+    //
+    // Every row is given the key unconditionally and up front, so a subscriber
+    // never has to tell "no destinations" from "the lookup failed" from "the field
+    // is missing": all three are `[]`.
+    async _attachActionDestinations(config, rows){
+        let indexes = [];
+        for(let row of rows){
+            row.destinations = [];
+            if(!this.util.isNull(row.action_index)) indexes.push(row.action_index);
+        }
+        if(!indexes.length) return rows;
+
+        let map = await this._getActionDestinationMap(config, indexes);
+        for(let row of rows){
+            let list = map.get(String(row.action_index));
+            if(list) row.destinations = list;
+        }
+        return rows;
+    }
+
+    // action_index (as a decimal string) -> ordered, DEDUPED list of destination
+    // addresses, for the given batch of action indexes. Returns an EMPTY map, never
+    // throws: every caller treats "no destinations" and "lookup broke" identically.
+    async _getActionDestinationMap(config, indexes){
+        // Lazily initialized (not in the constructor) because the unit harness
+        // builds a Database with Object.create(Database.prototype) and never runs it.
+        if(!this._actionDestinationSkip) this._actionDestinationSkip = new Map();
+        let skip     = this._actionDestinationSkip.get(config.coin) || new Set();
+        let families = ACTION_DESTINATION_FAMILIES.filter(f => !skip.has(f.table));
+        let map      = new Map();
+        if(!families.length) return map;
+
+        try {
+            let [query, args] = this._actionDestinationSql(families, indexes);
+            this._collectActionDestinations(map, await this.doQuery(config, query, args));
+            return map;
+        } catch(e){
+            // The union is all-or-nothing: one absent table (an older deployment
+            // without capability_slash_events, say) loses the destinations of all
+            // eight families. Retry family by family so the rest still resolve, and
+            // QUARANTINE only the ones that fail for a schema reason, so the steady
+            // state on such a deployment is back to one query per poll rather than
+            // nine. A transient failure (connection lost) is deliberately NOT
+            // quarantined: it would silence destinations permanently for a fault
+            // that clears on its own.
+            map.clear();
+            for(let family of families){
+                try {
+                    let [q, a] = this._actionDestinationSql([family], indexes);
+                    this._collectActionDestinations(map, await this.doQuery(config, q, a));
+                } catch(err){
+                    if(this._isSchemaShapeError(err)){
+                        skip.add(family.table);
+                        this._actionDestinationSkip.set(config.coin, skip);
+                        console.error('Action destinations: disabling ' + family.table +
+                                      ' for ' + config.coin + ' (' + (err && err.message) + ')');
+                    }
+                }
+            }
+            return map;
+        }
+    }
+
+    // Build the UNION ALL (or the single-family retry). INNER JOIN on
+    // index_addresses is what drops a NULL destination_id and an id that resolves to
+    // nothing, so the result set holds only real, literal addresses.
+    _actionDestinationSql(families, indexes){
+        let holes = indexes.map(() => '?').join(',');
+        let parts = [];
+        let args  = [];
+        for(let family of families){
+            parts.push(`SELECT
+                            m.${family.key} as action_index,
+                            a1.address as destination
+                        FROM
+                            ${family.table} m
+                            INNER JOIN index_addresses a1 ON (a1.id=m.destination_id)
+                        WHERE
+                            m.${family.key} IN (${holes})`);
+            // Bound as VALUES, and passed through as the driver gave them to us
+            // (BIGINT reads back as a BigInt on this pool): re-stringifying them
+            // would make MariaDB compare a quoted literal against a BIGINT column as
+            // a DOUBLE, the same >2^53 collapse the cursor comment above warns about.
+            args.push(...indexes);
+        }
+        return [parts.join(' UNION ALL '), args];
+    }
+
+    // Fold one result set into the map. Deduped per action because the same address
+    // can legitimately appear twice (a multi-output SEND paying one address twice,
+    // or a fee and a send landing on the same treasury): a subscriber must not be
+    // told about it twice, and the Broadcaster must not broadcast to that channel
+    // twice. Insertion order is kept so the wire order is stable across polls.
+    _collectActionDestinations(map, rows){
+        if(!rows || !rows.length) return map;
+        for(let row of rows){
+            if(!row || this.util.isNull(row.action_index) || this.util.isNull(row.destination)) continue;
+            let key  = String(row.action_index);
+            let list = map.get(key);
+            if(!list){
+                list = [];
+                map.set(key, list);
+            }
+            if(!list.includes(row.destination)) list.push(row.destination);
+        }
+        return map;
+    }
+
+    // "That table or column does not exist here", seen through doQuery's wrapper.
+    // doQuery rethrows as DbQueryError with its OWN code ('DB_ERROR') and the
+    // driver's SqlError on .cause, so testing the top-level error alone never
+    // matches a real one; walk the (short, bounded) cause chain. Mirrors
+    // ChangeDetector._isMissingTableError, widened to the bad-column case because
+    // that is the exact error class that killed this feed once already.
+    _isSchemaShapeError(err){
+        for(let e = err, depth = 0; e && depth < 5; e = e.cause, depth++){
+            if(e.code === 'ER_NO_SUCH_TABLE'   || Number(e.errno) === 1146) return true;
+            if(e.code === 'ER_BAD_FIELD_ERROR' || Number(e.errno) === 1054) return true;
+        }
+        return false;
     }
 
     /******************************************************************

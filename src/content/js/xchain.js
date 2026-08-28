@@ -239,13 +239,17 @@ function setXChainParams(coin){
     // A detail page whose type is absent here gets XC.query = null and then requests
     // its own API route with a literal 'null' segment, rendering as "not found" rather
     // than failing visibly, so every new detail route has to be added in BOTH lists.
-    if(['block','address','token','action','transaction','contract','execution','checkpoint','validator','xcall','attestation','poll','anchor','bet_feed','oracle'].includes(type)){
+    if(['block','address','token','action','transaction','contract','execution','checkpoint','validator','xcall','attestation','poll','anchor','bet_feed','oracle','dispenser'].includes(type)){
         // bet_feed is keyed by the creating action_index (db.getBetFeedInfo binds it to
         // m.action_index), so it belongs in the numeric branch; oracle is keyed by the
         // operator ADDRESS (db.getOracleStats binds it to a2.address, and db's id lookup
         // resolves type 'oracle' through index_addresses exactly like 'address').
         if((['block','action','contract','execution','checkpoint','poll','anchor','attestation','bet_feed'].includes(type) && isNumeric(query)) ||
-           (['address','oracle'].includes(type) && isCryptoAddress(query)) ||
+           // dispenser joins these two rather than the numeric branch: a dispenser
+           // page is keyed by the dispenser's operating GET_ADDRESS (the address
+           // buyers pay), which is how both the dispensers and dispenses feeds
+           // scope themselves with type 'address'.
+           (['address','oracle','dispenser'].includes(type) && isCryptoAddress(query)) ||
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
            (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||

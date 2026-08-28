@@ -1516,6 +1516,22 @@ class Database {
                 return [offset1, false];
             return [];
         }
+        // Does this listing page over BLOCKS rather than over actions? `blocks` is the one
+        // table in the allowlist above whose rows are not actions - it carries no
+        // action_index at all - so the generic boundary query below, which joins
+        // `actions a1 ON (a1.action_index=m.action_index)`, cannot run against it.
+        //
+        // Keyed on the TABLE being paged, never on `type`. `type` names the FILTER axis, not
+        // the thing being listed: a SENDS list filtered by block is still a list of actions.
+        // Keying on `type=='block'` got both wrong at once. The blocks LIST page passes no
+        // type at all, so it fell through to the generic query and answered 500 DB_ERROR on
+        // every coin and every network - `Unknown column 'm.action_index'` - which is what a
+        // reader saw as a frozen page. Meanwhile a sends-by-block list, which DOES pass
+        // type=='block', took the block-index arithmetic below against an offset that the
+        // boundary query had returned as an action_index.
+        //
+        // Both sites must agree, because the second interprets the number the first returns.
+        let pagesOverBlocks = (table === 'blocks');
         if(['first','last'].includes(action)){
             if(action=='first')
                 order = 'DESC';
@@ -1523,7 +1539,7 @@ class Database {
                 order = 'ASC';
                 limit = this.util.bcadd(length,1);
             }
-            if(type=='block' && this.util.isNull(config.data.search)){
+            if(pagesOverBlocks){
                 sql = `SELECT
                             b1.block_index as offset_index
                         FROM
@@ -1599,7 +1615,9 @@ class Database {
             }
         }
         if(offset1){
-            if(type=='block'){
+            // Same predicate as the boundary query above, deliberately: this branch reads
+            // offset1 as a BLOCK INDEX, and only the blocks query returns one.
+            if(pagesOverBlocks){
                 if(action=='last'){
                     offset2 = this.util.bcsub(this.util.bcadd(offset1,1),q.length);
                 } else {

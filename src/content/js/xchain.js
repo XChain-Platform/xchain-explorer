@@ -3780,6 +3780,16 @@ function showMintDetails(data){
 }
 
 // Display ORDER action information
+// Map an offer lifecycle status (ORDER, SWAP, DISPENSER) to a badge colour.
+// Separate from the bet renderer's lookalike, whose vocabulary is a market's.
+// cancelling/expiring are still in flight, so they warn rather than fail.
+function offerStatusClass(status){
+    if(status=='complete')                       return 'success';
+    if(status=='cancelled' || status=='expired') return 'danger';
+    if(status=='cancelling' || status=='expiring') return 'warning text-dark';
+    return 'primary';
+}
+
 function showOrderDetails(data){
     let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
     let isOwnershipGet  = (Number(data.get_ownership  || 0) == 1);
@@ -3802,6 +3812,14 @@ function showOrderDetails(data){
     $('#info-order .order-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
     $('#info-order .order-memo').text(data.memo);
     // Order Status Details
+    // Render the ORDER's lifecycle status; the Action Status row above is the
+    // action's parse validity and reads valid for a filled order and an open one
+    // alike. Dashed when absent so a missing status stays visible.
+    $('#info-order .order-state-status').html(
+        isNull(data.state.status)
+            ? '-'
+            : '<span class="badge text-bg-' + offerStatusClass(data.state.status) + '">' + escapeHtml(data.state.status) + '</span>'
+    );
     $('#info-order .order-state-get-remaining').html(isOwnershipGet  ? ownershipBadge() : formatAmount(data.state.get_remaining));
     $('#info-order .order-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
     if(data.state.expiration)

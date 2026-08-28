@@ -1236,7 +1236,8 @@ CREATE        INDEX gate_ticker_status_id ON gated_files (gate_ticker, status_id
 DROP TABLE IF EXISTS anchor_actions;
 CREATE TABLE anchor_actions (
     action_index         BIGINT UNSIGNED NOT NULL,        -- FK to actions (the ANCHOR action that wrote this row)
-    version              TINYINT UNSIGNED NOT NULL,       -- 0=checkpoint, 1=checkpoint+archive, 2=continuation
+    section_index        TINYINT UNSIGNED NOT NULL DEFAULT 0, -- 0-based section of a v7 bundle (one row per checkpointed chain); 0 on every single-checkpoint and archive version
+    version              TINYINT UNSIGNED NOT NULL,       -- 0=checkpoint, 1=checkpoint+archive, 2=continuation, 7=per-network bundle section
     chain                VARCHAR(10),                     -- checkpointed chain (v0/v1)
     network              VARCHAR(20),                     -- checkpointed network (v0/v1)
     block_index          BIGINT UNSIGNED,                 -- checkpointed height on `chain` (v0/v1)
@@ -1261,7 +1262,7 @@ CREATE TABLE anchor_actions (
     publisher_attestations MEDIUMTEXT,                    -- JSON [{pubkey,sig}] RAW wire XANCPUB tail (v4/v5/v6); NULL for v0-v3
     status_id            BIGINT UNSIGNED,                 -- FK to index_statuses
     block_index_doge     BIGINT UNSIGNED NOT NULL,        -- DOGE block the ANCHOR action landed in (rollback anchor)
-    PRIMARY KEY (action_index)
+    PRIMARY KEY (action_index, section_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE INDEX idx_anchor_batch      ON anchor_actions (match_batch_seq, version, chunk_index);

@@ -43,20 +43,31 @@
  * ways: on the mined DOGE txid this anchor landed in (proof), or on
  * snapshot_block + the round this anchor closed (inference). Those are different
  * strengths of evidence and each row says which one matched it.
+ *
+ * A v7 IS A BUNDLE, NOT A CHECKPOINT. One v7 action carries EVERY checkpointed
+ * chain of one network, stored as sibling rows sharing an action_index. It
+ * therefore has no single chain, no single checkpointed height and no single set
+ * of roots, and rendering it through the single-row layout would silently present
+ * one arbitrary section as the whole anchor. Every per-chain field a bundle owns
+ * is rendered in the sections table instead, and the single-row layout is kept
+ * verbatim for the archive versions that really do carry exactly one.
  */
 
 // Wire versions and the payload legs each one carries, per anchor_actions.sql.
 // v0 checkpoint; v1 checkpoint + archive segment; v2 archive continuation chunk;
 // v3 checkpoint + SPV roots; v4/v5/v6 add the publisher-attestation tail to
-// v0/v3/v1 respectively.
+// v0/v3/v1 respectively; v7 is the per-network checkpoint BUNDLE, root-bearing by
+// construction, one section per chain. v0/v3/v4/v5 are retired on new chains but
+// stay listed here: rows already written under them still render.
 var ANCHOR_VERSION_TRAITS = {
-    0: { label: 'Checkpoint',                                  checkpoint: true,  archive: false, roots: false, publisher: false, continuation: false },
-    1: { label: 'Checkpoint + match archive',                  checkpoint: true,  archive: true,  roots: false, publisher: false, continuation: false },
-    2: { label: 'Archive continuation chunk',                  checkpoint: false, archive: true,  roots: false, publisher: false, continuation: true  },
-    3: { label: 'Checkpoint + SPV roots',                      checkpoint: true,  archive: false, roots: true,  publisher: false, continuation: false },
-    4: { label: 'Checkpoint + publisher tail',                 checkpoint: true,  archive: false, roots: false, publisher: true,  continuation: false },
-    5: { label: 'Checkpoint + SPV roots + publisher tail',     checkpoint: true,  archive: false, roots: true,  publisher: true,  continuation: false },
-    6: { label: 'Match archive + publisher tail',              checkpoint: true,  archive: true,  roots: false, publisher: true,  continuation: false }
+    0: { label: 'Checkpoint',                                  checkpoint: true,  archive: false, roots: false, publisher: false, continuation: false, bundle: false },
+    1: { label: 'Checkpoint + match archive',                  checkpoint: true,  archive: true,  roots: false, publisher: false, continuation: false, bundle: false },
+    2: { label: 'Archive continuation chunk',                  checkpoint: false, archive: true,  roots: false, publisher: false, continuation: true,  bundle: false },
+    3: { label: 'Checkpoint + SPV roots',                      checkpoint: true,  archive: false, roots: true,  publisher: false, continuation: false, bundle: false },
+    4: { label: 'Checkpoint + publisher tail',                 checkpoint: true,  archive: false, roots: false, publisher: true,  continuation: false, bundle: false },
+    5: { label: 'Checkpoint + SPV roots + publisher tail',     checkpoint: true,  archive: false, roots: true,  publisher: true,  continuation: false, bundle: false },
+    6: { label: 'Match archive + publisher tail',              checkpoint: true,  archive: true,  roots: false, publisher: true,  continuation: false, bundle: false },
+    7: { label: 'Checkpoint bundle (one per network)',         checkpoint: true,  archive: false, roots: true,  publisher: true,  continuation: false, bundle: true  }
 };
 
 // Page-local escape, matching the per-page pattern the other detail pages use.
@@ -122,7 +133,8 @@ function anchorTraits(d){
         return {
             known: true, version: v, label: t.label,
             checkpoint: t.checkpoint, archive: t.archive, roots: t.roots,
-            publisher: t.publisher, continuation: t.continuation
+            publisher: t.publisher, continuation: t.continuation,
+            bundle: (t.bundle === true)
         };
     let sigs = Array.isArray(row.publisher_attestations) ? row.publisher_attestations : [];
     return {
@@ -133,8 +145,36 @@ function anchorTraits(d){
         archive:      !isNull(row.match_batch_seq),
         roots:        (!isNull(row.state_root) || !isNull(row.block_merkle_root)),
         publisher:    (!isNull(row.publisher) || sigs.length > 0),
-        continuation: (!isNull(row.chunk_index) && Number(row.chunk_index) > 0)
+        continuation: (!isNull(row.chunk_index) && Number(row.chunk_index) > 0),
+        // A future bundling version is recognizable from the payload itself: more
+        // than one section row came back for this action.
+        bundle:       (anchorSectionRows(row).length > 1)
     };
+}
+
+/* ------------------------------------------------------------------ *
+ * Bundle sections
+ * ------------------------------------------------------------------ */
+
+// The sibling section rows getAnchor composed onto the header, already ordered by
+// section_index. Absent on every non-bundle anchor, so this is the one accessor
+// the rest of the file goes through rather than touching row.sections directly.
+function anchorSectionRows(d){
+    let row = d || {};
+    return Array.isArray(row.sections) ? row.sections : [];
+}
+
+// THIS coin's own section of a bundle, named by getAnchor (local_section_index).
+// It is the section whose chain the covering-checkpoint mirror is filtered to, so
+// it is the only section this explorer can cross-check against its mirror.
+function anchorLocalSection(d){
+    let row = d || {};
+    if(isNull(row.local_section_index)) return null;
+    let hit = null;
+    anchorSectionRows(row).forEach(function(s){
+        if(!isNull(s.section_index) && String(s.section_index) === String(row.local_section_index)) hit = s;
+    });
+    return hit;
 }
 
 /* ------------------------------------------------------------------ *
@@ -150,12 +190,37 @@ function anchorHeightRow(cls, label, height, badge, note){
         + anchorNote(note) + '</td></tr>';
 }
 
+// A bundle commits a DIFFERENT height on every chain it carries, so there is no
+// single checkpointed height to put opposite the broadcast one. The per-chain
+// heights are listed in place of the single value rather than picking one section
+// to stand for all of them, and the row keeps its label and class so the
+// broadcast height is still never the only height on the page.
+function anchorBundleHeightRow(d){
+    let sections = anchorSectionRows(d);
+    let parts    = [];
+    sections.forEach(function(s){
+        parts.push('<span class="anchor-section-height">'
+            + anchorEsc(isNull(s.chain) ? '-' : s.chain) + ' ' + anchorBlockLink(s.block_index) + '</span>');
+    });
+    return '<tr class="anchor-height-checkpointed">'
+        + '<th class="text-muted fw-normal" style="width:14rem;">'
+        + '<span class="anchor-height-label">Checkpointed Blocks</span></th>'
+        + '<td><span class="anchor-height-value">' + (parts.length ? parts.join(' &middot; ') : '-') + '</span>'
+        + ' <span class="badge text-bg-secondary anchor-height-badge">checkpointed</span>'
+        + anchorNote('One height per chain in this bundle. Checkpoint and commitment lookups key off THIS chain\'s height, not the bundle.')
+        + '</td></tr>';
+}
+
 function renderAnchorHeights(d){
     let row   = d || {};
+    let t     = anchorTraits(row);
     let chain = isNull(row.chain) ? 'the checkpointed chain' : String(row.chain);
     let html  = '<table class="table table-sm table-borderless mb-0"><tbody>';
-    html += anchorHeightRow('anchor-height-checkpointed', 'Checkpointed Block', row.block_index, 'checkpointed',
-        'The height on ' + chain + ' that this anchor commits to. Checkpoint and commitment lookups key off THIS height.');
+    if(t.bundle)
+        html += anchorBundleHeightRow(row);
+    else
+        html += anchorHeightRow('anchor-height-checkpointed', 'Checkpointed Block', row.block_index, 'checkpointed',
+            'The height on ' + chain + ' that this anchor commits to. Checkpoint and commitment lookups key off THIS height.');
     html += anchorHeightRow('anchor-height-broadcast', 'Anchor Transaction Block', row.block_index_doge, 'broadcast',
         'The DOGE block the ANCHOR transaction itself was mined in. It sits at or ahead of the checkpointed height, and looking a commitment up by this number correctly finds nothing.');
     html += '</tbody></table>';
@@ -178,8 +243,23 @@ function renderAnchorIdentity(d){
         + anchorEsc(t.label) + '</span>'
         + (t.known ? '' : anchorNote('This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
     html += anchorFieldRow('Status', anchorStatusBadge(row.status));
-    html += anchorFieldRow('Chain', anchorEsc(isNull(row.chain) ? '-' : row.chain)
-        + ' <span class="badge text-bg-secondary">' + anchorEsc(isNull(row.network) ? '-' : row.network) + '</span>');
+    // A bundle's verdict is all-or-nothing across its sections, so the single
+    // status above is the whole action's. Its CHAIN, though, is every chain it
+    // carries: naming one would misidentify the anchor.
+    if(t.bundle){
+        let chains = [];
+        anchorSectionRows(row).forEach(function(s){
+            if(!isNull(s.chain)) chains.push(String(s.chain));
+        });
+        html += anchorFieldRow('Chains', '<span class="anchor-bundle-chains">'
+            + anchorEsc(chains.length ? chains.join(', ') : '-') + '</span>'
+            + ' <span class="badge text-bg-secondary">' + anchorEsc(isNull(row.network) ? '-' : row.network) + '</span>'
+            + anchorNote('One ANCHOR per network per cycle: every chain checkpointed in this cycle rides one transaction as its own section.'),
+            'anchor-bundle-chains-row');
+    } else {
+        html += anchorFieldRow('Chain', anchorEsc(isNull(row.chain) ? '-' : row.chain)
+            + ' <span class="badge text-bg-secondary">' + anchorEsc(isNull(row.network) ? '-' : row.network) + '</span>');
+    }
     html += anchorFieldRow('Transaction', isNull(row.tx_hash) ? '-'
         : formatLink('/' + anchorCoin() + '/transaction/' + row.tx_hash,
             '<span class="font-monospace small text-break">' + anchorEsc(row.tx_hash) + '</span>'));
@@ -195,6 +275,10 @@ function renderAnchorCheckpointPayload(d){
     let t   = anchorTraits(row);
     if(!t.checkpoint)
         return anchorEmpty('This anchor carries no checkpoint payload. A continuation chunk only extends an archive batch published by an earlier anchor.');
+    // A bundle's checkpoint payload is per section, so this card carries only what
+    // the BUNDLE owns. Rendering section 0's hashes here would read as the anchor's
+    // one checkpoint and quietly hide the other chains.
+    if(t.bundle) return renderAnchorBundleHeader(row);
     let sigs = Array.isArray(row.validator_signatures) ? row.validator_signatures : [];
     let html = '<table class="table table-sm table-borderless mb-0"><tbody>';
     html += anchorFieldRow('Checkpoint Seq',  isNull(row.checkpoint_seq) ? '-' : anchorEsc(row.checkpoint_seq));
@@ -212,6 +296,68 @@ function renderAnchorCheckpointPayload(d){
         + anchorNote('Attached is not the same as verified. The covering checkpoint page re-checks every signature against the validator set that qualified at the snapshot block.'),
         'anchor-sig-row');
     html += '</tbody></table>';
+    return html;
+}
+
+// What the BUNDLE itself owns, as opposed to what each section owns: the network
+// every section was checkpointed on, the election/attestation block, and how many
+// chains rode this transaction. snapshot_block here is the MAX over the sections
+// (getAnchor computes it), which is the block the publisher was elected at; a
+// lagging chain's section can name an older one of its own.
+function renderAnchorBundleHeader(d){
+    let row      = d || {};
+    let sections = anchorSectionRows(row);
+    let html = '<table class="table table-sm table-borderless mb-0"><tbody>';
+    html += anchorFieldRow('Network', anchorEsc(isNull(row.network) ? '-' : row.network));
+    html += anchorFieldRow('Sections', '<span class="anchor-section-count">' + sections.length + '</span> chain'
+        + (sections.length === 1 ? '' : 's')
+        + anchorNote('A one-section bundle is normal, not a fault: a chain whose newest checkpoint is already anchored simply does not ride this cycle.'),
+        'anchor-section-count-row');
+    html += anchorFieldRow('Snapshot Block', anchorBlockLink(row.snapshot_block)
+        + anchorNote('The bundle\'s election and attestation block, the highest of its sections\' snapshot blocks.'),
+        'anchor-snapshot-block');
+    html += '</tbody></table>';
+    return html;
+}
+
+// The per-chain table: one row per section, in section_index order, each with the
+// height, sequence and roots that section alone commits to. This is the whole
+// payload of a bundle, so an empty one is a broken read rather than an absence.
+function renderAnchorSections(d){
+    let row      = d || {};
+    let t        = anchorTraits(row);
+    let sections = anchorSectionRows(row);
+    if(!t.bundle)
+        return anchorEmpty('This anchor carries a single checkpoint rather than a bundle of per-chain sections.');
+    if(!sections.length)
+        return anchorEmpty('This bundle reports no sections. A v7 anchor always carries at least one, so this is an incomplete read rather than an empty cycle.');
+
+    let html = '<div class="small text-muted mb-1">' + sections.length + ' chain'
+        + (sections.length === 1 ? '' : 's') + ' committed by this anchor:</div>';
+    html += '<table class="table table-sm mb-0 anchor-sections-table"><thead><tr>'
+        + '<th>#</th><th>Chain</th><th>Checkpointed Block</th><th>Checkpoint Seq</th><th>Snapshot Block</th>'
+        + '<th>State Root</th><th>Block Merkle Root</th><th>Signatures</th>'
+        + '</tr></thead><tbody>';
+    sections.forEach(function(s){
+        let sigs  = Array.isArray(s.validator_signatures) ? s.validator_signatures : [];
+        let local = (!isNull(row.local_section_index) && !isNull(s.section_index)
+                     && String(s.section_index) === String(row.local_section_index));
+        html += '<tr class="anchor-section-row' + (local ? ' anchor-section-local table-active' : '') + '">'
+            + '<td class="anchor-section-index">' + anchorEsc(isNull(s.section_index) ? '-' : s.section_index) + '</td>'
+            + '<td class="anchor-section-chain">' + anchorEsc(isNull(s.chain) ? '-' : s.chain)
+            + (local ? ' <span class="badge text-bg-primary">this explorer</span>' : '') + '</td>'
+            + '<td class="anchor-section-block">' + anchorBlockLink(s.block_index) + '</td>'
+            + '<td class="anchor-section-seq">' + (isNull(s.checkpoint_seq) ? '-' : anchorEsc(s.checkpoint_seq)) + '</td>'
+            + '<td class="anchor-section-snapshot">' + anchorBlockLink(s.snapshot_block) + '</td>'
+            + '<td class="anchor-section-state-root">' + anchorRootCell(s.state_root, s.state_root_version) + '</td>'
+            + '<td class="anchor-section-merkle-root">' + anchorRootCell(s.block_merkle_root, s.block_merkle_version) + '</td>'
+            + '<td><span class="anchor-section-sig-count">' + sigs.length + '</span></td>'
+            + '</tr>';
+    });
+    html += '</tbody></table>';
+    // Each section carries its OWN quorum over its own per-chain canonical, so the
+    // counts above are per chain and are attached signatures, not verified ones.
+    html += anchorNote('Each section carries its own quorum signatures over its own chain\'s checkpoint canonical. Attached is not verified: the covering checkpoint page re-checks them.');
     return html;
 }
 
@@ -296,8 +442,13 @@ function renderAnchorChunks(d){
 function renderAnchorCoveringCheckpoint(d){
     let row = d || {};
     let cp  = row.checkpoint;
+    // On a bundle the mirror is filtered to THIS coin's chain, so the height that
+    // was looked up, and the payload the mirror is compared against, both come from
+    // this coin's own section. Another section's height would name a lookup that was
+    // never made and compare two chains' hashes.
+    let payload = anchorLocalSection(row) || row;
     if(!cp){
-        let at = isNull(row.block_index) ? 'the checkpointed height' : ('checkpointed height ' + anchorNum(row.block_index));
+        let at = isNull(payload.block_index) ? 'the checkpointed height' : ('checkpointed height ' + anchorNum(payload.block_index));
         return anchorEmpty('No mirrored checkpoint covers ' + at + ' yet. This lookup uses the CHECKPOINTED height, not the block the anchor transaction landed in.');
     }
     let sigs = Array.isArray(cp.validator_signatures) ? cp.validator_signatures : [];
@@ -313,8 +464,8 @@ function renderAnchorCoveringCheckpoint(d){
     // Agreement between what was published on DOGE and what the mirror holds is
     // the one cross-check this page can make on its own, so it is stated rather
     // than left for the reader to eyeball two hex strings.
-    if(!isNull(row.block_hash) && !isNull(cp.block_hash)){
-        let same = String(row.block_hash).toLowerCase() === String(cp.block_hash).toLowerCase();
+    if(!isNull(payload.block_hash) && !isNull(cp.block_hash)){
+        let same = String(payload.block_hash).toLowerCase() === String(cp.block_hash).toLowerCase();
         html += '<div class="mt-2 anchor-mirror-agreement">'
             + '<span class="badge text-bg-' + (same ? 'success' : 'danger') + '">'
             + (same ? 'Mirror agrees with the on-chain payload' : 'Mirror DISAGREES with the on-chain payload')
@@ -450,13 +601,16 @@ function renderAnchorPage(d){
     $('#anchor-identity').html(renderAnchorIdentity(row));
     $('#anchor-heights').html(renderAnchorHeights(row));
     $('#anchor-checkpoint-payload').html(renderAnchorCheckpointPayload(row));
+    $('#anchor-sections').html(renderAnchorSections(row));
     $('#anchor-archive-payload').html(renderAnchorArchivePayload(row));
     $('#anchor-covering-checkpoint').html(renderAnchorCoveringCheckpoint(row));
     $('#anchor-election').html(renderAnchorElection(row));
     $('#anchor-rewards').html(renderAnchorRewards(row));
     // The archive card is hidden outright on an anchor that carries no archive:
     // an empty batch table beside a populated checkpoint reads as missing data.
+    // The sections card follows the same rule for a non-bundle anchor.
     $('#anchor-archive-card').toggleClass('d-none', !t.archive);
+    $('#anchor-sections-card').toggleClass('d-none', !t.bundle);
 }
 
 // One shared terminal state for "no such anchor" and for a failed request. Both
@@ -468,9 +622,11 @@ function renderAnchorMessage(message, tone){
     $('#anchor-identity').html('<tr><td>' + cell + '</td></tr>');
     $('#anchor-heights').html(cell);
     $('#anchor-checkpoint-payload').html(cell);
+    $('#anchor-sections').html('<span class="text-muted">-</span>');
     $('#anchor-archive-payload').html('<span class="text-muted">-</span>');
     $('#anchor-covering-checkpoint').html('<span class="text-muted">-</span>');
     $('#anchor-election').html('<span class="text-muted">-</span>');
     $('#anchor-rewards').html('<span class="text-muted">-</span>');
     $('#anchor-archive-card').addClass('d-none');
+    $('#anchor-sections-card').addClass('d-none');
 }

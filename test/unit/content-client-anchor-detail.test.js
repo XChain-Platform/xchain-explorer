@@ -215,6 +215,55 @@ const V6 = Object.assign({}, V5, {
     }]
 });
 
+/* ------------------------- v7 bundle fixture ------------------------- */
+
+// ANCHOR v7: ONE action per network per cycle, carrying every checkpointed chain
+// as its own section. getAnchor composes the sibling rows into this shape: a
+// header holding what the BUNDLE owns, plus `sections` in section_index order
+// holding what each CHAIN owns. Sections are ordered chain-ascending, so on this
+// RDOGE explorer the local section is index 1, not index 0 - which is exactly the
+// arrangement in which rendering section 0 as "the anchor" looks plausible and is
+// wrong.
+const BUNDLE_TXID = 'e7'.repeat(32);
+
+const BUNDLE_SECTIONS = [
+    { section_index: 0, chain: 'BTC', network: 'regtest', block_index: 2497, block_hash: 'b7'.repeat(32),
+      ledger_hash: 'e5'.repeat(32), actions_hash: 'f6'.repeat(32), contract_hash: '07'.repeat(32),
+      checkpoint_seq: 110, snapshot_block: 110, state_root: '18'.repeat(32), state_root_version: 1,
+      block_merkle_root: '29'.repeat(32), block_merkle_version: 1,
+      validator_signatures: [{ pubkey: PUBLISHER, sig: 'aa' }], status: 'valid' },
+    { section_index: 1, chain: 'DOGE', network: 'regtest', block_index: 3001, block_hash: 'd0'.repeat(32),
+      ledger_hash: 'e5'.repeat(32), actions_hash: 'f6'.repeat(32), contract_hash: '07'.repeat(32),
+      checkpoint_seq: 112, snapshot_block: 112, state_root: '3a'.repeat(32), state_root_version: 1,
+      block_merkle_root: '4b'.repeat(32), block_merkle_version: 1,
+      validator_signatures: [{ pubkey: PUBLISHER, sig: 'bb' }, { pubkey: OTHER_PUBKEY, sig: 'cc' }], status: 'valid' },
+    { section_index: 2, chain: 'LTC', network: 'regtest', block_index: 1200, block_hash: '1c'.repeat(32),
+      ledger_hash: 'e5'.repeat(32), actions_hash: 'f6'.repeat(32), contract_hash: '07'.repeat(32),
+      checkpoint_seq: 111, snapshot_block: 111, state_root: '5c'.repeat(32), state_root_version: 1,
+      block_merkle_root: '6d'.repeat(32), block_merkle_version: 1,
+      validator_signatures: [], status: 'valid' }
+];
+
+const BUNDLE = Object.assign({}, V5, {
+    action_index: 1100, version: 7,
+    chain: 'BTC', block_index: 2497, block_hash: 'b7'.repeat(32),
+    checkpoint_seq: 110, snapshot_block: 112,
+    state_root: '18'.repeat(32), block_merkle_root: '29'.repeat(32),
+    block_index_doge: 3010, tx_hash: BUNDLE_TXID,
+    sections: BUNDLE_SECTIONS, section_count: 3, local_section_index: 1,
+    // The mirror this RDOGE explorer holds is DOGE's, so it agrees with the DOGE
+    // SECTION's payload and not with the header's BTC hashes.
+    checkpoint: Object.assign({}, COVERING_CHECKPOINT, {
+        chain: 'DOGE', block_index: '3001', block_hash: 'd0'.repeat(32), checkpoint_seq: '112'
+    }),
+    reward_attestations: [{
+        id: 9, chain: 'DOGE', network: 'regtest', reward_type: 'anchor_bundle',
+        round_reference: 112, snapshot_block: 112, publisher: PUBLISHER,
+        reward_amount: '10.00000000', doge_anchor_txid: BUNDLE_TXID,
+        created_at: '2026-08-28 22:20:00'
+    }]
+});
+
 describe('anchor.html detail render @regression', function () {
 
     /* ---------------------- the two block heights ---------------------- */
@@ -310,6 +359,102 @@ describe('anchor.html detail render @regression', function () {
             expect($('.anchor-kind').text()).to.equal('Unrecognized version v9');
             expect($('#anchor-archive-card').hasClass('d-none'), 'match_batch_seq is set, so the archive still renders').to.equal(false);
             expect($('.anchor-batch-seq .anchor-field-value').text()).to.equal('7');
+        });
+    });
+
+    /* --------------------------- v7 bundle ---------------------------- */
+
+    describe('v7 bundle sections', function () {
+
+        it('renders ONE row per chain, in section_index order, with each chain\'s own payload', function () {
+            const $ = renderPage(BUNDLE);
+            const rows = $('.anchor-section-row');
+            expect(rows.length, 'three chains rode this anchor').to.equal(3);
+            expect(rows.find('.anchor-section-index').map(function (i, el) { return $(el).text(); }).get())
+                .to.deep.equal(['0', '1', '2']);
+            expect(rows.find('.anchor-section-chain').map(function (i, el) { return $(el).text().trim().split(' ')[0]; }).get())
+                .to.deep.equal(['BTC', 'DOGE', 'LTC']);
+            // Each section commits its OWN height and sequence; collapsing them onto
+            // the header's would show one chain's checkpoint three times.
+            expect(rows.find('.anchor-section-block').map(function (i, el) { return $(el).text(); }).get())
+                .to.deep.equal(['2,497', '3,001', '1,200']);
+            expect(rows.find('.anchor-section-seq').map(function (i, el) { return $(el).text(); }).get())
+                .to.deep.equal(['110', '112', '111']);
+            expect(rows.find('.anchor-section-sig-count').map(function (i, el) { return $(el).text(); }).get())
+                .to.deep.equal(['1', '2', '0']);
+        });
+
+        it('reveals the sections card on a bundle and hides it on a single-checkpoint anchor', function () {
+            expect(renderPage(BUNDLE)('#anchor-sections-card').hasClass('d-none')).to.equal(false);
+            expect(renderPage(V5)('#anchor-sections-card').hasClass('d-none'), 'a v5 carries no sections').to.equal(true);
+            expect(renderPage(BUNDLE)('#anchor-archive-card').hasClass('d-none'), 'a bundle carries no archive').to.equal(true);
+        });
+
+        it('[TRAP] marks THIS explorer\'s own section rather than treating section 0 as the anchor', function () {
+            const $ = renderPage(BUNDLE);
+            const local = $('.anchor-section-local');
+            expect(local.length, 'exactly one section belongs to this coin').to.equal(1);
+            expect(local.find('.anchor-section-chain').text()).to.contain('DOGE');
+            expect(local.find('.anchor-section-block').text()).to.equal('3,001');
+        });
+
+        it('[TRAP] the checkpoint card carries only what the BUNDLE owns, never section 0\'s hashes', function () {
+            const $ = renderPage(BUNDLE);
+            const card = $('#anchor-checkpoint-payload');
+            expect(card.find('.anchor-section-count').text()).to.equal('3');
+            // Section 0's block hash rendered here would read as the whole anchor's.
+            expect(card.text(), 'a per-chain hash must not stand in for the bundle')
+                .to.not.contain('b7b7b7');
+            expect(card.find('.anchor-snapshot-block').text()).to.contain('112');
+        });
+
+        it('[TRAP] lists a checkpointed height PER CHAIN instead of one height for the bundle', function () {
+            const $ = renderPage(BUNDLE);
+            const labels = $('.anchor-height-label').map(function (i, el) { return $(el).text(); }).get();
+            expect(labels).to.deep.equal(['Checkpointed Blocks', 'Anchor Transaction Block']);
+            for (const l of labels) expect(l).to.not.equal('Block');
+            const heights = $('.anchor-height-checkpointed .anchor-section-height').map(function (i, el) { return $(el).text(); }).get();
+            expect(heights).to.deep.equal(['BTC 2,497', 'DOGE 3,001', 'LTC 1,200']);
+            expect($('.anchor-height-broadcast .anchor-height-value').text()).to.equal('3,010');
+        });
+
+        it('names every chain in the bundle instead of one chain for the action', function () {
+            const $ = renderPage(BUNDLE);
+            expect($('.anchor-bundle-chains').text()).to.equal('BTC, DOGE, LTC');
+            expect($('.anchor-version-badge').text()).to.equal('v7');
+            expect($('.anchor-kind').text()).to.contain('bundle');
+        });
+
+        it('[TRAP] cross-checks the mirror against THIS coin\'s section, not the header chain', function () {
+            const $ = renderPage(BUNDLE);
+            // The header carries BTC's hash and the mirror holds DOGE's. Comparing
+            // those two would report a false disagreement on a healthy bundle.
+            expect($('.anchor-mirror-agreement .badge').text()).to.equal('Mirror agrees with the on-chain payload');
+            expect($('.anchor-covering-link a').attr('href')).to.equal('/RDOGE/checkpoint/3001');
+        });
+
+        it('names the missing mirror by THIS coin\'s section height', function () {
+            const $ = renderPage(Object.assign({}, BUNDLE, { checkpoint: null }));
+            const msg = $('#anchor-covering-checkpoint .anchor-empty').text();
+            expect(msg).to.contain('checkpointed height 3,001');
+            expect(msg, 'another section\'s height was never looked up').to.not.contain('2,497');
+        });
+
+        it('renders the single anchor_bundle reward as the round-keyed trail it is', function () {
+            const $ = renderPage(BUNDLE);
+            expect($('.anchor-reward-row').length).to.equal(1);
+            expect($('.anchor-reward-type').text()).to.equal('anchor_bundle');
+            expect($('.anchor-reward-linkage').text()).to.equal('proven by txid');
+        });
+
+        it('a one-section bundle renders as a normal cycle, not as a fault', function () {
+            const $ = renderPage(Object.assign({}, BUNDLE, {
+                sections: [BUNDLE_SECTIONS[1]], section_count: 1, local_section_index: 1
+            }));
+            expect($('.anchor-section-row').length).to.equal(1);
+            expect($('.anchor-section-count').text()).to.equal('1');
+            expect($('#anchor-sections .text-danger').length, 'a short bundle is the normal daily case').to.equal(0);
+            expect($('#anchor-sections-card').hasClass('d-none')).to.equal(false);
         });
     });
 

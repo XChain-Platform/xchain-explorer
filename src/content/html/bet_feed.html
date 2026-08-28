@@ -92,7 +92,14 @@ $(document).ready(function() {
     $('#bet-feed-id').text(XC.query);
 
     $.getJSON('/' + XC.coin + '/api/bet_feed/' + XC.query, function(o){
-        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : null;
+        // The /api response is the record itself (flat, `runtime` appended); a
+        // {data:...} envelope is tolerated but is not what the endpoint returns.
+        // Reading only o.data made EVERY market, however healthy, render
+        // "Market not found" beside its own bets table, which was listing that
+        // market's bets correctly two rows below. Same envelope mismatch that
+        // zeroed the oracle page's counts.
+        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data)
+                              : ((o && o.action_index) ? o : null);
         if(!d){
             $('#feed-label').text('Market not found');
             $('#feed-pools').text('-');

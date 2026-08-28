@@ -156,6 +156,12 @@ class Database {
 
         // LRU caches for frequently-queried immutable lookups
         this._addressIdCache  = new Map();
+        // Byte-exact address -> id resolutions (getExactAddressId). Kept apart from
+        // _addressIdCache because the two lookups legitimately disagree for the same
+        // key: the ci lookup resolves a case variant to the id of the address it
+        // resembles, the byte-exact one resolves it to null. One shared cache would
+        // let whichever ran first answer for both.
+        this._exactAddressIdCache = new Map();
         this._tickIdCache     = new Map();
         this._actionDataCache = new Map();
         // Per-coin reorg generation counter mixed into the id/action cache keys
@@ -4563,15 +4569,18 @@ class Database {
         let rows   = await this.getDecoderMempoolRows(config, 500);
         let out    = [];
         // Resolve the queried address to its index id ONCE per request, not once
-        // per row: getAddressId is cached (per coin + reorg generation), but the
+        // per row: getExactAddressId is cached (per coin + reorg generation), but the
         // window is up to 500 rows and a cache miss is a real query. Null when the
         // address was never indexed, which is exactly when the SDK cannot compact
         // it either, so the literal branch below still matches it.
+        // BYTE-EXACT resolution, not the ci getAddressId the search paths use: a
+        // wrong-case address must not inherit another address's id and match its
+        // `^<id>` destinations (see getExactAddressId).
         let addressId = null;
         if(type=='address' && search.length){
-            // A failed id read degrades to literal-only matching (the pre-M1.1
-            // behavior) rather than failing the whole mempool request.
-            try { addressId = await this.getAddressId(config, search); }
+            // A failed id read degrades to literal-only matching rather than
+            // failing the whole mempool request.
+            try { addressId = await this.getExactAddressId(config, search); }
             catch(e){ addressId = null; }
         }
         for(let row of rows){
@@ -5733,6 +5742,52 @@ class Database {
         if(results && results.length)
             id = results[0].id;
         if(id !== null) this._cacheSet(this._addressIdCache, key, id);
+        return id;
+    }
+
+    // Address -> index id resolved BYTE-EXACTLY. Used by the MATCHING paths only:
+    // getMempool TYPE=address and the Broadcaster's mempool fan-out memo.
+    //
+    // index_addresses is CHARSET=utf8 COLLATE=utf8_general_ci, so the plain
+    // `address=?` in getAddressId matches every case variant of an address and
+    // hands back the id of a DIFFERENT address. Display and search paths want that
+    // (a human typing an address by hand reaches the page they meant). A matcher
+    // must not have it: a `^<id>` destination on the wire is an exact reference, so
+    // a case variant resolved through the ci lookup makes an unrelated address a
+    // party to the transaction, and a wallet shows somebody else's pending payment
+    // as its own. Base58 is case-SENSITIVE; a case variant is a different string,
+    // not the same address typed loosely.
+    //
+    // BECH32, deliberately not handled here: BIP173 addresses are case-INSENSITIVE
+    // with a lowercase canonical form, so an uppercase bech32 spelling resolves to
+    // null through this lookup and its compacted destinations go unmatched (literal
+    // segments still match, and the sender still matches). Canonicalizing an
+    // address before lookup is address-normalization work that belongs to the row
+    // that owns it, not to this matcher.
+    //
+    // The equality is written twice on purpose. `address=?` runs in the table's own
+    // collation and is the index seek (index_addresses has a UNIQUE index on
+    // address, so under a ci collation it returns at most one row for all case
+    // variants); the utf8_bin comparison is the byte-exact gate over that one row.
+    // Collating the column alone in the seek predicate would force a full scan.
+    // Cached like getAddressId, non-null results only, in its own LRU.
+    async getExactAddressId(config, address){
+        let key    = this._cacheKey(config.coin, address);
+        let cached = this._cacheGet(this._exactAddressIdCache, key);
+        if(cached !== undefined) return cached;
+        let id    = null;
+        let args  = [address, address];
+        let query = `SELECT
+                        id
+                    FROM
+                        index_addresses
+                    WHERE
+                        address=? AND address COLLATE utf8_bin = ?
+                    LIMIT 1`
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length)
+            id = results[0].id;
+        if(id !== null) this._cacheSet(this._exactAddressIdCache, key, id);
         return id;
     }
 
@@ -7284,8 +7339,12 @@ class Database {
     // disagree about the parties to a tx, or a wallet sees a pending row that
     // no event ever removes (or the reverse).
     //
-    // `addressId` is the address's index id from the CACHED getAddressId, or
-    // null when it has none. It is what makes a compacted destination match:
+    // `addressId` is the address's index id from the cached BYTE-EXACT resolver
+    // (getExactAddressId), or null when it has none. Byte-exact is a correctness
+    // requirement of this matcher and not a style choice: the ci resolver would
+    // hand a case variant the id of the address it resembles, and the `^<id>`
+    // branch below would then name it a party to a transaction it has no part in.
+    // It is what makes a compacted destination match:
     // the SDK writes destinations as `^<id>` references by default
     // (addressResolver), so without this branch an incoming pending payment to
     // an address that already holds an index id is invisible on both surfaces. Resolution

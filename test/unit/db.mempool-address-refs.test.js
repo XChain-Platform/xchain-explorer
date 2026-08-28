@@ -37,7 +37,7 @@ function mkDb(rows, ids) {
     db.util      = new Utility();
     db.decoderDb = { RBTC: 'XChain_BTC_Decoder' };
     db.doQuery   = sinon.stub().resolves(rows);
-    db.getAddressId = sinon.stub().callsFake(async (config, address) =>
+    db.getExactAddressId = sinon.stub().callsFake(async (config, address) =>
         Object.prototype.hasOwnProperty.call(ids || {}, address) ? ids[address] : null);
     return db;
 }
@@ -124,12 +124,12 @@ describe('db.getMempool TYPE=address forward-resolves ^<id> (M1.1)', () => {
         const db = mkDb(rows, { destAddr: 42 });
         const [, , total] = await db.getMempool(cfg('destAddr', 'address'));
         expect(total).to.equal(25);
-        expect(db.getAddressId.callCount).to.equal(1);
+        expect(db.getExactAddressId.callCount).to.equal(1);
     });
 
     it('degrades to literal-only matching when the id lookup throws', async () => {
         const db = mkDb([COMPACT_ROW, LITERAL_ROW], {});
-        db.getAddressId = sinon.stub().rejects(new Error('db down'));
+        db.getExactAddressId = sinon.stub().rejects(new Error('db down'));
         const [literal] = await db.getMempool(cfg('freshAddr', 'address'));
         expect(literal.map((r) => r.tx_hash)).to.deep.equal(['bb22']);
         const [compact] = await db.getMempool(cfg('destAddr', 'address'));
@@ -141,7 +141,7 @@ describe('db.getMempool TYPE=address forward-resolves ^<id> (M1.1)', () => {
         const [data, , total] = await db.getMempool(cfg('other', 'token'));
         expect(total).to.equal(1);
         expect(data[0].tx_hash).to.equal('cc33');                   // uppercased tick match
-        expect(db.getAddressId.called).to.equal(false);
+        expect(db.getExactAddressId.called).to.equal(false);
     });
 
     it('never resolves an id in list-all mode, and lists every decoded row', async () => {
@@ -150,7 +150,7 @@ describe('db.getMempool TYPE=address forward-resolves ^<id> (M1.1)', () => {
         expect(args).to.equal(null);
         expect(total).to.equal(2);
         expect(data).to.have.lengthOf(2);
-        expect(db.getAddressId.called).to.equal(false);
+        expect(db.getExactAddressId.called).to.equal(false);
     });
 
     it('keeps the paging envelope: total is the pre-slice match count', async () => {

@@ -12,9 +12,9 @@
  *
  **********************************************************************
  * Unit tests for the widened mempool seen-state in ChangeDetector: per coin,
- * `seenHashes` is a Map<tx_hash, {source, data}> instead of a Set, so a
- * removal can still name the tx's parties after its row has left the table
- * (spec wallet-unconfirmed-and-sounds, M1.1 / I-44).
+ * `seenHashes` is a Map<tx_hash, {source, action, data}> instead of a Set, so a
+ * removal can still name the tx's parties and its action family after its row
+ * has left the table (spec wallet-unconfirmed-and-sounds, M1.1 / I-44).
  *
  * The Map stores the RAW action string rather than a party list on purpose:
  * ChangeDetector cannot see subscribers, so the Broadcaster re-runs the
@@ -73,10 +73,10 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         expect(seen).to.deep.equal([]);
         expect(removed).to.deep.equal([]);
         expect(cd.mempoolState.RBTC.seenHashes.get('aa11'))
-            .to.deep.equal({ source: 'srcAddr', data: 'SEND|0|TOK|5|^42|memo' });
+            .to.deep.equal({ source: 'srcAddr', action: 'SEND', data: 'SEND|0|TOK|5|^42|memo' });
     });
 
-    it('carries source + the raw action string on mempool_removed', async () => {
+    it('carries source + the action name + the raw action string on mempool_removed', async () => {
         const cd = mkDetector(mkDb([[SEND_ROW, MINT_ROW], [MINT_ROW]]));
         const removed = [];
         cd.on('mempool_removed', (coin, row) => removed.push(row));
@@ -84,14 +84,14 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         await cd._checkMempoolForCoin('RBTC');                      // seed
         await cd._checkMempoolForCoin('RBTC');                      // SEND_ROW gone
         expect(removed).to.deep.equal([
-            { tx_hash: 'aa11', source: 'srcAddr', data: 'SEND|0|TOK|5|^42|memo' }
+            { tx_hash: 'aa11', source: 'srcAddr', action: 'SEND', data: 'SEND|0|TOK|5|^42|memo' }
         ]);
     });
 
     // A garbage row never emits a mempool_action (it does not decode), but its
     // disappearance still emits a removal, and that frame's shape must not
     // depend on decodability.
-    it('emits a removal for an undecodable row, with a null action string', async () => {
+    it('emits a removal for an undecodable row, with a null action name and string', async () => {
         const cd = mkDetector(mkDb([[TRASH_ROW], []]));
         const seen = [], removed = [];
         cd.on('mempool_action',  (c, r) => seen.push(r));
@@ -100,7 +100,7 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         await cd._checkMempoolForCoin('RBTC');                      // seed
         await cd._checkMempoolForCoin('RBTC');
         expect(seen).to.deep.equal([]);
-        expect(removed).to.deep.equal([{ tx_hash: 'cc33', source: 'thirdAddr', data: null }]);
+        expect(removed).to.deep.equal([{ tx_hash: 'cc33', source: 'thirdAddr', action: null, data: null }]);
     });
 
     it('does not re-decode or re-announce a row that is still in the window', async () => {
@@ -132,7 +132,8 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         expect(seen.length).to.equal(250);
         // The carried-forward entries keep their parties, so a removal announced
         // on a later poll can still name them.
-        expect(cd.mempoolState.RBTC.seenHashes.get('h0998')).to.deep.equal({ source: 's998', data: 'MINT|0|TOK|1' });
+        expect(cd.mempoolState.RBTC.seenHashes.get('h0998'))
+            .to.deep.equal({ source: 's998', action: 'MINT', data: 'MINT|0|TOK|1' });
 
         await cd._checkMempoolForCoin('RBTC');                      // window shifts back over them
         expect(seen.length).to.equal(250);                          // carried forward: not re-announced

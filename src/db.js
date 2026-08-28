@@ -5958,16 +5958,26 @@ class Database {
         results = await this.doQuery(config, query);
         if(results && results.length)
             total = results[0].total;
+        // BIND THE PAGING PLACEHOLDER. getBlocks builds and runs its own queries rather than
+        // returning [query, args] to the shared path, and that shared path is where every
+        // other list method gets its offset args threaded in. Without them the `?` in
+        // `AND b1.block_index < ?` reached MariaDB as literal text and the whole feed
+        // answered 500 on a syntax error, on every coin and every network - page 1 included,
+        // because the first page carries an offset clause too. getBlocks takes no
+        // data-WHERE placeholder of its own (getQueryWhereSql excludes it from the type
+        // branch and anchors on `b1.block_index IS NOT NULL`), so the offset args are the
+        // complete set; the count query above needs none for the same reason.
+        let offsetArgs = (sql.where.offsetArgs && sql.where.offsetArgs.length) ? sql.where.offsetArgs : undefined;
         query = `SELECT
                     block_index,
                     block_time
                 FROM
                     blocks b1
-                WHERE 
+                WHERE
                     ` + sql.where.data + sql.where.offset + `
                 ORDER BY block_index ` + sql.order + `
                 LIMIT ` + sql.limit;
-        results = await this.doQuery(config, query);
+        results = await this.doQuery(config, query, offsetArgs);
         if(results && results.length){
             let blockIndexes = results.map(r => r.block_index);
             let blockMap = {};

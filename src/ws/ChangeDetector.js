@@ -78,7 +78,9 @@ class ChangeDetector extends EventEmitter {
         // tx_hash: the mempool table has no monotonic index, so each poll
         // diffs the tx_hash-ordered (capped) window against the previous one;
         // see _checkMempoolForCoin for what a saturated window does and does
-        // not prove.
+        // not prove. The value is `{source, data}` (the RAW action string, not
+        // a party list) so a removal can name the tx's parties after its row is
+        // already gone from the table; see the emit in _checkMempoolForCoin.
         this.mempoolState = {};
 
         // Polling timer reference
@@ -95,7 +97,7 @@ class ChangeDetector extends EventEmitter {
                 this.state[coin] = { blockIndex: 0, actionIndex: 0, closedBlock: 0, initialized: false };
             }
             if (!this.mempoolState[coin]) {
-                this.mempoolState[coin] = { seenHashes: new Set(), initialized: false };
+                this.mempoolState[coin] = { seenHashes: new Map(), initialized: false };
             }
         }
 
@@ -156,8 +158,14 @@ class ChangeDetector extends EventEmitter {
     }
 
     // Diff the decoder-DB mempool snapshot against the last poll. New rows emit
-    // `mempool_action` (decoded: tx_hash/source/action/data); rows that left the
-    // mempool (confirmed or evicted; we can't tell which) emit `mempool_removed`.
+    // `mempool_action` (decoded: tx_hash/source/action/data/first_seen); rows that
+    // left the mempool (confirmed or evicted; we can't tell which) emit
+    // `mempool_removed` carrying {tx_hash, source, data} recovered from the
+    // per-coin seenHashes Map. The Map stores the RAW action string rather than a
+    // pre-computed party list because the subscriber set lives in ChannelManager,
+    // which only the Broadcaster can reach: the removal path re-runs the shared
+    // matcher against CURRENT subscribers, so a client that subscribed between the
+    // action and the removal still gets the removal.
     // Rows are PRE-VALIDATION: a mempool action can still be rejected by the
     // indexer at confirmation, so consumers must treat these as provisional.
     async _checkMempoolForCoin(coin) {
@@ -167,18 +175,31 @@ class ChangeDetector extends EventEmitter {
 
         const WINDOW = 500;
         const rows = await this.db.getDecoderMempoolRows({ coin }, WINDOW);
-        const current = new Set();
+        const current = new Map();
         const decodedNew = [];
         let maxHash = null;
         for (const row of rows) {
             if (!row || !row.tx_hash) continue;
-            current.add(row.tx_hash);
             const key = String(row.tx_hash).toLowerCase();
             if (maxHash === null || key > maxHash) maxHash = key;
-            if (!state.seenHashes.has(row.tx_hash)) {
-                const decoded = this.db.decodeMempoolRow(row);
-                if (decoded) decodedNew.push(decoded);
+            const known = state.seenHashes.get(row.tx_hash);
+            if (known !== undefined) {
+                // Already announced on an earlier poll: carry its parties forward
+                // untouched (a mempool row's action string is immutable, so there
+                // is nothing to re-read and nothing to re-decode).
+                current.set(row.tx_hash, known);
+                continue;
             }
+            const decoded = this.db.decodeMempoolRow(row);
+            if (decoded) decodedNew.push(decoded);
+            // Remember source + the raw action string even for a row that did not
+            // decode (garbage / rejected-ACTION sentinel): it emits no
+            // mempool_action, but its disappearance still emits mempool_removed,
+            // and the removal frame's shape must not depend on decodability.
+            current.set(row.tx_hash, {
+                source: (decoded && decoded.source) || row.source || null,
+                data:   decoded ? decoded.data : null
+            });
         }
         // The read is ORDER BY tx_hash LIMIT 500 (getDecoderMempoolRows). When the
         // window came back full the table may hold more rows than it covers, and
@@ -198,14 +219,23 @@ class ChangeDetector extends EventEmitter {
             this.emit('mempool_action', coin, decoded);
 
         const next = current;
-        for (const hash of state.seenHashes) {
+        for (const [hash, parties] of state.seenHashes) {
             if (current.has(hash)) continue;
             if (covered !== null && String(hash).toLowerCase() > covered) {
                 // Out of the window's range: carry forward, unknown rather than gone.
-                next.add(hash);
+                next.set(hash, parties);
                 continue;
             }
-            this.emit('mempool_removed', coin, { tx_hash: hash });
+            // Carry the tx's source and raw action string on the removal so the
+            // Broadcaster can fan the frame out to the same address channels its
+            // mempool_action reached. The row itself is gone from the table by
+            // now, so this remembered pair is the only surviving evidence of who
+            // the tx involved.
+            this.emit('mempool_removed', coin, {
+                tx_hash: hash,
+                source:  (parties && parties.source) || null,
+                data:    (parties && parties.data)   || null
+            });
         }
 
         state.seenHashes = next;

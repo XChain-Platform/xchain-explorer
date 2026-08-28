@@ -439,6 +439,58 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
         expect(replayed.map((m) => m.data.action_index)).to.deep.equal([1, 2]);
     });
 
+    it('replays NEW_ACTION destinations, so a reconnecting client sees the live shape', async function () {
+        // M1.4 parity guard. The rows come from the same getActionsSince the live
+        // feed reads, so the destinations are already on them; a replay that
+        // dropped the field would hand a reconnecting client a NARROWER frame than
+        // the live channel sends, which is exactly the live-versus-replay
+        // divergence the retired singular `destination` was removed to prevent.
+        const broadcaster = makeBroadcaster();
+        const db = {
+            getMaxActionIndex: sinon.stub().resolves(2),
+            getActionsSince: sinon.stub().resolves([
+                { action_index: 1, action: 'SEND', tx_hash: 'a', block_index: 1, source: 's',
+                  status: null, destinations: ['dest-one', 'dest-two'] },
+                // A row with no recipients still carries the key as an empty array,
+                // so a subscriber never has to tell "none" from "field missing".
+                { action_index: 2, action: 'ISSUE', tx_hash: 'b', block_index: 1, source: 's',
+                  status: null, destinations: [] }
+            ])
+        };
+        const s = makeServer({ explorer: { db }, broadcaster });
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        await s._handleCatchUp(client, 0, {}, 'req-1');
+
+        const replayed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .filter((m) => m.type === 'NEW_ACTION');
+        expect(replayed).to.have.lengthOf(2);
+        expect(replayed[0].data.destinations).to.deep.equal(['dest-one', 'dest-two']);
+        expect(replayed[1].data.destinations).to.deep.equal([]);
+        // The retired singular must stay gone on the replay path too.
+        expect(replayed[0].data).to.not.have.property('destination');
+    });
+
+    it('replays destinations as [] when the producer omits the field entirely', async function () {
+        const broadcaster = makeBroadcaster();
+        const db = {
+            getMaxActionIndex: sinon.stub().resolves(1),
+            getActionsSince: sinon.stub().resolves([
+                { action_index: 1, action: 'SEND', tx_hash: 'a', block_index: 1, source: 's', status: null }
+            ])
+        };
+        const s = makeServer({ explorer: { db }, broadcaster });
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        await s._handleCatchUp(client, 0, {}, 'req-1');
+
+        const replayed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .filter((m) => m.type === 'NEW_ACTION');
+        expect(replayed[0].data.destinations).to.deep.equal([]);
+    });
+
     it('applies fields projection to replayed events (parity with the live Broadcaster path)', async function () {
         const broadcaster = makeBroadcaster();
         const db = {

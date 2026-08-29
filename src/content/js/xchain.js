@@ -504,7 +504,12 @@ function formatLivestamp(timestamp=null){
     return html;
 }
 
-// Build out nice links to view transactions in other explorers
+// Build out nice links to view transactions in other explorers.
+// SoChain (chain.so) was dropped from every network on 2026-08-29: it no longer
+// serves transaction pages (bot challenge, then an application error), and on
+// TDOGE it was the ONLY outbound link, so the row was guaranteed to be broken.
+// TDOGE now carries no third-party link because no maintained Dogecoin-testnet
+// explorer exists; the XChain link above still applies to every network.
 function formatTransactionLink(tx){
     let html = tx;
     let coin = XC.coin;
@@ -514,26 +519,19 @@ function formatTransactionLink(tx){
         html += '<a href="https://blockstream.info/tx/'                 + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
         html += '<a href="https://live.blockcypher.com/btc/tx/'         + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
         html += '<a href="https://blockchair.com/bitcoin/transaction/'  + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
-        html += '<a href="https://chain.so/tx/BTC/'                     + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     } else if(coin=='TBTC'){
         // Testnet 4 (BTC testnet3 has been retired)
         html += '<a href="https://mempool.space/testnet4/tx/'           + tx + '" target="_blank" title="Mempool.space"><i class="ms-1 fa fa-lg fa-mempool"></i></a>';
         html += '<a href="https://blockstream.info/testnet/tx/'         + tx + '" target="_blank" title="Blockstream"  ><i class="ms-1 fa fa-lg fa-blockstream"></i></a>';
-        html += '<a href="https://chain.so/tx/BTCTEST/'                 + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     } else if(coin=='LTC'){
         html += '<a href="https://live.blockcypher.com/ltc/tx/'         + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
         html += '<a href="https://blockchair.com/litecoin/transaction/' + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
         html += '<a href="https://litecoinspace.org/tx/'                + tx + '" target="_blank" title="LitecoinSpace"><i class="ms-1 fa fa-lg fa-litecoinspace"></i></a>';
-        html += '<a href="https://chain.so/tx/LTC/'                     + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     } else if(coin=='TLTC'){
         html += '<a href="https://litecoinspace.org/testnet/tx/'        + tx + '" target="_blank" title="LitecoinSpace"><i class="ms-1 fa fa-lg fa-litecoinspace"></i></a>';
-        html += '<a href="https://chain.so/tx/LTCTEST/'                 + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     } else if(coin=='DOGE'){
         html += '<a href="https://live.blockcypher.com/doge/tx/'        + tx + '" target="_blank" title="BlockCypher"  ><i class="ms-1 fa fa-lg fa-blockcypher"></i></a>';
         html += '<a href="https://blockchair.com/dogecoin/transaction/' + tx + '" target="_blank" title="BlockChair"   ><i class="ms-1 fa fa-lg fa-blockchair"></i></a>';
-        html += '<a href="https://chain.so/tx/DOGE/'                    + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
-    } else if(coin=='TDOGE'){
-        html += '<a href="https://chain.so/tx/DOGETEST/'                + tx + '" target="_blank" title="SoChain"      ><i class="ms-1 fa fa-lg fa-sochain"></i></a>';
     }
     $('#tx-hash').html(html);
 }
@@ -4635,7 +4633,7 @@ function showTokenContent(json){
     var desc = $('#token-description').text();
 
     // If we do not already have any audio/video/image content defined, check if this is one of the TIS defined formats
-    // https://github.com/XChain-Platform/xchain-documentation/blob/master/Token_Information_Standard.md#supported-token-description-formats
+    // https://github.com/XChain-Platform/xchain-documentation/blob/master/protocol/token-information-standard.md#supported-token-description-formats
     if(!audio && !video && !image){
         // Cleanup description a bit to remove leading/trailing spaces and some funky characters
         desc = desc.trim().replace('\u001e','');
@@ -5055,7 +5053,7 @@ function showTokenInfo(){
 
 
 // Handle converting any legacy JSON to use the XChain Token Information Standard standard
-// https://github.com/XChain-Platform/xchain-documentation/blob/master/Token_Information_Standard.md
+// https://github.com/XChain-Platform/xchain-documentation/blob/master/protocol/token-information-standard.md
 function legacyJsonToXChainTIS(o){
     var json = {},
         ipfs = /^ipfs:\/\//i,
@@ -5305,7 +5303,7 @@ function populateSearchNetworks(type='supported'){
     $('#search-coin-dropdown-menu').html(menu);
 }
 
-// Handle updating the page info (title, description, canonical, robots)
+// Handle updating the page info (title, description, canonical, robots, social cards)
 function updatePageInfo(){
     var info = XC.pageInfo;
     // Update page title
@@ -5316,12 +5314,23 @@ function updatePageInfo(){
     // Update page description
     if(!isNull(info.description))
         $('meta[name="description"]').attr('content',info.description);
-    // Generate and update the Canonical URL 
+    // Generate and update the Canonical URL
     let win  = window.location,
         host = win.protocol + '//' + win.host,
         path = (!isNull(info.canonical)) ? info.canonical : win.pathname,
         url  = host + path;
-    $('link[rel="canonical"]').attr('src', url);
+    // A <link> carries its target in href. Setting src here left every page
+    // shipping an EMPTY canonical while still marked index,follow.
+    $('link[rel="canonical"]').attr('href', url);
+    // Keep the social cards in step with the canonical page identity, or every
+    // shared explorer link previews as the bare site-wide default.
+    $('meta[property="og:url"]').attr('content', url);
+    $('meta[property="og:title"]').attr('content', title);
+    $('meta[name="twitter:title"]').attr('content', title);
+    if(!isNull(info.description)){
+        $('meta[property="og:description"]').attr('content', info.description);
+        $('meta[name="twitter:description"]').attr('content', info.description);
+    }
     // Update robots tag
     if(!isNull(info.robots))
         $('meta[name="robots"]').attr('content',info.robots);

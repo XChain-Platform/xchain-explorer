@@ -456,6 +456,23 @@ function formatLinkAmount(url=null, text=null, icon=false, amount=false){
     return html;
 }
 
+// Render one leg of a dispenser/order trade: an amount plus whatever it is
+// denominated in. A NATIVE-coin leg carries no tick at all (the tick column is
+// null), and handing that to formatLinkAmount builds a '/token/null' href -
+// formatLink strips such a link now, but the cell would still be labelled with a
+// token that does not exist. So an absent tick renders the coin name plainly, and
+// a leg carrying neither renders a dash rather than an empty cell.
+function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
+    if(isNull(legTick)){
+        let txt = isNull(amount) ? '' : formatAmount(amount);
+        if(!isNull(legCoin))
+            txt += (txt ? ' ' : '') + escapeHtml(String(legCoin));
+        return (txt==='') ? '-' : txt;
+    }
+    let linkCoin = isNull(legCoin) ? pageCoin : legCoin;
+    return formatLinkAmount('/' + linkCoin + '/token/' + legTick, legTick, legTick, amount);
+}
+
 // Badge rendered in place of an amount cell when a row represents a
 // token-ownership sale (ORDER/SWAP/DISPENSER with GIVE_OWNERSHIP=1 or
 // GET_OWNERSHIP=1). The ownership record itself is the asset; there is
@@ -2529,6 +2546,49 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).html(isNull(expiration) ? '-' : formatLivestamp(expiration));
                 $('td', row).eq(7).html('<span class="badge text-bg-secondary">' + (pay_status || '-') + '</span>');
                 $('td', row).eq(8).html(action_link);
+            }
+            // ORDER_EXPIRE / SWAP_EXPIRE / DISPENSER_EXPIRE: the protocol retiring an
+            // unfilled order, an unfilled swap, or a dispenser that reached its expiration
+            // height. All three carry the same shape - the expire action, plus a pointer at
+            // the record it retired - so one branch renders the pointer for each.
+            if(['order_expire','swap_expire','dispenser_expire'].includes(action)){
+                let expired = data[4];
+                $('td', row).eq(3).html(isNull(source) ? '-' : source_link);
+                $('td', row).eq(4).html(isNull(expired) ? '-' : formatLink('/' + coin + '/action/' + expired, expired));
+                $('td', row).eq(5).html(action_link);
+            }
+            // DISPENSER_CLOSE: the owner retiring a dispenser and taking back its remaining
+            // escrow. The give/get legs are the CLOSED dispenser's terms, and either leg may
+            // be a native coin, which carries NO tick - linking one builds /token/null, so an
+            // absent tick renders the coin name unlinked instead.
+            if(action=='dispenser_close'){
+                let dispenser = data[4];
+                let reason    = data[11];
+                give_coin   = data[5];
+                give_token  = data[6];
+                give_amount = data[7];
+                get_coin    = data[8];
+                get_token   = data[9];
+                get_amount  = data[10];
+                $('td', row).eq(3).html(isNull(source) ? '-' : source_link);
+                $('td', row).eq(4).html(isNull(dispenser) ? '-' : formatLink('/' + coin + '/action/' + dispenser, dispenser));
+                $('td', row).eq(5).html(formatCoinLegAmount(coin, give_coin, give_token, give_amount));
+                $('td', row).eq(6).html(formatCoinLegAmount(coin, get_coin, get_token, get_amount));
+                // 'empty' (the dispenser drained itself) and 'cancelled' (the owner withdrew
+                // it) are indistinguishable in every other column, so they carry different
+                // badge colours: a reader must be able to tell them apart without reading.
+                $('td', row).eq(7).html(isNull(reason)
+                    ? '-'
+                    : '<span class="badge text-bg-' + ((String(reason)=='cancelled') ? 'warning' : 'secondary') + '">' + escapeHtml(String(reason)) + '</span>');
+                $('td', row).eq(8).html(action_link);
+            }
+            // COINPAY_EXPIRE: an obligation nobody paid, closed out at its expiration. No
+            // user transaction writes it, so it carries no source of its own and slot 3
+            // holds the obligation it retired instead of an address.
+            if(action=='coinpay_expire'){
+                let obligation = data[3];
+                $('td', row).eq(3).html(isNull(obligation) ? '-' : formatLink('/' + coin + '/action/' + obligation, obligation));
+                $('td', row).eq(4).html(action_link);
             }
             // Per-validator per-capability qualification flags (hub-owned; id-keyed). qualified/
             // self_test_ok/enabled are 0/1 flags rendered as yes/no badges.

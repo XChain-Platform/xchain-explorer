@@ -180,6 +180,12 @@ class XChainExplorer {
                 '/{COIN}/dividends'           : 'dividends.html',
                 '/{COIN}/dispensers'          : 'dispensers.html',
                 '/{COIN}/dispenses'           : 'dispenses.html',
+                // Dispenser terminal states: a DISPENSER_EXPIRE is the protocol retiring a
+                // dispenser at its expiration height, a DISPENSER_CLOSE is the owner doing
+                // it deliberately. Both return the remaining escrow, so the list carries the
+                // closed dispenser's give/get terms rather than just the pointer.
+                '/{COIN}/dispenser_expires'   : 'dispenser_expires.html',
+                '/{COIN}/dispenser_closes'    : 'dispenser_closes.html',
                 '/{COIN}/fees'                : 'fees.html',
                 '/{COIN}/files'               : 'files.html',
                 '/{COIN}/history'             : 'history.html',
@@ -191,6 +197,11 @@ class XChainExplorer {
                 '/{COIN}/mints'               : 'mints.html',
                 '/{COIN}/orders'              : 'orders.html',
                 '/{COIN}/order_matches'       : 'order_matches.html',
+                // An ORDER_EXPIRE / SWAP_EXPIRE is written by the protocol, not by a user
+                // transaction: it is how an unfilled order or swap leaves the book, and the
+                // row points back at the order/swap it retired.
+                '/{COIN}/order_expires'       : 'order_expires.html',
+                '/{COIN}/swap_expires'        : 'swap_expires.html',
                 '/{COIN}/contracts'            : 'contracts.html',
                 '/{COIN}/contract/{QUERY}'    : 'contract.html',
                 '/{COIN}/executions'          : 'executions.html',
@@ -231,6 +242,10 @@ class XChainExplorer {
                 // the who-owes-what-native-coin view an ORDER_MATCH creates.
                 '/{COIN}/coinpays'            : 'coinpays.html',
                 '/{COIN}/coinpay_obligations' : 'coinpay_obligations.html',
+                // The obligation that was never paid: a COINPAY_EXPIRE closes it out at its
+                // expiration. It carries no source address of its own (the protocol writes
+                // it), so the list shows the obligation it retired in that column instead.
+                '/{COIN}/coinpay_expires'     : 'coinpay_expires.html',
                 '/{COIN}/cross_chain_matches' : 'cross_chain_matches.html',
                 '/{COIN}/cross_chain_settlements' : 'cross_chain_settlements.html',
                 '/{COIN}/rewards'             : 'rewards.html',
@@ -570,6 +585,15 @@ class XChainExplorer {
                 '/{COIN}/explorer/coinpays'                                 : ['getCoinpays'],
                 '/{COIN}/explorer/coinpay_obligations/{QUERY}/{TYPE}'       : ['getCoinpayObligations', ['block', 'address']],
                 '/{COIN}/explorer/coinpay_obligations'                      : ['getCoinpayObligations'],
+                // Tier-4 expire/close feeds. These already had /api routes; the /explorer
+                // counterpart is what a DataTables page pages over, and each needs a
+                // getPagingDataResults row mapping below to go with it. Without the pair the
+                // page answers 404 and DataTables renders it as an empty table, not an error.
+                '/{COIN}/explorer/order_expires/{QUERY}/{TYPE}'             : ['getOrderExpires',     ['block', 'address']],
+                '/{COIN}/explorer/swap_expires/{QUERY}/{TYPE}'              : ['getSwapExpires',      ['block', 'address']],
+                '/{COIN}/explorer/dispenser_expires/{QUERY}/{TYPE}'         : ['getDispenserExpires', ['block', 'address']],
+                '/{COIN}/explorer/dispenser_closes/{QUERY}/{TYPE}'          : ['getDispenserCloses',  ['block', 'address']],
+                '/{COIN}/explorer/coinpay_expires/{QUERY}/{TYPE}'           : ['getCoinpayExpires',   ['block', 'address']],
                 // Feeds for the M2 list pages. price_snapshots / contract_delegations
                 // already had their /api routes; the /explorer counterpart is what a
                 // DataTables page pages over, and it needs a getPagingDataResults row
@@ -1636,6 +1660,26 @@ class XChainExplorer {
                     // block time column (the obligation is created by a match, not by its own tx).
                     if(method=='getCoinpayObligations')
                         info = [count_reverse, info.block_index, info.payer_address, info.payee_address, info.coin, info.coin_amount, info.expiration, info.coinpay_status, info.action_index];
+                    // Protocol-written terminal actions for orders/swaps/dispensers. Each row
+                    // is the expire/close action itself plus a pointer at what it retired, so
+                    // the pointer sits at slot 4 and status/action_index stay last.
+                    if(method=='getOrderExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.order_action_index, status, info.action_index];
+                    if(method=='getSwapExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.swap_action_index, status, info.action_index];
+                    if(method=='getDispenserExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispenser_action_index, status, info.action_index];
+                    // DISPENSER_CLOSE also returns the closed dispenser's terms, so both legs
+                    // ride along. A native-coin leg carries a null tick with a real coin+amount,
+                    // which the client must render unlinked rather than as /token/null.
+                    // close_reason ('empty' vs 'cancelled') sits BEFORE status/action_index so
+                    // action_index stays LAST (paging cursor) and status second-to-last.
+                    if(method=='getDispenserCloses')
+                        info = [count_reverse, info.block_index, info.timestamp, info.dispenser_address, info.dispenser_action_index, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, info.close_reason, status, info.action_index];
+                    // COINPAY_EXPIRE has no source of its own (no user transaction writes it),
+                    // so slot 3 carries the obligation it closed out instead of an address.
+                    if(method=='getCoinpayExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.obligation_action_index, status, info.action_index];
                     // Cross-chain settlement leg (local action-chain row; no status column). action_index
                     // is the paging cursor (LAST) and links the local settlement action.
                     if(method=='getCrossChainSettlements')

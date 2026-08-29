@@ -2236,7 +2236,17 @@ class Database {
                         a5.address as oracle_address,
                         b1.block_index,
                         b1.block_time as timestamp,
-                        s1.status
+                        s1.status,
+                        -- WHY the dispenser closed ('empty' after an auto-drain, 'cancelled'
+                        -- after the DISPENSER_CLOSE_DELAY elapses on a cancel). Without it the
+                        -- two closes are indistinguishable on the wire: every other column of a
+                        -- drained close and a cancelled one is identical, so a reader cannot tell
+                        -- a dispenser that ran dry from one its owner withdrew. Joined on the
+                        -- CLOSE's own action_index, not on the dispenser's latest status, because
+                        -- dispenser_close.js writes exactly one dispenser_statuses row keyed that
+                        -- way (createDispenserStatus(data['ACTION_INDEX'], ...)) - so this is a
+                        -- point read of the reason THIS close recorded, immune to any later row.
+                        s2.status as close_reason
                     FROM
                         dispenser_closes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -2246,6 +2256,8 @@ class Database {
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN dispenser_statuses ds ON (ds.action_index=m.action_index)
+                        LEFT  JOIN index_statuses     s2 ON (s2.id=ds.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
                         LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
@@ -2314,7 +2326,7 @@ class Database {
                         dispenser_expires m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN orders             o1 ON (o1.action_index=m.dispenser_action_index)
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
@@ -3543,7 +3555,7 @@ class Database {
                         swap_expires m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN orders             o1 ON (o1.action_index=m.swap_action_index)
+                        INNER JOIN swaps              s2 ON (s2.action_index=m.swap_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))

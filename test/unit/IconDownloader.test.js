@@ -2276,6 +2276,10 @@ describe('IconDownloader', function () {
             'http://10.0.0.5/x.png',
             'http://[fd00:ec2::254]/x.json',
             'http://100.64.0.1/x.png',
+            // The URL parser rewrites a mapped IPv6 host to hex pieces, so these
+            // reach the guard as ::ffff:7f00:1 / ::ffff:a9fe:a9fe, not as dotted.
+            'http://[::ffff:127.0.0.1]/x.json',
+            'http://[::ffff:169.254.169.254]/latest/meta-data/x.json',
         ];
         for (const url of privateLiterals) {
             it(`refuses a private literal-IP URL without calling axios (${url})`, async function () {

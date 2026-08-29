@@ -346,6 +346,25 @@ describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function 
         expect(isPrivateAddress('fe80::1%eth0')).to.be.true;
     });
 
+    // The WHATWG URL parser serializes an IPv6 host by hex pieces, so the dotted
+    // mapped spelling never reaches this classifier from a URL - only the hex one
+    // does, and a "::ffff:" prefix strip left it as unmatchable residue.
+    it('blocks IPv4-mapped IPv6 in hex-piece form, the spelling a URL emits', function () {
+        for (const ip of ['::ffff:7f00:1', '::ffff:a9fe:a9fe', '::ffff:a00:5',
+                          '0:0:0:0:0:ffff:7f00:1', '[::ffff:7f00:1]'])
+            expect(isPrivateAddress(ip), ip).to.be.true;
+        const host = new URL('http://[::ffff:127.0.0.1]/x.json').hostname.replace(/^\[|\]$/g, '');
+        expect(host).to.equal('::ffff:7f00:1');
+        expect(isPrivateAddress(host), host).to.be.true;
+    });
+
+    it('classifies every spelling of one IPv6 address alike', function () {
+        for (const ip of ['0:0:0:0:0:0:0:1', 'fe80:0:0:0:0:0:0:1', '::127.0.0.1', '::ffff:0:7f00:1'])
+            expect(isPrivateAddress(ip), ip).to.be.true;
+        for (const ip of ['::ffff:808:808', '::ffff:8.8.8.8', '2606:4700:0:0:0:0:0:1111'])
+            expect(isPrivateAddress(ip), ip).to.be.false;
+    });
+
     it('leaves ordinary public addresses alone', function () {
         for (const ip of ['8.8.8.8', '1.1.1.1', '93.184.216.34', '172.32.0.1', '2606:4700::1111'])
             expect(isPrivateAddress(ip), ip).to.be.false;

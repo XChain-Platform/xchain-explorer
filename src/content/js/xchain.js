@@ -473,6 +473,13 @@ function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
     return formatLinkAmount('/' + linkCoin + '/token/' + legTick, legTick, legTick, amount);
 }
 
+// Render a DISPENSER / DISPENSE native-coin leg: network icon, amount, coin name.
+// Escaped here, not per call site: both are on-chain fields bound for a .html() sink.
+// NOT formatCoinLegAmount - that omits the icon and adds thousands separators.
+function formatNativeCoinLeg(amount, coin){
+    return ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(amount) + ' ' + escapeHtml(coin);
+}
+
 // Badge rendered in place of an amount cell when a row represents a
 // token-ownership sale (ORDER/SWAP/DISPENSER with GIVE_OWNERSHIP=1 or
 // GET_OWNERSHIP=1). The ownership record itself is the asset; there is
@@ -1654,13 +1661,12 @@ function loadDatatablesData(coin, action, query, type){
                 } else {
                     $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
                 }
-                if(isNull(get_token)){
-                    // get_amount/get_coin are on-chain fields; escape before they land in the .html() sink below.
-                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(get_amount) + ' ' + escapeHtml(get_coin) ;
-                } else {
-                    html = formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount)
-                }
-                $('td', row).eq(5).html(html);
+                // Built as a LOCAL, never appended onto the shared `html` scratch variable:
+                // see formatNativeCoinLeg for why that mattered.
+                let getLeg = isNull(get_token)
+                    ? formatNativeCoinLeg(get_amount, get_coin)
+                    : formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount);
+                $('td', row).eq(5).html(getLeg);
                 $('td', row).eq(6).html(formatLink('/' + coin + '/dispenser/' + action_index, 'view', null, true));
             }
             // Dispense
@@ -1672,13 +1678,11 @@ function loadDatatablesData(coin, action, query, type){
                 get_token  = data[8];
                 get_amount = data[9];
                 $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
-                if(isNull(get_token)){
-                    // get_amount/get_coin are on-chain fields; escape before they land in the .html() sink below.
-                    html += ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(get_amount) + ' ' + escapeHtml(get_coin) ;
-                } else {
-                    html = formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount)
-                }
-                $('td', row).eq(5).html(html);
+                // Local, not the shared `html` scratch variable: see formatNativeCoinLeg.
+                let getLeg = isNull(get_token)
+                    ? formatNativeCoinLeg(get_amount, get_coin)
+                    : formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount);
+                $('td', row).eq(5).html(getLeg);
                 $('td', row).eq(6).html(action_link);
 
             } 
@@ -2581,6 +2585,61 @@ function loadDatatablesData(coin, action, query, type){
                     ? '-'
                     : '<span class="badge text-bg-' + ((String(reason)=='cancelled') ? 'warning' : 'secondary') + '">' + escapeHtml(String(reason)) + '</span>');
                 $('td', row).eq(8).html(action_link);
+            }
+            // ORDER_CANCEL / SWAP_CANCEL / DISPENSER_CANCEL: the owner pulling a live
+            // record off the book. All three carry the same shape - the cancel action, a
+            // pointer at the record it cancelled, and the memo explaining why - so one
+            // branch renders all three.
+            if(['order_cancel','swap_cancel','dispenser_cancel'].includes(action)){
+                let cancelled = data[4];
+                let why       = data[5];
+                $('td', row).eq(3).html(isNull(source) ? '-' : source_link);
+                $('td', row).eq(4).html(isNull(cancelled) ? '-' : formatLink('/' + coin + '/action/' + cancelled, cancelled));
+                // .text(), not .html(): a memo is arbitrary on-chain bytes.
+                $('td', row).eq(5).text(isNull(why) ? '-' : String(why));
+                $('td', row).eq(6).html(action_link);
+            }
+            // ORDER_EDIT / SWAP_EDIT: the owner amending a live record in place. The whole
+            // point of the row is WHAT CHANGED, so expiration and the allow/block lists are
+            // columns rather than detail-page-only fields. Each is nullable and a null means
+            // "this edit left that setting alone", which renders as a dash - dropping the
+            // column would hide the difference between an edit that cleared a list and one
+            // that never touched it. allow_list/block_list are ACTION INDEXES pointing at a
+            // LIST action, not inline lists, so they link like any other action pointer.
+            if(['order_edit','swap_edit'].includes(action)){
+                let edited     = data[4];
+                let expiration = data[5];
+                let allowList  = data[6];
+                let blockList  = data[7];
+                let why        = data[8];
+                $('td', row).eq(3).html(isNull(source) ? '-' : source_link);
+                $('td', row).eq(4).html(isNull(edited) ? '-' : formatLink('/' + coin + '/action/' + edited, edited));
+                // expiration is a Unix TIMESTAMP (seconds), the same field coinpay
+                // obligations carry, not a block height.
+                $('td', row).eq(5).html(isNull(expiration) ? '-' : formatLivestamp(expiration));
+                $('td', row).eq(6).html(isNull(allowList) ? '-' : formatLink('/' + coin + '/action/' + allowList, allowList));
+                $('td', row).eq(7).html(isNull(blockList) ? '-' : formatLink('/' + coin + '/action/' + blockList, blockList));
+                $('td', row).eq(8).text(isNull(why) ? '-' : String(why));
+                $('td', row).eq(9).html(action_link);
+            }
+            // DISPENSER_EDIT: as above, plus give_escrow - a refill is the most common
+            // dispenser edit and moves ONLY the escrow, so that row carries a null
+            // expiration and a real escrow amount. Both must render on their own.
+            if(action=='dispenser_edit'){
+                let edited     = data[4];
+                let escrow     = data[5];
+                let expiration = data[6];
+                let allowList  = data[7];
+                let blockList  = data[8];
+                let why        = data[9];
+                $('td', row).eq(3).html(isNull(source) ? '-' : source_link);
+                $('td', row).eq(4).html(isNull(edited) ? '-' : formatLink('/' + coin + '/action/' + edited, edited));
+                $('td', row).eq(5).text(isNull(escrow) ? '-' : formatAmount(escrow));
+                $('td', row).eq(6).html(isNull(expiration) ? '-' : formatLivestamp(expiration));
+                $('td', row).eq(7).html(isNull(allowList) ? '-' : formatLink('/' + coin + '/action/' + allowList, allowList));
+                $('td', row).eq(8).html(isNull(blockList) ? '-' : formatLink('/' + coin + '/action/' + blockList, blockList));
+                $('td', row).eq(9).text(isNull(why) ? '-' : String(why));
+                $('td', row).eq(10).html(action_link);
             }
             // COINPAY_EXPIRE: an obligation nobody paid, closed out at its expiration. No
             // user transaction writes it, so it carries no source of its own and slot 3

@@ -186,6 +186,12 @@ class XChainExplorer {
                 // closed dispenser's give/get terms rather than just the pointer.
                 '/{COIN}/dispenser_expires'   : 'dispenser_expires.html',
                 '/{COIN}/dispenser_closes'    : 'dispenser_closes.html',
+                // The two USER-written amendments to a live dispenser: a DISPENSER_CANCEL
+                // withdraws it, a DISPENSER_EDIT changes its escrow, expiration or lists.
+                // An edit only carries the fields it changed, so a null column means "this
+                // edit left that setting alone", not "the setting is empty".
+                '/{COIN}/dispenser_cancels'   : 'dispenser_cancels.html',
+                '/{COIN}/dispenser_edits'     : 'dispenser_edits.html',
                 '/{COIN}/fees'                : 'fees.html',
                 '/{COIN}/files'               : 'files.html',
                 '/{COIN}/history'             : 'history.html',
@@ -202,6 +208,14 @@ class XChainExplorer {
                 // row points back at the order/swap it retired.
                 '/{COIN}/order_expires'       : 'order_expires.html',
                 '/{COIN}/swap_expires'        : 'swap_expires.html',
+                // The user-written counterparts: an ORDER_CANCEL / SWAP_CANCEL pulls the
+                // record off the book, an ORDER_EDIT / SWAP_EDIT amends it in place. The
+                // edit lists lead with what the edit CHANGED (expiration, allow/block list),
+                // because the amended terms are the only reason the row exists.
+                '/{COIN}/order_cancels'       : 'order_cancels.html',
+                '/{COIN}/order_edits'         : 'order_edits.html',
+                '/{COIN}/swap_cancels'        : 'swap_cancels.html',
+                '/{COIN}/swap_edits'          : 'swap_edits.html',
                 '/{COIN}/contracts'            : 'contracts.html',
                 '/{COIN}/contract/{QUERY}'    : 'contract.html',
                 '/{COIN}/executions'          : 'executions.html',
@@ -594,6 +608,17 @@ class XChainExplorer {
                 '/{COIN}/explorer/dispenser_expires/{QUERY}/{TYPE}'         : ['getDispenserExpires', ['block', 'address']],
                 '/{COIN}/explorer/dispenser_closes/{QUERY}/{TYPE}'          : ['getDispenserCloses',  ['block', 'address']],
                 '/{COIN}/explorer/coinpay_expires/{QUERY}/{TYPE}'           : ['getCoinpayExpires',   ['block', 'address']],
+                // Cancel/edit feeds, the user-written half of the same lifecycles. Same
+                // pairing rule as the expires above: the /api route already existed, but a
+                // page pages over /explorer, and the feed is only half of it - each of these
+                // also needs a getPagingDataResults row mapping below, or the page renders
+                // blank cells with no error anywhere.
+                '/{COIN}/explorer/order_cancels/{QUERY}/{TYPE}'             : ['getOrderCancels',     ['block', 'address']],
+                '/{COIN}/explorer/order_edits/{QUERY}/{TYPE}'               : ['getOrderEdits',       ['block', 'address']],
+                '/{COIN}/explorer/swap_cancels/{QUERY}/{TYPE}'              : ['getSwapCancels',      ['block', 'address']],
+                '/{COIN}/explorer/swap_edits/{QUERY}/{TYPE}'                : ['getSwapEdits',        ['block', 'address']],
+                '/{COIN}/explorer/dispenser_cancels/{QUERY}/{TYPE}'         : ['getDispenserCancels', ['block', 'address']],
+                '/{COIN}/explorer/dispenser_edits/{QUERY}/{TYPE}'           : ['getDispenserEdits',   ['block', 'address']],
                 // Feeds for the M2 list pages. price_snapshots / contract_delegations
                 // already had their /api routes; the /explorer counterpart is what a
                 // DataTables page pages over, and it needs a getPagingDataResults row
@@ -1680,6 +1705,26 @@ class XChainExplorer {
                     // so slot 3 carries the obligation it closed out instead of an address.
                     if(method=='getCoinpayExpires')
                         info = [count_reverse, info.block_index, info.timestamp, info.obligation_action_index, status, info.action_index];
+                    // User-written cancels. The row is the cancel action plus a pointer at
+                    // the record it pulled, and its memo: the memo is the only field saying
+                    // WHY the owner cancelled, so it is the one column worth the width.
+                    if(method=='getOrderCancels')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.order_action_index, info.memo, status, info.action_index];
+                    if(method=='getSwapCancels')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.swap_action_index, info.memo, status, info.action_index];
+                    if(method=='getDispenserCancels')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispenser_action_index, info.memo, status, info.action_index];
+                    // User-written edits. An edit exists only for what it CHANGED, so the
+                    // amended fields ride along: a null expiration/allow_list/block_list means
+                    // the edit left that setting alone, which the client must render as a dash
+                    // rather than dropping the column (a DISPENSER_EDIT that moved only escrow
+                    // legitimately carries a null expiration). give_escrow is dispenser-only.
+                    if(method=='getOrderEdits')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.order_action_index, info.expiration, info.allow_list, info.block_list, info.memo, status, info.action_index];
+                    if(method=='getSwapEdits')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.swap_action_index, info.expiration, info.allow_list, info.block_list, info.memo, status, info.action_index];
+                    if(method=='getDispenserEdits')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispenser_action_index, info.give_escrow, info.expiration, info.allow_list, info.block_list, info.memo, status, info.action_index];
                     // Cross-chain settlement leg (local action-chain row; no status column). action_index
                     // is the paging cursor (LAST) and links the local settlement action.
                     if(method=='getCrossChainSettlements')

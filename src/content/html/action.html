@@ -1981,6 +1981,40 @@ function renderActionProof(o){
     '</div>';
 }
 
+// Offer the proof control only where a proof can actually be returned.
+//
+// An action proof binds to the signed block_merkle_root of the action's OWN
+// block, and that root is per-block with no cumulative accumulator, so a block
+// that was never checkpointed has nothing to bind to. Checkpoints are cut every
+// 6 blocks, so the route can only answer 409 for roughly five blocks in six:
+// measured on TBTC, 1 of the 18 blocks carrying recent actions was checkpointed.
+// A button that is always live and refuses that often reads as a broken feature
+// rather than as a property of the rail, so ask the cheap checkpoint route first
+// and state the refusal up front instead of spending a rate-limited proof
+// request to discover it on click.
+//
+// The proof route wants the numeric action_index, not the page's own :query
+// (which may be a tx hash), so nothing is wired until the action lookup resolves it.
+function wireActionProofButton(o){
+    if(isNull(o.action_index) || isNull(o.block_index))
+        return;
+    $.ajax({ url: '/' + XC.coin + '/api/checkpoint/' + encodeURIComponent(o.block_index), dataType: 'json' })
+        .done(function(){
+            $('#action-proof-btn').prop('disabled', false).on('click', function(){
+                loadProofWidget('/' + XC.coin + '/api/proof/action/' + encodeURIComponent(o.action_index),
+                    '#action-proof-result', renderActionProof);
+            });
+        })
+        .fail(function(){
+            // Same verdict the proof route itself would give on click (409
+            // ACTION_BLOCK_NOT_CHECKPOINTED), worded to match proofRefusal's.
+            $('#action-proof-btn').remove();
+            $('#action-proof-result').html(proofNotice('info',
+                'Not provable: this action\'s block has no signed checkpoint. ' +
+                'Action proofs are answerable only for checkpointed blocks.'));
+        });
+}
+
 $(document).ready(function(){
 
     // Build out a list of data panels for this page
@@ -2005,15 +2039,7 @@ $(document).ready(function(){
             XC.pageInfo.canonical   = '/' + XC.coin + '/transaction/' + XC.query;
             updatePageInfo();
 
-            // The proof route wants the numeric action_index, not the page's own
-            // :query (which may be a tx hash), so the button stays disabled until
-            // the action lookup above resolves it.
-            if(!isNull(o.action_index)){
-                $('#action-proof-btn').prop('disabled', false).on('click', function(){
-                    loadProofWidget('/' + XC.coin + '/api/proof/action/' + encodeURIComponent(o.action_index),
-                        '#action-proof-result', renderActionProof);
-                });
-            }
+            wireActionProofButton(o);
 
         });
 

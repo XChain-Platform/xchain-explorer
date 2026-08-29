@@ -216,6 +216,10 @@ const BET_EXPIRE = {
     async afterMain(ctx, data) {
         data['refund_count']  = 0;
         data['refund_amount'] = '0';
+        // Derive validity: BET_EXPIRE owns no table with a status_id and `actions`
+        // has no status column, so nothing stores it. The indexer mints this action
+        // only past its idempotence guard, so the row exists iff the pass committed.
+        data['status'] = 'valid';
     },
     // Sum in bignumber space at the indexer's own precision (bet_expire.js negates
     // the escrow with bcsub(..., 64)); a float sum of VARCHAR stakes would round a

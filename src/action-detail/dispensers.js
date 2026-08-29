@@ -176,7 +176,13 @@ const DISPENSER = {
                 ORDER BY m.action_index ASC`;
         return { query, query2, query3 };
     },
-    afterMain:   shared.applyOfferState,
+    // Escrow derives as create + refills - payouts, reaching 0 only when drained.
+    // An expired or cancelled dispenser had its escrow refunded by the terminal
+    // action and nothing nets that out, so apply the terminal rule explicitly.
+    async afterMain(ctx, data) {
+        await shared.applyOfferState(ctx, data);
+        shared.applyTerminalOfferState(data);
+    },
     afterQuery2: shared.applyOfferListEdits,
 };
 

@@ -42,15 +42,14 @@ async function applyOfferState({ db, config, action_index, type }, data) {
     }
 }
 
-// Statuses after which an offer's escrow is gone: settled (swap_match and
-// cross_settle both write 'complete'), cancelled (swap cancel, sweep), expired.
-// 'cancelling' / 'expiring' are still in flight (indexer rollback treats them
-// so), hence a whitelist and never the negation of 'open'.
+// Statuses after which an offer's escrow is gone. 'cancelling' / 'expiring' are
+// still in flight, hence a whitelist and never the negation of 'open'. A drained
+// dispenser's 'empty' is excluded: its escrow derivation already reaches 0.
 const TERMINAL_OFFER_STATUSES = Object.freeze(['complete', 'cancelled', 'expired']);
 
-// Swaps settle atomically (no partial fills, no swap_matches subtraction like
-// ORDER's), so once the state is terminal nothing remains in escrow and the
-// seeded give/get remaining must read 0 instead of the original amounts.
+// A terminal offer has released its escrow, so nothing remains on offer. Applies
+// to ORDER, SWAP and DISPENSER: their own subtractions reach 0 only on a filled or
+// drained offer, not on one expired or cancelled unfilled. Call AFTER any fills.
 function applyTerminalOfferState(data) {
     let state = data && data.state;
     if(!state || !TERMINAL_OFFER_STATUSES.includes(String(state.status)))

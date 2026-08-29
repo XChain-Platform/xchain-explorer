@@ -101,7 +101,13 @@ const ORDER = {
                 ORDER BY action_index ASC`;
         return { query, query2, query3 };
     },
-    afterMain:   shared.applyOfferState,
+    // Zero here AND after the fills subtraction: the registry skips afterQuery3
+    // when query3 returns no rows, which is exactly the unfilled-expiry case. Safe
+    // twice because afterQuery3 recomputes from give_amount, not from state.
+    async afterMain(ctx, data) {
+        await shared.applyOfferState(ctx, data);
+        shared.applyTerminalOfferState(data);
+    },
     afterQuery2: shared.applyOfferListEdits,
     // query3 matches this order on either leg, so its action_index is bound twice.
     query3Args({ action_index }) {
@@ -118,6 +124,9 @@ const ORDER = {
         }
         data.state.give_remaining = String(give_remaining);
         data.state.get_remaining  = String(get_remaining);
+        // A partially-filled order that then expired still has escrow released,
+        // so the unfilled residue is not on offer either.
+        shared.applyTerminalOfferState(data);
     },
 };
 

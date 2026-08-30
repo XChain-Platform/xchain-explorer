@@ -69,7 +69,7 @@
 // browser-served copy is kept in sync the same way every other cross-file copy of
 // this constant is - test/unit/content-client-anchor-detail.test.js pins it against
 // the real module.
-var ANCHOR_ACTIVATION = { mainnet: 0, testnet: 67858600, regtest: 0 };
+var ANCHOR_ACTIVATION = { mainnet: 6360000, testnet: 67858600, regtest: 0 };
 
 // Wire versions and the payload legs each one carries, per anchor_actions.sql, for
 // any row AT OR ABOVE its network's ANCHOR_ACTIVATION height. v0 is the

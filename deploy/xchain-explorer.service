@@ -1,0 +1,53 @@
+; Explorer production unit, for the host where the explorer runs as a systemd
+; service rather than a container: it serves from locally synced MariaDB
+; replicas, so there is no per-coin container fleet to join.
+;
+; Reproduced from the live /etc/systemd/system/xchain-explorer.service
+; (read 2026-08-30). `User`, `Group` and the paths carry a `<deploy-user>`
+; placeholder: substitute the account the explorer runs as before installing. The four LOG_* / METRICS_ENABLED / _PATCH lines
+; below are the ONLY addition; everything else matches the running unit.
+;
+; The box also carries drop-ins under
+; /etc/systemd/system/xchain-explorer.service.d/ (decoder-api.conf,
+; encoder.conf, hub.conf, indexer-api.conf, trackers.conf) holding per-coin
+; upstream endpoints. Those are box-specific wiring, are documented in their own
+; header comments on the box, and are deliberately NOT reproduced here: this
+; file is the service definition, not the endpoint map.
+
+[Unit]
+Description=xchain-explorer (single-server, NO_HUB / local synced MariaDB)
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=simple
+User=<deploy-user>
+Group=<deploy-user>
+WorkingDirectory=/home/<deploy-user>/xchain-explorer
+Environment=NODE_ENV=production
+Environment=NO_HUB=1
+Environment=EXPLORER_API_PORT_HTTP=18080
+# Observability shim controls (spec proactive-system-watch, D20). Written out at
+# their defaults so an operator raising this box to debug, or pointing a
+# collector at it with LOG_FORMAT=json, edits one file instead of service code.
+Environment=LOG_LEVEL=info
+Environment=LOG_FORMAT=text
+Environment=METRICS_ENABLED=false
+Environment=XCHAIN_LOG_PATCH=1
+ExecStart=/usr/bin/node src/api.js
+Restart=always
+RestartSec=5
+# append: keeps one O_APPEND fd open on each file for the life of the process,
+# which is why the logrotate stanza beside this file must use copytruncate: a
+# rotation that RENAMES either path leaves systemd writing to the old inode and
+# the new file permanently empty.
+StandardOutput=append:/home/<deploy-user>/xchain-explorer/logs/stdout.log
+StandardError=append:/home/<deploy-user>/xchain-explorer/logs/stderr.log
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=false
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -29,7 +29,7 @@
     "api": "node ./src/api.js",
     "vendor:vm": "bash bin/vendor-vm.sh",
     "check:vm": "bash bin/vendor-vm.sh check",
-    "test": "mocha 'test/unit/**/*.test.js' --timeout 0 --exit --recursive",
+    "test": "mocha --require ./test/setup.js 'test/unit/**/*.test.js' --timeout 0 --exit --recursive",
     "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha 'test/unit/**/*.test.js' --timeout 0 --recursive --exit",
     "coverage:check": "c8 --check-coverage --lines 86.4 --statements 86.4 --branches 81.9 --functions 81 --reporter=text-summary --include 'src/**/*.js' mocha 'test/unit/**/*.test.js' --timeout 0 --recursive --exit",
     "ci": "npm run check:vm && mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit && npm run ci:security && npm run test:boundary:unit",

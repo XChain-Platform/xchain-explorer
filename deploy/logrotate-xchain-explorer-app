@@ -1,0 +1,39 @@
+# Bounds the explorer's systemd stdout/stderr logs on the production host
+# (spec proactive-system-watch, 2.0.4).
+#
+# Installs as /etc/logrotate.d/xchain-explorer-app. The name matters: the box
+# already has /etc/logrotate.d/xchain-explorer, and that file holds the APACHE
+# access-log stanza for /var/log/apache2/explorer/*.log (1-day retention, wallet
+# addresses in the request lines, operator decision 2026-08-02). Installing this
+# under the bare name would overwrite it and drop the address-log retention
+# guarantee.
+#
+# Reading the box on 2026-08-30 found these two paths rotating until
+# 2026-08-02 and never again (/var/lib/logrotate/status still carries their
+# 2026-8-2 timestamps, and no file in /etc/logrotate.d names them). In the 28
+# days since, stderr.log reached 302 MB on a 20 GB root with 5.9 GB free, fed by
+# a per-cycle "getCoinPriceUsd: price unavailable" loop. This stanza is what
+# stops that from recurring.
+#
+# copytruncate, not create: the unit writes with StandardOutput/StandardError=
+# append:, holding one O_APPEND fd per file for the life of the process. A
+# rename-and-recreate rotation would leave systemd writing to the unlinked inode
+# and the fresh file empty until the next explorer restart, which on a
+# Restart=always service could be weeks.
+#
+# Retention: the live rate is 444 KB/h (302,445,237 bytes across the 681 hours
+# since the last rotation). Daily rotation with 7 copies keeps 7 days, far past
+# the 48 h floor; maxsize 100M is the ceiling for a fault loop that outruns the
+# daily cadence, and 100 MB live plus 7 compressed copies stays inside the
+# available space with room to spare.
+/home/<deploy-user>/xchain-explorer/logs/*.log {
+    su jdog jdog
+    daily
+    rotate 7
+    maxsize 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}

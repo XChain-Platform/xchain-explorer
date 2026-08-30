@@ -40,6 +40,16 @@ const coins           = require('./coins');
 
 dotenv.config();
 
+// Before anything else logs. installObservability does not run until
+// ~150 lines further down, inside startApi(), and this covers every line
+// between here and there (config-fetch failures, the consensus-pin check).
+const { patchConsole } = require('./observability');
+patchConsole({
+    service: 'xchain-explorer',
+    version: require('../package.json').version,
+    network: process.env.NETWORK || ''
+});
+
 //xchain-hub endpoints (multi-instance with fallback)
 const xchainHubConnector = require('./XChainHubConnector');
 const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();

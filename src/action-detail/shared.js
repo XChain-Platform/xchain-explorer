@@ -133,7 +133,8 @@ async function deblankBaseline(db, config, action_index, data) {
 // The ledger effects of an action: what it credited, what it debited, what it
 // put in escrow. Identical for every action (they all key on action_index), so
 // a handler only chooses whether each one runs, via its `effects` flags. The
-// four non-ledger actions (ADDRESS, BROADCAST, XCALL, NODEPROOF) skip all three.
+// five non-ledger actions (ADDRESS, BROADCAST, XCALL, NODEPROOF, ROLLCALL) skip
+// all three.
 const EFFECT_TABLES = [
     { key: 'credits', table: 'credits c1', alias: 'c1' },
     { key: 'debits',  table: 'debits d1',  alias: 'd1' },

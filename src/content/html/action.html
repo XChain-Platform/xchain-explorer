@@ -1887,6 +1887,42 @@
                             </table>
                         </div>
 
+                        <div class="d-none" id="info-rollcall">
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <tbody>
+                            <tr>
+                                <!-- Named as a Bitcoin height on purpose: a ROLLCALL only lands on
+                                     Dogecoin, so this page is always on a DOGE route while the epoch
+                                     is a BTC height. Unlabelled it reads as a wrong Dogecoin block. -->
+                                <th width="155">Epoch Height (BTC)</th>
+                                <td class="rollcall-epoch-height"></td>
+                            </tr>
+                            <tr>
+                                <th>Ledger Hash (BTC)</th>
+                                <td class="rollcall-ledger-hash"></td>
+                            </tr>
+                            <tr>
+                                <th>Publisher</th>
+                                <td class="rollcall-publisher"></td>
+                            </tr>
+                            <tr>
+                                <th>Validators Present</th>
+                                <td class="rollcall-signer-count"></td>
+                            </tr>
+                            </tbody>
+                            </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0 rollcall-signers" width="100%">
+                            <thead>
+                            <tr class="info">
+                                <th>Signing Pubkey</th>
+                                <th>Signature</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                            </table>
+                        </div>
+
                     </div>
                 </div>
 

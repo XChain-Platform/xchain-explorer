@@ -3011,6 +3011,7 @@ function showActionDetails(){
     if(o.action=='ANCHOR'){           found = true;  showAnchorDetails(o);          }
     if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
     if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
+    if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
     if(o.action=='BET'){              found = true;  showBetDetails(o);             }
     if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
     // Load the action table data for credits/debits/escrow/fees
@@ -4167,6 +4168,27 @@ function showNodeproofDetails(data){
         rows += '<tr><td>' + formatHash(v.signing_pubkey, 32) + '</td><td>' + src + '</td><td>' + badge + '</td></tr>';
     }
     $('#info-nodeproof .nodeproof-verifications tbody').html(rows || '<tr><td colspan="3">-</td></tr>');
+}
+
+// Display ROLLCALL action information (liveness roll call + the validators present at the epoch)
+//
+// EPOCH_HEIGHT IS A BITCOIN HEIGHT, and a ROLLCALL only ever lands on Dogecoin, so this
+// page is always on a DOGE route while that number refers to another chain. It is rendered
+// as plain text, deliberately NOT linked to /{COIN}/block/, because linking it would resolve
+// to an unrelated Dogecoin block of the same number and read as real. The label carries the
+// chain so the reader is not left to infer it.
+function showRollcallDetails(data){
+    $('#info-rollcall .rollcall-epoch-height').html(isNull(data.epoch_height) ? '-' : numeral(data.epoch_height).format('0,0'));
+    $('#info-rollcall .rollcall-ledger-hash').html(isNull(data.ledger_hash) ? '-' : formatHash(data.ledger_hash, 32));
+    $('#info-rollcall .rollcall-publisher').html(isNull(data.publisher) ? '-' : formatHash(data.publisher, 32));
+    // The signer list IS the present list: presence at an epoch is recorded by having
+    // signed the canonical, so there is no separate attendance flag to render.
+    let signers = Array.isArray(data.signers) ? data.signers : [];
+    $('#info-rollcall .rollcall-signer-count').text(signers.length);
+    let rows = '';
+    for(let s of signers)
+        rows += '<tr><td>' + formatHash(s.pubkey, 32) + '</td><td>' + formatHash(s.sig, 32) + '</td></tr>';
+    $('#info-rollcall .rollcall-signers tbody').html(rows || '<tr><td colspan="2">-</td></tr>');
 }
 
 // Display FEE details

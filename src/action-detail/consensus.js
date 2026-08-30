@@ -297,9 +297,81 @@ const PRICE = {
     },
 };
 
+const ROLLCALL = {
+    // ROLLCALL action (liveness roll call, DOGE-only, validator-broadcast).
+    // Wire: ROLLCALL|0|EPOCH_HEIGHT|LEDGER_HASH|PUBLISHER|SIG_COUNT|PUBKEY_i|SIG_i...
+    //
+    // NO LEDGER EFFECTS ON THIS action_index. The publish reward exists
+    // (ROLLCALL_REWARD_AMOUNT) but it is credited by the BTC-side epoch close
+    // (xchain-indexer/src/rollcall_close.js), on a different chain from the action
+    // being rendered here, so credits/debits/escrows keyed on this action_index are
+    // always empty. Same shape as NODEPROOF above.
+    effects: { credits: false, debits: false, escrows: false },
+    queries() {
+        let query  = null;
+        let query2 = null;
+        let query3 = null;
+        // epoch_height / ledger_hash / publisher are action-level constants repeated
+        // on every rollcall_signers row this action wrote, so any one row carries
+        // them; the per-validator present list is attached in afterMain below.
+        //
+        // LEFT JOIN on transactions rather than INNER: a detail page should render
+        // what the row holds even when no transaction joins. The unstakes LIST query
+        // uses INNER here and silently drops rows with a null tx_index, which is a
+        // real defect on the eviction path; not repeating the pattern.
+        query = `SELECT
+                    a4.action,
+                    a1.action_format,
+                    m.action_index,
+                    m.epoch_height,
+                    m.ledger_hash,
+                    m.publisher,
+                    a2.address as source,
+                    m.block_index,
+                    b1.block_time as timestamp,
+                    t2.hash as tx_hash,
+                    t1.tx_index
+                FROM
+                    rollcall_signers m
+                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                WHERE
+                    m.action_index=?
+                LIMIT 1`;
+        return { query, query2, query3 };
+    },
+    // The signer list IS the present list: a validator is recorded present at an
+    // epoch precisely by having signed the canonical. Scoped to THIS action_index,
+    // not to the epoch: rollcall_signers is unique on (epoch_height, pubkey) with
+    // INSERT IGNORE, so it is a first-seen index across the whole epoch, and several
+    // ROLLCALL actions per epoch are EXPECTED and union together. Showing the epoch's
+    // full union on one action's page would credit this action with signatures it
+    // did not carry.
+    //
+    // Ordered by pubkey, not by an autoincrement: rollcall_signers has NO id column
+    // (its primary key is the composite (epoch_height, pubkey)), so the `ORDER BY id`
+    // that the NODEPROOF handler above can use would be a SQL error here.
+    async afterMain({ db, config, action_index }, data) {
+        let signers = await db.doQuery(config,
+            `SELECT
+                    m.pubkey,
+                    m.sig,
+                    m.block_index
+             FROM rollcall_signers m
+             WHERE m.action_index=?
+             ORDER BY m.pubkey ASC`, [action_index]);
+        data['signers'] = (signers && signers.length) ? signers : [];
+    },
+};
+
 module.exports = {
     ANCHOR,
     ATTEST,
     NODEPROOF,
-    PRICE
+    PRICE,
+    ROLLCALL
 };

@@ -1324,6 +1324,25 @@ CREATE TABLE full_node_verifications (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX uq_epoch_pubkey ON full_node_verifications (epoch_height, signing_pubkey_id);
+
+-- ROLLCALL presence signatures, DOGE side. Mirrors xchain-indexer/src/sql/rollcall_signers.sql.
+-- NOTE: no `id` column; the primary key is the composite (epoch_height, pubkey), which is what
+-- makes this a first-seen index (INSERT IGNORE, so the first valid signature for a key in an
+-- epoch is the one served). Several ROLLCALL actions per epoch are expected and union together.
+DROP TABLE IF EXISTS rollcall_signers;
+CREATE TABLE rollcall_signers (
+    epoch_height  BIGINT UNSIGNED NOT NULL,        -- BTC height of the roll-call epoch
+    pubkey        CHAR(64)        NOT NULL,        -- present validator's Ed25519 signing key, lowercase hex
+    sig           CHAR(128)       NOT NULL,        -- signature over the EQUIV-wrapped canonical, lowercase hex
+    ledger_hash   CHAR(64)        NOT NULL,        -- BTC ledger_hash at epoch_height AS CARRIED
+    publisher     CHAR(64)        NOT NULL,        -- publishing validator's signing key; the publish reward attaches to it
+    action_index  BIGINT UNSIGNED NOT NULL,        -- the ROLLCALL action this signature landed in
+    block_index   BIGINT UNSIGNED NOT NULL,        -- DOGE block the action landed in
+    PRIMARY KEY (epoch_height, pubkey),
+    KEY idx_rollcall_signers_action (action_index),
+    KEY idx_rollcall_signers_block (block_index),
+    KEY idx_rollcall_signers_epoch_pub (epoch_height, publisher)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 CREATE        INDEX pubkey_block    ON full_node_verifications (signing_pubkey_id, block_index);
 CREATE        INDEX source_id       ON full_node_verifications (source_id);
 CREATE        INDEX block_index     ON full_node_verifications (block_index);

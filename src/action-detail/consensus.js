@@ -18,18 +18,23 @@
 'use strict';
 
 const ANCHOR = {
-    // ANCHOR action (DOGE-only). v0 checkpoint, v1 checkpoint+archive, v2
-    // continuation chunk, v3 checkpoint+SPV roots (post CHECKPOINT_COMMITMENT
-    // flag-day), v4 v0+publisher attestation (rootless), v5 v3+publisher
-    // attestation (root-bearing, mainnet-preferred), v6 v1+publisher attestation
-    // (post ARCHIVE_REWARD flag-day). archive_b64 is omitted (large; only the
-    // recovery assembler needs it). The SPV root columns (state_root,
-    // state_root_version, block_merkle_root, block_merkle_version) are NULL
-    // except on v3/v5, and publisher / publisher_attestations (the elected
-    // PUBLISHER pubkey and the raw XANCPUB quorum sigs) are NULL except on
-    // v4/v5/v6; all are selected unconditionally so the detail view matches the
-    // getAnchors() list and checkpoint-reader surfaces, and consumers re-verify
-    // rather than trust this display-only transport.
+    // ANCHOR action (DOGE-only). The wire set restarted at v0: v0 is
+    // the per-network checkpoint bundle, v1 the archive head (carries both its
+    // own checkpoint fields and the match archive, plus a publisher-attestation
+    // tail that may legitimately be empty, D4), v2 the archive continuation
+    // chunk. Every row mined below ANCHOR_ACTIVATION for its network reused
+    // these same version bytes under an older, unrelated meaning; this query has
+    // no version filter and selects every row identically regardless of version
+    // or activation, so a legacy row's columns come back exactly as stored and
+    // it is the RENDERER's job (anchor-detail-render.js) to tell a legacy row
+    // from a current one, not this query's. archive_b64 is omitted (large; only
+    // the recovery assembler needs it). The SPV root columns (state_root,
+    // state_root_version, block_merkle_root, block_merkle_version) and
+    // publisher / publisher_attestations (the elected PUBLISHER pubkey and the
+    // raw XANCPUB quorum sigs) are NULL on rows that never carried them; all are
+    // selected unconditionally so the detail view matches the getAnchors() list
+    // and checkpoint-reader surfaces, and consumers re-verify rather than trust
+    // this display-only transport.
     queries() {
         let query  = null;
         let query2 = null;
@@ -79,9 +84,10 @@ const ANCHOR = {
                 LIMIT 1`;
         return { query, query2, query3 };
     },
-    // Expand the inlined publisher-attestation JSON on ANCHOR v4/v5/v6 responses
-    // into a structured array the action-detail page can render. NULL/absent for
-    // v0-v3 (and the rootless/archive variants without a publisher tail), which
+    // Expand the inlined publisher-attestation JSON on ANCHOR responses that
+    // carry a publisher tail (today's v0 bundle and v1 archive head; formerly
+    // v4/v5/v6 before the wire set restarted) into a structured array
+    // the action-detail page can render. NULL/absent on every other row, which
     // yields an empty array so the client leaves the publisher row hidden.
     afterMain({ action_index }, data) {
         if(data['publisher_attestations']){

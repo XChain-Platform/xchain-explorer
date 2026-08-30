@@ -552,15 +552,15 @@ describe('Database#getAnchor (M4 composed anchor detail)', () => {
         expect(await db.getAnchor(detailConfig('getAnchor', '999999'))).to.deep.equal([null]);
     });
 
-    /* ------------------------- v7 bundle composition ------------------------ */
+    /* ------------------------- v0 bundle composition ------------------------ */
 
-    // A v7 ANCHOR is ONE action carrying every checkpointed chain of a network, stored
+    // A v0 ANCHOR is ONE action carrying every checkpointed chain of a network, stored
     // as sibling anchor_actions rows sharing an action_index at section_index 0..N-1.
     // The bundle-level fields are denormalized onto every row; the per-chain fields are
     // not. Composing them back into one header plus an ordered section list is the
     // whole of this leg, and getting it wrong is silent: the page would render one
     // arbitrary chain as if it were the entire anchor.
-    describe('v7 bundle composition', () => {
+    describe('v0 bundle composition', () => {
 
         // The serving explorer is DOGE here on purpose. Sections are ordered CHAIN
         // ascending, so this coin's own section is NOT section 0, which is the only
@@ -586,7 +586,7 @@ describe('Database#getAnchor (M4 composed anchor detail)', () => {
         // The spine matches section 0 (ORDER BY section_index ASC), so the header
         // arrives carrying BTC's per-chain values and the bundle's shared ones.
         const HEADER = Object.assign({}, SECTIONS[0], {
-            action: 'ANCHOR', action_index: 1100, version: 7,
+            action: 'ANCHOR', action_index: 1100, version: 0,
             publisher: PK, publisher_attestations: '[{"pubkey":"' + PK + '","sig":"dd"}]',
             block_index_doge: 3010, tx_hash: BUNDLE_TXID, archive_b64_length: null,
             match_batch_seq: null
@@ -626,7 +626,7 @@ describe('Database#getAnchor (M4 composed anchor detail)', () => {
             const db = bundleDb();
             const [data] = await db.getAnchor(bundleConfig());
             expect(data.action_index).to.equal(1100);
-            expect(data.version).to.equal(7);
+            expect(data.version).to.equal(0);
             expect(data.section_count).to.equal(3);
             expect(data.sections.map(s => s.section_index)).to.deep.equal([0, 1, 2]);
             expect(data.sections.map(s => s.chain)).to.deep.equal(['BTC', 'DOGE', 'LTC']);

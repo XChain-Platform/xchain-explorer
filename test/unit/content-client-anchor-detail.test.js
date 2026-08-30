@@ -145,7 +145,7 @@ function loadPage(routes) {
 /* ------------------------------- fixtures ------------------------------- */
 
 const TXID_V5 = 'a1'.repeat(32);
-const TXID_V6 = 'b2'.repeat(32);
+const TXID_V1 = 'b2'.repeat(32);
 const PUBLISHER = '128d293c' + 'f'.repeat(48) + '7eaa';
 const OTHER_PUBKEY = 'c3'.repeat(32);
 
@@ -164,7 +164,12 @@ const COVERING_CHECKPOINT = {
     created_at: '2026-08-19 12:00:00'
 };
 
-// ANCHOR v5: v3 checkpoint (SPV roots) + publisher-attestation tail.
+// ANCHOR v5: v3 checkpoint (SPV roots) + publisher-attestation tail. Retired by
+// the wire restart: ANCHOR_VERSION_TRAITS only knows 0/1/2 now, and this
+// shape (roots + publisher tail, no bundle, no archive) has no v0/v1/v2
+// equivalent, so on a network with no activation history (regtest, activation 0)
+// it renders through the unrecognized-version fallback rather than as a known
+// trait - see the 'version traits' tests below.
 // Venue shape: action 1006, checkpointed height 2497, mined at DOGE 2503.
 const V5 = {
     action: 'anchor', action_index: 1006, action_format: 'XANC', version: 5,
@@ -193,37 +198,38 @@ const V5 = {
     }]
 };
 
-// ANCHOR v6: v1 archive anchor + publisher-attestation tail.
+// ANCHOR v1: the archive head, carrying its own checkpoint fields plus the match
+// archive and a publisher-attestation tail (today's wire, after the restart).
 // Venue shape: action 1007, same checkpointed height 2497, mined at DOGE 2505.
-const V6 = Object.assign({}, V5, {
-    action_index: 1007, version: 6,
+const V1 = Object.assign({}, V5, {
+    action_index: 1007, version: 1,
     block_index_doge: 2505,
     state_root: null, state_root_version: null,
     block_merkle_root: null, block_merkle_version: null,
     match_batch_seq: 7, match_count: 3, batch_crc32: 'deadbeef',
     total_chunks: 2, chunk_index: 0, archive_b64_length: 4096,
-    tx_hash: TXID_V6,
+    tx_hash: TXID_V1,
     chunks: [
-        { action_index: 1007, version: 6, chunk_index: 0, total_chunks: 2, archive_b64_length: 4096, block_index_doge: 2505, status: 'valid' },
+        { action_index: 1007, version: 1, chunk_index: 0, total_chunks: 2, archive_b64_length: 4096, block_index_doge: 2505, status: 'valid' },
         { action_index: 1008, version: 2, chunk_index: 1, total_chunks: 2, archive_b64_length: 1024, block_index_doge: 2506, status: 'valid' }
     ],
     reward_attestations: [{
         id: 2, chain: 'DOGE', network: 'regtest', reward_type: 'anchor_archive',
         round_reference: 7, snapshot_block: 146500, publisher: PUBLISHER,
-        reward_amount: '10.00000000', doge_anchor_txid: TXID_V6,
+        reward_amount: '10.00000000', doge_anchor_txid: TXID_V1,
         created_at: '2026-08-19 12:02:00'
     }]
 });
 
-/* ------------------------- v7 bundle fixture ------------------------- */
+/* ------------------------- v0 bundle fixture ------------------------- */
 
-// ANCHOR v7: ONE action per network per cycle, carrying every checkpointed chain
-// as its own section. getAnchor composes the sibling rows into this shape: a
-// header holding what the BUNDLE owns, plus `sections` in section_index order
-// holding what each CHAIN owns. Sections are ordered chain-ascending, so on this
-// RDOGE explorer the local section is index 1, not index 0 - which is exactly the
-// arrangement in which rendering section 0 as "the anchor" looks plausible and is
-// wrong.
+// ANCHOR v0: ONE action per network per cycle, carrying every checkpointed chain
+// as its own section (formerly v7, re-keyed to v0 by the wire restart).
+// getAnchor composes the sibling rows into this shape: a header holding what the
+// BUNDLE owns, plus `sections` in section_index order holding what each CHAIN
+// owns. Sections are ordered chain-ascending, so on this RDOGE explorer the local
+// section is index 1, not index 0 - which is exactly the arrangement in which
+// rendering section 0 as "the anchor" looks plausible and is wrong.
 const BUNDLE_TXID = 'e7'.repeat(32);
 
 const BUNDLE_SECTIONS = [
@@ -245,7 +251,7 @@ const BUNDLE_SECTIONS = [
 ];
 
 const BUNDLE = Object.assign({}, V5, {
-    action_index: 1100, version: 7,
+    action_index: 1100, version: 0,
     chain: 'BTC', block_index: 2497, block_hash: 'b7'.repeat(32),
     checkpoint_seq: 110, snapshot_block: 112,
     state_root: '18'.repeat(32), block_merkle_root: '29'.repeat(32),
@@ -302,7 +308,7 @@ describe('anchor.html detail render @regression', function () {
         });
 
         it('keeps the two heights apart on the v6 archive anchor too (2497 vs 2505)', function () {
-            const $ = renderPage(V6);
+            const $ = renderPage(V1);
             expect($('.anchor-height-checkpointed .anchor-height-value').text()).to.equal('2,497');
             expect($('.anchor-height-broadcast .anchor-height-value').text()).to.equal('2,505');
         });
@@ -318,34 +324,54 @@ describe('anchor.html detail render @regression', function () {
 
     describe('version traits', function () {
 
-        it('renders a v5 as a ROOT-BEARING checkpoint: SPV roots present, archive card hidden', function () {
+        // v5 has no v0/v1/v2 equivalent after the restart (roots + tail,
+        // no bundle, no archive), and this row's own network (regtest) has no
+        // activation history, so it falls to the unrecognized-version shape
+        // fallback rather than the legacy-before-activation path (that path is
+        // covered separately below). Its PAYLOAD still renders in full: only the
+        // label and the "known" flag change, because the fallback derives every
+        // leg from the row's own columns.
+        it('a retired non-bundle root-bearing version (v5) is no longer a known trait, but its payload still renders', function () {
             const $ = renderPage(V5);
             expect($('.anchor-version-badge').text()).to.equal('v5');
-            expect($('.anchor-kind').text()).to.equal('Checkpoint + SPV roots + publisher tail');
+            expect($('.anchor-kind').text()).to.equal('Unrecognized version v5');
             expect($('.anchor-state-root-row').length, 'a v5 carries state_root').to.equal(1);
             expect($('.anchor-block-merkle-row').length, 'a v5 carries block_merkle_root').to.equal(1);
             expect($('#anchor-archive-card').hasClass('d-none'), 'a v5 carries no archive').to.equal(true);
             expect($('#anchor-checkpoint-payload .anchor-sig-count').text()).to.equal('1');
         });
 
-        it('renders a v6 as an ARCHIVE anchor: archive card revealed with batch + chunk trail', function () {
-            const $ = renderPage(V6);
-            expect($('.anchor-version-badge').text()).to.equal('v6');
-            expect($('#anchor-archive-card').hasClass('d-none'), 'a v6 carries an archive').to.equal(false);
+        it('renders a v0 bundle-family checkpoint: known trait, no activation note, no "unrecognized" fallback', function () {
+            // A single-section anchor cannot exercise anchor-sections-card wiring
+            // (that is the 'v0 bundle sections' describe block below), but it
+            // still proves v0 resolves through ANCHOR_VERSION_TRAITS as a KNOWN,
+            // bundle-shaped version rather than falling back to the row's shape.
+            const $ = renderPage(BUNDLE);
+            expect($('.anchor-version-badge').text()).to.equal('v0');
+            expect($('.anchor-kind').text()).to.equal('Checkpoint bundle (one per network)');
+            expect($('.anchor-note').text()).to.not.contain('does not recognize');
+            expect($('.anchor-note').text()).to.not.contain('Legacy');
+        });
+
+        it('renders a v1 as the ARCHIVE HEAD: archive card revealed with batch + chunk trail', function () {
+            const $ = renderPage(V1);
+            expect($('.anchor-version-badge').text()).to.equal('v1');
+            expect($('.anchor-kind').text()).to.equal('Archive head + publisher tail');
+            expect($('#anchor-archive-card').hasClass('d-none'), 'a v1 carries an archive').to.equal(false);
             expect($('.anchor-batch-seq .anchor-field-value').text()).to.equal('7');
             expect($('#anchor-archive-payload .anchor-chunk-row').length).to.equal(2);
             expect($('#anchor-archive-payload .anchor-chunk-self').length, 'this anchor is marked inside its own batch').to.equal(1);
-            // A v6 still carries a checkpoint, so the checkpoint payload stays.
+            // A v1 still carries a checkpoint, so the checkpoint payload stays.
             expect($('#anchor-checkpoint-payload .anchor-empty').length).to.equal(0);
         });
 
-        it('a v6 with null roots shows no root rows rather than empty root rows', function () {
-            const $ = renderPage(V6);
+        it('a v1 with null roots shows no root rows rather than empty root rows', function () {
+            const $ = renderPage(V1);
             expect($('.anchor-state-root-row').length).to.equal(0);
         });
 
         it('a v2 continuation chunk says it carries no checkpoint instead of showing blanks', function () {
-            const $ = renderPage(Object.assign({}, V6, {
+            const $ = renderPage(Object.assign({}, V1, {
                 version: 2, checkpoint_seq: null, chunk_index: 1, publisher: null,
                 publisher_attestations: []
             }));
@@ -355,16 +381,109 @@ describe('anchor.html detail render @regression', function () {
         });
 
         it('falls back to the row shape for an unrecognized version instead of rendering nothing', function () {
-            const $ = renderPage(Object.assign({}, V6, { version: 9 }));
+            const $ = renderPage(Object.assign({}, V1, { version: 9 }));
             expect($('.anchor-kind').text()).to.equal('Unrecognized version v9');
             expect($('#anchor-archive-card').hasClass('d-none'), 'match_batch_seq is set, so the archive still renders').to.equal(false);
             expect($('.anchor-batch-seq .anchor-field-value').text()).to.equal('7');
         });
     });
 
-    /* --------------------------- v7 bundle ---------------------------- */
+    /* ------------------- activation gate: legacy rows ------------------ */
 
-    describe('v7 bundle sections', function () {
+    // content/js ships as plain static scripts with no bundler, so the browser
+    // copy of ANCHOR_ACTIVATION cannot require() this service's canonical
+    // module and is instead a hand-vendored literal. That is a silent-drift
+    // seam: the server would gate at one height and the page label at another,
+    // and every symptom would look like a rendering bug. Pin the two together
+    // here, against the SHIPPED script the renders run from.
+    describe('ANCHOR_ACTIVATION twin parity (client literal vs. the module)', function () {
+
+        it('the browser copy equals src/protocol/constants.js exactly', function () {
+            const canonical = require('../../src/protocol/constants.js').ANCHOR_ACTIVATION;
+            const shipped   = domWithPage().window.ANCHOR_ACTIVATION;
+            expect(shipped, 'the render script must declare ANCHOR_ACTIVATION').to.be.an('object');
+            expect(shipped).to.deep.equal(canonical);
+            // deepEqual alone would pass if BOTH sides lost a network, so pin
+            // the key set the gate switches on as well.
+            expect(Object.keys(shipped).sort()).to.deep.equal(['mainnet', 'regtest', 'testnet']);
+        });
+    });
+
+    // D7: a row mined before ANCHOR_ACTIVATION for its network is legacy
+    // regardless of its version byte, because that byte was reused under an
+    // older, unrelated meaning before the wire restart. It must render
+    // through the SAME known:false path an unrecognized version does, under a
+    // dedicated "Legacy (before activation)" label plus its own stored status,
+    // and it must NEVER be read against today's v0/v1/v2 traits table - the
+    // exact failure mode that motivates the gate (a legacy row misreading as
+    // whatever today's version table happens to say that byte means).
+    describe('activation gate: rows before ANCHOR_ACTIVATION', function () {
+
+        // TDOGE testnet shape: action 22, a bundle-family anchor mined at DOGE
+        // height 150208, well below ANCHOR_ACTIVATION.testnet (67858600). Not
+        // yet reparsed (row 9 is off the launch path), so its stored status is
+        // still the old verdict ('valid').
+        const LEGACY_TESTNET_BUNDLE = Object.assign({}, BUNDLE, {
+            action_index: 22, network: 'testnet', block_index_doge: 150208, status: 'valid',
+            sections: BUNDLE_SECTIONS.map(function (s) { return Object.assign({}, s, { network: 'testnet' }); })
+        });
+
+        it('[TRAP] a bundle-shaped row below testnet activation renders as Legacy, never as a v0 bundle', function () {
+            const $ = renderPage(LEGACY_TESTNET_BUNDLE);
+            expect($('.anchor-version-badge').text()).to.equal('v0');
+            expect($('.anchor-kind').text()).to.equal('Legacy (before activation)');
+            expect($('.anchor-kind').text()).to.not.contain('bundle');
+        });
+
+        it('names the stored reason (the row\'s own status) in the legacy note', function () {
+            const $ = renderPage(LEGACY_TESTNET_BUNDLE);
+            const note = $('.anchor-field-value .anchor-note').first().text();
+            expect(note).to.contain('activation height');
+            expect(note).to.contain('Stored status: valid');
+        });
+
+        it('surfaces a post-reparse invalid verdict as the stored reason too, and leaves the Status badge untouched', function () {
+            const $ = renderPage(Object.assign({}, LEGACY_TESTNET_BUNDLE, {
+                status: 'invalid: ANCHOR before activation'
+            }));
+            expect($('.anchor-kind').text()).to.equal('Legacy (before activation)');
+            expect($('.anchor-field-value .anchor-note').first().text())
+                .to.contain('Stored status: invalid: ANCHOR before activation');
+            // The real Status field still shows the raw stored verdict too,
+            // unhidden - the legacy note explains it, it does not replace it.
+            expect($('.anchor-status-badge').first().text()).to.equal('invalid: ANCHOR before activation');
+        });
+
+        it('[TRAP] a v1-shaped row below testnet activation ALSO renders as Legacy, never as today\'s v1', function () {
+            // The exact misreading D7 exists to prevent: a legacy version byte 1
+            // meant something else before the restart, and collapsing the
+            // traits table without this gate would relabel it with TODAY'S v1
+            // meaning ("Archive head + publisher tail") instead of flagging it.
+            const $ = renderPage(Object.assign({}, V1, {
+                network: 'testnet', block_index_doge: 150174, status: 'valid'
+            }));
+            expect($('.anchor-kind').text()).to.equal('Legacy (before activation)');
+            expect($('.anchor-kind').text()).to.not.equal('Archive head + publisher tail');
+            expect($('.anchor-kind').text()).to.not.equal('Archive continuation chunk');
+        });
+
+        it('a row AT the activation height is judged on its version, not flagged legacy (>= is the boundary)', function () {
+            const $ = renderPage(Object.assign({}, V1, {
+                network: 'testnet', block_index_doge: 67858600, status: 'valid'
+            }));
+            expect($('.anchor-kind').text()).to.equal('Archive head + publisher tail');
+        });
+
+        it('regtest has no activation history (ANCHOR_ACTIVATION.regtest = 0), so a regtest row is never flagged legacy', function () {
+            const $ = renderPage(Object.assign({}, V1, { block_index_doge: 0 }));
+            expect($('.anchor-kind').text()).to.not.equal('Legacy (before activation)');
+            expect($('.anchor-kind').text()).to.equal('Archive head + publisher tail');
+        });
+    });
+
+    /* --------------------------- v0 bundle ---------------------------- */
+
+    describe('v0 bundle sections', function () {
 
         it('renders ONE row per chain, in section_index order, with each chain\'s own payload', function () {
             const $ = renderPage(BUNDLE);
@@ -421,7 +540,7 @@ describe('anchor.html detail render @regression', function () {
         it('names every chain in the bundle instead of one chain for the action', function () {
             const $ = renderPage(BUNDLE);
             expect($('.anchor-bundle-chains').text()).to.equal('BTC, DOGE, LTC');
-            expect($('.anchor-version-badge').text()).to.equal('v7');
+            expect($('.anchor-version-badge').text()).to.equal('v0');
             expect($('.anchor-kind').text()).to.contain('bundle');
         });
 
@@ -501,7 +620,7 @@ describe('anchor.html detail render @regression', function () {
         });
 
         it('renders the archive-reward row on the v6 anchor', function () {
-            const $ = renderPage(V6);
+            const $ = renderPage(V1);
             expect($('.anchor-reward-row .anchor-reward-type').text()).to.equal('anchor_archive');
             expect($('.anchor-reward-row .anchor-reward-round').text()).to.equal('7');
         });
@@ -512,7 +631,7 @@ describe('anchor.html detail render @regression', function () {
             const $ = renderPage(Object.assign({}, V5, {
                 reward_attestations: [
                     Object.assign({}, V5.reward_attestations[0], { id: 1, doge_anchor_txid: TXID_V5 }),
-                    Object.assign({}, V5.reward_attestations[0], { id: 3, doge_anchor_txid: TXID_V6 })
+                    Object.assign({}, V5.reward_attestations[0], { id: 3, doge_anchor_txid: TXID_V1 })
                 ]
             }));
             const badges = $('.anchor-reward-linkage').map(function (i, el) { return $(el).text(); }).get();

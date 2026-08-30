@@ -282,6 +282,21 @@ const ARCHIVE_REWARD_ACTIVATION = {
     regtest: 0,
 };
 
+// ANCHOR_ACTIVATION: the DOGE height (per network) at/above which the ANCHOR wire set restarts at
+// version 0 (v0 = the per-network checkpoint bundle, v1 = the archive head with its publisher tail,
+// v2 = the archive continuation chunk). Every ANCHOR mined BELOW this height, of any version, is
+// invalid ('invalid: ANCHOR before activation'); at/above it only versions 0/1/2 parse and every
+// other version byte is 'invalid: VERSION (unknown)'. Keyed on the action's OWN DOGE block_index
+// (data['BLOCK_INDEX'] at parse time, anchor_actions.block_index_doge), never on SNAPSHOT_BLOCK or
+// the checkpointed height: the row being judged is the anchor itself. testnet 67858600 is 24
+// blocks above the last legacy anchor (action 48 at 67858576, 2026-08-30); mainnet has no anchor
+// history and regtest stacks are fresh, so both are 0. Operator ruling 2026-08-30.
+const ANCHOR_ACTIVATION = {
+    mainnet: 0,
+    testnet: 67858600,
+    regtest: 0,
+};
+
 // ARCHIVE_REWARD_AMOUNT: the frozen archive-publish reward, signed into the archive XANCPUB
 // attestation by the hub and re-derived by the indexer (never from the wire). Kept equal to the
 // hub's historical default (ANCHOR_REWARD_PER_PUBLISH). Changing it is itself a flag-day.
@@ -369,6 +384,7 @@ module.exports = {
     ANCHOR_REWARD_AMOUNT,
     ARCHIVE_REWARD_ACTIVATION,
     ARCHIVE_REWARD_AMOUNT,
+    ANCHOR_ACTIVATION,
     CROSS_CHAIN_ROYALTY_ACTIVATION,
     VALID_FIAT_CODES,
     GAS_TICK,

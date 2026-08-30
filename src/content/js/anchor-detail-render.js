@@ -44,30 +44,44 @@
  * snapshot_block + the round this anchor closed (inference). Those are different
  * strengths of evidence and each row says which one matched it.
  *
- * A v7 IS A BUNDLE, NOT A CHECKPOINT. One v7 action carries EVERY checkpointed
+ * A v0 IS A BUNDLE, NOT A CHECKPOINT. One v0 action carries EVERY checkpointed
  * chain of one network, stored as sibling rows sharing an action_index. It
  * therefore has no single chain, no single checkpointed height and no single set
  * of roots, and rendering it through the single-row layout would silently present
  * one arbitrary section as the whole anchor. Every per-chain field a bundle owns
  * is rendered in the sections table instead, and the single-row layout is kept
  * verbatim for the archive versions that really do carry exactly one.
+ *
+ * ACTIVATION GATES THE TRAITS TABLE, NOT JUST THE VERSION BYTE. The ANCHOR wire
+ * set restarted at v0: every row mined below ANCHOR_ACTIVATION for its
+ * network reused version BYTES 0-7 under an OLDER, unrelated meaning (v1 used to
+ * mean "checkpoint + match archive"; today's v1 means "archive head + publisher
+ * tail"). Looking such a row up in ANCHOR_VERSION_TRAITS would render the WRONG
+ * shape under a plausible-looking label, so anchorTraits checks the activation
+ * height FIRST and renders every legacy row through the known:false path with a
+ * dedicated "Legacy (before activation)" label, never through the version table.
  */
 
-// Wire versions and the payload legs each one carries, per anchor_actions.sql.
-// v0 checkpoint; v1 checkpoint + archive segment; v2 archive continuation chunk;
-// v3 checkpoint + SPV roots; v4/v5/v6 add the publisher-attestation tail to
-// v0/v3/v1 respectively; v7 is the per-network checkpoint BUNDLE, root-bearing by
-// construction, one section per chain. v0/v3/v4/v5 are retired on new chains but
-// stay listed here: rows already written under them still render.
+// ANCHOR_ACTIVATION: the DOGE height (per network) at/above which the ANCHOR wire
+// set restarts at version 0. Vendored byte-identical from src/protocol/constants.js
+// (this service's own canonical copy): server code reaches that file with
+// require(), but content/js ships as plain static scripts with no bundler, so this
+// browser-served copy is kept in sync the same way every other cross-file copy of
+// this constant is - test/unit/content-client-anchor-detail.test.js pins it against
+// the real module.
+var ANCHOR_ACTIVATION = { mainnet: 0, testnet: 67858600, regtest: 0 };
+
+// Wire versions and the payload legs each one carries, per anchor_actions.sql, for
+// any row AT OR ABOVE its network's ANCHOR_ACTIVATION height. v0 is the
+// per-network checkpoint BUNDLE, root-bearing by construction, one section per
+// chain; v1 is the archive head, carrying both its own checkpoint fields and the
+// match archive, with a publisher-attestation tail that may legitimately be empty
+// (ATTEST_SIG_COUNT 0, D4); v2 is the archive continuation chunk. A row below
+// activation never reaches this table - see the ACTIVATION GATE note above.
 var ANCHOR_VERSION_TRAITS = {
-    0: { label: 'Checkpoint',                                  checkpoint: true,  archive: false, roots: false, publisher: false, continuation: false, bundle: false },
-    1: { label: 'Checkpoint + match archive',                  checkpoint: true,  archive: true,  roots: false, publisher: false, continuation: false, bundle: false },
-    2: { label: 'Archive continuation chunk',                  checkpoint: false, archive: true,  roots: false, publisher: false, continuation: true,  bundle: false },
-    3: { label: 'Checkpoint + SPV roots',                      checkpoint: true,  archive: false, roots: true,  publisher: false, continuation: false, bundle: false },
-    4: { label: 'Checkpoint + publisher tail',                 checkpoint: true,  archive: false, roots: false, publisher: true,  continuation: false, bundle: false },
-    5: { label: 'Checkpoint + SPV roots + publisher tail',     checkpoint: true,  archive: false, roots: true,  publisher: true,  continuation: false, bundle: false },
-    6: { label: 'Match archive + publisher tail',              checkpoint: true,  archive: true,  roots: false, publisher: true,  continuation: false, bundle: false },
-    7: { label: 'Checkpoint bundle (one per network)',         checkpoint: true,  archive: false, roots: true,  publisher: true,  continuation: false, bundle: true  }
+    0: { label: 'Checkpoint bundle (one per network)',         checkpoint: true,  archive: false, roots: true,  publisher: true,  continuation: false, bundle: true  },
+    1: { label: 'Archive head + publisher tail',               checkpoint: true,  archive: true,  roots: false, publisher: true,  continuation: false, bundle: false },
+    2: { label: 'Archive continuation chunk',                  checkpoint: false, archive: true,  roots: false, publisher: false, continuation: true,  bundle: false }
 };
 
 // Page-local escape, matching the per-page pattern the other detail pages use.
@@ -125,10 +139,25 @@ function anchorStatusBadge(status){
 // Which payload legs this anchor carries. Known versions come from the traits
 // table; an unrecognized version falls back to the payload's own shape so a
 // future version renders what it actually has instead of nothing at all.
+//
+// The activation gate runs BEFORE the version lookup (D7): a row mined below
+// ANCHOR_ACTIVATION for its network is legacy regardless of its version byte,
+// because that byte was reused under an older meaning before the v0/v1/v2
+// restart. Routing it through today's traits table would render the wrong
+// shape under a plausible-looking label (a legacy v1 "checkpoint + match
+// archive" would read as today's v1 "archive head"), so it renders through the
+// same known:false path an unrecognized version does, tagged legacy instead.
 function anchorTraits(d){
     let row = d || {};
     let v   = isNull(row.version) ? null : Number(row.version);
-    let t   = (v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
+
+    let net    = isNull(row.network) ? null : String(row.network);
+    let cutoff = (net !== null && Object.prototype.hasOwnProperty.call(ANCHOR_ACTIVATION, net))
+        ? ANCHOR_ACTIVATION[net] : null;
+    let doge   = isNull(row.block_index_doge) ? null : Number(row.block_index_doge);
+    let legacy = (cutoff !== null && doge !== null && doge < cutoff);
+
+    let t = (!legacy && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
     if(t)
         return {
             known: true, version: v, label: t.label,
@@ -140,7 +169,12 @@ function anchorTraits(d){
     return {
         known: false,
         version: v,
-        label: (v === null) ? 'Anchor' : ('Unrecognized version v' + v),
+        legacy: legacy,
+        // The row's OWN stored verdict, carried through verbatim rather than
+        // guessed at: the Status field renders it separately too, but the
+        // legacy note names it inline so the "why" sits next to the label.
+        reason: legacy ? (isNull(row.status) ? null : String(row.status)) : null,
+        label: legacy ? 'Legacy (before activation)' : ((v === null) ? 'Anchor' : ('Unrecognized version v' + v)),
         checkpoint:   !isNull(row.checkpoint_seq),
         archive:      !isNull(row.match_batch_seq),
         roots:        (!isNull(row.state_root) || !isNull(row.block_merkle_root)),
@@ -241,7 +275,10 @@ function renderAnchorIdentity(d){
     html += anchorFieldRow('Version', '<span class="badge text-bg-primary anchor-version-badge">v'
         + anchorEsc(isNull(row.version) ? '?' : row.version) + '</span> <span class="anchor-kind">'
         + anchorEsc(t.label) + '</span>'
-        + (t.known ? '' : anchorNote('This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
+        + (t.known ? '' : anchorNote(t.legacy
+            ? ('This ANCHOR was mined before the activation height for its network, so its version byte predates the current v0/v1/v2 wire set and is not read against today\'s traits table. Stored status: '
+                + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
+            : 'This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
     html += anchorFieldRow('Status', anchorStatusBadge(row.status));
     // A bundle's verdict is all-or-nothing across its sections, so the single
     // status above is the whole action's. Its CHAIN, though, is every chain it

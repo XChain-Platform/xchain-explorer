@@ -11693,7 +11693,7 @@ class Database {
     // actions/transactions/blocks chain like getAttestations/getXcalls.
     // type in {block, chain, network, status}.
     //
-    // A v7 BUNDLE is N sibling rows sharing one action_index, one per checkpointed
+    // A v0 BUNDLE is N sibling rows sharing one action_index, one per checkpointed
     // chain, each carrying its own chain/block_index/checkpoint_seq/roots. That is
     // exactly why the bundle was stored one row per section: every per-chain reader,
     // this list and its `chain` filter included, keeps working unchanged and simply
@@ -12534,13 +12534,13 @@ class Database {
         // re-verify, never presented as a verified quorum.
         row.publisher_attestations = this._parseSignaturesArray(row.publisher_attestations);
 
-        // A v7 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
+        // A v0 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
         // N sibling rows sharing one action_index at section_index 0..N-1. Each row holds
         // its OWN chain, block_index, checkpoint_seq, roots and validator signatures; the
         // bundle-level fields (version, network, publisher, publisher_attestations, status,
         // txid, the DOGE block it landed in) are denormalized identically onto every row,
         // which is why the spine above can serve as the header no matter which section it
-        // matched. Archive rows (v1/v2/v6) and every retired per-chain version stay at
+        // matched. Archive rows (v1/v2) and every retired per-chain version stay at
         // section_index 0, so they take no second query at all.
         //
         // snapshot_block on the header is the BUNDLE's block, the MAX over the sections: a
@@ -12549,7 +12549,7 @@ class Database {
         // block as the bundle's would look the electorate up at the wrong height.
         row.sections      = [];
         row.section_count = 1;
-        if(Number(row.version) === 7){
+        if(Number(row.version) === 0){
             let sections = await this.doQuery(config,
                 `SELECT
                     m.section_index,
@@ -12652,12 +12652,12 @@ class Database {
         // Reward trail. CHAIN-SCOPED, so filterParams lead. Correlated on the mined DOGE
         // txid this anchor landed in, OR on the table's own natural key minus publisher
         // (snapshot_block + the round this anchor closed: checkpoint_seq for a checkpoint
-        // anchor, match_batch_seq for an archive one, the SNAPSHOT BLOCK itself for a v7
+        // anchor, match_batch_seq for an archive one, the SNAPSHOT BLOCK itself for a v0
         // bundle, whose single anchor_bundle reward is keyed round_reference =
         // SNAPSHOT_BLOCK rather than to any one section's checkpoint_seq).
         let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
         let rounds = [row.checkpoint_seq, row.match_batch_seq,
-                      (Number(row.version) === 7) ? row.snapshot_block : null]
+                      (Number(row.version) === 0) ? row.snapshot_block : null]
             .filter(v => !this.util.isNull(v)).map(v => Number(v));
         let rewardWhere = 'm.doge_anchor_txid=?';
         let rewardArgs  = [...src.filterParams, row.tx_hash];

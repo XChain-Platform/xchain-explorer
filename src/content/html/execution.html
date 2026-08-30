@@ -29,7 +29,16 @@ $(document).ready(function() {
 
     // Fetch the single execution record directly (route doesn't fit loadApiData)
     $.getJSON('/' + XC.coin + '/api/execution/' + XC.query, function(o){
+        // This route answers with the {total,data} LIST envelope, unlike its sibling
+        // single-resource routes; both shapes are accepted rather than assuming one.
+        // Reading the bare object left every field on the page blank or dashed.
+        let d = null;
         if(o && !o.error){
+            if(!isNull(o.data))              d = Array.isArray(o.data) ? o.data[0] : o.data;
+            else if(!isNull(o.action_index)) d = o;
+        }
+        if(d){
+            o = d;
             $('.execution-index').html(formatLink('/' + XC.coin + '/action/' + o.action_index, o.action_index));
             $('.execution-contract').html(formatLink('/' + XC.coin + '/contract/' + o.contract_index, o.contract_index));
             $('.execution-caller').html(isNull(o.caller) ? '-' : formatLink('/' + XC.coin + '/address/' + o.caller, o.caller));

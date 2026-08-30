@@ -43,6 +43,11 @@ function mkDb(rows) {
     db.util = new Utility();
     db.decoderDb = { RBTC: 'XChain_BTC_Decoder' };
     db.doQuery = sinon.stub().resolves(rows);
+    // getMempool TYPE=address forward-resolves the queried address to its index
+    // id (byte-exactly, to match compacted `^<id>` destinations). Stub it here so
+    // the shared doQuery stub is not asked to answer two different queries; the
+    // compacted path has its own tests in db.mempool-address-refs.test.js.
+    db.getExactAddressId = sinon.stub().resolves(null);
     return db;
 }
 
@@ -277,7 +282,7 @@ describe('decoder mempool surface', () => {
     describe('ChangeDetector mempool diffing', () => {
         function mkDetector(db) {
             const cd = new ChangeDetector({ db, pollInterval: 999999 });
-            cd.mempoolState.RBTC = { seenHashes: new Set(), initialized: false };
+            cd.mempoolState.RBTC = { seenHashes: new Map(), initialized: false };
             return cd;
         }
 
@@ -371,24 +376,38 @@ describe('decoder mempool surface', () => {
             const b = new Broadcaster({ wsServer: {}, changeDetector: detector });
             b._broadcastToChannel = (coin, channel, event, raw, entity) =>
                 sent.push({ coin, channel, type: event.type, entity: entity || null, data: event.data });
-            return { detector, sent };
+            return { detector, sent, b };
         }
 
-        it('routes MEMPOOL_ACTION to the mempool channel + source address channel', () => {
-            const { detector, sent } = mkBroadcaster();
+        // Mempool frames are queued on the per-coin promise tail (_mempoolTails)
+        // because the fan-out awaits address-id resolution, so a test has to let
+        // the tail settle before asserting.
+        const settle = (b, coin) => b._mempoolTails.get(coin) || Promise.resolve();
+
+        it('routes MEMPOOL_ACTION to the source address channel + the mempool channel', async () => {
+            const { detector, sent, b } = mkBroadcaster();
             detector.emit('mempool_action', 'RBTC', { tx_hash: 'aa11', source: 'srcAddr1', action: 'SEND', data: 'SEND|0|TOK|5|d|m' });
+            await settle(b, 'RBTC');
             expect(sent.map((s) => [s.channel, s.type, s.entity])).to.deep.equal([
-                ['mempool', 'MEMPOOL_ACTION', null],
                 ['address', 'MEMPOOL_ACTION', 'srcAddr1'],
+                ['mempool', 'MEMPOOL_ACTION', null],
             ]);
-            expect(sent[0].data.data).to.equal('SEND|0|TOK|5|d|m');
+            expect(sent[1].data.data).to.equal('SEND|0|TOK|5|d|m');
         });
 
-        it('routes MEMPOOL_REMOVED to the mempool channel only', () => {
-            const { detector, sent } = mkBroadcaster();
+        it('routes MEMPOOL_REMOVED to the mempool channel and the source address channel', async () => {
+            const { detector, sent, b } = mkBroadcaster();
             detector.emit('mempool_removed', 'RBTC', { tx_hash: 'aa11' });
-            expect(sent).to.have.lengthOf(1);
+            await settle(b, 'RBTC');
+            expect(sent).to.have.lengthOf(1);                       // no source: nowhere to route it
             expect(sent[0]).to.include({ channel: 'mempool', type: 'MEMPOOL_REMOVED' });
+
+            detector.emit('mempool_removed', 'RBTC', { tx_hash: 'bb22', source: 'srcAddr1', data: 'SEND|0|TOK|5|d|m' });
+            await settle(b, 'RBTC');
+            expect(sent.slice(1).map((s) => [s.channel, s.entity])).to.deep.equal([
+                ['address', 'srcAddr1'],
+                ['mempool', null],
+            ]);
         });
     });
 

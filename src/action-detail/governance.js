@@ -73,7 +73,7 @@ const BET = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN bet_feeds          f  ON (f.action_index=a1.action_index)
                     LEFT  JOIN index_tickers      ft ON (ft.id=f.tick_id)
@@ -216,6 +216,10 @@ const BET_EXPIRE = {
     async afterMain(ctx, data) {
         data['refund_count']  = 0;
         data['refund_amount'] = '0';
+        // Derive validity: BET_EXPIRE owns no table with a status_id and `actions`
+        // has no status column, so nothing stores it. The indexer mints this action
+        // only past its idempotence guard, so the row exists iff the pass committed.
+        data['status'] = 'valid';
     },
     // Sum in bignumber space at the indexer's own precision (bet_expire.js negates
     // the escrow with bcsub(..., 64)); a float sum of VARCHAR stakes would round a
@@ -308,7 +312,7 @@ const VOTE = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN polls              p   ON (p.action_index=a1.action_index)
                     LEFT  JOIN index_tickers      pt  ON (pt.id=p.tick_id)

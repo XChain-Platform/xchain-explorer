@@ -79,6 +79,45 @@ const TIP_MAX_FUTURE_SKEW_DEFAULT_S = 7200;
 // gate costs no extra query on a busy explorer.
 const TIP_STALE_CACHE_TTL_MS = 15000;
 
+// The action families that carry a real RECIPIENT, and the column on each that
+// points back at the action (decision I-46, measured against xchain-indexer/src/sql).
+// Backs getActionsSince's `destinations` (spec wallet-unconfirmed-and-sounds M1.4).
+//
+// Two things here are load-bearing and easy to get wrong:
+//
+//   - `contracts` is DELIBERATELY ABSENT. It carries `slash_destination_id`, not
+//     `destination_id`, and that column is DEPLOY-time slash ROUTING CONFIG, not a
+//     recipient of anything. Including it would fan "you received something" out to
+//     every address a contract merely names in its deploy, which is the opposite of
+//     what the wallet's incoming-receipt notification means. It is also the only
+//     destination-ish column not named `destination_id`, which is how a naive grep
+//     sweeps it back in; do not add it.
+//   - Three of the join keys are NOT `action_index`. `slash_events` keys on
+//     `execution_index` (FK to contract_executions.action_index) and
+//     `capability_slash_events` on `slash_action_index` (FK to actions.action_index).
+//     Joining either on `action_index` silently matches nothing, since neither table
+//     has that column at all.
+//
+// `sends.action_index` is a NON-unique index on purpose: a multi-output SEND is
+// several rows sharing one action_index, and every one of their destinations must
+// reach the wire. That is why the lookup below collects a LIST per action rather
+// than a single value.
+//
+// These table/column names are compile-time literals interpolated as SQL
+// IDENTIFIERS (a placeholder cannot bind an identifier). No caller can reach them:
+// nothing outside this constant is ever spliced into the query, and every VALUE is
+// still bound with `?`.
+const ACTION_DESTINATION_FAMILIES = [
+    { table: 'sends',                   key: 'action_index'       },
+    { table: 'sweeps',                  key: 'action_index'       },
+    { table: 'dispenses',               key: 'action_index'       },
+    { table: 'mints',                   key: 'action_index'       },
+    { table: 'messages',                key: 'action_index'       },
+    { table: 'fees',                    key: 'action_index'       },
+    { table: 'slash_events',            key: 'execution_index'    },
+    { table: 'capability_slash_events', key: 'slash_action_index' }
+];
+
 // Raised by doQuery when the underlying query genuinely FAILED (connection
 // unavailable after retries, or the DB rejected the statement), as opposed to
 // succeeding with an empty result set. The request layer maps it to a 5xx so a
@@ -94,6 +133,14 @@ class DbQueryError extends Error {
     }
 }
 
+// An ACTION's source is `actions.source_id`, never `transactions.source_id`. The two agree
+// for every user action, and DISAGREE for a VM emission: the indexer stores the emitting
+// contract's derived address on the action row (xchain-indexer db.js createActionIndex,
+// execute.js processEmission) while the transaction still belongs to the human who sent the
+// EXECUTE. Reading the transaction there renders a real address that is the WRONG one, which
+// no reader can catch by eye. Every query below therefore resolves source through
+// COALESCE(<actions alias>.source_id, t1.source_id); the fallback covers system/synthetic
+// actions (expiries, completion UNSTAKEs), which are created with no SOURCE at all.
 class Database {
 
     constructor(explorer){
@@ -109,6 +156,12 @@ class Database {
 
         // LRU caches for frequently-queried immutable lookups
         this._addressIdCache  = new Map();
+        // Byte-exact address -> id resolutions (getExactAddressId). Kept apart from
+        // _addressIdCache because the two lookups legitimately disagree for the same
+        // key: the ci lookup resolves a case variant to the id of the address it
+        // resembles, the byte-exact one resolves it to null. One shared cache would
+        // let whichever ran first answer for both.
+        this._exactAddressIdCache = new Map();
         this._tickIdCache     = new Map();
         this._actionDataCache = new Map();
         // Per-coin reorg generation counter mixed into the id/action cache keys
@@ -1163,7 +1216,7 @@ class Database {
         } else if(method=='getPolls'){
             // polls (VOTE v0) joins the actions/transactions/blocks chain (b1 via t1) like
             // getAttestations. tick joins index_tickers (pt) on m.tick_id; source is the poll
-            // creator (a2 via t1.source_id); status filters the poll lifecycle enum directly.
+            // creator (a2 via the action source); status filters the poll lifecycle enum directly.
             if(type=='block')  sql += ' AND b1.block_index=?';
             if(type=='tick')   sql += ' AND pt.tick=?';
             if(type=='status') sql += ' AND m.poll_status=?';
@@ -1177,7 +1230,7 @@ class Database {
             sql += ' AND m.poll_index=?';
         } else if(method=='getVotes'){
             // votes (VOTE v1 ballots) joins the actions/transactions/blocks chain; the voter IS
-            // the source that cast the ballot (a2 via t1.source_id), so address filters on a2.
+            // the source that cast the ballot (a2 via the action source), so address filters on a2.
             if(type=='address') sql += ' AND a2.address=?';
             if(type=='poll')    sql += ' AND m.poll_index=?';
             if(type=='block')   sql += ' AND b1.block_index=?';
@@ -1195,7 +1248,7 @@ class Database {
         } else if(method=='getBetFeeds'){
             // bet_feeds (BET format 0) joins the actions/transactions/blocks chain like
             // getPolls. tick joins index_tickers (pt) on the wager token; source is the
-            // oracle that created the feed (a2 via t1.source_id); status filters the
+            // oracle that created the feed (a2 via the action source); status filters the
             // STORED feed lifecycle enum through index_statuses (fs), never a clock
             // recomputation. 'address' is an alias of 'source' here because a feed has
             // exactly one participating address of its own (the oracle); bettors are
@@ -1210,7 +1263,7 @@ class Database {
             sql += ' AND m.action_index=?';
         } else if(method=='getBets'){
             // bets (BET format 2 ballots-equivalent) joins the actions/transactions/blocks
-            // chain; the bettor IS the source that placed the wager (a2 via t1.source_id).
+            // chain; the bettor IS the source that placed the wager (a2 via the action source).
             // 'feed' filters to one market, matching getVotes' 'poll'.
             if(type=='address') sql += ' AND a2.address=?';
             if(type=='feed')    sql += ' AND m.feed_action_index=?';
@@ -1448,7 +1501,7 @@ class Database {
             }
             if(type=='address'){
                 if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
-                    where = ` AND (t1.source_id=? OR m.destination_id=?)`;
+                    where = ` AND (COALESCE(a1.source_id, t1.source_id)=? OR m.destination_id=?)`;
                     whereArgs.push(id, id);
                 } else if(['getTokens'].includes(method)){
                     where = ` AND m.owner_id=?`;
@@ -1463,7 +1516,11 @@ class Database {
                     where = ` AND m.type_id=2 AND m.id=?`;
                     whereArgs.push(id);
                 } else {
-                    where = ` AND t1.source_id=?`;
+                    // Paging boundaries must filter on the same source the row query joins on
+                    // (the ACTION's own source, falling back to the transaction's), or an
+                    // emitted action pages differently from how it lists. Every boundary query
+                    // below joins `actions a1`, so the alias is always in scope here.
+                    where = ` AND COALESCE(a1.source_id, t1.source_id)=?`;
                     whereArgs.push(id);
                 }
             } else if(type=='oracle'){
@@ -1504,6 +1561,22 @@ class Database {
                 return [offset1, false];
             return [];
         }
+        // Does this listing page over BLOCKS rather than over actions? `blocks` is the one
+        // table in the allowlist above whose rows are not actions - it carries no
+        // action_index at all - so the generic boundary query below, which joins
+        // `actions a1 ON (a1.action_index=m.action_index)`, cannot run against it.
+        //
+        // Keyed on the TABLE being paged, never on `type`. `type` names the FILTER axis, not
+        // the thing being listed: a SENDS list filtered by block is still a list of actions.
+        // Keying on `type=='block'` got both wrong at once. The blocks LIST page passes no
+        // type at all, so it fell through to the generic query and answered 500 DB_ERROR on
+        // every coin and every network - `Unknown column 'm.action_index'` - which is what a
+        // reader saw as a frozen page. Meanwhile a sends-by-block list, which DOES pass
+        // type=='block', took the block-index arithmetic below against an offset that the
+        // boundary query had returned as an action_index.
+        //
+        // Both sites must agree, because the second interprets the number the first returns.
+        let pagesOverBlocks = (table === 'blocks');
         if(['first','last'].includes(action)){
             if(action=='first')
                 order = 'DESC';
@@ -1511,7 +1584,7 @@ class Database {
                 order = 'ASC';
                 limit = this.util.bcadd(length,1);
             }
-            if(type=='block' && this.util.isNull(config.data.search)){
+            if(pagesOverBlocks){
                 sql = `SELECT
                             b1.block_index as offset_index
                         FROM
@@ -1587,7 +1660,9 @@ class Database {
             }
         }
         if(offset1){
-            if(type=='block'){
+            // Same predicate as the boundary query above, deliberately: this branch reads
+            // offset1 as a BLOCK INDEX, and only the blocks query returns one.
+            if(pagesOverBlocks){
                 if(action=='last'){
                     offset2 = this.util.bcsub(this.util.bcadd(offset1,1),q.length);
                 } else {
@@ -1755,7 +1830,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1780,7 +1855,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1800,7 +1875,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1826,7 +1901,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1847,7 +1922,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -1867,7 +1942,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -1886,7 +1961,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1912,7 +1987,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1932,7 +2007,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1959,7 +2034,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -1981,7 +2056,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2006,7 +2081,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2032,7 +2107,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2069,7 +2144,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_addresses    a5 ON (a5.id=m.oracle_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -2095,7 +2170,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2118,7 +2193,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2161,7 +2236,17 @@ class Database {
                         a5.address as oracle_address,
                         b1.block_index,
                         b1.block_time as timestamp,
-                        s1.status
+                        s1.status,
+                        -- WHY the dispenser closed ('empty' after an auto-drain, 'cancelled'
+                        -- after the DISPENSER_CLOSE_DELAY elapses on a cancel). Without it the
+                        -- two closes are indistinguishable on the wire: every other column of a
+                        -- drained close and a cancelled one is identical, so a reader cannot tell
+                        -- a dispenser that ran dry from one its owner withdrew. Joined on the
+                        -- CLOSE's own action_index, not on the dispenser's latest status, because
+                        -- dispenser_close.js writes exactly one dispenser_statuses row keyed that
+                        -- way (createDispenserStatus(data['ACTION_INDEX'], ...)) - so this is a
+                        -- point read of the reason THIS close recorded, immune to any later row.
+                        s2.status as close_reason
                     FROM
                         dispenser_closes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -2171,6 +2256,8 @@ class Database {
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                        LEFT  JOIN dispenser_statuses ds ON (ds.action_index=m.action_index)
+                        LEFT  JOIN index_statuses     s2 ON (s2.id=ds.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
                         LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
@@ -2193,7 +2280,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2220,7 +2307,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2239,10 +2326,10 @@ class Database {
                         dispenser_expires m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN orders             o1 ON (o1.action_index=m.dispenser_action_index)
+                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -2262,7 +2349,7 @@ class Database {
                         INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -2350,7 +2437,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2377,7 +2464,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2399,7 +2486,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -2432,7 +2519,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -2464,7 +2551,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2496,7 +2583,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2515,7 +2602,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2545,7 +2632,7 @@ class Database {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                             LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2568,7 +2655,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2617,7 +2704,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2641,7 +2728,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2669,7 +2756,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2691,7 +2778,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2716,7 +2803,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2740,7 +2827,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2767,7 +2854,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2791,7 +2878,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2818,7 +2905,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2844,7 +2931,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2884,7 +2971,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -2909,7 +2996,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2932,7 +3019,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2952,7 +3039,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -2978,7 +3065,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3000,7 +3087,7 @@ class Database {
                         INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -3020,7 +3107,7 @@ class Database {
                         INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -3091,7 +3178,7 @@ class Database {
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
@@ -3113,7 +3200,7 @@ class Database {
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
@@ -3211,7 +3298,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3238,7 +3325,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3260,7 +3347,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3286,7 +3373,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3311,7 +3398,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3352,7 +3439,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3380,7 +3467,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3403,7 +3490,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3423,7 +3510,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3449,7 +3536,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -3468,10 +3555,10 @@ class Database {
                         swap_expires m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN orders             o1 ON (o1.action_index=m.swap_action_index)
+                        INNER JOIN swaps              s2 ON (s2.action_index=m.swap_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -3491,7 +3578,7 @@ class Database {
                         INNER JOIN swaps              s2 ON (s2.action_index=m.swap_action_index)
                         INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
@@ -3555,7 +3642,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -3584,7 +3671,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -4072,6 +4159,27 @@ class Database {
      * /{COIN}/api/status                     getStatus
      * /{COIN}/api/token/{QUERY}              getToken        token
      * /{COIN}/api/transaction/{QUERY}/{TYPE} getTransaction  tx_hash, tx_index
+     *
+     * -----------------------------------------------------------------
+     * /api/mempool TYPE=address: accepted matching limitations
+     * -----------------------------------------------------------------
+     * The address filter is a LAYOUT-FREE segment scan over the decoded
+     * action string (mempoolRowMatchesAddress), not a per-action-format
+     * parser: only SEND has a documented output layout, and a mempool row is
+     * pre-validation, so there is no format-aware parse to trust here. Two
+     * consequences ship as accepted limitations rather than bugs:
+     *
+     *   - False positives. Any exact pipe-segment equal to the queried
+     *     address matches, including a segment that is not a destination at
+     *     all (a memo whose text happens to be that address).
+     *   - Best-effort non-SEND semantics. For every action family other than
+     *     SEND, a match means "this address appears in this action", not
+     *     "this action pays this address".
+     *
+     * Compacted destinations ARE matched: the SDK writes destinations as
+     * `^<id>` index references by default, so the queried address is
+     * forward-resolved to its index id once per request (cached getAddressId)
+     * and `^<id>` segments count as hits alongside the literal address.
      ******************************************************************/
 
     async getAction(config){
@@ -4121,7 +4229,7 @@ class Database {
                         INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_actions      a1 ON (a1.id=m.action_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(m.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + extra + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
@@ -4439,7 +4547,10 @@ class Database {
     // action string is one opaque pipe-joined column, so a LIKE would match
     // across field boundaries): TYPE=address matches the source OR any exact
     // pipe-segment of the action string (covers SEND destinations across
-    // versions); TYPE=token matches any exact segment against the uppercased
+    // versions) OR the `^<id>` reference the SDK compacts that address to by
+    // default (see mempoolRowMatchesAddress and the accepted-limitations note
+    // in the endpoint header above); TYPE=token matches any exact segment
+    // against the uppercased
     // tick. No TYPE (bare /api/mempool, or the /explorer/mempool list-all
     // fallback) lists every decoded row (spec explorer-coverage-completion
     // M1.2): the old code matched ONLY address/token and silently returned []
@@ -4469,6 +4580,21 @@ class Database {
         let type   = String(config.data.type || '').toLowerCase();
         let rows   = await this.getDecoderMempoolRows(config, 500);
         let out    = [];
+        // Resolve the queried address to its index id ONCE per request, not once
+        // per row: getExactAddressId is cached (per coin + reorg generation), but the
+        // window is up to 500 rows and a cache miss is a real query. Null when the
+        // address was never indexed, which is exactly when the SDK cannot compact
+        // it either, so the literal branch below still matches it.
+        // BYTE-EXACT resolution, not the ci getAddressId the search paths use: a
+        // wrong-case address must not inherit another address's id and match its
+        // `^<id>` destinations (see getExactAddressId).
+        let addressId = null;
+        if(type=='address' && search.length){
+            // A failed id read degrades to literal-only matching rather than
+            // failing the whole mempool request.
+            try { addressId = await this.getExactAddressId(config, search); }
+            catch(e){ addressId = null; }
+        }
         for(let row of rows){
             let decoded = this.decodeMempoolRow(row);
             if(!decoded) continue;
@@ -4476,12 +4602,11 @@ class Database {
                 out.push(decoded);
                 continue;
             }
-            let segments = decoded.data.split('|');
             let match = false;
             if(type=='address')
-                match = (decoded.source===search) || segments.includes(search);
+                match = this.mempoolRowMatchesAddress(decoded, search, addressId);
             if(type=='token')
-                match = segments.includes(search.toUpperCase());
+                match = this.mempoolSegments(decoded).includes(search.toUpperCase());
             if(match) out.push(decoded);
         }
         let total = out.length;
@@ -5041,8 +5166,52 @@ class Database {
             // attack surface (a poll nobody sees is a poll nobody out-votes), so
             // open polls surface on the token itself, binding polls flagged.
             data.open_polls = await this.getTokenOpenPolls(config, data.info.tick);
+            // Files LINKed to this token (the NFT pattern: LINK v0 binds a FILE action to a
+            // token's ISSUE). The Files TAB already lists these, but the info column - the
+            // part of the page a reader actually looks at for what a token IS - said "No
+            // additional information is available" beside a token carrying on-chain artwork.
+            // Same rows the tab reads (mappings_files), so nothing new is indexed.
+            data.linked_files = await this.getTokenLinkedFiles(config, data.info.tick);
         }
         return [data];
+    }
+
+    // Files LINKed to a token, newest link first. `title`/`name`/`type` drive the token
+    // page's Linked Files card and its artwork pick; `gated` tells the page a file's bytes
+    // are gated behind a token balance, so it can say so instead of offering a raw link
+    // that will refuse. Capped: this feeds an info card, not a paged list.
+    async getTokenLinkedFiles(config, tick){
+        if(this.util.isNull(tick)) return [];
+        let rows = await this.doQuery(config,
+            `SELECT
+                f1.action_index,
+                f1.name,
+                f1.title,
+                t3.type,
+                b1.block_index,
+                (gf.action_index IS NOT NULL) as gated
+            FROM
+                mappings_files m
+                INNER JOIN index_tickers      t4 ON (t4.id=m.id AND t4.tick=?)
+                INNER JOIN files              f1 ON (f1.action_index=m.action_index)
+                INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
+                INNER JOIN index_statuses     s1 ON (s1.id=f1.status_id AND s1.status='valid')
+                INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
+                LEFT  JOIN gated_files        gf ON (gf.action_index=f1.action_index)
+            WHERE
+                m.type_id=1
+            ORDER BY m.action_index DESC
+            LIMIT 10`, [tick]);
+        if(!rows || !rows.length) return [];
+        return rows.map(r => ({
+            action_index: Number(r.action_index),
+            name:         r.name,
+            title:        r.title,
+            type:         r.type,
+            block_index:  Number(r.block_index),
+            gated:        Number(r.gated) === 1
+        }));
     }
 
     async getTransaction(config){
@@ -5398,6 +5567,7 @@ class Database {
             }
             if(handler.afterQueries)
                 await handler.afterQueries(ctx, data);
+            await this.attachActionDetailSupplements(config, type, action_index, data, pre);
             await actionDetail.attachLedgerEffects(this, config, action_index, data, handler.effects, (pre) ? pre.effects : null);
             if(handler.afterEffects)
                 await handler.afterEffects(ctx, data);
@@ -5429,6 +5599,110 @@ class Database {
         return data;
     }
 
+    // Wire-carried fields the per-type detail handlers cannot select because they
+    // live in a SIBLING event table, not the handler's primary table. The action
+    // detail is the page that exists to render what the wire format carried, so a
+    // field the indexer stores must appear here, populated on the variant that
+    // carries it and present-as-null on the others (the shape every other ISSUE
+    // variant field already follows). All three source tables are append-only and
+    // reorg rollback deletes their rows, so the values are as cache-safe as the
+    // rest of the action payload.
+    async attachActionDetailSupplements(config, type, action_index, data, pre){
+        let fmt = this.util.isNull(data.action_format) ? null : Number(data.action_format);
+        if(type=='ISSUE'){
+            // ISSUE v6 = controller bind/unbind (ISSUE|6|TICK|CONTROLLER|ACTION_CLASS|
+            // COOLDOWN_BLOCKS|UNBIND). The event row is written to token_controllers,
+            // never to `issues`, so without this the four wire fields vanished from
+            // the API row while /api/controllers showed them.
+            data.controller      = null;
+            data.action_class    = null;
+            data.cooldown_blocks = null;
+            data.unbind          = null;
+            if(fmt === 6){
+                let rows = await this.doQuery(config,
+                    `SELECT
+                        c.contract_index as controller,
+                        c.action_class,
+                        c.cooldown_blocks,
+                        c.is_unbind as unbind
+                    FROM
+                        token_controllers c
+                    WHERE
+                        c.action_index=?
+                    LIMIT 1`, [action_index]);
+                // No row = the bind/unbind never applied (invalid action, or rolled
+                // back); the keys stay null rather than being reparsed from tx_data.
+                if(rows && rows.length)
+                    Object.assign(data, rows[0]);
+            }
+        }
+        if(type=='DEPLOY' && fmt === 4){
+            // v4 chunk carrier: CODE_PART is a first-class wire field and this page
+            // is the only surface that can show the payload. The full slice rides
+            // the single-action row only; list rows carry code_part_length instead
+            // (getDeployChunks), because a MEDIUMTEXT slice per row is too heavy for
+            // a paged list.
+            data.code_part        = null;
+            data.code_part_length = null;
+            let rows = await this.doQuery(config,
+                `SELECT
+                    m.code_part,
+                    CHAR_LENGTH(m.code_part) as code_part_length
+                FROM
+                    deploy_chunks m
+                WHERE
+                    m.action_index=?
+                LIMIT 1`, [action_index]);
+            if(rows && rows.length){
+                data.code_part        = rows[0].code_part;
+                data.code_part_length = this.util.isNull(rows[0].code_part_length) ? null : Number(rows[0].code_part_length);
+            }
+        }
+        if(type=='DEPLOY' && fmt !== null && fmt !== 4){
+            // v0-v3 deploy: the constructor run is billed like any EXECUTE and the
+            // indexer records it in contract_executions, but the detail row showed
+            // no gas at all, hiding the deployer's cost. Surface the recorded gas
+            // plus the execution linkage (contract_index / method_name); this reads
+            // existing execution rows only and invents no fee artifacts.
+            data.contract_index = null;
+            data.method_name    = null;
+            data.gas_used       = null;
+            data.gas_limit      = null;
+            let rows = await this.doQuery(config,
+                `SELECT
+                    m.contract_index,
+                    m.method_name,
+                    m.gas_used,
+                    m.gas_limit
+                FROM
+                    contract_executions m
+                WHERE
+                    m.action_index=?
+                LIMIT 1`, [action_index]);
+            if(rows && rows.length)
+                Object.assign(data, rows[0]);
+        }
+        // Emission provenance, for EVERY action type. A VM-emitted action has no wire string
+        // of its own - it was never on the wire - so `tx_data` on its detail row is the PARENT
+        // EXECUTE's string. Read alone on a per-action page that says "Transaction Data", it
+        // reads as this action's own data, and it is the field this campaign cross-checks
+        // rendered values against. No synthetic string is composed here: inventing a wire form
+        // that was never broadcast would be worse than the ambiguity. Instead the page is told
+        // where the action came from, so it can label the parent's string as the parent's.
+        // A page-level prefetch resolves this leg for the whole index set at once; asking
+        // per-action here put the page back above the per-index query ceiling that
+        // action-preload-parity guards. The single-index path falls through to the batch
+        // helper with a set of one, so both paths return the identical shape.
+        data.emitted_by = null;
+        let key = Number(action_index);
+        if(pre && pre.emitted && pre.indexes && pre.indexes.has(key)){
+            data.emitted_by = pre.emitted.has(key) ? pre.emitted.get(key) : null;
+        } else {
+            let one = await this.getEmissionProvenanceBatch(config, [key]);
+            data.emitted_by = one.has(key) ? one.get(key) : null;
+        }
+    }
+
     // Get fee information for a given action_index
     async getActionFeeData(config, action_index){
         let fee   = null;
@@ -5453,7 +5727,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE 
                         f1.action_index=?`;
@@ -5480,6 +5754,52 @@ class Database {
         if(results && results.length)
             id = results[0].id;
         if(id !== null) this._cacheSet(this._addressIdCache, key, id);
+        return id;
+    }
+
+    // Address -> index id resolved BYTE-EXACTLY. Used by the MATCHING paths only:
+    // getMempool TYPE=address and the Broadcaster's mempool fan-out memo.
+    //
+    // index_addresses is CHARSET=utf8 COLLATE=utf8_general_ci, so the plain
+    // `address=?` in getAddressId matches every case variant of an address and
+    // hands back the id of a DIFFERENT address. Display and search paths want that
+    // (a human typing an address by hand reaches the page they meant). A matcher
+    // must not have it: a `^<id>` destination on the wire is an exact reference, so
+    // a case variant resolved through the ci lookup makes an unrelated address a
+    // party to the transaction, and a wallet shows somebody else's pending payment
+    // as its own. Base58 is case-SENSITIVE; a case variant is a different string,
+    // not the same address typed loosely.
+    //
+    // BECH32, deliberately not handled here: BIP173 addresses are case-INSENSITIVE
+    // with a lowercase canonical form, so an uppercase bech32 spelling resolves to
+    // null through this lookup and its compacted destinations go unmatched (literal
+    // segments still match, and the sender still matches). Canonicalizing an
+    // address before lookup is address-normalization work that belongs to the row
+    // that owns it, not to this matcher.
+    //
+    // The equality is written twice on purpose. `address=?` runs in the table's own
+    // collation and is the index seek (index_addresses has a UNIQUE index on
+    // address, so under a ci collation it returns at most one row for all case
+    // variants); the utf8_bin comparison is the byte-exact gate over that one row.
+    // Collating the column alone in the seek predicate would force a full scan.
+    // Cached like getAddressId, non-null results only, in its own LRU.
+    async getExactAddressId(config, address){
+        let key    = this._cacheKey(config.coin, address);
+        let cached = this._cacheGet(this._exactAddressIdCache, key);
+        if(cached !== undefined) return cached;
+        let id    = null;
+        let args  = [address, address];
+        let query = `SELECT
+                        id
+                    FROM
+                        index_addresses
+                    WHERE
+                        address=? AND address COLLATE utf8_bin = ?
+                    LIMIT 1`
+        let results = await this.doQuery(config, query, args);
+        if(results && results.length)
+            id = results[0].id;
+        if(id !== null) this._cacheSet(this._exactAddressIdCache, key, id);
         return id;
     }
 
@@ -5736,7 +6056,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=f1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_tickers   t2 ON (t2.id=f1.tick_id)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE
                         f1.action_index IN (${ph})`;
@@ -5792,11 +6112,12 @@ class Database {
         let idxs = (action_indexes || []).map((i) => Number(i));
         if(!idxs.length) return null;
         let preload = {
-            indexes: new Set(idxs),
-            types:   new Map(),
-            fees:    new Map(),
-            txs:     new Map(),
-            effects: null
+            indexes:  new Set(idxs),
+            types:    new Map(),
+            fees:     new Map(),
+            txs:      new Map(),
+            emitted:  new Map(),
+            effects:  null
         };
         let meta          = await this.getActionMetaBatch(config, idxs);
         let effectIndexes = { credits: [], debits: [], escrows: [] };
@@ -5821,7 +6142,59 @@ class Database {
         for(let idx of typed)
             preload.fees.set(idx, fees.has(idx) ? fees.get(idx) : null);
         preload.txs = await this.getTransactionDataBatch(config, hashes);
+        // Emission provenance is a shared leg like the fee and tx legs: identical in shape
+        // for every action, so it runs ONCE over the page instead of once per action.
+        // Asking per-action put the page's per-index query count back above the ceiling
+        // action-preload-parity guards.
+        preload.emitted = await this.getEmissionProvenanceBatch(config, typed);
         return preload;
+    }
+
+    // Emission provenance for a SET of action indexes, in two queries rather than two per
+    // action. Almost no action is an emission, so the second query runs only for the few
+    // that are - and on a page with none it does not run at all. Returns a Map of
+    // action_index -> { execution_index, position, contract_index, caller }, containing only
+    // the indexes that ARE emissions; absence means "broadcast normally".
+    async getEmissionProvenanceBatch(config, action_indexes){
+        let out  = new Map();
+        let idxs = (action_indexes || []).map((i) => Number(i)).filter((i) => !isNaN(i));
+        if(!idxs.length) return out;
+        let holes = idxs.map(() => '?').join(',');
+        let rows  = await this.doQuery(config,
+            `SELECT
+                e.action_index,
+                e.execution_index,
+                e.position
+            FROM
+                contract_emissions e
+            WHERE
+                e.action_index IN (${holes})`, idxs);
+        if(!rows || !rows.length) return out;
+        for(let r of rows)
+            out.set(Number(r.action_index), {
+                execution_index: r.execution_index,
+                position:        r.position,
+                contract_index:  null,
+                caller:          null
+            });
+        let parents = [...new Set([...out.values()].map((v) => Number(v.execution_index)))];
+        let pHoles  = parents.map(() => '?').join(',');
+        let pRows   = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.contract_index,
+                a1.address as caller
+            FROM
+                contract_executions m
+                LEFT  JOIN index_addresses a1 ON (a1.id=m.caller_id)
+            WHERE
+                m.action_index IN (${pHoles})`, parents);
+        let byExec = new Map((pRows || []).map((r) => [Number(r.action_index), r]));
+        for(let v of out.values()){
+            let p = byExec.get(Number(v.execution_index));
+            if(p){ v.contract_index = p.contract_index; v.caller = p.caller; }
+        }
+        return out;
     }
 
     // Batch-load getActionData for a set of action indexes (Fix B / #3841). Resolves the
@@ -5940,16 +6313,26 @@ class Database {
         results = await this.doQuery(config, query);
         if(results && results.length)
             total = results[0].total;
+        // BIND THE PAGING PLACEHOLDER. getBlocks builds and runs its own queries rather than
+        // returning [query, args] to the shared path, and that shared path is where every
+        // other list method gets its offset args threaded in. Without them the `?` in
+        // `AND b1.block_index < ?` reached MariaDB as literal text and the whole feed
+        // answered 500 on a syntax error, on every coin and every network - page 1 included,
+        // because the first page carries an offset clause too. getBlocks takes no
+        // data-WHERE placeholder of its own (getQueryWhereSql excludes it from the type
+        // branch and anchors on `b1.block_index IS NOT NULL`), so the offset args are the
+        // complete set; the count query above needs none for the same reason.
+        let offsetArgs = (sql.where.offsetArgs && sql.where.offsetArgs.length) ? sql.where.offsetArgs : undefined;
         query = `SELECT
                     block_index,
                     block_time
                 FROM
                     blocks b1
-                WHERE 
+                WHERE
                     ` + sql.where.data + sql.where.offset + `
                 ORDER BY block_index ` + sql.order + `
                 LIMIT ` + sql.limit;
-        results = await this.doQuery(config, query);
+        results = await this.doQuery(config, query, offsetArgs);
         if(results && results.length){
             let blockIndexes = results.map(r => r.block_index);
             let blockMap = {};
@@ -6137,7 +6520,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
                         INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
                         INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
@@ -6402,7 +6785,7 @@ class Database {
                         INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
-                        INNER JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
                         INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
                         INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
@@ -6947,6 +7330,51 @@ class Database {
         } catch(e){
             return null;
         }
+    }
+
+    // Split a decoded mempool row's action string into its pipe-joined segments.
+    // Deliberately layout-free: the field map differs per action family and only
+    // SEND has a documented one, so every consumer scans segments instead of
+    // reading positions. Returns [] for a row with no action string (the
+    // ChangeDetector's removal path carries `data: null` for a row that never
+    // decoded), so callers never have to null-check first.
+    mempoolSegments(decoded) {
+        if(!decoded || this.util.isNull(decoded.data)) return [];
+        let text = Buffer.isBuffer(decoded.data) ? decoded.data.toString('utf8') : String(decoded.data);
+        return text.split('|');
+    }
+
+    // Does this decoded mempool row involve `address`? THE one matcher for
+    // "who does this unconfirmed tx affect", shared by the REST prefilter
+    // (getMempool TYPE=address) and the WS fan-out (Broadcaster mempool
+    // frames). Sharing it is the point: the poll and the live event must never
+    // disagree about the parties to a tx, or a wallet sees a pending row that
+    // no event ever removes (or the reverse).
+    //
+    // `addressId` is the address's index id from the cached BYTE-EXACT resolver
+    // (getExactAddressId), or null when it has none. Byte-exact is a correctness
+    // requirement of this matcher and not a style choice: the ci resolver would
+    // hand a case variant the id of the address it resembles, and the `^<id>`
+    // branch below would then name it a party to a transaction it has no part in.
+    // It is what makes a compacted destination match:
+    // the SDK writes destinations as `^<id>` references by default
+    // (addressResolver), so without this branch an incoming pending payment to
+    // an address that already holds an index id is invisible on both surfaces. Resolution
+    // is FORWARD (address -> id) on purpose; no id -> address lookup exists in
+    // the explorer and none is needed, since both call sites hold the address.
+    //
+    // Known false-positive class, accepted: a non-destination segment (a memo)
+    // whose text equals the address matches. See the accepted-limitations note
+    // in the /api/mempool endpoint header.
+    mempoolRowMatchesAddress(decoded, address, addressId) {
+        if(!decoded || this.util.isNull(address)) return false;
+        let search = String(address);
+        if(!search.length) return false;
+        if(decoded.source === search) return true;
+        let segments = this.mempoolSegments(decoded);
+        if(segments.includes(search)) return true;
+        if(this.util.isNull(addressId)) return false;
+        return segments.includes('^' + String(addressId));
     }
 
     // Suggested fee tiers (sat/vByte) for this coin, fetched from its encoder's
@@ -8219,7 +8647,159 @@ class Database {
                     ORDER BY a1.action_index ASC
                     LIMIT ?`;
         let results = await this.doQuery(config, query, [sinceActionIndex, limit]);
-        return results || [];
+        if(!results || !results.length) return [];
+        // Destinations are attached in a SECOND pass rather than joined into the
+        // query above, because eight LEFT JOINs would multiply the feed's rows (a
+        // multi-output SEND would emit one NEW_ACTION per output) and the feed's
+        // LIMIT is a limit on ACTIONS, not on output rows. See
+        // _attachActionDestinations for the batch shape and its failure mode.
+        await this._attachActionDestinations(config, results);
+        return results;
+    }
+
+    // Fill `destinations: string[]` on every row of a getActionsSince batch, in
+    // place. Backs NEW_ACTION's additive destinations field (spec M1.4): the feed
+    // has never selected a destination column, so the Broadcaster's destination
+    // routing branch has been permanently inert and the wallet's incoming-receipt
+    // notification has never fired for anyone.
+    //
+    // SHAPE: ONE round trip for the whole batch, a UNION ALL over the eight
+    // destination-bearing families (ACTION_DESTINATION_FAMILIES) filtered by the
+    // action_index values ACTUALLY FETCHED. This feed drives the 5s ChangeDetector
+    // poll, so a per-row lookup would cost up to `limit` (100) round trips every
+    // five seconds per coin; a per-family lookup would cost eight. The IN list is
+    // built from the fetched rows rather than from the cursor range, so a catch-up
+    // burst binds exactly as many parameters as it has actions (<= limit * 8), and
+    // an EMPTY batch issues no query at all.
+    //
+    // FAILURE MODE, deliberately soft: a failed lookup degrades every row to
+    // `destinations: []` and the actions still ship. There is scar tissue here. A
+    // prior `s1.id=a1.status_id` join against a column that does not exist threw
+    // ER_BAD_FIELD_ERROR and SILENTLY killed the entire WebSocket action feed,
+    // because getActionsSince returned [] every poll while the detector's cursor
+    // kept advancing past the actions nobody ever saw (see the note on the query
+    // above). An enrichment must never be able to do that again: destinations are a
+    // nice-to-have on a frame whose delivery is not.
+    //
+    // Every row is given the key unconditionally and up front, so a subscriber
+    // never has to tell "no destinations" from "the lookup failed" from "the field
+    // is missing": all three are `[]`.
+    async _attachActionDestinations(config, rows){
+        let indexes = [];
+        for(let row of rows){
+            row.destinations = [];
+            if(!this.util.isNull(row.action_index)) indexes.push(row.action_index);
+        }
+        if(!indexes.length) return rows;
+
+        let map = await this._getActionDestinationMap(config, indexes);
+        for(let row of rows){
+            let list = map.get(String(row.action_index));
+            if(list) row.destinations = list;
+        }
+        return rows;
+    }
+
+    // action_index (as a decimal string) -> ordered, DEDUPED list of destination
+    // addresses, for the given batch of action indexes. Returns an EMPTY map, never
+    // throws: every caller treats "no destinations" and "lookup broke" identically.
+    async _getActionDestinationMap(config, indexes){
+        // Lazily initialized (not in the constructor) because the unit harness
+        // builds a Database with Object.create(Database.prototype) and never runs it.
+        if(!this._actionDestinationSkip) this._actionDestinationSkip = new Map();
+        let skip     = this._actionDestinationSkip.get(config.coin) || new Set();
+        let families = ACTION_DESTINATION_FAMILIES.filter(f => !skip.has(f.table));
+        let map      = new Map();
+        if(!families.length) return map;
+
+        try {
+            let [query, args] = this._actionDestinationSql(families, indexes);
+            this._collectActionDestinations(map, await this.doQuery(config, query, args));
+            return map;
+        } catch(e){
+            // The union is all-or-nothing: one absent table (an older deployment
+            // without capability_slash_events, say) loses the destinations of all
+            // eight families. Retry family by family so the rest still resolve, and
+            // QUARANTINE only the ones that fail for a schema reason, so the steady
+            // state on such a deployment is back to one query per poll rather than
+            // nine. A transient failure (connection lost) is deliberately NOT
+            // quarantined: it would silence destinations permanently for a fault
+            // that clears on its own.
+            map.clear();
+            for(let family of families){
+                try {
+                    let [q, a] = this._actionDestinationSql([family], indexes);
+                    this._collectActionDestinations(map, await this.doQuery(config, q, a));
+                } catch(err){
+                    if(this._isSchemaShapeError(err)){
+                        skip.add(family.table);
+                        this._actionDestinationSkip.set(config.coin, skip);
+                        console.error('Action destinations: disabling ' + family.table +
+                                      ' for ' + config.coin + ' (' + (err && err.message) + ')');
+                    }
+                }
+            }
+            return map;
+        }
+    }
+
+    // Build the UNION ALL (or the single-family retry). INNER JOIN on
+    // index_addresses is what drops a NULL destination_id and an id that resolves to
+    // nothing, so the result set holds only real, literal addresses.
+    _actionDestinationSql(families, indexes){
+        let holes = indexes.map(() => '?').join(',');
+        let parts = [];
+        let args  = [];
+        for(let family of families){
+            parts.push(`SELECT
+                            m.${family.key} as action_index,
+                            a1.address as destination
+                        FROM
+                            ${family.table} m
+                            INNER JOIN index_addresses a1 ON (a1.id=m.destination_id)
+                        WHERE
+                            m.${family.key} IN (${holes})`);
+            // Bound as VALUES, and passed through as the driver gave them to us
+            // (BIGINT reads back as a BigInt on this pool): re-stringifying them
+            // would make MariaDB compare a quoted literal against a BIGINT column as
+            // a DOUBLE, the same >2^53 collapse the cursor comment above warns about.
+            args.push(...indexes);
+        }
+        return [parts.join(' UNION ALL '), args];
+    }
+
+    // Fold one result set into the map. Deduped per action because the same address
+    // can legitimately appear twice (a multi-output SEND paying one address twice,
+    // or a fee and a send landing on the same treasury): a subscriber must not be
+    // told about it twice, and the Broadcaster must not broadcast to that channel
+    // twice. Insertion order is kept so the wire order is stable across polls.
+    _collectActionDestinations(map, rows){
+        if(!rows || !rows.length) return map;
+        for(let row of rows){
+            if(!row || this.util.isNull(row.action_index) || this.util.isNull(row.destination)) continue;
+            let key  = String(row.action_index);
+            let list = map.get(key);
+            if(!list){
+                list = [];
+                map.set(key, list);
+            }
+            if(!list.includes(row.destination)) list.push(row.destination);
+        }
+        return map;
+    }
+
+    // "That table or column does not exist here", seen through doQuery's wrapper.
+    // doQuery rethrows as DbQueryError with its OWN code ('DB_ERROR') and the
+    // driver's SqlError on .cause, so testing the top-level error alone never
+    // matches a real one; walk the (short, bounded) cause chain. Mirrors
+    // ChangeDetector._isMissingTableError, widened to the bad-column case because
+    // that is the exact error class that killed this feed once already.
+    _isSchemaShapeError(err){
+        for(let e = err, depth = 0; e && depth < 5; e = e.cause, depth++){
+            if(e.code === 'ER_NO_SUCH_TABLE'   || Number(e.errno) === 1146) return true;
+            if(e.code === 'ER_BAD_FIELD_ERROR' || Number(e.errno) === 1054) return true;
+        }
+        return false;
     }
 
     /******************************************************************
@@ -8444,7 +9024,7 @@ class Database {
                         bet_feeds m
                         INNER JOIN actions         a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers   pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses  fs ON (fs.id=m.feed_status_id)
                     WHERE
@@ -8464,7 +9044,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -8488,7 +9068,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -8529,7 +9109,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -9428,8 +10008,10 @@ class Database {
     // assembler reassembles the VALID chunks of a (source, code_hash) group into the final contract
     // source (DEPLOY.md); the assembled contract itself appears under Contracts. This list surfaces
     // each on-chain carrier (its chunk position + group size + status). code_part (the base64 slice)
-    // is intentionally NOT selected; it is large and only the assembler needs it. Not in actionTables
-    // (sibling of getExecutions); serves the newest page ordered by m.action_index DESC.
+    // is intentionally NOT selected on list rows; it is a MEDIUMTEXT payload too heavy for a paged
+    // list. Rows carry code_part_length instead, and the full slice rides the single-action surface
+    // (attachActionDetailSupplements). Not in actionTables (sibling of getExecutions); serves the
+    // newest page ordered by m.action_index DESC.
     async getDeployChunks(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9452,6 +10034,7 @@ class Database {
                         m.code_hash,
                         m.chunk_index,
                         m.total_chunks,
+                        CHAR_LENGTH(m.code_part) as code_part_length,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -9607,7 +10190,7 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
@@ -9635,7 +10218,7 @@ class Database {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
@@ -10377,7 +10960,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -10410,7 +10993,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
                         LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -10435,7 +11018,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -10475,7 +11058,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -10568,7 +11151,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    dep ON (dep.id=m.deposit_address_id)
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -10625,7 +11208,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -10649,7 +11232,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -10662,7 +11245,7 @@ class Database {
     // List BET markets (bet_feeds, one row per BET format 0 create-feed action).
     // Joins the actions/transactions/blocks chain like getPolls; the feed id IS the
     // creating action_index. tick joins index_tickers (pt) on m.tick_id (the wager
-    // token); source is the oracle that created the feed (a2 via t1.source_id);
+    // token); source is the oracle that created the feed (a2 via the action source);
     // status filters the stored feed lifecycle enum through index_statuses (fs).
     // feed_status is STORED rather than derived, so the list never recomputes a
     // close from the wall clock (the §5 backdating property E11 pins).
@@ -10673,7 +11256,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
@@ -10760,7 +11343,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
@@ -10787,15 +11370,35 @@ class Database {
             }
             row.pools    = await this.getBetFeedPools(config, row.action_index);
             row.timeline = await this.getBetFeedTimeline(config, row.action_index, row.closed_block);
+            // The outcome a finished market resolved to; the feed row itself has none.
+            row.winning_outcome = await this.getBetFeedWinningOutcome(config, row.action_index);
             data = row;
         }
         return data;
     }
 
-    // Per-outcome pool totals for one feed. Sums ONLY bet_status='open' rows, which
-    // is the normative settlement pool predicate (§7): a bet that already took a
-    // terminal credit must never be counted again. Returned per outcome index so a
-    // market page can show implied odds without re-deriving the predicate.
+    // Return the outcome an honoured resolve settled to, else null. Only a valid
+    // resolve counts: an invalid row stores the outcome the oracle CLAIMED and settles
+    // nothing. Resolve is terminal, so at most one row can apply.
+    async getBetFeedWinningOutcome(config, feedIndex){
+        let query = `SELECT
+                        br.outcome
+                    FROM
+                        bet_resolves br
+                        LEFT JOIN index_statuses bs ON (bs.id=br.status_id)
+                    WHERE
+                        br.feed_action_index=?
+                        AND bs.status='valid'
+                    ORDER BY br.action_index DESC
+                    LIMIT 1`;
+        let rows = await this.doQuery(config, query, [feedIndex]);
+        if(!rows || !rows.length || this.util.isNull(rows[0].outcome)) return null;
+        return Number(rows[0].outcome);
+    }
+
+    // Sum every bet that escrowed; invalid rows escrowed nothing and are the only
+    // exclusion. This is a display aggregation, NOT the settlement predicate (which
+    // counts open rows alone); no consensus path reads it.
     async getBetFeedPools(config, feedIndex){
         let query = `SELECT
                         m.outcome,
@@ -10806,11 +11409,15 @@ class Database {
                         LEFT JOIN index_statuses bs ON (bs.id=m.bet_status_id)
                     WHERE
                         m.feed_action_index=?
-                        AND bs.status='open'
+                        AND bs.status <> 'invalid'
                     GROUP BY m.outcome
                     ORDER BY m.outcome ASC`;
-        let rows = await this.doQuery(config, query, [feedIndex]);
-        return rows || [];
+        let rows = await this.doQuery(config, query, [feedIndex]) || [];
+        // Trim the 18-place tail a DECIMAL sum leaves on a token with fewer decimals.
+        // Display only; no consensus path reads this.
+        return rows.map(r => ({ outcome: Number(r.outcome),
+                                bet_count: Number(r.bet_count),
+                                pool: this.trimAmountTail(r.pool) }));
     }
 
     // Status timeline for one feed. bet_feed_statuses is action-scoped, so it carries
@@ -10867,7 +11474,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     bs ON (bs.id=m.bet_status_id)
@@ -10912,7 +11519,7 @@ class Database {
                         bet_feeds m
                         INNER JOIN actions         a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses  fs ON (fs.id=m.feed_status_id)
                     WHERE a2.address=?
                     GROUP BY fs.status`;
@@ -10927,9 +11534,54 @@ class Database {
         // derived by the caller so the market list and the oracle page agree.
         let active = counts.open + counts.closed;
         let fees   = await this.getOracleFeesEarned(config, config.data.search);
+        let price  = await this.getOraclePriceRecord(config, config.data.search);
         return [{ address: config.data.search, total_feeds: total, active_feeds: active,
-                  counts, fees_earned: fees,
+                  counts, fees_earned: fees, price,
                   reputation_caveat: 'Per-address record with no bonding; addresses are free to create, so an empty history means unknown, not safe.' }];
+    }
+
+    // PRICE v1 half of the per-address oracle track record. A price publisher is an
+    // oracle too, but its rounds land in the hub-mirrored oracle_prices table, not
+    // bet_feeds, so the stats above are blind to it and the page reported an active
+    // publisher as all zeros. Aggregated per published pair (COIN/TICK/FIAT) with
+    // the round counts and publish window; the individual rounds are served by
+    // getOraclePrices. Returns null (a "cannot know", distinct from the zero-pair
+    // record {total_publishes:0, pairs:[]}) when this node has no co-located hub DB:
+    // oracle_prices is mirror-only and the betting record must still answer.
+    async getOraclePriceRecord(config, address){
+        let src = null;
+        try {
+            src = this._oracleMirrorSource(config, 'oracle_prices');
+        } catch(e) {
+            return null;
+        }
+        let rows = await this.doQuery(config,
+            `SELECT
+                m.coin,
+                m.tick,
+                m.fiat,
+                count(*) as publishes,
+                MIN(m.block_time) as first_publish,
+                MAX(m.block_time) as last_publish
+            FROM
+                ${src.table} m
+            WHERE
+                m.source_address=?
+            GROUP BY m.coin, m.tick, m.fiat
+            ORDER BY last_publish DESC`, [address]) || [];
+        let record = { total_publishes: 0, pairs: [] };
+        for(const r of rows){
+            // Counts and epoch times can arrive as BigInt; normalize so the JSON is
+            // plain numbers (values are far below 2^53).
+            let publishes = Number(r.publishes);
+            record.total_publishes += publishes;
+            record.pairs.push({
+                coin: r.coin, tick: r.tick, fiat: r.fiat, publishes,
+                first_publish: this.util.isNull(r.first_publish) ? null : Number(r.first_publish),
+                last_publish:  this.util.isNull(r.last_publish)  ? null : Number(r.last_publish)
+            });
+        }
+        return record;
     }
 
     // What an oracle has actually EARNED, per wager token (§11.1's "fees earned").
@@ -10957,7 +11609,7 @@ class Database {
                         INNER JOIN bet_resolves    br ON (br.action_index=c.action_index)
                         INNER JOIN actions         a1 ON (a1.action_index=br.action_index)
                         INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses ra ON (ra.id=t1.source_id)
+                        LEFT  JOIN index_addresses ra ON (ra.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses ca ON (ca.id=c.address_id)
                         LEFT  JOIN index_tickers   tk ON (tk.id=c.tick_id)
                     WHERE ca.address=? AND ra.address=?
@@ -10993,7 +11645,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -11027,7 +11679,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -11040,6 +11692,14 @@ class Database {
     // List ANCHOR checkpoint records from anchor_actions. Joins the
     // actions/transactions/blocks chain like getAttestations/getXcalls.
     // type in {block, chain, network, status}.
+    //
+    // A v0 BUNDLE is N sibling rows sharing one action_index, one per checkpointed
+    // chain, each carrying its own chain/block_index/checkpoint_seq/roots. That is
+    // exactly why the bundle was stored one row per section: every per-chain reader,
+    // this list and its `chain` filter included, keeps working unchanged and simply
+    // lists the section rows. section_index is projected so a reader can tell two
+    // sections of one bundle apart, and it breaks the ORDER BY tie the shared
+    // action_index would otherwise leave to the server.
     async getAnchors(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -11056,6 +11716,7 @@ class Database {
         let query = `SELECT
                         a4.action,
                         m.action_index,
+                        m.section_index,
                         a1.action_format,
                         m.version,
                         m.chain,
@@ -11091,7 +11752,7 @@ class Database {
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY m.action_index ` + sql.order + `, m.section_index ASC
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -11213,7 +11874,7 @@ class Database {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
@@ -11743,7 +12404,7 @@ class Database {
                 LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
                 LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
                 LEFT JOIN blocks              b1 ON (b1.block_index=t1.block_index)
-                LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                LEFT JOIN index_addresses     a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                 LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
                 LEFT JOIN index_tickers       ft ON (ft.id=m.fee_tick_id)
                 LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
@@ -11824,6 +12485,7 @@ class Database {
             `SELECT
                 a4.action,
                 m.action_index,
+                m.section_index,
                 a1.action_format,
                 m.version,
                 m.chain,
@@ -11862,7 +12524,7 @@ class Database {
                 LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                 LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
             WHERE ` + predicate + `
-            ORDER BY m.action_index DESC
+            ORDER BY m.action_index DESC, m.section_index ASC
             LIMIT 1`, [key]);
         if(!rows || !rows.length) return [null];
         let row = rows[0];
@@ -11871,6 +12533,59 @@ class Database {
         // (anchor_actions.sql), so it is parsed for display and named as attestations to
         // re-verify, never presented as a verified quorum.
         row.publisher_attestations = this._parseSignaturesArray(row.publisher_attestations);
+
+        // A v0 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
+        // N sibling rows sharing one action_index at section_index 0..N-1. Each row holds
+        // its OWN chain, block_index, checkpoint_seq, roots and validator signatures; the
+        // bundle-level fields (version, network, publisher, publisher_attestations, status,
+        // txid, the DOGE block it landed in) are denormalized identically onto every row,
+        // which is why the spine above can serve as the header no matter which section it
+        // matched. Archive rows (v1/v2) and every retired per-chain version stay at
+        // section_index 0, so they take no second query at all.
+        //
+        // snapshot_block on the header is the BUNDLE's block, the MAX over the sections: a
+        // chain that lagged rides at its own older SECTION_SNAPSHOT_BLOCK, but the election
+        // and the publisher attestation were both drawn at the MAX. Reading section 0's
+        // block as the bundle's would look the electorate up at the wrong height.
+        row.sections      = [];
+        row.section_count = 1;
+        if(Number(row.version) === 0){
+            let sections = await this.doQuery(config,
+                `SELECT
+                    m.section_index,
+                    m.chain,
+                    m.network,
+                    m.block_index,
+                    m.block_hash,
+                    m.ledger_hash,
+                    m.actions_hash,
+                    m.contract_hash,
+                    m.checkpoint_seq,
+                    m.snapshot_block,
+                    m.state_root,
+                    m.state_root_version,
+                    m.block_merkle_root,
+                    m.block_merkle_version,
+                    m.validator_signatures,
+                    s1.status
+                FROM
+                    anchor_actions m
+                    LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                WHERE m.action_index=?
+                ORDER BY m.section_index ASC
+                LIMIT ` + limit, [Number(row.action_index)]) || [];
+            row.sections = sections.map(s => {
+                s.validator_signatures = this._parseSignaturesArray(s.validator_signatures);
+                return s;
+            });
+            if(row.sections.length){
+                row.section_count = row.sections.length;
+                let blocks = row.sections
+                    .map(s => this.util.isNull(s.snapshot_block) ? null : Number(s.snapshot_block))
+                    .filter(v => v !== null);
+                if(blocks.length) row.snapshot_block = Math.max(...blocks);
+            }
+        }
 
         // Continuation chunks (v2) share the archive batch id. Bounded: a large archive
         // splits into as many chunks as it needs, so this list has no natural ceiling.
@@ -11898,8 +12613,17 @@ class Database {
         // The anchor names the CHECKPOINTED height on the CHECKPOINTED chain, which is what
         // state_checkpoints is keyed by too, so this coin's own (chain, network) identity is
         // the right filter here (the same reasoning getCommitments' anchor leg carries).
+        //
+        // A BUNDLE carries several chains at once, so the height to look up is THIS coin's
+        // own section, not whichever section the spine happened to match. Keying a
+        // chain-filtered mirror query by another chain's height cannot error: it returns
+        // zero rows, and the page then reads a perfectly good bundle as uncovered.
+        let localSection = row.sections.find(s =>
+            String(s.chain || '').toUpperCase() === String(src.filterParams[0] || '').toUpperCase()) || null;
+        let coveredHeight = localSection ? localSection.block_index : row.block_index;
+        row.local_section_index = localSection ? localSection.section_index : null;
         let checkpoint = [];
-        if(!this.util.isNull(row.block_index))
+        if(!this.util.isNull(coveredHeight))
             checkpoint = await this.doQuery(config,
                 `SELECT
                     sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash,
@@ -11908,7 +12632,7 @@ class Database {
                     sc.block_merkle_version, sc.validator_signatures, sc.created_at
                 FROM ${src.table} sc
                 WHERE sc.block_index = ?${scFilter}${latest.sql}
-                LIMIT 1`, [Number(row.block_index), ...src.filterParams, ...latest.params]) || [];
+                LIMIT 1`, [Number(coveredHeight), ...src.filterParams, ...latest.params]) || [];
 
         // Publisher election. capability_snapshots is CHAIN-AGNOSTIC: no chain/network
         // filter is bound, matching getCapabilitySnapshots. 'oracle_publish' is the
@@ -11928,9 +12652,12 @@ class Database {
         // Reward trail. CHAIN-SCOPED, so filterParams lead. Correlated on the mined DOGE
         // txid this anchor landed in, OR on the table's own natural key minus publisher
         // (snapshot_block + the round this anchor closed: checkpoint_seq for a checkpoint
-        // anchor, match_batch_seq for an archive one).
+        // anchor, match_batch_seq for an archive one, the SNAPSHOT BLOCK itself for a v0
+        // bundle, whose single anchor_bundle reward is keyed round_reference =
+        // SNAPSHOT_BLOCK rather than to any one section's checkpoint_seq).
         let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
-        let rounds = [row.checkpoint_seq, row.match_batch_seq]
+        let rounds = [row.checkpoint_seq, row.match_batch_seq,
+                      (Number(row.version) === 0) ? row.snapshot_block : null]
             .filter(v => !this.util.isNull(v)).map(v => Number(v));
         let rewardWhere = 'm.doge_anchor_txid=?';
         let rewardArgs  = [...src.filterParams, row.tx_hash];
@@ -12183,7 +12910,7 @@ class Database {
                         attests m
                         LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
                         LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT JOIN index_addresses     a2 ON (a2.id=t1.source_id)
+                        LEFT JOIN index_addresses     a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
                         LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
                     WHERE

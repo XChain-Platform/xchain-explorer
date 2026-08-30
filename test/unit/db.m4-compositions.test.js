@@ -551,6 +551,146 @@ describe('Database#getAnchor (M4 composed anchor detail)', () => {
         stubQueries(db, []);
         expect(await db.getAnchor(detailConfig('getAnchor', '999999'))).to.deep.equal([null]);
     });
+
+    /* ------------------------- v0 bundle composition ------------------------ */
+
+    // A v0 ANCHOR is ONE action carrying every checkpointed chain of a network, stored
+    // as sibling anchor_actions rows sharing an action_index at section_index 0..N-1.
+    // The bundle-level fields are denormalized onto every row; the per-chain fields are
+    // not. Composing them back into one header plus an ordered section list is the
+    // whole of this leg, and getting it wrong is silent: the page would render one
+    // arbitrary chain as if it were the entire anchor.
+    describe('v0 bundle composition', () => {
+
+        // The serving explorer is DOGE here on purpose. Sections are ordered CHAIN
+        // ascending, so this coin's own section is NOT section 0, which is the only
+        // arrangement in which picking section 0 for the chain-filtered mirror legs
+        // fails visibly instead of accidentally being right.
+        const BUNDLE_TXID = 'e'.repeat(64);
+
+        const SECTIONS = [
+            { section_index: 0, chain: 'BTC',  network: 'regtest', block_index: 2497, block_hash: 'b7'.repeat(32),
+              checkpoint_seq: 110, snapshot_block: 110, state_root: '18'.repeat(32), state_root_version: 1,
+              block_merkle_root: '29'.repeat(32), block_merkle_version: 1,
+              validator_signatures: '[{"pubkey":"' + PK + '","sig":"aa"}]', status: 'valid' },
+            { section_index: 1, chain: 'DOGE', network: 'regtest', block_index: 3001, block_hash: 'd0'.repeat(32),
+              checkpoint_seq: 112, snapshot_block: 112, state_root: '3a'.repeat(32), state_root_version: 1,
+              block_merkle_root: '4b'.repeat(32), block_merkle_version: 1,
+              validator_signatures: '[{"pubkey":"' + PK + '","sig":"bb"},{"pubkey":"' + ADDR + '","sig":"cc"}]', status: 'valid' },
+            { section_index: 2, chain: 'LTC',  network: 'regtest', block_index: 1200, block_hash: '1c'.repeat(32),
+              checkpoint_seq: 111, snapshot_block: 111, state_root: '5c'.repeat(32), state_root_version: 1,
+              block_merkle_root: '6d'.repeat(32), block_merkle_version: 1,
+              validator_signatures: '[]', status: 'valid' }
+        ];
+
+        // The spine matches section 0 (ORDER BY section_index ASC), so the header
+        // arrives carrying BTC's per-chain values and the bundle's shared ones.
+        const HEADER = Object.assign({}, SECTIONS[0], {
+            action: 'ANCHOR', action_index: 1100, version: 0,
+            publisher: PK, publisher_attestations: '[{"pubkey":"' + PK + '","sig":"dd"}]',
+            block_index_doge: 3010, tx_hash: BUNDLE_TXID, archive_b64_length: null,
+            match_batch_seq: null
+        });
+
+        function bundleConfig(search = '1100'){
+            return makeConfig({
+                coin: 'DOGE',
+                type: 'api',
+                data: {
+                    method: 'getAnchor',
+                    search,
+                    type: null,
+                    sql: {
+                        order: 'DESC',
+                        limit: LIMIT,
+                        where: { data: 'm.action_index IS NOT NULL', offset: '', offsetArgs: [] }
+                    }
+                }
+            });
+        }
+
+        function bundleDb(){
+            const db = new DatabaseReal({ configInfo, util, hubOperational: null });
+            db.checkpointDb = { DOGE: { name: 'XChain_Hub', chain: 'DOGE', network: 'regtest' } };
+            stubQueries(db, [
+                ['FROM anchor_actions m INNER JOIN actions', [HEADER]],
+                ['WHERE m.action_index=? ORDER BY m.section_index ASC', SECTIONS],
+                ['`XChain_Hub`.state_checkpoints sc', [{ block_index: 3001, checkpoint_seq: 112, snapshot_block: 112, validator_signatures: '[]' }]],
+                ['`XChain_Hub`.capability_snapshots m', [{ signing_pubkey: PK, amount: '100', source: ADDR }]],
+                ['`XChain_Hub`.anchor_reward_attestations m', [{ id: 9, reward_type: 'anchor_bundle' }]]
+            ]);
+            return db;
+        }
+
+        it('composes the three sibling rows into ONE header plus three sections in section_index order', async () => {
+            const db = bundleDb();
+            const [data] = await db.getAnchor(bundleConfig());
+            expect(data.action_index).to.equal(1100);
+            expect(data.version).to.equal(0);
+            expect(data.section_count).to.equal(3);
+            expect(data.sections.map(s => s.section_index)).to.deep.equal([0, 1, 2]);
+            expect(data.sections.map(s => s.chain)).to.deep.equal(['BTC', 'DOGE', 'LTC']);
+            // Per-chain fields stay ON the section, never flattened onto the header.
+            expect(data.sections.map(s => s.block_index)).to.deep.equal([2497, 3001, 1200]);
+            expect(data.sections.map(s => s.checkpoint_seq)).to.deep.equal([110, 112, 111]);
+            // Every section's own quorum is parsed, not just the header's.
+            expect(data.sections.map(s => s.validator_signatures.length)).to.deep.equal([1, 2, 0]);
+            // Bundle-level fields are the header's, denormalized identically on
+            // every row and therefore correct whichever section the spine matched.
+            expect(data.publisher).to.equal(PK);
+            expect(data.publisher_attestations).to.deep.equal([{ pubkey: PK, sig: 'dd' }]);
+            expect(data.tx_hash).to.equal(BUNDLE_TXID);
+        });
+
+        it('the header snapshot_block is the MAX over the sections, not section 0\'s', async () => {
+            const db = bundleDb();
+            const [data] = await db.getAnchor(bundleConfig());
+            // Section 0 (BTC) rode at 110; the bundle was elected and attested at 112.
+            // Reading 110 as the bundle's block looks the electorate up at the wrong height.
+            expect(data.snapshot_block).to.equal(112);
+            const cap = findQuery(db, '`XChain_Hub`.capability_snapshots m');
+            expect(cap.args).to.deep.equal([112, 'oracle_publish']);
+        });
+
+        it('keys the chain-filtered mirror leg off THIS coin\'s section, not section 0', async () => {
+            const db = bundleDb();
+            const [data] = await db.getAnchor(bundleConfig());
+            // The mirror is filtered to DOGE/regtest. Binding BTC's 2497 there cannot
+            // error, it returns nothing, and a good bundle reads as uncovered.
+            const cp = findQuery(db, '`XChain_Hub`.state_checkpoints sc');
+            expect(cp.args).to.deep.equal([3001, 'DOGE', 'regtest', 'DOGE', 'regtest']);
+            expect(data.local_section_index).to.equal(1);
+        });
+
+        it('correlates the anchor_bundle reward on the SNAPSHOT BLOCK round, not a section seq', async () => {
+            const db = bundleDb();
+            await db.getAnchor(bundleConfig());
+            const q = findQuery(db, '`XChain_Hub`.anchor_reward_attestations m');
+            // One anchor_bundle reward per bundle, round_reference = SNAPSHOT_BLOCK, so
+            // the bundle's own block has to be among the rounds the OR leg accepts.
+            expect(q.args.slice(0, 2)).to.deep.equal(['DOGE', 'regtest']);
+            expect(q.args[2]).to.equal(BUNDLE_TXID);
+            expect(q.args.slice(3)).to.deep.equal([112, 110, 112]);
+        });
+
+        it('bounds the section query and takes NO second query on a single-checkpoint anchor', async () => {
+            const bundle = bundleDb();
+            await bundle.getAnchor(bundleConfig());
+            const sections = findQuery(bundle, 'WHERE m.action_index=? ORDER BY m.section_index ASC');
+            expect(sections).to.exist;
+            expect(sections.args).to.deep.equal([1100]);
+            expect(sections.query).to.match(new RegExp('LIMIT ' + LIMIT + '$'));
+            assertEveryQueryBounded(bundle);
+
+            // An archive or retired per-chain version is a single row at section 0 and
+            // must not pay for a sibling lookup at all.
+            const single = anchorDb();
+            const [data] = await single.getAnchor(detailConfig('getAnchor', '1006'));
+            expect(captured(single).some(q => q.query.includes('ORDER BY m.section_index ASC'))).to.equal(false);
+            expect(data.sections).to.deep.equal([]);
+            expect(data.section_count).to.equal(1);
+        });
+    });
 });
 
 /* ─────────────────────── getAddressStaking (M4.6) ────────────────────────── */

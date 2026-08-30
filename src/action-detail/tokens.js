@@ -42,7 +42,7 @@ const AIRDROP = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a2.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a3 ON (a3.id=a2.action_id)
-                    LEFT  JOIN index_addresses    a4 ON (a4.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a4 ON (a4.id=COALESCE(a2.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m1 ON (m1.id=a1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -78,7 +78,7 @@ const DESTROY = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m1 ON (m1.id=d1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=d1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -86,10 +86,9 @@ const DESTROY = {
                 WHERE
                     d1.action_index=?
                 LIMIT 1`;
-        // destroys.action_index is non-unique (one row per multi-destroy leg,
-        // indexer migration 2026-08-15), so the LIMIT 1 header above carries an
-        // arbitrary leg; read every leg the way SEND does. No primary key on
-        // destroys, so order by the leg identity for a stable list.
+        // Read every leg: action_index is non-unique here (one row per leg) so
+        // the LIMIT 1 header above carries an arbitrary one. Take NO ORDER BY:
+        // destroys records no leg position, so a sort reorders the wire.
         query2 = `SELECT
                     t1.tick,
                     d1.amount,
@@ -101,8 +100,7 @@ const DESTROY = {
                     LEFT  JOIN index_memos        m1 ON (m1.id=d1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=d1.status_id)
                 WHERE
-                    d1.action_index=?
-                ORDER BY d1.tick_id, d1.memo_id`;
+                    d1.action_index=?`;
         return { query, query2, query3 };
     },
     afterQuery2(ctx, data, results) {
@@ -134,7 +132,7 @@ const DIVIDEND = {
                 INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                 INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                 INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                LEFT  JOIN index_addresses    a2 ON (a2.id=t1.source_id)
+                LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                 LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                 LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                 LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -193,7 +191,7 @@ const ISSUE = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=i1.transfer_id)
                     LEFT  JOIN index_addresses    a5 ON (a5.id=i1.transfer_supply_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=i1.status_id)
@@ -234,7 +232,7 @@ const LINK = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m1 ON (m1.id=l1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=l1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -272,7 +270,7 @@ const MINT = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=m1.destination_id)
                     LEFT  JOIN index_memos        m2 ON (m2.id=m1.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
@@ -305,7 +303,7 @@ const SEND = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                 WHERE
                     s1.action_index=?
@@ -359,7 +357,7 @@ const SWEEP = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=s1.destination_id)
                     LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                     LEFT  JOIN index_statuses     s2 ON (s2.id=s1.status_id)

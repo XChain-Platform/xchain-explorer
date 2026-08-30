@@ -581,7 +581,16 @@ class WebSocketServer {
                         tx_hash:      action.tx_hash      || null,
                         block_index:  action.block_index   || null,
                         source:       action.source        || null,
-                        status:       action.status        || null
+                        status:       action.status        || null,
+                        // Additive (spec M1.4), and it MUST be copied here. These
+                        // rows come from the same getActionsSince the live feed
+                        // uses, so the destinations are already on them; omitting
+                        // the field would hand a reconnecting client a narrower
+                        // NEW_ACTION than the live channel sends, which is the
+                        // live-versus-replay shape divergence the retired singular
+                        // `destination` was removed to prevent (see Broadcaster
+                        // _onAction). Same array-or-empty guarantee as live.
+                        destinations: Array.isArray(action.destinations) ? action.destinations : []
                     }
                 };
 

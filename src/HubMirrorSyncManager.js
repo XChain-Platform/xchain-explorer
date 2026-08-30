@@ -104,7 +104,12 @@ class HubMirrorSyncManager {
                 // the client starts so its per-table column cache sees the
                 // migrated shape.
                 await ensureMirrorColumns(inst.pool);
-                inst.sync = new HubDbSync(inst.pool, { coin: t.chain });
+                // network is what lets the client scope its bootstrap cursor and purge
+                // rows a different hub served. Without it a mirror that once followed
+                // another network keeps those rows, and because the apply is id-parity
+                // INSERT IGNORE they sit on the ids the real rows need, so the mirror
+                // can never refill itself.
+                inst.sync = new HubDbSync(inst.pool, { coin: t.chain, network: t.network });
                 // start() rejects when the hub is unreachable at boot; the client
                 // keeps reconnecting/re-bootstrapping on its own after that, and the
                 // staleness surface reports bootstrapDrained=false meanwhile.

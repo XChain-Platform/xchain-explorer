@@ -2650,10 +2650,17 @@ describe('Database#getQueryOffsets', () => {
         expect(result).to.be.an('array');
     });
 
-    it('block type offset1>0 + action=next: calculates offset2 via bcsub (line 770)', async () => {
-        // For type=block with offset1, no doQuery needed (calculated arithmetically)
+    it('a BLOCKS listing with offset1 + action=next: calculates offset2 via bcsub', async () => {
+        // CORRECTED 2026-08-27: these three pinned the defect, not the behaviour. They are
+        // line-coverage tests ("line 770", "lines 688-697") that reached the block-index
+        // branch by passing a SENDS listing with type='block' - the FILTER axis - and then
+        // asserted the branch they had reached. A sends listing is a listing of ACTIONS
+        // however it is filtered, so paging it over the blocks table hands the main query a
+        // block_index where it expects an action_index. Keying on that axis is exactly what
+        // left /{COIN}/blocks answering 500 on every coin for five months. The branch is now
+        // keyed on the TABLE being listed, so these exercise it through getBlocks.
         sinon.stub(db, 'doQuery').resolves([]);
-        const config = qoCfg('getSends', 'block', 'next', '500');
+        const config = qoCfg('getBlocks', 'block', 'next', '500');
         config.data.offset = { action: 'next' };
         config.data.query = { limit: 10, length: 10, start: 0, offset: false, total: 50, action: 'next' };
         const [offset1, offset2] = await db.getQueryOffsets(config, 850000, 10);
@@ -2661,9 +2668,9 @@ describe('Database#getQueryOffsets', () => {
         expect(Number(offset2)).to.equal(849989);
     });
 
-    it('block type offset1>0 + action=last: uses bcadd path (line 768)', async () => {
+    it('a BLOCKS listing with offset1 + action=last: uses bcadd path', async () => {
         sinon.stub(db, 'doQuery').resolves([]);
-        const config = qoCfg('getSends', 'block', 'last', '500');
+        const config = qoCfg('getBlocks', 'block', 'last', '500');
         config.data.offset = { action: 'last' };
         config.data.query = { limit: 10, length: 10, start: 0, offset: false, total: 50, action: 'last' };
         const [offset1, offset2] = await db.getQueryOffsets(config, 850000, 10);
@@ -2956,9 +2963,9 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         expect(stopQuery).to.include('t1.source_id');
     });
 
-    it('block type + null search + action=first: uses blocks table (lines 688-697)', async () => {
+    it('a BLOCKS listing + null search + action=first: uses the blocks table', async () => {
         sinon.stub(db, 'doQuery').resolves([{ offset_index: 850000 }]);
-        const config = qoCfg('getSends', 'block', 'first', null);
+        const config = qoCfg('getBlocks', 'block', 'first', null);
         config.data.search = null;
         config.data.offset = { action: 'first' };
         config.data.query  = { limit: 10, length: 10, start: 0, offset: false, total: 50, action: 'first' };

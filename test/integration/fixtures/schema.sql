@@ -1191,6 +1191,41 @@ CREATE        INDEX contract_index ON contract_executions (contract_index);
 CREATE        INDEX caller_id      ON contract_executions (caller_id);
 CREATE        INDEX block_index    ON contract_executions (block_index);
 
+-- The actions a contract call emitted. Every action detail reads this to learn whether
+-- it was emitted rather than broadcast, so a schema without it fails the whole page and
+-- not just the EXECUTE view that already queried it. Mirrors
+-- xchain-indexer/src/sql/contract_emissions.sql.
+DROP TABLE IF EXISTS contract_emissions;
+CREATE TABLE contract_emissions (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    execution_index     BIGINT UNSIGNED NOT NULL,
+    emitted_action      VARCHAR(20) NOT NULL,
+    action_index        BIGINT UNSIGNED NULL,
+    position            INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE INDEX execution_index ON contract_emissions (execution_index);
+CREATE INDEX action_index    ON contract_emissions (action_index);
+
+-- Gated FILE v1 metadata. Every surface that lists a token's files LEFT JOINs this to
+-- say whether the bytes are gated, so its absence 500s the token page and the files
+-- feed alike. Mirrors xchain-indexer/src/sql/gated_files.sql.
+DROP TABLE IF EXISTS gated_files;
+CREATE TABLE gated_files (
+    action_index        BIGINT UNSIGNED NOT NULL,
+    gate_ticker         VARCHAR(250) NOT NULL,
+    encryption_method   TINYINT UNSIGNED NOT NULL,
+    key_hash            CHAR(64) NOT NULL,
+    publisher_address   VARCHAR(255) NOT NULL DEFAULT '',
+    gate_min_amount     VARCHAR(40) NULL,
+    status_id           BIGINT UNSIGNED,
+    raw_data            MEDIUMBLOB
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index          ON gated_files (action_index);
+CREATE        INDEX gate_ticker_key_hash  ON gated_files (gate_ticker, key_hash);
+CREATE        INDEX gate_ticker_status_id ON gated_files (gate_ticker, status_id);
+
 -- ============================================================
 -- Action tables required by getBlocks' per-block UNION count
 -- (this.actionTables). Mirror the xchain-indexer source-of-truth
@@ -1201,7 +1236,8 @@ CREATE        INDEX block_index    ON contract_executions (block_index);
 DROP TABLE IF EXISTS anchor_actions;
 CREATE TABLE anchor_actions (
     action_index         BIGINT UNSIGNED NOT NULL,        -- FK to actions (the ANCHOR action that wrote this row)
-    version              TINYINT UNSIGNED NOT NULL,       -- 0=checkpoint, 1=checkpoint+archive, 2=continuation
+    section_index        TINYINT UNSIGNED NOT NULL DEFAULT 0, -- 0-based section of a v7 bundle (one row per checkpointed chain); 0 on every single-checkpoint and archive version
+    version              TINYINT UNSIGNED NOT NULL,       -- 0=checkpoint, 1=checkpoint+archive, 2=continuation, 7=per-network bundle section
     chain                VARCHAR(10),                     -- checkpointed chain (v0/v1)
     network              VARCHAR(20),                     -- checkpointed network (v0/v1)
     block_index          BIGINT UNSIGNED,                 -- checkpointed height on `chain` (v0/v1)
@@ -1226,7 +1262,7 @@ CREATE TABLE anchor_actions (
     publisher_attestations MEDIUMTEXT,                    -- JSON [{pubkey,sig}] RAW wire XANCPUB tail (v4/v5/v6); NULL for v0-v3
     status_id            BIGINT UNSIGNED,                 -- FK to index_statuses
     block_index_doge     BIGINT UNSIGNED NOT NULL,        -- DOGE block the ANCHOR action landed in (rollback anchor)
-    PRIMARY KEY (action_index)
+    PRIMARY KEY (action_index, section_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE INDEX idx_anchor_batch      ON anchor_actions (match_batch_seq, version, chunk_index);
@@ -1303,8 +1339,14 @@ CREATE TABLE prices (
     round_timestamp     BIGINT UNSIGNED,                  -- block_time of triggering BTC block
     pair_count          SMALLINT UNSIGNED,                -- number of COIN/FIAT pairs
     pairs_json          TEXT,                             -- JSON array [{pair, price}, ...]
-    sig_count           SMALLINT UNSIGNED,                -- number of PBFT signatures
-    sigs_json           TEXT,                             -- JSON array [{pubkey, sig}, ...]
+    sig_count           SMALLINT UNSIGNED,                -- number of PBFT signatures (NULL on a v2 row; see rounds_json)
+    sigs_json           TEXT,                             -- JSON array [{pubkey, sig}, ...]; carries the BATCH signature set on a v2 row
+    -- v2 fields (validator BATCH snapshot: one signed action carrying an hourly
+    -- window of full round bodies). NULL on a v0/v1 row.
+    batch_first_round   BIGINT UNSIGNED,                  -- FIRST_ROUND of the batch window (v2 only; NULL on a v0/v1 row)
+    batch_last_round    BIGINT UNSIGNED,                  -- LAST_ROUND of the batch window (v2 only; NULL on a v0/v1 row)
+    round_count         SMALLINT UNSIGNED,                -- number of rounds carried by this batch (v2 only)
+    rounds_json         TEXT,                             -- JSON array of the batch per-round bodies [{round, timestamp, btc_block_height, pairs}, ...] (v2 only)
     coin_id             BIGINT UNSIGNED,                  -- FK to index_coins (which chain's token)
     tick_id             BIGINT UNSIGNED,                  -- FK to index_tickers (token name)
     fiat_id             BIGINT UNSIGNED,                  -- FK to index_fiats (currency code)

@@ -33,6 +33,7 @@ const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
+const { resolveMaxBatch, makeRpcBatchGuard } = require('./rpcBatchGuard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./shutdown.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
 const coins           = require('./coins');
@@ -297,6 +298,16 @@ async function startApi(){
     // src/config.json, which doesn't change at runtime, so skip the periodic
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
+
+    // Bound JSON-RPC batch cardinality (src/rpcBatchGuard.js). The router below runs
+    // Promise.all over every element of a batch array, while both the per-IP rate
+    // limiter and the concurrency gate above count the whole batch as ONE request, and
+    // ping draws a pooled connection for its SELECT 1 probe. Mounted here, in front of
+    // the router rather than globally, so it governs the dispatcher that amplifies and
+    // never sees POST /{COIN}/api/preflight, which parses its own much larger body.
+    // Both bounds above have already been charged by this point, so an oversize batch
+    // is never free. Default 20, matching encoder/decoder/utxo-tracker.
+    app.use(makeRpcBatchGuard(resolveMaxBatch(process.env.EXPLORER_MAX_RPC_BATCH, 20)));
 
     // Registered last so explorer routes take priority.
     // Express 5 / body-parser 2.x leaves req.body undefined when a request carries

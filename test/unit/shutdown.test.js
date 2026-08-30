@@ -20,6 +20,29 @@ const configInfo = require('../../src/config.js');
 
 const silentLog = { log(){}, warn(){}, error(){} };
 
+// The exit seam and the drain are the events these tests are actually about, so
+// they await those rather than a wall clock a loaded CI box stretches.
+function deferred(){
+    let resolve;
+    const promise = new Promise((r) => { resolve = r; });
+    return { promise, resolve };
+}
+
+// One macrotask turn: enough for anything already queued to run, with no duration.
+const flush = () => new Promise((r) => setImmediate(r));
+
+// An event that never arrives must fail, not hang: the unit script runs mocha with
+// --timeout 0. The bound is a backstop and costs nothing on the passing path.
+function awaited(promise, what){
+    let timer;
+    const bound = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timed out waiting for ' + what)), 2000);
+    });
+    // Cleared on the passing path, so the bound adds no wall time and leaves no
+    // handle behind; unref'ing it instead would let an empty loop exit silently.
+    return Promise.race([promise, bound]).finally(() => clearTimeout(timer));
+}
+
 function makeServer(order, name){
     return {
         closed: false,
@@ -49,13 +72,14 @@ describe('graceful shutdown', function(){
         it('runs the drain and exits zero when it completes', async function(){
             const codes = [];
             let drained = false;
+            const exited = deferred();
             const shutdown = createShutdown({
                 drain: async () => { drained = true; },
-                exit: (c) => codes.push(c),
+                exit: (c) => { codes.push(c); exited.resolve(); },
                 log: silentLog
             });
             shutdown('SIGTERM');
-            await new Promise((r) => setTimeout(r, 10));
+            await awaited(exited.promise, 'the exit seam');
             assert.strictEqual(drained, true);
             assert.deepStrictEqual(codes, [0]);
         });
@@ -63,14 +87,20 @@ describe('graceful shutdown', function(){
         it('is idempotent: a second signal does not re-enter the drain', async function(){
             const codes = [];
             let calls = 0;
+            const held   = deferred();
+            const exited = deferred();
             const shutdown = createShutdown({
-                drain: async () => { calls++; await new Promise((r) => setTimeout(r, 20)); },
-                exit: (c) => codes.push(c),
+                drain: async () => { calls++; await held.promise; },
+                exit: (c) => { codes.push(c); exited.resolve(); },
                 log: silentLog
             });
             shutdown('SIGTERM');
             shutdown('SIGINT');
-            await new Promise((r) => setTimeout(r, 60));
+            // A second entry would be parked on the same held promise, so releasing
+            // lets BOTH finish and a re-entry shows up as a second call and code.
+            held.resolve();
+            await awaited(exited.promise, 'the exit seam');
+            await flush();
             assert.strictEqual(calls, 1);
             assert.deepStrictEqual(codes, [0]);
         });
@@ -80,26 +110,33 @@ describe('graceful shutdown', function(){
         // stop into a container that lingers until the supervisor's grace expires.
         it('hard-exits non-zero when the drain overruns its budget', async function(){
             const codes = [];
+            const exited = deferred();
             const shutdown = createShutdown({
                 drain: () => new Promise(() => {}),
                 timeoutMs: 20,
-                exit: (c) => codes.push(c),
+                exit: (c) => { codes.push(c); exited.resolve(); },
                 log: silentLog
             });
             shutdown('SIGTERM');
-            await new Promise((r) => setTimeout(r, 80));
+            await awaited(exited.promise, 'the exit seam');
             assert.deepStrictEqual(codes, [1]);
         });
 
         it('exits non-zero when the drain throws, and only once', async function(){
             const codes = [];
+            const exited = deferred();
             const shutdown = createShutdown({
                 drain: async () => { throw new Error('pool refused to close'); },
                 timeoutMs: 50,
-                exit: (c) => codes.push(c),
+                exit: (c) => { codes.push(c); exited.resolve(); },
                 log: silentLog
             });
             shutdown('SIGTERM');
+            await awaited(exited.promise, 'the exit seam');
+            // "Only once" has no event to await: the budget timer is the second exit
+            // path, so the test must outlive it. Verified load-bearing by mutation -
+            // drop this wait and a timer that stops honouring `finished` still reads
+            // as [1]. A slow box only delays both, so it cannot flake this red.
             await new Promise((r) => setTimeout(r, 120));
             assert.deepStrictEqual(codes, [1]);
         });

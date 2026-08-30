@@ -1,0 +1,44 @@
+<!-- Swap Cancellations (SWAP_CANCEL: the owner pulling a swap off the book) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-times"></i> Swap Cancellations
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-swap_cancel">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Source</th>
+                        <th class="">Swap</th>
+                        <th class="">Memo</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="7" class="loading-data">Loading swap cancellation data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Swap Cancellations';
+    XC.pageInfo.description = 'Swaps withdrawn from the book by their owner (SWAP_CANCEL) on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/swap_cancels';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'swap_cancel', null, null);
+
+});
+</script>

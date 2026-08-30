@@ -55,7 +55,7 @@ const ORDER = {
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN order_statuses     s1 ON (s1.order_action_index=o1.action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=o1.get_address_id)
                     LEFT  JOIN index_memos        m2 ON (m2.id=o1.memo_id)
                     LEFT  JOIN index_statuses     s2 ON (s2.id=o1.status_id)
@@ -101,7 +101,13 @@ const ORDER = {
                 ORDER BY action_index ASC`;
         return { query, query2, query3 };
     },
-    afterMain:   shared.applyOfferState,
+    // Zero here AND after the fills subtraction: the registry skips afterQuery3
+    // when query3 returns no rows, which is exactly the unfilled-expiry case. Safe
+    // twice because afterQuery3 recomputes from give_amount, not from state.
+    async afterMain(ctx, data) {
+        await shared.applyOfferState(ctx, data);
+        shared.applyTerminalOfferState(data);
+    },
     afterQuery2: shared.applyOfferListEdits,
     // query3 matches this order on either leg, so its action_index is bound twice.
     query3Args({ action_index }) {
@@ -118,6 +124,9 @@ const ORDER = {
         }
         data.state.give_remaining = String(give_remaining);
         data.state.get_remaining  = String(get_remaining);
+        // A partially-filled order that then expired still has escrow released,
+        // so the unfilled residue is not on offer either.
+        shared.applyTerminalOfferState(data);
     },
 };
 
@@ -151,7 +160,7 @@ const ORDER_CANCEL = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -199,7 +208,7 @@ const ORDER_EDIT = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -327,7 +336,7 @@ const SWAP = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=s1.get_address_id)
                     LEFT  JOIN index_memos        m2 ON (m2.id=s1.memo_id)
                     LEFT  JOIN index_statuses     s3 ON (s3.id=s1.status_id)
@@ -401,7 +410,7 @@ const SWAP_CANCEL = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN swaps              s1 ON (s1.action_index=m.swap_action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                     LEFT  JOIN index_statuses     s2 ON (s2.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -449,7 +458,7 @@ const SWAP_EDIT = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN swaps              s1 ON (s1.action_index=m.swap_action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                     LEFT  JOIN index_statuses     s2 ON (s2.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)

@@ -1,0 +1,46 @@
+<!-- Dispenser Closes (DISPENSER_CLOSE: the owner deliberately retiring a dispenser) -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-times"></i> Dispenser Closes
+                </div>
+                <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-dispenser_close">
+                <thead>
+                    <tr class="info">
+                        <th class="record">#</th>
+                        <th class="block">Block</th>
+                        <th class="time">Time</th>
+                        <th class="address">Address</th>
+                        <th class="">Dispenser</th>
+                        <th class="">Give</th>
+                        <th class="">Get</th>
+                        <th class="">Reason</th>
+                        <th class="view"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="9" class="loading-data">Loading dispenser close data...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = 'Dispenser Closes';
+    XC.pageInfo.description = 'Dispensers closed by their owner (DISPENSER_CLOSE), returning the remaining escrow, on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/dispenser_closes';
+    updatePageInfo();
+
+    loadDatatablesData(XC.coin, 'dispenser_close', null, null);
+
+});
+</script>

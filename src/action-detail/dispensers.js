@@ -49,7 +49,7 @@ const COINPAY = {
                     INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                 WHERE
@@ -124,7 +124,7 @@ const DISPENSER = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)
                     LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
                     LEFT  JOIN index_memos        m2 ON (m2.id=d1.memo_id)
@@ -176,7 +176,13 @@ const DISPENSER = {
                 ORDER BY m.action_index ASC`;
         return { query, query2, query3 };
     },
-    afterMain:   shared.applyOfferState,
+    // Escrow derives as create + refills - payouts, reaching 0 only when drained.
+    // An expired or cancelled dispenser had its escrow refunded by the terminal
+    // action and nothing nets that out, so apply the terminal rule explicitly.
+    async afterMain(ctx, data) {
+        await shared.applyOfferState(ctx, data);
+        shared.applyTerminalOfferState(data);
+    },
     afterQuery2: shared.applyOfferListEdits,
 };
 
@@ -214,7 +220,7 @@ const DISPENSER_CANCEL = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)
                     LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -316,7 +322,7 @@ const DISPENSER_EDIT = {
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_addresses    a4 ON (a4.id=d1.get_address_id)
                     LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)

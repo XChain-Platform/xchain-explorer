@@ -92,7 +92,11 @@ $(document).ready(function() {
     $('#bet-feed-id').text(XC.query);
 
     $.getJSON('/' + XC.coin + '/api/bet_feed/' + XC.query, function(o){
-        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data) : null;
+        // This endpoint answers with the record FLAT; a {data:...} envelope is
+        // tolerated but is not what it returns. A body with no action_index is an
+        // error payload and must read as not-found, never as a market.
+        let d = (o && o.data) ? (Array.isArray(o.data) ? o.data[0] : o.data)
+                              : ((o && o.action_index) ? o : null);
         if(!d){
             $('#feed-label').text('Market not found');
             $('#feed-pools').text('-');
@@ -121,7 +125,7 @@ $(document).ready(function() {
         $('#feed-gating').html(gating.length ? gating.join('<br>') + '<div class="small text-muted">A blocked address is rejected even if it also appears on the allow list.</div>' : '<span class="text-muted">open to everyone</span>');
         $('#feed-created').html(formatLink('/' + XC.coin + '/action/' + d.action_index, d.action_index) + (isNull(d.block_index) ? '' : ' in block ' + formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0'))));
 
-        // ---- Outcome pools (open bets only: the normative settlement predicate) ----
+        // ---- Outcome pools (every stake that escrowed; see getBetFeedPools) ----
         let outs  = Array.isArray(d.outcome_labels) ? d.outcome_labels : [];
         let pools = Array.isArray(d.pools) ? d.pools : [];
         let byOutcome = {};
@@ -134,7 +138,10 @@ $(document).ready(function() {
             outs.forEach(function(label, i){
                 let p   = byOutcome[i] || { pool: 0, bet_count: 0 };
                 let pct = total > 0 ? ((Number(p.pool || 0) / total) * 100).toFixed(1) + '%' : '-';
-                html += '<tr><td>' + i + ': ' + esc(label) + '</td><td>' + formatAmount(p.pool || 0) + '</td><td>' + numeral(p.bet_count || 0).format('0,0') + '</td><td>' + pct + '</td></tr>';
+                // Mark the winner on its own row. Strict numeric equality: outcome 0 is a
+                // legitimate winner and a truthy test would drop it.
+                let won = (d.winning_outcome !== null && d.winning_outcome !== undefined && Number(d.winning_outcome) === i);
+                html += '<tr class="' + (won ? 'table-success' : '') + '"><td>' + i + ': ' + esc(label) + (won ? ' <span class="badge text-bg-success">winner</span>' : '') + '</td><td>' + formatAmount(p.pool || 0) + '</td><td>' + numeral(p.bet_count || 0).format('0,0') + '</td><td>' + pct + '</td></tr>';
             });
             html += '</tbody></table>';
             html += '<div class="small text-muted mt-1">Parimutuel: the split shown is current, not the odds locked at bet time. Payouts are floored, so a very small winning stake can pay nothing.</div>';

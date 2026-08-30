@@ -494,7 +494,9 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             detector.on('block',  (coin, b) => events.block.push(b));
             detector.on('action', (coin, a) => events.action.push(a));
             detector.state = { RBTC: { blockIndex: 0, actionIndex: 0, initialized: false } };
-            detector.mempoolState = { RBTC: { seenHashes: new Set(), initialized: false } };
+            // seenHashes is a Map<tx_hash, {source, data}>, not a Set: the removal
+            // path needs the tx's parties after its row has left the table.
+            detector.mempoolState = { RBTC: { seenHashes: new Map(), initialized: false } };
 
             // First poll seeds cursors from the (empty) real schema. Any bad
             // column in the tip poll throws HERE, exactly like production.

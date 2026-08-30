@@ -180,6 +180,18 @@ class XChainExplorer {
                 '/{COIN}/dividends'           : 'dividends.html',
                 '/{COIN}/dispensers'          : 'dispensers.html',
                 '/{COIN}/dispenses'           : 'dispenses.html',
+                // Dispenser terminal states: a DISPENSER_EXPIRE is the protocol retiring a
+                // dispenser at its expiration height, a DISPENSER_CLOSE is the owner doing
+                // it deliberately. Both return the remaining escrow, so the list carries the
+                // closed dispenser's give/get terms rather than just the pointer.
+                '/{COIN}/dispenser_expires'   : 'dispenser_expires.html',
+                '/{COIN}/dispenser_closes'    : 'dispenser_closes.html',
+                // The two USER-written amendments to a live dispenser: a DISPENSER_CANCEL
+                // withdraws it, a DISPENSER_EDIT changes its escrow, expiration or lists.
+                // An edit only carries the fields it changed, so a null column means "this
+                // edit left that setting alone", not "the setting is empty".
+                '/{COIN}/dispenser_cancels'   : 'dispenser_cancels.html',
+                '/{COIN}/dispenser_edits'     : 'dispenser_edits.html',
                 '/{COIN}/fees'                : 'fees.html',
                 '/{COIN}/files'               : 'files.html',
                 '/{COIN}/history'             : 'history.html',
@@ -191,6 +203,19 @@ class XChainExplorer {
                 '/{COIN}/mints'               : 'mints.html',
                 '/{COIN}/orders'              : 'orders.html',
                 '/{COIN}/order_matches'       : 'order_matches.html',
+                // An ORDER_EXPIRE / SWAP_EXPIRE is written by the protocol, not by a user
+                // transaction: it is how an unfilled order or swap leaves the book, and the
+                // row points back at the order/swap it retired.
+                '/{COIN}/order_expires'       : 'order_expires.html',
+                '/{COIN}/swap_expires'        : 'swap_expires.html',
+                // The user-written counterparts: an ORDER_CANCEL / SWAP_CANCEL pulls the
+                // record off the book, an ORDER_EDIT / SWAP_EDIT amends it in place. The
+                // edit lists lead with what the edit CHANGED (expiration, allow/block list),
+                // because the amended terms are the only reason the row exists.
+                '/{COIN}/order_cancels'       : 'order_cancels.html',
+                '/{COIN}/order_edits'         : 'order_edits.html',
+                '/{COIN}/swap_cancels'        : 'swap_cancels.html',
+                '/{COIN}/swap_edits'          : 'swap_edits.html',
                 '/{COIN}/contracts'            : 'contracts.html',
                 '/{COIN}/contract/{QUERY}'    : 'contract.html',
                 '/{COIN}/executions'          : 'executions.html',
@@ -231,6 +256,10 @@ class XChainExplorer {
                 // the who-owes-what-native-coin view an ORDER_MATCH creates.
                 '/{COIN}/coinpays'            : 'coinpays.html',
                 '/{COIN}/coinpay_obligations' : 'coinpay_obligations.html',
+                // The obligation that was never paid: a COINPAY_EXPIRE closes it out at its
+                // expiration. It carries no source address of its own (the protocol writes
+                // it), so the list shows the obligation it retired in that column instead.
+                '/{COIN}/coinpay_expires'     : 'coinpay_expires.html',
                 '/{COIN}/cross_chain_matches' : 'cross_chain_matches.html',
                 '/{COIN}/cross_chain_settlements' : 'cross_chain_settlements.html',
                 '/{COIN}/rewards'             : 'rewards.html',
@@ -505,6 +534,13 @@ class XChainExplorer {
                 '/{COIN}/api/escrows/{QUERY}/{TYPE}'           : ['getEscrows',          ['block', 'address']],
                 '/{COIN}/api/history/{QUERY}/{TYPE}'           : ['getHistory',          ['block', 'address', 'token', 'recent']],
                 '/{COIN}/api/holders/{QUERY}'                  : ['getHolders',          'token'],
+                // The client appends the query TYPE to every feed url it builds, so the
+                // token page asked for /holders/{TICK}/token and got a 404 while the
+                // holder tab sat empty. A holders query is only ever by token, so the
+                // segment is redundant, but registering it is how `search` (just above)
+                // already handles the same shape. Client-side special-casing would have
+                // to be repeated for every caller instead.
+                '/{COIN}/api/holders/{QUERY}/{TYPE}'           : ['getHolders',          'token'],
                 '/{COIN}/api/mempool'                          : ['getMempool'],
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
                 '/{COIN}/api/network'                          : ['getNetwork'],   
@@ -544,6 +580,9 @@ class XChainExplorer {
                 '/{COIN}/explorer/fees/{QUERY}/{TYPE}'                      : ['getFees',         ['block', 'address', 'token']],
                 '/{COIN}/explorer/files/{QUERY}/{TYPE}'                     : ['getFiles',        ['block', 'address', 'token']],
                 '/{COIN}/explorer/holders/{QUERY}'                          : ['getHolders',      'token'],
+                // See the /api/holders note above: this is the route the token page's
+                // Holders tab actually requests.
+                '/{COIN}/explorer/holders/{QUERY}/{TYPE}'                   : ['getHolders',      'token'],
                 '/{COIN}/explorer/history/{QUERY}/{TYPE}'                   : ['getHistory',      ['block', 'address', 'token', 'recent']],
                 '/{COIN}/explorer/issues/{QUERY}/{TYPE}'                    : ['getIssues',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/links/{QUERY}/{TYPE}'                     : ['getLinks',        ['block', 'address', 'token']],
@@ -560,6 +599,26 @@ class XChainExplorer {
                 '/{COIN}/explorer/coinpays'                                 : ['getCoinpays'],
                 '/{COIN}/explorer/coinpay_obligations/{QUERY}/{TYPE}'       : ['getCoinpayObligations', ['block', 'address']],
                 '/{COIN}/explorer/coinpay_obligations'                      : ['getCoinpayObligations'],
+                // Tier-4 expire/close feeds. These already had /api routes; the /explorer
+                // counterpart is what a DataTables page pages over, and each needs a
+                // getPagingDataResults row mapping below to go with it. Without the pair the
+                // page answers 404 and DataTables renders it as an empty table, not an error.
+                '/{COIN}/explorer/order_expires/{QUERY}/{TYPE}'             : ['getOrderExpires',     ['block', 'address']],
+                '/{COIN}/explorer/swap_expires/{QUERY}/{TYPE}'              : ['getSwapExpires',      ['block', 'address']],
+                '/{COIN}/explorer/dispenser_expires/{QUERY}/{TYPE}'         : ['getDispenserExpires', ['block', 'address']],
+                '/{COIN}/explorer/dispenser_closes/{QUERY}/{TYPE}'          : ['getDispenserCloses',  ['block', 'address']],
+                '/{COIN}/explorer/coinpay_expires/{QUERY}/{TYPE}'           : ['getCoinpayExpires',   ['block', 'address']],
+                // Cancel/edit feeds, the user-written half of the same lifecycles. Same
+                // pairing rule as the expires above: the /api route already existed, but a
+                // page pages over /explorer, and the feed is only half of it - each of these
+                // also needs a getPagingDataResults row mapping below, or the page renders
+                // blank cells with no error anywhere.
+                '/{COIN}/explorer/order_cancels/{QUERY}/{TYPE}'             : ['getOrderCancels',     ['block', 'address']],
+                '/{COIN}/explorer/order_edits/{QUERY}/{TYPE}'               : ['getOrderEdits',       ['block', 'address']],
+                '/{COIN}/explorer/swap_cancels/{QUERY}/{TYPE}'              : ['getSwapCancels',      ['block', 'address']],
+                '/{COIN}/explorer/swap_edits/{QUERY}/{TYPE}'                : ['getSwapEdits',        ['block', 'address']],
+                '/{COIN}/explorer/dispenser_cancels/{QUERY}/{TYPE}'         : ['getDispenserCancels', ['block', 'address']],
+                '/{COIN}/explorer/dispenser_edits/{QUERY}/{TYPE}'           : ['getDispenserEdits',   ['block', 'address']],
                 // Feeds for the M2 list pages. price_snapshots / contract_delegations
                 // already had their /api routes; the /explorer counterpart is what a
                 // DataTables page pages over, and it needs a getPagingDataResults row
@@ -1408,8 +1467,11 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.type, info.price, info.amount, null, info.action_index];
                     if(method=='getMessages')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.plaintext_message, info.encrypted_message, status, info.action_index];
+                    // Carry destination in the slot getSends uses, before
+                    // status/action_index, so the client's length-relative
+                    // status and paging-offset extraction keeps working.
                     if(method=='getMints')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.destination, status, info.action_index];
                     if(method=='getOrders')
                         // give/get_ownership sit BEFORE status/action_index (invariant: action_index LAST).
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_tick, info.give_amount, info.get_tick, info.get_amount, info.give_ownership, info.get_ownership, status, info.action_index];
@@ -1623,6 +1685,46 @@ class XChainExplorer {
                     // block time column (the obligation is created by a match, not by its own tx).
                     if(method=='getCoinpayObligations')
                         info = [count_reverse, info.block_index, info.payer_address, info.payee_address, info.coin, info.coin_amount, info.expiration, info.coinpay_status, info.action_index];
+                    // Protocol-written terminal actions for orders/swaps/dispensers. Each row
+                    // is the expire/close action itself plus a pointer at what it retired, so
+                    // the pointer sits at slot 4 and status/action_index stay last.
+                    if(method=='getOrderExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.order_action_index, status, info.action_index];
+                    if(method=='getSwapExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.swap_action_index, status, info.action_index];
+                    if(method=='getDispenserExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispenser_action_index, status, info.action_index];
+                    // DISPENSER_CLOSE also returns the closed dispenser's terms, so both legs
+                    // ride along. A native-coin leg carries a null tick with a real coin+amount,
+                    // which the client must render unlinked rather than as /token/null.
+                    // close_reason ('empty' vs 'cancelled') sits BEFORE status/action_index so
+                    // action_index stays LAST (paging cursor) and status second-to-last.
+                    if(method=='getDispenserCloses')
+                        info = [count_reverse, info.block_index, info.timestamp, info.dispenser_address, info.dispenser_action_index, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, info.close_reason, status, info.action_index];
+                    // COINPAY_EXPIRE has no source of its own (no user transaction writes it),
+                    // so slot 3 carries the obligation it closed out instead of an address.
+                    if(method=='getCoinpayExpires')
+                        info = [count_reverse, info.block_index, info.timestamp, info.obligation_action_index, status, info.action_index];
+                    // User-written cancels. The row is the cancel action plus a pointer at
+                    // the record it pulled, and its memo: the memo is the only field saying
+                    // WHY the owner cancelled, so it is the one column worth the width.
+                    if(method=='getOrderCancels')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.order_action_index, info.memo, status, info.action_index];
+                    if(method=='getSwapCancels')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.swap_action_index, info.memo, status, info.action_index];
+                    if(method=='getDispenserCancels')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispenser_action_index, info.memo, status, info.action_index];
+                    // User-written edits. An edit exists only for what it CHANGED, so the
+                    // amended fields ride along: a null expiration/allow_list/block_list means
+                    // the edit left that setting alone, which the client must render as a dash
+                    // rather than dropping the column (a DISPENSER_EDIT that moved only escrow
+                    // legitimately carries a null expiration). give_escrow is dispenser-only.
+                    if(method=='getOrderEdits')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.order_action_index, info.expiration, info.allow_list, info.block_list, info.memo, status, info.action_index];
+                    if(method=='getSwapEdits')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.swap_action_index, info.expiration, info.allow_list, info.block_list, info.memo, status, info.action_index];
+                    if(method=='getDispenserEdits')
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.dispenser_action_index, info.give_escrow, info.expiration, info.allow_list, info.block_list, info.memo, status, info.action_index];
                     // Cross-chain settlement leg (local action-chain row; no status column). action_index
                     // is the paging cursor (LAST) and links the local settlement action.
                     if(method=='getCrossChainSettlements')

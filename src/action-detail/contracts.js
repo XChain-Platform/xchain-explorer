@@ -75,7 +75,7 @@ const DEPLOY = {
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=t1.source_id)
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -99,6 +99,12 @@ const EXECUTE = {
                     m.action_index,
                     m.contract_index,
                     a3.address as caller,
+                    -- An EXECUTE served no top-level source, so the shared transaction card
+                    -- rendered a dash beside an Action Details card that showed the very same
+                    -- address as the caller. For a top-level call the two ARE the same address;
+                    -- for one emitted by a contract (a nested EXECUTE) the action's own source
+                    -- is the emitting contract while caller stays whoever triggered it.
+                    a5.address as source,
                     m.method_name,
                     m.input_params,
                     m.gas_used,
@@ -117,6 +123,7 @@ const EXECUTE = {
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     LEFT  JOIN index_addresses    a3 ON (a3.id=m.caller_id)
+                    LEFT  JOIN index_addresses    a5 ON (a5.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                 WHERE

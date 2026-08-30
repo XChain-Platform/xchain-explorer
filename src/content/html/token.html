@@ -65,12 +65,12 @@
                         <td><span id="market-marketcap-coin">0.00000000</span> <span class="xchain-coin"></span></td>
                     </tr>
                     <tr>
-                        <th>BTC Price</th>
+                        <th><span class="xchain-coin"></span> Price</th>
                         <td>$<span id="market-price-fiat">0.00</span></td>
                         <td><span id="market-price-coin">0.00000000</span> <span class="xchain-coin"></span></td>
                     </tr>
                     <tr>
-                        <th>BTC Floor</th>
+                        <th><span class="xchain-coin"></span> Floor</th>
                         <td>$<span id="market-floor-fiat">0.00</span></td>
                         <td><span id="market-floor-coin">0.00000000</span> <span class="xchain-coin"></span></td>
                     </tr>
@@ -113,6 +113,32 @@
 <!-- Controller Bindings (protocol/Controller_Bound_Tokens.md): guard contracts
      that gate this token's native actions. Hidden until at least one binding is
      still gating at the chain tip. -->
+<!-- Files LINKed to this token (the NFT pattern). Hidden until at least one exists. -->
+<div class="container mt-3" id="token-linked-files-card" style="display:none;">
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-file"></i> Linked Files
+                </div>
+                <table class="table table-sm table-striped table-bordered mb-0">
+                <thead>
+                    <tr class="info">
+                        <th>Title</th>
+                        <th>Filename</th>
+                        <th>Type</th>
+                        <th>Block</th>
+                        <th>File</th>
+                    </tr>
+                </thead>
+                <tbody id="token-linked-files-body">
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container mt-3" id="token-controllers-card" style="display:none;">
     <div class="row">
         <div class="col-12">

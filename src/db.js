@@ -9620,14 +9620,18 @@ class Database {
                     FROM
                         unstakes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
+        // ROLLCALL evictions (action_format 3) write an unstakes row with tx_index NULL
+        // (no broadcast transaction behind them), so blocks joins off a1.block_index
+        // (always set, synthetic or not) and transactions is LEFT so the eviction row
+        // survives instead of vanishing from an INNER join it can never satisfy.
         let query = `SELECT
                         a4.action,
                         m.action_index,
@@ -9644,8 +9648,8 @@ class Database {
                     FROM
                         unstakes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)

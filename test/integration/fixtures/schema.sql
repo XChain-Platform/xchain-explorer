@@ -1463,6 +1463,51 @@ CREATE UNIQUE INDEX action_index       ON stakes (action_index);
 CREATE        INDEX source_id          ON stakes (source_id);
 CREATE        INDEX signing_pubkey_id  ON stakes (signing_pubkey_id);
 
+-- Capability UNSTAKE v0 (`unstakes`; see db.js getUnstakes). Every row keys one
+-- UNSTAKE action_index. A user-broadcast unstake writes one behind a real
+-- transaction; a ROLLCALL eviction (xchain-indexer rollcall_close.js
+-- evictSource()) writes one with STATUS 'valid' and no transaction at all - the
+-- matching `actions` row carries tx_index NULL, source_id NULL, action_format 3.
+-- source_id / signing_pubkey_id / block_index are always set by the indexer on
+-- both paths (an eviction still names the evicted validator and its epoch-close
+-- block), so they stay NOT NULL here same as `stakes`.
+DROP TABLE IF EXISTS unstakes;
+CREATE TABLE unstakes (
+    action_index        BIGINT UNSIGNED NOT NULL,        -- FK to actions table (each UNSTAKE action gets its own row)
+    source_id           BIGINT UNSIGNED NOT NULL,        -- FK to index_addresses (staking address; the evicted validator's, for a ROLLCALL eviction)
+    signing_pubkey_id   BIGINT UNSIGNED NOT NULL,        -- FK to index_pubkeys (Ed25519 hot key)
+    amount              VARCHAR(250) NOT NULL,           -- XCHAIN removed by this action
+    cooldown_end_block  BIGINT UNSIGNED,
+    status_id           BIGINT UNSIGNED,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON unstakes (action_index);
+CREATE        INDEX source_id          ON unstakes (source_id);
+CREATE        INDEX signing_pubkey_id  ON unstakes (signing_pubkey_id);
+
+-- Contract-targeted UNSTAKE v1 (`contract_unstakes`; see db.js getContractUnstakes
+-- and staking.js UNSTAKE, which LEFT JOINs it for every UNSTAKE lookup regardless
+-- of variant). ROLLCALL evictions never write this table (they are capability-only,
+-- see `unstakes` above); present here only so that join resolves instead of failing
+-- on a missing table.
+DROP TABLE IF EXISTS contract_unstakes;
+CREATE TABLE contract_unstakes (
+    action_index          BIGINT UNSIGNED NOT NULL,
+    source_id             BIGINT UNSIGNED,
+    signing_pubkey_id     BIGINT UNSIGNED,
+    target_contract_index BIGINT UNSIGNED,
+    tick_id                BIGINT UNSIGNED,
+    amount                 VARCHAR(250),
+    cooldown_end_block     BIGINT UNSIGNED,
+    status_id              BIGINT UNSIGNED,
+    block_index             BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON contract_unstakes (action_index);
+CREATE        INDEX source_id          ON contract_unstakes (source_id);
+CREATE        INDEX signing_pubkey_id  ON contract_unstakes (signing_pubkey_id);
+
 DROP TABLE IF EXISTS delegations;
 CREATE TABLE delegations (
     action_index        BIGINT UNSIGNED NOT NULL,

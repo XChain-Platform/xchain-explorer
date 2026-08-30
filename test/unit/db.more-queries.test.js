@@ -3636,6 +3636,26 @@ describe('Database#getUnstakes', () => {
         expect(query).to.include('m.cooldown_end_block');
         expect(query).to.include('ORDER BY m.action_index');
     });
+
+    // A ROLLCALL eviction writes an unstakes row with tx_index NULL (the indexer,
+    // not a holder, wrote it - no broadcast transaction exists behind it). Joining
+    // blocks off t1.block_index (a transaction that will never exist for this row)
+    // drops the row from an INNER join it can never satisfy; a1.block_index is
+    // NOT NULL on every action, synthetic or not, so that join stays INNER while
+    // transactions degrades to LEFT so a NULL t1 keeps the row instead of erasing it.
+    it('joins blocks off a1.block_index (INNER) and transactions off a1.tx_index (LEFT), in both the rows and count queries', async () => {
+        const db = makeDb();
+        const [query, , count] = await db.getUnstakes(makeActionConfig('getUnstakes'));
+        for(const q of [query, count]){
+            expect(q).to.include('INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)');
+            expect(q).to.include('LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)');
+            // The pre-fix shape joined transactions INNER off a1.tx_index and then
+            // chained blocks off t1.block_index; a synthetic row with tx_index NULL
+            // satisfies neither and vanishes. Guard against that pattern coming back.
+            expect(q).to.not.include('INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)');
+            expect(q).to.not.include('b1.block_index=t1.block_index');
+        }
+    });
 });
 
 // DELEGATE v2/v3 key revoke.

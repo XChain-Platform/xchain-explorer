@@ -3582,8 +3582,15 @@ function showStakeDetails(data){
 // Display UNSTAKE action information (capability v0 or contract-targeted v1)
 function showUnstakeDetails(data){
     let isContract = !isNull(data.target_contract_index);
+    // ROLLCALL eviction (action_format 3): the protocol removed this validator for
+    // missing liveness, the holder never broadcast anything. A user CAN broadcast a
+    // format-3 UNSTAKE, but the indexer rejects it as invalid, so requiring status
+    // 'valid' alongside the format keeps a rejected broadcast from reading as an
+    // eviction that never happened.
+    let isEviction = (Number(data.action_format) === 3 && data.status === 'valid');
     $('#info-unstake .unstake-pubkey').html(formatHash(data.signing_pubkey, 24));
-    $('#info-unstake .unstake-amount').html(formatAmount(data.amount));
+    $('#info-unstake .unstake-amount').html(
+        (isEviction ? '<span class="badge text-bg-danger me-2">Evicted</span>' : '') + formatAmount(data.amount));
     $('#info-unstake .unstake-cooldown').html(isNull(data.cooldown_end_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.cooldown_end_block, numeral(data.cooldown_end_block).format('0,0')));
     $('#info-unstake .unstake-contract-row').toggleClass('d-none', !isContract);
     if(isContract){

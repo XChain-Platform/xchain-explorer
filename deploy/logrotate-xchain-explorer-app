@@ -21,6 +21,14 @@
 # and the fresh file empty until the next explorer restart, which on a
 # Restart=always service could be weeks.
 #
+# No delaycompress. It exists to protect a rotated file that a process still
+# holds open, which is exactly what copytruncate has already ruled out: the copy
+# is taken and the original truncated in place, so nothing is reading the
+# rotated file by the time compression runs. Driving the first rotation on the
+# box proved the cost of keeping both: stderr.log.1 sat at the full 302 MB
+# uncompressed and the disk pressure this stanza exists to relieve was still
+# there afterwards.
+#
 # Retention: the live rate is 444 KB/h (302,445,237 bytes across the 681 hours
 # since the last rotation). Daily rotation with 7 copies keeps 7 days, far past
 # the 48 h floor; maxsize 100M is the ceiling for a fault loop that outruns the
@@ -34,6 +42,5 @@
     missingok
     notifempty
     compress
-    delaycompress
     copytruncate
 }

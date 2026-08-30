@@ -260,7 +260,16 @@ function setXChainParams(coin){
         // Set type to either tx_index or tx_hash for transactions
         if(type=='transaction'){
             XC.query = query;
-            XC.type  = (isNumeric(query)) ? 'tx_index' : 'tx_hash';
+            // Disambiguate on SHAPE, not on numeric-ness. isNumeric() is true for any
+            // run of decimal digits and never checks length, so a 64-hex hash whose
+            // characters all happen to be 0-9 was read as a transaction INDEX: the page
+            // then rendered a real, unrelated transaction under the URL of a hash that
+            // does not exist, silently attributing one transaction's data to another
+            // identifier. A 64-hex string is a hash unconditionally; only shorter
+            // numeric input can be an index.
+            XC.type  = (/^[0-9a-f]{64}$/i.test(String(query))) ? 'tx_hash'
+                     : (isNumeric(query))                      ? 'tx_index'
+                     :                                           'tx_hash';
         }
     } else if(type=='market'){
         XC.type  = type;
@@ -4278,6 +4287,16 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
             }
         });
         body.html(html);
+    } else {
+        // An empty result MUST clear the tbody before DataTables initializes. The
+        // markup ships a single placeholder row ("Loading data...") whose colspan
+        // stands in for the whole header, and DataTables does not expand colspan
+        // when it adopts existing rows: it expects one <td> per <th>, finds one,
+        // and dereferences the missing cells as undefined._DT_CellIndex. Leaving
+        // the row in place therefore throws instead of rendering, which is exactly
+        // the path a user hits right after broadcasting, before the tx confirms.
+        // Emptying it lets DataTables draw its own zeroRecords state.
+        body.empty();
     }
     initStaticDatatable(id, autoWidth);
 }

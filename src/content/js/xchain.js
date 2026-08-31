@@ -1228,11 +1228,48 @@ function getActionDetails(action, info){
     }
     if(action=='VOTE')
         html = 'Vote' + (isNull(info.vote_kind) ? '' : ': ' + escapeHtml(String(info.vote_kind)));
+    // Consensus actions. These reach the history feed on every network (and are the
+    // ONLY actions on a chain that carries no user traffic yet), so the humanized
+    // fallback below would leave a whole feed reading "Anchor / Anchor / Price".
+    if(action=='ANCHOR'){
+        // Which chain+network this checkpoint is FOR, then what it pins. chain/network
+        // are indexer-written enum-ish columns; escaped because they still reach .html().
+        let scope = [info.chain, info.network].filter((v) => !isNull(v)).map((v) => escapeHtml(String(v))).join(' ');
+        html = (scope ? scope + ' ' : '') + 'checkpoint';
+        if(!isNull(info.checkpoint_seq))
+            html += ' #' + numeral(info.checkpoint_seq).format('0,0');
+        // anchored_block_index is the height being checkpointed on info.chain, which is
+        // NOT the page coin, so it is stated rather than linked (the /block/ route would
+        // resolve it against the wrong network).
+        if(!isNull(info.anchored_block_index))
+            html += ' at block ' + numeral(info.anchored_block_index).format('0,0');
+        // The archive-continuation variants carry no checkpoint of their own.
+        if(!isNull(info.chunk_index) && !isNull(info.total_chunks))
+            html += ' (chunk ' + (Number(info.chunk_index) + 1) + ' of ' + info.total_chunks + ')';
+    }
+    if(action=='PRICE'){
+        if(!isNull(info.batch_first_round) && !isNull(info.batch_last_round)){
+            // A validator batch: name the window, not a single round, and say how wide
+            // each round is so the row shows the action carried real price data.
+            let n = isNull(info.round_count) ? null : Number(info.round_count);
+            html  = 'Rounds ' + numeral(info.batch_first_round).format('0,0') + '-' + numeral(info.batch_last_round).format('0,0');
+            if(n !== null)
+                html += ' (' + numeral(n).format('0,0') + ' round' + (n===1 ? '' : 's') + ')';
+        } else if(!isNull(info.tick) || !isNull(info.fiat)){
+            // A v1 user oracle: TOKEN/FIAT and the published value.
+            html  = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
+            html += '/' + escapeHtml(nullToBlank(info.fiat)) + ' = ' + formatAmount(info.value);
+        } else if(!isNull(info.round_number)){
+            html = 'Round ' + numeral(info.round_number).format('0,0');
+            if(!isNull(info.pair_count))
+                html += ' (' + numeral(info.pair_count).format('0,0') + ' pairs)';
+        }
+    }
     // Never render a blank Details cell: any type without an explicit summary
-    // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, ANCHOR, PRICE, NODEPROOF,
-    // ATTEST, COINPAY, ... and any FUTURE type) falls back to a humanized
-    // action name, so a new action type can no longer silently summarize as
-    // empty while being fully supported everywhere else.
+    // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, NODEPROOF, ATTEST, COINPAY,
+    // ... and any FUTURE type) falls back to a humanized action name, so a new
+    // action type can no longer silently summarize as empty while being fully
+    // supported everywhere else.
     if(html === ''){
         let words = String(action).toLowerCase().split('_');
         html = words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');
@@ -4149,8 +4186,17 @@ function showAnchorDetails(data){
     }
 }
 
-// Display PRICE action information (v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)
+// Display PRICE action information (v0 validator COIN/FIAT snapshot, v0 validator
+// BATCH of rounds, v1 user TOKEN/FIAT oracle).
+//
+// A batch is the shape a validator actually publishes: one signed action carrying an
+// hourly window of rounds, each round a full COIN/FIAT price set. Its single-round
+// columns (pair_count / pairs / sig_count) are NULL by construction, so everything
+// below that is keyed on them falls back to the batch's own fields rather than
+// rendering a dash over data the action plainly carries.
 function showPriceDetails(data){
+    let rounds = Array.isArray(data.rounds) ? data.rounds : [];
+    let sigs   = Array.isArray(data.signatures) ? data.signatures : [];
     $('#info-price .price-version').html(Number(data.version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
     $('#info-price .price-coin').text(isNull(data.coin) ? '-' : data.coin);
     $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
@@ -4163,11 +4209,104 @@ function showPriceDetails(data){
     $('#info-price .price-oracle-fee').text(isNull(data.oracle_fee) ? '-'
         : data.oracle_fee + ' (' + numeral(Number(data.oracle_fee) * 100).format('0,0.[000000]') + '%)');
     $('#info-price .price-round').text(isNull(data.round_number) ? '-' : numeral(data.round_number).format('0,0'));
+    // Round window: the batch's declared FIRST_ROUND..LAST_ROUND and how many rounds
+    // it actually carries. Row stays hidden on a single-round v0 row and a v1 oracle,
+    // where both bounds are NULL.
+    let hasWindow = !isNull(data.batch_first_round) && !isNull(data.batch_last_round);
+    $('#info-price .price-window-row').toggleClass('d-none', !hasWindow);
+    if(hasWindow){
+        let count = isNull(data.round_count) ? rounds.length : Number(data.round_count);
+        $('#info-price .price-window').text(
+            numeral(data.batch_first_round).format('0,0') + ' - ' + numeral(data.batch_last_round).format('0,0') +
+            ' (' + numeral(count).format('0,0') + ' round' + (count===1 ? '' : 's') + ')');
+    }
     $('#info-price .price-round-timestamp').text(isNull(data.round_timestamp) ? '-' : data.round_timestamp);
-    $('#info-price .price-pairs').text(isNull(data.pairs) ? (isNull(data.pair_count) ? '-' : data.pair_count) : JSON.stringify(data.pairs));
-    $('#info-price .price-sig-count').text(isNull(data.sig_count) ? '-' : numeral(data.sig_count).format('0,0'));
+    // Pair count: a batch stores none (its rounds each carry their own set), so count
+    // the pairs of its first round rather than showing a dash. Every round in a batch
+    // is one publisher's full snapshot, so the first round's width describes the batch.
+    let pairText = '-';
+    if(!isNull(data.pairs))
+        pairText = String(data.pairs.length);
+    else if(!isNull(data.pair_count))
+        pairText = String(data.pair_count);
+    else if(rounds.length && Array.isArray(rounds[0].pairs))
+        pairText = rounds[0].pairs.length + ' per round';
+    $('#info-price .price-pairs').text(pairText);
+    // sig_count is NULL on a batch row, but sigs_json holds the signature set that
+    // covers the whole window, so fall back to its length rather than to a dash.
+    let sigCount = isNull(data.sig_count) ? (sigs.length || null) : Number(data.sig_count);
+    $('#info-price .price-sig-count').text(isNull(sigCount) ? '-' : numeral(sigCount).format('0,0'));
+    $('#info-price .price-signers-row').toggleClass('d-none', sigs.length === 0);
+    if(sigs.length)
+        $('#info-price .price-signers').html(sigs.map((s) => formatHash(s.pubkey, 24)).join('<br>'));
     $('#info-price .price-validation-status').text(isNull(data.validation_status) ? '-' : data.validation_status);
     $('#info-price .price-memo').text(isNull(data.memo) ? '-' : data.memo);
+    showPriceRounds(rounds);
+}
+
+// Render a PRICE batch's decoded round bodies: one table per round, listing every
+// COIN/FIAT pair and its price exactly as the signers signed it.
+//
+// Pair names and prices are on-chain, publisher-supplied values reaching .html(), so
+// both are escaped. They are already validated on the way in (the indexer refuses a
+// pair that fails the network's pair pattern and a price that is not decimal digits),
+// but this renderer also runs against a v1 oracle row and any future carrier, so it
+// does not lean on that.
+function showPriceRounds(rounds){
+    let block = $('#info-price .price-rounds-block');
+    block.toggleClass('d-none', rounds.length === 0);
+    if(rounds.length === 0){
+        $('#info-price .price-rounds').empty();
+        $('#info-price .price-rounds-summary').text('');
+        return;
+    }
+    let pairTotal = rounds.reduce((n, r) => n + (Array.isArray(r.pairs) ? r.pairs.length : 0), 0);
+    $('#info-price .price-rounds-summary').text(
+        '(' + numeral(rounds.length).format('0,0') + ' round' + (rounds.length===1 ? '' : 's') +
+        ', ' + numeral(pairTotal).format('0,0') + ' price' + (pairTotal===1 ? '' : 's') + ')');
+    let html = '';
+    for(let r of rounds){
+        let pairs = Array.isArray(r.pairs) ? r.pairs : [];
+        html += '<table class="table table-sm table-striped table-hover table-bordered mb-3" width="100%">';
+        html += '<thead><tr class="info">';
+        html += '<th width="155">Round ' + numeral(r.round).format('0,0') + '</th>';
+        html += '<th>' + (isNull(r.timestamp) ? '-' : formatLivestamp(r.timestamp)) + '</th>';
+        // The BTC block the round is anchored to. Capability staking is BTC-only, so
+        // this height is on Bitcoin whatever chain the action landed on: never link it
+        // into the page coin's namespace, which would name a block that does not exist.
+        html += '<th>BTC block ' + formatPriceAnchorHeight(r.btc_block_height) + '</th>';
+        html += '</tr></thead><tbody>';
+        for(let p of pairs){
+            let parts = String(p.pair).split('/');
+            html += '<tr>';
+            html += '<td>' + escapeHtml(nullToBlank(parts[0])) + '</td>';
+            html += '<td>' + escapeHtml(nullToBlank(parts[1])) + '</td>';
+            html += '<td>' + escapeHtml(String(p.price)) + '</td>';
+            html += '</tr>';
+        }
+        if(pairs.length === 0)
+            html += '<tr><td colspan="3">-</td></tr>';
+        html += '</tbody></table>';
+    }
+    $('#info-price .price-rounds').html(html);
+}
+
+// Render a PRICE round's BTC anchor height, linked into the BTC explorer for THIS
+// network when this instance serves it. Price rounds are anchored to Bitcoin on every
+// chain (capability staking is BTC-only), so the height belongs to BTC/TBTC/RBTC and
+// never to the page coin. An instance that does not serve the matching BTC network
+// (XC.status.available is the same map the header logo and the network-unavailable
+// notice read) gets the height as plain text rather than a link to a page it has not
+// got - a DOGE-only deployment is a supported configuration, not an error.
+function formatPriceAnchorHeight(height){
+    if(isNull(height)) return '-';
+    let text   = numeral(height).format('0,0');
+    // mainnet's prefix is '' by design, so an absent map and a mainnet page both
+    // resolve to plain 'BTC' - which is right in the first case and correct in the second.
+    let prefix = (XC.networks && XC.networks[XC.network]) ? XC.networks[XC.network] : '';
+    let coin   = prefix + 'BTC';
+    let served = !!(XC.status && XC.status.available && XC.status.available[coin]);
+    return served ? formatLink('/' + coin + '/block/' + height, text) : text;
 }
 
 // Display NODEPROOF action information (full-node possession-proof verdict + per-validator PASS list)

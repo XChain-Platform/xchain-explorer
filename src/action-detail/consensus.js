@@ -234,7 +234,17 @@ const NODEPROOF = {
 };
 
 const PRICE = {
-    // PRICE action (v0 validator COIN/FIAT snapshot + v1 user TOKEN/FIAT oracle)
+    // PRICE action (v0 validator COIN/FIAT snapshot, v0 validator BATCH of rounds,
+    // v1 user TOKEN/FIAT oracle).
+    //
+    // THE BATCH COLUMNS ARE NOT OPTIONAL EXTRAS. A validator PRICE on the wire today
+    // is a BATCH (PRICE|0|Z|<deflate> carrying an hourly window of full round bodies),
+    // and the indexer deliberately stores NULL in pair_count / pairs_json / sig_count
+    // for one (xchain-indexer src/actions/price.js: those three would describe only one
+    // round out of the window), putting the actual COIN/FIAT prices in rounds_json and
+    // the window in batch_first_round / batch_last_round / round_count. Selecting only
+    // the single-round columns is why a batch rendered as a page of dashes with every
+    // price it carried sitting unread in the row.
     queries() {
         let query  = null;
         let query2 = null;
@@ -251,6 +261,10 @@ const PRICE = {
                     m.pairs_json,
                     m.sig_count,
                     m.sigs_json,
+                    m.batch_first_round,
+                    m.batch_last_round,
+                    m.round_count,
+                    m.rounds_json,
                     c1.coin,
                     t3.tick,
                     f1.code as fiat,
@@ -282,7 +296,12 @@ const PRICE = {
         return { query, query2, query3 };
     },
     // Expand the inlined JSON columns on PRICE actions into structured arrays so
-    // third parties can read the COIN/FIAT pairs and the PBFT signature set (v0).
+    // third parties can read the COIN/FIAT pairs and the PBFT signature set.
+    // `rounds` is the batch's per-round bodies ([{round, timestamp, btc_block_height,
+    // pairs:[{pair, price}]}]) - the same shape the indexer stored and pushed to the
+    // hub, so a reader sees the window exactly as the signers signed it. All three
+    // columns are dropped from the response after expansion: a consumer reads the
+    // arrays, not a JSON string wrapped in JSON.
     afterMain({ action_index }, data) {
         if(data['pairs_json']){
             try { data['pairs'] = JSON.parse(data['pairs_json']); }
@@ -292,8 +311,13 @@ const PRICE = {
             try { data['signatures'] = JSON.parse(data['sigs_json']); }
             catch(_) { console.warn('getActionData: PRICE sigs_json parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
         }
+        if(data['rounds_json']){
+            try { data['rounds'] = JSON.parse(data['rounds_json']); }
+            catch(_) { console.warn('getActionData: PRICE rounds_json parse failed for action_index=' + action_index + ':', _); data['rounds'] = []; }
+        }
         delete data['pairs_json'];
         delete data['sigs_json'];
+        delete data['rounds_json'];
     },
 };
 

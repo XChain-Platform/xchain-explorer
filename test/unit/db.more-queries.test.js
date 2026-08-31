@@ -2231,7 +2231,8 @@ describe('Database#getHistoryData: additional branches', () => {
         config.data.query  = { total: null };
         config.data.offset = { action: 'prev', start: 200 };
         await db.getHistoryData(config);
-        expect(capturedWhere).to.include('m.action_index > ?');
+        // type=block reads `actions` directly (alias a1), not mappings_actions.
+        expect(capturedWhere).to.include('a1.action_index > ?');
     });
 
     it('applies next offset filter (lines 6004-6007)', async () => {
@@ -2247,7 +2248,7 @@ describe('Database#getHistoryData: additional branches', () => {
         config.data.query  = { total: null };
         config.data.offset = { action: 'next', start: 300 };
         await db.getHistoryData(config);
-        expect(capturedWhere).to.include('m.action_index < ?');
+        expect(capturedWhere).to.include('a1.action_index < ?');
     });
 });
 
@@ -2627,13 +2628,35 @@ describe('Database#getQueryOffsets', () => {
         expect(offset2).to.be.false; // only 1 row returned so offset2 stays false
     });
 
-    it('getHistory type non-block: uses mappings_actions for stop offset', async () => {
+    // CORRECTED: an untyped getHistory is the ALL-ACTIVITY feed, and it pages over
+    // `actions`, not over mappings_actions. The mapping table only carries actions
+    // that moved an address/tick ledger, so a boundary computed from it opens the
+    // feed below every consensus action newer than the last ledger-moving one. Only
+    // the address/token feeds page over the mapping table; see
+    // db.history-unmapped-actions.test.js.
+    it('getHistory type non-block: uses actions for the stop offset', async () => {
         sinon.stub(db, 'doQuery').resolves([]);
         const config = qoCfg('getHistory', null, 'next', null);
         config.data.offset = { action: 'next', start: 500 };
         config.data.query = { limit: 10, length: 10, start: 500, offset: false, total: 50, action: 'next' };
         const result = await db.getQueryOffsets(config, 500, 10);
         expect(result).to.be.an('array');
+        const lastCall = db.doQuery.lastCall;
+        if(lastCall){
+            expect(lastCall.args[1]).to.not.include('mappings_actions');
+            expect(lastCall.args[1]).to.include('a1.action_index as offset_index');
+        }
+    });
+
+    it('getHistory type=address: still uses mappings_actions for the stop offset', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+            if(q.includes('FROM index_addresses')) return [{ id: 7 }];
+            return [];
+        });
+        const config = qoCfg('getHistory', 'address', 'next', 'addr1');
+        config.data.offset = { action: 'next', start: 500 };
+        config.data.query = { limit: 10, length: 10, start: 500, offset: false, total: 50, action: 'next' };
+        await db.getQueryOffsets(config, 500, 10);
         const lastCall = db.doQuery.lastCall;
         if(lastCall) expect(lastCall.args[1]).to.include('mappings_actions');
     });

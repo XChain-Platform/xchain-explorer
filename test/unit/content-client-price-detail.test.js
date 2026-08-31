@@ -64,13 +64,21 @@ function renderPriceDetails(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/numeral.js'), 'utf8'));
 
-    dom.window.XC = { coin: 'BTC' };
+    dom.window.XC = { coin: 'BTC', network: 'testnet', networks: { mainnet: '', testnet: 'T', regtest: 'R' }, ...(data.__xc || {}) };
     // Helpers the renderer leans on, kept naive so anything the assertions
-    // observe is showPriceDetails' own doing.
+    // observe is showPriceDetails' own doing. escapeHtml and nullToBlank are
+    // pulled from the shipped source rather than stubbed, because the round
+    // renderer's escaping IS one of the things under test here.
     dom.window.eval(`
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatHash(h, len){ return String(h).substring(0, len); }
+        function formatLivestamp(ts){ return '<span data-livestamp=' + ts + '></span>'; }
         ${extractFn('isNull')}
+        ${extractFn('nullToBlank')}
+        ${extractFn('escapeHtml')}
     `);
+    dom.window.eval(extractFn('formatPriceAnchorHeight'));
+    dom.window.eval(extractFn('showPriceRounds'));
     dom.window.eval(extractFn('showPriceDetails'));
     dom.window.showPriceDetails(data);
     const $ = dom.window.$;
@@ -81,6 +89,16 @@ function renderPriceDetails(data) {
         oracleFee: cell('price-oracle-fee'),
         memo:      cell('price-memo'),
         status:    cell('price-validation-status'),
+        pairs:     cell('price-pairs'),
+        sigCount:  cell('price-sig-count'),
+        window:    cell('price-window'),
+        signers:   cell('price-signers'),
+        rounds:    cell('price-rounds'),
+        summary:   cell('price-rounds-summary'),
+        roundsHidden:  $('#info-price .price-rounds-block').hasClass('d-none'),
+        windowHidden:  $('#info-price .price-window-row').hasClass('d-none'),
+        signersHidden: $('#info-price .price-signers-row').hasClass('d-none'),
+        roundsHtml: $('#info-price .price-rounds').html(),
         html:      $('#info-price').html()
     };
 }
@@ -136,5 +154,120 @@ describe('PRICE detail render: v1 oracle fee and memo reach the page', function 
         const out = renderPriceDetails({ ...V1, oracle_fee: '0' });
         expect(out.oracleFee).to.contain('0');
         expect(out.oracleFee).to.not.equal('-');
+    });
+
+    it('hides the batch rows for a v1 oracle, which carries no round window', function () {
+        const out = renderPriceDetails(V1);
+        expect(out.windowHidden).to.equal(true);
+        expect(out.roundsHidden).to.equal(true);
+        expect(out.signersHidden).to.equal(true);
+    });
+});
+
+// A validator PRICE on the wire is a BATCH: one signed action carrying an hourly
+// window of rounds, each a full COIN/FIAT set. The indexer stores NULL in
+// pair_count / pairs_json / sig_count for one (they would describe a single round
+// out of the window) and puts the real data in rounds_json + the batch window
+// columns. Selecting and rendering only the single-round columns is what made a
+// batch render as a page of dashes over prices it plainly carried.
+const BATCH = {
+    version: 0, coin: null, tick: null, fiat: null, value: null,
+    oracle_fee: null, memo: null,
+    round_number: 414, round_timestamp: null,
+    pairs: null, pair_count: null, sig_count: null,
+    batch_first_round: 414, batch_last_round: 415, round_count: 2,
+    signatures: [
+        { pubkey: 'c1de91459e8bd93de9e3263c26d886058593d3fdae57ad0c1bd48ca3dd22f32a', sig: 'aa' },
+        { pubkey: '2661bd8f42b910bbb471387b7c28eaa440fc3c99077c160a69f22859f924aa7d', sig: 'bb' }
+    ],
+    rounds: [
+        { round: 414, timestamp: 1788123601, btc_block_height: 150436,
+          pairs: [{ pair: 'BTC/USD', price: '78600.74000000' }, { pair: 'DOGE/EUR', price: '0.07356000' }] },
+        { round: 415, timestamp: 1788124201, btc_block_height: 150437,
+          pairs: [{ pair: 'BTC/USD', price: '78455.00000000' }] }
+    ],
+    validation_status: 'valid'
+};
+
+describe('PRICE detail render: validator batch rounds', function () {
+
+    it('[REGRESSION] renders the COIN/FIAT pairs and prices the batch carries', function () {
+        const out = renderPriceDetails(BATCH);
+        expect(out.roundsHidden).to.equal(false);
+        expect(out.rounds).to.contain('BTC');
+        expect(out.rounds).to.contain('USD');
+        expect(out.rounds).to.contain('78600.74000000');
+        expect(out.rounds).to.contain('DOGE');
+        expect(out.rounds).to.contain('EUR');
+        expect(out.rounds).to.contain('0.07356000');
+    });
+
+    it('names the round window and how many rounds it carries', function () {
+        const out = renderPriceDetails(BATCH);
+        expect(out.windowHidden).to.equal(false);
+        expect(out.window).to.contain('414');
+        expect(out.window).to.contain('415');
+        expect(out.window).to.contain('2 rounds');
+    });
+
+    it('summarizes the batch by round and price count', function () {
+        // 2 rounds carrying 2 + 1 pairs.
+        const out = renderPriceDetails(BATCH);
+        expect(out.summary).to.contain('2 rounds');
+        expect(out.summary).to.contain('3 prices');
+    });
+
+    it('[REGRESSION] falls back to the signature set when sig_count is NULL', function () {
+        // The batch's sigs_json covers the whole window, so a NULL sig_count is
+        // not "no signatures" - it is "not stored per round". A dash here read as
+        // an unsigned consensus action.
+        const out = renderPriceDetails(BATCH);
+        expect(out.sigCount).to.equal('2');
+        expect(out.signersHidden).to.equal(false);
+        expect(out.signers).to.contain('c1de91459e8bd93de9e');
+    });
+
+    it('[REGRESSION] reports pair width from the rounds when pair_count is NULL', function () {
+        const out = renderPriceDetails(BATCH);
+        expect(out.pairs).to.not.equal('-');
+        expect(out.pairs).to.contain('2 per round');
+    });
+
+    it('links a round BTC anchor height into the BTC explorer for this network', function () {
+        const out = renderPriceDetails({ ...BATCH, __xc: { status: { available: { TBTC: 'BTC (testnet)' } } } });
+        // Anchored on Bitcoin whatever chain the action landed on, so TBTC, never the page coin.
+        expect(out.roundsHtml).to.contain('/TBTC/block/150436');
+        expect(out.roundsHtml).to.not.contain('/BTC/block/150436');
+    });
+
+    it('states an anchor height as plain text when this instance does not serve that BTC network', function () {
+        // A DOGE-only deployment is a supported configuration; a link to a page it
+        // has not got is worse than no link.
+        const out = renderPriceDetails(BATCH);
+        expect(out.roundsHtml).to.not.contain('/block/150436');
+        expect(out.rounds).to.contain('150,436');
+    });
+
+    it('escapes a pair name and price, which are publisher-supplied on-chain values', function () {
+        const out = renderPriceDetails({ ...BATCH, rounds: [
+            { round: 1, timestamp: 1, btc_block_height: 2,
+              pairs: [{ pair: '<img src=x onerror=alert(1)>/USD', price: '<script>alert(1)</script>' }] }
+        ]});
+        expect(out.roundsHtml).to.not.contain('<img src=x');
+        expect(out.roundsHtml).to.not.contain('<script>');
+        expect(out.roundsHtml).to.contain('&lt;img');
+    });
+
+    it('renders a round carrying no pairs without collapsing the table', function () {
+        const out = renderPriceDetails({ ...BATCH, rounds: [{ round: 9, timestamp: 1, btc_block_height: 2, pairs: [] }] });
+        expect(out.roundsHidden).to.equal(false);
+        expect(out.roundsHtml).to.contain('colspan="3"');
+        expect(out.summary).to.contain('0 prices');
+    });
+
+    it('hides the rounds block when the action carries none', function () {
+        const out = renderPriceDetails({ ...BATCH, rounds: [], round_count: null, batch_first_round: null, batch_last_round: null });
+        expect(out.roundsHidden).to.equal(true);
+        expect(out.windowHidden).to.equal(true);
     });
 });

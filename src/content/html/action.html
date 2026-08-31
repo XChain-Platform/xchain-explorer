@@ -1829,6 +1829,10 @@
                                 <th>Round</th>
                                 <td class="price-round"></td>
                             </tr>
+                            <tr class="price-window-row d-none">
+                                <th>Round Window</th>
+                                <td class="price-window"></td>
+                            </tr>
                             <tr>
                                 <th>Round Timestamp</th>
                                 <td class="price-round-timestamp"></td>
@@ -1841,6 +1845,10 @@
                                 <th>Signatures</th>
                                 <td class="price-sig-count"></td>
                             </tr>
+                            <tr class="price-signers-row d-none">
+                                <th>Signers</th>
+                                <td class="price-signers"></td>
+                            </tr>
                             <tr>
                                 <th>Validation Status</th>
                                 <td class="price-validation-status"></td>
@@ -1851,6 +1859,17 @@
                             </tr>
                             </tbody>
                             </table>
+                            <!-- Decoded round bodies. A validator PRICE batch carries an
+                                 hourly window of rounds, each a full COIN/FIAT price set;
+                                 one <table> per round so the pairs stay readable. Hidden
+                                 (and empty) on a single-round v0 row and on a v1 oracle. -->
+                            <div class="price-rounds-block d-none">
+                                <div class="mt-3 mb-1 fw-semibold">
+                                    <i class="fa fa-line-chart fa-fw me-1"></i>Round Prices
+                                    <span class="opacity-50 fw-normal price-rounds-summary"></span>
+                                </div>
+                                <div class="price-rounds"></div>
+                            </div>
                         </div>
 
                         <div class="d-none" id="info-nodeproof">

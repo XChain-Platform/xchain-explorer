@@ -60,7 +60,7 @@ const VALID_TYPES = new Set([
     // NOTE: CONTROLLER is intentionally absent: it is a field on ISSUE/ADDRESS
     // (data['CONTROLLER']), not an `action` type, so it never appears as an
     // actionData.action value and whitelisting it would silently match nothing.
-    'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF',
+    'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF', 'ROLLCALL',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
     // Only names the producer actually emits belong here (ChangeDetector.js's
     // LIFECYCLE_MAP, NON_ACTION_LIFECYCLE_TYPES and INLINE_LIFECYCLE_TYPES): the

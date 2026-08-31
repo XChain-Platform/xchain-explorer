@@ -719,6 +719,26 @@ class XChainExplorer {
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
 
+        // /{COIN}/tx/{QUERY} is the near-universal convention for a transaction URL and
+        // several clients build it that way (the wallet's post-send "view transaction"
+        // link among them), but this explorer's only transaction route is
+        // /{COIN}/transaction/{QUERY}, so those links 404'd.
+        //
+        // A 301 rather than serving transaction.html at both paths: one transaction must
+        // have ONE canonical URL. Two live paths for the same resource would split it,
+        // which matters now that pages emit a real <link rel="canonical">.
+        // The querystring is carried across deliberately: setXChainParams() reads ?coin=
+        // to resolve which chain the page is for, so dropping it here would silently
+        // redirect to a different coin's transaction. Both segments are re-encoded, which
+        // also keeps a traversal attempt (..%2F..) inside its path segment.
+        this.app.get('/:coin/tx/:query', (req, res) => {
+            let target = '/' + encodeURIComponent(req.params.coin) + '/transaction/' + encodeURIComponent(req.params.query);
+            let qs     = req.originalUrl.indexOf('?');
+            if(qs !== -1)
+                target += req.originalUrl.substring(qs);
+            res.redirect(301, target);
+        });
+
         // Raw bytes for a FILE action, registered before the wildcard so the matcher
         // hits it first. Gated files return ciphertext as application/octet-stream for
         // client-side decryption (protocol/TOKEN_GATED_CONTENT.md); non-gated files

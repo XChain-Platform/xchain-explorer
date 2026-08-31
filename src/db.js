@@ -53,7 +53,9 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
     'balances', 'ownerships', 'orders', 'swaps', 'dispensers',                                                     // Sweeps
     'target_contract_index', 'cooldown_end_block', 'capability',                                                   // Staking (stake, unstake, delegate, slash)
     'contract_index', 'method_name', 'cooldown_blocks', 'chunk_index', 'total_chunks',                             // Contracts (deploy, execute, deposit, withdraw)
-    'vote_kind'                                                                                                    // Governance
+    'vote_kind',                                                                                                   // Governance
+    'chain', 'network', 'checkpoint_seq', 'anchored_block_index',                                                  // Anchors
+    'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count'                   // Prices
 ]);
 
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
@@ -1116,12 +1118,20 @@ class Database {
         if(['getPeers','getConsensusState','getConfigs','getTelemetryPings'].includes(method))
             sql = `m.id IS NOT NULL`;
         if(method=='getHistory'){
-            if(type=='address')
+            // Only the address/token feeds drive off mappings_actions (alias m); the
+            // all-activity and per-block feeds drive off `actions` itself (alias a1),
+            // so their anchor names a1. See getHistoryData for why: mappings_actions
+            // only carries actions that moved an address/tick ledger, so anchoring the
+            // unfiltered feed on it silently drops every consensus action.
+            if(type=='address'){
                 sql += ' AND m.type_id=2 AND m.id=?';
-            if(type=='token')
+            } else if(type=='token'){
                 sql += ' AND m.type_id=1 AND m.id=?';
-            if(type=='block')
-                sql += ' AND b1.block_index=?';
+            } else {
+                sql = 'a1.action_index IS NOT NULL';
+                if(type=='block')
+                    sql += ' AND b1.block_index=?';
+            }
         } else if(method=='getMarket'){
             sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
         } else if(method=='getMarkets'){
@@ -1489,6 +1499,21 @@ class Database {
         // token/subtoken searches paginate by fetch-and-slice (no action_index offsets)
         if(method=='getTokens' && ['token','subtoken'].includes(type))
             return [];
+        // WHICH TABLE getHistory's PAGE BOUNDARY is computed over. This must agree with
+        // getHistoryData's own choice, because the number resolved here is the cursor
+        // that query then pages on: if the boundary is computed over a narrower set than
+        // the list, `action=first` resolves to the newest MAPPED action and the list
+        // silently starts BELOW everything above it. That is exactly what happened -
+        // the first page of All Activity opened at the newest ledger-moving action and
+        // hid every consensus action newer than it, while the row count said they were
+        // there. Only the address/token feeds page over mappings_actions (their filter
+        // is a lookup INTO it); everything else pages over `actions`.
+        let historyMapped = (method=='getHistory' && ['address','token'].includes(type));
+        let hCursor = (historyMapped) ? 'm.action_index' : 'a1.action_index';
+        let hSource = (historyMapped)
+            ? `mappings_actions m
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)`
+            : `actions a1`;
         if(['address','oracle','token','block'].includes(type)){
             if(type=='address' || type=='oracle')
                 sql = `SELECT id FROM index_addresses WHERE address=? LIMIT 1`;
@@ -1609,16 +1634,15 @@ class Database {
                         LIMIT ` + limit;
             } else if(method=='getHistory'){
                 sql = `SELECT
-                            m.action_index as offset_index
+                            ` + hCursor + ` as offset_index
                         FROM
-                            mappings_actions m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            ` + hSource + `
                             INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                             LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         WHERE
-                            m.action_index IS NOT NULL
+                            ` + hCursor + ` IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + `
+                        ORDER BY ` + hCursor + ` ` + order + `
                         LIMIT ` + limit;
             } else if(method=='getFiles' && type=='token'){
                 sql = `SELECT
@@ -1673,26 +1697,35 @@ class Database {
                 order = 'DESC';
                 let stopWhereArgs = [...whereArgs];
                 if(action && offset1){
+                    // getHistory's unmapped feeds have no `m` alias to cursor on, so the
+                    // stop predicate names whichever column this method's own query below
+                    // selects (hCursor for history, m.action_index for everything else).
+                    let stopCursor = (method=='getHistory') ? hCursor : 'm.action_index';
                     if(action=='prev'){
-                        where += ' AND m.action_index > ?';
+                        where += ' AND ' + stopCursor + ' > ?';
                         stopWhereArgs.push(offset1);
                     } else {
-                        where += ' AND m.action_index < ?';
+                        where += ' AND ' + stopCursor + ' < ?';
                         stopWhereArgs.push(offset1);
                     }
                 }
                 if(method=='getHistory'){
+                    // Same join shape as getHistoryData and as the first/last boundary
+                    // above: blocks INNER-joined on the ACTION's own block_index and
+                    // transactions LEFT-joined. Reaching blocks through an INNER-joined
+                    // transactions instead would drop every chain-generated action that
+                    // has no transaction row, so the stop marker would describe a
+                    // shorter list than the one being paged.
                     sql = `SELECT
-                            m.action_index as offset_index
+                            ` + hCursor + ` as offset_index
                         FROM
-                            mappings_actions m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            ` + hSource + `
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         WHERE
-                            m.action_index IS NOT NULL
+                            ` + hCursor + ` IS NOT NULL
                             ` + where + `
-                        ORDER BY m.action_index ` + order + `
+                        ORDER BY ` + hCursor + ` ` + order + `
                         LIMIT ` + limit;
             } else if(method=='getFiles' && type=='token'){
                 sql = `SELECT
@@ -5879,6 +5912,31 @@ class Database {
         let count     = null;
         let query     = null;
         let where     = sql.where.data;
+        // WHICH TABLE THE FEED IS DRIVEN BY, and why it is not always mappings_actions.
+        //
+        // mappings_actions is an address/tick LOOKUP INDEX, not an action list: the
+        // indexer writes it from the addresses/tickers an action touched
+        // (xchain-indexer src/mapper.js, fed by util.getAddressesList(), which is only
+        // populated by credit/debit bookkeeping). An action that moves no ledger entry
+        // - ANCHOR, PRICE, ATTEST, NODEPROOF, ROLLCALL and every future consensus
+        // action - therefore has NO row there and is structurally unreachable through
+        // it. Driving the unfiltered feed off that table did not merely under-report:
+        // on a network whose actions are all consensus actions (a fresh testnet
+        // publishing PRICE rounds and ANCHOR checkpoints) it answered an empty
+        // "All Activity" list and an empty per-block action list while the actions
+        // existed and their own /anchors and /prices pages listed them.
+        //
+        // So the mapping table is used ONLY where its lookup is what the query needs
+        // (type=address / type=token, which filter on m.type_id + m.id); the
+        // all-activity and per-block feeds read `actions` directly. `cursor` is the
+        // paging column for whichever shape is in play, and getQueryWhereSql anchors
+        // its WHERE on the matching alias.
+        let mapped    = ['address','token'].includes(type);
+        let cursor    = (mapped) ? 'm.action_index' : 'a1.action_index';
+        let source    = (mapped)
+            ? `mappings_actions m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)`
+            : `actions a1`;
         if(type=='address')
             id = await this.getAddressId(config, config.data.search);
         if(type=='token')
@@ -5911,10 +5969,9 @@ class Database {
         } else {
             // Get total number of matching records for this type of action and add to grand total
             count = `SELECT
-                        count(DISTINCT(m.action_index)) as count
+                        count(DISTINCT(` + cursor + `)) as count
                     FROM
-                        mappings_actions m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        ` + source + `
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
@@ -5929,10 +5986,10 @@ class Database {
         }
         if(action && start){
             if(action=='prev'){
-                where += ' AND m.action_index > ?';
+                where += ' AND ' + cursor + ' > ?';
                 args.push(start);
             } else {
-                where += ' AND m.action_index < ?';
+                where += ' AND ' + cursor + ' < ?';
                 args.push(start);
             }
         }
@@ -5958,7 +6015,7 @@ class Database {
         // (sql.limit), not table size.
         if(total){
             query = `SELECT
-                        DISTINCT(m.action_index) as action_index,
+                        DISTINCT(` + cursor + `) as action_index,
                         a2.action,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -5974,14 +6031,13 @@ class Database {
                             LIMIT 1
                         ) as parent_batch_action_index
                     FROM
-                        mappings_actions m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        ` + source + `
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + where + `
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY ` + cursor + ` ` + sql.order + `
                     LIMIT ` + sql.limit;
             results = await this.doQuery(config, query, args);
             if(results && results.length){
@@ -9620,14 +9676,18 @@ class Database {
                     FROM
                         unstakes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
+        // ROLLCALL evictions (action_format 3) write an unstakes row with tx_index NULL
+        // (no broadcast transaction behind them), so blocks joins off a1.block_index
+        // (always set, synthetic or not) and transactions is LEFT so the eviction row
+        // survives instead of vanishing from an INNER join it can never satisfy.
         let query = `SELECT
                         a4.action,
                         m.action_index,
@@ -9644,8 +9704,8 @@ class Database {
                     FROM
                         unstakes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
                         LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -9796,6 +9856,13 @@ class Database {
         return registry;
     }
 
+    // Get list of PRICE actions. The batch WINDOW columns (batch_first_round /
+    // batch_last_round / round_count) are selected because a validator PRICE is a batch
+    // and its single-round columns are NULL by construction, so without them a list row
+    // says nothing at all about what the action carried. rounds_json is deliberately NOT
+    // selected here: one batch is an hour of rounds times dozens of COIN/FIAT pairs, so
+    // a page of them would run to megabytes. The full bodies are served per action by
+    // the PRICE detail handler (src/action-detail/consensus.js).
     async getPrices(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -9826,6 +9893,9 @@ class Database {
                         m.pairs_json,
                         m.sig_count,
                         m.sigs_json,
+                        m.batch_first_round,
+                        m.batch_last_round,
+                        m.round_count,
                         c1.coin,
                         t3.tick,
                         f1.code as fiat,

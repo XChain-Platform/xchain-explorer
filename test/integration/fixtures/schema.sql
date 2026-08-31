@@ -1324,6 +1324,25 @@ CREATE TABLE full_node_verifications (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX uq_epoch_pubkey ON full_node_verifications (epoch_height, signing_pubkey_id);
+
+-- ROLLCALL presence signatures, DOGE side. Mirrors xchain-indexer/src/sql/rollcall_signers.sql.
+-- NOTE: no `id` column; the primary key is the composite (epoch_height, pubkey), which is what
+-- makes this a first-seen index (INSERT IGNORE, so the first valid signature for a key in an
+-- epoch is the one served). Several ROLLCALL actions per epoch are expected and union together.
+DROP TABLE IF EXISTS rollcall_signers;
+CREATE TABLE rollcall_signers (
+    epoch_height  BIGINT UNSIGNED NOT NULL,        -- BTC height of the roll-call epoch
+    pubkey        CHAR(64)        NOT NULL,        -- present validator's Ed25519 signing key, lowercase hex
+    sig           CHAR(128)       NOT NULL,        -- signature over the EQUIV-wrapped canonical, lowercase hex
+    ledger_hash   CHAR(64)        NOT NULL,        -- BTC ledger_hash at epoch_height AS CARRIED
+    publisher     CHAR(64)        NOT NULL,        -- publishing validator's signing key; the publish reward attaches to it
+    action_index  BIGINT UNSIGNED NOT NULL,        -- the ROLLCALL action this signature landed in
+    block_index   BIGINT UNSIGNED NOT NULL,        -- DOGE block the action landed in
+    PRIMARY KEY (epoch_height, pubkey),
+    KEY idx_rollcall_signers_action (action_index),
+    KEY idx_rollcall_signers_block (block_index),
+    KEY idx_rollcall_signers_epoch_pub (epoch_height, publisher)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 CREATE        INDEX pubkey_block    ON full_node_verifications (signing_pubkey_id, block_index);
 CREATE        INDEX source_id       ON full_node_verifications (source_id);
 CREATE        INDEX block_index     ON full_node_verifications (block_index);
@@ -1443,6 +1462,51 @@ CREATE TABLE stakes (
 CREATE UNIQUE INDEX action_index       ON stakes (action_index);
 CREATE        INDEX source_id          ON stakes (source_id);
 CREATE        INDEX signing_pubkey_id  ON stakes (signing_pubkey_id);
+
+-- Capability UNSTAKE v0 (`unstakes`; see db.js getUnstakes). Every row keys one
+-- UNSTAKE action_index. A user-broadcast unstake writes one behind a real
+-- transaction; a ROLLCALL eviction (xchain-indexer rollcall_close.js
+-- evictSource()) writes one with STATUS 'valid' and no transaction at all - the
+-- matching `actions` row carries tx_index NULL, source_id NULL, action_format 3.
+-- source_id / signing_pubkey_id / block_index are always set by the indexer on
+-- both paths (an eviction still names the evicted validator and its epoch-close
+-- block), so they stay NOT NULL here same as `stakes`.
+DROP TABLE IF EXISTS unstakes;
+CREATE TABLE unstakes (
+    action_index        BIGINT UNSIGNED NOT NULL,        -- FK to actions table (each UNSTAKE action gets its own row)
+    source_id           BIGINT UNSIGNED NOT NULL,        -- FK to index_addresses (staking address; the evicted validator's, for a ROLLCALL eviction)
+    signing_pubkey_id   BIGINT UNSIGNED NOT NULL,        -- FK to index_pubkeys (Ed25519 hot key)
+    amount              VARCHAR(250) NOT NULL,           -- XCHAIN removed by this action
+    cooldown_end_block  BIGINT UNSIGNED,
+    status_id           BIGINT UNSIGNED,
+    block_index         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON unstakes (action_index);
+CREATE        INDEX source_id          ON unstakes (source_id);
+CREATE        INDEX signing_pubkey_id  ON unstakes (signing_pubkey_id);
+
+-- Contract-targeted UNSTAKE v1 (`contract_unstakes`; see db.js getContractUnstakes
+-- and staking.js UNSTAKE, which LEFT JOINs it for every UNSTAKE lookup regardless
+-- of variant). ROLLCALL evictions never write this table (they are capability-only,
+-- see `unstakes` above); present here only so that join resolves instead of failing
+-- on a missing table.
+DROP TABLE IF EXISTS contract_unstakes;
+CREATE TABLE contract_unstakes (
+    action_index          BIGINT UNSIGNED NOT NULL,
+    source_id             BIGINT UNSIGNED,
+    signing_pubkey_id     BIGINT UNSIGNED,
+    target_contract_index BIGINT UNSIGNED,
+    tick_id                BIGINT UNSIGNED,
+    amount                 VARCHAR(250),
+    cooldown_end_block     BIGINT UNSIGNED,
+    status_id              BIGINT UNSIGNED,
+    block_index             BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+CREATE UNIQUE INDEX action_index       ON contract_unstakes (action_index);
+CREATE        INDEX source_id          ON contract_unstakes (source_id);
+CREATE        INDEX signing_pubkey_id  ON contract_unstakes (signing_pubkey_id);
 
 DROP TABLE IF EXISTS delegations;
 CREATE TABLE delegations (

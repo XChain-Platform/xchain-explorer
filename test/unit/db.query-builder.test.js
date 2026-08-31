@@ -300,14 +300,22 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL AND m.type_id=1 AND m.id=?');
     });
 
-    it('getHistory + type=block: appends AND b1.block_index=?', async () => {
+    // The block and untyped feeds anchor on a1, not m: getHistoryData drives them
+    // off `actions` directly, because mappings_actions carries no row for an action
+    // that moved no ledger entry (see db.history-unmapped-actions.test.js).
+    it('getHistory + type=block: anchors on a1 and appends AND b1.block_index=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getHistory', 'block'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND b1.block_index=?');
+        expect(sql).to.equal('a1.action_index IS NOT NULL AND b1.block_index=?');
     });
 
-    it('getHistory + no type: returns base m.action_index IS NOT NULL only', async () => {
+    it('getHistory + no type: returns base a1.action_index IS NOT NULL only', async () => {
         const sql = await db.getQueryWhereSql(cfg('getHistory', null));
-        expect(sql).to.equal('m.action_index IS NOT NULL');
+        expect(sql).to.equal('a1.action_index IS NOT NULL');
+    });
+
+    it('getHistory + type=recent: anchors on a1 (the homepage All Activity feed)', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getHistory', 'recent'));
+        expect(sql).to.equal('a1.action_index IS NOT NULL');
     });
 });
 

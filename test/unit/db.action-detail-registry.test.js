@@ -77,11 +77,15 @@ describe('action-detail registry @regression', function () {
             assert.strictEqual(REGISTRY.DEPOSIT, REGISTRY.WITHDRAW);
         });
 
-        it('the ledger-effect opt-outs are exactly the four non-ledger actions', function () {
+        it('the ledger-effect opt-outs are exactly the five non-ledger actions', function () {
             const optedOut = Object.entries(REGISTRY)
                 .filter(([, h]) => h.effects && (h.effects.credits === false || h.effects.debits === false || h.effects.escrows === false))
                 .map(([t]) => t).sort();
-            assert.deepStrictEqual(optedOut, ['ADDRESS', 'BROADCAST', 'NODEPROOF', 'XCALL'],
+            // ROLLCALL joined this set when its render landed. It is genuinely non-ledger
+            // on its OWN action_index: the roll call is broadcast on Dogecoin, while the
+            // publish reward is credited by the Bitcoin-side epoch close, so credits,
+            // debits and escrows keyed on this action are always empty.
+            assert.deepStrictEqual(optedOut, ['ADDRESS', 'BROADCAST', 'NODEPROOF', 'ROLLCALL', 'XCALL'],
                 'an action changed whether it queries credits/debits/escrows');
         });
     });

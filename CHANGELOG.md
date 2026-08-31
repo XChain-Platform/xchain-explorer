@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.0] - 2026-08-30
+
+### Added
+- Roll call actions render on the action pages.
+
+### Fixed
+- The MariaDB connector moves to 3.5.3, closing three high-severity advisories against the pinned 3.5.2.
+- All Activity and the per-block action list show every action, including those that move no ledger entry.
+- Price rounds decode on the action detail page instead of rendering as dashes.
+- Evictions appear in the unstakes listing.
+- The transaction page renders an empty action list rather than reading a hash as an index.
+
+### Changed
+- Service logging routes through the shared log shim, one line per console call.
+
 ## [0.11.0] - 2026-08-25
 
 ### Added

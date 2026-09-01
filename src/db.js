@@ -26,6 +26,7 @@ const coinsRegistry = require('./coins');
 const poolSizing = require('./poolSizing');
 const listEditResolution = require('./list_edit_resolution_activation');
 const actionDetail = require('./action-detail');
+const { TERMINAL_OFFER_STATUSES } = require('./action-detail/shared.js');
 
 // The one field list every compact action summary projects (transaction and
 // history rows via getActionSummaryData, BATCH members via projectActionSummary).
@@ -849,10 +850,22 @@ class Database {
         // through the same shared method the per-action detail path uses (one
         // batched pass for the whole page, not a query per row).
         if(config.data.method=='getDispensers' && Array.isArray(data) && data.length){
-            let escrow = await this.getDispenserEscrowBatch(config, data.map((r) => r.action_index));
+            let idxs   = data.map((r) => r.action_index);
+            let escrow = await this.getDispenserEscrowBatch(config, idxs);
+            // The row's own `status` is the CREATE action's validity and never
+            // moves off 'valid', so a listing could not tell an open dispenser
+            // from a cancelled one - and the escrow arithmetic above only nets
+            // out fills, so a cancelled/expired dispenser (escrow refunded by
+            // the terminal action) kept listing its full balance. Serve the
+            // lifecycle beside the validity under the same `current_status` key
+            // the detail path uses, and apply the detail path's terminal rule.
+            let status = await this.getDispenserCurrentStatusBatch(config, idxs);
             for(let row of data){
                 let entry = escrow[String(row.action_index)];
                 row.escrow_remaining = (entry) ? entry.escrow_remaining : null;
+                row.current_status   = status[String(row.action_index)] || null;
+                if(TERMINAL_OFFER_STATUSES.includes(String(row.current_status)))
+                    row.escrow_remaining = '0';
             }
         }
         // /validators stays the ONE validator table (no second federation-registry
@@ -6807,6 +6820,51 @@ class Database {
             map[key].give_escrow      = this._amountString(map[key].give_escrow);
             map[key].escrow_remaining = this._amountString(map[key].escrow_remaining);
         }
+        return map;
+    }
+
+    /**
+     * Latest lifecycle status for one or more dispensers.
+     *
+     * The dispensers table's own status column is the CREATE action's validity
+     * and never moves; the lifecycle (open / cancelling / cancelled / complete /
+     * expired) lives in dispenser_statuses, one row per transition, newest row
+     * current. The per-action detail path already resolves it via a
+     * MAX(action_index) subquery; this is the batched mirror for the
+     * getDispensers list lane, so a listing can tell an open dispenser from a
+     * cancelled one without a detail fetch per row.
+     *
+     * @param   {Object} config          request config (carries the coin/pool)
+     * @param   {Array}  action_indexes  dispenser action_index values
+     * @returns {Object} map keyed by String(action_index) -> status string;
+     *                   a dispenser with no status row (an invalid create
+     *                   writes none) is simply absent from the map
+     */
+    async getDispenserCurrentStatusBatch(config, action_indexes){
+        let map = {};
+        if(!Array.isArray(action_indexes) || !action_indexes.length)
+            return map;
+        let idxs = [...new Set(action_indexes.filter((x) => !this.util.isNull(x)).map((x) => String(x)))];
+        if(!idxs.length)
+            return map;
+        let ph = idxs.map(() => '?').join(',');
+        // Ordered oldest->newest so the plain overwrite below leaves the newest
+        // transition per dispenser in the map - the same "latest row wins" rule
+        // as the detail path's MAX(action_index) subquery, without a correlated
+        // subquery per listed row.
+        let query = `SELECT
+                        m.dispenser_action_index,
+                        m.action_index,
+                        s.status
+                    FROM
+                        dispenser_statuses m
+                        INNER JOIN index_statuses s ON (s.id=m.status_id)
+                    WHERE
+                        m.dispenser_action_index IN (` + ph + `)
+                    ORDER BY m.action_index ASC`;
+        let rows = await this.doQuery(config, query, idxs);
+        for(let row of (rows || []))
+            map[String(row.dispenser_action_index)] = row.status;
         return map;
     }
 

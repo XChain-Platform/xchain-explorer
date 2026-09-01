@@ -202,11 +202,107 @@ describe('getDispensers list lane serves escrow', function () {
             if(/FROM\s+dispensers\s+d\b/i.test(q)) return [];   // invalid create row
             if(/FROM\s+dispenser_edits/i.test(q))  return [];
             if(/FROM\s+dispenses/i.test(q))        return [];
+            if(/FROM\s+dispenser_statuses/i.test(q)) return [];
             return [row];
         });
         const config = makeConfig({ coin: 'BTC', data: { method: 'getDispensers', type: 'source', search: 'bcrt1qsource' } });
         const [data] = await db.getData(config);
         expect(data[0].escrow_remaining).to.equal(null);
+    });
+});
+
+describe('getDispensers list lane serves the lifecycle status', function () {
+
+    afterEach(() => sinon.restore());
+
+    // The row's own `status` is the CREATE action's validity, frozen at
+    // 'valid' forever, so the list could not tell an open dispenser from a
+    // cancelled one - and a cancelled dispenser (escrow refunded by the
+    // terminal action) went on listing its full balance.
+
+    function stubListQueries(db, { rows, statuses = [], edits = [], dispenses = [] }){
+        return sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+            if(/count\(\*\)/i.test(q))               return [{ total: rows.length }];
+            if(/FROM\s+dispenser_statuses/i.test(q)) return statuses;
+            if(/FROM\s+dispenser_edits/i.test(q))    return edits;
+            if(/FROM\s+dispenses/i.test(q))          return dispenses;
+            if(/FROM\s+dispensers\s+d\b/i.test(q))
+                return rows.map((r) => ({ action_index: r.action_index, give_escrow: r.give_escrow }));
+            return rows;
+        });
+    }
+
+    it('every row carries current_status from the latest dispenser_statuses row', async () => {
+        const db   = makeDb();
+        const rows = [{ action: 'DISPENSER', action_index: 35, give_escrow: '50', status: 'valid' }];
+        stubListQueries(db, {
+            rows,
+            // Two transitions, oldest first as the ORDER BY serves them: the
+            // newest must win.
+            statuses: [
+                { dispenser_action_index: 35, action_index: 35, status: 'open' },
+                { dispenser_action_index: 35, action_index: 40, status: 'cancelling' },
+            ],
+        });
+        const config = makeConfig({ coin: 'BTC', data: { method: 'getDispensers', type: 'source', search: 'bcrt1qsource' } });
+        const [data] = await db.getData(config);
+        expect(data[0].current_status).to.equal('cancelling');
+        // 'cancelling' is in flight, not terminal: escrow stays as derived.
+        expect(data[0].escrow_remaining).to.equal('50');
+    });
+
+    it('[REGRESSION] a terminal status zeroes escrow_remaining, matching the detail lane', async () => {
+        const db   = makeDb();
+        const rows = [{ action: 'DISPENSER', action_index: 31, give_escrow: '50', status: 'valid' }];
+        stubListQueries(db, {
+            rows,
+            statuses: [
+                { dispenser_action_index: 31, action_index: 31, status: 'open' },
+                { dispenser_action_index: 31, action_index: 44, status: 'cancelled' },
+            ],
+        });
+        const config = makeConfig({ coin: 'BTC', data: { method: 'getDispensers', type: 'source', search: 'bcrt1qsource' } });
+        const [data] = await db.getData(config);
+        expect(data[0].current_status).to.equal('cancelled');
+        // The cancel refunded the escrow; listing '50' told the owner a
+        // dead dispenser was still funded.
+        expect(data[0].escrow_remaining).to.equal('0');
+    });
+
+    it('serves current_status null for a dispenser with no status row at all', async () => {
+        const db   = makeDb();
+        const rows = [{ action: 'DISPENSER', action_index: 12, give_escrow: '5', status: 'invalid' }];
+        stubListQueries(db, { rows, statuses: [] });
+        const config = makeConfig({ coin: 'BTC', data: { method: 'getDispensers', type: 'source', search: 'bcrt1qsource' } });
+        const [data] = await db.getData(config);
+        expect(data[0].current_status).to.equal(null);
+    });
+});
+
+describe('Database#getDispenserCurrentStatusBatch', function () {
+
+    afterEach(() => sinon.restore());
+
+    it('resolves the newest transition per dispenser in one batched query', async () => {
+        const db   = makeDb();
+        const stub = sinon.stub(db, 'doQuery').resolves([
+            { dispenser_action_index: 7, action_index: 7,  status: 'open' },
+            { dispenser_action_index: 9, action_index: 9,  status: 'open' },
+            { dispenser_action_index: 7, action_index: 15, status: 'complete' },
+        ]);
+        const map = await db.getDispenserCurrentStatusBatch(cfg(), [7, '9', 7, null]);
+        expect(map).to.deep.equal({ 7: 'complete', 9: 'open' });
+        // one query, with the de-duped indexes bound once each
+        expect(stub.calledOnce).to.equal(true);
+        expect(stub.firstCall.args[2]).to.deep.equal(['7', '9']);
+    });
+
+    it('queries nothing for an empty or all-null index list', async () => {
+        const db   = makeDb();
+        const stub = sinon.stub(db, 'doQuery');
+        expect(await db.getDispenserCurrentStatusBatch(cfg(), [])).to.deep.equal({});
+        expect(await db.getDispenserCurrentStatusBatch(cfg(), [null])).to.deep.equal({});
+        expect(stub.called).to.equal(false);
     });
 });
 

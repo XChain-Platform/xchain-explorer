@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- A freshness-alert script (`bin/check-explorer-freshness.sh`) for cron that mails the operator when any non-regtest coin is stale-gated or its replica carries an active sync halt.
+- The testnet4 tip-gate drop-in (`deploy/tbtc-tip-gates.conf`) is version-controlled: it widens TBTC's future-skew and age gates so a legally future-stamped tip cannot 503 a healthy chain.
+
 ## [0.12.0] - 2026-08-30
 
 ### Added

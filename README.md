@@ -4,8 +4,8 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.11.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-2%2C762%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.12.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-4%2C253%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -176,36 +176,36 @@ defaults hold on an unconfigured box:
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~1,925 tests) |
+| `npm test` | Run unit tests (~3,521 tests) |
 | `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
-| `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL |
+| `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (14 tests) |
 | `npm run test:e2e` | End-to-end tests (49 tests, requires full stack) |
-| `npm run test:boundary` | Boundary condition tests |
-| `npm run test:boundary:unit` | Boundary tests (unit only, no DB) |
-| `npm run test:boundary:integration` | Boundary tests (integration, requires MariaDB) |
-| `npm run test:smoke` | Smoke tests (unit + connected) |
-| `npm run test:smoke:unit` | Smoke tests (unit only) |
-| `npm run test:smoke:connected` | Smoke tests (connected, requires services) |
-| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal) |
-| `npm run test:fuzz` | Fuzz tests (property-based) |
-| `npm run test:fuzz:deep` | Fuzz tests with `FUZZ_ITERATIONS=10000` |
-| `npm run test:performance` | Performance tests (baseline, throughput, concurrency, pool, memory) |
-| `npm run test:chaos` | Chaos engineering tests |
-| `npm run test:chaos:db` | Chaos: database resilience |
-| `npm run test:chaos:api` | Chaos: API overload |
-| `npm run test:chaos:network` | Chaos: network partition |
-| `npm run test:chaos:resource` | Chaos: resource saturation |
-| `npm run test:chaos:external` | Chaos: external dependency failure |
+| `npm run test:boundary` | Boundary condition tests (226 tests) |
+| `npm run test:boundary:unit` | Boundary tests (unit only, no DB, 162 tests) |
+| `npm run test:boundary:integration` | Boundary tests (integration, requires MariaDB, 57 tests) |
+| `npm run test:smoke` | Smoke tests (unit + connected, 39 tests) |
+| `npm run test:smoke:unit` | Smoke tests (unit only, 13 tests) |
+| `npm run test:smoke:connected` | Smoke tests (connected, requires services, 26 tests) |
+| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal, 159 tests) |
+| `npm run test:fuzz` | Fuzz tests (property-based, 10 tests) |
+| `npm run test:fuzz:deep` | Fuzz tests with `FUZZ_ITERATIONS=10000` (10 tests) |
+| `npm run test:performance` | Performance tests (baseline, throughput, concurrency, pool, memory, 33 tests) |
+| `npm run test:chaos` | Chaos engineering tests (54 tests) |
+| `npm run test:chaos:db` | Chaos: database resilience (14 tests) |
+| `npm run test:chaos:api` | Chaos: API overload (6 tests) |
+| `npm run test:chaos:network` | Chaos: network partition (13 tests) |
+| `npm run test:chaos:resource` | Chaos: resource saturation (7 tests) |
+| `npm run test:chaos:external` | Chaos: external dependency failure (14 tests) |
 | `npm run test:mutation` | Mutation tests (StrykerJS) |
 | `npm run test:mutation:utility` | Mutation tests: utility.js |
 | `npm run test:mutation:db` | Mutation tests: db.js |
 | `npm run test:mutation:explorer` | Mutation tests: XChainExplorer.js |
 | `npm run test:mutation:config` | Mutation tests: config.js |
-| `npm run test:regression` | Regression tests (P0 + P1 + P2 tiers) |
-| `npm run test:regression:p0` | P0 critical-path regression only (<1s) |
-| `npm run test:regression:p0:unit` | P0 unit regression only |
-| `npm run test:regression:p1` | P1 high-priority regression |
-| `npm run test:regression:full` | Full regression suite (P0 + P1 + P2) |
+| `npm run test:regression` | Regression tests (P0 + P1 + P2 tiers, 148 tests) |
+| `npm run test:regression:p0` | P0 critical-path regression only (<1s, 87 tests) |
+| `npm run test:regression:p0:unit` | P0 unit regression only (58 tests) |
+| `npm run test:regression:p1` | P1 high-priority regression (134 tests) |
+| `npm run test:regression:full` | Full regression suite (P0 + P1 + P2, 148 tests) |
 
 ## Test Suite
 

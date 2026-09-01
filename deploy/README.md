@@ -9,6 +9,7 @@ two files put it under version control.
 |---|---|
 | `xchain-explorer.service` | `/etc/systemd/system/xchain-explorer.service` |
 | `logrotate-xchain-explorer-app` | `/etc/logrotate.d/xchain-explorer-app` |
+| `tbtc-tip-gates.conf` | `/etc/systemd/system/xchain-explorer.service.d/tbtc-tip-gates.conf` |
 
 Both are reproduced from the running production unit, read 2026-08-30. The unit is
 faithful to the live file apart from four added `Environment=` lines
@@ -61,4 +62,31 @@ The box also carries drop-ins under
 `/etc/systemd/system/xchain-explorer.service.d/` (`decoder-api.conf`,
 `encoder.conf`, `hub.conf`, `indexer-api.conf`, `trackers.conf`) holding per-coin
 upstream endpoints. Those are box-specific wiring and are not reproduced here;
-installing the unit above leaves them untouched.
+installing the unit above leaves them untouched. `tbtc-tip-gates.conf` is the
+exception: it is a policy choice (testnet4 freshness-gate widths), so it lives
+here and installs the same way as the unit:
+
+```sh
+sudo install -m 0644 tbtc-tip-gates.conf /etc/systemd/system/xchain-explorer.service.d/tbtc-tip-gates.conf
+sudo systemctl daemon-reload
+sudo systemctl restart xchain-explorer      # only inside a maintenance window
+```
+
+## Freshness alerting
+
+`bin/check-explorer-freshness.sh` (in this repo's `bin/`) turns the explorer's
+own `/BTC/api/status` verdicts into an operator signal: it exits 1 with the
+problem on stderr whenever any non-regtest coin is stale-gated or its replica
+carries an active sync halt, and stays silent otherwise. Run it from cron on
+the explorer host, in a crontab whose `MAILTO` is set, and do **not** append
+`2>&1` (stderr is the mail):
+
+```
+*/15 * * * * <checkout>/bin/check-explorer-freshness.sh >/dev/null
+```
+
+It needs `jq`, and honours `EXPLORER_STATUS_URL` when the API is not on the
+default `127.0.0.1:18080`. It exists because a replica halt once sat behind a
+correctly-503ing explorer for half a day with nobody told: the sync client's
+divergence halt and the explorer's freshness gate both protect *consumers*;
+this is the piece that tells the *operator*.

@@ -257,6 +257,11 @@ class Database {
         // checkReorgAndInvalidate can spot a rewind on the tip-poll loop.
         this._reorgGen = {};
         this._lastTip  = {};
+        // Per-coin tip memo backing the getData result-cache generation token.
+        // The cached list methods read tables the indexer only rewrites when a
+        // block is applied, so the tip height is exactly the generation those
+        // results belong to; see _resultCacheGeneration.
+        this._tipMemo  = {};
         // AST introspection ({methods, abi} pair) is a pure function of the
         // contract source, and code is immutable once deployed, so cache by
         // the sha256 we compute from the code itself (two deploys of identical
@@ -399,6 +404,48 @@ class Database {
     // ChangeDetector tip-poll loop via checkReorgAndInvalidate.
     bumpReorgGeneration(coin){
         this._reorgGen[coin] = (this._reorgGen[coin] || 0) + 1;
+    }
+
+    // Generation token for the getData result cache: the coin's current indexed
+    // tip height.
+    //
+    // The cached list methods (getBalances/getHolders/getTokens) read tables the
+    // indexer only rewrites when it applies a block, so a cached answer stays
+    // correct exactly as long as the tip does not move. Keying on the tip means a
+    // new block makes every pre-block entry unreachable, instead of letting the
+    // TTL keep serving the previous block's answer. Without it, /balances/{ADDR}
+    // reports the pre-block balance for up to the full TTL after the block that
+    // moved it confirmed - the balance a wallet shows its own user right after
+    // their send confirms (it is also what made the escrow e2e suite,
+    // the one template suite that reads a balance before the deposit and again
+    // after, read a 0 debit off a correctly-debited ledger).
+    //
+    // Cost: one index-max lookup per coin per memo window, NOT per request, so a
+    // request burst still collapses onto a single heavy query. A probe that fails
+    // returns null, which makes the caller skip the cache for that request: never
+    // serve a possibly-stale list because the freshness check itself broke.
+    async _resultCacheGeneration(config){
+        const coin = config.coin;
+        const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
+        const memo = this._tipMemo[coin];
+        if(memo && (Date.now() - memo.at) < (Number.isFinite(ttl) ? ttl : 1000))
+            return memo.tip;
+        let tip = null;
+        try {
+            // MAX() over the blocks PK is an index-max lookup, not a scan.
+            const rows = await this.doQuery(config, 'SELECT MAX(block_index) AS tip FROM blocks', []);
+            if(rows && rows.length && !this.util.isNull(rows[0].tip))
+                tip = String(rows[0].tip);
+            // An empty blocks table is a real answer (nothing indexed yet), not a
+            // failed probe: give it a generation of its own so a pre-genesis read
+            // is still cacheable.
+            else if(rows)
+                tip = 'none';
+        } catch(e){
+            tip = null;
+        }
+        this._tipMemo[coin] = { tip, at: Date.now() };
+        return tip;
     }
 
     // Detect a reorg cheaply on the ChangeDetector poll loop and invalidate the
@@ -887,9 +934,11 @@ class Database {
         // multi-table join whose token/subtoken search is a leading-% LIKE: none of
         // these have an index-only path, so each call to the public /api or /explorer
         // route is a full filesort and a cheap DoS-amplification vector. A small
-        // per-request-shape cache collapses a request burst into one query. TTL is
-        // short so lists stay fresh; each map is size-capped (oldest-evicted) so the
-        // cache itself cannot grow unbounded. The key is built from the raw request
+        // per-request-shape cache collapses a request burst into one query. The key
+        // carries the coin's current tip so a cached answer can never outlive the
+        // block it was read at (see _resultCacheGeneration); the TTL is a ceiling on
+        // top of that, and each map is size-capped (oldest-evicted) so the cache
+        // itself cannot grow unbounded. The key is built from the raw request
         // inputs (search, type, and every pagination/order query param) BEFORE
         // getQuery derives the SQL, so distinct pages/orders never collide.
         const RESULT_CACHES = {
@@ -905,15 +954,23 @@ class Database {
             const q = config.data.query || {};
             // Include the per-coin reorg generation (M-3) so a detected reorg
             // makes every pre-reorg result-cache entry unreachable instead of
-            // serving reassigned-id rows until the TTL expires.
-            cacheKey = [config.coin, this._reorgGen[config.coin] || 0,
-                        config.type, config.data.type, config.data.search,
-                        q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
-            const ttl = parseInt(process.env[envPrefix + '_MS'], 10) || 15000;
-            if(!this[cacheName]) this[cacheName] = new Map();
-            const hit = this[cacheName].get(cacheKey);
-            if(hit && (Date.now() - hit.at) < ttl)
-                return [hit.data, hit.total];
+            // serving reassigned-id rows until the TTL expires, and the coin's
+            // current tip so a block that moves the underlying rows does the same
+            // A null generation means the tip probe failed; leave
+            // cacheKey null so this request neither reads nor writes the cache.
+            const gen = await this._resultCacheGeneration(config);
+            if(gen === null){
+                cacheName = null;
+            } else {
+                cacheKey = [config.coin, this._reorgGen[config.coin] || 0, gen,
+                            config.type, config.data.type, config.data.search,
+                            q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
+                const ttl = parseInt(process.env[envPrefix + '_MS'], 10) || 15000;
+                if(!this[cacheName]) this[cacheName] = new Map();
+                const hit = this[cacheName].get(cacheKey);
+                if(hit && (Date.now() - hit.at) < ttl)
+                    return [hit.data, hit.total];
+            }
         }
 
         let [query, args, count] = await this.getQuery(config);

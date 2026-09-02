@@ -21,6 +21,8 @@
  *   - non-cached methods are never cached
  *   - TTL expiry re-queries
  *   - size cap evicts oldest entries
+ *   - a new indexed tip re-queries (a cached list must never outlive
+ *     the block it was read at) and a failed tip probe disables the cache
  */
 
 'use strict';
@@ -50,18 +52,26 @@ function stubQuery(db, rows, total) {
     return sinon.stub(db, 'getQuery').resolves([rows, null, total]);
 }
 
+// The cache key carries the coin's current tip, which getData reads through
+// doQuery. Stub that probe so the suite exercises the cache and not the pool.
+// Returns the stub so a test can move the tip or make the probe fail.
+function stubTip(db, height = 100) {
+    return sinon.stub(db, 'doQuery').resolves([{ tip: height }]);
+}
+
 function cfg(method, overrides = {}) {
     const data = Object.assign({ method }, overrides.data || {});
     return makeConfig(Object.assign({}, overrides, { data }));
 }
 
 describe('Database#getData result cache', () => {
-    let db;
-    beforeEach(() => { db = makeDb(); });
+    let db, tip;
+    beforeEach(() => { db = makeDb(); tip = stubTip(db); });
     afterEach(() => {
         sinon.restore();
         delete process.env.EXPLORER_TOKENS_CACHE_MS;
         delete process.env.EXPLORER_TOKENS_CACHE_MAX;
+        delete process.env.EXPLORER_TIP_MEMO_MS;
     });
 
     for (const method of ['getTokens', 'getBalances', 'getHolders']) {
@@ -129,5 +139,55 @@ describe('Database#getData result cache', () => {
         expect(stub.callCount).to.equal(4);
         await db.getData(cfg('getTokens', { data: { search: 'CCC' } })); // still cached
         expect(stub.callCount).to.equal(4);
+    });
+
+    // The cached methods read tables the indexer only rewrites when it
+    // applies a block, so an entry read at height N must not answer a request
+    // made at height N+1: that is what made /balances/{ADDR} report the
+    // pre-deposit balance for the rest of the TTL after the deposit confirmed.
+    it('re-queries once the indexed tip moves, within the TTL', async () => {
+        process.env.EXPLORER_TIP_MEMO_MS = '0';   // probe the tip on every call
+        const stub = stubQuery(db, [{ id: 1 }], 7);
+        const config = () => cfg('getBalances', { data: { search: 'addr1' } });
+
+        await db.getData(config());
+        await db.getData(config());
+        expect(stub.callCount, 'same tip: the second request is a cache hit').to.equal(1);
+
+        tip.resolves([{ tip: 101 }]);
+        await db.getData(config());
+        expect(stub.callCount, 'new tip: the entry read at the old tip is unreachable').to.equal(2);
+        await db.getData(config());
+        expect(stub.callCount, 'the new tip caches in turn').to.equal(2);
+    });
+
+    it('keeps a pre-genesis (empty blocks table) read cacheable', async () => {
+        tip.resolves([{ tip: null }]);
+        const stub = stubQuery(db, [], 0);
+        const config = () => cfg('getBalances', { data: { search: 'addr1' } });
+        await db.getData(config());
+        await db.getData(config());
+        expect(stub.callCount).to.equal(1);
+    });
+
+    it('memoizes the tip probe so a request burst costs one probe', async () => {
+        stubQuery(db, [{ id: 1 }], 7);
+        for (let i = 0; i < 5; i++)
+            await db.getData(cfg('getBalances', { data: { search: 'addr' + i } }));
+        expect(tip.callCount, 'one tip probe for the whole burst').to.equal(1);
+    });
+
+    it('serves nothing from cache when the tip probe fails', async () => {
+        process.env.EXPLORER_TIP_MEMO_MS = '0';
+        tip.rejects(new Error('pool gone'));
+        const stub = stubQuery(db, [{ id: 1 }], 7);
+        const config = () => cfg('getBalances', { data: { search: 'addr1' } });
+        const [d1, t1] = await db.getData(config());
+        await db.getData(config());
+        expect(stub.callCount, 'no freshness check means no caching').to.equal(2);
+        expect(d1).to.deep.equal([{ id: 1 }]);
+        expect(t1).to.equal(7);
+        expect(db._balancesCache === undefined || db._balancesCache.size === 0,
+            'a failed probe writes nothing to the cache').to.equal(true);
     });
 });

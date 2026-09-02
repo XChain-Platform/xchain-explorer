@@ -89,15 +89,77 @@ describe('HubMirrorSyncManager', function () {
         } finally { restoreEnv(); }
     });
 
-    it('refuses to sync (with a loud log) when self_sync is set but HUB_API_URL is not', async function () {
+    it('registers an UNCONFIGURED instance (not a skip) when self_sync has no hub URL', async function () {
+        // The defect: skipping left managesCoin() false, so the staleness gate
+        // treated the coin as externally maintained and served the frozen mirror.
         const { HubMirrorSyncManager, syncStart, restoreEnv } = load({});
         const errLog = sinon.stub(console, 'error');
         try {
             const mgr = new HubMirrorSyncManager(makeExplorer({ BTC: TARGET() }));
             await mgr.start();
-            expect(mgr.instances.size).to.equal(0);
-            expect(syncStart.called).to.equal(false);
-            expect(errLog.calledWithMatch(sinon.match(/HUB_API_URL is not configured/))).to.equal(true);
+            expect(syncStart.called).to.equal(false, 'no writer can be started');
+            expect(mgr.instances.size).to.equal(1);
+            expect(mgr.managesCoin('BTC')).to.equal(true, 'the gate must see this coin');
+            const status = mgr.statusForCoin('BTC');
+            expect(status.configured).to.equal(false);
+            expect(status.reason).to.equal('HUB_URL_MISSING');
+            expect(status.bootstrapDrained).to.equal(false);
+            expect(errLog.calledWithMatch(sinon.match(/HUB_API_URL/))).to.equal(true);
+        } finally { restoreEnv(); }
+    });
+
+    it('re-reports an unconfigured target on an interval instead of once at boot', async function () {
+        const clock = sinon.useFakeTimers(1000);
+        const { HubMirrorSyncManager, restoreEnv } = load({});
+        const errLog = sinon.stub(console, 'error');
+        try {
+            const mgr = new HubMirrorSyncManager(makeExplorer({ BTC: TARGET() }));
+            await mgr.start();
+            expect(errLog.callCount).to.equal(1, 'one line at start');
+            mgr.statusForCoin('BTC');
+            mgr.statusForCoin('BTC');
+            expect(errLog.callCount).to.equal(1, 'throttled inside the interval');
+            clock.tick(5 * 60 * 1000 + 1);
+            mgr.statusForCoin('BTC');
+            expect(errLog.callCount).to.equal(2, 'reported again after the interval');
+        } finally { clock.restore(); restoreEnv(); }
+    });
+
+    it('takes the hub URL from the checkpoint config block, over the env', async function () {
+        const { HubMirrorSyncManager, FakeSync, restoreEnv } = load({ env: { HUB_API_URL: 'http://env-hub:10000' } });
+        try {
+            const mgr = new HubMirrorSyncManager(makeExplorer({
+                RBTC: TARGET({ hubUrl: 'http://config-hub:10000' })
+            }));
+            await mgr.start();
+            expect(mgr.instanceForCoin('RBTC').sync.opts.hubUrl).to.equal('http://config-hub:10000');
+            expect(FakeSync.ensureTables.called).to.equal(true);
+        } finally { restoreEnv(); }
+    });
+
+    it('syncs on the config-borne hub URL alone, with no HUB_API_URL in the env', async function () {
+        // The venue case: self_sync arrived over the hub config push while the
+        // container env carried no HUB_API_URL at all.
+        const { HubMirrorSyncManager, syncStart, restoreEnv } = load({});
+        try {
+            const mgr = new HubMirrorSyncManager(makeExplorer({
+                RBTC: TARGET({ hubUrl: 'http://config-hub:10000' })
+            }));
+            await mgr.start();
+            expect(syncStart.calledOnce).to.equal(true);
+            const inst = mgr.instanceForCoin('RBTC');
+            expect(inst.unconfigured).to.equal(false);
+            expect(inst.sync.opts.hubUrl).to.equal('http://config-hub:10000');
+            expect(mgr.statusForCoin('RBTC').configured).to.equal(true);
+        } finally { restoreEnv(); }
+    });
+
+    it('passes the resolved env hub URL to the client explicitly', async function () {
+        const { HubMirrorSyncManager, restoreEnv } = load({ env: { HUB_API_URL: 'http://env-hub:10000' } });
+        try {
+            const mgr = new HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
+            await mgr.start();
+            expect(mgr.instanceForCoin('RBTC').sync.opts.hubUrl).to.equal('http://env-hub:10000');
         } finally { restoreEnv(); }
     });
 

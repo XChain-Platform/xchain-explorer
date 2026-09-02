@@ -1947,6 +1947,13 @@ class XChainExplorer {
         let mgr = this.hubMirrorSync;
         if(!mgr || !mgr.managesCoin(coin)) return { blocked: null, annotate: null };
         let status = mgr.statusForCoin(coin) || {};
+        // Third tier, checked first: the mirror is claimed by self_sync but has no
+        // hub endpoint, so no writer exists at all. That is not "not bootstrapped
+        // yet" (which resolves on its own once the hub is reachable) and it must not
+        // read as a live-but-empty ledger, so it gets its own code and its own
+        // message pointing at the configuration that is missing.
+        if(status.configured === false)
+            return { blocked: 'MIRROR_NOT_CONFIGURED', annotate: null };
         if(!status.bootstrapDrained)
             return { blocked: 'MIRROR_NOT_BOOTSTRAPPED', annotate: null };
         let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
@@ -1962,12 +1969,16 @@ class XChainExplorer {
     }
 
     _mirrorBlockedBody(blocked){
-        return {
-            error: blocked === 'MIRROR_NOT_BOOTSTRAPPED'
-                ? 'Hub-mirror has not completed its initial bootstrap; consensus data is unavailable rather than served empty.'
-                : 'Hub-mirror is stale beyond MIRROR_MAX_LAG_S and MIRROR_LAG_FAIL_CLOSED is set.',
-            code: blocked
-        };
+        let error;
+        if(blocked === 'MIRROR_NOT_CONFIGURED')
+            error = 'Hub-mirror self-sync is configured for this coin but no hub endpoint is set ' +
+                '(database.checkpoint.hub_url or HUB_API_URL), so nothing updates the mirror; ' +
+                'consensus data is refused rather than served stale.';
+        else if(blocked === 'MIRROR_NOT_BOOTSTRAPPED')
+            error = 'Hub-mirror has not completed its initial bootstrap; consensus data is unavailable rather than served empty.';
+        else
+            error = 'Hub-mirror is stale beyond MIRROR_MAX_LAG_S and MIRROR_LAG_FAIL_CLOSED is set.';
+        return { error, code: blocked };
     }
 
     // GET /{COIN}/api/hub-mirror/status: self-synced mirror observability for

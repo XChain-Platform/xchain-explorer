@@ -32,7 +32,7 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 - **Icon service**: token icons with automatic fallback and optional background downloader
 - **BigNumber precision**: arbitrary-precision arithmetic for all amounts and prices
 - **Contract pages**: on-chain source with syntax highlighting, a server-verified hash badge, extracted method list, and constructor params; a Read Contract card calls the sandboxed `POST /{COIN}/api/contract/{idx}/call` endpoint (off by default via `EXPLORER_VM_QUERY_ENABLED`), and a Write Contract card deep-links per-method calls into the wallet
-- **Self-synced hub mirror**: optional local copy of the hub-mirror tables (`database.checkpoint.self_sync` + `HUB_API_URL`) removes the hard requirement for a co-located hub DB; `GET /{COIN}/api/hub-mirror/status` reports staleness
+- **Self-synced hub mirror**: optional local copy of the hub-mirror tables (`database.checkpoint.self_sync` plus a hub endpoint, `database.checkpoint.hub_url` or the `HUB_API_URL` env) removes the hard requirement for a co-located hub DB; `GET /{COIN}/api/hub-mirror/status` reports staleness. `self_sync` with no hub endpoint is refused at startup (`ALLOW_NO_COLOCATED_HUB_DB=1` downgrades it to a warning and fails the hub-mirrored routes per request), because a mirror with no writer serves frozen rows
 - **2,762+ tests**: unit, integration, e2e, boundary, security, fuzz, chaos, mutation, smoke, performance, regression, conformance
 
 ## Documentation

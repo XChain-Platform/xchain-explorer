@@ -27,6 +27,7 @@ const poolSizing = require('./poolSizing');
 const listEditResolution = require('./list_edit_resolution_activation');
 const actionDetail = require('./action-detail');
 const { TERMINAL_OFFER_STATUSES } = require('./action-detail/shared.js');
+const { resolveHubUrl } = require('./hub-mirror-url.js');
 
 // The one field list every compact action summary projects (transaction and
 // history rows via getActionSummaryData, BATCH members via projectActionSummary).
@@ -680,6 +681,12 @@ class Database {
                                     this.checkpointDb[key] = {
                                         name: kcfg.name, chain: coin, network: net,
                                         selfSync: kcfg.self_sync === true || kcfg.self_sync === 'true',
+                                        // The hub endpoint the mirror writer follows,
+                                        // carried in the SAME config block as self_sync
+                                        // so the two cannot arrive by different paths
+                                        // (the HUB_API_URL env remains the fallback;
+                                        // see hub-mirror-url.js).
+                                        hubUrl: this.util.isNull(kcfg.hub_url) ? '' : String(kcfg.hub_url),
                                         host: kHost, port: kPort, user: kcfg.user, pass: kcfg.pass
                                     };
                             }
@@ -736,8 +743,9 @@ class Database {
     // Startup assertion: every coin/network this explorer serves (has an indexer
     // pool for) MUST have a checkpoint schema configured (database.checkpoint,
     // same host+credentials as the indexer DB): either a self-synced mirror
-    // (database.checkpoint.self_sync + HUB_API_URL, populated by
-    // HubMirrorSyncManager) or an externally-maintained hub schema. Without one
+    // (database.checkpoint.self_sync plus a hub endpoint - hub_url in the same
+    // block, else HUB_API_URL - populated by HubMirrorSyncManager) or an
+    // externally-maintained hub schema. Without one
     // the hub-mirrored tables cannot be served, because xchain-sync never
     // replicates them. A missing entry is a fatal misconfiguration: throw a
     // clear, named error so a mis-provisioned thin replica fails to start
@@ -748,8 +756,35 @@ class Database {
     // for deployments that intentionally do not expose the hub-mirrored endpoints.
     _assertCheckpointDbForServingCoins(){
         let missing = [];
+        // A self-synced schema with no hub endpoint is the SAME failure as a missing
+        // schema, and a quieter one: the mirror exists, reads succeed, and every row
+        // it returns is frozen at whatever the last working writer left, because
+        // nothing repopulates it. It went undetected because self_sync arrives in the
+        // hub's config push while HUB_API_URL was a container env written at install
+        // time, so the two could be emitted under different conditions and the
+        // mismatch cost one startup warning. Checked here, at the same fatal tier and
+        // behind the same opt-out, so the pairing cannot silently half-exist.
+        let unwritable = [];
         for(let key in this.pools){
-            if(!this.checkpointDb[key]) missing.push(key);
+            let kcfg = this.checkpointDb[key];
+            if(!kcfg){ missing.push(key); continue; }
+            if(kcfg.selfSync && !resolveHubUrl(kcfg)) unwritable.push(key);
+        }
+        if(unwritable.length){
+            let msg = 'Self-synced checkpoint schema has no hub endpoint for serving coin(s): ' +
+                unwritable.join(', ') + '. database.checkpoint.self_sync is set, so the hub-mirrored ' +
+                'tables (state_checkpoints, capability_snapshots, cross_chain_matches, price_snapshots, ' +
+                'oracle_prices) are expected to be written by this explorer, but no hub URL is ' +
+                'configured (neither database.checkpoint.hub_url nor the HUB_API_URL env), so nothing ' +
+                'writes them and every read serves stale rows. Set the hub URL, or drop self_sync and ' +
+                'point database.checkpoint at an externally-maintained hub schema. Set ' +
+                'ALLOW_NO_COLOCATED_HUB_DB=1 to start anyway (hub-mirrored endpoints then fail loud ' +
+                'per request instead of serving a mirror nothing updates).';
+            if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
+                console.warn('[explorer] WARNING: ' + msg);
+            } else {
+                throw new Error(msg);
+            }
         }
         if(missing.length){
             let msg = 'Checkpoint schema missing for serving coin(s): ' + missing.join(', ') +

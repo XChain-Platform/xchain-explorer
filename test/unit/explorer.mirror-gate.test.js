@@ -68,6 +68,21 @@ describe('explorer hub-mirror staleness gate', function () {
             expect(gate).to.deep.equal({ blocked: null, annotate: null });
         });
 
+        it('blocks a self_sync mirror that has no hub endpoint to sync from', function () {
+            // Distinct from NOT_BOOTSTRAPPED: nothing is coming, because no writer
+            // exists. Serving here is what shipped stale checkpoints indefinitely.
+            const gate = makeExplorer({ ...OK_STATUS, configured: false, reason: 'HUB_URL_MISSING' })
+                ._mirrorGate('BTC');
+            expect(gate.blocked).to.equal('MIRROR_NOT_CONFIGURED');
+            expect(gate.annotate).to.equal(null);
+        });
+
+        it('names the missing configuration in the blocked body', function () {
+            const body = makeExplorer()._mirrorBlockedBody('MIRROR_NOT_CONFIGURED');
+            expect(body.code).to.equal('MIRROR_NOT_CONFIGURED');
+            expect(body.error).to.match(/hub_url|HUB_API_URL/);
+        });
+
         it('blocks while the mirror has never bootstrapped', function () {
             const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false })._mirrorGate('BTC');
             expect(gate.blocked).to.equal('MIRROR_NOT_BOOTSTRAPPED');
@@ -123,6 +138,14 @@ describe('explorer hub-mirror staleness gate', function () {
                 .processCheckpointsRequest(req({ coin: 'BTC' }), res);
             expect(res._status).to.equal(503);
             expect(res._body.code).to.equal('MIRROR_NOT_BOOTSTRAPPED');
+        });
+
+        it('503 MIRROR_NOT_CONFIGURED when self_sync has no hub endpoint', async function () {
+            const res = mockRes();
+            await makeExplorer({ ...OK_STATUS, configured: false, reason: 'HUB_URL_MISSING' })
+                .processCheckpointsRequest(req({ coin: 'BTC' }), res);
+            expect(res._status).to.equal(503);
+            expect(res._body.code).to.equal('MIRROR_NOT_CONFIGURED');
         });
 
         it('serves with mirror annotations once bootstrapped', async function () {

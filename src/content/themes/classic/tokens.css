@@ -18,6 +18,25 @@
  * Values are the ones that render today, moved verbatim. Two rules that
  * happen to share a number keep separate tokens when they are separate
  * decisions, so a skin can move one without dragging the other.
+ *
+ * BOOTSTRAP SURFACE BRIDGE (row 22a). The token layer above covers only what
+ * xchain.css and xchain-charts.css themselves declared, which measured out at
+ * exactly 30 computed values a skin could move on the home page: footer, table
+ * borders and density, status tints, highlight and chart chrome. Everything
+ * else a reader sees - page background, body text, links, borders, muted text -
+ * comes from Bootstrap's own `--bs-*` defaults, which no tokens.css could reach.
+ * The operator accepted that as real scope; this is the fix.
+ *
+ * The bridge below re-points those Bootstrap variables at `--xc-surface-*`
+ * tokens. Classic defines them as Bootstrap's own default values, byte for
+ * byte from the vendored bootstrap.min.css, so the classic theme renders
+ * exactly as it did - the parity gate is the proof, not the intent. A skin now
+ * only has to redefine the `--xc-surface-*` names to recolour the whole page.
+ *
+ * The `-rgb` triples are carried too, and they are not optional: Bootstrap
+ * composes translucent surfaces as rgba(var(--bs-body-bg-rgb), .5), so a skin
+ * that moved only the hex would leave every translucent overlay on the old
+ * palette, which is worse than not moving it at all.
  */
 
 :root {
@@ -150,6 +169,35 @@
     --xc-chart-tooltip-cell-padding-x: .25rem;
     --xc-chart-tooltip-separator-padding-x: .15rem;
 
+
+    /* --- Bootstrap surface bridge (row 22a) ---------------------------------
+       Values are Bootstrap 5's own light defaults, copied from the vendored
+       bootstrap.min.css so classic renders unchanged. Redefine these in a skin
+       to recolour the page itself rather than only the explorer's chrome. */
+    --xc-surface-body-bg: #fff;
+    --xc-surface-body-bg-rgb: 255,255,255;
+    --xc-surface-body-color: #212529;
+    --xc-surface-body-color-rgb: 33,37,41;
+    --xc-surface-emphasis-color: #000;
+    --xc-surface-emphasis-color-rgb: 0,0,0;
+    --xc-surface-secondary-color: rgba(33, 37, 41, 0.75);
+    --xc-surface-secondary-color-rgb: 33,37,41;
+    --xc-surface-secondary-bg: #e9ecef;
+    --xc-surface-secondary-bg-rgb: 233,236,239;
+    --xc-surface-tertiary-color: rgba(33, 37, 41, 0.5);
+    --xc-surface-tertiary-color-rgb: 33,37,41;
+    --xc-surface-tertiary-bg: #f8f9fa;
+    --xc-surface-tertiary-bg-rgb: 248,249,250;
+    --xc-surface-link-color: #0d6efd;
+    --xc-surface-link-color-rgb: 13,110,253;
+    --xc-surface-link-hover-color: #0a58ca;
+    --xc-surface-link-hover-color-rgb: 10,88,202;
+    --xc-surface-code-color: #d63384;
+    --xc-surface-highlight-color: #212529;
+    --xc-surface-highlight-bg: #fff3cd;
+    --xc-surface-border-color: #dee2e6;
+    --xc-surface-border-color-translucent: rgba(0, 0, 0, 0.175);
+
 }
 
 /* Mode-dependent overrides. Values only: no rule in the stylesheets is
@@ -157,5 +205,70 @@
 [data-bs-theme="dark"] {
 
     --xc-chart-nodata-color: #dee2e6;
+
+    /* Bootstrap surface bridge, dark values. Only the --xc-surface-* tokens are
+       restated: the --bs-* bridge above already points at them, so the mode
+       switch flows through one layer rather than two. */
+    --xc-surface-body-bg: #212529;
+    --xc-surface-body-bg-rgb: 33,37,41;
+    --xc-surface-body-color: #dee2e6;
+    --xc-surface-body-color-rgb: 222,226,230;
+    --xc-surface-emphasis-color: #fff;
+    --xc-surface-emphasis-color-rgb: 255,255,255;
+    --xc-surface-secondary-color: rgba(222, 226, 230, 0.75);
+    --xc-surface-secondary-color-rgb: 222,226,230;
+    --xc-surface-secondary-bg: #343a40;
+    --xc-surface-secondary-bg-rgb: 52,58,64;
+    --xc-surface-tertiary-color: rgba(222, 226, 230, 0.5);
+    --xc-surface-tertiary-color-rgb: 222,226,230;
+    --xc-surface-tertiary-bg: #2b3035;
+    --xc-surface-tertiary-bg-rgb: 43,48,53;
+    --xc-surface-link-color: #6ea8fe;
+    --xc-surface-link-color-rgb: 110,168,254;
+    --xc-surface-link-hover-color: #8bb9fe;
+    --xc-surface-link-hover-color-rgb: 139,185,254;
+    --xc-surface-code-color: #e685b5;
+    --xc-surface-highlight-color: #dee2e6;
+    --xc-surface-highlight-bg: #664d03;
+    --xc-surface-border-color: #495057;
+    --xc-surface-border-color-translucent: rgba(255, 255, 255, 0.15);
+
+}
+
+/* The Bootstrap bridge, on every selector that can carry the mode.
+   updateTheme() writes data-bs-theme onto BODY, not onto the html element, so
+   Bootstrap re-declares its own --bs-* surface variables directly on body for
+   both modes. A bridge declared only on :root would be inherited by body and
+   then immediately overridden there, which looks like the bridge working in
+   light mode and silently failing in dark. Declaring it on the same elements
+   Bootstrap uses, from a stylesheet that loads after Bootstrap, is what makes
+   the theme win at equal specificity. */
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+
+    --bs-body-bg: var(--xc-surface-body-bg);
+    --bs-body-bg-rgb: var(--xc-surface-body-bg-rgb);
+    --bs-body-color: var(--xc-surface-body-color);
+    --bs-body-color-rgb: var(--xc-surface-body-color-rgb);
+    --bs-emphasis-color: var(--xc-surface-emphasis-color);
+    --bs-emphasis-color-rgb: var(--xc-surface-emphasis-color-rgb);
+    --bs-secondary-color: var(--xc-surface-secondary-color);
+    --bs-secondary-color-rgb: var(--xc-surface-secondary-color-rgb);
+    --bs-secondary-bg: var(--xc-surface-secondary-bg);
+    --bs-secondary-bg-rgb: var(--xc-surface-secondary-bg-rgb);
+    --bs-tertiary-color: var(--xc-surface-tertiary-color);
+    --bs-tertiary-color-rgb: var(--xc-surface-tertiary-color-rgb);
+    --bs-tertiary-bg: var(--xc-surface-tertiary-bg);
+    --bs-tertiary-bg-rgb: var(--xc-surface-tertiary-bg-rgb);
+    --bs-link-color: var(--xc-surface-link-color);
+    --bs-link-color-rgb: var(--xc-surface-link-color-rgb);
+    --bs-link-hover-color: var(--xc-surface-link-hover-color);
+    --bs-link-hover-color-rgb: var(--xc-surface-link-hover-color-rgb);
+    --bs-code-color: var(--xc-surface-code-color);
+    --bs-highlight-color: var(--xc-surface-highlight-color);
+    --bs-highlight-bg: var(--xc-surface-highlight-bg);
+    --bs-border-color: var(--xc-surface-border-color);
+    --bs-border-color-translucent: var(--xc-surface-border-color-translucent);
 
 }

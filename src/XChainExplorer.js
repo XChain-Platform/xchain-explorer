@@ -39,6 +39,8 @@ const ProofServer      = require('./proofServer.js');
 const rateLimit        = require('express-rate-limit');
 const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
+const listPage         = require('./list-page.js');
+const componentTpl     = require('./component-templates.js');
 
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
 // maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
@@ -157,7 +159,13 @@ class XChainExplorer {
                 // a folder of static assets under content/themes/<name>/, starting with
                 // its tokens.css. Served like any other asset directory, so a skin needs
                 // no route of its own and a later composer can resolve names, not paths.
-                'themes'
+                'themes',
+                // Component directories: a component is a folder under
+                // content/components/<name>/ holding its template, mount script,
+                // stylesheet and declared props. The browser loads the script and
+                // the stylesheet directly from here, same as any other asset, so
+                // the zero-build ruling holds: nothing bundles these.
+                'components'
             ],
 
             'html' : {
@@ -1234,11 +1242,29 @@ class XChainExplorer {
             let templateExists  = await this.util.fileExists(templateFile);
             let templateContent = (templateExists) ? await this.util.fileGetContents(templateFile) : 'Error loading template file!';
 
-            let htmlFile    = path.join(htmlDirectory, cfg.file);
-            let htmlExists  = await this.util.fileExists(htmlFile);
-            let htmlContent = (htmlExists) ? await this.util.fileGetContents(htmlFile) : 'Error loading html file!';
+            // A list route no longer has a fragment of its own: 76 near-identical
+            // pages collapsed onto the shared list-page composition (spec M2.3),
+            // which stitches the same markup from content/layouts/list-pages.json.
+            // The url table still names the old fragment, so routes and canonical
+            // URLs are untouched; only where the markup comes from changed.
+            let htmlContent = listPage.render(cfg.file);
 
-            let pageContent = templateContent;
+            if(htmlContent === null){
+                let htmlFile    = path.join(htmlDirectory, cfg.file);
+                let htmlExists  = await this.util.fileExists(htmlFile);
+                htmlContent = (htmlExists) ? await this.util.fileGetContents(htmlFile) : 'Error loading html file!';
+            }
+
+            // The shell's chrome (nav, search box, theme toggle, footer) is four
+            // components now rather than 24KB of inline markup; fill their slots
+            // before {CONTENT}, so a component template containing {CONTENT} could
+            // never be mistaken for the page's own content slot.
+            let pageContent = componentTpl.chrome(templateContent);
+            // Layout data a page asks for by name, spliced as a JSON block the
+            // page's own script reads back. action.html uses it for the per-type
+            // detail-card row configs (spec M2.5): 38 blocks whose row ORDER is
+            // now data a theme can resequence, embedded once instead of fetched.
+            htmlContent     = listPage.dataBlocks(htmlContent);
             // Use a replacement FUNCTION, not the raw string: String.replace treats $-sequences
             // ($&, $', $`, $1) specially in a string replacement, so any page content containing
             // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.

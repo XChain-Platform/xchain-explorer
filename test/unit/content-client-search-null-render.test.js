@@ -34,7 +34,11 @@ const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
 const CONTENT = path.resolve(__dirname, '../../src/content');
-const CLIENT  = path.join(CONTENT, 'js', 'xchain.js');
+// The shipped client source, from the shared helper: the cell-rendering
+// helpers (isNull, escapeHtml, formatAmount, formatLink and friends) moved
+// out of xchain.js into formatters.js in the component milestone, and this
+// suite needs whichever of the two a given function landed in.
+const CLIENT_SRC  = require('../helpers/content-source.js').clientSource();
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 
 // One jsdom realm carrying the shipped jQuery and the shipped client, matching
@@ -49,7 +53,7 @@ function bootClient(){
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(fs.readFileSync(JQUERY, 'utf8'));
     win.jQuery.fn.ready = function(){ return this; };
-    win.eval(fs.readFileSync(CLIENT, 'utf8'));
+    win.eval(CLIENT_SRC);
     const captured = {};
     win.jQuery.fn.dataTable = function(config){ captured.config = config; return this; };
     win.jQuery.fn.DataTable = win.jQuery.fn.dataTable;

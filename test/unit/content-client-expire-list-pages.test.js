@@ -40,7 +40,11 @@ const { JSDOM } = require('jsdom');
 const ROOT     = path.resolve(__dirname, '../..');
 const CONTENT  = path.join(ROOT, 'src', 'content');
 const HTML_DIR = path.join(CONTENT, 'html');
-const CLIENT   = path.join(CONTENT, 'js', 'xchain.js');
+// The shipped client source, from the shared helper: the cell-rendering
+// helpers (isNull, escapeHtml, formatAmount, formatLink and friends) moved
+// out of xchain.js into formatters.js in the component milestone, and this
+// suite needs whichever of the two a given function landed in.
+const CLIENT_SRC   = require('../helpers/content-source.js').clientSource();
 const JQUERY   = path.join(CONTENT, 'js', 'jquery.min.js');
 const EXPLORER = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
 
@@ -93,7 +97,7 @@ function mappedPagingMethods(){
 // The endpoint-derivation rule as loadDatatablesData actually implements it: the
 // irregular branches are read out of the function, not copied.
 function derivationRule(){
-    const body = fs.readFileSync(CLIENT, 'utf8');
+    const body = CLIENT_SRC;
     const fn   = body.slice(body.indexOf('function loadDatatablesData('));
     const es   = fn.match(/\}\s*else if\(\[([^\]]+)\]\.includes\(action\)\)\{\s*(?:\/\/[^\n]*\n\s*)*endpoint = action \+ 'es';/);
     if(!es) throw new Error("the '-es' branch of loadDatatablesData was not found");
@@ -108,8 +112,14 @@ function derivationRule(){
     };
 }
 
+// 76 list pages have no fragment of their own any more: they are composed from
+// content/layouts/list-pages.json (spec M2.3). The helper asks the composer
+// first and the filesystem second, so these assertions read what the route
+// actually SERVES rather than what happens to be on disk.
+const SOURCE = require('../helpers/content-source.js');
+
 function pageSource(file){
-    return fs.readFileSync(path.join(HTML_DIR, file), 'utf8');
+    return SOURCE.pageSource(file);
 }
 
 // ---------------------------------------------------------------------------
@@ -126,7 +136,7 @@ function bootClient(){
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(fs.readFileSync(JQUERY, 'utf8'));
     win.jQuery.fn.ready = function(){ return this; };
-    win.eval(fs.readFileSync(CLIENT, 'utf8'));
+    win.eval(CLIENT_SRC);
     const captured = {};
     win.jQuery.fn.dataTable = function(config){ captured.config = config; return this; };
     win.jQuery.fn.DataTable = win.jQuery.fn.dataTable;
@@ -174,8 +184,8 @@ describe('Tier-4 expire/close list pages', function () {
         for(const { route, file } of PAGES){
             if(routes.get(route) !== file)
                 missing.push(`${route} is not mapped to ${file} in the html route table`);
-            else if(!fs.existsSync(path.join(HTML_DIR, file)))
-                missing.push(`${route} -> ${file} does not exist on disk`);
+            else if(!SOURCE.pageExists(file))
+                missing.push(`${route} -> ${file} is served by neither the composer nor a fragment`);
         }
         expect(missing, 'expire/close pages that would answer 404 or serve the\n'
             + '"Error loading html file!" sentinel:\n  ' + missing.join('\n  ')).to.deep.equal([]);
@@ -183,7 +193,9 @@ describe('Tier-4 expire/close list pages', function () {
 
     it('has each template call loadDatatablesData with the expected action name', function () {
         for(const { file, action } of PAGES){
-            const calls = [...pageSource(file).matchAll(/loadDatatablesData\(\s*XC\.coin\s*,\s*'([a-z_\-]+)'/g)].map(m => m[1]);
+            // A composed page names its action in the mount manifest rather than
+            // in an inline call; the helper reads whichever form the page uses.
+            const calls = SOURCE.pageActions(file);
             expect(calls, `${file} must load exactly one datatable`).to.deep.equal([action]);
         }
     });
@@ -215,7 +227,9 @@ describe('Tier-4 expire/close list pages', function () {
     });
 
     it('links every page from the nav template', function () {
-        const nav = fs.readFileSync(path.join(HTML_DIR, 'template.html'), 'utf8');
+        // The shell on disk carries a {NAV} slot now; the nav markup itself is a
+        // component (spec M2.4). shellSource() is what a browser receives.
+        const nav = SOURCE.shellSource();
         for(const { route } of PAGES)
             expect(nav, `nav is missing a link to ${route}`).to.include(`href="${route}"`);
     });

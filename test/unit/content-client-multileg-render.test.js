@@ -35,10 +35,16 @@ const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
 const CONTENT = path.resolve(__dirname, '../../src/content');
-const CLIENT  = path.join(CONTENT, 'js', 'xchain.js');
+// The shipped client source, from the shared helper: the cell-rendering
+// helpers (isNull, escapeHtml, formatAmount, formatLink and friends) moved
+// out of xchain.js into formatters.js in the component milestone, and this
+// suite needs whichever of the two a given function landed in.
+const CLIENT_SRC  = require('../helpers/content-source.js').clientSource();
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const ACTION  = path.join(CONTENT, 'html', 'action.html');
-const MINTS   = path.join(CONTENT, 'html', 'mints.html');
+// mints.html is one of the 76 pages served by the shared list-page composition
+// now (spec M2.3), so its markup comes from the composer rather than from disk.
+const SOURCE  = require('../helpers/content-source.js');
 
 function bootClient(url, markup){
     const dom = new JSDOM('<!doctype html><html><body>' + (markup || '') + '</body></html>', {
@@ -49,7 +55,7 @@ function bootClient(url, markup){
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(fs.readFileSync(JQUERY, 'utf8'));
     win.jQuery.fn.ready = function(){ return this; };
-    win.eval(fs.readFileSync(CLIENT, 'utf8'));
+    win.eval(CLIENT_SRC);
     win.XC = win.XC || {};
     win.XC.coin = 'RDOGE';
     const captured = {};
@@ -160,7 +166,7 @@ describe('multi-leg actions: legs the page could not show', function(){
         });
 
         it('the shipped markup carries a Destination header and a matching colspan', function(){
-            const markup = fs.readFileSync(MINTS, 'utf8');
+            const markup = SOURCE.pageSource('mints.html');
             const headRow = markup.slice(markup.indexOf('<thead>'), markup.indexOf('</thead>'));
             expect(headRow).to.contain('>Destination<');
             // [\s>] so the opening <thead> tag is not counted as a column

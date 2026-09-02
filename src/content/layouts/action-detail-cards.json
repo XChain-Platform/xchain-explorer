@@ -1,0 +1,1431 @@
+{
+    "_comment": [
+        "Row configs for the per-type ACTION detail cards (spec M2.5).",
+        "action.html still ships the markup; what lives here is the ORDER and the",
+        "identity of each row, so a theme can resequence or drop rows without the",
+        "page emitting different markup. `cell` is the class the render function",
+        "writes the value into, which is what makes a row addressable at all.",
+        "A row with cell:null is one whose markup is not a plain label/value pair",
+        "(a spanning header, a nested control); it holds its position and is never",
+        "moved, because moving it would separate it from the rows it introduces."
+    ],
+    "cards": {
+        "address": {
+            "rows": [
+                {
+                    "label": "Fee Preference",
+                    "cell": "address-fee-preference"
+                },
+                {
+                    "label": "Require Memo",
+                    "cell": "address-require-memo"
+                },
+                {
+                    "label": "Dispenser Preference",
+                    "cell": "address-dispenser-preference"
+                },
+                {
+                    "label": "Action Class",
+                    "cell": "address-action-class"
+                },
+                {
+                    "label": "Controller",
+                    "cell": "address-controller"
+                },
+                {
+                    "label": "Cooldown",
+                    "cell": "address-cooldown"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "address-memo"
+                }
+            ]
+        },
+        "airdrop": {
+            "rows": [
+                {
+                    "label": "List",
+                    "cell": "airdrop-list"
+                },
+                {
+                    "label": "Token",
+                    "cell": "airdrop-token"
+                },
+                {
+                    "label": "Amount",
+                    "cell": "airdrop-amount"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "airdrop-memo"
+                }
+            ]
+        },
+        "batch": {
+            "rows": []
+        },
+        "broadcast": {
+            "rows": [
+                {
+                    "label": "References",
+                    "cell": "broadcast-reference"
+                },
+                {
+                    "label": "Message",
+                    "cell": "broadcast-message"
+                },
+                {
+                    "label": "Value",
+                    "cell": "broadcast-value"
+                },
+                {
+                    "label": "Fee",
+                    "cell": "broadcast-fee"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "broadcast-memo"
+                }
+            ]
+        },
+        "callback": {
+            "rows": [
+                {
+                    "label": "Token",
+                    "cell": "callback-tick"
+                },
+                {
+                    "label": "Callback Token",
+                    "cell": "callback-callback-tick"
+                },
+                {
+                    "label": "Callback Amount",
+                    "cell": "callback-amount"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "callback-memo"
+                }
+            ]
+        },
+        "dispenser": {
+            "rows": [
+                {
+                    "label": "Give Coin",
+                    "cell": "dispenser-give-coin"
+                },
+                {
+                    "label": "Give Token",
+                    "cell": "dispenser-give-tick"
+                },
+                {
+                    "label": "Give Amount",
+                    "cell": "dispenser-give-amount"
+                },
+                {
+                    "label": "Give Escrow",
+                    "cell": "dispenser-give-escrow"
+                },
+                {
+                    "label": "Get Coin",
+                    "cell": "dispenser-get-coin"
+                },
+                {
+                    "label": "Get Token",
+                    "cell": "dispenser-get-tick"
+                },
+                {
+                    "label": "Get Amount",
+                    "cell": "dispenser-get-amount"
+                },
+                {
+                    "label": "Get Address",
+                    "cell": "dispenser-get-address"
+                },
+                {
+                    "label": "Fiat Code",
+                    "cell": "dispenser-fiat-code"
+                },
+                {
+                    "label": "Fiat Amount",
+                    "cell": "dispenser-fiat-amount"
+                },
+                {
+                    "label": "Oracle Address",
+                    "cell": "dispenser-oracle-address"
+                },
+                {
+                    "label": "Expiration",
+                    "cell": "dispenser-expiration"
+                },
+                {
+                    "label": "Allow List",
+                    "cell": "dispenser-allow-list"
+                },
+                {
+                    "label": "Block List",
+                    "cell": "dispenser-block-list"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "dispenser-memo"
+                }
+            ]
+        },
+        "dispense": {
+            "rows": [
+                {
+                    "label": "Give Coin",
+                    "cell": "dispense-give-coin"
+                },
+                {
+                    "label": "Give Token",
+                    "cell": "dispense-give-tick"
+                },
+                {
+                    "label": "Give Amount",
+                    "cell": "dispense-give-amount"
+                },
+                {
+                    "label": "Get Coin",
+                    "cell": "dispense-get-coin"
+                },
+                {
+                    "label": "Get Token",
+                    "cell": "dispense-get-tick"
+                },
+                {
+                    "label": "Get Amount",
+                    "cell": "dispense-get-amount"
+                },
+                {
+                    "label": "Source",
+                    "cell": "dispense-source"
+                },
+                {
+                    "label": "Destination",
+                    "cell": "dispense-destination"
+                }
+            ]
+        },
+        "destroy": {
+            "rows": []
+        },
+        "dividend": {
+            "rows": [
+                {
+                    "label": "Token",
+                    "cell": "dividend-tick"
+                },
+                {
+                    "label": "Dividend Token",
+                    "cell": "dividend-dividend-tick"
+                },
+                {
+                    "label": "Dividend Amount",
+                    "cell": "dividend-amount"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "dividend-memo"
+                }
+            ]
+        },
+        "file": {
+            "rows": [
+                {
+                    "label": "Name",
+                    "cell": "file-name"
+                },
+                {
+                    "label": "Title",
+                    "cell": "file-title"
+                },
+                {
+                    "label": "Type",
+                    "cell": "file-type"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "file-memo"
+                },
+                {
+                    "label": "Gate Token",
+                    "cell": "file-gate-ticker"
+                },
+                {
+                    "label": "Unlock Threshold",
+                    "cell": "file-gate-min-amount"
+                },
+                {
+                    "label": "Encryption",
+                    "cell": "file-encryption"
+                },
+                {
+                    "label": "Key Hash",
+                    "cell": "file-key-hash"
+                },
+                {
+                    "label": "Ciphertext",
+                    "cell": "file-raw"
+                }
+            ]
+        },
+        "attest": {
+            "rows": [
+                {
+                    "label": "Type",
+                    "cell": "attest-type"
+                },
+                {
+                    "label": "Request ID",
+                    "cell": "attest-request-id"
+                },
+                {
+                    "label": "Provider",
+                    "cell": "attest-provider"
+                },
+                {
+                    "label": "Contract",
+                    "cell": "attest-contract"
+                },
+                {
+                    "label": "Fee Payer",
+                    "cell": "attest-fee-payer"
+                },
+                {
+                    "label": "Fee",
+                    "cell": "attest-fee"
+                },
+                {
+                    "label": "Gas Escrow",
+                    "cell": "attest-gas-escrow"
+                },
+                {
+                    "label": "Callback Method",
+                    "cell": "attest-callback"
+                },
+                {
+                    "label": "Redundancy",
+                    "cell": "attest-redundancy"
+                },
+                {
+                    "label": "Deadline Block",
+                    "cell": "attest-deadline"
+                },
+                {
+                    "label": "Request Status",
+                    "cell": "attest-request-status"
+                },
+                {
+                    "label": "Payload",
+                    "cell": "attest-payload"
+                },
+                {
+                    "label": "Callback Params",
+                    "cell": "attest-callback-params"
+                },
+                {
+                    "label": "Response Status",
+                    "cell": "attest-response-status"
+                },
+                {
+                    "label": "Response Hash",
+                    "cell": "attest-response-hash"
+                },
+                {
+                    "label": "Response Payload",
+                    "cell": "attest-response-payload"
+                },
+                {
+                    "label": "Meta",
+                    "cell": "attest-meta"
+                },
+                {
+                    "label": "Validator Sigs",
+                    "cell": "attest-sig-count"
+                },
+                {
+                    "label": "Signing Pubkeys",
+                    "cell": "attest-signatures"
+                },
+                {
+                    "label": "Callback Execute",
+                    "cell": "attest-callback-execute"
+                }
+            ]
+        },
+        "vote": {
+            "rows": [
+                {
+                    "label": "Kind",
+                    "cell": "vote-kind"
+                },
+                {
+                    "label": "Token",
+                    "cell": "vote-token"
+                },
+                {
+                    "label": "Question",
+                    "cell": "vote-question"
+                },
+                {
+                    "label": "Options",
+                    "cell": "vote-options"
+                },
+                {
+                    "label": "Tally Mode",
+                    "cell": "vote-tally-mode"
+                },
+                {
+                    "label": "Weight Mode",
+                    "cell": "vote-weight-mode"
+                },
+                {
+                    "label": "Max Selections",
+                    "cell": "vote-max-selections"
+                },
+                {
+                    "label": "End Block",
+                    "cell": "vote-end-block"
+                },
+                {
+                    "label": "Quorum",
+                    "cell": "vote-quorum"
+                },
+                {
+                    "label": "Min Voters",
+                    "cell": "vote-min-voters"
+                },
+                {
+                    "label": "Min Vote Balance",
+                    "cell": "vote-min-vote-balance"
+                },
+                {
+                    "label": "Decide Threshold",
+                    "cell": "vote-decide-threshold"
+                },
+                {
+                    "label": "Poll Status",
+                    "cell": "vote-poll-status"
+                },
+                {
+                    "label": "Winning Option",
+                    "cell": "vote-winning-option"
+                },
+                {
+                    "label": "Quorum Met",
+                    "cell": "vote-quorum-met"
+                },
+                {
+                    "label": "Min Voters Met",
+                    "cell": "vote-min-voters-met"
+                },
+                {
+                    "label": "Total Weight",
+                    "cell": "vote-total-weight"
+                },
+                {
+                    "label": "Total Voters",
+                    "cell": "vote-total-voters"
+                },
+                {
+                    "label": "Fail Reason",
+                    "cell": "vote-fail-reason"
+                },
+                {
+                    "label": "Decided Early",
+                    "cell": "vote-decided-early"
+                },
+                {
+                    "label": "Effective Close Block",
+                    "cell": "vote-effective-close-block"
+                },
+                {
+                    "label": "Resolved Block",
+                    "cell": "vote-resolved-block"
+                },
+                {
+                    "label": "Finalized By",
+                    "cell": "vote-finalized-by"
+                },
+                {
+                    "label": "Deposit",
+                    "cell": "vote-deposit"
+                },
+                {
+                    "label": "Deposit Address",
+                    "cell": "vote-deposit-address"
+                },
+                {
+                    "label": "Deposit Resolved",
+                    "cell": "vote-deposit-resolved"
+                },
+                {
+                    "label": "Callback",
+                    "cell": "vote-callback"
+                },
+                {
+                    "label": "Callback Delay",
+                    "cell": "vote-callback-delay"
+                },
+                {
+                    "label": "Callback Execute",
+                    "cell": "vote-callback-execute"
+                },
+                {
+                    "label": "Callback On",
+                    "cell": "vote-callback-on"
+                },
+                {
+                    "label": "Callback Params",
+                    "cell": "vote-callback-params"
+                },
+                {
+                    "label": "Gas Escrow",
+                    "cell": "vote-gas-escrow"
+                },
+                {
+                    "label": "Results",
+                    "cell": "vote-results"
+                },
+                {
+                    "label": "Poll",
+                    "cell": "vote-poll-ref"
+                },
+                {
+                    "label": "Choices",
+                    "cell": "vote-choices"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "vote-memo"
+                },
+                {
+                    "label": "Token",
+                    "cell": "vote-deleg-token"
+                },
+                {
+                    "label": "Delegator",
+                    "cell": "vote-delegator"
+                },
+                {
+                    "label": "Delegate To",
+                    "cell": "vote-delegate-to"
+                },
+                {
+                    "label": "Poll",
+                    "cell": "vote-finalize-poll"
+                },
+                {
+                    "label": "Poll Status",
+                    "cell": "vote-finalize-status"
+                },
+                {
+                    "label": "Winning Option",
+                    "cell": "vote-finalize-winning"
+                }
+            ]
+        },
+        "bet": {
+            "rows": [
+                {
+                    "label": "Kind",
+                    "cell": "bet-kind"
+                },
+                {
+                    "label": "Market",
+                    "cell": "bet-label"
+                },
+                {
+                    "label": "Outcomes",
+                    "cell": "bet-outcomes"
+                },
+                {
+                    "label": "Wager Token",
+                    "cell": "bet-token"
+                },
+                {
+                    "label": "Oracle Fee",
+                    "cell": "bet-fee"
+                },
+                {
+                    "label": "Betting Closes",
+                    "cell": "bet-deadline"
+                },
+                {
+                    "label": "Refund Window",
+                    "cell": "bet-refund-window"
+                },
+                {
+                    "label": "Expires",
+                    "cell": "bet-expire-at"
+                },
+                {
+                    "label": "Minimum Stake",
+                    "cell": "bet-min-amount"
+                },
+                {
+                    "label": "Allow List",
+                    "cell": "bet-allow-list"
+                },
+                {
+                    "label": "Block List",
+                    "cell": "bet-block-list"
+                },
+                {
+                    "label": "Feed Status",
+                    "cell": "bet-feed-status"
+                },
+                {
+                    "label": "Pools",
+                    "cell": "bet-pools"
+                },
+                {
+                    "label": "Details",
+                    "cell": "bet-details"
+                },
+                {
+                    "label": "Market",
+                    "cell": "bet-feed-ref"
+                },
+                {
+                    "label": "Outcome",
+                    "cell": "bet-outcome"
+                },
+                {
+                    "label": "Stake",
+                    "cell": "bet-amount"
+                },
+                {
+                    "label": "Bet Status",
+                    "cell": "bet-status"
+                },
+                {
+                    "label": "Settled Block",
+                    "cell": "bet-settled-block"
+                },
+                {
+                    "label": "Market",
+                    "cell": "bet-action-feed-ref"
+                },
+                {
+                    "label": "Resulting Status",
+                    "cell": "bet-action-status"
+                }
+            ]
+        },
+        "stake": {
+            "rows": [
+                {
+                    "label": "Version",
+                    "cell": "stake-version"
+                },
+                {
+                    "label": "Signing Pubkey",
+                    "cell": "stake-pubkey"
+                },
+                {
+                    "label": "Amount",
+                    "cell": "stake-amount"
+                },
+                {
+                    "label": "Contract",
+                    "cell": "stake-contract"
+                },
+                {
+                    "label": "Token",
+                    "cell": "stake-tick"
+                },
+                {
+                    "label": "Activation Block",
+                    "cell": "stake-activation"
+                },
+                {
+                    "label": "Deactivation Block",
+                    "cell": "stake-deactivation"
+                }
+            ]
+        },
+        "unstake": {
+            "rows": [
+                {
+                    "label": "Signing Pubkey",
+                    "cell": "unstake-pubkey"
+                },
+                {
+                    "label": "Amount",
+                    "cell": "unstake-amount"
+                },
+                {
+                    "label": "Cooldown End Block",
+                    "cell": "unstake-cooldown"
+                },
+                {
+                    "label": "Contract",
+                    "cell": "unstake-contract"
+                },
+                {
+                    "label": "Token",
+                    "cell": "unstake-tick"
+                }
+            ]
+        },
+        "delegate": {
+            "rows": [
+                {
+                    "label": "Signing Pubkey",
+                    "cell": "delegate-pubkey"
+                },
+                {
+                    "label": "Variant",
+                    "cell": "delegate-revoked"
+                },
+                {
+                    "label": "Contract",
+                    "cell": "delegate-contract"
+                },
+                {
+                    "label": "Token",
+                    "cell": "delegate-tick"
+                },
+                {
+                    "label": "Activation Block",
+                    "cell": "delegate-activation"
+                },
+                {
+                    "label": "Deactivation Block",
+                    "cell": "delegate-deactivation"
+                }
+            ]
+        },
+        "collect": {
+            "rows": [
+                {
+                    "label": "Reward Amount",
+                    "cell": "collect-amount"
+                }
+            ]
+        },
+        "slash": {
+            "rows": [
+                {
+                    "label": "Slashed Pubkey",
+                    "cell": "slash-pubkey"
+                },
+                {
+                    "label": "Capability",
+                    "cell": "slash-capability"
+                },
+                {
+                    "label": "Equivocation Key",
+                    "cell": "slash-equiv-key"
+                },
+                {
+                    "label": "Amount Burned",
+                    "cell": "slash-amount"
+                },
+                {
+                    "label": "Bounty",
+                    "cell": "slash-bounty"
+                },
+                {
+                    "label": "Treasury",
+                    "cell": "slash-treasury"
+                },
+                {
+                    "label": "Submitter",
+                    "cell": "slash-submitter"
+                },
+                {
+                    "label": "Destination",
+                    "cell": "slash-destination"
+                }
+            ]
+        },
+        "deploy": {
+            "rows": [
+                {
+                    "label": "Contract",
+                    "cell": "deploy-contract"
+                },
+                {
+                    "label": "Code Hash",
+                    "cell": "deploy-code-hash"
+                },
+                {
+                    "label": "API Version",
+                    "cell": "deploy-api-version"
+                },
+                {
+                    "label": "Staking",
+                    "cell": "deploy-stakeable"
+                },
+                {
+                    "label": "Cooldown",
+                    "cell": "deploy-cooldown"
+                },
+                {
+                    "label": "Slash Destination",
+                    "cell": "deploy-slash"
+                },
+                {
+                    "label": "Method",
+                    "cell": "deploy-method"
+                },
+                {
+                    "label": "Gas Used",
+                    "cell": "deploy-gas"
+                },
+                {
+                    "label": "Chunk",
+                    "cell": "deploy-chunk"
+                },
+                {
+                    "label": "Code Part",
+                    "cell": "deploy-code-part"
+                }
+            ]
+        },
+        "execute": {
+            "rows": [
+                {
+                    "label": "Contract",
+                    "cell": "execute-contract"
+                },
+                {
+                    "label": "Caller",
+                    "cell": "execute-caller"
+                },
+                {
+                    "label": "Method",
+                    "cell": "execute-method"
+                },
+                {
+                    "label": "Gas",
+                    "cell": "execute-gas"
+                },
+                {
+                    "label": "Emissions",
+                    "cell": "execute-emitted"
+                },
+                {
+                    "label": "Emitted Actions",
+                    "cell": "execute-emissions"
+                },
+                {
+                    "label": "Error",
+                    "cell": "execute-error"
+                }
+            ]
+        },
+        "deposit": {
+            "rows": [
+                {
+                    "label": "Contract",
+                    "cell": "deposit-contract"
+                },
+                {
+                    "label": "Token",
+                    "cell": "deposit-tick"
+                },
+                {
+                    "label": "Amount",
+                    "cell": "deposit-amount"
+                }
+            ]
+        },
+        "withdraw": {
+            "rows": [
+                {
+                    "label": "Contract",
+                    "cell": "withdraw-contract"
+                },
+                {
+                    "label": "Token",
+                    "cell": "withdraw-tick"
+                },
+                {
+                    "label": "Amount",
+                    "cell": "withdraw-amount"
+                }
+            ]
+        },
+        "xcall": {
+            "rows": [
+                {
+                    "label": "Call ID",
+                    "cell": "xcall-call-id"
+                },
+                {
+                    "label": "Version",
+                    "cell": "xcall-version"
+                },
+                {
+                    "label": "Source Contract",
+                    "cell": "xcall-contract"
+                },
+                {
+                    "label": "Target Chain",
+                    "cell": "xcall-target-chain"
+                },
+                {
+                    "label": "Target Contract",
+                    "cell": "xcall-target-contract"
+                },
+                {
+                    "label": "Method",
+                    "cell": "xcall-method"
+                },
+                {
+                    "label": "Parameters",
+                    "cell": "xcall-params"
+                },
+                {
+                    "label": "Gas Limit",
+                    "cell": "xcall-gas-limit"
+                },
+                {
+                    "label": "Cross Hops",
+                    "cell": "xcall-cross-hops"
+                },
+                {
+                    "label": "Callback Method",
+                    "cell": "xcall-callback-method"
+                },
+                {
+                    "label": "Deadline Block",
+                    "cell": "xcall-deadline"
+                },
+                {
+                    "label": "Request Status",
+                    "cell": "xcall-request-status"
+                },
+                {
+                    "label": "Recorded Result (this chain)",
+                    "cell": null
+                },
+                {
+                    "label": "Recorded Status",
+                    "cell": "xcall-recorded-status"
+                },
+                {
+                    "label": "Recorded Payload",
+                    "cell": "xcall-recorded-payload"
+                },
+                {
+                    "label": "Resolved Block",
+                    "cell": "xcall-resolved-block"
+                },
+                {
+                    "label": "Target Execution",
+                    "cell": null
+                },
+                {
+                    "label": "Execute Action",
+                    "cell": "xcall-execute-action"
+                },
+                {
+                    "label": "Result Status",
+                    "cell": "xcall-result-status"
+                },
+                {
+                    "label": "Return Payload",
+                    "cell": "xcall-return-payload"
+                },
+                {
+                    "label": "Gas Used",
+                    "cell": "xcall-gas-used"
+                },
+                {
+                    "label": "Source Callback Delivery",
+                    "cell": null
+                },
+                {
+                    "label": "Callback Result",
+                    "cell": "xcall-callback-result"
+                },
+                {
+                    "label": "Callback Action",
+                    "cell": "xcall-callback-action"
+                }
+            ]
+        },
+        "xexec": {
+            "rows": [
+                {
+                    "label": "Call ID",
+                    "cell": "xexec-call-id"
+                },
+                {
+                    "label": "Execute Action",
+                    "cell": "xexec-execute-action"
+                },
+                {
+                    "label": "Result Status",
+                    "cell": "xexec-result-status"
+                },
+                {
+                    "label": "Gas Used",
+                    "cell": "xexec-gas-used"
+                },
+                {
+                    "label": "Return Payload",
+                    "cell": "xexec-return-payload"
+                },
+                {
+                    "label": "Block",
+                    "cell": "xexec-block"
+                }
+            ]
+        },
+        "issue": {
+            "rows": [
+                {
+                    "label": "Ticker",
+                    "cell": "issue-ticker"
+                },
+                {
+                    "label": "Description",
+                    "cell": "issue-description"
+                },
+                {
+                    "label": "Decimals",
+                    "cell": "issue-decimals"
+                },
+                {
+                    "label": "Max Supply",
+                    "cell": "issue-max-supply"
+                },
+                {
+                    "label": "Mint Supply",
+                    "cell": "issue-mint-supply"
+                },
+                {
+                    "label": "Transfer Supply",
+                    "cell": "issue-transfer-supply"
+                },
+                {
+                    "label": "Transfer Owner",
+                    "cell": "issue-transfer"
+                },
+                {
+                    "label": "Allow List",
+                    "cell": "issue-allow-list"
+                },
+                {
+                    "label": "Block List",
+                    "cell": "issue-block-list"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "issue-memo"
+                }
+            ]
+        },
+        "link": {
+            "rows": [
+                {
+                    "label": "Coin1",
+                    "cell": "link-coin1"
+                },
+                {
+                    "label": "Coin1 Action Index",
+                    "cell": "link-coin1-action-index"
+                },
+                {
+                    "label": "Coin2",
+                    "cell": "link-coin2"
+                },
+                {
+                    "label": "Coin2 Action Index",
+                    "cell": "link-coin2-action-index"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "link-memo"
+                }
+            ]
+        },
+        "list": {
+            "rows": [
+                {
+                    "label": "List Type",
+                    "cell": "list-type"
+                },
+                {
+                    "label": "Edit Type",
+                    "cell": "list-edit-type"
+                },
+                {
+                    "label": "List Action Index",
+                    "cell": "list-action-index"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "list-memo"
+                },
+                {
+                    "label": "Membership Set By",
+                    "cell": "list-membership-action-index"
+                }
+            ]
+        },
+        "message": {
+            "rows": [
+                {
+                    "label": "Encryption Method",
+                    "cell": "message-method"
+                },
+                {
+                    "label": "Encryption Key",
+                    "cell": "message-key"
+                },
+                {
+                    "label": "Encrypted Message",
+                    "cell": "message-encrypted"
+                },
+                {
+                    "label": "Plaintext Message",
+                    "cell": "message-plaintext"
+                },
+                {
+                    "label": "Destination",
+                    "cell": "message-destination"
+                }
+            ]
+        },
+        "mint": {
+            "rows": [
+                {
+                    "label": "Token",
+                    "cell": "mint-tick"
+                },
+                {
+                    "label": "Amount",
+                    "cell": "mint-amount"
+                },
+                {
+                    "label": "Destination",
+                    "cell": "mint-destination"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "mint-memo"
+                }
+            ]
+        },
+        "order": {
+            "rows": [
+                {
+                    "label": "Give Coin",
+                    "cell": "order-give-coin"
+                },
+                {
+                    "label": "Give Token",
+                    "cell": "order-give-tick"
+                },
+                {
+                    "label": "Give Amount",
+                    "cell": "order-give-amount"
+                },
+                {
+                    "label": "Get Coin",
+                    "cell": "order-get-coin"
+                },
+                {
+                    "label": "Get Token",
+                    "cell": "order-get-tick"
+                },
+                {
+                    "label": "Get Amount",
+                    "cell": "order-get-amount"
+                },
+                {
+                    "label": "Get Address",
+                    "cell": "order-get-address"
+                },
+                {
+                    "label": "Expiration",
+                    "cell": "order-expiration"
+                },
+                {
+                    "label": "Allow List",
+                    "cell": "order-allow-list"
+                },
+                {
+                    "label": "Block List",
+                    "cell": "order-block-list"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "order-memo"
+                }
+            ]
+        },
+        "send": {
+            "rows": []
+        },
+        "sleep": {
+            "rows": [
+                {
+                    "label": "Type",
+                    "cell": "sleep-type"
+                },
+                {
+                    "label": "Token",
+                    "cell": "sleep-tick"
+                },
+                {
+                    "label": "Resume Block",
+                    "cell": "sleep-resume-block"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "sleep-memo"
+                }
+            ]
+        },
+        "swap": {
+            "rows": [
+                {
+                    "label": "Give Coin",
+                    "cell": "swap-give-coin"
+                },
+                {
+                    "label": "Give Token",
+                    "cell": "swap-give-tick"
+                },
+                {
+                    "label": "Give Amount",
+                    "cell": "swap-give-amount"
+                },
+                {
+                    "label": "Get Coin",
+                    "cell": "swap-get-coin"
+                },
+                {
+                    "label": "Get Token",
+                    "cell": "swap-get-tick"
+                },
+                {
+                    "label": "Get Amount",
+                    "cell": "swap-get-amount"
+                },
+                {
+                    "label": "Get Address",
+                    "cell": "swap-get-address"
+                },
+                {
+                    "label": "Expiration",
+                    "cell": "swap-expiration"
+                },
+                {
+                    "label": "Allow List",
+                    "cell": "swap-allow-list"
+                },
+                {
+                    "label": "Block List",
+                    "cell": "swap-block-list"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "swap-memo"
+                }
+            ]
+        },
+        "sweep": {
+            "rows": [
+                {
+                    "label": "Balances",
+                    "cell": "sweep-balances"
+                },
+                {
+                    "label": "Ownerships",
+                    "cell": "sweep-ownerships"
+                },
+                {
+                    "label": "Orders",
+                    "cell": "sweep-orders"
+                },
+                {
+                    "label": "Swaps",
+                    "cell": "sweep-swaps"
+                },
+                {
+                    "label": "Dispensers",
+                    "cell": "sweep-dispensers"
+                },
+                {
+                    "label": "Destination",
+                    "cell": "sweep-destination"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "sweep-memo"
+                }
+            ]
+        },
+        "coinpay": {
+            "rows": [
+                {
+                    "label": "Obligation",
+                    "cell": "coinpay-obligation"
+                },
+                {
+                    "label": "Coin Amount",
+                    "cell": "coinpay-coin-amount"
+                },
+                {
+                    "label": "Payment Txid",
+                    "cell": "coinpay-txid"
+                },
+                {
+                    "label": "Vout",
+                    "cell": "coinpay-vout"
+                },
+                {
+                    "label": "Status",
+                    "cell": "coinpay-status"
+                }
+            ]
+        },
+        "anchor": {
+            "rows": [
+                {
+                    "label": "Version",
+                    "cell": "anchor-version"
+                },
+                {
+                    "label": "Chain",
+                    "cell": "anchor-chain"
+                },
+                {
+                    "label": "Network",
+                    "cell": "anchor-network"
+                },
+                {
+                    "label": "Checkpoint Seq",
+                    "cell": "anchor-checkpoint-seq"
+                },
+                {
+                    "label": "Snapshot Block",
+                    "cell": "anchor-snapshot-block"
+                },
+                {
+                    "label": "Block Hash",
+                    "cell": "anchor-block-hash"
+                },
+                {
+                    "label": "Ledger Hash",
+                    "cell": "anchor-ledger-hash"
+                },
+                {
+                    "label": "Actions Hash",
+                    "cell": "anchor-actions-hash"
+                },
+                {
+                    "label": "Contract Hash",
+                    "cell": "anchor-contract-hash"
+                },
+                {
+                    "label": "Match Batch",
+                    "cell": "anchor-match-batch"
+                },
+                {
+                    "label": "Match Count",
+                    "cell": "anchor-match-count"
+                },
+                {
+                    "label": "Chunk",
+                    "cell": "anchor-chunk"
+                },
+                {
+                    "label": "DOGE Block",
+                    "cell": "anchor-doge-block"
+                }
+            ]
+        },
+        "price": {
+            "rows": [
+                {
+                    "label": "Version",
+                    "cell": "price-version"
+                },
+                {
+                    "label": "Coin",
+                    "cell": "price-coin"
+                },
+                {
+                    "label": "Token",
+                    "cell": "price-ticker"
+                },
+                {
+                    "label": "Fiat",
+                    "cell": "price-fiat"
+                },
+                {
+                    "label": "Value",
+                    "cell": "price-value"
+                },
+                {
+                    "label": "Oracle Fee",
+                    "cell": "price-oracle-fee"
+                },
+                {
+                    "label": "Round",
+                    "cell": "price-round"
+                },
+                {
+                    "label": "Round Window",
+                    "cell": "price-window"
+                },
+                {
+                    "label": "Round Timestamp",
+                    "cell": "price-round-timestamp"
+                },
+                {
+                    "label": "Pairs",
+                    "cell": "price-pairs"
+                },
+                {
+                    "label": "Signatures",
+                    "cell": "price-sig-count"
+                },
+                {
+                    "label": "Signers",
+                    "cell": "price-signers"
+                },
+                {
+                    "label": "Validation Status",
+                    "cell": "price-validation-status"
+                },
+                {
+                    "label": "Memo",
+                    "cell": "price-memo"
+                }
+            ]
+        },
+        "nodeproof": {
+            "rows": [
+                {
+                    "label": "Challenge",
+                    "cell": "nodeproof-challenge"
+                },
+                {
+                    "label": "Epoch Height",
+                    "cell": "nodeproof-epoch-height"
+                },
+                {
+                    "label": "Target Height",
+                    "cell": "nodeproof-target-height"
+                },
+                {
+                    "label": "Verified Nodes",
+                    "cell": "nodeproof-verified-count"
+                }
+            ]
+        }
+    }
+}

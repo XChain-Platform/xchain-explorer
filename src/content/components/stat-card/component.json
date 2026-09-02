@@ -1,0 +1,30 @@
+{
+    "name": "stat-card",
+    "description": "A collapsible card holding a label/value table. The repeating summary block on coin_home, address, token, market and dispenser.",
+    "props": {
+        "id": {
+            "type": "string",
+            "required": true,
+            "description": "The collapse target id; also names the header element (<id>-header)."
+        },
+        "title": {
+            "type": "string",
+            "required": true,
+            "description": "Card title text."
+        },
+        "icon": {
+            "type": "string",
+            "default": "fa-info-circle",
+            "description": "Font Awesome class for the title glyph."
+        },
+        "open": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether the card starts expanded. Restored per viewer from the collapse memory when present."
+        },
+        "rows": {
+            "type": "array",
+            "description": "Ordered { label, cell } rows. Order and visibility are the theme's; the cell name is the identity a render function writes into."
+        }
+    }
+}

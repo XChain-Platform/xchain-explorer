@@ -242,7 +242,10 @@ describe('/explorer/validators datatables row shape', function () {
 
 describe('client: the validators table renders the hub registry columns', function () {
 
-    const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+    // formatters.js is read alongside xchain.js because the cell-rendering helpers
+    // moved there in the component milestone.
+    const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+        + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
     const HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/validators.html'), 'utf8');
 
     // Slice the SHIPPED createdRow callback out of loadDatatablesData by walking

@@ -376,144 +376,6 @@ function updateTheme(mode){
     ls.setItem('view-theme',mode)
 }
 
-// Return nice display string for token amount
-function formatAmount(amount=null){
-    // An absent amount is not a number to format, it is nothing to show. Without
-    // this, String(null) is "null", whose length clears the >=4 test, the digit
-    // regex matches nothing, and the literal word "null" is returned and rendered
-    // into the cell (measured on /RDOGE/issues: Max Supply and Max Mint, both
-    // nullable columns, showed "null" on 8 rows each). Guarded on isNull, so 0 is
-    // untouched (isNull(0) is false) and '' already returned '' by the old path.
-    if(isNull(amount))
-        return '';
-    var str = String(amount).split('.');
-    if(str[0].length>=4)
-        str[0] = str[0].replace(/(\d)(?=(\d{3})+$)/g, '$1,');
-    return str.join('.');
-}
-
-// Return nice display string for token locks. Field order MUST match the
-// 7-element pipe-string XChainExplorer.js builds for getIssues/getTokens/
-// getProjectTokens rows: max_supply|mint|mint_supply|max_mint|description|
-// sleep|callback.
-function formatLocks(locks=null){
-    var lock = String(locks).split('|'),
-        html = '';
-    if(lock[0]==1) html += '<i class="fa fa-coins pe-1"         title="Max Supply"></i>';
-    if(lock[1]==1) html += '<i class="fa fa-print pe-1"        title="Mint"></i>';
-    if(lock[2]==1) html += '<i class="fa fa-bank pe-1"         title="Mint Supply"></i>';
-    if(lock[3]==1) html += '<i class="fa fa-coins pe-1"        title="Max Mint"></i>';
-    if(lock[4]==1) html += '<i class="fa fa-circle-info pe-1"  title="Description"></i>';
-    if(lock[5]==1) html += '<i class="fa fa-bed pe-1"       title="Sleep"></i>';
-    if(lock[6]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
-    return html;
-}
-
-// Canonical NFT-pattern classification (NFT_Standard.md#classification-rule-for-clients):
-// a token follows the NFT pattern when DECIMALS=0 AND LOCK_MAX_SUPPLY=1.
-// Mirrors sdk.nft.isNft; keep the two in sync.
-function isNftToken(decimals, lockMaxSupply){
-    return Number(decimals)===0 && Number(lockMaxSupply)===1;
-}
-
-// Return path to the token icon
-function getTokenIcon(token){
-    let icon = '/icon/' + XC.coin + '/' + XC.network + '/' + token + '.png';
-    return icon
-}
-
-
-// Return nice display string for links
-function formatLink(url=null, text=null, icon=false, btn=false){
-    var html = '',
-        cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
-    // A url whose last segment stringified a missing value is not a destination:
-    // render the label alone rather than a dead link. ORDER/SWAP/DISPENSER use an
-    // empty tick to mean the native coin, which built hrefs ending in /token/null.
-    if(/\/(null|undefined)$/.test(String(url)))
-        return (text) ? String(text) : '';
-        html += '<a href="' + url + '" class="' + cls + '">';
-    if(icon && !isNull(icon))
-        html += '<img src="' + getTokenIcon(icon) + '" class="icon-20 ms-1 me-1">';
-    if(text)
-        html += text;
-    html += '</a>'
-    return html;
-}
-
-// Return a truncated hex string (hash / pubkey / request_id) with the full value as
-// a hover title, keeping long 64/128-hex identifiers readable in tables.
-
-// Hash-shaped fields are only hex on VALID rows: an INVALID-status ANCHOR persists
-// its raw BLOCK_HASH verbatim, and this string reaches jQuery .html(). Escape both
-// the truncated body and the title attribute (a no-op on real hex) so a poisoned
-// field can never break out of the attribute or inject an element.
-function formatHash(hash, len=16){
-    if(isNull(hash)) return '';
-    let str = String(hash);
-    if(str.length <= len) return escapeHtml(str);
-    return '<span title="' + escapeHtml(str) + '">' + escapeHtml(str.substring(0, len)) + '…</span>';
-}
-
-// Return a nicely formatted amount with token links
-function formatLinkAmount(url=null, text=null, icon=false, amount=false){
-    let html = '';
-    if(!isNull(icon))
-        html += formatLink(url, null, icon);
-    if(!isNull(amount))
-        html += formatAmount(amount);
-    if(!isNull(text))
-        html += ' ' + formatLink(url, text);
-    return html;
-}
-
-// Render one leg of a dispenser/order trade: an amount plus whatever it is
-// denominated in. A NATIVE-coin leg carries no tick at all (the tick column is
-// null), and handing that to formatLinkAmount builds a '/token/null' href -
-// formatLink strips such a link now, but the cell would still be labelled with a
-// token that does not exist. So an absent tick renders the coin name plainly, and
-// a leg carrying neither renders a dash rather than an empty cell.
-function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
-    if(isNull(legTick)){
-        let txt = isNull(amount) ? '' : formatAmount(amount);
-        if(!isNull(legCoin))
-            txt += (txt ? ' ' : '') + escapeHtml(String(legCoin));
-        return (txt==='') ? '-' : txt;
-    }
-    let linkCoin = isNull(legCoin) ? pageCoin : legCoin;
-    return formatLinkAmount('/' + linkCoin + '/token/' + legTick, legTick, legTick, amount);
-}
-
-// Render a DISPENSER / DISPENSE native-coin leg: network icon, amount, coin name.
-// Escaped here, not per call site: both are on-chain fields bound for a .html() sink.
-// NOT formatCoinLegAmount - that omits the icon and adds thousands separators.
-function formatNativeCoinLeg(amount, coin){
-    return ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(amount) + ' ' + escapeHtml(coin);
-}
-
-// Badge rendered in place of an amount cell when a row represents a
-// token-ownership sale (ORDER/SWAP/DISPENSER with GIVE_OWNERSHIP=1 or
-// GET_OWNERSHIP=1). The ownership record itself is the asset; there is
-// no balance amount to display.
-function ownershipBadge(){
-    return '<span class="badge bg-warning text-dark" title="Token-ownership transfer">&#128081; Ownership</span>';
-}
-
-// Handle getting the network icon using the coin name and network
-function getNetworkIcon(name=null, network=null){
-    // Set defaults for name/network
-    if(isNull(name))    name = XC.name;
-    if(isNull(network)) network = XC.network;
-    let icon = String('fa-xchain-' + name + '-' + network).toLowerCase();
-    return icon;
-}
-
-// Return nice display string for timestamps
-function formatLivestamp(timestamp=null){
-    var html = '';
-    html += '<span data-livestamp='  + timestamp + ' class="nowrap"></span>';
-    return html;
-}
 
 // Build out nice links to view transactions in other explorers.
 // SoChain (chain.so) was dropped from every network on 2026-08-29: it no longer
@@ -599,24 +461,6 @@ function getTransactionStatus(rec, depth=1){
     else if(depth>=100)
         return null;
     return getTransactionStatus(rec[Object.keys(rec)[0]], (depth+1));
-}
-
-// Determine if value is null or undefined or empty
-function isNull(value){
-    return (value === null || value === undefined || value==='');
-}
-
-// Make a value safe to hand to jQuery's .text(). jQuery (1.10.2, the build this
-// app ships) does NOT treat an absent value as "no text": .text(null) stringifies
-// it and writes the literal four characters "null" into the element, and
-// .text(undefined) is read as the GETTER, so the element silently keeps whatever
-// it already held. The /explorer feeds deliver real JS nulls for every column the
-// indexer is allowed to leave NULL (a BROADCAST v3 carries no MESSAGE, a LINK
-// carries no MEMO, and so on), so those values go through here and render as an
-// empty cell, which is what "the action does not carry this field" looks like.
-// Note .html() is NOT affected: jQuery empties the element for a null value.
-function nullToBlank(value){
-    return isNull(value) ? '' : value;
 }
 
 // Determine if a value is numeric
@@ -1322,7 +1166,14 @@ function getActionDetails(action, info){
 
 // Load an action's rows into its datatable from the explorer API; query/type
 // narrow the results to one address/block/etc when given.
-function loadDatatablesData(coin, action, query, type){
+// `opts` is the data-table component's seam (spec M2.2) and is absent on every
+// hand-written call. It carries { columns, onDraw }: the resolved column config,
+// and a callback run after each draw so the component can apply a theme's column
+// order to the rows DataTables just built. The paging, offset-cursor and
+// per-page-length behaviour below is untouched by it on purpose - that logic is
+// the contract with the /explorer feeds' positional cursors, and the component
+// layer was built around it rather than through it.
+function loadDatatablesData(coin, action, query, type, opts){
     // Handle initializing datatable object for this action
     if(!XC.datatables[action])
         XC.datatables[action] = {}
@@ -1485,6 +1336,12 @@ function loadDatatablesData(coin, action, query, type){
                     }
                 });
             }
+            // Last, so the component sees the rows in their finished state: the
+            // per-type hiding above is part of what a permutation has to agree
+            // with, and running the hook before it would reorder cells the code
+            // above then hides by index.
+            if(opts && typeof opts.onDraw === 'function')
+                opts.onDraw(tableId, o);
         },
         createdRow: function(row, data, idx){
             // Parse the row data into the standard fields
@@ -3180,9 +3037,53 @@ function showActionDetails(){
     // Display the correct ACTION section and hide the 'No information available' message
     if(found){
         let name  = String(o.action).replaceAll('_','-').toLowerCase();
-        $('#info-' + name).removeClass('d-none');
+        mountActionDetailCard(name);
         $('#additionalInfoNotAvailable').hide();
     }
+}
+
+// Mount one per-type ACTION block as a detail-card (spec M2.5).
+//
+// This replaced a bare removeClass('d-none'). The block's markup is unchanged -
+// M2.5 rules that it stays in the page - but revealing it now goes through the
+// component, which also applies the row config for this type: a theme can drop
+// a row or resequence one without the page emitting different markup, and the
+// runtime reports a mount that could not find its block instead of leaving a
+// blank panel that reads as an action carrying no detail.
+//
+// Falls back to the direct reveal when the runtime or the config block is
+// absent, because a missing THEME layer must never cost a reader the data.
+function mountActionDetailCard(name){
+    let el = document.getElementById('info-' + name);
+    if(!el) return false;
+    if(typeof XCComponents === 'undefined' || !XCComponents.get('detail-card')){
+        $(el).removeClass('d-none');
+        return false;
+    }
+    let cards = actionDetailCardConfig();
+    let rows  = (cards && cards[name] && Array.isArray(cards[name].rows)) ? cards[name].rows : [];
+    let res   = XCComponents.mount(el, 'detail-card', { type: name, rows: rows, reveal: true });
+    if(!res.ok)
+        $(el).removeClass('d-none');
+    return res.ok;
+}
+
+// Read the row configs the composer embedded in action.html. Parsed once and
+// cached: showActionDetails can run more than once per view (the action panel
+// re-renders when a different action is selected).
+function actionDetailCardConfig(){
+    if(XC.actionDetailCards !== undefined) return XC.actionDetailCards;
+    XC.actionDetailCards = null;
+    let node = document.getElementById('xc-action-detail-cards');
+    if(node){
+        try {
+            let parsed = JSON.parse(node.textContent || '{}');
+            XC.actionDetailCards = parsed.cards || null;
+        } catch(e){
+            console.error('action detail-card config is not valid JSON:', e && e.message);
+        }
+    }
+    return XC.actionDetailCards;
 }
 
 // Display ADDRESS action information
@@ -4570,39 +4471,6 @@ function showLockStatus(locked){
     return html;
 }
 
-// Function to remove HTML content from string
-// Escape user-controlled text for safe insertion via jQuery .html() / innerHTML.
-// The canonical five-entity replacement. Apply to ANY on-chain free-text field
-// (description, memo, message, token names) before it reaches an HTML sink.
-// those values are attacker-controlled and the indexer stores them verbatim.
-function escapeHtml(s){
-    if(s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, function(c){
-        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
-    });
-}
-
-function stripHtml(html){
-    // Parse INERTLY. DOMParser('text/html') builds a document whose scripts do
-    // not run and whose resource handlers (img/onerror, svg/onload) do not fire,
-    // so hostile markup can't execute while we pull out plain text. The previous
-    // version assigned user input to a live element's .innerHTML, which fires
-    // onerror/onload during the assignment, which is itself an XSS execution sink.
-    try {
-        var doc = new DOMParser().parseFromString(String(html), 'text/html');
-        return doc.body.textContent || '';
-    } catch(e) {
-        // Single-pass tag stripping can leave a tag reassembled from adjacent
-        // fragments (e.g. "<scr" + "ipt>"); loop the replace to a fixpoint.
-        var out = String(html), prev;
-        do {
-            prev = out;
-            out  = out.replace(/<[^>]*>/g, '');
-        } while(out !== prev);
-        return out;
-    }
-}
-
 // Handle getting record type from array
 function getArrayItemByType(arr, type){
     rec = false;
@@ -5893,8 +5761,15 @@ function showXChainParams(){
 
 $(document).ready(function(){
 
-    // Handle initializing the page 
+    // Handle initializing the page
     initPage();
+
+    // Mount whatever the composed page declared, now that initPage() has
+    // resolved the coin/network context every component reads. components.js
+    // does not mount itself for exactly this reason: it loads first, so its own
+    // ready handler would fire while XC.coin was still null.
+    if(typeof XCComponents !== 'undefined')
+        XCComponents.mountManifest();
 
     // Display debug information
     if(XC.debug)

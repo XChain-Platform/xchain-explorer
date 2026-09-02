@@ -1,0 +1,34 @@
+{
+    "name": "data-table",
+    "description": "A server-paged list table. Owns its column definitions as config: it generates the <thead>, maps the positional /explorer row arrays through the config, and keeps the offset cursor tracking the feeds depend on.",
+    "props": {
+        "action": {
+            "type": "string",
+            "required": true,
+            "description": "The action name loadDatatablesData turns into an /{COIN}/explorer/<endpoint> URL. Also names the table element: datatable-<action>."
+        },
+        "columns": {
+            "type": "array",
+            "required": true,
+            "description": "Ordered column configs, one per field of the feed's positional row array. Each is { label, cls?, hidden?, order? }. Array order is the FEED's order and is not the theme's to change; `order` permutes the rendered DOM instead."
+        },
+        "tableClass": {
+            "type": "string",
+            "default": "table table-striped cell-border view-button table-hover table-condensed",
+            "description": "The <table> class attribute. Two shipped pages drop view-button because they carry no view column."
+        },
+        "loading": {
+            "type": "string",
+            "default": "Loading data...",
+            "description": "Placeholder text shown until the first draw lands."
+        },
+        "query": {
+            "type": "string",
+            "description": "Third argument to loadDatatablesData: the resource a filtered feed is scoped to (a block index, an address, a tick). Null on an unfiltered list page."
+        },
+        "type": {
+            "type": "string",
+            "description": "Fourth argument to loadDatatablesData: the feed's sub-selector (history's 'recent', a search's result type)."
+        }
+    }
+}

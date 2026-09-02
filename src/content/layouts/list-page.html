@@ -1,0 +1,21 @@
+<!-- {COMMENT} -->
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+{CARD}
+        </div>
+    </div>
+</div>
+
+<script type="application/json" id="xc-mount-manifest">{MANIFEST}</script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+    XC.pageInfo.title       = {TITLE};
+    XC.pageInfo.description = {DESCRIPTION};
+    XC.pageInfo.canonical   = '/' + XC.coin + {CANONICAL};
+    updatePageInfo();
+
+});
+</script>

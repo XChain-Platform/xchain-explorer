@@ -17,6 +17,13 @@
  * depends on (glyph and icon pixel sizes, the market page's fixed
  * heights/widths, fixed table column widths, container heights) is carried
  * over unchanged from classic on purpose - see the per-section notes below.
+ *
+ * ROW 22a. The Bootstrap surface bridge lands in this skin as its proof: the
+ * --xc-surface-* family below moves the PAGE (background, body text, links,
+ * borders, muted text), not just the explorer's own chrome. Before the bridge,
+ * loading this skin moved 30 computed values on the home page and left the
+ * surface underneath it Bootstrap-default, which read as a weak mechanism
+ * rather than a correctly scoped one. "Slate Ink" now actually reaches the ink.
  */
 
 :root {
@@ -173,6 +180,37 @@
     --xc-chart-tooltip-cell-padding-x: .3rem;
     --xc-chart-tooltip-separator-padding-x: .2rem;
 
+
+    /* --- Bootstrap surface bridge (row 22a) ---------------------------------
+       Slate Ink's own page palette. Classic sets these to Bootstrap's defaults;
+       moving them here is what proves the bridge carries the whole surface and
+       not only the explorer's chrome. The -rgb triples must move WITH their
+       colors: Bootstrap builds translucent overlays from them, so a skin that
+       changed only the hex would leave every overlay on the old palette. */
+    --xc-surface-body-bg: #f4f6fa;
+    --xc-surface-body-bg-rgb: 244,246,250;
+    --xc-surface-body-color: #1d2433;
+    --xc-surface-body-color-rgb: 29,36,51;
+    --xc-surface-emphasis-color: #0b1020;
+    --xc-surface-emphasis-color-rgb: 11,16,32;
+    --xc-surface-secondary-color: rgba(29, 36, 51, 0.72);
+    --xc-surface-secondary-color-rgb: 29,36,51;
+    --xc-surface-secondary-bg: #e3e8f2;
+    --xc-surface-secondary-bg-rgb: 227,232,242;
+    --xc-surface-tertiary-color: rgba(29, 36, 51, 0.48);
+    --xc-surface-tertiary-color-rgb: 29,36,51;
+    --xc-surface-tertiary-bg: #eef1f8;
+    --xc-surface-tertiary-bg-rgb: 238,241,248;
+    --xc-surface-link-color: #2f5fd0;
+    --xc-surface-link-color-rgb: 47,95,208;
+    --xc-surface-link-hover-color: #1f4098;
+    --xc-surface-link-hover-color-rgb: 31,64,152;
+    --xc-surface-code-color: #a8437a;
+    --xc-surface-highlight-color: #1d2433;
+    --xc-surface-highlight-bg: #ffe9b8;
+    --xc-surface-border-color: #c9d2e3;
+    --xc-surface-border-color-translucent: rgba(29, 36, 51, 0.16);
+
 }
 
 /* Mode-dependent overrides, same split classic uses: no rule in the
@@ -182,5 +220,32 @@
 [data-bs-theme="dark"] {
 
     --xc-chart-nodata-color: #c3cbe0;
+
+
+    /* Slate Ink, dark. Same family, inverted. The --bs-* bridge itself is NOT
+       restated: it lives in classic, and a skin overrides values, not wiring. */
+    --xc-surface-body-bg: #151a24;
+    --xc-surface-body-bg-rgb: 21,26,36;
+    --xc-surface-body-color: #d7deea;
+    --xc-surface-body-color-rgb: 215,222,234;
+    --xc-surface-emphasis-color: #ffffff;
+    --xc-surface-emphasis-color-rgb: 255,255,255;
+    --xc-surface-secondary-color: rgba(215, 222, 234, 0.72);
+    --xc-surface-secondary-color-rgb: 215,222,234;
+    --xc-surface-secondary-bg: #1f2735;
+    --xc-surface-secondary-bg-rgb: 31,39,53;
+    --xc-surface-tertiary-color: rgba(215, 222, 234, 0.48);
+    --xc-surface-tertiary-color-rgb: 215,222,234;
+    --xc-surface-tertiary-bg: #1a212c;
+    --xc-surface-tertiary-bg-rgb: 26,33,44;
+    --xc-surface-link-color: #7fa6f5;
+    --xc-surface-link-color-rgb: 127,166,245;
+    --xc-surface-link-hover-color: #a3c0f8;
+    --xc-surface-link-hover-color-rgb: 163,192,248;
+    --xc-surface-code-color: #e79cc4;
+    --xc-surface-highlight-color: #d7deea;
+    --xc-surface-highlight-bg: #5a4410;
+    --xc-surface-border-color: #39445a;
+    --xc-surface-border-color-translucent: rgba(255, 255, 255, 0.14);
 
 }

@@ -41,6 +41,8 @@ function sourceHtmlRoutes() {
     return out;
 }
 
+const SOURCE = require('../helpers/content-source.js');
+
 describe('html template coverage', () => {
 
     const routes = sourceHtmlRoutes();
@@ -49,13 +51,29 @@ describe('html template coverage', () => {
         expect(routes.size).to.be.greaterThan(50, 'html route extraction looks broken');
     });
 
-    it('every urls.html file exists on disk in src/content/html/', () => {
+    // A route's markup comes from one of two places now: a fragment on disk, or
+    // the shared list-page composition, which 76 near-identical pages collapsed
+    // onto (spec M2.3). What still matters is that EVERY route resolves to one
+    // of them - a route that resolves to neither serves the "Error loading html
+    // file!" sentinel with a 200, which is the failure this gate exists to
+    // catch and which the collapse did nothing to make less likely.
+    it('every urls.html route resolves to a fragment or the list-page composer', () => {
         const missing = [];
         for (const [route, file] of routes)
-            if (!fs.existsSync(path.join(HTML_DIR, file)))
+            if (!SOURCE.pageExists(file))
                 missing.push(`${route} -> ${file}`);
-        expect(missing, 'routes whose mapped .html file is missing (serves the\n'
+        expect(missing, 'routes whose markup exists nowhere (serves the\n'
             + '"Error loading html file!" sentinel with a 200 status):\n  '
             + missing.join('\n  ')).to.deep.equal([]);
+    });
+
+    it('the collapsed routes really do come from the composer, not from disk', () => {
+        const composed = [...routes.values()].filter((f) => SOURCE.isComposed(f));
+        expect(composed.length, 'no route is served by the list-page composer, which\n'
+            + 'means the collapse silently reverted to per-page fragments').to.be.greaterThan(50);
+        const strays = composed.filter((f) => fs.existsSync(path.join(HTML_DIR, f)));
+        expect(strays, 'fragments left behind for routes the composer now serves; the\n'
+            + 'file is dead weight and the next reader will edit it expecting an effect:\n  '
+            + strays.join('\n  ')).to.deep.equal([]);
     });
 });

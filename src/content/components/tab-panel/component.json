@@ -1,0 +1,20 @@
+{
+    "name": "tab-panel",
+    "description": "The tabbed table panel with a dropdown selector: coin_home, address and token each carry one, holding a dozen or more data-table instances.",
+    "props": {
+        "id": {
+            "type": "string",
+            "required": true,
+            "description": "The tab-content container id."
+        },
+        "tabs": {
+            "type": "array",
+            "required": true,
+            "description": "Ordered { key, label, icon } tabs. Order and visibility are the theme's."
+        },
+        "active": {
+            "type": "string",
+            "description": "Key of the tab shown first. Defaults to the first tab the config leaves visible."
+        }
+    }
+}

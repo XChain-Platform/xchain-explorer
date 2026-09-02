@@ -179,7 +179,6 @@
                                 <th>Memo</th>
                                 <td class="address-memo"></td>
                             </tr>
-                            </tr>
                             </tbody>
                             </table>
                         </div>
@@ -2021,6 +2020,11 @@
     </div>
 </div>
 
+<!-- Per-type detail-card row configs (spec M2.5). Spliced in by the composer
+     from content/layouts/action-detail-cards.json rather than fetched, because
+     showActionDetails() needs them before it can mount anything and a second
+     round trip would block the render on the busiest detail page here. -->
+<script type="application/json" id="xc-action-detail-cards">{DATA:action-detail-cards}</script>
 <script type="text/javascript">
 
 // Render for the SPV action-proof widget. leaf/merkle_proof are the raw

@@ -1,0 +1,20 @@
+{
+    "name": "chart",
+    "description": "A Chart.js canvas with the explorer toolbar. Wraps the existing xchain-charts.js entry points so a theme can move a chart without touching the chart code.",
+    "props": {
+        "id": {
+            "type": "string",
+            "required": true,
+            "description": "Canvas element id."
+        },
+        "kind": {
+            "type": "string",
+            "required": true,
+            "description": "Which chart xchain-charts.js should build."
+        },
+        "options": {
+            "type": "object",
+            "description": "Options passed straight through to the chart builder."
+        }
+    }
+}

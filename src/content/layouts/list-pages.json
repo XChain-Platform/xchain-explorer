@@ -1,0 +1,3823 @@
+{
+    "actions.html": {
+        "comment": "Actions",
+        "icon": "fa-bolt",
+        "heading": "All Actions",
+        "action": "action",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading action data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": ""
+            },
+            {
+                "label": "Action",
+                "cls": "asset-name"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "All Actions",
+            "description": [
+                "Browse every action recorded on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a raw list of every action type on the XChain platform"
+            ],
+            "canonical": "/actions"
+        }
+    },
+    "airdrops.html": {
+        "comment": "Airdrops ",
+        "icon": "fa-parachute-box",
+        "heading": "Airdrops",
+        "action": "airdrop",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading airdrop data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Token",
+                "cls": "asset-name"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Memo",
+                "cls": "memo"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "AIRDROP Actions",
+            "description": [
+                "Learn about the AIRDROP actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of AIRDROP actions on the XChain platform"
+            ],
+            "canonical": "/airdrops"
+        }
+    },
+    "anchors.html": {
+        "comment": "Anchors (DOGE state checkpoints)",
+        "icon": "fa-anchor",
+        "heading": "Anchors",
+        "action": "anchor",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading anchor data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Chain",
+                "cls": ""
+            },
+            {
+                "label": "Network",
+                "cls": ""
+            },
+            {
+                "label": "Version",
+                "cls": ""
+            },
+            {
+                "label": "Checkpoint Seq",
+                "cls": ""
+            },
+            {
+                "label": "Snapshot Block",
+                "cls": "block"
+            },
+            {
+                "label": "Matches",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Anchors",
+            "description": [
+                "Quorum-signed cross-chain state checkpoints (ANCHOR) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/anchors"
+        }
+    },
+    "attest_validator_stats.html": {
+        "comment": "Attestation Validator Stats (per-validator per-provider ATTEST accountability counters)",
+        "icon": "fa-shield-halved",
+        "heading": "Attestation Validator Stats",
+        "action": "attest_validator_stat",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading attestation validator stats...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Validator",
+                "cls": ""
+            },
+            {
+                "label": "Provider",
+                "cls": ""
+            },
+            {
+                "label": "Fulfilled",
+                "cls": ""
+            },
+            {
+                "label": "Missed",
+                "cls": ""
+            },
+            {
+                "label": "Slashed",
+                "cls": ""
+            },
+            {
+                "label": "Quality Score",
+                "cls": ""
+            },
+            {
+                "label": "Last Block",
+                "cls": "block"
+            }
+        ],
+        "pageInfo": {
+            "title": "Attestation Validator Stats",
+            "description": [
+                "Per-validator per-provider ATTEST accountability counters (fulfilled/missed/slashed + quality score) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/attest_validator_stats"
+        }
+    },
+    "attestations.html": {
+        "comment": "Attestations",
+        "icon": "fa-certificate",
+        "heading": "Attestations",
+        "action": "attestation",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading attestation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Type",
+                "cls": ""
+            },
+            {
+                "label": "Provider",
+                "cls": ""
+            },
+            {
+                "label": "Request ID",
+                "cls": ""
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "ATTEST Actions",
+            "description": [
+                "Learn about the ATTEST actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays external-data attestation requests and validator responses."
+            ],
+            "canonical": "/attestations"
+        }
+    },
+    "batches.html": {
+        "comment": "Batches",
+        "icon": "fa-layer-group",
+        "heading": "Batches",
+        "action": "batch",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading batch data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "BATCH Actions",
+            "description": [
+                "Learn about the BATCH actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of BATCH actions on the XChain platform"
+            ],
+            "canonical": "/batches"
+        }
+    },
+    "bets.html": {
+        "comment": "BET wagers (one row per placed bet; bets table, BET format 2)",
+        "icon": "fa-dice",
+        "heading": "Bets",
+        "action": "bet",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading bet data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Bettor",
+                "cls": "address"
+            },
+            {
+                "label": "Market",
+                "cls": ""
+            },
+            {
+                "label": "Outcome",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": ""
+            },
+            {
+                "label": "Stake",
+                "cls": ""
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Bets",
+            "description": [
+                "Bets placed on decentralized betting markets on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/bets"
+        }
+    },
+    "blocks.html": {
+        "comment": "Blocks",
+        "icon": "fa-cube",
+        "heading": "Blocks",
+        "action": "block",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading block data...",
+        "columns": [
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Transactions"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Blocks",
+            "description": [
+                "Learn about the blocks on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of blocks on the XChain platform"
+            ],
+            "canonical": "/blocks"
+        }
+    },
+    "broadcasts.html": {
+        "comment": "Broadcasts",
+        "icon": "fa-bullhorn",
+        "heading": "Broadcasts",
+        "action": "broadcast",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading broadcast data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Message",
+                "cls": "broadcast-message"
+            },
+            {
+                "label": "Value",
+                "cls": "block"
+            },
+            {
+                "label": "Fee"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "BROADCAST Actions",
+            "description": [
+                "Learn about the BROADCAST actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of BROADCAST actions on the XChain platform"
+            ],
+            "canonical": "/broadcasts"
+        }
+    },
+    "callbacks.html": {
+        "comment": "Callbacks",
+        "icon": "fa-recycle",
+        "heading": "Callbacks",
+        "action": "callback",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading callback data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Callback Token",
+                "cls": "token"
+            },
+            {
+                "label": "Quantity",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "CALLBACK Actions",
+            "description": [
+                "Learn about the CALLBACK actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of CALLBACK actions on the XChain platform"
+            ],
+            "canonical": "/callbacks"
+        }
+    },
+    "capability_slash_events.html": {
+        "comment": "Capability Slash Events (SLASH equivocation bond-burns)",
+        "icon": "fa-gavel",
+        "heading": "Capability Slashes",
+        "action": "capability_slash_event",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading capability slash data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Slashed Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Capability",
+                "cls": ""
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Submitter",
+                "cls": "address"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Capability Slashes",
+            "description": [
+                "Validator equivocation slashes (SLASH) that burn a capability bond on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/capability_slash_events"
+        }
+    },
+    "coinpay_expires.html": {
+        "comment": "Coinpay Expirations (COINPAY_EXPIRE: an unpaid obligation closed out at its expiration)",
+        "icon": "fa-hourglass-end",
+        "heading": "Coinpay Expirations",
+        "action": "coinpay_expire",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading coinpay expiration data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Obligation",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Coinpay Expirations",
+            "description": [
+                "Cross-chain obligations that went unpaid and were closed out at their expiration (COINPAY_EXPIRE) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/coinpay_expires"
+        }
+    },
+    "coinpay_obligations.html": {
+        "comment": "Coinpay Obligations (who owes what native coin, expiring when)",
+        "icon": "fa-coins",
+        "heading": "Coinpay Obligations",
+        "action": "coinpay_obligation",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading coinpay obligation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Payer",
+                "cls": "address"
+            },
+            {
+                "label": "Payee",
+                "cls": "address"
+            },
+            {
+                "label": "Coin",
+                "cls": ""
+            },
+            {
+                "label": "Amount Owed",
+                "cls": ""
+            },
+            {
+                "label": "Expires",
+                "cls": "time"
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Coinpay Obligations",
+            "description": [
+                "Outstanding native-coin obligations created by cross-chain order matches on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/coinpay_obligations"
+        }
+    },
+    "coinpays.html": {
+        "comment": "Coinpay Settlements (COINPAY payments discharging an obligation)",
+        "icon": "fa-hand-holding-dollar",
+        "heading": "Coinpay Settlements",
+        "action": "coinpay",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading coinpay settlement data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Obligation",
+                "cls": ""
+            },
+            {
+                "label": "Amount",
+                "cls": ""
+            },
+            {
+                "label": "TXID",
+                "cls": ""
+            },
+            {
+                "label": "Vout",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Coinpay Settlements",
+            "description": [
+                "Native-coin payments (COINPAY) discharging cross-chain obligations on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/coinpays"
+        }
+    },
+    "collects.html": {
+        "comment": "Collects (validator reward claims)",
+        "icon": "fa-hand-holding-dollar",
+        "heading": "Reward Claims",
+        "action": "collect",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading reward claim data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Reward Claims",
+            "description": [
+                "Validator reward claims (COLLECT) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/collects"
+        }
+    },
+    "configs.html": {
+        "comment": "Configs (hub-owned `configs` config oracle, read from the co-located hub DB)",
+        "icon": "fa-sliders",
+        "heading": "Config Oracle",
+        "action": "config",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading config oracle data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Updated",
+                "cls": "time"
+            },
+            {
+                "label": "Coin",
+                "cls": ""
+            },
+            {
+                "label": "Network",
+                "cls": ""
+            },
+            {
+                "label": "Module",
+                "cls": ""
+            },
+            {
+                "label": "Parameter",
+                "cls": ""
+            },
+            {
+                "label": "Value",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Config Oracle",
+            "description": [
+                "Hub config-oracle parameters distributed across the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/configs"
+        }
+    },
+    "consensus_state.html": {
+        "comment": "Consensus State (hub-owned `consensus_state`, read from the co-located hub DB)",
+        "icon": "fa-diagram-project",
+        "heading": "Consensus State",
+        "action": "consensus_state",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading consensus state data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Updated",
+                "cls": "time"
+            },
+            {
+                "label": "Key",
+                "cls": ""
+            },
+            {
+                "label": "Value",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Consensus State",
+            "description": [
+                "Hub consensus key/value state on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/consensus_state"
+        }
+    },
+    "contract_delegations.html": {
+        "comment": "Contract Delegations (DELEGATE rows targeting a contract)",
+        "icon": "fa-key",
+        "heading": "Contract Delegations",
+        "action": "contract_delegation",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading contract delegation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Contract",
+                "cls": ""
+            },
+            {
+                "label": "Tick",
+                "cls": ""
+            },
+            {
+                "label": "Activation",
+                "cls": "block"
+            },
+            {
+                "label": "Deactivation",
+                "cls": "block"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Contract Delegations",
+            "description": [
+                "Stake delegations targeting a smart contract (DELEGATE) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/contract_delegations"
+        }
+    },
+    "contract_stakes.html": {
+        "comment": "Contract Stakes",
+        "icon": "fa-lock",
+        "heading": "Contract Stakes",
+        "action": "contract_stake",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading contract stake data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Contract",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Contract Stakes",
+            "description": [
+                "Token stakes targeting smart contracts (STAKE v3) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/contract_stakes"
+        }
+    },
+    "contract_unstakes.html": {
+        "comment": "Contract Unstakes",
+        "icon": "fa-unlock",
+        "heading": "Contract Unstakes",
+        "action": "contract_unstake",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading contract unstake data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Contract",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Cooldown End",
+                "cls": "block"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Contract Unstakes",
+            "description": [
+                "Token unstakes from smart contracts (UNSTAKE v1) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/contract_unstakes"
+        }
+    },
+    "contracts.html": {
+        "comment": "Contracts",
+        "icon": "fa-file-code",
+        "heading": "Contracts",
+        "action": "contract",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading contract data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Code Hash",
+                "cls": ""
+            },
+            {
+                "label": "API",
+                "cls": ""
+            },
+            {
+                "label": "Staking",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Contracts",
+            "description": [
+                "Smart contracts deployed on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/contracts"
+        }
+    },
+    "controllers.html": {
+        "comment": "Controller Bindings",
+        "icon": "fa-shield",
+        "heading": "Controller Bindings",
+        "action": "controller",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading controller binding data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Scope",
+                "cls": ""
+            },
+            {
+                "label": "Subject",
+                "cls": ""
+            },
+            {
+                "label": "Class",
+                "cls": ""
+            },
+            {
+                "label": "Guard",
+                "cls": ""
+            },
+            {
+                "label": "Event",
+                "cls": ""
+            },
+            {
+                "label": "Cooldown",
+                "cls": ""
+            },
+            {
+                "label": "Drop Block",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Controller Bindings",
+            "description": [
+                "Programmable-policy controller bind/unbind events on the XChain Platform on the ",
+                " (",
+                ") blockchain network - guard contracts bound to tokens (transfer/trade/burn/mint/stake classes) and self-signed address gates."
+            ],
+            "canonical": "/controllers"
+        }
+    },
+    "cross_chain_matches.html": {
+        "comment": "Cross-Chain Matches (hub-mirrored cross-chain DEX matches)",
+        "icon": "fa-arrow-right-arrow-left",
+        "heading": "Cross-Chain Matches",
+        "action": "cross_chain_match",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading cross-chain match data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Snapshot Block",
+                "cls": "block"
+            },
+            {
+                "label": "Network",
+                "cls": ""
+            },
+            {
+                "label": "Match",
+                "cls": ""
+            },
+            {
+                "label": "A Chain",
+                "cls": ""
+            },
+            {
+                "label": "A Token",
+                "cls": "token"
+            },
+            {
+                "label": "A Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "B Chain",
+                "cls": ""
+            },
+            {
+                "label": "B Token",
+                "cls": "token"
+            },
+            {
+                "label": "B Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Cross-Chain Matches",
+            "description": [
+                "Hub-mirrored cross-chain DEX matches (quorum-signed) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/cross_chain_matches"
+        }
+    },
+    "cross_chain_settlements.html": {
+        "comment": "Cross-Chain Settlements (local settlement legs of cross-chain matches)",
+        "icon": "fa-handshake",
+        "heading": "Cross-Chain Settlements",
+        "action": "cross_chain_settlement",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading cross-chain settlement data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Match",
+                "cls": ""
+            },
+            {
+                "label": "Local Action",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Cross-Chain Settlements",
+            "description": [
+                "Local settlement legs of cross-chain DEX matches on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/cross_chain_settlements"
+        }
+    },
+    "delegation_revocations.html": {
+        "comment": "Delegation Revocations (DELEGATE v2/v3 key revoke)",
+        "icon": "fa-key",
+        "heading": "Delegation Revocations",
+        "action": "delegation_revocation",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading delegation revocation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Revoked Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Deactivation Block",
+                "cls": "block"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Delegation Revocations",
+            "description": [
+                "Validator signing-key revocations (DELEGATE v2/v3) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/delegation_revocations"
+        }
+    },
+    "delegations.html": {
+        "comment": "Delegations (DELEGATE signing-key delegations)",
+        "icon": "fa-key",
+        "heading": "Delegations",
+        "action": "delegation",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading delegation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Delegations",
+            "description": [
+                "Validator signing-key delegations (DELEGATE) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/delegations"
+        }
+    },
+    "deploy_chunks.html": {
+        "comment": "Deploy Chunks",
+        "icon": "fa-puzzle-piece",
+        "heading": "Deploy Chunks",
+        "action": "deploy_chunk",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading deploy chunk data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Deployer",
+                "cls": "address"
+            },
+            {
+                "label": "Code Hash",
+                "cls": ""
+            },
+            {
+                "label": "Chunk #",
+                "cls": ""
+            },
+            {
+                "label": "Total",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Deploy Chunks",
+            "description": [
+                "Chunked DEPLOY (v4) carriers on the XChain Platform on the ",
+                " (",
+                ") blockchain network - each row is one base64 code slice of a smart-contract source, reassembled by (deployer, code hash) group into the deployed contract."
+            ],
+            "canonical": "/deploy_chunks"
+        }
+    },
+    "deposits.html": {
+        "comment": "Deposits",
+        "icon": "fa-arrow-down",
+        "heading": "Deposits",
+        "action": "deposit",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading deposit data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Contract",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Contract Deposits",
+            "description": [
+                "Token deposits into smart contract custody on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/deposits"
+        }
+    },
+    "destroys.html": {
+        "comment": "Destroys",
+        "icon": "fa-trash",
+        "heading": "Destroys",
+        "action": "destroy",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading destroy data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Quantity",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "DESTROY Actions",
+            "description": [
+                "Learn about the DESTROY actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of DESTROY actions on the XChain platform"
+            ],
+            "canonical": "/destroys"
+        }
+    },
+    "dispenser_cancels.html": {
+        "comment": "Dispenser Cancellations (DISPENSER_CANCEL: the owner withdrawing a dispenser)",
+        "icon": "fa-times",
+        "heading": "Dispenser Cancellations",
+        "action": "dispenser_cancel",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading dispenser cancellation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Dispenser",
+                "cls": ""
+            },
+            {
+                "label": "Memo",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Dispenser Cancellations",
+            "description": [
+                "Dispensers withdrawn by their owner (DISPENSER_CANCEL) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/dispenser_cancels"
+        }
+    },
+    "dispenser_closes.html": {
+        "comment": "Dispenser Closes (DISPENSER_CLOSE: the owner deliberately retiring a dispenser)",
+        "icon": "fa-times",
+        "heading": "Dispenser Closes",
+        "action": "dispenser_close",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading dispenser close data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Address",
+                "cls": "address"
+            },
+            {
+                "label": "Dispenser",
+                "cls": ""
+            },
+            {
+                "label": "Give",
+                "cls": ""
+            },
+            {
+                "label": "Get",
+                "cls": ""
+            },
+            {
+                "label": "Reason",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Dispenser Closes",
+            "description": [
+                "Dispensers closed by their owner (DISPENSER_CLOSE), returning the remaining escrow, on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/dispenser_closes"
+        }
+    },
+    "dispenser_edits.html": {
+        "comment": "Dispenser Edits (DISPENSER_EDIT: the owner amending a live dispenser in place)",
+        "icon": "fa-edit",
+        "heading": "Dispenser Edits",
+        "action": "dispenser_edit",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading dispenser edit data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Dispenser",
+                "cls": ""
+            },
+            {
+                "label": "Escrow",
+                "cls": ""
+            },
+            {
+                "label": "Expiration",
+                "cls": "time"
+            },
+            {
+                "label": "Allow List",
+                "cls": ""
+            },
+            {
+                "label": "Block List",
+                "cls": ""
+            },
+            {
+                "label": "Memo",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Dispenser Edits",
+            "description": [
+                "Live dispensers amended in place by their owner (DISPENSER_EDIT), including escrow refills, on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/dispenser_edits"
+        }
+    },
+    "dispenser_expires.html": {
+        "comment": "Dispenser Expirations (DISPENSER_EXPIRE: the protocol retiring a dispenser at its expiration)",
+        "icon": "fa-hourglass-end",
+        "heading": "Dispenser Expirations",
+        "action": "dispenser_expire",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading dispenser expiration data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Dispenser",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Dispenser Expirations",
+            "description": [
+                "Dispensers retired at their expiration height (DISPENSER_EXPIRE) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/dispenser_expires"
+        }
+    },
+    "dispensers.html": {
+        "comment": "Dispensers",
+        "icon": "fa-arrows-h",
+        "heading": "Dispensers",
+        "action": "dispenser",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading dispenser data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Dispensing",
+                "cls": ""
+            },
+            {
+                "label": "Cost",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "DISPENSER Actions",
+            "description": [
+                "Learn about the DISPENSER actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of DISPENSER actions on the XChain platform"
+            ],
+            "canonical": "/dispensers"
+        }
+    },
+    "dispenses.html": {
+        "comment": "Dispense",
+        "icon": "fa-hand-holding-heart",
+        "heading": "Dispenses",
+        "action": "dispense",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading dispense data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Destination",
+                "cls": "address"
+            },
+            {
+                "label": "Dispensed",
+                "cls": ""
+            },
+            {
+                "label": "Paid",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "DISPENSE Actions",
+            "description": [
+                "Learn about the DISPENSE actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of DISPENSE actions on the XChain platform"
+            ],
+            "canonical": "/dispenses"
+        }
+    },
+    "dividends.html": {
+        "comment": "Dividends",
+        "icon": "fa-sitemap",
+        "heading": "Dividends",
+        "action": "dividend",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading dividend data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Token",
+                "cls": ""
+            },
+            {
+                "label": "Dividend Token",
+                "cls": ""
+            },
+            {
+                "label": "Amount Per Unit",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "DIVIDEND Actions",
+            "description": [
+                "Learn about the DIVIDEND actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of DIVIDEND actions on the XChain platform"
+            ],
+            "canonical": "/dividends"
+        }
+    },
+    "executions.html": {
+        "comment": "Executions",
+        "icon": "fa-play",
+        "heading": "Executions",
+        "action": "execution",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading execution data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Contract",
+                "cls": ""
+            },
+            {
+                "label": "Caller",
+                "cls": "address"
+            },
+            {
+                "label": "Method",
+                "cls": ""
+            },
+            {
+                "label": "Gas Used",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Contract Executions",
+            "description": [
+                "Smart contract method executions on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/executions"
+        }
+    },
+    "files.html": {
+        "comment": "Files",
+        "icon": "fa-file",
+        "heading": "Files",
+        "action": "file",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading file data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Name",
+                "cls": ""
+            },
+            {
+                "label": "Type",
+                "cls": ""
+            },
+            {
+                "label": "Title",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "FILE Actions",
+            "description": [
+                "Learn about the FILE actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of FILE actions on the XChain platform"
+            ],
+            "canonical": "/files"
+        }
+    },
+    "full_node_verifications.html": {
+        "comment": "Full-Node Verifications (NODEPROOF v0 possession-proof verdicts)",
+        "icon": "fa-server",
+        "heading": "Full-Node Verifications",
+        "action": "full_node_verification",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading full-node verification data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Staking Source",
+                "cls": "address"
+            },
+            {
+                "label": "Epoch Height",
+                "cls": ""
+            },
+            {
+                "label": "Target Height",
+                "cls": ""
+            },
+            {
+                "label": "Result",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Full-Node Verifications",
+            "description": [
+                "Full-node possession-proof verdicts (NODEPROOF v0) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/full_node_verifications"
+        }
+    },
+    "governance_proposals.html": {
+        "comment": "Governance Proposals (hub-owned `governance_proposals`, read from the co-located hub DB)",
+        "icon": "fa-landmark",
+        "heading": "Governance Proposals",
+        "action": "governance_proposal",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading governance proposal data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Proposal",
+                "cls": ""
+            },
+            {
+                "label": "Parameter",
+                "cls": ""
+            },
+            {
+                "label": "Current",
+                "cls": ""
+            },
+            {
+                "label": "Proposed",
+                "cls": ""
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            },
+            {
+                "label": "Voting Ends",
+                "cls": "time"
+            },
+            {
+                "label": "Activation",
+                "cls": "block"
+            },
+            {
+                "label": "Proposer",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Governance Proposals",
+            "description": [
+                "Federation governance parameter proposals on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/governance_proposals"
+        }
+    },
+    "governance_votes.html": {
+        "comment": "Governance Votes (hub-owned `governance_votes`, read from the co-located hub DB)",
+        "icon": "fa-check-to-slot",
+        "heading": "Governance Votes",
+        "action": "governance_vote",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading governance vote data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Proposal",
+                "cls": ""
+            },
+            {
+                "label": "Voter",
+                "cls": ""
+            },
+            {
+                "label": "Vote",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Governance Votes",
+            "description": [
+                "Per-validator governance votes on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/governance_votes"
+        }
+    },
+    "history.html": {
+        "comment": "History",
+        "icon": "fa-clock",
+        "heading": "Recent History",
+        "action": "history",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading history data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Action",
+                "cls": "asset-name"
+            },
+            {
+                "label": "Details",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Action History",
+            "description": [
+                "Learn about the action history on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of historic actions on the XChain platform"
+            ],
+            "canonical": "/history"
+        },
+        "type": "recent"
+    },
+    "issues.html": {
+        "comment": "Issues",
+        "icon": "fa-bank",
+        "heading": "Issues",
+        "action": "issue",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading issue data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Description"
+            },
+            {
+                "label": "Max Supply"
+            },
+            {
+                "label": "Max Mint"
+            },
+            {
+                "label": "Locks"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "ISSUE Actions",
+            "description": [
+                "Learn about the ISSUE actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of ISSUE actions on the XChain platform"
+            ],
+            "canonical": "/issues"
+        }
+    },
+    "links.html": {
+        "comment": "Links",
+        "icon": "fa-link",
+        "heading": "Links",
+        "action": "link",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading link data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Action 1",
+                "cls": ""
+            },
+            {
+                "label": "Action 2",
+                "cls": ""
+            },
+            {
+                "label": "Memo",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "LINK Actions",
+            "description": [
+                "Learn about the LINK actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of LINK actions on the XChain platform"
+            ],
+            "canonical": "/links"
+        }
+    },
+    "lists.html": {
+        "comment": " Lists",
+        "icon": "fa-list",
+        "heading": "Lists",
+        "action": "list",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading list data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "List Type"
+            },
+            {
+                "label": "Edit Type"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "LIST Actions",
+            "description": [
+                "Learn about the LIST actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of LIST actions on the XChain platform"
+            ],
+            "canonical": "/lists"
+        }
+    },
+    "markets.html": {
+        "comment": "Markets",
+        "icon": "fa-money-bill-trend-up",
+        "heading": "Markets",
+        "action": "market",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading market data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Market"
+            },
+            {
+                "label": "Last Price"
+            },
+            {
+                "label": "Ask"
+            },
+            {
+                "label": "Bid"
+            },
+            {
+                "label": "24h Volume"
+            },
+            {
+                "label": "24h Change"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "DEX Markets",
+            "description": [
+                "Learn about the DEX markets on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of DEX Markets on the XChain platform"
+            ],
+            "canonical": "/markets"
+        }
+    },
+    "messages.html": {
+        "comment": "Messages",
+        "icon": "fa-message",
+        "heading": "Messages",
+        "action": "message",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading message data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Destination",
+                "cls": "address"
+            },
+            {
+                "label": "Plaintext Message"
+            },
+            {
+                "label": "Encrypted Message"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "MESSAGE Actions",
+            "description": [
+                "Learn about the MESSAGE actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of MESSAGE actions on the XChain platform"
+            ],
+            "canonical": "/messages"
+        }
+    },
+    "mints.html": {
+        "comment": "Mints",
+        "icon": "fa-print",
+        "heading": "Mints",
+        "action": "mint",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading mint data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Destination",
+                "cls": "address"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "MINT Actions",
+            "description": [
+                "Learn about the MINT actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of MINT actions on the XChain platform"
+            ],
+            "canonical": "/mints"
+        }
+    },
+    "oracle_prices.html": {
+        "comment": "Oracle Prices (user token/fiat PRICE v1, hub-mirrored)",
+        "icon": "fa-chart-line",
+        "heading": "Oracle Prices",
+        "action": "oracle_price",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading oracle price data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Chain",
+                "cls": ""
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Fiat",
+                "cls": ""
+            },
+            {
+                "label": "Value",
+                "cls": "quantity"
+            }
+        ],
+        "pageInfo": {
+            "title": "Oracle Prices",
+            "description": [
+                "User-published token/fiat oracle prices (PRICE v1) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/oracle_prices"
+        }
+    },
+    "order_cancels.html": {
+        "comment": "Order Cancellations (ORDER_CANCEL: the owner pulling an order off the book)",
+        "icon": "fa-times",
+        "heading": "Order Cancellations",
+        "action": "order_cancel",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading order cancellation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Order",
+                "cls": ""
+            },
+            {
+                "label": "Memo",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Order Cancellations",
+            "description": [
+                "Orders withdrawn from the book by their owner (ORDER_CANCEL) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/order_cancels"
+        }
+    },
+    "order_edits.html": {
+        "comment": "Order Edits (ORDER_EDIT: the owner amending a live order in place)",
+        "icon": "fa-edit",
+        "heading": "Order Edits",
+        "action": "order_edit",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading order edit data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Order",
+                "cls": ""
+            },
+            {
+                "label": "Expiration",
+                "cls": "time"
+            },
+            {
+                "label": "Allow List",
+                "cls": ""
+            },
+            {
+                "label": "Block List",
+                "cls": ""
+            },
+            {
+                "label": "Memo",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Order Edits",
+            "description": [
+                "Live orders amended in place by their owner (ORDER_EDIT) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/order_edits"
+        }
+    },
+    "order_expires.html": {
+        "comment": "Order Expirations (ORDER_EXPIRE: the protocol retiring an unfilled order)",
+        "icon": "fa-hourglass-end",
+        "heading": "Order Expirations",
+        "action": "order_expire",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading order expiration data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Order",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Order Expirations",
+            "description": [
+                "Orders retired unfilled at their expiration (ORDER_EXPIRE) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/order_expires"
+        }
+    },
+    "order_matches.html": {
+        "comment": "Order Matches",
+        "icon": "fa-handshake",
+        "heading": "Order Matches",
+        "action": "order_match",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading order match data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Give Order",
+                "cls": ""
+            },
+            {
+                "label": "Give Amount",
+                "cls": ""
+            },
+            {
+                "label": "Get Order",
+                "cls": ""
+            },
+            {
+                "label": "Get Amount",
+                "cls": ""
+            },
+            {
+                "label": "Settlement",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Order Matches",
+            "description": [
+                "Learn about ORDER_MATCH actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of order matches on the XChain platform"
+            ],
+            "canonical": "/order_matches"
+        }
+    },
+    "orders.html": {
+        "comment": "Orders",
+        "icon": "fa-book",
+        "heading": "Orders",
+        "action": "order",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading order data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Give Token",
+                "cls": "token"
+            },
+            {
+                "label": "Give Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Get Token",
+                "cls": "token"
+            },
+            {
+                "label": "Get Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "ORDER Actions",
+            "description": [
+                "Learn about the ORDER actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of ORDER actions on the XChain platform"
+            ],
+            "canonical": "/orders"
+        }
+    },
+    "peers.html": {
+        "comment": "P2P Peers (hub-owned `p2p_peers`, read from the co-located hub DB)",
+        "icon": "fa-network-wired",
+        "heading": "P2P Peers",
+        "action": "peer",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading peer data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Last Seen",
+                "cls": "time"
+            },
+            {
+                "label": "Address",
+                "cls": ""
+            },
+            {
+                "label": "Validator",
+                "cls": ""
+            },
+            {
+                "label": "Type",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "P2P Peers",
+            "description": [
+                "Peer-to-peer validator network roster the XChain hub gossips with on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/peers"
+        }
+    },
+    "price_snapshots.html": {
+        "comment": "Price Rounds (validator PBFT COIN/FIAT price snapshots)",
+        "icon": "fa-chart-line",
+        "heading": "Price Rounds",
+        "action": "price_snapshot",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading price round data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Ref Block",
+                "cls": "block"
+            },
+            {
+                "label": "Ref Chain",
+                "cls": ""
+            },
+            {
+                "label": "Pair",
+                "cls": ""
+            },
+            {
+                "label": "Price",
+                "cls": ""
+            },
+            {
+                "label": "Validators",
+                "cls": ""
+            },
+            {
+                "label": "Round",
+                "cls": ""
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Price Rounds",
+            "description": [
+                "Validator consensus rounds publishing COIN/FIAT prices on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/price_snapshots"
+        }
+    },
+    "prices.html": {
+        "comment": "Prices",
+        "icon": "fa-tags",
+        "heading": "Prices",
+        "action": "price",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading price data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Type",
+                "cls": ""
+            },
+            {
+                "label": "Coin",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Fiat",
+                "cls": ""
+            },
+            {
+                "label": "Value",
+                "cls": "quantity"
+            },
+            {
+                "label": "Fee",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "PRICE Actions",
+            "description": [
+                "Oracle prices published on the XChain Platform on the ",
+                " (",
+                ") blockchain network - validator COIN/FIAT snapshots (v0) and permissionless user-run TOKEN/FIAT oracles (v1)."
+            ],
+            "canonical": "/prices"
+        }
+    },
+    "reorgs.html": {
+        "comment": "Reorg History (hub-attested chain reorganizations, M3.5)",
+        "icon": "fa-code-branch",
+        "heading": "Reorg History",
+        "action": "reorg",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading reorg history...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Height",
+                "cls": "block"
+            },
+            {
+                "label": "Reorg ID",
+                "cls": ""
+            },
+            {
+                "label": "Affected Chains",
+                "cls": ""
+            },
+            {
+                "label": "Validators",
+                "cls": ""
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Reorg History",
+            "description": [
+                "Quorum-attested chain reorganizations recorded by the federation hub for the ",
+                " (",
+                ") blockchain network on the XChain Platform."
+            ],
+            "canonical": "/reorgs"
+        }
+    },
+    "rewards.html": {
+        "comment": "Validator Rewards",
+        "icon": "fa-coins",
+        "heading": "Validator Rewards",
+        "action": "reward",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading validator reward data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Reward Type",
+                "cls": ""
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            }
+        ],
+        "pageInfo": {
+            "title": "Validator Rewards",
+            "description": [
+                "Accrued validator rewards (oracle, anchor, attestation, full-node) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/rewards"
+        }
+    },
+    "sends.html": {
+        "comment": "Sends",
+        "icon": "fa-send",
+        "heading": "Sends",
+        "action": "send",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading send data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "addresss"
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Destination",
+                "cls": "address"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "SEND Actions",
+            "description": [
+                "Learn about the SEND actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of SEND actions on the XChain platform"
+            ],
+            "canonical": "/sends"
+        }
+    },
+    "slash_events.html": {
+        "comment": "Slash Events",
+        "icon": "fa-gavel",
+        "heading": "Slash Events",
+        "action": "slash_event",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading slash event data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Slashed Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Contract",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Destination",
+                "cls": "address"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Slash Events",
+            "description": [
+                "Stake slashing events emitted by smart contracts on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/slash_events"
+        }
+    },
+    "sleeps.html": {
+        "comment": "Sleeps",
+        "icon": "fa-bed",
+        "heading": "Sleep",
+        "action": "sleep",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading sleep data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "addresss"
+            },
+            {
+                "label": "Type",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Resume Block",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "SLEEP Actions",
+            "description": [
+                "Learn about the SLEEP actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of SLEEP actions on the XChain platform"
+            ],
+            "canonical": "/sleeps"
+        }
+    },
+    "stakes.html": {
+        "comment": "Stakes (all capability STAKE actions, any status)",
+        "icon": "fa-lock",
+        "heading": "Stakes",
+        "action": "stake",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading stake data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Version",
+                "cls": ""
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Stakes",
+            "description": [
+                "All capability validator stakes (STAKE, any status) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/stakes"
+        }
+    },
+    "swap_cancels.html": {
+        "comment": "Swap Cancellations (SWAP_CANCEL: the owner pulling a swap off the book)",
+        "icon": "fa-times",
+        "heading": "Swap Cancellations",
+        "action": "swap_cancel",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading swap cancellation data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Swap",
+                "cls": ""
+            },
+            {
+                "label": "Memo",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Swap Cancellations",
+            "description": [
+                "Swaps withdrawn from the book by their owner (SWAP_CANCEL) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/swap_cancels"
+        }
+    },
+    "swap_edits.html": {
+        "comment": "Swap Edits (SWAP_EDIT: the owner amending a live swap in place)",
+        "icon": "fa-edit",
+        "heading": "Swap Edits",
+        "action": "swap_edit",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading swap edit data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Swap",
+                "cls": ""
+            },
+            {
+                "label": "Expiration",
+                "cls": "time"
+            },
+            {
+                "label": "Allow List",
+                "cls": ""
+            },
+            {
+                "label": "Block List",
+                "cls": ""
+            },
+            {
+                "label": "Memo",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Swap Edits",
+            "description": [
+                "Live swaps amended in place by their owner (SWAP_EDIT) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/swap_edits"
+        }
+    },
+    "swap_expires.html": {
+        "comment": "Swap Expirations (SWAP_EXPIRE: the protocol retiring an unfilled swap)",
+        "icon": "fa-hourglass-end",
+        "heading": "Swap Expirations",
+        "action": "swap_expire",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading swap expiration data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Swap",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Swap Expirations",
+            "description": [
+                "Swaps retired unfilled at their expiration (SWAP_EXPIRE) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/swap_expires"
+        }
+    },
+    "swap_matches.html": {
+        "comment": "Swap Matches",
+        "icon": "fa-right-left",
+        "heading": "Swap Matches",
+        "action": "swap_match",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading swap match data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Give Swap",
+                "cls": ""
+            },
+            {
+                "label": "Get Swap",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Swap Matches",
+            "description": [
+                "Learn about SWAP_MATCH actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of swap matches on the XChain platform"
+            ],
+            "canonical": "/swap_matches"
+        }
+    },
+    "swaps.html": {
+        "comment": "Swaps",
+        "icon": "fa-exchange",
+        "heading": "Swaps",
+        "action": "swap",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading swap data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Give Token",
+                "cls": "token"
+            },
+            {
+                "label": "Give Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Get Token",
+                "cls": "token"
+            },
+            {
+                "label": "Get Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "SWAP Actions",
+            "description": [
+                "Learn about the SWAP actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of SWAP actions on the XChain platform"
+            ],
+            "canonical": "/swaps"
+        }
+    },
+    "sweeps.html": {
+        "comment": "Sweep",
+        "icon": "fa-truck",
+        "heading": "Sweeps",
+        "action": "sweep",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading sweep data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Destination",
+                "cls": "address"
+            },
+            {
+                "label": "Balances",
+                "cls": ""
+            },
+            {
+                "label": "Ownerships",
+                "cls": ""
+            },
+            {
+                "label": "Orders",
+                "cls": ""
+            },
+            {
+                "label": "Swaps",
+                "cls": ""
+            },
+            {
+                "label": "Dispensers",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "SWEEP Actions",
+            "description": [
+                "Learn about the SWEEP actions on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of SWEEP actions on the XChain platform"
+            ],
+            "canonical": "/dividends"
+        }
+    },
+    "telemetry_pings.html": {
+        "comment": "Telemetry Pings (hub-owned `telemetry_pings`, read from the co-located hub DB)",
+        "icon": "fa-satellite-dish",
+        "heading": "Node Telemetry",
+        "action": "telemetry_ping",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading node telemetry data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Event",
+                "cls": ""
+            },
+            {
+                "label": "Node Version",
+                "cls": ""
+            },
+            {
+                "label": "Platform",
+                "cls": ""
+            },
+            {
+                "label": "Arch",
+                "cls": ""
+            },
+            {
+                "label": "Location",
+                "cls": ""
+            }
+        ],
+        "pageInfo": {
+            "title": "Node Telemetry",
+            "description": [
+                "Anonymous xchain-node telemetry pings reported to the XChain hub on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/telemetry_pings"
+        }
+    },
+    "tokens.html": {
+        "comment": "Tokens",
+        "icon": "fa-database",
+        "heading": "Tokens",
+        "action": "token",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading token data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Token",
+                "cls": "asset-name"
+            },
+            {
+                "label": "Total Supply"
+            },
+            {
+                "label": "Max Supply"
+            },
+            {
+                "label": "Max Mint"
+            },
+            {
+                "label": "Locks"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Tokens",
+            "description": [
+                "Learn about tokens created on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a list of tokens on the XChain platform"
+            ],
+            "canonical": "/tokens"
+        }
+    },
+    "unstakes.html": {
+        "comment": "Unstakes (capability UNSTAKE v0)",
+        "icon": "fa-unlock",
+        "heading": "Unstakes",
+        "action": "unstake",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading unstake data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Signing Pubkey",
+                "cls": ""
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "Cooldown End",
+                "cls": "block"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Unstakes",
+            "description": [
+                "Capability validator unstakes (UNSTAKE v0) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/unstakes"
+        }
+    },
+    "validator_capabilities.html": {
+        "comment": "Validator Capabilities (hub-owned `validator_capabilities`, read from the co-located hub DB)",
+        "icon": "fa-list-check",
+        "heading": "Validator Capabilities",
+        "action": "validator_capability",
+        "tableClass": "table table-striped cell-border table-hover table-condensed",
+        "loading": "Loading validator capability data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Updated",
+                "cls": "time"
+            },
+            {
+                "label": "Signing Key",
+                "cls": ""
+            },
+            {
+                "label": "Capability",
+                "cls": ""
+            },
+            {
+                "label": "Qualified",
+                "cls": ""
+            },
+            {
+                "label": "Self-Test",
+                "cls": ""
+            },
+            {
+                "label": "Enabled",
+                "cls": ""
+            },
+            {
+                "label": "Qualified Block",
+                "cls": "block"
+            }
+        ],
+        "pageInfo": {
+            "title": "Validator Capabilities",
+            "description": [
+                "Per-validator per-capability qualification flags (price, cross_chain, oracle_publish, attestation, full_node) on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/validator_capabilities"
+        }
+    },
+    "votes.html": {
+        "comment": "VOTE Ballots (token-weighted governance; votes table, VOTE v1)",
+        "icon": "fa-square-check",
+        "heading": "Governance Ballots",
+        "action": "vote",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading ballot data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Voter",
+                "cls": "address"
+            },
+            {
+                "label": "Poll",
+                "cls": ""
+            },
+            {
+                "label": "Choice",
+                "cls": ""
+            },
+            {
+                "label": "Share",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "VOTE Ballots",
+            "description": [
+                "Governance ballots cast on the XChain Platform on the ",
+                " (",
+                ") blockchain network. Each row is one voter choice on a token-weighted poll."
+            ],
+            "canonical": "/votes"
+        }
+    },
+    "withdrawals.html": {
+        "comment": "Withdrawals",
+        "icon": "fa-arrow-up",
+        "heading": "Withdrawals",
+        "action": "withdrawal",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading withdrawal data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source",
+                "cls": "address"
+            },
+            {
+                "label": "Contract",
+                "cls": ""
+            },
+            {
+                "label": "Token",
+                "cls": "token"
+            },
+            {
+                "label": "Amount",
+                "cls": "quantity"
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "Contract Withdrawals",
+            "description": [
+                "Token withdrawals from smart contract custody on the XChain Platform on the ",
+                " (",
+                ") blockchain network."
+            ],
+            "canonical": "/withdrawals"
+        }
+    },
+    "xcalls.html": {
+        "comment": "XCALL cross-chain calls",
+        "icon": "fa-link",
+        "heading": "Cross-Chain Calls",
+        "action": "xcall",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading cross-chain call data...",
+        "columns": [
+            {
+                "label": "#",
+                "cls": "record"
+            },
+            {
+                "label": "Block",
+                "cls": "block"
+            },
+            {
+                "label": "Time",
+                "cls": "time"
+            },
+            {
+                "label": "Source Contract",
+                "cls": ""
+            },
+            {
+                "label": "Target Chain",
+                "cls": ""
+            },
+            {
+                "label": "Target Contract",
+                "cls": ""
+            },
+            {
+                "label": "Method",
+                "cls": ""
+            },
+            {
+                "label": "Status",
+                "cls": ""
+            },
+            {
+                "label": "",
+                "cls": "view"
+            }
+        ],
+        "pageInfo": {
+            "title": "XCALL Cross-Chain Calls",
+            "description": [
+                "Cross-chain calls (XCALL) on the XChain Platform on the ",
+                " (",
+                ") blockchain network - contract-emitted calls dispatched to a target chain, with their execution outcome and callback delivery."
+            ],
+            "canonical": "/xcalls"
+        }
+    }
+}

@@ -4233,6 +4233,29 @@ class Database {
         return [data];
     }
 
+    // The RAW action feed: one row per row of `actions`, which is the only surface
+    // that claims to enumerate the chain action by action. That claim is why the
+    // join shape here is load-bearing.
+    //
+    // `blocks` hangs off the ACTION's own m.block_index and `transactions` is a
+    // LEFT join, the same tx-less-safe shape getHistory, getAttestations and
+    // getActionsSince already use. A SYSTEM-INJECTED action (the Tier-4 families:
+    // *_EXPIRE, *_MATCH, DISPENSE, DISPENSER_CLOSE, CROSS_SETTLE, and a
+    // mirror-applied ATTEST v1 response) carries a real action_index and a real
+    // block_index but a NULL tx_index and NO transactions row at all, so reaching
+    // blocks through an INNER-joined transactions did not degrade such a row, it
+    // DELETED it from the feed.
+    //
+    // That deletion is INVISIBLE to a caller: the JSON stays well-formed, the
+    // paging stays consistent, `total` agrees with the rows returned, and the rows
+    // are simply not there - so every consumer enumerating the chain through this
+    // feed under-counted with no way to tell (measured on regtest: 483 rows served
+    // against a highest action_index of 496). tx_hash and tx_index come back NULL
+    // for those rows, which is what they are.
+    //
+    // tx_index is selected from m (the action's own column) rather than from t1, so
+    // it survives a missing transactions row on its own terms instead of depending
+    // on a join that may not resolve.
     async getActions(config){
         let sql   = config.data.sql;
         let q     = (config.data.query) ? config.data.query : {};
@@ -4257,8 +4280,8 @@ class Database {
                         count(*) as total
                     FROM
                         actions m
-                        INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + extra;
         let query = `SELECT
@@ -4269,11 +4292,11 @@ class Database {
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
-                        t1.tx_index
+                        m.tx_index
                     FROM
                         actions m
-                        INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
                         LEFT  JOIN index_actions      a1 ON (a1.id=m.action_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(m.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -8791,6 +8814,15 @@ class Database {
         // a BET v3 is the payout decision. Without it a subscriber is told only
         // "a BET happened" and has to re-fetch to learn which, which defeats the
         // point of a push channel (ChangeDetector routes BET on it, §11.1).
+        // `transactions` is a LEFT join, never an INNER one: a system-synthesized
+        // action carries a real action_index and block_index but a NULL tx_index and
+        // has no transactions row at all, so an INNER join drops it from this feed
+        // ENTIRELY. That is not just a missing NEW_ACTION frame: ChangeDetector calls
+        // _emitAttestationEvents only for actions this query returns, so a
+        // mirror-applied ATTEST v1 response (attest-response-mirror spec §4.4) would
+        // never fire ATTESTATION_RESPONSE on any subscriber. The block comes off the
+        // action's own a1.block_index, so nothing here needs the transaction row;
+        // tx_hash is simply NULL for a synthesized action, which is the honest answer.
         let query = `SELECT
                         a1.action_index,
                         a3.action,
@@ -11128,6 +11160,14 @@ class Database {
     // Get list of ATTEST actions from the consolidated `attests` table. Lists both
     // v0 (request) and v1 (response) rows; `version` + request/response status let
     // the UI tell them apart. type in {address, block, contract}.
+    //
+    // The block is resolved off the ACTION's own block_index and `transactions` is a
+    // LEFT join, the tx-less-safe shape getHistory already uses. A mirror-applied
+    // ATTEST v1 response is a system-synthesized action with a real action_index and
+    // block_index but a NULL tx_index and no transactions row (attest-response-mirror
+    // spec §4.4), so the older INNER chain through t1 made every such response
+    // VANISH from this list rather than render incompletely. tx_hash and tx_index
+    // come back NULL for those rows, which is what they are.
     async getAttestations(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -11135,8 +11175,8 @@ class Database {
                     FROM
                         attests m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -12571,6 +12611,7 @@ class Database {
                 m.meta,
                 m.validator_signatures,
                 m.callback_execute_action_index,
+                m.batch_action_index,
                 m.block_index,
                 b1.block_time as timestamp,
                 t2.hash as tx_hash,

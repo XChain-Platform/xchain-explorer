@@ -89,6 +89,34 @@ const CONTENT_VIEWER_CSP = [
     "frame-ancestors 'self'",
 ].join('; ');
 
+// frame-src for the token page. Token art is commonly a player or canvas hosted
+// somewhere else, and the embed is rendered as a direct child of that page rather than
+// inside the sandboxed viewer: a host that sends `frame-ancestors *` refuses to load
+// under the viewer's opaque origin, and matches a real one. The frame carrying the art
+// is still sandboxed without allow-same-origin, so what this admits is a foreign
+// document in an opaque origin, never script access to the explorer.
+const TOKEN_PAGE_FRAME_SRC = 'https:';
+
+// Swap one directive's value in the Content-Security-Policy already set for this
+// response, leaving every other directive exactly as the app-wide configuration wrote
+// it. Editing the live header rather than restating the policy is what keeps the two
+// from drifting apart as the app-wide one changes.
+function widenFrameSrc(res, value){
+    const csp = res.getHeader('Content-Security-Policy');
+    if(typeof csp !== 'string' || csp === '')
+        return;
+    let found = false;
+    const directives = csp.split(';').map(d => {
+        if(!/^\s*frame-src(\s|$)/i.test(d))
+            return d;
+        found = true;
+        return ' frame-src ' + value;
+    });
+    // An app-wide policy with no frame-src falls back to default-src, which would still
+    // refuse the embed, so state the directive rather than assuming it is there.
+    res.set('Content-Security-Policy', found ? directives.join(';') : csp + '; frame-src ' + value);
+}
+
 let slowRequests = 0;
 
 // Lightweight rolling latency reservoir: last 256 request times (ms). The
@@ -1267,6 +1295,12 @@ class XChainExplorer {
             pageContent     = pageContent.replace('{PLATFORM_SWITCHER}', () => renderPlatformSwitcher());
 
             response.html = pageContent;
+
+            // The token page is the one page that renders a token's custom content, and
+            // an embed hosted anywhere but the app-wide allowlist is refused. Widened
+            // here, on this response only, so every other page keeps the tighter policy.
+            if(cfg.file == 'token.html')
+                widenFrameSrc(res, TOKEN_PAGE_FRAME_SRC);
         }
 
         response.time = this.util.getTimer(debugTimer);
@@ -2857,3 +2891,5 @@ module.exports.isPreflightPostRequest = isPreflightPostRequest;
 module.exports.MAX_PREFLIGHT_PARAMS_LENGTH = MAX_PREFLIGHT_PARAMS_LENGTH;
 module.exports.PREFLIGHT_BODY_LIMIT = PREFLIGHT_BODY_LIMIT;
 module.exports.CONTENT_VIEWER_CSP = CONTENT_VIEWER_CSP;
+module.exports.TOKEN_PAGE_FRAME_SRC = TOKEN_PAGE_FRAME_SRC;
+module.exports.widenFrameSrc = widenFrameSrc;

@@ -57,6 +57,15 @@ function extractFn(name) {
     return body;
 }
 
+
+// Lift a top-level `var NAME = ...;` out of the source so the sandbox evaluates the
+// SHIPPED value rather than a copy the test invents.
+function extractVar(name) {
+    const m = new RegExp('^var ' + name + ' = .*;$', 'm').exec(SRC);
+    if (!m) throw new Error('var not found in xchain.js: ' + name);
+    return m[0];
+}
+
 // Build a sandbox whose only host objects are document + DOMParser (what
 // stripHtml needs); JS intrinsics (String/RegExp/Object) come with the vm
 // context. The three functions are defined there and handed back.
@@ -65,15 +74,20 @@ function loadClientFns() {
     const context = vm.createContext({
         document:  dom.window.document,
         DOMParser: dom.window.DOMParser,
+        // singleEmbedUrl parses candidate URLs with no base, so a relative one throws
+        // rather than resolving; it needs the constructor, not a location.
+        URL:       dom.window.URL,
     });
     const program = [
+        extractVar('DEFAULT_EMBED_RATIO'),
         extractFn('escapeHtml'),
         extractFn('stripHtml'),
         extractFn('highlightSearchTerm'),
         extractFn('buildSandboxedContentDoc'),
         extractFn('isNull'),
         extractFn('formatHash'),
-        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm, buildSandboxedContentDoc: buildSandboxedContentDoc, formatHash: formatHash })',
+        extractFn('singleEmbedUrl'),
+        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm, buildSandboxedContentDoc: buildSandboxedContentDoc, formatHash: formatHash, singleEmbedUrl: singleEmbedUrl })',
     ].join('\n');
     const fns = vm.runInContext(program, context);
     return { fns, dom };
@@ -180,10 +194,10 @@ function renderBetDetails(data) {
 }
 
 describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', function () {
-    let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash;
+    let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash, singleEmbedUrl;
 
     before(function () {
-        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash } } = loadClientFns());
+        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash, singleEmbedUrl } } = loadClientFns());
     });
 
     describe('escapeHtml()', function () {
@@ -346,6 +360,68 @@ describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', func
             expect(handler).to.contain('MAX_CUSTOM_CONTENT_HEIGHT');
             expect(SRC).to.match(/MAX_CUSTOM_CONTENT_HEIGHT\s*=\s*\d+/);
             expect(handler).to.contain('Math.min');
+        });
+    });
+
+    // Custom content that is only an embed is framed directly on the token page, because
+    // a host sending `frame-ancestors *` refuses to load beneath the viewer's opaque
+    // origin. That makes singleEmbedUrl() a security boundary: whatever it accepts gets a
+    // frame on the explorer's own page, so it must carry across a URL and nothing else.
+    describe('singleEmbedUrl() (which custom content is hoisted onto the page)', function () {
+        const WRAPPED = '<div style="position:relative;width:100%;padding-top:66%;overflow:hidden;background:black;">'
+            + '<iframe src="https://art.example/piece/1" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>';
+
+        it('hoists a wrapped single embed and keeps the author aspect ratio', function () {
+            const embed = singleEmbedUrl(WRAPPED);
+            expect(embed).to.not.equal(null);
+            expect(embed.url).to.equal('https://art.example/piece/1');
+            expect(embed.ratio).to.equal(66);
+        });
+
+        it('falls back to 16:9 when the author states no ratio', function () {
+            expect(singleEmbedUrl('<iframe src="https://art.example/p"></iframe>').ratio).to.equal(56.25);
+        });
+
+        for (const [label, html] of Object.entries({
+            'a script beside the embed':   '<iframe src="https://art.example/p"></iframe><script>alert(1)</script>',
+            'two embeds':                  '<iframe src="https://a.example/x"></iframe><iframe src="https://b.example/y"></iframe>',
+            'an image beside the embed':   '<iframe src="https://art.example/p"></iframe><img src="https://art.example/i.png">',
+            'text beside the embed':       '<div>read me<iframe src="https://art.example/p"></iframe></div>',
+            'no embed at all':             '<div style="padding-top:66%">just art</div>',
+            'a javascript: URL':           '<iframe src="javascript:alert(1)"></iframe>',
+            'a data: URL':                 '<iframe src="data:text/html,<script>alert(1)</script>"></iframe>',
+            'a blob: URL':                 '<iframe src="blob:https://explorer.example/abc"></iframe>',
+            'a plain http URL':            '<iframe src="http://art.example/p"></iframe>',
+            'a relative URL':              '<iframe src="/TDOGE/api/token/X"></iframe>',
+            'a protocol-relative URL':     '<iframe src="//art.example/p"></iframe>',
+            'an empty src':                '<iframe src=""></iframe>',
+        })) {
+            it('refuses to hoist ' + label + ', leaving it to the sandboxed viewer', function () {
+                expect(singleEmbedUrl(html), label + ' must not be hoisted').to.equal(null);
+            });
+        }
+
+        it('carries across the URL only, never the author markup', function () {
+            // An onload handler on the author's own iframe must not survive: the frame the
+            // page renders is built from scratch and given exactly one attribute from them.
+            const embed = singleEmbedUrl('<iframe src="https://art.example/p" onload="alert(1)"></iframe>');
+            expect(embed).to.not.equal(null);
+            expect(Object.keys(embed).sort()).to.deep.equal(['ratio', 'url']);
+            expect(JSON.stringify(embed)).to.not.contain('alert');
+        });
+
+        it('the hoisted frame is sandboxed exactly like the viewer (cross-lock)', function () {
+            // Both frames render the same untrusted content; a sandbox that drifts between
+            // them would quietly make one path weaker than the other.
+            const src = SRC.match(/var CUSTOM_CONTENT_SANDBOX = '([^']*)'/);
+            expect(src, 'CUSTOM_CONTENT_SANDBOX must be declared').to.not.equal(null);
+            const tpl = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/token.html'), 'utf8');
+            const markup = tpl.match(/id="customContentViewer"[^>]*sandbox="([^"]*)"/);
+            expect(src[1].split(' ').sort()).to.deep.equal(markup[1].split(' ').sort());
+            expect(src[1]).to.not.contain('allow-same-origin');
+            // The page it now sits on is the explorer's own, so top-level navigation would
+            // let an embed steer the reader away from it.
+            expect(src[1]).to.not.contain('allow-top-navigation');
         });
     });
 

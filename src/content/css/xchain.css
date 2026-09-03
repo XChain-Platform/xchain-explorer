@@ -478,6 +478,22 @@ table.no-outer-borders tr:last-child {
 #customContentViewer {
     width:  var(--xc-custom-content-viewer-width);
 }
+/* Ratio box for a hoisted embed: height comes from the percentage top padding
+   xchain.js sets per token, so the frame keeps its aspect at every width. */
+#customContentEmbed {
+    position: relative;
+    width:  var(--xc-custom-content-viewer-width);
+    height: var(--xc-space-none);
+    overflow: hidden;
+}
+#customContentEmbed .custom-content-embed-frame {
+    position: absolute;
+    top:  var(--xc-space-none);
+    left: var(--xc-space-none);
+    width:  100%;
+    height: 100%;
+    border: var(--xc-border-width-none);
+}
 
 /* CSS used in terms of use */
 .upper-alpha {

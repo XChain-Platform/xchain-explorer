@@ -43,6 +43,41 @@ function directive(name) {
     return found === undefined ? null : found.slice(name.length).trim();
 }
 
+// The token page frames a token's embed directly, so its own frame-src has to admit the
+// host serving that embed. Widened on that ONE response, by rewriting the policy already
+// set for it, so no other page loosens and the two policies cannot drift apart.
+describe('token-page frame-src', function () {
+    const { widenFrameSrc, TOKEN_PAGE_FRAME_SRC } = require('../../src/XChainExplorer.js');
+    const APP_WIDE = "default-src 'self'; script-src 'self' 'unsafe-inline'; frame-src 'self' https://www.youtube.com; object-src 'none'";
+
+    function widened(policy) {
+        const res = mockRes();
+        if (policy !== null) res.set('Content-Security-Policy', policy);
+        res.getHeader = (n) => res._headers[n];
+        widenFrameSrc(res, TOKEN_PAGE_FRAME_SRC);
+        return res._headers['Content-Security-Policy'];
+    }
+
+    it('replaces only the frame-src directive, leaving the rest of the policy alone', function () {
+        const out = widened(APP_WIDE);
+        expect(out).to.contain('frame-src https:');
+        expect(out).to.not.contain('youtube');            // the narrow list is superseded
+        expect(out).to.contain("default-src 'self'");     // everything else survives
+        expect(out).to.contain("script-src 'self' 'unsafe-inline'");
+        expect(out).to.contain("object-src 'none'");
+    });
+
+    it('states frame-src when the policy has none, rather than trusting default-src', function () {
+        // Without a frame-src of its own a policy falls back to default-src, which would
+        // still refuse the embed, so the directive has to be added and not assumed.
+        expect(widened("default-src 'self'")).to.contain('frame-src https:');
+    });
+
+    it('does nothing when no policy was set', function () {
+        expect(widened(null)).to.equal(undefined);
+    });
+});
+
 describe('XChainExplorer#processContentViewerRequest', function () {
 
     it('serves the viewer document as html', function () {

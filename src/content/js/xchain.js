@@ -4488,6 +4488,87 @@ function stripHtml(html){
     }
 }
 
+// Sandbox for any frame carrying a token's custom content, hoisted embed or viewer
+// alike. No allow-same-origin anywhere in it: that is what keeps the content in an
+// opaque origin, unable to reach this page's DOM, cookies or storage.
+// test/unit/content-client-xss.test.js cross-locks this against token.html's own
+// sandbox attribute, so the two cannot drift into disagreeing about containment.
+var CUSTOM_CONTENT_SANDBOX = 'allow-scripts allow-popups allow-forms allow-modals allow-presentation';
+
+// Aspect ratio for a hoisted embed whose author gave no percentage padding: 16:9.
+var DEFAULT_EMBED_RATIO = 56.25;
+
+// Decide whether a token's custom HTML is nothing but a single embed, and if so return
+// the URL to frame and the shape to frame it in.
+//
+// Why this exists: an embed hosted somewhere that sends `frame-ancestors *` will not
+// load beneath the sandboxed viewer, because the viewer is an opaque origin and `*`
+// does not match a null origin. Rendered as a direct child of this page instead, its
+// nearest ancestor is this page's real origin and it loads. Nothing about containment
+// changes: only the URL crosses over, never the author's markup, and the frame built
+// from it carries the same sandbox the viewer does.
+//
+// Anything richer than one embed keeps going to the viewer, so this stays a narrow
+// special case rather than a second rendering path for arbitrary HTML.
+function singleEmbedUrl(html){
+    if(isNull(html))
+        return null;
+    // A <template> parses without running scripts, loading subresources or touching the
+    // live document, so hostile markup can be examined here without being executed.
+    var tpl = document.createElement('template');
+    tpl.innerHTML = String(html);
+    var content = tpl.content;
+    // One iframe, and nothing else that renders. Text, an image or a second frame would
+    // be dropped by carrying only the URL across, and silently losing an artist's work
+    // is worse than falling back to the viewer.
+    if(content.querySelectorAll('iframe').length !== 1)
+        return null;
+    if(content.querySelectorAll('*:not(div):not(iframe)').length)
+        return null;
+    if(String(content.textContent).replace(/\s+/g, '') !== '')
+        return null;
+    var raw = String(content.querySelector('iframe').getAttribute('src') || '').trim();
+    // Absolute https only. Parsing with no base rejects a relative URL outright, and the
+    // protocol check rejects javascript:, data: and blob: URLs, none of which should
+    // ever be handed a frame on this origin's page.
+    var parsed;
+    try {
+        parsed = new URL(raw);
+    } catch(e) {
+        return null;
+    }
+    if(parsed.protocol !== 'https:')
+        return null;
+    // The responsive-embed idiom states its aspect ratio as percentage top padding on a
+    // wrapper; honour the author's if they gave one, since it is how the piece is meant
+    // to sit on the page.
+    var ratio   = DEFAULT_EMBED_RATIO,
+        wrapper = content.querySelector('div[style]'),
+        match   = wrapper && /padding-top\s*:\s*([\d.]+)%/i.exec(wrapper.getAttribute('style') || '');
+    if(match && parseFloat(match[1]) > 0 && parseFloat(match[1]) <= 400)
+        ratio = parseFloat(match[1]);
+    return { url: parsed.href, ratio: ratio };
+}
+
+// Frame a hoisted embed directly on this page, inside our own ratio box rather than the
+// author's markup. The element is built through the DOM API, so the URL is set as a
+// value and never parsed as markup.
+function renderHoistedEmbed(embed){
+    var wrap  = $('#customContentEmbed'),
+        frame = document.createElement('iframe');
+    frame.setAttribute('sandbox', CUSTOM_CONTENT_SANDBOX);
+    frame.setAttribute('allowfullscreen', '');
+    // The token page's URL names the token being viewed; a third-party embed has no
+    // business receiving it.
+    frame.setAttribute('referrerpolicy', 'no-referrer');
+    frame.className = 'custom-content-embed-frame';
+    frame.src = embed.url;
+    wrap.empty();
+    wrap.css('padding-top', embed.ratio + '%');
+    wrap[0].appendChild(frame);
+    wrap.show();
+}
+
 // Handle getting record type from array
 function getArrayItemByType(arr, type){
     rec = false;
@@ -4962,6 +5043,14 @@ function showTokenContent(json){
         // cookies/storage/DOM, and el.contents() stays unreachable from here.
         $('#loadCustomContentButton').click(function(){
             $('#customContentWarning').hide();
+            // Custom content that is only an embed is framed directly on this page, so a
+            // host that refuses to load beneath an opaque origin still renders. Anything
+            // richer goes to the sandboxed viewer. Both frames carry the same sandbox.
+            var embed = singleEmbedUrl(cachedJson.html);
+            if(embed){
+                renderHoistedEmbed(embed);
+                return;
+            }
             var el = $('#customContentViewer');
             // Held, not posted: the viewer asks for it once it is listening.
             XC.pendingCustomContent = buildSandboxedContentDoc(cachedJson.html);

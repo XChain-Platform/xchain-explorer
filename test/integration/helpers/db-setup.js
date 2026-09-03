@@ -21,12 +21,10 @@ const mariadb = require('mariadb');
 const fs      = require('fs');
 const path    = require('path');
 
+const preflight = require('./fixture-preflight.js');
+
 const DB_CONFIG = {
-    host: '127.0.0.1',
-    port: 3307,
-    user: 'root',
-    password: 'testpass',
-    database: 'XChain_BTC_Regtest_Indexer',
+    ...preflight.FIXTURE_DB,
     multipleStatements: true,
     connectionLimit: 5
 };
@@ -39,6 +37,22 @@ function getPool() {
         pool = mariadb.createPool(DB_CONFIG);
     }
     return pool;
+}
+
+// Take a connection, translating the one failure that reads as unreadable
+// otherwise. When a foreign server holds 3307 the fixture container never
+// binds, and the pool's error is "Access denied for user 'root'@'127.0.0.1'",
+// which names
+// neither the port nor the collision and reads as a credential bug in the
+// fixture. decorateFixtureError replaces it with a report that says the port is
+// held, by what, and how to clear it; every other error passes through
+// untouched.
+async function acquire() {
+    try {
+        return await getPool().getConnection();
+    } catch (err) {
+        throw preflight.decorateFixtureError(err);
+    }
 }
 
 // Remove SQL `--` line comments while respecting quoted strings, so a ';' in
@@ -130,7 +144,7 @@ async function runSqlFile(filename) {
         ? path.join(__dirname, '..', filename)
         : path.join(__dirname, '..', 'fixtures', filename);
     const sql = fs.readFileSync(filePath, 'utf8');
-    const conn = await getPool().getConnection();
+    const conn = await acquire();
     try {
         if (/^\s*DELIMITER\s/mi.test(sql)) {
             for (const stmt of splitSqlStatements(sql)) {
@@ -157,7 +171,7 @@ async function seed(fixture) {
 
 // Truncate all data tables (preserves schema)
 async function truncateAll() {
-    const conn = await getPool().getConnection();
+    const conn = await acquire();
     try {
         // Disable FK checks during truncate
         await conn.query('SET FOREIGN_KEY_CHECKS=0');
@@ -176,7 +190,7 @@ async function truncateAll() {
 
 // Run an arbitrary query (for test assertions)
 async function query(sql, args) {
-    const conn = await getPool().getConnection();
+    const conn = await acquire();
     try {
         return await conn.query(sql, args);
     } finally {

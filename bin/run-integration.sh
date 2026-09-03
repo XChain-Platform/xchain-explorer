@@ -28,6 +28,21 @@
 #
 set -u
 
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# Preflight the fixture BEFORE any mocha process starts. Without this, a host
+# where something else already holds 127.0.0.1:3307 (measured 2026-09-02
+# against a native mariadbd) makes the fixture container unbindable, and
+# every file below then connects to the foreign server and dies with "Access
+# denied for user 'root'@'127.0.0.1'": the same misleading error, once per file,
+# naming neither the port nor the collision. The check names the collision once
+# and stops.
+if ! node bin/db-fixture.js check; then
+  echo ""
+  echo "integration: NOT RUN. The fixture on 127.0.0.1:3307 is unusable (see above)."
+  exit 1
+fi
+
 MOCHA="node ./node_modules/.bin/mocha"
 FLAGS="--timeout 30000 --exit"
 failed=()

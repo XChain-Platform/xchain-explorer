@@ -114,6 +114,44 @@ describe('contract-introspect.extractMethods', () => {
         expect(extractMethods(12345).methods).to.equal(null);
     });
 
+    // The extractor reports what the VM will execute, not what the deploy-time
+    // linter bans. banned-async/banned-generator gate NEW deploys; a contract
+    // deployed before its rule armed still runs, and the wrapper dispatches its
+    // async/generator keys like any other key, so both stay listed.
+    it('lists async methods, which the wrapper still dispatches', () => {
+        const r = extractMethods(`module.exports = {
+            transfer: async function(xchain){ return 1; },
+            settle: async (xchain) => 2,
+            mint: async function(xchain){}
+        };`);
+        expect(r.exportKind).to.equal('object');
+        expect(r.methods).to.deep.equal(['mint', 'settle', 'transfer']);
+    });
+
+    it('lists shorthand async and generator methods', () => {
+        const r = extractMethods(`module.exports = { async fund(xchain){}, *stream(xchain){ yield 1; } };`);
+        expect(r.methods).to.deep.equal(['fund', 'stream']);
+    });
+
+    it('lists identifier values referencing top-level async and generator functions', () => {
+        const r = extractMethods(`
+            async function claim(xchain){ return 1; }
+            function* walk(xchain){ yield 1; }
+            const settle = async (xchain) => 2;
+            module.exports = { claim, walk, settle };
+        `);
+        expect(r.methods).to.deep.equal(['claim', 'settle', 'walk']);
+    });
+
+    it('maps an async or generator function export to ["default"]', () => {
+        expect(extractMethods(`module.exports = async function(xchain){ return 1; };`).methods)
+            .to.deep.equal(['default']);
+        expect(extractMethods(`module.exports = function*(xchain){ yield 1; };`).methods)
+            .to.deep.equal(['default']);
+        expect(extractMethods(`module.exports = async (xchain) => 1;`).methods)
+            .to.deep.equal(['default']);
+    });
+
     it('rejects post-ES2020 syntax, matching the VM deploy gate', () => {
         // Class static blocks are ES2022; the VM's deploy-time parse (pinned
         // to ecmaVersion 2020) rejects them, so extraction must too.

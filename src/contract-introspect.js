@@ -25,6 +25,15 @@
  * lint-core so parse acceptance cannot drift from what the VM's deploy-time
  * syntax gate accepts.
  *
+ * Ruled 2026-09-01: this file reports what the VM will EXECUTE, not what the
+ * deploy-time linter currently bans. async and generator methods are listed
+ * even though banned-async and banned-generator reject them at deploy: those
+ * rules gate new deploys only, a contract deployed before its rule armed keeps
+ * running, and the wrapper dispatches its async/generator keys like any other
+ * key. Hiding them would misreport what a live contract can still do, so no
+ * admit site below tests node.async or node.generator, and the unit suite pins
+ * that both stay listed.
+ *
  * The ABI extraction lives in ./abi-core.js, the CANONICAL copy of the core
  * the SDK vendors byte-identically (xchain-sdk/src/contract/abi-core.js);
  * drift fails CI via bin/sync-abi-core.sh --check and the SDK's drift test.

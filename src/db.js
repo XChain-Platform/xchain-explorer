@@ -175,6 +175,46 @@ class DbQueryError extends Error {
     }
 }
 
+// Raised by a reader when the CALLER's own parameter is malformed, as opposed to
+// the query failing (DbQueryError above). The distinction matters because MariaDB
+// silently coerces a non-numeric string to 0 in a numeric comparison, so a reader
+// that binds a path segment straight into `WHERE <int column>=?` answers 200 with
+// a real, entirely wrong record instead of erroring (/api/block/zzz returned
+// block 0). Refusing in the reader protects every caller, not only the HTTP
+// route; the request layer maps it to a 4xx carrying `code`, never the 5xx
+// DbQueryError gets, because nothing is wrong with the service.
+class DbInputError extends Error {
+    constructor(message, code){
+        super(message);
+        this.name = 'DbInputError';
+        this.code = code || 'INVALID_PARAMETER';
+    }
+}
+
+// A block height is a non-negative integer and nothing else. parseInt/Number
+// cannot make this call: parseInt('9junk') is 9 and Number('') is 0, both of
+// which reproduce the coercion bug in JS instead of catching it. Same strict
+// shape as the /api/action and /api/checkpoint route guards in XChainExplorer.js.
+const BLOCK_INDEX_RE = /^[0-9]+$/;
+
+// Copies an extracted reader family onto Database.prototype. Object.assign cannot
+// do this: a class method is non-enumerable, so assign would copy nothing. Copying
+// the descriptor also keeps getters and arity intact.
+//
+// A collision throws rather than resolving by require order, because the loser
+// would vanish silently and the page it serves would start answering with another
+// family's SQL.
+function mixinReaders(target, ...sources){
+    for(let source of sources){
+        for(let name of Object.getOwnPropertyNames(source)){
+            if(name=='constructor') continue;
+            if(Object.prototype.hasOwnProperty.call(target, name))
+                throw new Error('db.js reader mixin collision: ' + name + ' is defined twice');
+            Object.defineProperty(target, name, Object.getOwnPropertyDescriptor(source, name));
+        }
+    }
+}
+
 // An ACTION's source is `actions.source_id`, never `transactions.source_id`. The two agree
 // for every user action, and DISAGREE for a VM emission: the indexer stores the emitting
 // contract's derived address on the action row (xchain-indexer db.js createActionIndex,
@@ -4467,6 +4507,13 @@ class Database {
     async getBlock(config){
         let data = null;
         let sql   = config.data.sql;
+        // The search segment is bound against the BIGINT blocks.block_index, and
+        // MariaDB coerces a non-numeric string to 0 rather than rejecting it, so
+        // an unguarded /api/block/zzz would answer 200 with BLOCK 0's real
+        // record - a wrong answer dressed as a right one, which nothing
+        // downstream can detect. Refuse the id before it reaches the query.
+        if(!BLOCK_INDEX_RE.test(String(config.data.search ?? '')))
+            throw new DbInputError('Invalid block_index', 'INVALID_BLOCK_INDEX');
         let args  = [config.data.search];
         let query = `SELECT
                         b1.block_index,
@@ -13203,5 +13250,6 @@ class Database {
 
 module.exports = Database;
 module.exports.DbQueryError = DbQueryError;
+module.exports.DbInputError = DbInputError;
 module.exports.ACTION_SUMMARY_FIELDS = ACTION_SUMMARY_FIELDS;
 module.exports.MUTABLE_ACTION_FIELDS = MUTABLE_ACTION_FIELDS;

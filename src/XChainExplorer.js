@@ -1108,14 +1108,25 @@ class XChainExplorer {
                 try {
                     [data, total] = await this.db.getData(cfg);
                 } catch(e){
-                    // A read that genuinely failed (DB outage / rejected query)
-                    // throws (db.js DbQueryError, M-4); answer 5xx instead of a
-                    // misleading empty 200. A successful empty SELECT does not
-                    // throw and still returns 200 with total:0.
-                    console.error('processRequest: data query failed for', req.path, '-', (e && e.message ? e.message : e));
-                    dbError       = true;
-                    response.code = 500;
-                    response.json = { error: 'A database error occurred while serving this request.', code: 'DB_ERROR' };
+                    if(e && e.name === 'DbInputError'){
+                        // The CALLER's parameter was malformed, not the service: a
+                        // reader declined to bind it (db.js DbInputError)
+                        // rather than let MariaDB coerce it and answer with the
+                        // wrong record. Matched on `name` rather than instanceof so
+                        // a stubbed db module in tests behaves the same way.
+                        badParam      = true;
+                        response.code = 400;
+                        response.json = { error: e.message, code: e.code || 'INVALID_PARAMETER' };
+                    } else {
+                        // A read that genuinely failed (DB outage / rejected query)
+                        // throws (db.js DbQueryError, M-4); answer 5xx instead of a
+                        // misleading empty 200. A successful empty SELECT does not
+                        // throw and still returns 200 with total:0.
+                        console.error('processRequest: data query failed for', req.path, '-', (e && e.message ? e.message : e));
+                        dbError       = true;
+                        response.code = 500;
+                        response.json = { error: 'A database error occurred while serving this request.', code: 'DB_ERROR' };
+                    }
                 }
             }
 

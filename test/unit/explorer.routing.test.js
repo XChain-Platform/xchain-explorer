@@ -294,9 +294,17 @@ describe('XChainExplorer.processRequest – routing', function () {
             expect(res._status).to.not.equal(400);
         });
 
-        it('leaves the sibling numeric route /BTC/api/block/{n} untouched by the action guard', async function () {
+        // The sibling block route is declined too, but a layer down: the
+        // refusal is a DbInputError raised by db.js getBlock, not a route-table
+        // guard, so it covers every caller of the reader rather than one URL. This
+        // MockDB stands in for db.js and therefore never raises it, which is exactly
+        // what makes this a useful assertion about the ROUTE table: no route-layer
+        // guard intercepts /api/block, so the request still reaches the reader.
+        // The 400 itself is pinned in block-query-guard.test.js, which drives the
+        // real getBlock.
+        it('routes /BTC/api/block/{n} to the reader rather than intercepting it in the route table', async function () {
             const { cfg } = await request(explorer, '/BTC/api/block/9junk');
-            expect(cfg, 'block route still reaches the DB (out of this fix scope)').to.not.be.null;
+            expect(cfg, 'block route reaches the reader, which is where it is refused').to.not.be.null;
             expect(cfg.data.method).to.equal('getBlock');
         });
 

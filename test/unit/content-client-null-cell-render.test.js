@@ -119,12 +119,34 @@ describe('list-page cells fed a null feed column', function () {
         expect(cells[5]).to.equal('');
     });
 
-    it('renders an EMPTY Status cell for an unresolved ATTEST', function () {
-        // getAttestations: count, block, timestamp, source, version, provider_id,
-        // request_id, request_status, response_status, status, action_index. Both
-        // status ENUMs are nullable with no default.
-        const cells = renderRow('attestation', [1, 500, 1756200000, 'mwXyz', 0, 'http_get', 'ab'.repeat(32), null, null, 1, 42], 9);
+    it('renders an EMPTY Response cell for an unresolved ATTEST', function () {
+        // getAttestations feed, in the order XChainExplorer actually emits it:
+        // count, block, timestamp, source, version, provider_id, request_id,
+        // request_status, response_status, status, action_index, payload,
+        // callback_params_json, fee_payer. Both status ENUMs are nullable with no
+        // default, and the three columns AFTER action_index are why the row's
+        // verdict and action index are read positionally rather than off the tail.
+        const cells = renderRow('attestation',
+            [1, 500, 1756200000, 'mwXyz', 0, 'http_get', 'ab'.repeat(32), null, null, 1, 42, null, null, 'mwFee'], 10);
         expect(cells[7]).to.equal('');
+    });
+
+    // The attester's HTTP result and the chain's verdict on the action are
+    // different facts, and rendering only the first, under a heading a reader
+    // uses to ask whether the action counted, shows a row the chain REJECTED
+    // as `ok`.
+    it('shows the chain verdict beside the attester result for a REJECTED ATTEST', function () {
+        const cells = renderRow('attestation',
+            [1, 500, 1756200000, 'mwXyz', 1, 'http_get', 'ab'.repeat(32), null, 'ok', 0, 42, null, null, 'mwFee'], 10);
+        expect(cells[7], 'the Response cell should carry the attester result').to.equal('ok');
+        expect(cells[8], 'the Action Status cell should carry the chain verdict').to.equal('invalid');
+    });
+
+    it('shows a valid verdict for an ATTEST the chain accepted', function () {
+        const cells = renderRow('attestation',
+            [1, 500, 1756200000, 'mwXyz', 1, 'http_get', 'ab'.repeat(32), null, 'ok', 1, 42, null, null, 'mwFee'], 10);
+        expect(cells[7]).to.equal('ok');
+        expect(cells[8]).to.equal('valid');
     });
 
     // .text(undefined) is read as the GETTER, so a short feed row silently keeps

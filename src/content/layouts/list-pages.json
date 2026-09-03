@@ -240,7 +240,11 @@
                 "cls": ""
             },
             {
-                "label": "Status",
+                "label": "Response",
+                "cls": ""
+            },
+            {
+                "label": "Action Status",
                 "cls": ""
             },
             {

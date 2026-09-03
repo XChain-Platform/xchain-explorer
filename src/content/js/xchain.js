@@ -2056,6 +2056,19 @@ function loadDatatablesData(coin, action, query, type, opts){
                 $('td', row).eq(8).html(formatLink('/' + coin + '/action/' + execution_index, 'view', null, true));
             }
             // Attestation (ATTEST v0 request / v1 response from the `attests` table)
+            //
+            // TWO status fields ride this feed and they answer different questions.
+            // Rendering only the attester's HTTP result, under a heading a reader uses
+            // to ask whether the action COUNTED, shows an ATTEST the chain rejected as
+            // `ok`. They get a column each: Response is the attester's result (or the
+            // request's lifecycle state), Action Status is the chain's verdict on the
+            // action itself.
+            //
+            // Both the verdict and the action index are read POSITIONALLY here rather
+            // than through createdRow's generic data[length-1]/data[length-2] tail parse.
+            // The getAttestations feed appends payload, callback_params_json and
+            // fee_payer AFTER action_index, so on this page alone that parse reads
+            // fee_payer as the action index and callback_params_json as the verdict.
             if(action=='attestation'){
                 let version         = data[4];
                 let provider        = data[5];
@@ -2064,12 +2077,19 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let response_status = data[8];
                 $('td', row).eq(4).html((version == 0) ? '<span class="badge text-bg-secondary">Request</span>' : '<span class="badge text-bg-primary">Response</span>');
                 $('td', row).eq(5).text(provider);
-                $('td', row).eq(6).html(formatLink('/' + coin + '/action/' + action_index, formatHash(request_id)));
+                let att_status      = data[9];
+                let att_index       = data[10];
+                let att_valid       = (att_status==1);
+                let att_verdict     = att_valid ? 'valid' : 'invalid';
+                $(row).removeClass('bg-green bg-red').addClass(att_valid ? 'bg-green' : 'bg-red');
+                $('td', row).eq(6).html(formatLink('/' + coin + '/action/' + att_index, formatHash(request_id)));
                 // Both attests.request_status and attests.response_status are nullable
                 // ENUMs with no default; each row fills only the one for its version, and
                 // an unresolved row leaves even that one NULL.
                 $('td', row).eq(7).text(nullToBlank((version == 0) ? request_status : response_status));
-                $('td', row).eq(8).html(action_link);
+                $('td', row).eq(8).html('<span class="badge text-bg-' + (att_valid ? 'success' : 'danger')
+                    + ' attestation-action-status" data-action-status="' + att_verdict + '">' + att_verdict + '</span>');
+                $('td', row).eq(9).html(formatLink('/' + coin + '/action/' + att_index, 'view', null, true));
             }
             // VOTE poll (polls table; token-weighted governance, VOTE v0). eq(4) token,
             // eq(5) question, eq(6) lifecycle-status badge (open/finalized/failed_quorum),

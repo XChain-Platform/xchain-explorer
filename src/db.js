@@ -6636,7 +6636,7 @@ class Database {
                         NULL as status
                     FROM
                         actions a1
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=a1.source_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
@@ -6651,6 +6651,15 @@ class Database {
         // multi-output SEND would emit one NEW_ACTION per output) and the feed's
         // LIMIT is a limit on ACTIONS, not on output rows. See
         // _attachActionDestinations for the batch shape and its failure mode.
+        // `transactions` is a LEFT join, never an INNER one: a system-synthesized
+        // action carries a real action_index and block_index but a NULL tx_index and
+        // has no transactions row at all, so an INNER join drops it from this feed
+        // ENTIRELY. That is not just a missing NEW_ACTION frame: ChangeDetector calls
+        // _emitAttestationEvents only for actions this query returns, so a
+        // mirror-applied ATTEST v1 response (attest-response-mirror spec §4.4) would
+        // never fire ATTESTATION_RESPONSE on any subscriber. The block comes off the
+        // action's own a1.block_index, so nothing here needs the transaction row;
+        // tx_hash is simply NULL for a synthesized action, which is the honest answer.
         await this._attachActionDestinations(config, results);
         return results;
     }
@@ -7794,6 +7803,13 @@ class Database {
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
+        // The block is resolved off the ACTION's own block_index and `transactions` is a
+        // LEFT join, the tx-less-safe shape getHistory already uses. A mirror-applied
+        // ATTEST v1 response is a system-synthesized action with a real action_index and
+        // block_index but a NULL tx_index and no transactions row (attest-response-mirror
+        // spec §4.4), so the older INNER chain through t1 made every such response
+        // VANISH from this list rather than render incompletely. tx_hash and tx_index
+        // come back NULL for those rows, which is what they are.
         let query = `SELECT
                         a4.action,
                         m.action_index,
@@ -7820,8 +7836,8 @@ class Database {
                     FROM
                         attests m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
                         LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
@@ -7845,8 +7861,8 @@ class Database {
                     FROM
                         polls m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)

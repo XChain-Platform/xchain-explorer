@@ -380,6 +380,40 @@ describe('attestation.html detail page @regression', function () {
             expect($('.attestation-signature').length).to.equal(0);
         });
 
+        // attests.batch_action_index. Three distinct states, and the two NULL ones
+        // mean opposite things: a mirror-applied response (no transaction of its
+        // own) is WAITING for the ATTEST v5/v6 batch that carries its body, while a
+        // legacy-era response WAS its own on-chain transaction and will never have
+        // one. Collapsing them into a single dash tells a reader something untrue.
+        it('[batch] links the batch action once the batch has landed', function () {
+            const dom = renderDom();
+            const d = completed();
+            d.response = responseLeg({ tx_hash: null, tx_index: null, batch_action_index: 6100 });
+            d.legs = [d.request, d.response];
+            const $ = paint(dom, dom.window.renderAttestationResponse(d));
+            expect($('#out').text()).to.contain('On-chain Batch');
+            expect($('a[href="/RBTC/action/6100"]').length).to.equal(1);
+            expect($('.attestation-batch-pending').length).to.equal(0);
+            expect($('.attestation-batch-na').length).to.equal(0);
+        });
+
+        it('[batch] says the body is not on chain YET for a mirror-applied response', function () {
+            const dom = renderDom();
+            const d = completed();
+            d.response = responseLeg({ tx_hash: null, tx_index: null, batch_action_index: null });
+            d.legs = [d.request, d.response];
+            const $ = paint(dom, dom.window.renderAttestationResponse(d));
+            expect($('.attestation-batch-pending').text()).to.contain('not yet carried by an on-chain batch');
+            expect($('.attestation-batch-na').length).to.equal(0);
+        });
+
+        it('[batch] says NOT APPLICABLE for a response that was its own transaction', function () {
+            const dom = renderDom();
+            const $ = paint(dom, dom.window.renderAttestationResponse(completed()));
+            expect($('.attestation-batch-na').text()).to.contain('its own on-chain transaction');
+            expect($('.attestation-batch-pending').length).to.equal(0);
+        });
+
         it('[retry-rounds] every v1 row is listed, not just the one the server named as `response`', function () {
             const dom = renderDom();
             const d = completed();

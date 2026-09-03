@@ -1569,6 +1569,7 @@ CREATE TABLE attests (
     meta                          VARCHAR(256),
     validator_signatures          MEDIUMTEXT,                 -- JSON array of verified federation sigs
     callback_execute_action_index BIGINT UNSIGNED,
+    batch_action_index            BIGINT UNSIGNED,            -- ATTEST v5/v6 batch that carried this response's body on chain; NULL until it lands, and NULL forever for a legacy-era response that was its own on-chain v1
     status_id                     BIGINT UNSIGNED,
     block_index                   BIGINT UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

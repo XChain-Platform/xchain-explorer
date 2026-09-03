@@ -1842,7 +1842,16 @@ class XChainExplorer {
         if(!this.contentViewerHtml)
             this.contentViewerHtml = fs.readFileSync(path.join(__dirname, 'content', 'sandbox', 'content-viewer.html'), 'utf8');
         res.set('Content-Security-Policy', CONTENT_VIEWER_CSP);
-        res.set('Cache-Control', 'public, max-age=3600');
+        // no-transform stops a CDN rewriting this document. An edge that injects a script
+        // loader or an analytics beacon into it lands that code in an opaque origin, where
+        // it posts to a target origin that cannot match and calls home to a path that
+        // refuses it, filling the reader's console with failures from code the page never
+        // asked for.
+        res.set('Cache-Control', 'public, max-age=3600, no-transform');
+        // The app-wide header asks for origin-keying, which this document cannot be given:
+        // every other page on the origin has already site-keyed it, so asking here earns
+        // only a console warning.
+        res.set('Origin-Agent-Cluster', '?0');
         res.type('html').send(this.contentViewerHtml);
     }
 

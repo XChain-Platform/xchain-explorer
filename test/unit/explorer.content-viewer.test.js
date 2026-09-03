@@ -63,6 +63,20 @@ describe('XChainExplorer#processContentViewerRequest', function () {
         expect(res._headers['Content-Security-Policy']).to.equal(CONTENT_VIEWER_CSP);
     });
 
+    it('tells the CDN not to rewrite it, and does not ask for origin-keying', function () {
+        const res = mockRes();
+        makeExplorer().processContentViewerRequest({ path: '/content-viewer' }, res);
+
+        // An edge that injects its script loader or analytics beacon into this document
+        // runs that code in an opaque origin: it posts to a target origin that cannot
+        // match and calls home to a path that refuses it, and every one of those lands
+        // in the reader's console as an error against a page that asked for none of it.
+        expect(res._headers['Cache-Control']).to.contain('no-transform');
+        // Requesting origin-keying on an origin already site-keyed by every other page
+        // is a guaranteed console warning and buys this document nothing.
+        expect(res._headers['Origin-Agent-Cluster']).to.equal('?0');
+    });
+
     it('forces an opaque origin, so a reader who opens the route directly is still contained', function () {
         // Without this the route would be a same-origin HTML document that renders
         // whatever a caller can get written into it - an XSS gadget on the explorer's

@@ -5265,17 +5265,19 @@ function showTokenInfo(){
     if(jsonUrl){
         if(XC.debug)
             console.log('Attempting to get JSON...');
-        // Try to make a request for the JSON directly (might fail due to missing CORS headers)
-        $.getJSON( jsonUrl, function(o){ 
+        // Straight to the relay, with no direct attempt first. connect-src on this page is
+        // 'self', so a request to the token's own host is refused before it is sent: the
+        // direct call could only ever log a CSP violation and then hand off to the relay
+        // anyway, which put a red error in every reader's console for every token whose
+        // JSON lives off-site. The URL is a query VALUE, so encode it, or a description
+        // carrying '&' or '#' reaches the relay truncated.
+        $.getJSON( '/relay?url=' + encodeURIComponent(jsonUrl), function(o){
             showTokenContent(o);
         }).fail(function(){
             if(XC.debug)
-                console.log('failed to get JSON... retrying using xchain-explorer relay')
-            // Try to request the JSON through the xchain relay
-            $.getJSON( '/relay?url=' + jsonUrl, function(o){ 
-                showTokenContent(o);
-            });
-        }); 
+                console.log('failed to get JSON through the xchain-explorer relay');
+            showTokenContent();
+        });
     } else {
         showTokenContent();
     }

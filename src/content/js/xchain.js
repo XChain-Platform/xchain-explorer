@@ -778,9 +778,31 @@ function getCoinNetworkInfo(callback, force){
         last   = (json && json.timestamp) ? json.timestamp : 0,
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
-    // Skip request for network info if network is not currently supported by the explorer
-    if(XC.status && isNull(XC.status.available[XC.coin]))
+    // A coin drops out of XC.status.available for as long as its indexed tip is stale
+    // (getStatus deletes it there; the same condition answers 503 COIN_DATA_STALE on
+    // the data routes). XC.status is itself served from localStorage for 5 minutes, so
+    // simply returning here dropped the caller's render callback and left the summary
+    // counters and the Network Information panel at their markup defaults (0 / blank)
+    // for the rest of that window - with no /api/* request on the page load that showed
+    // the zeros - long after the coin was serving live data again. Re-read the
+    // status instead, and come back to this coin the moment it is listed again.
+    if(XC.status && isNull(XC.status.available[XC.coin])){
+        // One recheck in flight at a time: the forced status refresh below calls back
+        // into this function itself, and a per-caller loop would multiply the polling.
+        if(!XC.pendingNetworkInfoRecheck){
+            XC.pendingNetworkInfoRecheck = true;
+            getExplorerStatusInfo(function(){
+                XC.pendingNetworkInfoRecheck = false;
+                if(XC.status && isNull(XC.status.available[XC.coin]))
+                    // Still stale. Keep the page self-healing on a slow poll rather than
+                    // waiting for the operator's user to reload it.
+                    setTimeout(function(){ getCoinNetworkInfo(callback, force); }, XC.networkRecheckMs || 15000);
+                else
+                    getCoinNetworkInfo(callback, force);
+            }, true);
+        }
         return;
+    }
     // Set the coin price from the last known price
     if(json && json.coin && json.coin.price && json.coin.price.usd)
         XC.coin_price = json.coin.price.usd;
@@ -807,6 +829,14 @@ function getCoinNetworkInfo(callback, force){
             XC.pendingNetworkInfoRequest = false;
             json.timestamp = Date.now();
             ls.setItem(name,JSON.stringify(json));
+            cb(json);
+        }, function(){
+            // The request failed (a 503 while the coin's tip is stale, or a transport
+            // error). Clear the in-flight flag so a later call can retry, and answer the
+            // caller with the last body we did store rather than never answering: a
+            // failed refresh must not be indistinguishable from a page that is still
+            // loading. Nothing is written to localStorage, so the next call re-requests.
+            XC.pendingNetworkInfoRequest = false;
             cb(json);
         });
     } else {
@@ -859,6 +889,17 @@ function getExplorerStatusInfo(callback, force){
             json.timestamp = Date.now();
             ls.setItem(name,JSON.stringify(json));
             cb(json);
+        }, function(){
+            // Same contract as the network fetch above: clear the in-flight flag and
+            // always answer the caller, here with the last status we stored. cb() only
+            // fires for a truthy body, so answer an absent one directly - a caller
+            // waiting on this (getCoinNetworkInfo's stale-coin recheck) must not be
+            // left holding a flag no response will ever clear.
+            XC.pendingStatusInfoRequest = false;
+            if(json)
+                cb(json);
+            else if(typeof callback=='function')
+                callback(null);
         });
     } else {
         // If we have a pending Network request, try again in 1000ms
@@ -2843,7 +2884,11 @@ function loadDatatablesData(coin, action, query, type){
 
 // Load an action's rows directly from the API and hand the response to callback;
 // query/type narrow the results to one address/block/etc when given.
-function loadApiData(coin, action, query, type, callback){
+// errback (optional) is called instead of callback when the request does not
+// produce a usable body: a non-2xx status, a transport failure, or a 200 whose
+// body carries an `error`. A caller that arms an in-flight flag before calling
+// MUST pass one, or that flag never clears.
+function loadApiData(coin, action, query, type, callback, errback){
     // Set the API endpoint name based on the action
     let endpoint = null;
     if(['history','block','network','token','action','status','transaction','market','markets'].includes(action) || (action=='address' && type==null)){
@@ -2864,13 +2909,30 @@ function loadApiData(coin, action, query, type, callback){
     if(XC.debug)
         console.log('Requesting API data from endpoint ' + url);
     // Make request to get the API data and return to the callback function
-    $.getJSON(url, function(o){
+    let req = $.getJSON(url, function(o){
         if(o.error){
             console.log('caught error=',o.error);
+            if(typeof errback==='function')
+                errback(o, null);
         } else {
             if(typeof callback==='function')
                 callback(o);
         }
+    });
+    // jQuery always answers with a jqXHR here; the guard is for the test doubles that
+    // stand in for $.getJSON and return nothing.
+    if(!req || typeof req.fail !== 'function')
+        return;
+    req.fail(function(xhr){
+        // jQuery routes every non-2xx here, so the success handler above never runs
+        // for a 503 COIN_DATA_STALE (served while a coin's indexed tip is stale), a
+        // 404, or a dropped connection. Callers that set an in-flight flag before
+        // calling were left with it set for the life of the page, which wedged every
+        // later request behind a retry loop that never issued one.
+        if(XC.debug)
+            console.log('API request failed: ' + url + ' (' + ((xhr && xhr.status) ? xhr.status : 'no response') + ')');
+        if(typeof errback==='function')
+            errback((xhr && xhr.responseJSON) ? xhr.responseJSON : null, xhr);
     });
 }
 

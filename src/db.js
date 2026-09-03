@@ -4769,17 +4769,65 @@ class Database {
         return [data];
     }
 
+    // Generation token for the network-totals cache: the coin's current indexed tip
+    // height, briefly memoized per coin (EXPLORER_TIP_MEMO_MS, default 1s) so a
+    // request burst collapses onto a single MAX(block_index) lookup rather than
+    // one per request. A probe that fails returns null, which makes the caller
+    // skip the cache for that request: never serve a possibly-stale total because
+    // the freshness check itself broke. An empty blocks table is a real answer
+    // (nothing indexed yet), not a failed probe, so it gets a generation of its
+    // own ('none') rather than falling through to null.
+    async _totalsTipGeneration(config){
+        const coin = config.coin;
+        const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
+        if(!this._totalsTipMemo) this._totalsTipMemo = {};
+        const memo = this._totalsTipMemo[coin];
+        if(memo && (Date.now() - memo.at) < (Number.isFinite(ttl) ? ttl : 1000))
+            return memo.tip;
+        let tip = null;
+        try {
+            const rows = await this.doQuery(config, 'SELECT MAX(block_index) AS tip FROM blocks', []);
+            if(rows && rows.length && !this.util.isNull(rows[0].tip))
+                tip = String(rows[0].tip);
+            else if(rows)
+                tip = 'none';
+        } catch(e){
+            tip = null;
+        }
+        this._totalsTipMemo[coin] = { tip, at: Date.now() };
+        return tip;
+    }
+
     // Exact per-action-table record counts for the homepage counters, cached per coin.
     // COUNT(*) is exact (information_schema.TABLE_ROWS is only an optimizer estimate and
     // visibly disagreed with the list views), but scanning the large action tables on every
     // /api/network call would be wasteful, so the result is cached for EXPLORER_TOTALS_CACHE_MS
-    // (default 60s) per coin. The browser additionally caches the network response for 5 min.
+    // (default 60s) per coin.
+    //
+    // The entry is keyed on the coin's current indexed tip and reorg generation, not on the
+    // coin alone. The counts are COUNT(*)s over tables the indexer only rewrites when it
+    // applies a block, so a set of counts belongs to the block it was taken at, and the TTL
+    // is only a ceiling on top of that. Keyed on the coin alone, counts read while a coin
+    // was still catching up - the state that answers 503 COIN_DATA_STALE - kept answering
+    // the public homepage for the rest of the flat TTL after the coin was healthy again, so
+    // a live coin rendered its counters at their outage values. A null generation means the
+    // tip probe itself failed: serve the counts but cache nothing, rather than let a
+    // possibly-stale set outlive the outage that produced it.
+    //
+    // NOTE ON THE CLIENT: the response carries no Cache-Control and no Expires, so nothing
+    // here is cached by HTTP. The explorer's own page script keeps the parsed response in
+    // localStorage for 5 minutes (getCoinNetworkInfo in src/content/js/xchain.js); that is a
+    // separate cache with its own recovery path, not a browser HTTP cache.
     async getActionTotals(config){
         const coin = config.coin;
         const ttl  = parseInt(process.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;
+        const gen  = await this._totalsTipGeneration(config);
+        // Only the newest generation for a coin is ever useful, so keep one entry per coin
+        // and compare its key rather than accumulating an entry per block.
+        const key  = (gen === null) ? null : [coin, this._reorgGen[coin] || 0, gen].join('|');
         if(!this._totalsCache) this._totalsCache = {};
-        const cached = this._totalsCache[coin];
-        if(cached && (Date.now() - cached.at) < ttl)
+        const cached = (key === null) ? null : this._totalsCache[coin];
+        if(cached && cached.key === key && (Date.now() - cached.at) < ttl)
             return cached.totals;
         let tables = structuredClone(this.actionTables);
         tables.push('tokens');
@@ -4810,7 +4858,8 @@ class Database {
         let fnvResult = await this.doQuery(config, `SELECT count(DISTINCT action_index) as count FROM full_node_verifications`);
         if(fnvResult && fnvResult.length)
             totals['full_node_verifications'] = Number(fnvResult[0].count);
-        this._totalsCache[coin] = { at: Date.now(), totals };
+        if(key !== null)
+            this._totalsCache[coin] = { key, at: Date.now(), totals };
         return totals;
     }
 

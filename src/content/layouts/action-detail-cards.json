@@ -1426,6 +1426,26 @@
                     "cell": "nodeproof-verified-count"
                 }
             ]
+        },
+        "rollcall": {
+            "rows": [
+                {
+                    "label": "Epoch Height (BTC)",
+                    "cell": "rollcall-epoch-height"
+                },
+                {
+                    "label": "Ledger Hash (BTC)",
+                    "cell": "rollcall-ledger-hash"
+                },
+                {
+                    "label": "Publisher",
+                    "cell": "rollcall-publisher"
+                },
+                {
+                    "label": "Validators Present",
+                    "cell": "rollcall-signer-count"
+                }
+            ]
         }
     }
 }

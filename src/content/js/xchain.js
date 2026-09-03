@@ -1337,6 +1337,16 @@ function loadDatatablesData(coin, action, query, type){
         type   = action;
         action = 'search';
     }
+    // A search feed has nothing to look up until the reader has typed something.
+    // The url built below omits a null QUERY segment, which for a search yields
+    // /{COIN}/explorer/search/{TYPE} - a 4-segment path the 5-segment
+    // '/{COIN}/explorer/search/{QUERY}/{TYPE}' route cannot match, and which no
+    // 3-segment list-all route covers either, so it 404s. A bare /search or
+    // /{COIN}/search therefore fired all four of its feeds on arrival and rendered
+    // the DataTables failure row in every tab before anyone had searched.
+    // The empty state is a REQUEST the page should not make: below, this branch
+    // gives the table a local empty dataset instead of an ajax source.
+    let emptySearch = (action=='search' && (isNull(query) || String(query).trim()==''));
     // Automatically convert token searches on token page to subtoken
     if(type=='token' && action=='token')
         type = 'subtoken';
@@ -1380,44 +1390,16 @@ function loadDatatablesData(coin, action, query, type){
     $('#' + tableId).on( 'length.dt', function ( e, settings, length ){
         sm.setItem('records_per_page',length);
     });
-    // Load data into the datatable
-    $('#' + tableId).dataTable({
-        ajax: {
-            url: url,
-            data: function(data){
-                // Pass action and offset with request
-                var action = null,
-                    offset = null;
-                if(data.start==0){
-                    action = 'first';
-                } else if(data.start > (track['last_start'] + data.length)){
-                    action = 'last';
-                } else if(data.start >= track['last_start']){
-                    action = 'next';
-                    offset = track['offset_last'];
-                } else {
-                    action = 'prev';
-                    offset = track['offset_first'];
-                }
-                // Pass action and offset forward
-                data.action = action;
-                data.offset = offset;
-                // pass total back to server (used to quickly calculate how many records to display on 'last' page)
-                data.total =  track['total'];
-                if(['subtoken','roster'].includes(type))
-                    data.sortorder = 'ASC';
-                // Cleanup the request so we only send what we need
-                delete data.columns;
-                delete data.order;
-                delete data.search;
-                delete data.draw;
-            }
-        },
+    // Load data into the datatable. The config is assembled in a variable rather
+    // than passed as a literal so the no-query search state can swap the feed for a
+    // local empty dataset without duplicating the rest of it.
+    let dtOptions = {
         lengthMenu: [[10,20,30,40,50,60,70,80,90,100],[10,20,30,40,50,60,70,80,90,100]],
         pageLength: page,
         dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
         pagingType: "full",
-        serverSide: true,
+        // Server-side paging is meaningless without a feed to page against.
+        serverSide: !emptySearch,
         searching: false,
         ordering: false,
         processing: true,
@@ -1450,10 +1432,14 @@ function loadDatatablesData(coin, action, query, type){
                 page_status = $('#' + tableId + '_wrapper .page-status');
             }
             page_status.text('Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0'));
+            // A table with no ajax source (the no-query search state) carries no
+            // o.json at all, so every read below has to go through this alias or the
+            // draw callback throws a TypeError on the first paint.
+            var json = (o && o.json) ? o.json : null;
             // Track first and last shown action_index (used for offset tracking)
-            if(o.json.data && o.json.data.length){
-                var first = o.json.data[0],
-                    last  = o.json.data[o.json.data.length-1];
+            if(json && json.data && json.data.length){
+                var first = json.data[0],
+                    last  = json.data[json.data.length-1];
                 track['offset_first'] = first[first.length-1];
                 track['offset_last']  = last[last.length-1];
             } else {
@@ -1463,7 +1449,7 @@ function loadDatatablesData(coin, action, query, type){
             // Save the start so we can determine direction when user clicks (prev/next)
             track['last_start'] = o._iDisplayStart;
             // Save total, so we can pass back in API requests (used to calculate how many records to display on 'last' page)
-            track['total'] = o.json.recordsTotal;
+            track['total'] = (json) ? json.recordsTotal : 0;
             // Handle hiding fields with unnecessary info (address / token)
             if(['address','token'].includes(type)){
                 // Set the index for the field to hide
@@ -2890,7 +2876,49 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).text(loc || '-');
             }
         }
-    });
+    };
+    if(emptySearch){
+        // No feed, no request: DataTables paints its own zeroRecords row from a
+        // local empty dataset, so a bare search page renders an empty-but-correct
+        // table in every tab and touches the network zero times. "No records found"
+        // would be the wrong words here - nothing was looked up - so this state
+        // says what the reader has to do instead.
+        dtOptions.data = [];
+        dtOptions.language.zeroRecords = 'Enter a search term above to see results';
+    } else {
+        dtOptions.ajax = {
+            url: url,
+            data: function(data){
+                // Pass action and offset with request
+                var action = null,
+                    offset = null;
+                if(data.start==0){
+                    action = 'first';
+                } else if(data.start > (track['last_start'] + data.length)){
+                    action = 'last';
+                } else if(data.start >= track['last_start']){
+                    action = 'next';
+                    offset = track['offset_last'];
+                } else {
+                    action = 'prev';
+                    offset = track['offset_first'];
+                }
+                // Pass action and offset forward
+                data.action = action;
+                data.offset = offset;
+                // pass total back to server (lets it quickly calculate how many records to display on 'last' page)
+                data.total =  track['total'];
+                if(['subtoken','roster'].includes(type))
+                    data.sortorder = 'ASC';
+                // Cleanup the request so we only send what we need
+                delete data.columns;
+                delete data.order;
+                delete data.search;
+                delete data.draw;
+            }
+        };
+    }
+    $('#' + tableId).dataTable(dtOptions);
 }
 
 // Load an action's rows directly from the API and hand the response to callback;

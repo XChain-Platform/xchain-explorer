@@ -2038,7 +2038,63 @@ class ActionListReaders {
                     ORDER BY ` + order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];
-    } 
+    }
+
+    // Collectibles gallery feed (spec explorer-coverage-completion M5.1). The
+    // CLASSIFICATION is the whole product decision here, and it is taken from ISSUE
+    // fields rather than from a flag the protocol does not have: a collectible is a
+    // token that is INDIVISIBLE (decimals=0) and whose ceiling can no longer move
+    // (lock_max_supply=1). Both columns carry their own index on `tokens`, so the
+    // filter is served rather than scanned, which is why the pair was chosen over
+    // any heuristic on supply size or description text.
+    //
+    // What this deliberately does NOT do is curate. There is no allowlist, no
+    // minimum supply and no "featured" set: the gallery shows every token the two
+    // ISSUE fields classify, newest first, and says so on the page. A curated set
+    // would be an editorial claim the explorer has no authority to make, and the
+    // classification above is checkable by anyone reading the ISSUE.
+    //
+    // TYPE lanes reuse the generic getQueryWhereSql branches (a2.address for the
+    // owner lane, b1.block_index for the issue-block lane), which is why the joins
+    // and aliases below match getTokens exactly.
+    async getCollectibles(config){
+        let sql   = config.data.sql;
+        let type  = config.data.type;
+        // Same phantom-bind hazard getTokens documents: the list-all WHERE has no
+        // placeholder, so only the filtered lanes seed a search arg.
+        let args  = ['block','address'].includes(type) ? [config.data.search] : [];
+        let from  = `
+                        tokens m
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)`;
+        let count = `SELECT
+                        count(*) as total
+                    FROM ` + from + `
+                    WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        t3.tick,
+                        m.supply,
+                        m.max_supply,
+                        m.decimals,
+                        m.lock_max_supply,
+                        m.lock_mint,
+                        m.description,
+                        a2.address as owner,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        m.action_index
+                    FROM ` + from + `
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, args, count];
+    }
 }
 
 module.exports = ActionListReaders.prototype;

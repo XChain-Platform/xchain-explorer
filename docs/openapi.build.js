@@ -237,6 +237,11 @@ const ROUTES = [
     ['/{COIN}/api/projects/{QUERY}/{TYPE}', 'getProjectTokens', ['roster'], 'Tokens', 'Project registry roster, paginated list form (mirrors the explorer projects feed)'],
     ['/{COIN}/api/token/{QUERY}', 'getToken', 'token', 'Tokens', 'Token detail (supply, info, NFT/registry surfaces)'],
     ['/{COIN}/api/tokens/{QUERY}/{TYPE}', 'getTokens', ['block', 'address', 'token', 'subtoken'], 'Tokens', 'Token search'],
+    // Composed product views (M5). The classification and the ranking cap are part of
+    // the contract, so both are stated in the description rather than left to the page.
+    ['/{COIN}/api/collectibles', 'getCollectibles', null, 'Tokens', 'Collectibles: tokens classified from their ISSUE fields as indivisible (DECIMALS=0) with a frozen ceiling (LOCK_MAX_SUPPLY). No curation is applied'],
+    ['/{COIN}/api/collectibles/{QUERY}/{TYPE}', 'getCollectibles', ['block', 'address'], 'Tokens', 'Collectibles filtered by issue block or current owner'],
+    ['/{COIN}/api/rich_list/{QUERY}', 'getRichList', 'token', 'Tokens', 'One token’s holder ranking and supply stats: circulating supply, holder count, the summed balances alongside it, and the top holders (capped at the request limit, 100 max) with each holder’s percent of circulating supply. Zero balances are excluded. There is no cross-token ranking route'],
     ['/{COIN}/api/transaction/{QUERY}/{TYPE}', 'getTransaction', ['tx_hash', 'tx_index'], 'Core', 'Transaction lookup'],
     // ── Markets ───────────────────────────────────────────────────────────
     ['/{COIN}/api/markets', 'getMarkets', null, 'Markets', 'All trading pairs'],

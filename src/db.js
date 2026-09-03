@@ -344,7 +344,16 @@ class Database {
             // page on the preserved client cursor; getQueryOffsetSql gives getCheckpoints
             // and getCommitments their own m.block_index cursor field below (not m.id),
             // since both lists ORDER BY the committed height.
-            'getCheckpoints','getCapabilitySnapshots','getAnchorRewardAttestations','getCommitments'
+            'getCheckpoints','getCapabilitySnapshots','getAnchorRewardAttestations','getCommitments',
+            // getCollectibles -> 'collectibles' is not a table (the rows are `tokens`
+            // filtered by the M5.1 classification), so the get->lowercase mangle cannot
+            // find a boundary; it pages on the preserved client cursor over m.id.
+            // The gallery is /api-only today (it pages by ?page=, and the cursor path
+            // runs for /explorer requests alone), so this entry and its sibling in
+            // getQueryOffsetSql are armed rather than exercised: they exist so that
+            // registering an /explorer feed later cannot silently page this method on
+            // the wrong column, which is the failure the cursor list itself documents.
+            'getCollectibles'
         ];
 
     }
@@ -1514,6 +1523,19 @@ class Database {
             if(type=='contract')  sql += ' AND ce.contract_index=?';
             if(type=='execution') sql += ' AND m.execution_index=?';
             if(type=='block')     sql += ' AND ce.block_index=?';
+        } else if(method=='getCollectibles'){
+            // M5.1's classification lives HERE, not in the reader, so it binds the COUNT
+            // query as well as the row query: a filter applied only in the reader's row
+            // SELECT would page a gallery whose `total` counted every token on the chain.
+            // decimals=0 AND lock_max_supply=1 is the ISSUE-field definition of a
+            // collectible (indivisible, ceiling frozen); both columns are indexed. It is
+            // not invented here: it is the SAME rule the client already ships as
+            // isNftToken (src/content/js/formatters.js), which itself mirrors
+            // sdk.nft.isNft, so the gallery classifies exactly what the token page's own
+            // NFT badge classifies rather than introducing a second definition.
+            sql += ' AND m.decimals=0 AND m.lock_max_supply=1';
+            if(type=='block')   sql += ' AND b1.block_index=?';
+            if(type=='address') sql += ' AND a2.address=?';
         } else if(method=='getXcalls'){
             // xcalls joins the actions/transactions/blocks chain (b1 alias); filter on its own columns.
             // contract = the source contract that emitted the call (contract_index, now indexed).
@@ -1635,7 +1657,10 @@ class Database {
             let field = 'm.action_index';
             if(method=='getBlocks')
                 field = 'b1.block_index';
-            if(method=='getTokens')
+            // getCollectibles is getTokens' filtered sibling and ORDERs BY the same
+            // column, so it takes the same cursor: `tokens` has no per-row action_index
+            // uniqueness (a re-ISSUE stamps last_action_index, not a new row).
+            if(['getTokens','getCollectibles'].includes(method))
                 field = 'm.id';
             // state_checkpoints has no action_index, and unlike the id-keyed views below
             // it is not keyed by m.id either: the list ORDERs BY m.block_index (the
@@ -9735,6 +9760,250 @@ class Database {
             capability_slash_events: capabilitySlashes || [],
             slash_events:            contractSlashes   || []
         }];
+    }
+
+    // Composed RICH LIST + supply stats for ONE token (spec explorer-coverage-completion
+    // M5.2). Returns [object], null when the tick was never issued, following the
+    // getXcall/getPoll single-record shape.
+    //
+    // THE COST CAP IS THE DESIGN, so it is stated rather than left to a reader to find:
+    //  - This is a PER-TOKEN ranking and there is deliberately no cross-token "richest
+    //    addresses on the chain" page. That query has no indexed driving column - it
+    //    would sort the whole `balances` table - and the platform already has a
+    //    DoS-shaped hang on record from exactly this table (getHolders' tick guard).
+    //  - The tick is resolved to an id FIRST, in one unique point read, and every leg
+    //    below binds `m.tick_id`, which is indexed. getHolders binds `t3.tick` through a
+    //    LEFT JOIN instead, which is why it needs its own existence guard to avoid a
+    //    full scan; resolving first removes that whole failure mode here.
+    //  - The ranking is capped at the caller's already-clamped limit (1..100), and the
+    //    holder COUNT is a separate bounded aggregate rather than a count of the rows
+    //    returned, so "top 100 of 4,812 holders" is honest rather than truncated.
+    //
+    // Percentages are computed against CIRCULATING supply (tokens.supply), not max
+    // supply: an unminted ceiling is not held by anyone, and dividing by it would
+    // publish a concentration figure that understates every holder. Supply is a
+    // VARCHAR on this schema and amounts can exceed 2^53, so every figure goes through
+    // the bignumber helpers rather than through Number().
+    async getRichList(config){
+        let limit = this._detailLimit(config);
+        let tick  = String(config.data.search || '');
+        let tickRow = await this.doQuery(config,
+            'SELECT id FROM index_tickers WHERE tick=? LIMIT 1', [tick]);
+        if(!tickRow || !tickRow.length) return [null];
+        let tickId = Number(tickRow[0].id);
+        let tokenRow = await this.doQuery(config,
+            `SELECT
+                t3.tick,
+                m.supply,
+                m.max_supply,
+                m.max_mint,
+                m.decimals,
+                m.lock_max_supply,
+                m.lock_mint,
+                m.description,
+                a2.address as owner,
+                m.action_index,
+                m.block_index
+            FROM
+                tokens m
+                LEFT JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                LEFT JOIN index_addresses a2 ON (a2.id=m.owner_id)
+            WHERE m.tick_id=?
+            LIMIT 1`, [tickId]);
+        // A tick can be interned by a reference (an ORDER naming a tick that was never
+        // issued) without a `tokens` row ever existing, so an interned id is not proof
+        // of a token. Answer not-found rather than composing supply stats around nulls.
+        if(!tokenRow || !tokenRow.length) return [null];
+        let token = tokenRow[0];
+
+        // Holder census. Zero balances are excluded from BOTH the count and the ranking:
+        // an address that once held the token and sent it all away is not a holder, and
+        // counting it inflates the denominator of every "share of holders" figure a
+        // reader might compute. amount is a VARCHAR, so the comparison is on the CAST.
+        let census = await this.doQuery(config,
+            `SELECT
+                count(*) as holder_count,
+                COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as held_total
+            FROM balances m
+            WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0`, [tickId]);
+        let holderCount = (census && census.length) ? Number(census[0].holder_count) : 0;
+        let heldTotal   = (census && census.length) ? String(census[0].held_total)   : '0';
+
+        let holders = await this.doQuery(config,
+            `SELECT
+                a2.address,
+                m.amount
+            FROM
+                balances m
+                LEFT JOIN index_addresses a2 ON (a2.id=m.address_id)
+            WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0
+            ORDER BY CAST(m.amount AS DECIMAL(65,18)) DESC
+            LIMIT ` + limit, [tickId]) || [];
+
+        // The denominator. Circulating supply is the token's own `supply` column; the
+        // summed balances are carried alongside rather than substituted for it, because
+        // a disagreement between the two is a real indexer symptom and hiding it behind
+        // whichever number makes the percentages total 100 would erase the evidence.
+        let supply = this.util.isNull(token.supply) ? '0' : String(token.supply);
+        let ranked = [];
+        let rank   = Number(config.data.sql && this.util.isNumeric(config.data.sql.apiOffset)
+            ? Number(config.data.sql.apiOffset) : 0);
+        for(const h of holders){
+            rank++;
+            ranked.push({
+                rank:    rank,
+                address: h.address,
+                amount:  h.amount,
+                percent: this._supplyPercent(h.amount, supply)
+            });
+        }
+        return [{
+            tick:            token.tick,
+            supply:          supply,
+            max_supply:      token.max_supply,
+            max_mint:        token.max_mint,
+            decimals:        token.decimals,
+            lock_max_supply: token.lock_max_supply,
+            lock_mint:       token.lock_mint,
+            description:     token.description,
+            owner:           token.owner,
+            action_index:    token.action_index,
+            block_index:     token.block_index,
+            holder_count:    holderCount,
+            // Sum of every non-zero balance. Equal to `supply` on a healthy index; kept
+            // as its own field precisely so the two can be compared.
+            held_total:      heldTotal,
+            ranked_count:    ranked.length,
+            top_holder_percent: ranked.length ? ranked[0].percent : null,
+            // Concentration of the top ten, which is the figure a reader actually wants
+            // from a rich list. Null (not 0) when fewer than ten holders were ranked, so
+            // "we did not measure this" never reads as "the top ten hold nothing".
+            top_ten_percent: (ranked.length >= 10)
+                ? this._supplyPercent(this._supplySum(ranked.slice(0, 10)), supply)
+                : null,
+            holders:         ranked
+        }];
+    }
+
+    // Sum of a ranked slice's amounts as a fixed-18 STRING, or null when any member is
+    // unreadable. Null rather than a partial sum on purpose: a concentration figure
+    // computed over nine of ten balances is wrong, not approximate.
+    _supplySum(rows){
+        try {
+            let acc = '0';
+            for(const r of rows) acc = this.util.bcformat(this.util.bcadd(acc, String(r.amount), 18), 18);
+            return acc;
+        } catch(e){
+            return null;
+        }
+    }
+
+    // Percent of `supply` that `amount` represents, as a fixed-8 STRING. Null when the
+    // supply is zero or unreadable: a percentage of nothing is undefined, and returning
+    // 0 there would render as "holds none of it" for an address that holds all of it.
+    _supplyPercent(amount, supply){
+        if(this.util.isNull(amount) || this.util.isNull(supply)) return null;
+        // Both figures arrive from VARCHAR columns, so a malformed row is a real
+        // possibility and mathjs THROWS on one rather than returning NaN. A percentage
+        // is decoration on a page whose subject is the balance itself; refusing to
+        // render the whole rich list because one row's amount is junk would be worse
+        // than omitting that row's percentage.
+        try {
+            let s = this.util.bcformat(supply, 18);
+            let a = this.util.bcformat(amount, 18);
+            if(!this.util.bcgt(s, '0')) return null;
+            return this.util.bcformat(
+                this.util.bcdiv(this.util.bcmul(a, '100', 18), s, 18), 8);
+        } catch(e){
+            return null;
+        }
+    }
+
+    // XCALL phase transitions latched since the cursor's block (spec
+    // explorer-coverage-completion M5.4). This is the XCALL analogue of
+    // getBetFeedsClosedSince and exists for the same reason: the transition that ends a
+    // call's life on the SOURCE chain - request_status going pending -> completed - is a
+    // direct status write performed by the callback interlock, with NO action row of its
+    // own for the ChangeDetector's actions cursor to find. `resolved_block` is the height
+    // at which that write happened, so it is the cursor column.
+    //
+    // Expired calls are included even though XCALL v2 does mint an action row: the v2
+    // action is a SEPARATE xcalls row (version 2) whose action name is XCALL, so a
+    // subscriber filtering on the phase events would otherwise see completions but not
+    // expiries, which is the asymmetry that makes a live timeline wrong rather than
+    // merely incomplete. The event carries `synthetic` so a consumer can tell which of
+    // the two had a causing action.
+    // Current phase of ONE cross-chain call, for the WS `xcall` channel's SNAPSHOT
+    // frame (spec explorer-coverage-completion M5.4). Sibling of getBetFeedInfo /
+    // getDispenserInfo: a plain (config, key) point read that the WS server can call
+    // without assembling a request config. Null when this chain has no row for the
+    // call_id, which is a normal answer on the TARGET chain of a call.
+    //
+    // Pinned to the VALID row for the same reason getXcall is: a call_id can carry
+    // more than one xcalls row (a rejected attempt indexes alongside the accepted
+    // request), and a snapshot built from an invalid row would open the subscription
+    // on a lifecycle that never happened.
+    async getXcallInfo(config, callId){
+        let rows = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                m.call_id,
+                m.contract_index,
+                a2.address as source,
+                m.target_chain,
+                m.target_contract_index,
+                m.method,
+                m.gas_limit,
+                m.deadline_block,
+                m.request_status,
+                m.result_status,
+                m.resolved_block,
+                m.callback_action_index,
+                m.block_index,
+                s1.status
+            FROM
+                xcalls m
+                LEFT JOIN actions         a1 ON (a1.action_index=m.action_index)
+                LEFT JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                LEFT JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                LEFT JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE m.call_id=? AND s1.status='valid'
+            ORDER BY m.action_index DESC
+            LIMIT 1`, [callId]);
+        return (rows && rows.length) ? rows[0] : null;
+    }
+
+    async getXcallPhasesSince(config, sinceBlockIndex, limit){
+        let query = `SELECT
+                        m.action_index,
+                        m.call_id,
+                        m.version,
+                        m.contract_index,
+                        m.target_chain,
+                        m.target_contract_index,
+                        m.method,
+                        m.request_status,
+                        m.result_status,
+                        m.resolved_block,
+                        m.callback_action_index,
+                        m.deadline_block,
+                        a2.address as source,
+                        s1.status
+                    FROM
+                        xcalls m
+                        LEFT JOIN actions         a1 ON (a1.action_index=m.action_index)
+                        LEFT JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                        LEFT JOIN index_statuses  s1 ON (s1.id=m.status_id)
+                    WHERE
+                        m.resolved_block > ?
+                        AND m.request_status IN ('completed','expired')
+                        AND s1.status='valid'
+                    ORDER BY m.resolved_block ASC, m.action_index ASC
+                    LIMIT ?`;
+        let results = await this.doQuery(config, query, [sinceBlockIndex, limit]);
+        return results || [];
     }
 
     async getAttestationsSince(config, sinceBlockIndex, limit){

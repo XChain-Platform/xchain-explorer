@@ -1,0 +1,91 @@
+<!-- Unified governance view: XChain's two governance systems on one page, side by
+     side and explicitly NOT merged. -->
+
+<div class="container mt-3">
+    <div class="row">
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-scale-balanced"></i> Governance
+                </div>
+                <div class="card-body p-2 small text-muted" id="governance-explainer">
+                    XChain is governed by two separate systems, and this page shows both
+                    without combining them. <strong>Token polls</strong> are on-chain VOTE
+                    actions: anyone can open one on a token they control, and the electorate
+                    is that token's holders, weighted by balance at the poll's close block.
+                    <strong>Network parameter proposals</strong> live with the federation
+                    hub: they change consensus parameters, and the electorate is the staked
+                    validator set. Neither can decide the other's questions, so there is no
+                    combined tally here.
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-square-poll-vertical"></i> Token Polls
+                    <span class="fw-normal small text-muted">decided by token holders, recorded on this chain</span>
+                </div>
+                <div class="card-body p-2" id="governance-polls">
+                    <span class="text-muted">Loading token polls...</span>
+                </div>
+                <div class="card-footer p-1 small">
+                    <a href="/{COIN}/polls" id="governance-polls-all">All polls</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-sliders"></i> Network Parameter Proposals
+                    <span class="fw-normal small text-muted">decided by the staked validator set, served by the federation hub</span>
+                </div>
+                <div class="card-body p-2" id="governance-proposals">
+                    <span class="text-muted">Loading parameter proposals...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript" src="/js/governance-overview-render.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+    // Page size for each half. Both are previews of their own full surface, not
+    // paged lists: the polls list page already exists and pages properly.
+    var GOVERNANCE_PREVIEW = 25;
+
+    XC.pageInfo.title       = 'Governance';
+    XC.pageInfo.description = 'Token polls and network parameter proposals on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network - the two governance systems, side by side.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/governance';
+    updatePageInfo();
+
+    $('#governance-polls-all').attr('href', '/' + XC.coin + '/polls');
+
+    // The two halves are fetched INDEPENDENTLY and neither waits on the other.
+    // The proposals half is hub-backed and fails loud by design, so chaining them
+    // would let a hub outage blank the on-chain half as well.
+    $.getJSON('/' + XC.coin + '/api/polls?limit=' + GOVERNANCE_PREVIEW, function(o){
+        var rows = (o && Array.isArray(o.data)) ? o.data : [];
+        $('#governance-polls').html(renderGovernancePolls(rows));
+    }).fail(function(xhr){
+        var body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        $('#governance-polls').html(govUnavailable(
+            (body.error ? body.error : 'Could not load token polls') + '.', 'warning'));
+    });
+
+    $.getJSON('/' + XC.coin + '/api/governance_proposals?limit=' + GOVERNANCE_PREVIEW, function(o){
+        var rows = (o && Array.isArray(o.data)) ? o.data : [];
+        $('#governance-proposals').html(renderGovernanceProposals(rows));
+    }).fail(function(xhr){
+        var body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        $('#governance-proposals').html(renderGovernanceProposalsOutage(body.error));
+    });
+
+});
+</script>

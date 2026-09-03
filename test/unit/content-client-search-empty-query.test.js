@@ -35,7 +35,7 @@ const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
 const CONTENT    = path.resolve(__dirname, '../../src/content');
-const CLIENT_SRC = fs.readFileSync(path.join(CONTENT, 'js', 'xchain.js'), 'utf8');
+const CLIENT_SRC = require('../helpers/content-source.js').clientSource();
 const JQUERY     = path.join(CONTENT, 'js', 'jquery.min.js');
 
 // The four result tabs search.html registers in XC.panels.

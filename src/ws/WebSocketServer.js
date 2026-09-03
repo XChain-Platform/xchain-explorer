@@ -724,6 +724,18 @@ class WebSocketServer {
                         snapshotData = { channel: 'bet_feed', action_index: sub.action_index, ...(betFeedInfo || {}) };
                         break;
                     }
+                    // xcall is call_id-keyed. The snapshot is the SAME lifecycle
+                    // composition the detail page reads (getXcall), so a client that
+                    // subscribes gets the call's current phase immediately and the live
+                    // frames then describe transitions from that point rather than
+                    // arriving with no baseline. `data` is spread the way the sibling
+                    // cases do; an unknown call_id leaves only the identity fields,
+                    // which is the honest snapshot of a call this chain has no row for.
+                    case 'xcall': {
+                        const xcallInfo = await db.getXcallInfo(config, sub.call_id);
+                        snapshotData = { channel: 'xcall', call_id: sub.call_id, ...(xcallInfo || {}) };
+                        break;
+                    }
                 }
 
                 if (snapshotData) {

@@ -79,6 +79,39 @@ function loadClientFns() {
     return { fns, dom };
 }
 
+// Run the height-report shim that buildSandboxedContentDoc() embeds, in a context
+// where the body's measured height is ours to control. Returns the messages it posted
+// to the parent, a `fire` to dispatch a window event, and the mutable `state` whose
+// bodyHeight stands in for the content reflowing. Layout is faked because jsdom has
+// none; what is under test is which box the shim measures and when it re-reports.
+function runHeightShim({ bodyHeight, marginTop = 8, marginBottom = 8 }) {
+    const script = buildSandboxedContentDocFn()('<div>art</div>').match(/<script>([\s\S]*?)<\/script>/)[1];
+    const dom    = new JSDOM('<!DOCTYPE html><body><div>art</div></body>');
+    const posted = [];
+    const state  = { bodyHeight };
+    const listeners = {};
+    dom.window.document.body.getBoundingClientRect = () => ({ height: state.bodyHeight });
+    const context = vm.createContext({
+        // No ResizeObserver here (jsdom has none), so the shim must still work off
+        // plain load/resize events - the path every older browser takes too.
+        window: {
+            addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); },
+            getComputedStyle: () => ({ marginTop: marginTop + 'px', marginBottom: marginBottom + 'px' }),
+        },
+        document:   dom.window.document,
+        parent:     { postMessage: (msg) => posted.push(msg) },
+        setTimeout: () => {},   // the late-poll timers are driven explicitly via fire()
+    });
+    vm.runInContext(script, context);
+    return { posted, state, script, fire: (type) => (listeners[type] || []).forEach((fn) => fn()) };
+}
+
+// buildSandboxedContentDoc lives in the extracted-function sandbox, which is built
+// per-test; grab a fresh copy rather than leaning on describe-scoped state.
+function buildSandboxedContentDocFn() {
+    return loadClientFns().fns.buildSandboxedContentDoc;
+}
+
 // Parse an HTML fragment inertly and report which element tag names it produced
 // and whether any carry an inline event handler / on* attribute.
 function inspect(html) {
@@ -262,6 +295,130 @@ describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', func
             expect(m, 'customContentViewer must declare a sandbox').to.not.equal(null);
             expect(m[1]).to.contain('allow-scripts');
             expect(m[1]).to.not.contain('allow-same-origin'); // would re-grant explorer-origin access
+        });
+
+        // The viewer resizes itself from the child's own reports, so the report must be
+        // a FIXED POINT: apply it, re-measure, get the same number. The first shim
+        // reported documentElement.scrollHeight, which is floored at the iframe's
+        // viewport height, and the parent added 16px to it. Each resize therefore
+        // echoed back 16px taller and the page grew without end (TDOGE FAIRYWINK).
+        it('reports the body box plus its margins, not the viewport-floored scrollHeight', function () {
+            const { posted, fire, script } = runHeightShim({ bodyHeight: 840 });
+            // scrollHeight on documentElement can never fall below the frame's own
+            // height, so a report built from it can only ratchet upward.
+            expect(script).to.not.contain('documentElement.scrollHeight');
+            fire('load');
+            expect(posted).to.have.lengthOf(1);
+            expect(posted[0].type).to.equal('xchain-iframe-height');
+            expect(posted[0].height).to.equal(840 + 8 + 8);  // body box + its two margins
+        });
+
+        it('suppresses repeat reports of an unchanged height (no resize pump)', function () {
+            const { posted, fire, state } = runHeightShim({ bodyHeight: 840 });
+            fire('load');
+            fire('resize');
+            fire('resize');
+            expect(posted, 'an unchanged height must not be re-posted').to.have.lengthOf(1);
+            state.bodyHeight = 500;                          // content genuinely reflowed
+            fire('resize');
+            expect(posted).to.have.lengthOf(2);
+            expect(posted[1].height).to.equal(500 + 16);
+        });
+
+        it('the page hands the viewer a URL, never a srcdoc string (cross-lock)', function () {
+            // srcdoc/blob:/data: documents INHERIT this page's CSP, whose frame-src
+            // admits only 'self', youtube and soundcloud - which is why token art
+            // embedding any other host rendered as a broken-page placeholder. The
+            // fetched /content-viewer document carries its own policy instead.
+            const click = SRC.slice(SRC.indexOf("$('#loadCustomContentButton').click"));
+            expect(click).to.not.contain("attr('srcdoc'");
+            expect(click).to.contain("attr('src', '/content-viewer')");
+            // The content follows over postMessage once the frame says it is listening.
+            expect(SRC).to.contain('xchain-iframe-ready');
+            expect(SRC).to.contain('xchain-iframe-content');
+        });
+
+        it('the parent applies the reported height verbatim and clamps it (cross-lock)', function () {
+            // Any constant added here re-enters the child's resize handler with a bigger
+            // number every round trip, which is exactly the runaway this pair fixes.
+            const handler = SRC.slice(SRC.indexOf('xchain-iframe-height'));
+            expect(handler).to.not.match(/d\.height\s*\+\s*\d/);
+            expect(handler).to.contain('MAX_CUSTOM_CONTENT_HEIGHT');
+            expect(SRC).to.match(/MAX_CUSTOM_CONTENT_HEIGHT\s*=\s*\d+/);
+            expect(handler).to.contain('Math.min');
+        });
+    });
+
+    // src/content/sandbox/content-viewer.html is the document the token page points
+    // its sandboxed frame at. It takes the art over postMessage, so its acceptance
+    // rules are a security surface in their own right: one sender, one write.
+    describe('content-viewer.html (the sandboxed viewer shell)', function () {
+        const SHELL = path.resolve(__dirname, '../../src/content/sandbox/content-viewer.html');
+
+        // Boot the shell in jsdom with its script live. Messages are dispatched with an
+        // explicit `source` because jsdom's own postMessage leaves it null, which is
+        // indistinguishable from the impostor case the shell is supposed to refuse. In a
+        // top-level document window.parent === window, so the window itself stands in
+        // for the embedding page.
+        function bootShell() {
+            const dom = new JSDOM(fs.readFileSync(SHELL, 'utf8'), {
+                runScripts: 'dangerously',
+                url: 'https://explorer.example/content-viewer',
+            });
+            const seen = [];
+            dom.window.addEventListener('message', (e) => seen.push(e.data));
+            const settle = () => new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+            const send = (data, source = dom.window) =>
+                dom.window.dispatchEvent(new dom.window.MessageEvent('message', { data, source }));
+            return { dom, seen, settle, send };
+        }
+
+        const ART = '<!DOCTYPE html><html><body><h1 id="art">art</h1></body></html>';
+
+        it('announces itself to the parent, which is what releases the content', async function () {
+            const { seen, settle } = bootShell();
+            await settle();
+            expect(seen.map(d => d && d.type)).to.contain('xchain-iframe-ready');
+        });
+
+        it('writes the document it is handed (scripts intact, not innerHTML-stripped)', async function () {
+            const { dom, settle, send } = bootShell();
+            await settle();
+            send({ type: 'xchain-iframe-content', doc: ART });
+            await settle();
+            expect(dom.window.document.getElementById('art'), 'the art must be written into the document').to.not.equal(null);
+        });
+
+        it('takes exactly one write, so the art cannot be swapped out later', async function () {
+            const { dom, settle, send } = bootShell();
+            await settle();
+            send({ type: 'xchain-iframe-content', doc: ART });
+            await settle();
+            send({
+                type: 'xchain-iframe-content',
+                doc:  '<!DOCTYPE html><html><body><h1 id="replaced">replaced</h1></body></html>',
+            });
+            await settle();
+            expect(dom.window.document.getElementById('replaced'), 'a second write must be refused').to.equal(null);
+            expect(dom.window.document.getElementById('art')).to.not.equal(null);
+        });
+
+        it('ignores a message that is not from the parent frame', async function () {
+            const { dom, settle, send } = bootShell();
+            await settle();
+            // Same payload, wrong sender: how a nested or sibling frame would try to
+            // feed the viewer content the embedding page never approved.
+            send({ type: 'xchain-iframe-content', doc: ART }, null);
+            await settle();
+            expect(dom.window.document.getElementById('art'), 'only the parent may supply content').to.equal(null);
+        });
+
+        it('ignores a message whose doc is not a string', async function () {
+            const { dom, settle, send } = bootShell();
+            await settle();
+            send({ type: 'xchain-iframe-content', doc: { toString: 'not a string' } });
+            await settle();
+            expect(dom.window.document.body.querySelector('h1')).to.equal(null);
         });
     });
 

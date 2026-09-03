@@ -4514,12 +4514,27 @@ function displayTokenIcon(image){
 // explorer's cookies/storage/DOM; a tiny shim posts its rendered height back to
 // the parent (one-way) for auto-resize. (Replaces the old same-origin
 // resizeIframe(), which only worked because the iframe was NOT sandboxed.)
+// The shim measures the BODY box plus its margins, never documentElement.scrollHeight:
+// that value is floored at the iframe's own viewport height, so each report echoed the
+// height the parent had just set. With the parent's old +16 padding on top, every resize
+// round trip grew the frame by another 16px and the page scrolled without end (seen on
+// TDOGE FAIRYWINK, whose artwork is sized as a percentage of its width). Body height is
+// content-derived, so a report is now a fixed point: the parent applies it, the child
+// re-measures the same number, and the loop settles.
 function buildSandboxedContentDoc(html){
     var shim = '<scr' + 'ipt>(function(){'
-        + 'function post(){try{parent.postMessage({type:"xchain-iframe-height",'
-        + 'height:document.documentElement.scrollHeight},"*");}catch(e){}}'
+        + 'var last=-1;'
+        + 'function measure(){var b=document.body;if(!b)return 0;'
+        + 'var cs=window.getComputedStyle(b);'
+        + 'return Math.ceil(b.getBoundingClientRect().height'
+        + '+(parseFloat(cs.marginTop)||0)+(parseFloat(cs.marginBottom)||0));}'
+        // Suppress unchanged heights so a resize storm cannot pump the parent.
+        + 'function post(){var h=measure();if(h===last)return;last=h;'
+        + 'try{parent.postMessage({type:"xchain-iframe-height",height:h},"*");}catch(e){}}'
         + 'window.addEventListener("load",post);'
         + 'window.addEventListener("resize",post);'
+        // Catches content that reflows on its own (late images, nested frames, animation).
+        + 'if(window.ResizeObserver)new ResizeObserver(post).observe(document.documentElement);'
         + '[100,250,500,1000,2000].forEach(function(t){setTimeout(post,t);});'
         + '})();</scr' + 'ipt>';
     return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
@@ -4937,26 +4952,54 @@ function showTokenContent(json){
         $('#custom-content-header').show();
         $('#custom-content-wrapper').show();
         // Handle loading custom content when the user clicks the "Load Content" button.
-        // Inject via srcdoc into the sandboxed iframe (it has no allow-same-origin, so
-        // el.contents() is cross-origin and unreachable). The content renders in an
-        // opaque origin and cannot touch the explorer's cookies/storage/DOM.
+        // The viewer document is FETCHED from /content-viewer rather than injected as
+        // srcdoc: a srcdoc document inherits this page's CSP, whose frame-src admits
+        // only 'self', youtube and soundcloud, so art embedding any other host rendered
+        // as a broken-page placeholder. The route's response carries a policy of its own
+        // (XChainExplorer.CONTENT_VIEWER_CSP). Containment is unchanged and does not
+        // depend on that policy: the iframe's sandbox has no allow-same-origin, so the
+        // content sits in an opaque origin and cannot touch the explorer's
+        // cookies/storage/DOM, and el.contents() stays unreachable from here.
         $('#loadCustomContentButton').click(function(){
             $('#customContentWarning').hide();
             var el = $('#customContentViewer');
-            el.attr('srcdoc', buildSandboxedContentDoc(cachedJson.html));
+            // Held, not posted: the viewer asks for it once it is listening.
+            XC.pendingCustomContent = buildSandboxedContentDoc(cachedJson.html);
+            el.attr('src', '/content-viewer');
             el.show();
         });
-        // Auto-resize from the sandboxed iframe's own height reports (postMessage).
-        // Bound once; strictly validates the source frame, message type, and a finite
-        // numeric height, and does nothing else with the message (no injection/eval).
+        // Bound once, and the only conversation this page has with the viewer: it hands
+        // the content over when the frame reports itself ready, and applies the height
+        // the frame reports as it renders. Both legs strictly validate the source frame
+        // and the message shape, and nothing in a message is ever injected or evaluated.
         if(!XC.customContentResizeBound){
             XC.customContentResizeBound = true;
+            // A hostile or broken report must not be able to stretch the page without
+            // limit. The frame is scrolling="no", so anything past this cap is clipped:
+            // at ~60 screens tall, only broken or deliberate content can reach it.
+            var MAX_CUSTOM_CONTENT_HEIGHT = 20000;
             window.addEventListener('message', function(e){
                 var iframe = document.getElementById('customContentViewer');
                 if(!iframe || e.source !== iframe.contentWindow) return;
                 var d = e.data;
-                if(d && d.type === 'xchain-iframe-height' && typeof d.height === 'number' && isFinite(d.height))
-                    $(iframe).height(d.height + 16);
+                // The viewer is in an opaque origin, so '*' is the only target origin
+                // that can reach it; the e.source check above is what pins the recipient
+                // to our own frame. Handed over once per click, so a second 'ready' (a
+                // frame that reloaded itself) gets nothing.
+                if(d && d.type === 'xchain-iframe-ready' && XC.pendingCustomContent){
+                    var doc = XC.pendingCustomContent;
+                    XC.pendingCustomContent = null;
+                    e.source.postMessage({ type: 'xchain-iframe-content', doc: doc }, '*');
+                    return;
+                }
+                if(!(d && d.type === 'xchain-iframe-height' && typeof d.height === 'number' && isFinite(d.height)))
+                    return;
+                // Apply the reported height verbatim (the shim already counts the body's
+                // margins). Adding any constant here would re-enter the child's resize
+                // handler with a bigger number every time and never converge.
+                var h = Math.max(0, Math.min(Math.round(d.height), MAX_CUSTOM_CONTENT_HEIGHT));
+                if(Math.abs(($(iframe).height() || 0) - h) >= 2)
+                    $(iframe).height(h);
             });
         }
     }

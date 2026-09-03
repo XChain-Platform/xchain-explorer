@@ -261,10 +261,12 @@
                                 <a class="btn btn-lg btn-success margin-top-5" id="loadCustomContentButton"><i class="fa fa-lg fa-play"></i> Load Content</a>
                             </div>
                             <!-- iFrame to load custom content. The token HTML is attacker-controlled
-                                 on-chain content, so it is injected via srcdoc (xchain.js) and sandboxed
-                                 WITHOUT allow-same-origin: it runs in an opaque origin and cannot reach
-                                 the explorer's cookies, storage, or DOM. Height is reported back over
-                                 postMessage for auto-resize. -->
+                                 on-chain content, so the frame is sandboxed WITHOUT allow-same-origin:
+                                 it runs in an opaque origin and cannot reach the explorer's cookies,
+                                 storage, or DOM. On click, xchain.js points it at /content-viewer (a
+                                 srcdoc document would inherit this page's CSP and refuse third-party
+                                 embeds) and hands the HTML over postMessage; the frame reports its
+                                 height back the same way for auto-resize. -->
                             <iframe id="customContentViewer" style="display:none;" frameborder=0 allowfullscreen scrolling="no" sandbox="allow-scripts allow-popups allow-forms allow-modals allow-presentation"></iframe>
                         </div>
 

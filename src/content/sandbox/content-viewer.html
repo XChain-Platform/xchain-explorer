@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>XChain custom content viewer</title>
+<!--
+    Host document for a token's custom HTML (the "Load Content" button on
+    token.html). It deliberately does NOT live in src/content/html/ and is not
+    part of the html route table: it is not a page, it is the inside of an
+    iframe, and it is served by processContentViewerRequest() so the response can
+    carry its own Content-Security-Policy.
+
+    That policy is the whole reason this file exists. Token art is author-written
+    HTML that routinely embeds a third-party player or canvas, and a srcdoc, blob:
+    or data: document INHERITS the embedding page's CSP - under the explorer's own
+    frame-src (only 'self', youtube and soundcloud) every other embed rendered as a
+    broken-page placeholder. A network-loaded document inherits nothing, so what
+    governs the art here is the header on this response.
+
+    Permissive about what the art may LOAD, absolute about what it may BE: the CSP
+    sandbox directive plus the iframe's sandbox attribute (neither granting
+    allow-same-origin) keep this document in an opaque origin, so it cannot reach
+    the explorer's cookies, storage or DOM however it is reached.
+-->
+</head>
+<body>
+<script>
+(function(){
+    var written = false;
+    window.addEventListener('message', function(e){
+        // The embedding explorer page is the only accepted sender, and it gets
+        // exactly one write: a second message cannot swap the art out later.
+        if(written || e.source !== window.parent)
+            return;
+        var d = e.data;
+        if(!d || d.type !== 'xchain-iframe-content' || typeof d.doc !== 'string')
+            return;
+        written = true;
+        // document.write rather than innerHTML: custom content is allowed to carry
+        // scripts (that is what the reader was warned about) and innerHTML would
+        // silently drop them, which srcdoc did not. Writing keeps THIS document, so
+        // the response's policy and this opaque origin still contain the result.
+        document.open();
+        document.write(d.doc);
+        document.close();
+    });
+    // The parent holds the content until it hears this; posting it last means the
+    // listener above is already installed when the content comes back.
+    try { parent.postMessage({ type: 'xchain-iframe-ready' }, '*'); } catch(e){}
+})();
+</script>
+</body>
+</html>

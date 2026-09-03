@@ -59,6 +59,45 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
     'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count'                   // Prices
 ]);
 
+// Lifecycle fields whose value the indexer writes AFTER the action confirmed.
+// A getActionData response carrying any of them is NOT immutable and must never
+// enter the action LRU, which has no TTL and reorg-only invalidation
+// (_isCacheableAction, and the header comment on
+// test/unit/db.action-state-cache.test.js for the family's first two members).
+//
+// The `state` block that guard already refuses is the same defect wearing the
+// one shape DISPENSER / ORDER / SWAP / LIST happen to share. These types carry
+// their mutable state as PLAIN COLUMNS instead, so they slipped past it:
+//
+//   request_status      ATTEST v0 request: pending -> completed, and pending ->
+//                       expired, the latter written by an ATTEST v2 that persists
+//                       NO ROW of its own (it only flips this column and stamps
+//                       resolved_block). Also XCALL's request row, pending ->
+//                       completed / expired. Measured on regtest: after an
+//                       expiry, /api/action/{idx} kept reporting `pending` while
+//                       /api/attestations reported `expired` for the same action.
+//   response_status     ATTEST response leg.
+//   result_status       XCALL execution outcome, null until the call executes.
+//   resolved_block      XCALL and VOTE poll, null until the round resolves.
+//   poll_status         VOTE poll: open -> passed / failed, with its tallies.
+//   feed_status         BET feed: open -> closed -> resolved / expired.
+//   bet_status          BET wager, and settled_block with it.
+//   settled_block       BET wager, null until the feed resolves.
+//   deactivation_block  DELEGATE: null until a later revoke deactivates the row.
+//
+// Matched by PRESENCE, not by value. Null is exactly the pending state these
+// fields hold at the moment a detail page is most likely to be asked for, so a
+// value test would cache the very reads that go stale (resolved_block is null
+// while the request is live and non-null forever after). Anything selecting one
+// of these columns is a lifecycle response, and recomputing one is cheaper than
+// serving a frozen answer for the life of the process.
+const MUTABLE_ACTION_FIELDS = Object.freeze([
+    'request_status', 'response_status', 'result_status', 'resolved_block',   // ATTEST, XCALL
+    'poll_status',                                                            // VOTE
+    'feed_status', 'bet_status', 'settled_block',                             // BET
+    'deactivation_block'                                                      // DELEGATE
+]);
+
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
 // instance is no longer serving current data for a coin. Deliberately far above
 // every chain's normal inter-block gap (BTC ~10min): a fail-closed gate that
@@ -287,15 +326,23 @@ class Database {
     // A NOT-FOUND response is not immutable either. When getActionType finds no
     // row yet (the normal state of an action_index in the seconds between its
     // block landing and the indexer writing its typed row), getActionData
-    // builds an all-null response with no `state` block, so it used to pass
-    // this guard and get memoized forever with no TTL and reorg-only
+    // builds an all-null response with no `state` block, so an unguarded check
+    // would pass this guard and memoize it forever with no TTL and reorg-only
     // invalidation - permanently blanking the action for anyone who asked one
     // moment too early. A real response always carries `action_index` (every
     // handler selects it, and deblankBaseline supplies it for a row-less
     // variant), so its absence is exactly the not-found case and nothing else.
+    //
+    // The third exclusion is the same defect on types that carry their mutable
+    // state as plain columns rather than a `state` block: an ATTEST or XCALL
+    // request_status, a VOTE poll_status, a BET feed/bet status. Those are
+    // listed, and the reasoning is written out, on MUTABLE_ACTION_FIELDS.
     _isCacheableAction(data){
         if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
-        return this.util.isNull(data['state']);
+        if(!this.util.isNull(data['state'])) return false;
+        for(let field of MUTABLE_ACTION_FIELDS)
+            if(Object.prototype.hasOwnProperty.call(data, field)) return false;
+        return true;
     }
     // Build an id/action cache key scoped to the coin AND its current reorg
     // generation (M-3). Coin-scoping also stops a bare address/tick key from
@@ -13157,3 +13204,4 @@ class Database {
 module.exports = Database;
 module.exports.DbQueryError = DbQueryError;
 module.exports.ACTION_SUMMARY_FIELDS = ACTION_SUMMARY_FIELDS;
+module.exports.MUTABLE_ACTION_FIELDS = MUTABLE_ACTION_FIELDS;

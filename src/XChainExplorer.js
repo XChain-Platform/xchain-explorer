@@ -239,6 +239,15 @@ class XChainExplorer {
                 '/{COIN}/prices'              : 'prices.html',
                 '/{COIN}/controllers'         : 'controllers.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
+                // M5 composed product views. Each of the three is a VIEW over data that
+                // already had an API, not a new data source: the gallery classifies
+                // `tokens` by its ISSUE fields, the rich list ranks `balances` for one
+                // tick, and the governance page puts two DELIBERATELY SEPARATE systems
+                // (indexer token polls, hub network-parameter proposals) side by side
+                // without merging them.
+                '/{COIN}/collectibles'        : 'collectibles.html',
+                '/{COIN}/rich_list/{QUERY}'   : 'rich_list.html',
+                '/{COIN}/governance'          : 'governance.html',
                 '/{COIN}/anchors'             : 'anchors.html',
                 // An anchor carries TWO heights and both are correct: block_index is the
                 // CHECKPOINTED height, which is what the commitments join keys off, while
@@ -555,6 +564,16 @@ class XChainExplorer {
                 '/{COIN}/api/pubkey/{QUERY}'                   : ['getPublicKey',        'address'],
                 // Project registry: current roster of a project tick (protocol/Project_Registry.md)
                 '/{COIN}/api/project/{QUERY}'                  : ['getProject',          'token'],
+                // M5.1 collectibles: `tokens` filtered to the indivisible + frozen-ceiling
+                // classification. Registered on /api only: the gallery is a card grid,
+                // not a DataTables list, so it carries no /explorer feed and owes no
+                // getPagingDataResults shaping branch.
+                '/{COIN}/api/collectibles'                     : ['getCollectibles'],
+                '/{COIN}/api/collectibles/{QUERY}/{TYPE}'      : ['getCollectibles',     ['block', 'address']],
+                // M5.2 rich list: ONE token's holder ranking plus its supply stats.
+                // Per-token by design; there is no cross-token ranking route, because
+                // that query has no indexed driving column (see getRichList's header).
+                '/{COIN}/api/rich_list/{QUERY}'                : ['getRichList',         'token'],
                 '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
                 '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken']],
                 '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],

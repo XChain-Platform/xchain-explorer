@@ -48,8 +48,9 @@ const NUMERAL = fs.readFileSync(path.join(CONTENT, 'js', 'numeral.js'), 'utf8');
 const RENDER_SRC  = fs.readFileSync(path.join(CONTENT, 'js', 'poll-tally-render.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(CONTENT, 'html', 'action.html'), 'utf8');
 
-const CLIENT_SRC = fs.readFileSync(path.join(CONTENT, 'js', 'xchain.js'), 'utf8');
-const POLLS_HTML = fs.readFileSync(path.join(CONTENT, 'html', 'polls.html'), 'utf8');
+const SOURCE     = require('../helpers/content-source.js');
+const CLIENT_SRC = SOURCE.clientSource();
+const POLLS_HTML = SOURCE.pageSource('polls.html');
 
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeExplorerConfig }   = require('../fixtures/mock-query-args.js');

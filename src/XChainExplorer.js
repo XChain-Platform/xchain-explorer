@@ -1601,8 +1601,30 @@ class XChainExplorer {
                     // result fires a contract method) are rendered columns; status (0/1
                     // action validity) + action_index stay LAST for the client's generic
                     // row-color + paging-cursor extraction (data[len-2]/data[len-1]).
-                    if(method=='getPolls')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.question, info.poll_status, info.end_block, info.callback_contract_index, status, info.action_index];
+                    // WINNER: polls.winning_option is an INDEX into the poll's options, so
+                    // option 0 is a real winner and only a null means "no outcome recorded".
+                    // The query has always selected it and this branch dropped it, leaving
+                    // the one field a reader opens a finished poll to see with no column at
+                    // all. It rides as the raw index PLUS the label resolved off the stored
+                    // options JSON, because the feed carries no options array and a bare
+                    // index names nothing to a reader.
+                    if(method=='getPolls'){
+                        let win = this.util.isNull(info.winning_option) ? null : Number(info.winning_option);
+                        if(win !== null && !Number.isFinite(win)) win = null;
+                        let winner = null;
+                        if(win !== null){
+                            let opts = info.options;
+                            if(typeof opts == 'string'){
+                                // getPolls hands back the stored JSON verbatim; a malformed
+                                // blob costs the label, never the index.
+                                try { opts = JSON.parse(opts); }
+                                catch(_){ opts = null; }
+                            }
+                            if(Array.isArray(opts) && !this.util.isNull(opts[win]))
+                                winner = String(opts[win]);
+                        }
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.question, info.poll_status, info.end_block, info.callback_contract_index, win, winner, status, info.action_index];
+                    }
                     // VOTE ballot list page. One row per (poll, voter, chosen option); the voter
                     // is the source. action_index stays LAST (paging cursor; links the ballot action).
                     if(method=='getVotes')

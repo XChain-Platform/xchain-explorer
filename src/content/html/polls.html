@@ -25,12 +25,16 @@
                         <th class="">Status</th>
                         <th class="">Closes</th>
                         <th class="">Binding</th>
+                        <!-- The outcome. polls.winning_option is an INDEX into the poll's
+                             options, so option 0 is a real winner: this column reads '-'
+                             only where no outcome has been recorded at all. -->
+                        <th class="">Winner</th>
                         <th class="view"></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="10" class="loading-data">Loading poll data...</td>
+                        <td colspan="11" class="loading-data">Loading poll data...</td>
                     </tr>
                 </tbody>
                 </table>

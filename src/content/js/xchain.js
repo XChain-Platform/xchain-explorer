@@ -239,7 +239,7 @@ function setXChainParams(coin){
     // A detail page whose type is absent here gets XC.query = null and then requests
     // its own API route with a literal 'null' segment, rendering as "not found" rather
     // than failing visibly, so every new detail route has to be added in BOTH lists.
-    if(['block','address','token','action','transaction','contract','execution','checkpoint','validator','xcall','attestation','poll','anchor','bet_feed','oracle','dispenser'].includes(type)){
+    if(['block','address','token','action','transaction','contract','execution','checkpoint','validator','xcall','attestation','poll','anchor','bet_feed','oracle','dispenser','rich_list'].includes(type)){
         // bet_feed is keyed by the creating action_index (db.getBetFeedInfo binds it to
         // m.action_index), so it belongs in the numeric branch; oracle is keyed by the
         // operator ADDRESS (db.getOracleStats binds it to a2.address, and db's id lookup
@@ -253,7 +253,9 @@ function setXChainParams(coin){
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
            (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||
-           (type=='token'   && typeof(query)=='string')){
+           // rich_list is keyed by TICK, exactly like the token page it is reached
+           // from, so it takes the same string branch rather than the numeric one.
+           (['token','rich_list'].includes(type) && typeof(query)=='string')){
             XC.type  = type;
             XC.query = query;
         }
@@ -2229,20 +2231,29 @@ function loadDatatablesData(coin, action, query, type){
             // VOTE poll (polls table; token-weighted governance, VOTE v0). eq(4) token,
             // eq(5) question, eq(6) lifecycle-status badge (open/finalized/failed_quorum),
             // eq(7) close block, eq(8) binding badge (a non-null callback contract means
-            // the poll result fires a contract method, i.e. it can move real value).
+            // the poll result fires a contract method, i.e. it can move real value),
+            // eq(9) the WINNER: winning_option is an INDEX into the poll's options, so
+            // option 0 is a real winner and only a null reads as "no outcome recorded".
+            // The feed carries the index and the label resolved off the options JSON
+            // (getPagingDataResults), because a bare index names nothing to a reader.
+            // Option labels are attacker-controlled on-chain bytes, so the cell is
+            // written with .text(), exactly like the question above it.
             if(action=='poll'){
                 token             = data[4];
                 let question      = data[5];
                 let poll_status   = data[6];
                 let end_block     = data[7];
                 let binding       = data[8];
+                let winner_index  = data[9];
+                let winner_label  = data[10];
                 let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
                 $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).text(isNull(question) ? '-' : question);
                 $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
                 $('td', row).eq(7).html(isNull(end_block) ? '-' : formatLink('/' + coin + '/block/' + end_block, numeral(end_block).format(fmtInteger)));
                 $('td', row).eq(8).html(isNull(binding) ? '-' : formatLink('/' + coin + '/contract/' + binding, '<span class="badge text-bg-danger">Binding</span>', 'Binding poll: finalization calls contract ' + binding));
-                $('td', row).eq(9).html(action_link);
+                $('td', row).eq(9).text(isNull(winner_index) ? '-' : (winner_index + (isNull(winner_label) ? '' : ': ' + winner_label)));
+                $('td', row).eq(10).html(action_link);
             }
             // VOTE ballot (votes table; one row per voter choice, VOTE v1). eq(4) links the
             // poll it voted on, eq(5) the chosen option index, eq(6) the split-mode share.
@@ -2897,8 +2908,18 @@ function loadApiData(coin, action, query, type, callback, errback){
         // These take '-es', not '-s'; the three *_match names would otherwise build
         // malformed endpoints ('cross_chain_matchs') that answer 404.
         endpoint = action + 'es';
+    } else if(action=='validator_capability'){
+        // action+'s' would give the malformed 'validator_capabilitys'; the hub table
+        // (and its /api route) is 'validator_capabilities'. Kept in step with the same
+        // branch in loadDatatablesData: the two maps are written separately and have
+        // drifted before, and a detail fetch that 404s here logs nothing a reader sees.
+        endpoint = 'validator_capabilities';
+    } else if(action=='consensus_state'){
+        // consensus_state is a mass noun (no plural 's'); its /api route keeps the
+        // singular table name.
+        endpoint = 'consensus_state';
     } else {
-        endpoint = action + 's';        
+        endpoint = action + 's';
     }
     // Set the explorer API url
     let url = '/' + coin + '/api/' + endpoint;
@@ -3469,7 +3490,11 @@ function showVoteDetails(data){
         $('#info-vote .vote-min-vote-balance').text(isNull(data.min_vote_balance) ? '-' : formatAmount(data.min_vote_balance));
         $('#info-vote .vote-decide-threshold').text(isNull(data.decide_threshold) ? '-' : data.decide_threshold);
         $('#info-vote .vote-poll-status').html('<span class="badge text-bg-' + pcls + '">' + (data.poll_status || '-') + '</span>');
-        $('#info-vote .vote-winning-option').text(isNull(data.winning_option) ? '-' : data.winning_option);
+        // winning_option is an INDEX into `options`, so option 0 is a real winner and
+        // only a null reads as "no outcome recorded". Named the way the finalize branch
+        // above names it, because a bare index names nothing to a reader.
+        let wopt = data.winning_option;
+        $('#info-vote .vote-winning-option').text(isNull(wopt) ? '-' : (wopt + (opts[wopt] != null ? ': ' + opts[wopt] : '')));
         // Frozen finalization detail. VOTE v2 measures the turnout and freezes it into
         // the polls row (indexer finalizePoll) precisely so a terminal outcome stays
         // auditable; the detail query has always selected it and nothing rendered it,

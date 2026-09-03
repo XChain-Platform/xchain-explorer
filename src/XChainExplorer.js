@@ -1104,6 +1104,18 @@ class XChainExplorer {
                 badParam      = true;
                 response.code = 400;
                 response.json = { error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' };
+            // /{COIN}/api/checkpoint/{QUERY} binds its path segment via db.js's
+            // getCheckpoint as Number(config.data.search): a non-numeric segment
+            // (e.g. 'zzz-no-such') becomes NaN, which the mariadb driver cannot bind
+            // and throws, so the request reached the generic DB_ERROR 500 instead of
+            // a clean 404/400 (D-E060). Reject it here, before the DB call, using the
+            // same strict shape and the INVALID_BLOCK_INDEX code processCheckpointVerifyRequest
+            // already established for a malformed block-index segment.
+            } else if(cfg.data.method === 'getCheckpoint' && cfg.data.type === 'block' &&
+               !/^[0-9]+$/.test(String(cfg.data.search || ''))){
+                badParam      = true;
+                response.code = 400;
+                response.json = { error: 'Invalid block_index', code: 'INVALID_BLOCK_INDEX' };
             } else if(mirrorGate && mirrorGate.blocked){
                 data  = [];
                 total = 0;

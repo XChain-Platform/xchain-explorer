@@ -78,10 +78,17 @@
  *     Object.keys(a).filter(k => a[k] !== b[k]).map(k => [k, a[k], b[k]]);
  *
  * COVERAGE LIMIT, stated because a probe that hides its blind spot is worse
- * than no probe: across the six captured pages only 77 of the 121 selectors in
- * the two stylesheets are exercised. A rule no page instantiates cannot be
- * proven at runtime by any amount of capturing, which is why the static
- * static token-literal gate is a separate acceptance test.
+ * than no probe: across the six captured pages only 79 of the 120 selectors in
+ * the two page-level stylesheets are exercised (baseline-2026-08-20.json's
+ * coverage block is the authority; 121/77/44 was the superseded pre-tokenization
+ * survey). A rule no page instantiates cannot be proven at runtime by any
+ * amount of capturing, which is why the static token-literal gate is a
+ * separate acceptance test.
+ *
+ * SHEET now also admits the per-component component.css layer, which landed
+ * after the 2026-08-20 capture. That raises the reported cssRules count per
+ * page by the component sheets' own rule count and leaves the rule-layer hashes
+ * alone, since those component rules match no element on a healthy page.
  *
  **********************************************************************/
 
@@ -95,7 +102,10 @@ window.__XC = (function () {
     'border-left-color','border-top-width','border-bottom-width','border-radius','box-shadow','font-family',
     'font-size','font-weight','line-height','letter-spacing','padding-top','padding-left','padding-bottom',
     'margin-top','margin-bottom','opacity','text-decoration-line','text-transform'];
-  const SHEET = /\/(xchain|xchain-charts)\.css|\/themes\//;
+  // Admit every FIRST-PARTY sheet and no vendor one. The component alternative is
+  // here because that layer landed later and fell straight through the pattern.
+  // Checked against template.html's own link list by theme-token-literal-gate.
+  const SHEET = /\/(xchain|xchain-charts)\.css|\/themes\/|\/components\/[^\/]+\/component\.css/;
   const STATE = /:{1,2}(hover|visited|active|focus|focus-visible|focus-within|target)\b/;
   const ELEM  = /::(before|after|placeholder|marker|selection|first-line|first-letter)\b/;
   // Properties whose getComputedStyle readback is the USED value, resolved by

@@ -16,10 +16,12 @@
  * XChain Explorer - Hub-mirror schema migration CLI
  *
  * Runbook: brings an EXISTING hub-mirror / checkpoint schema up to the
- * current shape (today: the price_snapshots reorg-retraction columns
- * source_chain / source_action_index / push_generation + idx_source_chain)
- * without a hand-written ALTER TABLE. Additive-only and idempotent; safe
- * to re-run on every deploy.
+ * current shape without a hand-written ALTER TABLE. Additive-only and
+ * idempotent; safe to re-run on every deploy. Covered today: the
+ * price_snapshots reorg-retraction columns (source_chain /
+ * source_action_index / push_generation + idx_source_chain), the
+ * capability_snapshots uq_cap_snap widen, and the item-5308 reorg fences on
+ * oracle_prices / cross_chain_matches / cross_chain_calls.
  *
  * You only need this for EXTERNALLY-MAINTAINED checkpoint schemas (legacy
  * single-server deployments where database.checkpoint points at a schema

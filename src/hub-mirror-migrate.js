@@ -15,13 +15,16 @@
  * XChain Explorer - Hub-mirror schema drift reconciler
  *
  * ensureTables() (vendored in hub_db_sync.js) only CREATEs missing tables;
- * it never ALTERs an existing one. A mirror schema created before the
- * price_snapshots reorg-retraction columns landed (source_chain,
- * source_action_index, push_generation + idx_source_chain) therefore kept
- * its legacy shape and every deploy needed a manual ALTER TABLE, or the
- * mirror client silently dropped the retraction key on insert (columns are
- * intersected against SHOW COLUMNS) and reorg row:deleted events could
- * never match.
+ * it never ALTERs an existing one. A mirror schema predating a column that
+ * later landed therefore kept its legacy shape and every deploy needed a
+ * manual ALTER TABLE, or the mirror client silently dropped the retraction
+ * key on insert (columns are intersected against SHOW COLUMNS) and reorg
+ * row:deleted events could never match.
+ *
+ * Migrated today: price_snapshots (source_chain, source_action_index,
+ * push_generation + idx_source_chain), capability_snapshots (the uq_cap_snap
+ * widen), and the item-5308 reorg fences on oracle_prices,
+ * cross_chain_matches and cross_chain_calls.
  *
  * This module closes that gap: after ensureTables(), it probes each known
  * table with SHOW COLUMNS / SHOW INDEX and applies only the ALTERs that
@@ -56,6 +59,33 @@ const MIRROR_MIGRATIONS = {
         indexes: [
             { name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }
         ]
+    },
+    // Fence the three twins the same item-5308 rollout touched. _applyRetraction
+    // fences from the incoming event, not from local columns, so a missing one throws.
+    // Carry finalizing_view too (_applyRow intersects against SHOW COLUMNS, so a
+    // missing column is dropped from the insert without a word).
+    // Use no AFTER anchors, as price_snapshots above does not: order is cosmetic
+    // here, and an anchor absent from an old schema fails the whole single ALTER.
+    oracle_prices: {
+        columns: [
+            { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
+    },
+    cross_chain_matches: {
+        columns: [
+            { name: 'finalizing_view',   ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'a_push_generation', ddl: 'ADD COLUMN a_push_generation BIGINT NOT NULL DEFAULT 0' },
+            { name: 'b_push_generation', ddl: 'ADD COLUMN b_push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
+    },
+    cross_chain_calls: {
+        columns: [
+            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
     },
     // uq_cap_snap gained `source` (a key delegated by two sources now keeps
     // both (source, pubkey) rows). The add-if-name-missing logic above cannot widen

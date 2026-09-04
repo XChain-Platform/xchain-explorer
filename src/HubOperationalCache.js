@@ -87,9 +87,16 @@ class HubOperationalCache {
         if(hit && (now - hit.at) < this.ttlMs)
             return hit.rows;
 
+        // Call-scoped diagnostics sink. The connector is one object for the whole
+        // process and its lastRpcError is last-call-wins, so reading it after this
+        // await let a CONCURRENT call's -32601 decide this call's outcome: the
+        // capability-gap throw below fired for a method the hub serves fine and
+        // skipped the stale-cache bridge, and the reverse (a concurrent healthy
+        // call clearing the field on entry) erased a real -32601.
+        let call = {};
         let result = await this.connector._call(
             { jsonrpc: '2.0', method, params: cleaned, id: 1 },
-            { attempts: 2 }
+            { attempts: 2, out: call }
         );
         if(Array.isArray(result)){
             // Cap the map so a flood of distinct filter values cannot grow it
@@ -105,7 +112,7 @@ class HubOperationalCache {
         // not an outage, so neither the stale-cache bridge below nor db.js's
         // unreachable-past-ceiling diagnosis applies; both would misname a
         // version mismatch as downtime.
-        let rpcErr = this.connector.lastRpcError;
+        let rpcErr = call.rpcError;
         if(rpcErr && Number(rpcErr.code) === -32601)
             throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
                 'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +

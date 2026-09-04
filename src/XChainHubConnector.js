@@ -88,6 +88,11 @@ class XChainHubConnector {
         // serve the method). Distinct from lastFailures: the hub was reachable and
         // refused the request, so callers can report a capability gap instead of
         // an outage. null when the last call got a result or never got an answer.
+        //
+        // Both fields are LAST-CALL-WINS diagnostics on a connector shared by the
+        // whole process, so a caller that decides control flow from them must pass
+        // `out` to _call and read the per-invocation copy instead: two calls in
+        // flight interleave across the await and one reads the other's answer.
         this.lastRpcError = null;
         // Cached full config tree + its high-water mark (epoch seconds). The mark
         // is sent back as `since_updated_at` so the hub returns only rows changed
@@ -107,7 +112,13 @@ class XChainHubConnector {
     // last one that succeeded and wrapping around through the rest. Repeats the
     // full endpoint pass up to `attempts` times with exponential backoff before
     // giving up and returning null.
-    async _call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs } = {}){
+    //
+    // `out`, when supplied, is a CALL-SCOPED diagnostics sink: this invocation
+    // writes its own `rpcError` and `failures` onto it. The instance fields below
+    // are last-call-wins on a process-wide connector, so a caller that branches on
+    // the answer (HubOperationalCache's -32601 capability-gap throw) must read
+    // `out` or it can read a concurrent call's error across its own await.
+    async _call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs, out = null } = {}){
         // A reachable-but-unhealthy hub responds with a non-2xx status (e.g. the
         // 503 "degraded" health body returned when its DB pool is down) that
         // still carries a valid JSON-RPC body. Axios throws on any non-2xx, so
@@ -117,10 +128,14 @@ class XChainHubConnector {
         // only surface it if no endpoint comes back healthy.
         let degraded = null;
         this.lastRpcError = null;
+        if(out){ out.rpcError = null; out.failures = []; }
         for(let attempt = 1; attempt <= attempts; attempt++){
             // Reset each pass so lastFailures reflects the final attempt's
             // outcome rather than accumulating duplicates across retries.
             this.lastFailures = [];
+            // A separate array, never an alias of the instance field: a concurrent
+            // call rebinds this.lastFailures out from under us on its own pass.
+            if(out) out.failures = [];
             // Endpoints this pass that answered with a JSON-RPC error body
             // rather than a result: the hub was up and refused the request at
             // the protocol layer, which is not the same signal as unreachable.
@@ -154,17 +169,24 @@ class XChainHubConnector {
                         // does not serve). Record it and keep walking the pass:
                         // a mixed-version fleet may still hold an endpoint that
                         // serves the method.
-                        this.lastRpcError = response.data.error;
+                        // Held in a local so the detail line below describes THIS
+                        // answer even when a concurrent call overwrites the field.
+                        let rpcError = response.data.error;
+                        this.lastRpcError = rpcError;
+                        if(out) out.rpcError = rpcError;
                         rpcAnswered++;
-                        this.lastFailures.push(url + ' -> rpc ' +
-                            (this.lastRpcError.code !== undefined ? this.lastRpcError.code : '?') +
-                            ' ' + (this.lastRpcError.message || ''));
+                        let detail = url + ' -> rpc ' +
+                            (rpcError.code !== undefined ? rpcError.code : '?') +
+                            ' ' + (rpcError.message || '');
+                        this.lastFailures.push(detail);
+                        if(out) out.failures.push(detail);
                     }
                 } catch(err){
                     if(err.response && err.response.data && err.response.data.result !== undefined){
                         degraded = err.response.data.result;
                     } else {
                         this.lastFailures.push(url + ' -> ' + (err.code || err.message));
+                        if(out) out.failures.push(url + ' -> ' + (err.code || err.message));
                         console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
                     }
                 }

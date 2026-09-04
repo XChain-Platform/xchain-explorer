@@ -39,9 +39,12 @@ function loadCache({ callResult, rpcError, env = {} } = {}) {
         constructor(endpoints) {
             this.urls = endpoints;
             this.lastRpcError = null;
-            this._call = (...args) => {
+            this._call = (data, opts) => {
                 this.lastRpcError = rpc.error;
-                return callStub(...args);
+                // The real connector writes the answer onto the caller's
+                // call-scoped sink as well; getRows now reads only that.
+                if (opts && opts.out) opts.out.rpcError = rpc.error;
+                return callStub(data, opts);
             };
         }
     }

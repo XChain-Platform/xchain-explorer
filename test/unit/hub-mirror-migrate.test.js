@@ -42,6 +42,56 @@ function fakeDb({ tables = ['price_snapshots'], columns = [], indexes = [] } = {
     };
 }
 
+// Drive the fake connection from a PER-TABLE shape map, so several migrated
+// tables can be simulated in one pass (fakeDb above answers every SHOW COLUMNS
+// with one shared list). A table absent from the map answers SHOW TABLES empty.
+function fakeShapeDb(shapes) {
+    const executed = [];
+    return {
+        executed,
+        doQuery(sql, params) {
+            const table = (sql.match(/FROM `([^`]+)`/) || [])[1];
+            if (/^SHOW TABLES LIKE/i.test(sql))
+                return Promise.resolve(shapes[params[0]] ? [{ t: params[0] }] : []);
+            if (/^SHOW COLUMNS/i.test(sql))
+                return Promise.resolve((shapes[table].columns || []).map((c) => ({ Field: c })));
+            if (/^SHOW INDEX/i.test(sql))
+                return Promise.resolve((shapes[table].indexes || []).map((i) => ({ Key_name: i, Column_name: i })));
+            executed.push(sql);
+            return Promise.resolve();
+        }
+    };
+}
+
+// Pre-item-5308 shapes of the three twins: every twin column EXCEPT the fence
+// columns the reconciler is expected to add back.
+const LEGACY_SHAPES = {
+    oracle_prices: {
+        columns: ['id', 'source_address', 'source_chain', 'coin', 'tick', 'fiat', 'value',
+            'fee', 'memo', 'block_time', 'effective_at', 'action_index', 'created_at'],
+        indexes: ['PRIMARY', 'idx_oracle_action']
+    },
+    cross_chain_matches: {
+        columns: ['id', 'match_id', 'snapshot_block', 'network', 'a_chain', 'a_action_index',
+            'a_amount', 'a_payout_addr', 'b_chain', 'b_action_index', 'b_amount',
+            'b_payout_addr', 'effective_time', 'validator_signatures', 'status',
+            'batch_root', 'anchor_txid', 'created_at'],
+        indexes: ['PRIMARY', 'uq_match_id']
+    },
+    cross_chain_calls: {
+        columns: ['id', 'call_id', 'phase', 'snapshot_block', 'network', 'source_chain',
+            'source_action_index', 'source_contract_index', 'target_chain',
+            'target_contract_index', 'method', 'params_json', 'gas_limit', 'cross_hops',
+            'effective_time', 'status', 'result_status', 'return_payload_b64',
+            'validator_signatures', 'created_at'],
+        indexes: ['PRIMARY', 'call_phase']
+    }
+};
+
+// Fence-family columns the twin CREATE TABLE files declare; the guard test at
+// the end keeps MIRROR_MIGRATIONS from lagging them again.
+const FENCE_COLUMNS = ['push_generation', 'a_push_generation', 'b_push_generation', 'finalizing_view'];
+
 // Mock exposing SHOW INDEX Column_name rows for the capability_snapshots
 // uq_cap_snap widen; uqCols is the live column set of uq_cap_snap.
 function fakeCapDb(uqCols) {
@@ -150,15 +200,99 @@ describe('hub-mirror-migrate', function () {
         expect(MIRROR_MIGRATIONS.capability_snapshots.widenIndexes[0].requiredColumn).to.equal('source');
     });
 
-    it('migration definitions stay in lockstep with the SQL twin file', function () {
-        // Every migrated column/index must appear verbatim-by-name in
-        // src/sql/hub-mirror/price_snapshots.sql, so a fresh ensureTables()
-        // build and a migrated legacy build converge on the same shape.
-        const twin = fs.readFileSync(
-            path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', 'price_snapshots.sql'), 'utf8');
-        for (const col of MIRROR_MIGRATIONS.price_snapshots.columns)
-            expect(twin, col.name).to.match(new RegExp('^\\s*' + col.name + '\\s', 'm'));
-        for (const idx of MIRROR_MIGRATIONS.price_snapshots.indexes)
-            expect(twin, idx.name).to.include(idx.name);
+    it('adds the item-5308 fence columns to a legacy oracle_prices', async function () {
+        const db = fakeShapeDb({ oracle_prices: LEGACY_SHAPES.oracle_prices });
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(applied).to.deep.equal([
+            'ALTER TABLE `oracle_prices` ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0'
+        ]);
+        expect(db.executed).to.deep.equal(applied);
+    });
+
+    it('adds both legs plus finalizing_view to a legacy cross_chain_matches', async function () {
+        // Both legs matter: _applyRetraction ORs a_push_generation and
+        // b_push_generation into one DELETE, so either one missing throws.
+        const db = fakeShapeDb({ cross_chain_matches: LEGACY_SHAPES.cross_chain_matches });
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(applied).to.deep.equal([
+            'ALTER TABLE `cross_chain_matches` ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0, '
+            + 'ADD COLUMN a_push_generation BIGINT NOT NULL DEFAULT 0, '
+            + 'ADD COLUMN b_push_generation BIGINT NOT NULL DEFAULT 0'
+        ]);
+    });
+
+    it('adds the fence columns to a legacy cross_chain_calls', async function () {
+        const db = fakeShapeDb({ cross_chain_calls: LEGACY_SHAPES.cross_chain_calls });
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(applied).to.deep.equal([
+            'ALTER TABLE `cross_chain_calls` ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0, '
+            + 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0'
+        ]);
+    });
+
+    it('migrates every legacy 5308 twin in one pass, one ALTER each', async function () {
+        const db = fakeShapeDb(LEGACY_SHAPES);
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(applied).to.have.lengthOf(3);
+        expect(applied.map((s) => s.match(/^ALTER TABLE `([^`]+)`/)[1]).sort())
+            .to.deep.equal(['cross_chain_calls', 'cross_chain_matches', 'oracle_prices']);
+    });
+
+    it('is a no-op once the 5308 twins already carry their fence columns', async function () {
+        const shapes = {};
+        for (const t of Object.keys(LEGACY_SHAPES)) {
+            shapes[t] = {
+                columns: LEGACY_SHAPES[t].columns.concat(
+                    MIRROR_MIGRATIONS[t].columns.map((c) => c.name)),
+                indexes: LEGACY_SHAPES[t].indexes
+            };
+        }
+        const db = fakeShapeDb(shapes);
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(applied).to.have.lengthOf(0);
+        expect(db.executed).to.have.lengthOf(0);
+    });
+
+    it('migration definitions stay in lockstep with the SQL twin files', function () {
+        // Require every migrated column/index verbatim-by-name in its own twin, so
+        // a fresh build and a migrated legacy one converge on the same shape.
+        // Loop every key, not price_snapshots alone: a new entry cannot enter
+        // unchecked, which is how the three fence tables were missed.
+        let checked = 0;
+        for (const table of Object.keys(MIRROR_MIGRATIONS)) {
+            const twin = fs.readFileSync(
+                path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', table + '.sql'), 'utf8');
+            for (const col of MIRROR_MIGRATIONS[table].columns) {
+                expect(twin, table + '.' + col.name).to.match(new RegExp('^\\s*' + col.name + '\\s', 'm'));
+                checked++;
+            }
+            for (const idx of MIRROR_MIGRATIONS[table].indexes || []) {
+                expect(twin, table + '.' + idx.name).to.include(idx.name);
+                checked++;
+            }
+        }
+        // Assert the census: capability_snapshots migrates only an index widen, so
+        // the loop passes vacuously on it and an empty loop would look identical.
+        expect(checked, 'lockstep loop covered nothing').to.be.at.least(10);
+    });
+
+    it('every fence column the twin DDL declares is covered by MIRROR_MIGRATIONS', function () {
+        // The list has lagged the twin files before. Scan the twins for the
+        // fence-column family and fail on any (table, column) pair with no entry.
+        const dir = path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror');
+        const uncovered = [];
+        let pairs = 0;
+        for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.sql'))) {
+            const table = file.replace(/\.sql$/, '');
+            const twin = fs.readFileSync(path.join(dir, file), 'utf8');
+            for (const col of FENCE_COLUMNS) {
+                if (!new RegExp('^\\s*' + col + '\\s', 'm').test(twin)) continue;
+                pairs++;
+                const spec = MIRROR_MIGRATIONS[table];
+                if (!spec || !spec.columns.some((c) => c.name === col)) uncovered.push(table + '.' + col);
+            }
+        }
+        expect(pairs, 'the twin scan matched no fence column at all').to.be.at.least(7);
+        expect(uncovered, 'fence columns a legacy mirror would never gain').to.deep.equal([]);
     });
 });

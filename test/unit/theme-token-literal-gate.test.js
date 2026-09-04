@@ -4,13 +4,15 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // Static companion to tools/theme-parity/parity-probe.js. That probe diffs
-// computed styles on live pages, but only 77 of the 121 selectors in these
+// computed styles on live pages, but only 79 of the 120 selectors in these
 // two stylesheets are ever instantiated by a page it can capture; the other
-// 44 render on no path it drives. This gate covers all 121 by reading the
-// stylesheet text instead of a rendered page, so it catches a reintroduced
-// literal on a selector the probe never sees. The two are complementary,
-// not redundant: the probe proves a token swap actually repaints pixels,
-// this gate proves nothing was left behind for it to miss.
+// 41 render on no path it drives (baseline-2026-08-20.json's coverage block is
+// the authority; 121/77/44 was the superseded pre-tokenization survey). This
+// gate covers all 120, plus the component sheets, by reading the stylesheet
+// text instead of a rendered page, so it catches a reintroduced literal on a
+// selector the probe never sees. The two are complementary, not redundant: the
+// probe proves a token swap actually repaints pixels, this gate proves nothing
+// was left behind for it to miss.
 const CSS_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'css');
 const THEME_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'themes');
 const TOKENS_FILE = path.join(THEME_DIR, 'classic', 'tokens.css');
@@ -294,6 +296,28 @@ describe('theme parity probe (static contract)', () => {
     const unseen = CSS_FILES.filter((name) => !sheetRe.test(`/content/css/${name}`));
     assert.deepEqual(unseen, [],
       `the probe's SHEET pattern skips: ${unseen.join(', ')}`);
+  });
+
+  it('admits every first-party stylesheet the page template links', () => {
+    // Pin the hand-written SHEET allowlist to the template's own link list, which
+    // moves without it (the component sheets landed 2026-09-02 and fell through).
+    // Anything linked and not on the vendor list must be admitted, so the next
+    // first-party sheet fails here instead of skipping the rule layer in silence.
+    const VENDOR = /bootstrap|dataTables|swagger-ui|highlight-|fontawesome/;
+    const template = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'src', 'content', 'html', 'template.html'), 'utf8');
+    const hrefs = [...template.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)]
+      .map((m) => m[1]);
+    assert.ok(hrefs.length >= 10, `only ${hrefs.length} stylesheet links parsed out of template.html`);
+    const firstParty = hrefs.filter((h) => !VENDOR.test(h));
+    assert.ok(firstParty.length >= 3, 'the vendor filter swallowed the first-party sheets');
+
+    const m = probe.match(/const\s+SHEET\s*=\s*(\/(?:[^/\\\n]|\\.)+\/[a-z]*)/);
+    assert.ok(m, 'the probe no longer declares a SHEET pattern in the expected form');
+    const sheetRe = new RegExp(m[1].slice(1, m[1].lastIndexOf('/')));
+    const skipped = firstParty.filter((h) => !sheetRe.test(h));
+    assert.deepEqual(skipped, [],
+      `template.html links these first-party sheets and the probe reads none of them:\n${skipped.join('\n')}`);
   });
 
 });

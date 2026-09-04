@@ -122,11 +122,11 @@ class HubMirrorSyncManager {
                 // column cache; see the 2026-06-17 cold-start regression).
                 await inst.pool.ensureDatabase();
                 await HubDbSync.ensureTables(inst.pool, path.join(__dirname, 'sql', 'hub-mirror'));
-                // ensureTables never ALTERs an existing table, so a schema
-                // created before the price_snapshots retraction columns landed
-                // needs this additive drift reconciler. Runs before
-                // the client starts so its per-table column cache sees the
-                // migrated shape.
+                // ensureTables never ALTERs an existing table, so a schema adopted
+                // without the retraction and item-5308 fence columns (price_snapshots,
+                // oracle_prices, cross_chain_matches, cross_chain_calls) needs this
+                // additive drift reconciler. Runs before the client starts so its
+                // per-table column cache sees the migrated shape.
                 await ensureMirrorColumns(inst.pool);
                 // network is what lets the client scope its bootstrap cursor and purge
                 // rows a different hub served. Without it a mirror that once followed

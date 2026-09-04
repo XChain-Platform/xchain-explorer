@@ -112,7 +112,16 @@ function statusBody(available) {
     return { supported: { TDOGE: 'DOGE (testnet)' }, available: available, timestamp: Date.now() };
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Waits on the condition, not the clock, and THROWS when it never arrives (a
+// helper that returned on timeout would let the assertions below pass vacuously).
+async function waitUntil(predicate, what, timeoutMs = 1000, stepMs = 5) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+        if (predicate()) return;
+        if (Date.now() >= deadline) throw new Error('timed out waiting for ' + what);
+        await new Promise((r) => setTimeout(r, stepMs));
+    }
+}
 
 describe('coin network info recovery after a COIN_DATA_STALE 503', function () {
 
@@ -182,7 +191,9 @@ describe('coin network info recovery after a COIN_DATA_STALE 503', function () {
             h.window.getCoinNetworkInfo(function () {});
             const first = h.requests.filter((u) => u === '/TDOGE/api/status').length;
             expect(first).to.equal(1);
-            await sleep(60);
+            await waitUntil(
+                () => h.requests.filter((u) => u === '/TDOGE/api/status').length > first,
+                'the still-stale coin to be re-checked');
             expect(h.requests.filter((u) => u === '/TDOGE/api/status').length,
                 'a still-stale coin is re-checked on the recheck interval').to.be.greaterThan(first);
             expect(h.requests.filter((u) => u === '/TDOGE/api/network').length,

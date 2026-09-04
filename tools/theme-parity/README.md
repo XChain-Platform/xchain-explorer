@@ -46,11 +46,22 @@ Object.keys(a).filter(k => a[k] !== b[k]).map(k => [k, a[k], b[k]]);
 
 ## What the two layers mean
 
-**rule** - every property a rule in `xchain.css` / `xchain-charts.css`
-declares, read back as the computed value on the first element that rule
-matches. Derived from the stylesheet at runtime, so it cannot fall behind the
-CSS. On the pre-tokenization tree its light and dark hashes are IDENTICAL on
-every page, because `xchain.css` declares nothing that resolves per mode.
+**rule** - every property a rule in `xchain.css` / `xchain-charts.css`, a
+theme's `tokens.css`, or a component's `component.css` declares, read back as
+the computed value on the first element that rule matches. Derived from the
+stylesheet at runtime, so it cannot fall behind the CSS. On the
+pre-tokenization tree its light and dark hashes are IDENTICAL on every page,
+because `xchain.css` declares nothing that resolves per mode.
+
+The probe picks those sheets out of `document.styleSheets` with a hand-written
+`SHEET` pattern, so a first-party sheet the template links and that pattern
+does not name is read by nothing. The component sheets sat in exactly that gap
+between 2026-09-02 and the pattern being widened; `theme-token-literal-gate`
+now checks the pattern against `template.html`'s own link list so the next one
+fails the suite instead of vanishing. The `baseline-2026-08-20.json` capture
+predates the component layer: its per-page `cssRules` counts are one revision
+behind, and its hashes are not, because those component rules match no element
+on a healthy page.
 
 **rend** - a fixed census of 31 anchor selectors x 23 properties, read
 regardless of which stylesheet won. This layer does differ between modes, so it

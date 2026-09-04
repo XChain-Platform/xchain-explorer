@@ -4,9 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.15.0] - 2026-09-04
 
 ### Added
+- Collectibles gallery, rich list and governance overview pages, with list and detail pages composed from the shared component layer.
+- Cross-chain call completion and expiry stream on an `xcall` WS channel.
+- Attestation responses that have no transaction of their own are listed, timestamped from their own block.
+- The poll winning option rides the list feed and is named in the detail view.
+- The hub-mirror client is re-vendored for the `attestation_responses` table (schema version 5), its batch link and the mirror status accessor.
 - A freshness-alert script (`bin/check-explorer-freshness.sh`) for cron that mails the operator when any non-regtest coin is stale-gated or its replica carries an active sync halt.
 - The testnet4 tip-gate drop-in (`deploy/tbtc-tip-gates.conf`) is version-controlled: it widens TBTC's future-skew and age gates so a legally future-stamped tip cannot 503 a healthy chain.
 - A rate-limit drop-in (`deploy/rate-limits.conf`) pins all eight origin limits explicitly, so a production host's numbers do not depend on which build is deployed.
@@ -14,6 +19,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - The app-wide rate limit defaults to 1080 per minute and the proof and checkpoint-verify limits to 90, sized to a measured five-address wallet session with headroom.
 - The proxy-hop setting moves to `src/trustProxy.js`, so the address the rate limiters key on is covered by a request-level test instead of a source check.
+
+### Fixed
+- The `getData` result cache and the network-totals cache are keyed to the indexed tip, so a cached balance cannot outlive its block.
+- A self-syncing coin with no hub endpoint is refused instead of serving a frozen mirror.
+- A malformed checkpoint id or a non-numeric block id is rejected before it reaches the database.
+- An empty search renders an empty-state page instead of firing four 404ing feeds.
+- Responses carrying mutable lifecycle fields stay out of the no-TTL action cache.
+- Tx-less actions appear in the feed, reached through the action's own block index.
+- The dispensers list serves the lifecycle state and a truthful escrow.
+- The roll call detail block has a card config and reads the client as composed.
+- The config-secrets read asks the hub for unredacted values and warns once when a response comes back redacted.
+- mariadb moved off the cleartext-credential advisory range with the floor pinned in the dependency gate.
+
+### Changed
+- The home and about pages are modernized and the developers card points at the XChain SDK.
+- The db reader hotspot is split into action-list, market and staking modules.
+- The vendored coin registry is resynced from the hub.
 
 ## [0.12.0] - 2026-08-30
 

@@ -4,8 +4,8 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.12.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-4%2C253%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.15.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-4%2C654%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -176,9 +176,9 @@ defaults hold on an unconfigured box:
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~3,521 tests) |
+| `npm test` | Run unit tests (~3,909 tests) |
 | `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
-| `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (14 tests) |
+| `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (27 tests) |
 | `npm run test:e2e` | End-to-end tests (49 tests, requires full stack) |
 | `npm run test:boundary` | Boundary condition tests (226 tests) |
 | `npm run test:boundary:unit` | Boundary tests (unit only, no DB, 162 tests) |

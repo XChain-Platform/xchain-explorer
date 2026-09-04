@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.15.0] - 2026-09-04
+## [0.15.0] - 2026-09-07
 
 ### Added
 - Collectibles gallery, rich list and governance overview pages, with list and detail pages composed from the shared component layer.

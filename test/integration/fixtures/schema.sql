@@ -1570,6 +1570,14 @@ CREATE TABLE attests (
     validator_signatures          MEDIUMTEXT,                 -- JSON array of verified federation sigs
     callback_execute_action_index BIGINT UNSIGNED,
     batch_action_index            BIGINT UNSIGNED,            -- ATTEST v5/v6 batch that carried this response's body on chain; NULL until it lands, and NULL forever for a legacy-era response that was its own on-chain v1
+    batch_window_start            BIGINT UNSIGNED,                 -- v5: unix start of the published window (batch identity, hashed into request_id)
+    batch_window_end              BIGINT UNSIGNED,                 -- v5: unix end of the window
+    batch_row_count               INT UNSIGNED,                    -- v5: responses carried (cap ATTEST_BATCH_MAX_ROWS)
+    batch_btc_block_height        BIGINT UNSIGNED,                 -- v5: BTC height selecting the attestation capability snapshot the batch quorum is judged against
+    batch_crc32                   VARCHAR(8),                      -- CRC32 of the INFLATED body (v5 declares it, v6 repeats it so a chunk of another encoding cannot join)
+    batch_total_chunks            INT UNSIGNED,                    -- chunks in the batch (v5/v6)
+    batch_chunk_index             INT UNSIGNED,                    -- 0 on the v5 head, 1-based on each v6 continuation
+    batch_chunk_b64               MEDIUMTEXT,                      -- this row's slice of the deflated base64 body (v5 slot 0 / v6 continuation)
     status_id                     BIGINT UNSIGNED,
     block_index                   BIGINT UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

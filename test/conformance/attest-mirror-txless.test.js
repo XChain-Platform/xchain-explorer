@@ -394,4 +394,29 @@ describe('mirror-applied ATTEST response with no transaction row (real MariaDB)'
         await adminQuery('UPDATE `' + INDEXER_DB + '`.attests SET batch_action_index=NULL WHERE action_index=?',
             [MIRROR_ACTION]);
     });
+
+    /******************************************************************
+     * 5. The detail page's own timestamp resolves off the action, not the
+     *    transaction that a mirror-applied response never has.
+     *****************************************************************/
+
+    it('getAttestation resolves a timestamp for a mirror-applied response with no transaction row', async function () {
+        const [detail] = await db.getData(makeConfig({
+            coin: 'RBTC', type: 'api', data: { method: 'getAttestation', search: MIRROR_REQUEST_ID }
+        }));
+        expect(detail, 'the attestation detail read returned nothing for the mirror row').to.not.equal(null);
+        expect(detail.response, 'no v1 leg on the composed detail').to.not.equal(undefined);
+        expect(Number(detail.response.timestamp),
+            'the block join fell through, so the detail page has no timestamp for this response')
+            .to.equal(BLOCK_TIME);
+        expect(detail.response.tx_hash, 'tx_hash should be a real null on a synthesized action').to.equal(null);
+
+        // The tx-backed control in the same fixture must be unaffected: it is what
+        // proves this fixture discriminates rather than passing by coincidence.
+        const [control] = await db.getData(makeConfig({
+            coin: 'RBTC', type: 'api', data: { method: 'getAttestation', search: TX_REQUEST_ID }
+        }));
+        expect(control.response, 'no v1 leg on the tx-backed control').to.not.equal(undefined);
+        expect(Number(control.response.timestamp), 'the tx-backed control changed behavior').to.equal(BLOCK_TIME);
+    });
 });

@@ -9234,6 +9234,10 @@ class Database {
 
         // Every leg of one round in one bounded read, oldest first so the caller renders the
         // lifecycle in the order it happened. request_id+version is indexed.
+        //
+        // `blocks` resolves off the action's own block_index, not the transaction's: a
+        // mirror-applied response has an action_index but no transaction row, and routing
+        // through t1 left the timestamp NULL for it (attest-response-mirror spec section 4.4).
         let rows = await this.doQuery(config,
             `SELECT
                 a4.action,
@@ -9274,7 +9278,7 @@ class Database {
                 attests m
                 LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
                 LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
-                LEFT JOIN blocks              b1 ON (b1.block_index=t1.block_index)
+                LEFT JOIN blocks              b1 ON (b1.block_index=a1.block_index)
                 LEFT JOIN index_addresses     a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                 LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
                 LEFT JOIN index_tickers       ft ON (ft.id=m.fee_tick_id)

@@ -17,16 +17,15 @@
  * The topology this number describes: Apache runs on the same host as the
  * explorer and reverse-proxies to it, and mod_proxy APPENDS the connection's
  * peer address to X-Forwarded-For. One trusted hop therefore means "take the
- * entry Apache appended", which is the only entry in the chain the explorer
- * did not receive from the caller. Everything to its left is client-supplied
- * and is ignored.
+ * entry the fronting proxy appended", which is the only entry in the chain the
+ * explorer did not receive from the caller. Everything to its left is
+ * client-supplied and is ignored.
  *
- * Today that appended entry is the Cloudflare edge address that opened the
- * connection to Apache. Once the fronting proxy loads mod_remoteip on the explorer
- * vhost, Apache rewrites the connection's client to CF-Connecting-IP before
- * mod_proxy appends it, so the same appended entry becomes the real visitor
- * and every per-IP limiter re-keys onto real clients with NO code change here.
- * The hop count stays 1 through that change.
+ * That appended entry is whichever address opened the connection to the proxy,
+ * so behind a CDN it is the CDN's edge address. A proxy configured to resolve
+ * the real visitor before it forwards makes the same appended entry the
+ * visitor, and every per-IP limiter re-keys onto real clients with NO code
+ * change here. The hop count stays 1 either way.
  *
  * Boolean `true` would trust the whole chain and let any caller spoof their
  * address past the per-IP limiters (express-rate-limit's
@@ -43,7 +42,7 @@
 'use strict';
 
 // Trusted proxy hops in front of the Express app. See the header for why 1,
-// and why it does not change when mod_remoteip lands.
+// and why it does not change when the proxy starts resolving real clients.
 const HTTP_TRUST_PROXY_HOPS = 1;
 
 // Apply the hop policy to an Express app. Exported as a function rather than

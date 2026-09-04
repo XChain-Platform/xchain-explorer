@@ -20,27 +20,26 @@ explorer's app logs today.
 
 ## Two names, and why
 
-`/etc/logrotate.d/xchain-explorer` is **taken**. It holds the Apache
-access-log stanza for `/var/log/apache2/explorer/*.log`, whose 1-day retention
-is a privacy commitment (those request lines carry wallet addresses). The app-log
-stanza therefore installs as `xchain-explorer-app`. Do not merge them.
+A deployment that fronts the explorer with a web server usually already has a
+`xchain-explorer` logrotate stanza for that server's access log, whose short
+retention is a privacy commitment (those request lines carry wallet addresses).
+The app-log stanza therefore installs under its own name,
+`xchain-explorer-app`. Do not merge them.
 
 ## What this fixes
 
-`/var/lib/logrotate/status` shows `logs/stdout.log` and `logs/stderr.log` last
-rotated **2026-08-02** and never since; no file in `/etc/logrotate.d` names
-either path. The `xchain-explorer` filename now holds the Apache access-log
-stanza, dated by its own header comment to that same 2026-08-02, which is the
-most likely explanation for the app-log stanza's disappearance. `stderr.log`
-reached **302 MB** in the 28 days that followed, on a root filesystem with
-5.9 GB free.
+Nothing rotates the explorer's own `stdout.log` and `stderr.log` unless a
+stanza names them, and the obvious filename is usually already taken by the
+fronting web server's access log (above). Left unrotated, those two files grow
+without bound until they threaten the filesystem they sit on.
 
 ## Substitute before installing
 
-Both files carry `<deploy-user>` where the live host has its own service
-account, so the paths read `/home/<deploy-user>/xchain-explorer`. Replace it
-with the account the explorer actually runs as; the unit will not start against
-the literal placeholder. Everything else installs as-is.
+Both files carry `<deploy-user>` where a deployment has its own service
+account, so the paths read `/home/<deploy-user>/xchain-explorer` and the
+logrotate stanza reads `su <deploy-user> <deploy-user>`. Replace it with the
+account the explorer runs as; the unit will not start against the literal
+placeholder. Everything else installs as-is.
 
 ## Install
 
@@ -52,19 +51,18 @@ sudo systemctl daemon-reload
 sudo systemctl restart xchain-explorer      # only inside a maintenance window
 sudo install -m 0644 logrotate-xchain-explorer-app /etc/logrotate.d/xchain-explorer-app
 sudo logrotate -d /etc/logrotate.d/xchain-explorer-app   # dry run, prints the plan
-sudo logrotate -f /etc/logrotate.d/xchain-explorer-app   # first rotation, reclaims the 302 MB
+sudo logrotate -f /etc/logrotate.d/xchain-explorer-app   # first rotation, reclaims the backlog
 ```
 
 The logrotate half needs no restart and no window: `copytruncate` truncates the
 files in place while the explorer keeps writing. Install it first if you only
 have time for one.
 
-The box also carries drop-ins under
-`/etc/systemd/system/xchain-explorer.service.d/` (`decoder-api.conf`,
-`encoder.conf`, `hub.conf`, `indexer-api.conf`, `trackers.conf`) holding per-coin
-upstream endpoints. Those are box-specific wiring and are not reproduced here;
-installing the unit above leaves them untouched. Two drop-ins are the exception,
-because they are policy choices rather than box wiring (testnet4 freshness-gate
+A deployment will also have drop-ins of its own under the unit's
+`.service.d/` directory holding per-coin upstream endpoints. That wiring is
+specific to wherever those services run, so it is not reproduced here, and
+installing the unit above leaves it untouched. Two drop-ins are the exception,
+because they are policy choices rather than wiring (testnet4 freshness-gate
 widths, and the eight origin rate limits), so they live here and install the
 same way as the unit:
 

@@ -176,7 +176,7 @@ async function startApi(){
     // at 180 explorer reads; x2 because the wallet's SDK retries once, and x3
     // for headroom because a NAT with three testers shares one bucket. The
     // number is per REAL CLIENT ADDRESS, which is what the origin sees once
-    // the fronting proxy loads mod_remoteip; it was a per-Cloudflare-edge-address
+    // the fronting proxy resolves real clients; it was a per-CDN-edge-address
     // number before that, where the same wallet traffic scattered across
     // buckets and hid the requirement. It replaces a 500 that predates any
     // measurement of the client.

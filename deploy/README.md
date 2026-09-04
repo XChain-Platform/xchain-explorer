@@ -10,6 +10,7 @@ two files put it under version control.
 | `xchain-explorer.service` | `/etc/systemd/system/xchain-explorer.service` |
 | `logrotate-xchain-explorer-app` | `/etc/logrotate.d/xchain-explorer-app` |
 | `tbtc-tip-gates.conf` | `/etc/systemd/system/xchain-explorer.service.d/tbtc-tip-gates.conf` |
+| `rate-limits.conf` | `/etc/systemd/system/xchain-explorer.service.d/rate-limits.conf` |
 
 Both are reproduced from the running production unit, read 2026-08-30. The unit is
 faithful to the live file apart from four added `Environment=` lines
@@ -62,15 +63,26 @@ The box also carries drop-ins under
 `/etc/systemd/system/xchain-explorer.service.d/` (`decoder-api.conf`,
 `encoder.conf`, `hub.conf`, `indexer-api.conf`, `trackers.conf`) holding per-coin
 upstream endpoints. Those are box-specific wiring and are not reproduced here;
-installing the unit above leaves them untouched. `tbtc-tip-gates.conf` is the
-exception: it is a policy choice (testnet4 freshness-gate widths), so it lives
-here and installs the same way as the unit:
+installing the unit above leaves them untouched. Two drop-ins are the exception,
+because they are policy choices rather than box wiring (testnet4 freshness-gate
+widths, and the eight origin rate limits), so they live here and install the
+same way as the unit:
 
 ```sh
 sudo install -m 0644 tbtc-tip-gates.conf /etc/systemd/system/xchain-explorer.service.d/tbtc-tip-gates.conf
 sudo systemctl daemon-reload
 sudo systemctl restart xchain-explorer      # only inside a maintenance window
 ```
+
+```sh
+sudo install -m 0644 rate-limits.conf /etc/systemd/system/xchain-explorer.service.d/rate-limits.conf
+sudo systemctl daemon-reload
+sudo systemctl restart xchain-explorer      # only inside a maintenance window
+```
+
+`rate-limits.conf` writes out all eight limits explicitly, the five it does not
+change included, so the running unit's numbers do not depend on which explorer
+build is deployed. Its header carries where each number came from.
 
 ## Freshness alerting
 

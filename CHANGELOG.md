@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - A freshness-alert script (`bin/check-explorer-freshness.sh`) for cron that mails the operator when any non-regtest coin is stale-gated or its replica carries an active sync halt.
 - The testnet4 tip-gate drop-in (`deploy/tbtc-tip-gates.conf`) is version-controlled: it widens TBTC's future-skew and age gates so a legally future-stamped tip cannot 503 a healthy chain.
+- A rate-limit drop-in (`deploy/rate-limits.conf`) pins all eight origin limits explicitly, so a production host's numbers do not depend on which build is deployed.
+
+### Changed
+- The app-wide rate limit defaults to 1080 per minute and the proof and checkpoint-verify limits to 90, sized to a measured five-address wallet session with headroom.
+- The proxy-hop setting moves to `src/trustProxy.js`, so the address the rate limiters key on is covered by a request-level test instead of a source check.
 
 ## [0.12.0] - 2026-08-30
 

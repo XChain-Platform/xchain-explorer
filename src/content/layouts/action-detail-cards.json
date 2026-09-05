@@ -353,6 +353,26 @@
                 {
                     "label": "Callback Execute",
                     "cell": "attest-callback-execute"
+                },
+                {
+                    "label": "Window",
+                    "cell": "attest-batch-window"
+                },
+                {
+                    "label": "Responses",
+                    "cell": "attest-batch-rows"
+                },
+                {
+                    "label": "BTC Snapshot Height",
+                    "cell": "attest-batch-btc-height"
+                },
+                {
+                    "label": "Body CRC32",
+                    "cell": "attest-batch-crc32"
+                },
+                {
+                    "label": "Chunk",
+                    "cell": "attest-batch-chunk"
                 }
             ]
         },
@@ -1296,6 +1316,10 @@
                 {
                     "label": "Version",
                     "cell": "anchor-version"
+                },
+                {
+                    "label": "Sections",
+                    "cell": "anchor-sections"
                 },
                 {
                     "label": "Chain",

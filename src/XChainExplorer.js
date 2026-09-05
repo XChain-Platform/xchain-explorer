@@ -2341,9 +2341,17 @@ class XChainExplorer {
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             INDEXER_UNAVAILABLE: [502, 'Indexer API unavailable for the stake set'],
                             INDEXER_AUTH_REQUIRED: [503, 'Indexer requires authentication for the stake set; set EXPLORER_INDEXER_API_KEY on the explorer'],
-                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
-                let m = map[result.error] || [500, 'Server error'];
-                return res.status(m[0]).json({ error: m[1], code: result.error });
+                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'],
+                            STAKE_SNAPSHOT_TRUNCATED: [409, 'Stake snapshot at this height is truncated (the qualifying validator set overflowed the indexer query cap); no proof is served until operators raise the cap'],
+                            STAKE_SNAPSHOT_MALFORMED: [500, 'Stake snapshot at this height is malformed'] };
+                // Match the PREFIX before the first ':'. The stake-snapshot errors carry a
+                // ':<capability>[:<detail>]' suffix that no exact-match row can hit, so they
+                // fall through to the generic 500 and echo the raw suffix, exception text
+                // included, back to the client in `code`. Every other code here is
+                // suffix-free, so its prefix is the whole string and its response is byte-identical.
+                let code = String(result.error).split(':')[0];
+                let m = map[code] || [500, 'Server error'];
+                return res.status(m[0]).json({ error: m[1], code: code });
             }
             return res.json(result);
         } catch(e){

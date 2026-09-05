@@ -3347,24 +3347,56 @@ function showFileDetails(data){
     viewer.html(html);
 }
 
-// Display ATTEST action information (v0 request / v1 response; `attests` table)
+// Display ATTEST action information (v0 request / v1 response / v5 batch head /
+// v6 batch continuation; `attests` table)
 function showAttestDetails(data){
     let isResponse = (Number(data.version) === 1);
     // ATTEST v2 is the system-synthesized expire: it writes no attests row, so the
     // explorer resolves only baseline fields + version. Badge it as an Expire and
     // show neither the request nor the response sub-panels (their fields are absent).
     let isExpire   = (Number(data.version) === 2);
+    // v5 head / v6 continuation are batch rows: every v0/v1 request and response
+    // column is NULL on them, so both of those sub-panels stay hidden and the batch
+    // panel carries the window header and the chunk slot instead. Falling through to
+    // the request branch renders a signed window as a table of dashes.
+    let isBatchHead = (Number(data.version) === 5);
+    let isBatch     = isBatchHead || (Number(data.version) === 6);
     $('#info-attest .attest-type').html(
-        isResponse ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' :
-        isExpire   ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
-                     '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+        isResponse  ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' :
+        isExpire    ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
+        isBatchHead ? '<span class="badge text-bg-info text-dark">Batch Head (v5)</span>' :
+        isBatch     ? '<span class="badge text-bg-info text-dark">Batch Continuation (v6)</span>' :
+                      '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+    // On a batch row request_id holds the batch key, not a request id.
     $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
-    $('#info-attest .attest-provider').text(data.provider_id);
+    // provider_id is the empty string on a batch row (no single provider answers a
+    // batch), which isNull already counts as absent.
+    $('#info-attest .attest-provider').text(isNull(data.provider_id) ? '-' : data.provider_id);
     if(!isNull(data.contract_index))
         $('#info-attest .attest-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    // Batch-side fields
+    $('#info-attest .attest-batch-fields').toggleClass('d-none', !isBatch);
+    if(isBatch){
+        // The window header (start/end, row count, BTC snapshot height) is declared on
+        // the v5 head only, so a v6 continuation renders those cells as '-' rather than
+        // blank. crc32 and the chunk counters ride on both.
+        let start = data.batch_window_start, end = data.batch_window_end;
+        $('#info-attest .attest-batch-window').html(
+            (isNull(start) || isNull(end)) ? '-' :
+            (formatLivestamp(start) + ' (' + moment.unix(start).utcOffset(0).format() + ' GMT)' +
+             ' to ' + formatLivestamp(end) + ' (' + moment.unix(end).utcOffset(0).format() + ' GMT)'));
+        $('#info-attest .attest-batch-rows').text(isNull(data.batch_row_count) ? '-' : numeral(data.batch_row_count).format('0,0'));
+        $('#info-attest .attest-batch-btc-height').html(isNull(data.batch_btc_block_height) ? '-' : numeral(data.batch_btc_block_height).format('0,0'));
+        $('#info-attest .attest-batch-crc32').text(isNull(data.batch_crc32) ? '-' : String(data.batch_crc32));
+        // batch_chunk_index is 0 on the head and 1-based on each continuation, so the
+        // slot a reader counts from 1 is index+1 of total.
+        $('#info-attest .attest-batch-chunk').text(
+            (isNull(data.batch_chunk_index) || isNull(data.batch_total_chunks)) ? '-' :
+            ((Number(data.batch_chunk_index) + 1) + ' of ' + data.batch_total_chunks));
+    }
     // Request-side fields
-    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire);
-    if(!isResponse && !isExpire){
+    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire || isBatch);
+    if(!isResponse && !isExpire && !isBatch){
         $('#info-attest .attest-fee-payer').html(isNull(data.fee_payer) ? '-' : formatLink('/' + XC.coin + '/address/' + data.fee_payer, data.fee_payer));
         // Request-side economics the requester escrowed and paid (fee_amount+fee_tick, gas_escrow).
         $('#info-attest .attest-fee').html(isNull(data.fee_amount) ? '-' : formatLink('/' + XC.coin + '/token/' + data.fee_tick, data.fee_tick, formatAmount(data.fee_amount) + ' ' + data.fee_tick));
@@ -3666,10 +3698,19 @@ function showUnstakeDetails(data){
         (isEviction ? '<span class="badge text-bg-danger me-2">Evicted</span>' : '') + formatAmount(data.amount));
     $('#info-unstake .unstake-cooldown').html(isNull(data.cooldown_end_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.cooldown_end_block, numeral(data.cooldown_end_block).format('0,0')));
     $('#info-unstake .unstake-contract-row').toggleClass('d-none', !isContract);
-    if(isContract){
+    if(isContract)
         $('#info-unstake .unstake-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
+    // Token is gated on the TICK, not on the contract index. The v2
+    // cooldown-completion action is synthetic: it has no unstakes /
+    // contract_unstakes row, so target_contract_index is always NULL, while the
+    // handler recovers the tick from the return credit (src/action-detail/
+    // staking.js, UNSTAKE afterEffects). Bundled under isContract that
+    // recovered tick could never render, so a contract release denominated in
+    // an arbitrary token read as a bare gas-coin amount.
+    let hasTick = !isNull(data.tick);
+    $('#info-unstake .unstake-token-row').toggleClass('d-none', !hasTick);
+    if(hasTick)
         $('#info-unstake .unstake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    }
 }
 
 // Display DELEGATE action information (capability v0/v2 or contract-targeted v1/v3)
@@ -4189,6 +4230,22 @@ function showCoinpayExpireDetails(data){
 // Display ANCHOR action information (DOGE checkpoint: v0 checkpoint, v1 +archive, v2 continuation chunk)
 function showAnchorDetails(data){
     $('#info-anchor .anchor-version').text(isNull(data.version) ? '-' : ('v' + data.version));
+    // A v0 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
+    // N sibling anchor_actions rows. The per-chain fields below belong to section 0
+    // alone, so say how many chains the action commits and where the full per-chain
+    // view is; presenting one section's chain, checkpoint_seq and hashes as the whole
+    // anchor elides every other chain with nothing on the page to show it happened.
+    // The section table itself lives on the anchor page (anchor-detail-render.js),
+    // which is the single renderer for it.
+    let sections = Array.isArray(data.sections) ? data.sections : [];
+    if(sections.length > 1){
+        let chains = sections.map(s => escapeHtml(isNull(s.chain) ? '-' : String(s.chain))).join(', ');
+        $('#info-anchor .anchor-sections').html(
+            sections.length + ' chains (' + chains + '); the fields below are section 0 - '
+            + formatLink('/' + XC.coin + '/anchor/' + data.action_index, 'full per-chain view'));
+    } else {
+        $('#info-anchor .anchor-sections').text(sections.length === 1 ? '1 chain' : '-');
+    }
     $('#info-anchor .anchor-chain').text(isNull(data.chain) ? '-' : data.chain);
     $('#info-anchor .anchor-network').text(isNull(data.network) ? '-' : data.network);
     $('#info-anchor .anchor-checkpoint-seq').text(isNull(data.checkpoint_seq) ? '-' : numeral(data.checkpoint_seq).format('0,0'));

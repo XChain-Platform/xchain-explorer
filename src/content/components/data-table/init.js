@@ -130,6 +130,6 @@
     // Exported for the unit suite, which drives the permutation directly rather
     // than standing up DataTables to get at it.
     if(typeof module !== 'undefined' && module.exports)
-        module.exports = { permuteRow: permuteRow, permuteTable: permuteTable };
+        module.exports = { permuteTable: permuteTable };
 
 })();

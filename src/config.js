@@ -158,7 +158,7 @@ module.exports = {
     },
 
     // Handle returning the current indexer configuration
-    // endpoints: array of URL strings or legacy (url, port) pair
+    // endpoints: array of URL strings
     getConfig: async function(endpoints=null, cache=true){
         if (cache && configCache){
             return configCache

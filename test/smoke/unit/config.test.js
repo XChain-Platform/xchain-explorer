@@ -77,7 +77,7 @@ describe('SM-01: Config loads successfully', function () {
 
     it('returns a config object with all required top-level keys', async function () {
         const config = loadConfig();
-        const result = await config.getConfig(null, null, false);
+        const result = await config.getConfig(null, false);
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('COIN_NETWORKS').that.is.an('object');
@@ -89,14 +89,14 @@ describe('SM-01: Config loads successfully', function () {
 
     it('COIN_NETWORKS contains BTC, LTC, DOGE', async function () {
         const config = loadConfig();
-        const result = await config.getConfig(null, null, false);
+        const result = await config.getConfig(null, false);
 
         expect(result.COIN_NETWORKS).to.include.keys('BTC', 'LTC', 'DOGE');
     });
 
     it('COIN_SUPPORTED contains all 9 coin/network combinations', async function () {
         const config = loadConfig();
-        const result = await config.getConfig(null, null, false);
+        const result = await config.getConfig(null, false);
 
         expect(Object.keys(result.COIN_SUPPORTED)).to.have.lengthOf(9);
         expect(result.COIN_SUPPORTED).to.include.keys('BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE');
@@ -104,7 +104,7 @@ describe('SM-01: Config loads successfully', function () {
 
     it('COIN_AVAILABLE includes the configured coin/network', async function () {
         const config = loadConfig();
-        const result = await config.getConfig(null, null, false);
+        const result = await config.getConfig(null, false);
 
         // validFileConfig has BTC/regtest → prefix 'R' → code 'RBTC'
         expect(result.COIN_AVAILABLE).to.have.property('RBTC');
@@ -112,7 +112,7 @@ describe('SM-01: Config loads successfully', function () {
 
     it('API object contains host, port, and ssl keys', async function () {
         const config = loadConfig();
-        const result = await config.getConfig(null, null, false);
+        const result = await config.getConfig(null, false);
 
         expect(result.API).to.have.property('host');
         expect(result.API).to.have.property('port').that.is.an('object');
@@ -123,7 +123,7 @@ describe('SM-01: Config loads successfully', function () {
 
     it('coin-specific config contains chain and network database info', async function () {
         const config = loadConfig();
-        const result = await config.getConfig(null, null, false);
+        const result = await config.getConfig(null, false);
 
         expect(result).to.have.property('BTC').that.is.an('object');
         expect(result.BTC).to.have.property('chain').that.is.an('object');
@@ -149,7 +149,7 @@ describe('SM-02: Config rejects no valid configuration', function () {
         const saved = process.env.NODE_CONFIG;
         delete process.env.NODE_CONFIG;
         try {
-            await config.getConfig(null, null, false);
+            await config.getConfig(null, false);
             expect.fail('Expected an error to be thrown');
         } catch (err) {
             expect(err).to.be.instanceOf(Error);
@@ -192,7 +192,7 @@ describe('SM-03: Config skips a coin with a missing config file', function () {
         // The coin's config file is missing (existsSync -> false). Rather than
         // throwing and taking the whole explorer down at startup, the loader skips
         // that entry and still returns a usable config object.
-        const result = await config.getConfig(null, null, false);
+        const result = await config.getConfig(null, false);
         expect(result).to.be.an('object');
         expect(result).to.not.have.property('INVALID');
     });

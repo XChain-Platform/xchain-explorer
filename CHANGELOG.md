@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - The app-wide rate limit defaults to 1080 per minute and the proof and checkpoint-verify limits to 90, sized to a measured five-address wallet session with headroom.
 - The proxy-hop setting moves to `src/trustProxy.js`, so the address the rate limiters key on is covered by a request-level test instead of a source check.
+- `bin/vendor-vm.sh check` keys its one write on an absent vendored `src/` tree instead of an unreadable version string, so a drifted copy is reported as drift rather than silently repaired and passed.
 
 ## [0.12.0] - 2026-08-30
 

@@ -45,8 +45,14 @@ function fakeCharsetDb(shapes) {
                     (c) => ({ Field: c, Collation: shapes[table].collations[c] })));
             if (/^SHOW COLUMNS/i.test(sql))
                 return Promise.resolve((shapes[table].columns || []).map((c) => ({ Field: c })));
+            // SHOW INDEX answers one row per key COLUMN. The unique key on this table
+            // is (network, request_id, effective_time) and the migration widens any
+            // narrower live key, so a fake that answered the key's name as its only
+            // column would make every charset case fail on an unexpected key rebuild.
             if (/^SHOW INDEX/i.test(sql))
-                return Promise.resolve((shapes[table].indexes || []).map((i) => ({ Key_name: i, Column_name: i })));
+                return Promise.resolve((shapes[table].indexes || []).flatMap((i) => i === 'uq_attest_response'
+                    ? ['network', 'request_id', 'effective_time'].map((c) => ({ Key_name: i, Column_name: c }))
+                    : [{ Key_name: i, Column_name: i }]));
             executed.push(sql);
             return Promise.resolve();
         }

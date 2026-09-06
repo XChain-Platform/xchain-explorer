@@ -174,6 +174,57 @@ describe('hub-mirror-migrate', function () {
         expect(db.executed).to.have.lengthOf(0);
     });
 
+    // Same widen shape for the attestation_responses key: (network, request_id) gained
+    // effective_time. The live collation answers utf8mb4 so the charset widen for this
+    // table stays a no-op and only the key rebuild is observed.
+    function fakeAttestDb(uqCols) {
+        const executed = [];
+        const cols = ['id', 'network', 'request_id', 'request_action_index', 'request_block_index',
+            'provider_id', 'status', 'response_payload', 'response_hash', 'meta', 'effective_time',
+            'signer_pubkeys', 'signatures', 'widen', 'batch_action_index', 'finalized_at'];
+        return {
+            executed,
+            doQuery(sql, params) {
+                if (/^SHOW TABLES LIKE/i.test(sql))
+                    return Promise.resolve(params[0] === 'attestation_responses' ? [{ t: params[0] }] : []);
+                if (/^SHOW FULL COLUMNS/i.test(sql))
+                    return Promise.resolve(cols.map((c) => ({ Field: c, Collation: 'utf8mb4_general_ci' })));
+                if (/^SHOW COLUMNS/i.test(sql))
+                    return Promise.resolve(cols.map((c) => ({ Field: c })));
+                if (/^SHOW INDEX/i.test(sql))
+                    return Promise.resolve([{ Key_name: 'PRIMARY', Column_name: 'id' }].concat(
+                        uqCols.map((c) => ({ Key_name: 'uq_attest_response', Column_name: c }))));
+                executed.push(sql);
+                return Promise.resolve();
+            }
+        };
+    }
+    const UQ_ATTEST_ADD = 'ALTER TABLE `attestation_responses` ADD UNIQUE KEY uq_attest_response (network, request_id, effective_time)';
+
+    it('widens a legacy 2-column uq_attest_response to include effective_time', async function () {
+        const db = fakeAttestDb(['network', 'request_id']);
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(db.executed).to.deep.equal([
+            'ALTER TABLE `attestation_responses` DROP INDEX `uq_attest_response`',
+            UQ_ATTEST_ADD
+        ]);
+        expect(applied).to.include(UQ_ATTEST_ADD);
+    });
+
+    it('is a no-op when uq_attest_response already includes effective_time', async function () {
+        const db = fakeAttestDb(['network', 'request_id', 'effective_time']);
+        const applied = await ensureMirrorColumns(db, noLog);
+        expect(applied).to.have.lengthOf(0);
+        expect(db.executed).to.have.lengthOf(0);
+    });
+
+    it('attestation_responses widen matches the SQL twin uq_attest_response', function () {
+        const twin = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', 'attestation_responses.sql'), 'utf8');
+        expect(twin).to.match(/uq_attest_response ON attestation_responses \(network,\s*request_id,\s*effective_time\)/);
+        expect(MIRROR_MIGRATIONS.attestation_responses.widenIndexes[0].requiredColumn).to.equal('effective_time');
+    });
+
     it('widens a legacy 3-column uq_cap_snap to include source', async function () {
         const db = fakeCapDb(['snapshot_block', 'capability', 'signing_pubkey']);
         const applied = await ensureMirrorColumns(db, noLog);

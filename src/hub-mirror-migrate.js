@@ -114,9 +114,16 @@ const MIRROR_MIGRATIONS = {
     // and, because that table re-pages from cursor 0, is re-delivered and re-refused on
     // every drain rather than skipped once. ensureTables gives a FRESH mirror the
     // charset from the twin file; widenColumns is what reaches one that already exists.
+    // uq_attest_response gained `effective_time`: one request can finalize under two
+    // leader slots and yield two honestly signed rows that differ only in the stamp,
+    // and the indexer binds the smaller one. Same widen shape as uq_cap_snap above.
     attestation_responses: {
         columns: [],
         indexes: [],
+        widenIndexes: [
+            { name: 'uq_attest_response', requiredColumn: 'effective_time',
+              addDdl: 'ADD UNIQUE KEY uq_attest_response (network, request_id, effective_time)' }
+        ],
         widenColumns: [
             { name: 'response_payload', charset: 'utf8mb4',
               ddl: 'MODIFY `response_payload` MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' },

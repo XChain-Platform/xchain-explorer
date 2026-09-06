@@ -13,14 +13,14 @@
 // engines.node must keep an upper bound below Node 23.
 //
 // The explorer installs xchain-vm through an OPTIONAL `file:./xchain-vm`
-// dependency, and that package depends on isolated-vm 5.0.4, whose native
-// binding node-gyp cannot build on Node 24 (it uses
-// `T::IsStackAllocatedTypeMarker`, a V8 API that major removed). A clean build
-// probe compiles and loads on 22.22.3 and fails on 24.15.0, so the bound is
-// measured rather than stylistic.
+// dependency, and that package carries the consensus runtime, which pins
+// process.versions.modules to 127 (Node 22) alongside v8/icu/unicode/cldr, so
+// a contract read served from another engine is not the value the fleet
+// committed. isolated-vm 6.2.0 installs on either major from per-ABI prebuilt
+// bindings, so the dependency does not supply the bound.
 //
-// Optional makes the failure quieter, not smaller: on Node 24 npm skips the
-// failed build without failing the install, so the tree looks healthy and the
+// Optional makes a mismatch quieter, not smaller: npm skips a failed optional
+// install without failing the install, so the tree looks healthy and the
 // contract-execution paths are simply absent at runtime. A declared ceiling is
 // the only place that mismatch surfaces before deploy.
 //

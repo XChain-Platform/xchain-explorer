@@ -83,6 +83,9 @@ function renderPriceDetails(data) {
         ${extractFn('escapeHtml')}
     `);
     dom.window.eval(extractFn('formatPriceAnchorHeight'));
+    // The SHIPPED coin-id rule, not a stub: which chain the ticker link names is
+    // exactly what the cross-chain cases below assert.
+    dom.window.eval(extractFn('siblingCoin'));
     dom.window.eval(extractFn('showPriceRounds'));
     dom.window.eval(extractFn('showPriceDetails'));
     dom.window.showPriceDetails(data);
@@ -104,6 +107,7 @@ function renderPriceDetails(data) {
         windowHidden:  $('#info-price .price-window-row').hasClass('d-none'),
         signersHidden: $('#info-price .price-signers-row').hasClass('d-none'),
         roundsHtml: $('#info-price .price-rounds').html(),
+        tickerHtml: $('#info-price .price-ticker').html(),
         html:      $('#info-price').html()
     };
 }
@@ -274,5 +278,45 @@ describe('PRICE detail render: validator batch rounds', function () {
         const out = renderPriceDetails({ ...BATCH, rounds: [], round_count: null, batch_first_round: null, batch_last_round: null });
         expect(out.roundsHidden).to.equal(true);
         expect(out.windowHidden).to.equal(true);
+    });
+});
+
+// A PRICE v1 declares the CHAIN of the token it prices (V1_COIN, validated against the
+// three base coins) independently of the chain it was published on, and prices are
+// mirrored cross-chain, so a DOGE-published price naming an LTC token is ordinary
+// traffic. The panel showed that declared coin as text while linking the ticker into
+// the page's own chain, which opens a DIFFERENT token or an empty page.
+describe('PRICE detail render: the ticker link follows the declared coin', function () {
+
+    it('links the declared coin, not the chain the reader is browsing', function () {
+        const out = renderPriceDetails({ ...V1, coin: 'LTC', tick: 'PEPE',
+            __xc: { coin: 'RDOGE', network: 'regtest' } });
+        expect(out.tickerHtml).to.contain('/RLTC/token/PEPE');
+        expect(out.tickerHtml, 'the page coin names a different chain\'s token')
+            .to.not.contain('/RDOGE/token/');
+    });
+
+    it('keeps the page network tier when it crosses chains', function () {
+        const out = renderPriceDetails({ ...V1, coin: 'LTC', tick: 'PEPE',
+            __xc: { coin: 'TDOGE', network: 'testnet' } });
+        expect(out.tickerHtml).to.contain('/TLTC/token/PEPE');
+    });
+
+    it('links the page chain when the price names it, tier and all', function () {
+        const out = renderPriceDetails({ ...V1, coin: 'DOGE', tick: 'PEPE',
+            __xc: { coin: 'RDOGE', network: 'regtest' } });
+        expect(out.tickerHtml).to.contain('/RDOGE/token/PEPE');
+    });
+
+    it('falls back to the page coin when the record declares none', function () {
+        const out = renderPriceDetails({ ...V1, coin: null, tick: 'PEPE',
+            __xc: { coin: 'RDOGE', network: 'regtest' } });
+        expect(out.tickerHtml).to.contain('/RDOGE/token/PEPE');
+    });
+
+    it('still renders a dash for a v0 snapshot, which prices a coin and names no token', function () {
+        const out = renderPriceDetails({ ...V1, version: 0, coin: 'LTC', tick: null,
+            __xc: { coin: 'RDOGE', network: 'regtest' } });
+        expect(out.tickerHtml).to.equal('-');
     });
 });

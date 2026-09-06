@@ -183,26 +183,22 @@
                             </table>
                         </div>
 
-                        <!-- AIRDROP Action -->
+                        <!-- AIRDROP Action. One row per LEG: formats 1-3 pay several
+                             lists in one action, each leg with its own token, amount,
+                             memo and validation status. -->
                         <div class="d-none" id="info-airdrop">
-                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-airdrop">
+                            <thead>
+                                <tr class="info">
+                                    <th class="record">#</th>
+                                    <th class="action">List</th>
+                                    <th class="token">Token</th>
+                                    <th class="quantity">Amount</th>
+                                    <th class="memo">Memo</th>
+                                    <th class="status">Status</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                            <tr>
-                                <th width="155">List</th>
-                                <td class="airdrop-list"></td>
-                            </tr>
-                            <tr>
-                                <th>Token</th>
-                                <td class="airdrop-token"></td>
-                            </tr>
-                            <tr>
-                                <th>Amount</th>
-                                <td class="airdrop-amount"></td>
-                            </tr>
-                            <tr>
-                                <th>Memo</th>
-                                <td class="airdrop-memo"></td>
-                            </tr>
                             </tbody>
                             </table>
                         </div>
@@ -714,6 +710,12 @@
                             <tbody class="bet-action-fields">
                             <tr><th>Market</th><td class="bet-action-feed-ref"></td></tr>
                             <tr><th>Resulting Status</th><td class="bet-action-status"></td></tr>
+                            </tbody>
+                            <!-- Resolve only: the outcome the oracle declared. Its own
+                                 tbody because bet-action-fields is shared with cancel,
+                                 which declares no outcome at all. -->
+                            <tbody class="bet-resolve-fields">
+                            <tr><th>Declared Outcome</th><td class="bet-resolve-outcome"></td></tr>
                             </tbody>
                             </table>
                         </div>
@@ -1739,7 +1741,7 @@
                                 <td class="anchor-checkpoint-seq"></td>
                             </tr>
                             <tr>
-                                <th>Snapshot Block</th>
+                                <th>Snapshot Block (BTC)</th>
                                 <td class="anchor-snapshot-block"></td>
                             </tr>
                             <tr>

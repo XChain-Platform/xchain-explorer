@@ -145,6 +145,74 @@ describe('HubOperationalCache', function () {
             const { cache } = loadCache({ callResult: { error: 'governance not active' } });
             expect(await cache.getRows('getproposals', {})).to.equal(null);
         });
+
+        // The RPC is the slow part of getRows: on an unreachable hub it burns two
+        // attempts and their timeouts before the stale bridge is even reached. Time
+        // read BEFORE that await is the age the rows had when the request started,
+        // and the ceiling has to be measured against the clock now.
+        //
+        // These two cases straddle the ceiling from either side using the SAME
+        // elapsed-during-RPC window, so neither can pass by accident: one row set is
+        // under the ceiling at request time and over it by the time the answer comes
+        // back (the defect), the other is under it at both instants (the control).
+        describe('the stale ceiling is measured after the RPC, not before it', function () {
+            /**
+             * Seed one cached row set, age it, then fail an RPC that itself consumes
+             * `rpcMs` of clock while it runs.
+             */
+            async function serveAfterOutage({ ceilingMs, ageMs, rpcMs }) {
+                const clock = sinon.useFakeTimers();
+                try {
+                    const { cache, callStub } = loadCache({
+                        callResult: [{ id: 7 }],
+                        env: {
+                            EXPLORER_HUB_CACHE_MS: '1000',
+                            EXPLORER_HUB_CACHE_STALE_MAX_MS: String(ceilingMs),
+                        },
+                    });
+                    await cache.getRows('getproposals', {});
+                    clock.tick(ageMs);
+                    // An unreachable hub: the retries take real time, then answer null.
+                    callStub.callsFake(async () => { clock.tick(rpcMs); return null; });
+                    return await cache.getRows('getproposals', {});
+                } finally { clock.restore(); }
+            }
+
+            it('refuses rows that cross the ceiling DURING the failing RPC', async function () {
+                // 599s old on entry, 611s old on exit, 600s ceiling. Reading the clock
+                // before the await serves these rows; reading it after refuses them.
+                const rows = await serveAfterOutage({ ceilingMs: 600000, ageMs: 599000, rpcMs: 12000 });
+                expect(rows, 'rows past the stale ceiling must fail loud, not be served')
+                    .to.equal(null);
+            });
+
+            it('still serves rows that are under the ceiling at both instants', async function () {
+                // Same 12s RPC, 500s old: 512s on exit, still inside 600s. This is the
+                // control - without it the test above would also pass against a getRows
+                // that simply refused everything.
+                const rows = await serveAfterOutage({ ceilingMs: 600000, ageMs: 500000, rpcMs: 12000 });
+                expect(rows).to.deep.equal([{ id: 7 }]);
+            });
+
+            // The entry's `at` is a claim about how old its DATA is. The rows describe
+            // hub state from the request onward, so they are stamped at request start;
+            // stamping them at the response would credit them with the RPC's duration
+            // of freshness they never had, which is the same overshoot from the other
+            // end.
+            it('stamps a fresh entry at request start, not at response', async function () {
+                const clock = sinon.useFakeTimers();
+                try {
+                    const { cache, callStub } = loadCache({
+                        env: { EXPLORER_HUB_CACHE_MS: '1000', EXPLORER_HUB_CACHE_STALE_MAX_MS: '10000' },
+                    });
+                    const t0 = Date.now();
+                    callStub.callsFake(async () => { clock.tick(4000); return [{ id: 7 }]; });
+                    await cache.getRows('getproposals', {});
+                    const entry = cache._cache.get('getproposals|{}');
+                    expect(entry.at).to.equal(t0);
+                } finally { clock.restore(); }
+            });
+        });
     });
 
     // A -32601 answer means the hub is UP but its build does not serve the

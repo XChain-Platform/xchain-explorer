@@ -43,24 +43,7 @@
             ]
         },
         "airdrop": {
-            "rows": [
-                {
-                    "label": "List",
-                    "cell": "airdrop-list"
-                },
-                {
-                    "label": "Token",
-                    "cell": "airdrop-token"
-                },
-                {
-                    "label": "Amount",
-                    "cell": "airdrop-amount"
-                },
-                {
-                    "label": "Memo",
-                    "cell": "airdrop-memo"
-                }
-            ]
+            "rows": []
         },
         "batch": {
             "rows": []
@@ -633,6 +616,10 @@
                 {
                     "label": "Resulting Status",
                     "cell": "bet-action-status"
+                },
+                {
+                    "label": "Declared Outcome",
+                    "cell": "bet-resolve-outcome"
                 }
             ]
         },
@@ -1334,7 +1321,7 @@
                     "cell": "anchor-checkpoint-seq"
                 },
                 {
-                    "label": "Snapshot Block",
+                    "label": "Snapshot Block (BTC)",
                     "cell": "anchor-snapshot-block"
                 },
                 {

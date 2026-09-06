@@ -201,4 +201,96 @@ describe('multi-leg actions: legs the page could not show', function(){
             expect(ticks).to.deep.equal(['CAMPB', 'XCHAIN']);
         });
     });
+
+    // AIRDROP formats 1-3 pay several lists in one action, and the indexer writes one
+    // `airdrops` row per leg under the same action_index, each with its own token,
+    // amount, memo and VALIDATION STATUS. The detail handler read a single row with
+    // LIMIT 1, so the page showed one arbitrary payout: a rejected leg sitting behind
+    // a valid one was invisible, which is the omission that matters here.
+    describe('AIRDROP legs', function(){
+
+        function renderAirdrop(payload){
+            const { win } = bootClient('https://xchain.test/RDOGE/action/1176',
+                                       fs.readFileSync(ACTION, 'utf8'));
+            win.showAirdropDetails(payload);
+            return win.jQuery('#datatable-airdrop tbody tr').get().map(function(tr){
+                return win.jQuery('td', tr).get().map(function(td){
+                    return win.jQuery(td).text().trim();
+                });
+            });
+        }
+
+        it('collects every leg rather than one row', function(){
+            const { AIRDROP } = require('../../src/action-detail/tokens.js');
+            const { query2 } = AIRDROP.queries({ action_index: 1176 });
+            expect(query2, 'no follow-up query means the extra legs are never read')
+                .to.be.a('string');
+            expect(query2).to.contain('airdrops');
+            expect(query2, 'a LIMIT here reintroduces the single-leg read')
+                .to.not.match(/LIMIT/i);
+        });
+
+        it('the leg query imposes no sort, so the legs keep the order they were written in', function(){
+            const { AIRDROP } = require('../../src/action-detail/tokens.js');
+            const { query2 } = AIRDROP.queries({ action_index: 1176 });
+            expect(query2, 'a sort key here silently contradicts the transaction')
+                .to.not.match(/ORDER\s+BY/i);
+        });
+
+        it('hands the legs to the payload under their own key', function(){
+            const { AIRDROP } = require('../../src/action-detail/tokens.js');
+            const data = {};
+            AIRDROP.afterQuery2({}, data, [{ tick: 'CAMPB' }]);
+            expect(data.airdrops).to.deep.equal([{ tick: 'CAMPB' }]);
+        });
+
+        it('renders one row per payout, in wire order', function(){
+            const rows = renderAirdrop({ airdrops: [
+                { tick: 'CAMPB',  list_action_index: 1101, amount: '2', memo: 'drop alpha', status: 'valid' },
+                { tick: 'XCHAIN', list_action_index: 1102, amount: '3', memo: 'drop bravo', status: 'invalid: BALANCE (insufficient)' },
+            ]});
+            expect(rows.length).to.equal(2);
+            expect(rows.map(r => r[2])).to.deep.equal(['CAMPB', 'XCHAIN']);
+        });
+
+        it('shows a REJECTED leg its own status instead of hiding it behind a valid one', function(){
+            const rows = renderAirdrop({ airdrops: [
+                { tick: 'CAMPB',  list_action_index: 1101, amount: '2', memo: 'drop alpha', status: 'valid' },
+                { tick: 'XCHAIN', list_action_index: 1102, amount: '3', memo: 'drop bravo', status: 'invalid: BALANCE (insufficient)' },
+            ]});
+            expect(rows[1][5]).to.equal('invalid: BALANCE (insufficient)');
+            expect(rows[0][5]).to.equal('valid');
+        });
+
+        it('keeps each leg beside its own list, amount and memo', function(){
+            const rows = renderAirdrop({ airdrops: [
+                { tick: 'CAMPB',  list_action_index: 1101, amount: '2', memo: 'drop alpha', status: 'valid' },
+                { tick: 'XCHAIN', list_action_index: 1102, amount: '3', memo: 'drop bravo', status: 'valid' },
+            ]});
+            // The list index is printed through formatAmount, as the single-leg panel
+            // printed it before the legs table replaced that panel.
+            expect(rows[1][1]).to.equal('1,102');
+            expect(rows[1][3]).to.equal('3');
+            expect(rows[1][4]).to.equal('drop bravo');
+        });
+
+        it('renders the one leg a single-airdrop payload carries, from the header fields', function(){
+            // Format 0 is one leg, and a payload without the array must still render it
+            // rather than drawing an empty table.
+            const rows = renderAirdrop({ tick: 'CAMPB', list_action_index: 1101,
+                                         amount: '5', memo: null, status: 'valid' });
+            expect(rows.length).to.equal(1);
+            expect(rows[0][2]).to.equal('CAMPB');
+            expect(rows[0][4], 'an absent memo is an empty cell, never the word null').to.equal('');
+        });
+
+        it('the shipped markup carries a Status column, so a dropped one fails here', function(){
+            const markup = fs.readFileSync(ACTION, 'utf8');
+            const start  = markup.indexOf('id="datatable-airdrop"');
+            expect(start, 'the airdrop legs table is gone from action.html').to.be.above(-1);
+            const head = markup.slice(start, markup.indexOf('</thead>', start));
+            expect(head).to.contain('>Status<');
+            expect(head).to.contain('>Memo<');
+        });
+    });
 });

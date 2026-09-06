@@ -56,25 +56,31 @@ function panelHtml() {
     return ACTION_HTML.slice(start, end);
 }
 
-function render(data) {
+function render(data, xc) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml() + '</body>',
         { runScripts: 'outside-only' });
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/numeral.js'), 'utf8'));
-    dom.window.XC = { coin: 'DOGE', network: 'mainnet' };
+    dom.window.XC = Object.assign({ coin: 'DOGE', network: 'mainnet' }, xc || {});
     dom.window.eval(`
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatHash(h, len){ return String(h == null ? '' : h).substring(0, len); }
         ${extractFn('isNull')}
         ${extractFn('escapeHtml')}
     `);
+    // The snapshot-block row renders through the shared BTC-height helper, so the
+    // SHIPPED helper is evaluated here rather than stubbed: which chain it picks is
+    // exactly what the snapshot-block cases below assert.
+    dom.window.eval(extractFn('formatPriceAnchorHeight'));
     dom.window.eval(extractFn('showAnchorDetails'));
     dom.window.showAnchorDetails(data);
     const $ = dom.window.$;
     return {
         sections:     $('#info-anchor .anchor-sections').text().trim(),
         sectionsHtml: $('#info-anchor .anchor-sections').html(),
-        chain:        $('#info-anchor .anchor-chain').text().trim()
+        chain:        $('#info-anchor .anchor-chain').text().trim(),
+        snapshot:     $('#info-anchor .anchor-snapshot-block').text().trim(),
+        snapshotHtml: $('#info-anchor .anchor-snapshot-block').html()
     };
 }
 
@@ -117,6 +123,57 @@ describe('ANCHOR action detail: section count and elision label', function () {
         const r = render(SINGLE);
         expect(r.sections).to.not.contain('section 0');
         expect(r.sections).to.not.contain('chains');
+    });
+
+    // SNAPSHOT_BLOCK is a BITCOIN height (the oracle_publish capability snapshot is
+    // BTC-keyed) while an ANCHOR is only valid on DOGE, so the page coin is NEVER the
+    // right namespace for it. Linking it there resolved a DOGE block of the same
+    // number: a real, unrelated block, which is worse than no link at all.
+    describe('snapshot block namespace', function () {
+
+        it('never links the BTC snapshot height into the DOGE page it renders on', function () {
+            const r = render(BUNDLE);
+            expect(r.snapshotHtml, 'the DOGE block of the same number is a different block')
+                .to.not.contain('/DOGE/block/');
+            expect(r.snapshot).to.equal('910,000');
+        });
+
+        it('links the tier-matched BTC chain when this instance serves it', function () {
+            const r = render(BUNDLE, {
+                networks: { mainnet: '', testnet: 'T', regtest: 'R' },
+                status: { available: { BTC: true } }
+            });
+            expect(r.snapshotHtml).to.contain('/BTC/block/910000');
+        });
+
+        it('carries the network tier of the page it is rendered on', function () {
+            const r = render(BUNDLE, {
+                coin: 'RDOGE', network: 'regtest',
+                networks: { mainnet: '', testnet: 'T', regtest: 'R' },
+                status: { available: { RBTC: true } }
+            });
+            expect(r.snapshotHtml).to.contain('/RBTC/block/910000');
+            expect(r.snapshotHtml).to.not.contain('/RDOGE/block/');
+        });
+
+        it('falls back to the bare height on a deployment that serves no BTC chain', function () {
+            const r = render(BUNDLE, {
+                networks: { mainnet: '', testnet: 'T', regtest: 'R' },
+                status: { available: { DOGE: true } }
+            });
+            expect(r.snapshotHtml).to.not.contain('<a href');
+            expect(r.snapshot).to.equal('910,000');
+        });
+
+        it('renders a dash for an anchor carrying no snapshot block', function () {
+            const r = render(Object.assign({}, BUNDLE, { snapshot_block: null }));
+            expect(r.snapshot).to.equal('-');
+        });
+
+        it('the shipped markup labels the row as a BTC height', function () {
+            expect(panelHtml(), 'an unlabelled height reads as a page-coin height')
+                .to.contain('Snapshot Block (BTC)');
+        });
     });
 
     it('escapes a hostile chain name rather than injecting it', function () {

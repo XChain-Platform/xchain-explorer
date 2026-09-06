@@ -1574,6 +1574,15 @@ class ActionListReaders {
         return [query, args, count];
     }
 
+    // A contract-emitted SEND has no broadcast transaction behind it: the injected
+    // EXECUTE that ran it carries no TX_INDEX (xchain-indexer actions/xexec.js), and
+    // execute.js propagates that absence into every action the run emits, so the
+    // `actions` row lands with tx_index NULL while block_index is NOT NULL. Joining
+    // blocks THROUGH an INNER-joined transaction therefore did not degrade such a
+    // row, it deleted it from the feed AND from its total, silently, and the /sends
+    // route is what the SDK's x402 layer reads to confirm a payment. Blocks joins
+    // off a1.block_index (INNER, always present) and transactions degrades to LEFT,
+    // which is the shape the tx-less action feed and getUnstakes already use.
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -1585,8 +1594,8 @@ class ActionListReaders {
                     FROM
                         sends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -1612,8 +1621,8 @@ class ActionListReaders {
                     FROM
                         sends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)

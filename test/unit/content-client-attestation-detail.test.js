@@ -90,6 +90,7 @@ function installHelpers(dom) {
         function loadDatatablesData(){ window.__datatable = Array.prototype.slice.call(arguments); }
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}
+        ${extractFn(XCHAIN_SRC, 'siblingCoin')}
     `);
     dom.window.eval(RENDER_SRC);
 }
@@ -385,16 +386,37 @@ describe('attestation.html detail page @regression', function () {
         // own) is WAITING for the ATTEST v5/v6 batch that carries its body, while a
         // legacy-era response WAS its own on-chain transaction and will never have
         // one. Collapsing them into a single dash tells a reader something untrue.
-        it('[batch] links the batch action once the batch has landed', function () {
+        // The batch index belongs to the DOGE rail, not to the page's chain: the
+        // schema column is "the DOGE action_index of the ATTEST v5 batch that carried
+        // this row". Namespacing it by the page coin produced a link to an unrelated
+        // action of the same index on this chain, which resolves and is wrong, so the
+        // wrong URL is asserted ABSENT rather than only the right one present.
+        it('[batch] links the batch action on the DOGE rail once the batch has landed', function () {
             const dom = renderDom();
             const d = completed();
             d.response = responseLeg({ tx_hash: null, tx_index: null, batch_action_index: 6100 });
             d.legs = [d.request, d.response];
             const $ = paint(dom, dom.window.renderAttestationResponse(d));
             expect($('#out').text()).to.contain('On-chain Batch');
-            expect($('a[href="/RBTC/action/6100"]').length).to.equal(1);
+            expect($('a[href="/RDOGE/action/6100"]').length).to.equal(1);
+            expect($('a[href="/RBTC/action/6100"]').length).to.equal(0);
             expect($('.attestation-batch-pending').length).to.equal(0);
             expect($('.attestation-batch-na').length).to.equal(0);
+        });
+
+        // The network tier comes from the page coin, so this pins the prefix rather
+        // than a hard-coded 'R': a testnet page must reach TDOGE, and mainnet DOGE.
+        it('[batch] keeps the page network tier when crossing to the DOGE rail', function () {
+            for(const [pageCoin, expected] of [['TBTC', 'TDOGE'], ['BTC', 'DOGE'], ['RLTC', 'RDOGE']]){
+                const dom = renderDom();
+                dom.window.eval('XC.coin = ' + JSON.stringify(pageCoin) + ';');
+                const d = completed();
+                d.response = responseLeg({ tx_hash: null, tx_index: null, batch_action_index: 6100 });
+                d.legs = [d.request, d.response];
+                const $ = paint(dom, dom.window.renderAttestationResponse(d));
+                expect($('a[href="/' + expected + '/action/6100"]').length,
+                    'page coin ' + pageCoin + ' should link ' + expected).to.equal(1);
+            }
         });
 
         it('[batch] says the body is not on chain YET for a mirror-applied response', function () {

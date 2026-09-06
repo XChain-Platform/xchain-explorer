@@ -238,10 +238,17 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
     it('keeps ACTION before REMOVED for a burst emitted synchronously', async () => {
         const venue = mkVenue({ destAddr: 42 });
         const dest  = subscribeAddress(venue, 2, 'destAddr');
+        // The first lookup is held by a deferred the TEST releases, not by a
+        // duration. A 20ms stub made the overtake window a wall-clock bet: a loaded
+        // box could finish the removal's handler inside it either way, so the test
+        // could pass without ever creating the race it names. Parking the first
+        // lookup until after BOTH emits makes the window exact.
+        let releaseLookup;
+        const firstLookup = new Promise((resolve) => { releaseLookup = resolve; });
         let calls = 0;
         venue.db.getExactAddressId = async () => {
             calls++;
-            if (calls === 1) await new Promise((resolve) => setTimeout(resolve, 20));
+            if (calls === 1) await firstLookup;
             return 42;
         };
 
@@ -249,8 +256,13 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
         venue.changeDetector.emit('mempool_removed', 'RBTC', {
             tx_hash: 'aa11', source: 'srcAddr', data: 'SEND|0|TOK|5|^42|memo'
         });
+        releaseLookup();
+        // Drain the per-coin tail, then spend a few macrotask turns: with no timer
+        // left in the path, a stray concurrent frame is promise-scheduled, so turns
+        // catch it strictly sooner than the 60ms sleep this replaces did.
         await settle(venue);
-        await new Promise((resolve) => setTimeout(resolve, 60));    // let a stray concurrent frame land
+        await settle(venue);
+        for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
 
         expect(frames(dest).map((f) => f.type)).to.deep.equal(['MEMPOOL_ACTION', 'MEMPOOL_REMOVED']);
     });

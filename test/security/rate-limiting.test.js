@@ -31,6 +31,7 @@ const express     = require('express');
 const request     = require('supertest');
 const { HTTP_TRUST_PROXY_HOPS, applyTrustProxy } = require('../../src/trustProxy.js');
 const WebSocketServer = require('../../src/ws/WebSocketServer.js');
+const staticMounts    = require('../../src/staticMounts.js');
 
 const apiSource = fs.readFileSync(
     path.join(__dirname, '../../src/api.js'),
@@ -41,6 +42,81 @@ const explorerSource = fs.readFileSync(
     path.join(__dirname, '../../src/XChainExplorer.js'),
     'utf8'
 );
+
+describe('Security: Rate Limiting: static-asset exemption', function () {
+
+    // The exemption is the skip predicate for BOTH the per-IP rate limiter and the
+    // global concurrency gate, so anything it exempts is unlimited. It matches the
+    // first path segment, never a file extension, which describes the URL and not
+    // what serves it: on a suffix test an attacker appends .png to an API path and
+    // gets unbounded DB-backed search.
+
+    it('exempts the two image mounts a page pulls in a burst', function () {
+        const exempt = [
+            '/images/favicon.ico',
+            '/images/logos/BTC.svg',
+            '/icon/BTC/XCP.png',
+            '/icon'
+        ];
+        for(const p of exempt)
+            expect(staticMounts.isStaticAssetPath(p), p).to.equal(true);
+    });
+
+    it('grants no exemption the shipped predicate did not already grant', function () {
+        // The exemption set only ever narrows here. These mounts are real static
+        // routes but were never exempt (no image extension), so they must stay
+        // limited: widening would take shedding away from paths that have it.
+        const stillLimited = [
+            '/css/xchain.css',
+            '/js/xchain.js',
+            '/themes/dark/tokens.css',
+            '/components/token-card/mount.js',
+            '/fontawesome/css/all.min.css',
+            '/fontawesome/webfonts/fa-solid-900.woff2'
+        ];
+        for(const p of stillLimited)
+            expect(staticMounts.isStaticAssetPath(p), p).to.equal(false);
+        // And `images` is in the express.static list, so the mount and the
+        // exemption cannot drift apart.
+        expect(staticMounts.STATIC_DIRECTORIES).to.include('images');
+        for(const m of staticMounts.EXEMPT_MOUNTS)
+            expect(m === 'icon' || staticMounts.STATIC_DIRECTORIES.includes(m), m).to.equal(true);
+    });
+
+    it('does not exempt an API path carrying an image suffix', function () {
+        const limited = [
+            '/BTC/api/search/needle.png',
+            '/BTC/api/search/needle.png/token',
+            '/BTC/api/blocks/1.svg',
+            '/BTC/explorer/search/x.webp',
+            '/BTC/api/address/x.ico'
+        ];
+        for(const p of limited)
+            expect(staticMounts.isStaticAssetPath(p), p).to.equal(false);
+    });
+
+    it('matches the mount name exactly, never as a prefix', function () {
+        // The old predicate used startsWith('/images'), so /imagesXYZ/... was exempt.
+        expect(staticMounts.isStaticAssetPath('/imagesXYZ/BTC/api/search/q.png')).to.equal(false);
+        expect(staticMounts.isStaticAssetPath('/iconography/BTC/api/search/q')).to.equal(false);
+    });
+
+    it('refuses a traversal that would borrow a mount exemption', function () {
+        expect(staticMounts.isStaticAssetPath('/images/../BTC/api/search/needle')).to.equal(false);
+    });
+
+    it('is the predicate both guards actually use, from the one mount list', function () {
+        // Source assertions: the app is built inside startApi() and cannot be
+        // constructed here, so this pins the wiring the unit tests above cannot see.
+        expect(apiSource).to.include("require('./staticMounts.js')");
+        expect(apiSource).to.include('const isStaticAsset = staticMounts.isStaticAsset');
+        expect(apiSource).to.match(/skip:\s*isStaticAsset,[\s\S]*skip:\s*isStaticAsset,/);
+        expect(apiSource).to.not.match(/png\|jpg\|jpeg/);
+        // One list: the express.static mounts read the same array the predicate does,
+        // so a directory added to the explorer can never be silently rate-limited.
+        expect(explorerSource).to.include("'static' : staticMounts.STATIC_DIRECTORIES");
+    });
+});
 
 describe('Security: Rate Limiting: compute-bound route limiters', function () {
 

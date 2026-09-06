@@ -53,6 +53,27 @@
  * probe to real CSS changes on those properties); their VALUES are read
  * layout-independently instead - see the LAYOUT set below.
  *
+ * A CAPTURE VOUCHES FOR ITSELF, because a fingerprint of nothing is stable and
+ * therefore indistinguishable from a fingerprint of a healthy page. Two ways
+ * this probe has produced a clean-looking proof of nothing:
+ *
+ *   - It flipped data-bs-theme on documentElement while updateTheme() writes it
+ *     on BODY, and tokens.css declares the --xc-* surface tokens on whichever
+ *     element carries the attribute. On a page initialised in dark, body kept
+ *     its own dark declaration through both iterations, so the capture labelled
+ *     light measured dark surfaces and the render layer compared a mode against
+ *     itself. The switch happens on body now, and the probe reads the rendered
+ *     mode back off body: two identical readings are rejected, not recorded.
+ *
+ *   - It fingerprinted whatever it found, including nothing. A page where no
+ *     href matched SHEET, or where the sheet was unreadable, or where no
+ *     selector matched an element, still returned stable hashes over an empty
+ *     snapshot and 31 absence markers.
+ *
+ * A capture that fails any of those checks returns { invalid: [reasons] } with
+ * no hashes and writes NOTHING to localStorage, so a degenerate run can neither
+ * be mistaken for evidence nor overwrite a good stored snapshot.
+ *
  * A note on the one non-obvious implementation detail: Chrome gives EVERY
  * CSSStyleRule an empty `.cssRules` list (CSS nesting), so a naive
  * `if (rule.cssRules) recurse` treats every plain rule as a group, walks its
@@ -68,7 +89,8 @@
  *     __XC('<page-tag>', 'after')    // post-change, same tag
  *
  * Each call snapshots BOTH modes, stores the full snapshots in localStorage
- * under __xc:<phase>:<tag>|<mode>|<layer>, and returns only fingerprints.
+ * under __xc:<phase>:<tag>|<mode>|<layer>, and returns fingerprints plus the
+ * mode each capture actually rendered in.
  * Compare the returned hashes against tools/theme-parity/baseline-<date>.json;
  * every hash must reproduce exactly. To see WHAT moved when one does not,
  * diff the stored snapshots in the page:
@@ -124,7 +146,7 @@ window.__XC = (function () {
     let h = 5381; for (let i=0;i<s.length;i++) h = ((h*33)^s.charCodeAt(i))>>>0;
     return { hash: h.toString(16).padStart(8,'0'), keys: Object.keys(o).length }; };
   const ruleSnap = () => {
-    const snap = {}; let rules = 0; const un = [];
+    const snap = {}; let rules = 0, sheets = 0; const un = [];
     const walk = r => {
       if (r.selectorText && r.style) { rules++;
         const props = Array.from(r.style).filter(p => !p.startsWith('--'));
@@ -148,9 +170,10 @@ window.__XC = (function () {
       if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c);
     };
     for (const sh of document.styleSheets) { if (!sh.href || !SHEET.test(sh.href)) continue;
+      sheets++;
       let rs; try { rs = sh.cssRules; } catch(e) { snap['__UNREADABLE__ '+sh.href] = String(e); continue; }
       for (const r of rs) walk(r); }
-    return { rules, snap, un: un.sort() };
+    return { rules, snap, un: un.sort(), sheets };
   };
   const rendSnap = () => { const o = {}; let n = 0;
     for (const sel of A) { let el; try { el = document.querySelector(sel); } catch(e) {}
@@ -160,17 +183,67 @@ window.__XC = (function () {
       for (const p of P) o[sel+' | '+p] = (LAYOUT.has(p) && cm)
         ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); }
     return { o, n, total: A.length }; };
+  // Everything a capture can be wrong ABOUT, asked of the capture itself. A
+  // fingerprint of nothing is stable, so an empty snapshot and a healthy one
+  // are indistinguishable downstream: a fresh before/after pair taken on a page
+  // that matched no sheet and no element agrees over nothing and reads as a
+  // parity pass. These are the signals ruleSnap/rendSnap already compute.
+  const health = (mode, R, D) => {
+    const bad = [];
+    if (!R.sheets) bad.push(mode+': no stylesheet matched SHEET, so the rule layer read nothing');
+    if (!R.rules) bad.push(mode+': the rule layer walked 0 rules');
+    if (!Object.keys(R.snap).length) bad.push(mode+': the rule snapshot is empty');
+    for (const k of Object.keys(R.snap)) if (k.indexOf('__UNREADABLE__ ') === 0)
+      bad.push(mode+': unreadable stylesheet '+k.slice(15));
+    if (!D.n) bad.push(mode+': the render census matched none of its '+D.total+' anchors');
+    return bad;
+  };
+  // The mode a capture actually rendered in, read off the element the census
+  // reads. Two identical witnesses mean the requested mode never took, whatever
+  // the probe wrote where.
+  const witness = () => { const cs = getComputedStyle(document.body);
+    return ['background-color','color','border-top-color']
+      .map(p => cs.getPropertyValue(p).trim()).join(' | '); };
   return function capture(tag, phase) {
-    const orig = document.documentElement.getAttribute('data-bs-theme'); const res = {};
-    for (const mode of ['light','dark']) {
-      document.documentElement.setAttribute('data-bs-theme', mode);
-      const R = ruleSnap(), D = rendSnap();
-      localStorage['__xc:'+phase+':'+tag+'|'+mode+'|rule'] = JSON.stringify(R.snap);
-      localStorage['__xc:'+phase+':'+tag+'|'+mode+'|rend'] = JSON.stringify(D.o);
-      res[mode] = { rule: fp(R.snap), rend: fp(D.o), anchors: D.n+'/'+D.total, cssRules: R.rules };
-      if (mode === 'light') localStorage['__xcUn:'+phase+':'+tag] = JSON.stringify(R.un);
+    if (!document.body) return { invalid: ['the page has no body element to capture'] };
+    // The application marks the mode on BODY (updateTheme() in
+    // src/content/js/xchain.js), and themes/*/tokens.css declares the --xc-*
+    // surface tokens on whichever element carries the attribute. Marking
+    // documentElement instead therefore changes nothing on a page the app has
+    // already marked: body's own declarations override the inherited root
+    // values, so a page initialised in dark returned dark surfaces for BOTH
+    // captures and the light/dark comparison compared a mode against itself.
+    const had = document.body.hasAttribute('data-bs-theme');
+    const orig = document.body.getAttribute('data-bs-theme');
+    const res = {}, held = {}, saw = {}, invalid = [];
+    try {
+      for (const mode of ['light','dark']) {
+        document.body.setAttribute('data-bs-theme', mode);
+        const R = ruleSnap(), D = rendSnap();
+        saw[mode] = witness();
+        for (const why of health(mode, R, D)) invalid.push(why);
+        held[mode] = R;
+        held[mode+'|rend'] = D.o;
+        res[mode] = { rule: fp(R.snap), rend: fp(D.o), anchors: D.n+'/'+D.total,
+          cssRules: R.rules, rendered: saw[mode] };
+      }
+    } finally {
+      // Restore in a finally so a throw inside the loop cannot strand the
+      // operator's page in the probe's last mode.
+      if (had) document.body.setAttribute('data-bs-theme', orig);
+      else document.body.removeAttribute('data-bs-theme');
     }
-    document.documentElement.setAttribute('data-bs-theme', orig || 'light');
+    if (saw.light === saw.dark)
+      invalid.push('the theme switch did not take: body rendered identically in both modes ('+saw.light+')');
+    // Persist nothing from a rejected capture: a degenerate "after" must not be
+    // able to overwrite a good stored "before".
+    if (invalid.length) { console.error('[theme-parity] capture rejected:\n  '+invalid.join('\n  '));
+      return { invalid }; }
+    for (const mode of ['light','dark']) {
+      localStorage['__xc:'+phase+':'+tag+'|'+mode+'|rule'] = JSON.stringify(held[mode].snap);
+      localStorage['__xc:'+phase+':'+tag+'|'+mode+'|rend'] = JSON.stringify(held[mode+'|rend']);
+    }
+    localStorage['__xcUn:'+phase+':'+tag] = JSON.stringify(held.light.un);
     return res;
   };
 })();

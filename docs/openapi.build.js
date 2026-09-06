@@ -269,7 +269,8 @@ const SPECIAL = [
         null,
         { response200: {
             description: 'Raw file bytes. A gated FILE is ALWAYS application/octet-stream '
-                + '(12-byte nonce || AES-256-GCM ciphertext || 16-byte tag; X-XChain-Stored-Form: encrypted). '
+                + '(12-byte nonce || 16-byte AES-256-GCM authentication tag || ciphertext; '
+                + 'X-XChain-Stored-Form: encrypted). '
                 + 'A non-gated FILE is served under its declared media type when that type is render-safe '
                 + '(image/*, audio/*, video/* except image/svg+xml, application/pdf, application/json) '
                 + 'and as an application/octet-stream attachment otherwise.',
@@ -389,7 +390,7 @@ const SPECIAL = [
     ['/{COIN}/api/proof/locked-balance/{ADDRESS}/{TICK}', 'Proofs', 'SPV locked-balance (XCHAIN_ESC) inclusion proof for an address/tick against the committed balances_root; 409 below the escrow leaf armed height (height optional)'],
     ['/{COIN}/api/proof/action/{ACTION_INDEX}', 'Proofs', 'SPV inclusion proof for an action against the committed state tree'],
     ['/{COIN}/api/proof/validator-set', 'Proofs', 'SPV proof of the BTC validator set at a snapshot height (stakes_root; BTC-only)'],
-    ['/{COIN}/api/proof/contract-state/{CONTRACT_INDEX}/{KEY}', 'Proofs', 'SPV contract-state proof (not implemented in state_root_version 1; committed EMPTY per spec D1, returns 501)'],
+    ['/{COIN}/api/proof/contract-state/{CONTRACT_INDEX}/{KEY}', 'Proofs', 'SPV contract-state inclusion/non-inclusion proof for a contract key against the committed contract_state_root; 409 below the slot\'s armed height (height optional)'],
     // Registered with app.post() ONLY (src/XChainExplorer.js:653) -- no GET exists on
     // this path, so {noGet} skips the table conventions' default GET operation rather
     // than fabricating one. This was the gate's blind spot the M1.8 repair closes: the

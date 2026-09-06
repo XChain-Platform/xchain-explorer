@@ -164,6 +164,31 @@ function isAllowlisted(d) {
   return ALLOWLIST.some((rule) => rule.match(d));
 }
 
+// Functions whose insides are deliberately NOT classified. var() holds a
+// fallback that is a degradation path rather than a stray literal, url() holds
+// an asset path, and the rgb/hsl family is already reported whole by
+// FUNC_COLOR_RE, so recursing into it would only re-report the same value.
+const OPAQUE_FUNC_RE = /^(?:var|url|rgba?|hsla?)\(/i;
+// A token that is a single function call, captured as name + argument list.
+const CALL_RE = /^([a-zA-Z][\w-]*)\((.*)\)$/s;
+
+// tokenizeValue() splits only at paren depth 0, so a whole function expression
+// arrives as ONE token and matches none of the color/numeric patterns:
+// `calc(12px + 1rem)` and `linear-gradient(red, blue)` read as clean. Expand
+// each transparent function token into its arguments as well, recursively, so
+// the classifier sees the literals inside it. Depth is bounded because the
+// input is stylesheet text, not a trusted grammar.
+function flattenTokens(value, depth = 0) {
+  const out = [];
+  for (const token of tokenizeValue(value)) {
+    out.push(token);
+    if (depth >= 8 || OPAQUE_FUNC_RE.test(token)) continue;
+    const call = CALL_RE.exec(token);
+    if (call) out.push(...flattenTokens(call[2], depth + 1));
+  }
+  return out;
+}
+
 // One declaration can only be reported once; color takes priority since a
 // stray hex/rgb/named color is always wrong regardless of which property
 // carries it, then radius, then shadow, then the generic spacing family.
@@ -172,7 +197,7 @@ function classifyViolation(d) {
 
   let sawColor = false;
   let sawNumeric = false;
-  for (const token of tokenizeValue(d.value)) {
+  for (const token of flattenTokens(d.value)) {
     if (VAR_RE.test(token)) continue;
     if (HEX_RE.test(token) || FUNC_COLOR_RE.test(token) || NAMED_COLOR_WORDS.has(token.toLowerCase())) {
       sawColor = true;
@@ -265,6 +290,56 @@ describe('theme token-literal gate (M1 A3)', () => {
       }
     }
     assert.deepEqual(missing, [], missing.join('\n'));
+  });
+});
+
+/*
+ * Classifier fixtures. The whole-sheet check above can only go red on a literal
+ * some first-party sheet actually carries, and none of them carries a function
+ * expression at all today, so it stays green whether or not the classifier can
+ * see inside one. These drive classifyViolation() directly, which is the only
+ * run that can say no to the function-wrapped bypass.
+ */
+describe('token-literal classifier (function-wrapped values)', () => {
+  const decl = (property, value, extra = {}) => ({
+    file: 'xchain.css', selector: '.xc-fixture', property, value, line: 1, ...extra,
+  });
+
+  it('sees a spacing literal wrapped in calc()', () => {
+    assert.equal(classifyViolation(decl('padding', 'calc(12px + 1rem)')), 'spacing');
+  });
+
+  it('sees a color literal wrapped in a gradient', () => {
+    assert.equal(classifyViolation(decl('background', 'linear-gradient(red, blue)')), 'color');
+  });
+
+  it('sees a color literal nested two functions deep', () => {
+    assert.equal(
+      classifyViolation(decl('background', 'linear-gradient(to right, rgba(0, 0, 0, .2), #fff)')),
+      'color');
+  });
+
+  it('sees a spacing literal wrapped in clamp()', () => {
+    assert.equal(classifyViolation(decl('width', 'clamp(120px, 50%, 480px)')), 'spacing');
+  });
+
+  it('still reads a var() fallback as a legitimate degradation path', () => {
+    assert.equal(classifyViolation(decl('color', 'var(--xc-body-color, #212529)')), null);
+  });
+
+  it('still honours the url() asset allowlist', () => {
+    assert.equal(classifyViolation(decl('background-image', 'url(/img/glyph-16.png)')), null);
+  });
+
+  it('still honours the chart-tooltip opacity allowlist', () => {
+    assert.equal(classifyViolation({
+      file: 'xchain-charts.css', selector: '.xc-chart-tooltip',
+      property: 'opacity', value: '0', line: 1,
+    }), null);
+  });
+
+  it('still exempts a bare 100% full-bleed width', () => {
+    assert.equal(classifyViolation(decl('width', '100%')), null);
   });
 });
 

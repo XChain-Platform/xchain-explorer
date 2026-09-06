@@ -33,6 +33,7 @@ const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
+const staticMounts    = require('./staticMounts.js');     // the one file-serving mount list, shared with XChainExplorer
 const { applyTrustProxy } = require('./trustProxy.js');   // proxy-hop policy, shared with the WS path's hop count
 const { resolveMaxBatch, makeRpcBatchGuard } = require('./rpcBatchGuard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./shutdown.js');
@@ -163,10 +164,14 @@ async function startApi(){
     // every page pulls a burst of them at once, so they are exempt from both
     // the per-IP rate limit and the global concurrency gate below. Counting
     // them would shed real queries to make room for favicons.
-    const isStaticAsset = (req) =>
-        /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) ||
-        req.path.startsWith('/icon') ||
-        req.path.startsWith('/images');
+    //
+    // Exempt by FIRST PATH SEGMENT, from the one mount list in
+    // src/staticMounts.js, never by file extension: a suffix is a claim about
+    // what a URL looks like, not about what serves it. Match on it and
+    // /BTC/api/search/needle.png reads as an image, skips both guards, and
+    // still routes to the catch-all API handler, so any suffixed path buys
+    // unlimited DB-backed search.
+    const isStaticAsset = staticMounts.isStaticAsset;
 
     // Rate limiting: requests per minute per IP (image requests are excluded;
     // override the default with EXPLORER_RATE_LIMIT_RPM).

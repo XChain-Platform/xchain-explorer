@@ -101,6 +101,34 @@ describe('openapi.json route coverage', () => {
         expect(op.parameters.map((p) => p.name || p.$ref)).to.not.include.members(['page', 'limit', 'sortorder']);
     });
 
+    it('describes the gated ciphertext layout in the order the bytes are actually written', () => {
+        // The published spec said "12-byte nonce || AES-256-GCM ciphertext || 16-byte tag"
+        // while every producer writes the tag SECOND. The bytes are served untouched, so
+        // nothing here goes red on its own: an implementer writing a decryptor from the
+        // API docs slices the tag off the wrong end and fails GCM auth on every file.
+        const description = SPEC.paths['/{COIN}/api/file/{ACTION_INDEX}/raw']
+            .get.responses['200'].description;
+
+        const nonce      = description.indexOf('12-byte nonce');
+        const tag        = description.search(/16-byte[^|]*(tag|authentication tag)/);
+        const ciphertext = description.indexOf('ciphertext');
+        expect(nonce, 'nonce not described').to.be.greaterThan(-1);
+        expect(tag, 'tag not described').to.be.greaterThan(-1);
+        expect(ciphertext, 'ciphertext not described').to.be.greaterThan(-1);
+        expect(nonce).to.be.lessThan(tag);
+        expect(tag, 'the tag precedes the ciphertext on the wire').to.be.lessThan(ciphertext);
+
+        // Derived from the producer rather than asserted: xchain-sdk is the reference
+        // encoder. Skipped in a standalone explorer clone, where the sibling is absent.
+        const sdk = path.resolve(__dirname, '../../../xchain-sdk/src/gatedFile.js');
+        if (fs.existsSync(sdk)) {
+            const source = fs.readFileSync(sdk, 'utf8');
+            expect(source, 'the SDK stopped writing [iv][authTag][ciphertext]; this doc string ' +
+                'follows the producer, so re-derive it before editing the assertion above')
+                .to.match(/Buffer\.concat\(\[\s*iv\s*,\s*authTag\s*,\s*encrypted\s*\]\)/);
+        }
+    });
+
     it('declares the checkpoint routes with their real body and params', () => {
         // Both answer {checkpoints, count}, not the {total, data} list envelope, and
         // /checkpoints/range hard-requires from/to (400 INVALID_RANGE).

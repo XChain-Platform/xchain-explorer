@@ -112,11 +112,15 @@ describe('component library (M2.4)', function () {
         });
 
         it('serves the component directory over HTTP, or none of those tags resolve', function () {
-            const explorer = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
-            const statics = /'static'\s*:\s*\[([\s\S]*?)\]/.exec(explorer);
-            assert.ok(statics, 'static directory list not found');
-            assert.match(statics[1], /'components'/,
+            // The mount list moved to src/staticMounts.js, shared with the rate
+            // limiter's exemption, so read the list itself rather than regexing a
+            // literal out of XChainExplorer.js: the value is what gets mounted.
+            const staticMounts = require(path.join(ROOT, 'src', 'staticMounts.js'));
+            assert.ok(staticMounts.STATIC_DIRECTORIES.includes('components'),
                 "content/components is not served, so every component script 404s and no page mounts");
+            const explorer = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
+            assert.match(explorer, /'static'\s*:\s*staticMounts\.STATIC_DIRECTORIES/,
+                'the explorer no longer mounts the shared static list');
         });
     });
 

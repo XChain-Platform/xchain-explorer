@@ -69,10 +69,13 @@ describe('HubOperationalCache: a concurrent -32601 does not hijack another call'
             HUB_RETRY_DELAY_MS: '0'
         });
 
-        // Seed the Y entry, then let its TTL (1ms) lapse while it stays well
-        // inside the stale ceiling.
+        // Seed the Y entry, then AGE it so its TTL (1ms) has lapsed while it stays
+        // well inside the stale ceiling (600000ms). Aged rather than slept for: the
+        // state under test is the entry's age, the entry carries that age as a
+        // field, and a duration only adds wall clock and a race with it.
         expect(await cache.getRows('methodY', {})).to.deep.equal([{ id: 'y1' }]);
-        await new Promise(r => setTimeout(r, 5));
+        expect(cache._cache.size, 'nothing was cached, so the stale bridge below could not be exercised').to.be.above(0);
+        for (const hit of cache._cache.values()) hit.at -= 60000;
         mode = 'live';
 
         const [x, y] = await Promise.allSettled([

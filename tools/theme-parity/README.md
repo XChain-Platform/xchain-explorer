@@ -33,8 +33,17 @@ pasted, not loaded from a string.
 5. Repeat per page, using the tags and URLs recorded in the baseline JSON.
 
 Each call snapshots BOTH light and dark, writes the full snapshots to
-localStorage, and returns only fingerprints. Compare those against
+localStorage, and returns per-mode fingerprints plus a `rendered` reading of
+the surface colours that capture actually measured. Compare the hashes against
 `baseline-<date>.json`: every hash must reproduce exactly.
+
+A capture can also come back as `{ invalid: [reasons] }` with no hashes at
+all. That is not a failed comparison, it is a refusal to mint evidence: the
+probe rejects a run where no stylesheet matched `SHEET`, where a sheet was
+unreadable, where the rule snapshot came back empty, where the render census
+matched no anchor, or where the two modes rendered identically. A rejected
+capture writes nothing to localStorage, so it cannot overwrite a good stored
+snapshot, and it must never be compared against a baseline.
 
 When a hash does not reproduce, ask the page what moved rather than guessing:
 
@@ -130,3 +139,31 @@ An earlier cut of the probe silently captured NOTHING and reported a clean
 0-key "parity proof": Chrome gives every `CSSStyleRule` an empty `.cssRules`
 list for CSS nesting, so a naive container check swallowed all 105 rules.
 Recursion is now guarded on `.cssRules.length`.
+
+## Mode-switch correction (2026-09-05)
+
+The probe flipped `data-bs-theme` on `documentElement`, while `updateTheme()`
+in `src/content/js/xchain.js` writes it on `body` and
+`themes/classic/tokens.css` declares the `--xc-*` surface tokens on whichever
+element carries the attribute. On a page the application had already marked
+dark, `body`'s own declarations kept winning over the inherited root values, so
+BOTH captures measured dark surfaces and the `rend` layer compared a mode
+against itself. The flip happens on `body` now, and the probe reads the
+rendered surface colours back off `body`: two identical readings are rejected
+rather than recorded.
+
+Two consequences for anyone reading older evidence:
+
+- The per-mode `rend` hashes in `baseline-2026-08-20.json` were produced by the
+  old flip, so which mode each of them actually measured depends on the mode
+  the capturing page happened to be left in, which was never recorded. That
+  file is a dated record and stays as it is; **re-capture a fresh
+  `baseline-<date>.json` with the corrected probe before treating a light/dark
+  comparison as evidence**, and do that before the pending pre-prod
+  theme-parity re-record rather than after it.
+- `test/unit/theme-parity-probe.test.js` executes the probe in jsdom and pins
+  both behaviours: the light and dark captures of a page marked dark must
+  render differently, the same page must yield the same hash pair whichever
+  mode it arrived in, and a degenerate capture must return `invalid` and write
+  nothing. Every one of those assertions fails against the pre-correction
+  probe, which is the point of them.

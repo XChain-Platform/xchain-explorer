@@ -3146,10 +3146,13 @@ function showAddressDetails(data){
 
 // Display AIRDROP action information
 function showAirdropDetails(data){
-    $('#info-airdrop .airdrop-list').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
-    $('#info-airdrop .airdrop-token').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    $('#info-airdrop .airdrop-amount').html(formatAmount(data.amount));
-    $('#info-airdrop .airdrop-memo').text(data.memo);
+    // A multi-airdrop pays one leg per `airdrops` row; render every leg. The header
+    // query still carries one leg's scalars, so fall back to those for a payload
+    // without `airdrops` rather than drawing an empty table.
+    let legs = (data.airdrops && data.airdrops.length) ? data.airdrops
+             : [{ tick: data.tick, list_action_index: data.list_action_index,
+                  amount: data.amount, memo: data.memo, status: data.status }];
+    showActionDatatable('airdrop', legs);
 }
 
 // Display BATCH action information
@@ -3574,6 +3577,8 @@ function showBetDetails(data){
     $('#info-bet .bet-feed-fields').toggleClass('d-none', kind != 'feed');
     $('#info-bet .bet-wager-fields').toggleClass('d-none', kind != 'bet');
     $('#info-bet .bet-action-fields').toggleClass('d-none', kind != 'cancel' && kind != 'resolve');
+    // Only a resolve declares an outcome; a cancel shares the rows above and has none.
+    $('#info-bet .bet-resolve-fields').toggleClass('d-none', kind != 'resolve');
 
     // Feed lifecycle badge colouring shared by the feed and cancel/resolve shapes.
     let statusClass = function(s){
@@ -3647,6 +3652,17 @@ function showBetDetails(data){
         $('#info-bet .bet-action-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
         let fs = data.feed_status;
         $('#info-bet .bet-action-status').html(isNull(fs) ? '-' : '<span class="badge text-bg-' + statusClass(fs) + '">' + esc(fs) + '</span>');
+    }
+
+    if(kind=='resolve'){
+        // The outcome index the resolve declared. A REJECTED resolve settles nothing
+        // and stores the outcome the oracle merely CLAIMED (which is why
+        // db.js getBetFeedWinningOutcome reads valid rows alone), so anything but a
+        // valid action is labelled a claim rather than presented as the winner.
+        // The value is on-chain input, so it goes out escaped like the rest of the panel.
+        let ro = data.resolve_outcome;
+        $('#info-bet .bet-resolve-outcome').html(isNull(ro) ? '-'
+            : esc(ro) + (data.status == 'valid' ? '' : ' <span class="badge text-bg-warning text-dark">claimed - resolve ' + esc(isNull(data.status) ? 'not accepted' : data.status) + '</span>'));
     }
 }
 
@@ -4249,7 +4265,13 @@ function showAnchorDetails(data){
     $('#info-anchor .anchor-chain').text(isNull(data.chain) ? '-' : data.chain);
     $('#info-anchor .anchor-network').text(isNull(data.network) ? '-' : data.network);
     $('#info-anchor .anchor-checkpoint-seq').text(isNull(data.checkpoint_seq) ? '-' : numeral(data.checkpoint_seq).format('0,0'));
-    $('#info-anchor .anchor-snapshot-block').html(isNull(data.snapshot_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.snapshot_block, numeral(data.snapshot_block).format('0,0')));
+    // SNAPSHOT_BLOCK is a BITCOIN height carried on the wire (xchain-indexer
+    // actions/anchor.js: the oracle_publish capability snapshot it names is BTC-keyed),
+    // while ANCHOR is only valid on DOGE. Linking it into the page coin therefore
+    // resolved a DOGE block of the same number, an unrelated block. Route it through
+    // the shared BTC-height renderer, which links the tier-matched BTC chain when this
+    // instance serves it and otherwise prints the bare height.
+    $('#info-anchor .anchor-snapshot-block').html(formatPriceAnchorHeight(data.snapshot_block));
     $('#info-anchor .anchor-block-hash').html(isNull(data.block_hash) ? '-' : formatHash(data.block_hash, 32));
     $('#info-anchor .anchor-ledger-hash').html(isNull(data.ledger_hash) ? '-' : formatHash(data.ledger_hash, 32));
     $('#info-anchor .anchor-actions-hash').html(isNull(data.actions_hash) ? '-' : formatHash(data.actions_hash, 32));
@@ -4292,7 +4314,12 @@ function showPriceDetails(data){
     let sigs   = Array.isArray(data.signatures) ? data.signatures : [];
     $('#info-price .price-version').html(Number(data.version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
     $('#info-price .price-coin').text(isNull(data.coin) ? '-' : data.coin);
-    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    // A PRICE v1 declares the CHAIN of the token it prices (V1_COIN, any supported
+    // coin) independently of the chain it was published on, and it is mirrored
+    // cross-chain, so a DOGE-published price can name an LTC token. Namespacing the
+    // link by the page coin opened a different chain's token page - or nothing at all.
+    // Link the declared coin instead, keeping the page's network tier.
+    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + siblingCoin(data.coin) + '/token/' + data.tick, data.tick, data.tick));
     $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
     $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
     // PRICE v1 carries the oracle's usage FEE as a decimal fraction (0.01 being 1%)
@@ -4384,10 +4411,12 @@ function showPriceRounds(rounds){
     $('#info-price .price-rounds').html(html);
 }
 
-// Render a PRICE round's BTC anchor height, linked into the BTC explorer for THIS
-// network when this instance serves it. Price rounds are anchored to Bitcoin on every
-// chain (capability staking is BTC-only), so the height belongs to BTC/TBTC/RBTC and
-// never to the page coin. An instance that does not serve the matching BTC network
+// Render a BTC-keyed height, linked into the BTC explorer for THIS network when this
+// instance serves it. Used by a PRICE round's anchor height and by an ANCHOR action's
+// SNAPSHOT_BLOCK: both name a Bitcoin height because capability staking is BTC-only,
+// so the height belongs to BTC/TBTC/RBTC and never to the page coin (an ANCHOR only
+// lands on DOGE, so the page coin is never right there).
+// An instance that does not serve the matching BTC network
 // (XC.status.available is the same map the header logo and the network-unavailable
 // notice read) gets the height as plain text rather than a link to a page it has not
 // got - a DOGE-only deployment is a supported configuration, not an error.
@@ -4508,6 +4537,17 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
                 html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
                 html += '</tr>';
+            } else if(type=='airdrop'){
+                html += '<tr class="' + cls + '">'
+                html += '    <td>' + (idx+1) + '</td>';
+                // The list is an ACTION index (airdrops.list_action_index names the LIST
+                // action that defined the recipients), not a token.
+                html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.list_action_index, formatAmount(info.list_action_index)) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+                html += '    <td>' + formatAmount(info.amount) + '</td>';
+                html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
+                html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
+                html += '</tr>';
             } else if(type=='destroy'){
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
@@ -4620,6 +4660,18 @@ function updateTokenSection(id){
     }
 }
 
+// Resolve a DECLARED base ticker (BTC/LTC/DOGE, as an on-chain payload carries it) to
+// this deployment's coin id for that chain, keeping the page's network tier: on RDOGE,
+// 'LTC' is RLTC and mainnet's prefix is '' by design. A record that declares no coin,
+// or one outside the three base chains, falls back to the page coin - which is the
+// same-chain assumption every caller of this rule already made explicitly.
+function siblingCoin(base){
+    // Same network tier as the current page: RBTC + DOGE -> RDOGE, etc.
+    var tier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '';
+    var m    = (typeof base === 'string') ? base.match(/^(BTC|LTC|DOGE)$/i) : null;
+    return m ? (tier + m[1].toUpperCase()) : XC.coin;
+}
+
 // Resolve an action reference ("action:<index>" same-chain, or
 // "action:<COIN>:<index>" sibling-chain (base ticker, network tier implied
 // by the page's chain, same convention as LINK COIN1/COIN2) to this
@@ -4630,10 +4682,7 @@ function actionRefToRawPath(ref){
     var m = ref.match(/^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i);
     if(!m)
         return false;
-    // Same network tier as the current page: RBTC + DOGE → RDOGE, etc.
-    var tier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '';
-    var coin = m[1] ? (tier + m[1].toUpperCase()) : XC.coin;
-    return '/' + coin + '/api/file/' + m[2] + '/raw';
+    return '/' + siblingCoin(m[1]) + '/api/file/' + m[2] + '/raw';
 }
 
 // Resolve TIS `data_ref` entries across the media arrays. A data_ref of

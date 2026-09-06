@@ -41,6 +41,7 @@ const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
 const listPage         = require('./list-page.js');
 const componentTpl     = require('./component-templates.js');
+const staticMounts     = require('./staticMounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
 
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
 // maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
@@ -148,25 +149,11 @@ class XChainExplorer {
 
         let urls = {
 
-            'static' : [
-                'css',
-                'fonts',
-                'charts',
-                'images',
-                'json',
-                'js',
-                // Theme directories: a theme is
-                // a folder of static assets under content/themes/<name>/, starting with
-                // its tokens.css. Served like any other asset directory, so a skin needs
-                // no route of its own and a later composer can resolve names, not paths.
-                'themes',
-                // Component directories: a component is a folder under
-                // content/components/<name>/ holding its template, mount script,
-                // stylesheet and declared props. The browser loads the script and
-                // the stylesheet directly from here, same as any other asset, so
-                // the zero-build ruling holds: nothing bundles these.
-                'components'
-            ],
+            // Mount list lives in src/staticMounts.js, which is also what the rate
+            // limiter and concurrency gate read to decide what to exempt: one list, so
+            // a directory added here can never be silently limited (or, worse, a
+            // limiter exemption granted to something that is not served from disk).
+            'static' : staticMounts.STATIC_DIRECTORIES,
 
             'html' : {
                 '/'                           : 'home.html',
@@ -768,7 +755,7 @@ class XChainExplorer {
 
         // Raw bytes for a FILE action, registered before the wildcard so the matcher
         // hits it first. Gated files return ciphertext as application/octet-stream for
-        // client-side decryption (protocol/TOKEN_GATED_CONTENT.md); non-gated files
+        // client-side decryption (protocol/token-gated-content.md); non-gated files
         // serve stored bytes inline only for safe media MIME types (NFT_Standard.md).
         this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processFileRawRequest(req, res); });
 
@@ -1909,9 +1896,12 @@ class XChainExplorer {
     /**********************************************************
      * FILE content: GET /{COIN}/api/file/{ACTION_INDEX}/raw
      *
-     * Gated FILE returns AES-256-GCM ciphertext (12-byte nonce || ciphertext
-     * || 16-byte tag) as octet-stream; holders decrypt client-side with a key
-     * delivered over an ECIES MESSAGE.
+     * Gated FILE returns AES-256-GCM ciphertext (12-byte nonce || 16-byte
+     * authentication tag || ciphertext) as octet-stream; holders decrypt
+     * client-side with a key delivered over an ECIES MESSAGE. The tag sits
+     * BEFORE the ciphertext, matching xchain-sdk/src/gatedFile.js and
+     * xchain-documentation/protocol/actions/file.md; a decryptor written to
+     * the other order fails GCM authentication on every file.
      *
      * Non-gated FILE returns stored decoder-DB bytes, the resolution target
      * for TIS `data_ref` entries. Those bytes are ATTACKER-CONTROLLED, so the

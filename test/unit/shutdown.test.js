@@ -17,6 +17,7 @@
 const assert = require('assert');
 const { createShutdown, createExplorerDrain, closeServer, resolveTimeoutMs, DEFAULT_SHUTDOWN_TIMEOUT_MS } = require('../../src/shutdown');
 const configInfo = require('../../src/config.js');
+const { waitUntil } = require('../helpers/wait-until.js');
 
 const silentLog = { log(){}, warn(){}, error(){} };
 
@@ -214,8 +215,11 @@ describe('graceful shutdown', function(){
             // which is the same green a correctly-blocked drain produces. Advancing to
             // the recorded 'http.close' is what makes the assertion mean the drain is
             // parked ON the in-flight request.
-            for(let i = 0; i < 10 && !order.includes('http.close'); i++)
-                await flush();
+            // The shared wait names the condition and rejects when it never arrives,
+            // where the turn-capped loop it replaces fell through silently and left
+            // the assertion below to report the miss.
+            await waitUntil(() => order.includes('http.close'),
+                'the drain to reach httpServer.close');
             assert.ok(order.includes('http.close'),
                 'the drain never reached httpServer.close, so the wait below would prove nothing');
             // One more turn, so a drain that wrongly completed WITHOUT the request has

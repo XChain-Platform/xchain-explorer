@@ -4,7 +4,7 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.15.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.15.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/tests-4%2C654%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
@@ -89,6 +89,37 @@ curl http://localhost:8080/BTC/api/market/TOKENA/TOKENB/orderbook
 # Get platform status
 curl http://localhost:8080/BTC/api/status
 ```
+
+## Data freshness
+
+The explorer always serves what its database holds. When a coin's indexer
+falls behind (the newest indexed block is older than `EXPLORER_TIP_MAX_AGE_S`,
+default 21600s, or is dated more than `EXPLORER_TIP_MAX_FUTURE_SKEW_S` ahead
+of the host clock, default 7200s; either accepts a per-coin `_<COIN>` suffix
+and an explicit `0` disables that check), every page and API route keeps
+answering from the data it has, and the answer is marked instead of refused:
+
+- every `/{COIN}/api/*` and `/{COIN}/explorer/*` data response carries
+  `XChain-Freshness: live|stale`, `XChain-Tip-Block` and `XChain-Tip-Age-S`
+  headers, and a stale one adds a `freshness` object to the JSON body
+  (`{ stale, tip_block, tip_age_seconds, replica_halted }`);
+- `/{COIN}/api/status` publishes the verdict in `stale` beside `last_block`,
+  `tip_age_seconds`, `indexer_state` and `replica_halted`, and a stale coin
+  stays listed in `available`;
+- the WebSocket WELCOME, CATCH_UP, SNAPSHOT and live frames carry `stale: true`;
+- the HTML pages show a banner naming the last confirmed block, how old it
+  is, and why indexing is behind (catching up, a consensus wait on a
+  future-dated block, or a halted replica), while every table underneath
+  still renders.
+
+The SDK reads the markers (`sdk.freshness()`, `sdk.assertFresh()`, and the
+`strictFreshness` option on `submitAction`) so a client that must not build on
+stale state can refuse to, while a client that only reads keeps working.
+
+`EXPLORER_STALE_FAIL_CLOSED=1` restores the previous behaviour for a
+deployment that would rather go dark than serve a tip it cannot vouch for: a
+stale coin then answers `503 COIN_DATA_STALE` on every data route, is dropped
+from `available`, and the WebSocket replay/snapshot paths answer an error frame.
 
 ## Database schema note: ownership-trading columns
 

@@ -3848,10 +3848,17 @@ function showSlashDetails(data){
 // Display DEPLOY action information (contract; v1 surfaces staking metadata)
 function showDeployDetails(data){
     // DEPLOY v4 (action_format 4) is a chunk carrier: one base64 code slice in deploy_chunks,
-    // NOT a contract. It has no contract row, api_version, cooldown or slash_destination, so
-    // rendering the contract shape would produce a dead /contract/ link and blank fields.
+    // NOT a contract. It normally has no contract row, api_version, cooldown or
+    // slash_destination, so rendering the contract shape would produce a dead /contract/ link
+    // and blank fields. The exception is a carrier that COMPLETED a chunked group: deferred
+    // assembly runs the deployment at whichever piece completes the group, so the contract
+    // really was created at this action, and deployed_contract_index is how the API says so.
     let isChunk = (Number(data.action_format) === 4);
-    $('#info-deploy .deploy-contract-row').toggleClass('d-none', isChunk);
+    // Where the contract this action asked for actually landed. Null on an assembler still
+    // waiting for its carriers, on one whose group failed at the completing piece, and on
+    // an ordinary carrier that completed nothing.
+    let deployed = isNull(data.deployed_contract_index) ? null : data.deployed_contract_index;
+    $('#info-deploy .deploy-contract-row').toggleClass('d-none', isChunk && deployed === null);
     $('#info-deploy .deploy-chunk-row').toggleClass('d-none', !isChunk);
     $('#info-deploy .deploy-code-hash').html(formatHash(data.code_hash, 32));
     if(isChunk){
@@ -3866,9 +3873,34 @@ function showDeployDetails(data){
         $('#info-deploy .deploy-code-part').text(part.length > 96
             ? part.slice(0, 96) + '… (' + numeral(part.length).format('0,0') + ' chars)'
             : part);
+        // The completing carrier's own deploy card, so the contract is reachable from the
+        // action that created it rather than only from the assembler that asked for it.
+        let carrierStakeable = (deployed !== null) && !isNull(data.cooldown_blocks);
+        $('#info-deploy .deploy-staking-row').toggleClass('d-none', !carrierStakeable);
+        if(deployed !== null){
+            $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + deployed, deployed));
+            $('#info-deploy .deploy-api-version').text(isNull(data.api_version) ? '-' : data.api_version);
+            $('#info-deploy .deploy-stakeable').html(carrierStakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
+            if(carrierStakeable){
+                $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');
+                $('#info-deploy .deploy-slash').html(isNull(data.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + data.slash_destination, data.slash_destination));
+            }
+        }
         return;
     }
-    $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + data.action_index, data.action_index));
+    // An assembler whose group is still incomplete has no contract to point at: link its own
+    // index and the reader gets a dead /contract/ page, so the cell states the assembly status
+    // instead. Once the group completes, the contract lives at the piece that completed it,
+    // which is a DIFFERENT action index from this one.
+    let assembly = isNull(data.assembly_status)
+        ? (isNull(data.status) ? '' : String(data.status))
+        : String(data.assembly_status);
+    if(deployed === null && /^pending:/i.test(assembly)){
+        $('#info-deploy .deploy-contract').text(assembly);
+    } else {
+        let contractIdx = (deployed === null) ? data.action_index : deployed;
+        $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + contractIdx, contractIdx));
+    }
     $('#info-deploy .deploy-api-version').text(data.api_version);
     let stakeable = !isNull(data.cooldown_blocks);
     $('#info-deploy .deploy-stakeable').html(stakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');

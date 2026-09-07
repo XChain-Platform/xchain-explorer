@@ -291,6 +291,15 @@ describe('Security: Rate Limiting: Helmet configuration', function () {
     it('object-src is set to none', function () {
         expect(apiSource).to.include("objectSrc:   [\"'none'\"]");
     });
+
+    it('media-src is declared (the sandboxed custom-content srcdoc frame inherits this CSP)', function () {
+        // Without an explicit media-src, default-src 'self' refuses every external
+        // <video>/<audio> source, both on the token page itself and inside the srcdoc
+        // custom-content frame, which has no origin of its own and inherits the page
+        // policy. Same shape as img-src: https origins only, no data:/blob:.
+        expect(apiSource).to.match(/mediaSrc:\s*\["'self'",\s*"https:"\]/);
+        expect(apiSource).to.not.match(/mediaSrc:[^\n]*(data:|blob:|\*)/);
+    });
 });
 
 describe('Security: Rate Limiting: CORS configuration', function () {

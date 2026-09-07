@@ -4691,15 +4691,50 @@ function displayTokenIcon(image){
 // the parent (one-way) for auto-resize. (Replaces the old same-origin
 // resizeIframe(), which only worked because the iframe was NOT sandboxed.)
 function buildSandboxedContentDoc(html){
-    var shim = '<scr' + 'ipt>(function(){'
-        + 'function post(){try{parent.postMessage({type:"xchain-iframe-height",'
-        + 'height:document.documentElement.scrollHeight},"*");}catch(e){}}'
+    // The shim reports on load, on the frame's own resize (a width change reflows
+    // the content), on a bounded set of timers for late layout, and through a
+    // ResizeObserver on <body> so media that sizes itself after metadata arrives
+    // (a <video>) still gets reported. Identical consecutive readings are dropped.
+    var shim = '<scr' + 'ipt>(function(){var last=null;'
+        + 'function post(){try{var h=document.documentElement.scrollHeight;'
+        + 'if(h===last)return;last=h;'
+        + 'parent.postMessage({type:"xchain-iframe-height",height:h},"*");}catch(e){}}'
         + 'window.addEventListener("load",post);'
         + 'window.addEventListener("resize",post);'
         + '[100,250,500,1000,2000].forEach(function(t){setTimeout(post,t);});'
+        + 'if(window.ResizeObserver){try{new ResizeObserver(post).observe(document.body);}catch(e){}}'
         + '})();</scr' + 'ipt>';
     return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
         + String(html) + shim + '</body></html>';
+}
+
+// Decide whether a height reported by the sandboxed custom-content iframe gets
+// applied, and to what. The frame reports document.documentElement.scrollHeight,
+// which for content sized in % or vh IS the frame's own viewport: applying a report
+// resizes the frame, the frame's resize event reports the new viewport, and honouring
+// that echo grew the frame without bound (a token whose custom HTML is a
+// height:100% div climbed by 16px per echo, several thousand pixels a second,
+// pushing every section below it off the page). Rules:
+//   - apply exactly what was reported: scrollHeight already includes the body
+//     margins, so the old "+16" was a double count and the loop's step size;
+//   - ignore an echo of the height already applied (within a pixel of rounding);
+//   - clamp to a floor and a ceiling;
+//   - stop after a bounded number of applied changes per load, so content that
+//     sizes itself relative to the viewport plus a constant cannot walk the frame
+//     up a pixel at a time either.
+// Pure over `state` ({height, applied}, reset per load) so it is unit-testable
+// without layout; the caller owns the DOM write.
+var CUSTOM_CONTENT_MIN_HEIGHT  = 50;
+var CUSTOM_CONTENT_MAX_HEIGHT  = 20000;
+var CUSTOM_CONTENT_MAX_RESIZES = 25;
+function customContentHeightToApply(state, reported){
+    if(typeof reported !== 'number' || !isFinite(reported)) return null;
+    if(state.applied >= CUSTOM_CONTENT_MAX_RESIZES) return null;
+    var next = Math.round(Math.min(Math.max(reported, CUSTOM_CONTENT_MIN_HEIGHT), CUSTOM_CONTENT_MAX_HEIGHT));
+    if(state.height !== null && Math.abs(next - state.height) < 2) return null;
+    state.height = next;
+    state.applied++;
+    return next;
 }
 
 // Handle updating a table row with data removing the row
@@ -5128,20 +5163,26 @@ function showTokenContent(json){
         $('#loadCustomContentButton').click(function(){
             $('#customContentWarning').hide();
             var el = $('#customContentViewer');
+            // Fresh resize budget per load (see customContentHeightToApply).
+            XC.customContentResize = { height: null, applied: 0 };
             el.attr('srcdoc', buildSandboxedContentDoc(cachedJson.html));
             el.show();
         });
         // Auto-resize from the sandboxed iframe's own height reports (postMessage).
         // Bound once; strictly validates the source frame, message type, and a finite
         // numeric height, and does nothing else with the message (no injection/eval).
+        // The echo/ceiling/budget guards live in customContentHeightToApply.
         if(!XC.customContentResizeBound){
             XC.customContentResizeBound = true;
             window.addEventListener('message', function(e){
                 var iframe = document.getElementById('customContentViewer');
                 if(!iframe || e.source !== iframe.contentWindow) return;
                 var d = e.data;
-                if(d && d.type === 'xchain-iframe-height' && typeof d.height === 'number' && isFinite(d.height))
-                    $(iframe).height(d.height + 16);
+                if(!d || d.type !== 'xchain-iframe-height') return;
+                if(!XC.customContentResize) XC.customContentResize = { height: null, applied: 0 };
+                var next = customContentHeightToApply(XC.customContentResize, d.height);
+                if(next !== null)
+                    $(iframe).height(next);
             });
         }
     }

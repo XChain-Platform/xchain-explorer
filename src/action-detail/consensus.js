@@ -419,7 +419,8 @@ const ROLLCALL = {
                     m.block_index,
                     b1.block_time as timestamp,
                     t2.hash as tx_hash,
-                    t1.tx_index
+                    t1.tx_index,
+                    m.gates
                 FROM
                     rollcall_signers m
                     INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -454,6 +455,11 @@ const ROLLCALL = {
              WHERE m.action_index=?
              ORDER BY m.pubkey ASC`, [action_index]);
         data['signers'] = (signers && signers.length) ? signers : [];
+        // ROLLCALL v1 GATES field as carried on this action's row (comma-joined
+        // '<module>.<EXPORT>' consensus-gate keys, `rollcall_signers.gates`); NULL
+        // on every v0 row, so the client badges v0 without a gates list and v1 as
+        // 'ROLLCALL v1' with the parsed list (action_format already selected above).
+        data['gates'] = data['gates'] ? data['gates'].split(',') : [];
     },
 };
 

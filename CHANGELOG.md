@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- A ROLLCALL action detail exposes the gates list a v1 roll call carried.
+
 ## [0.15.2] - 2026-09-07
 
 ### Fixed

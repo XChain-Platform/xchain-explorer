@@ -62,6 +62,14 @@ function extractFn(name) {
     return body;
 }
 
+// Slice a top-level numeric `var NAME = <number>;` out of the source, so the
+// resize-guard function under test runs against the SHIPPED limits.
+function extractVar(name) {
+    const m = SRC.match(new RegExp('^var ' + name + '\\s*=\\s*[0-9]+;', 'm'));
+    if (!m) throw new Error('numeric var not found in xchain.js: ' + name);
+    return m[0];
+}
+
 // Build a sandbox whose only host objects are document + DOMParser (what
 // stripHtml needs); JS intrinsics (String/RegExp/Object) come with the vm
 // context. The three functions are defined there and handed back.
@@ -76,9 +84,13 @@ function loadClientFns() {
         extractFn('stripHtml'),
         extractFn('highlightSearchTerm'),
         extractFn('buildSandboxedContentDoc'),
+        extractVar('CUSTOM_CONTENT_MIN_HEIGHT'),
+        extractVar('CUSTOM_CONTENT_MAX_HEIGHT'),
+        extractVar('CUSTOM_CONTENT_MAX_RESIZES'),
+        extractFn('customContentHeightToApply'),
         extractFn('isNull'),
         extractFn('formatHash'),
-        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm, buildSandboxedContentDoc: buildSandboxedContentDoc, formatHash: formatHash })',
+        ';({ escapeHtml: escapeHtml, stripHtml: stripHtml, highlightSearchTerm: highlightSearchTerm, buildSandboxedContentDoc: buildSandboxedContentDoc, customContentHeightToApply: customContentHeightToApply, formatHash: formatHash, CUSTOM_CONTENT_MAX_HEIGHT: CUSTOM_CONTENT_MAX_HEIGHT, CUSTOM_CONTENT_MAX_RESIZES: CUSTOM_CONTENT_MAX_RESIZES })',
     ].join('\n');
     const fns = vm.runInContext(program, context);
     return { fns, dom };
@@ -152,10 +164,12 @@ function renderBetDetails(data) {
 }
 
 describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', function () {
-    let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash;
+    let escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, customContentHeightToApply, formatHash;
+    let CUSTOM_CONTENT_MAX_HEIGHT, CUSTOM_CONTENT_MAX_RESIZES;
 
     before(function () {
-        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, formatHash } } = loadClientFns());
+        ({ fns: { escapeHtml, stripHtml, highlightSearchTerm, buildSandboxedContentDoc, customContentHeightToApply, formatHash,
+                  CUSTOM_CONTENT_MAX_HEIGHT, CUSTOM_CONTENT_MAX_RESIZES } } = loadClientFns());
     });
 
     describe('escapeHtml()', function () {
@@ -255,9 +269,76 @@ describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', func
             // source must check that exact literal, or auto-resize silently breaks.
             const producer = buildSandboxedContentDoc('');
             expect(producer).to.contain('"xchain-iframe-height"');
-            // Listener side: the source guards on the same type string and a finite height.
-            expect(SRC).to.match(/d\.type === ['"]xchain-iframe-height['"]/);
-            expect(SRC).to.contain("isFinite(d.height)");
+            // Listener side: the source guards on the same type string and hands the
+            // height to the guard function, which is where the finite check lives.
+            expect(SRC).to.match(/d\.type !== ['"]xchain-iframe-height['"]/);
+            expect(SRC).to.match(/customContentHeightToApply\(XC\.customContentResize, d\.height\)/);
+            expect(extractFn('customContentHeightToApply')).to.contain('isFinite(reported)');
+        });
+
+        // The frame reports documentElement.scrollHeight, which for %/vh-sized content
+        // is the frame's own viewport. Applying it and honouring the echo that the
+        // resize triggers grew the frame forever (TBTC STARE: a height:100% div,
+        // +16px per echo). These lock the guard's four rules.
+        describe('customContentHeightToApply() resize guard', function () {
+            function fresh() { return { height: null, applied: 0 }; }
+
+            it('applies the reported height exactly (no +16 double count)', function () {
+                const st = fresh();
+                expect(customContentHeightToApply(st, 420)).to.equal(420);
+                expect(st.height).to.equal(420);
+            });
+
+            it('ignores the echo of the height it just applied', function () {
+                const st = fresh();
+                customContentHeightToApply(st, 420);
+                expect(customContentHeightToApply(st, 420)).to.equal(null);
+                expect(customContentHeightToApply(st, 421)).to.equal(null); // sub-2px jitter
+                expect(st.applied).to.equal(1);
+            });
+
+            it('a viewport-filling document converges instead of climbing', function () {
+                // Simulate the live loop: the parent applies H, the frame's viewport
+                // becomes H, the frame reports its viewport (H) back. Under the old
+                // +16 rule that reads H+16 next time; under the guard it stops.
+                const st = fresh();
+                let frameHeight = 150;                       // iframe default before any report
+                let applied = 0;
+                for (let i = 0; i < 1000; i++) {
+                    const report = Math.max(frameHeight, 380); // content is max(viewport, intrinsic video)
+                    const next = customContentHeightToApply(st, report);
+                    if (next === null) break;
+                    frameHeight = next; applied++;
+                }
+                expect(frameHeight).to.equal(380);
+                expect(applied).to.equal(1);
+            });
+
+            it('content sized to viewport-plus-a-constant is cut off by the resize budget', function () {
+                // height: calc(100% + 10px): every echo legitimately differs by 10px, so
+                // the echo guard alone cannot stop it. The per-load budget does.
+                const st = fresh();
+                let frameHeight = 150, rounds = 0;
+                for (let i = 0; i < 10000; i++) {
+                    const next = customContentHeightToApply(st, frameHeight + 10);
+                    if (next === null) break;
+                    frameHeight = next; rounds++;
+                }
+                expect(rounds).to.equal(CUSTOM_CONTENT_MAX_RESIZES);
+                expect(frameHeight).to.be.below(150 + 10 * (CUSTOM_CONTENT_MAX_RESIZES + 1));
+            });
+
+            it('clamps to the ceiling and rejects non-numeric or non-finite reports', function () {
+                expect(customContentHeightToApply(fresh(), 1e9)).to.equal(CUSTOM_CONTENT_MAX_HEIGHT);
+                expect(customContentHeightToApply(fresh(), Infinity)).to.equal(null);
+                expect(customContentHeightToApply(fresh(), NaN)).to.equal(null);
+                expect(customContentHeightToApply(fresh(), '500')).to.equal(null);
+                expect(customContentHeightToApply(fresh(), { valueOf: () => 500 })).to.equal(null);
+            });
+
+            it('the click handler resets the budget per load', function () {
+                expect(SRC).to.match(/XC\.customContentResize = \{ height: null, applied: 0 \};\s*\n\s*el\.attr\('srcdoc'/);
+            });
         });
 
         it('the sandboxed iframe carries a sandbox without allow-same-origin', function () {

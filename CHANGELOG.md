@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.2] - 2026-09-07
+
+### Fixed
+- The custom-content frame on a token page no longer grows without bound after Load Content (its height report is applied exactly, echoes are ignored, and resizes are capped per load), and `media-src` is declared so external video and audio sources load on token pages and inside that frame.
+
 ## [0.15.1] - 2026-09-07
 
 ### Changed

@@ -120,6 +120,109 @@ describe('action LRU skips responses carrying a live state block', function () {
         });
     });
 
+    // The third member of the family, and the one the `state` guard could not
+    // see. ATTEST / XCALL / VOTE / BET / DELEGATE carry their mutable lifecycle
+    // as PLAIN COLUMNS, so a response with no `state` block was memoized in
+    // whatever state it was first read in - with no TTL and reorg-only
+    // invalidation, for the life of the process.
+    //
+    // Measured on regtest (explorer E2E session 10): after an ATTEST v2 expiry,
+    // /rdoge/api/action/460 kept reporting `request_status: pending` while
+    // /rdoge/api/attestations reported `expired` for the same action. ATTEST v2
+    // writes no row of its own - it only flips the v0 request row's column - so
+    // nothing about the cached payload's shape said it had gone stale.
+    describe('[REGRESSION] a mutable lifecycle response must not be memoized', function () {
+
+        it('refuses a pending ATTEST request, whose request_status still flips', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({
+                action: 'ATTEST', action_index: 460, version: 0,
+                request_id: 'ab'.repeat(32), request_status: 'pending',
+                deadline_block: 1200, resolved_block: null, response_status: null,
+            })).to.equal(false);
+        });
+
+        it('refuses the same ATTEST once expired, since the shape cannot prove a value is terminal', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({
+                action: 'ATTEST', action_index: 460, version: 0,
+                request_status: 'expired', resolved_block: 1201,
+            })).to.equal(false);
+        });
+
+        it('refuses a pending XCALL, whose request_status and result_status both land later', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({
+                action: 'XCALL', action_index: 512, version: 0, call_id: 'cd'.repeat(32),
+                request_status: 'pending', result_status: null, resolved_block: null,
+                execution: null, callback_delivery: null,
+            })).to.equal(false);
+        });
+
+        it('refuses a VOTE poll and a BET feed/wager, the same defect on other columns', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({
+                action: 'VOTE', action_index: 700, vote_kind: 'poll',
+                poll_status: 'open', total_voters: 0, resolved_block: null,
+            })).to.equal(false);
+            expect(db._isCacheableAction({
+                action: 'BET', action_index: 701, bet_kind: 'feed', feed_status: 'open',
+            })).to.equal(false);
+            expect(db._isCacheableAction({
+                action: 'BET', action_index: 702, bet_kind: 'bet',
+                bet_status: 'open', settled_block: null,
+            })).to.equal(false);
+        });
+
+        it('refuses a DELEGATE, whose deactivation_block is written by a later revoke', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({
+                action: 'DELEGATE', action_index: 703,
+                activation_block: 900, deactivation_block: null,
+            })).to.equal(false);
+        });
+
+        // Presence, not value: null IS the pending state, and it is precisely the
+        // read that goes stale. A value test would cache exactly the wrong rows.
+        it('a null lifecycle field blocks caching just as a populated one does', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({ action: 'XCALL', action_index: 512, resolved_block: null }))
+                .to.equal(false);
+        });
+
+        // The guard must stay narrow: the ordinary immutable actions are the
+        // reason the LRU exists at all.
+        it('still caches the action types that carry no lifecycle column', function () {
+            const db = makeDb();
+            expect(db._isCacheableAction({ action: 'SEND', action_index: 7, status: 'valid' })).to.equal(true);
+            expect(db._isCacheableAction({ action: 'ISSUE', action_index: 8, status: 'valid', tick: 'PEPECREATURE' }))
+                .to.equal(true);
+        });
+
+        it('a pending ATTEST stays absent from the LRU, so the next read sees the expiry', function () {
+            const db  = makeDb();
+            const key = db._cacheKey('RDOGE', 460);
+            const pending = { action: 'ATTEST', action_index: 460, request_status: 'pending' };
+            if (db._isCacheableAction(pending)) db._cacheSet(db._actionDataCache, key, pending);
+            expect(db._cacheGet(db._actionDataCache, key)).to.be.undefined;
+        });
+
+        // Drift guard: a field listed here that no detail handler selects is dead
+        // weight, and one a handler selects under another name never fires. Every
+        // entry must be traceable to the SQL that produces it.
+        it('every listed field is selected by an action-detail handler', function () {
+            const fs   = require('fs');
+            const path = require('path');
+            const dir  = path.join(__dirname, '../../src/action-detail');
+            const src  = fs.readdirSync(dir)
+                .filter((f) => f.endsWith('.js'))
+                .map((f) => fs.readFileSync(path.join(dir, f), 'utf8'))
+                .join('\n');
+            for (const field of Database.MUTABLE_ACTION_FIELDS)
+                expect(src, 'no action-detail handler produces ' + field).to.contain(field);
+        });
+    });
+
     it('a state-bearing action stays absent from the LRU, so a later read recomputes', function () {
         const db  = makeDb();
         const key = db._cacheKey('BTC', 3508);

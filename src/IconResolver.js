@@ -185,7 +185,14 @@ function resolveDescriptionToSource(description){
     // 8. URL ending in .json (with optional ";<sha256>" attestation suffix)
     if(/\.json($|;|\?|#)/i.test(desc)){
         let url = desc.split(';')[0];
-        if(!/^https?:\/\//i.test(url)) url = 'http://' + url;
+        // Force https, matching the json branch in content/js/xchain.js, which builds
+        // this lane as 'https://' + desc-without-scheme and has no http path at all
+        // (its /relay? retry reuses the same https URL). Keeping http made the page
+        // and the downloader fetch two different documents for one description, and
+        // drove https-only origins to a permanent `failed` icon row for a token whose
+        // page renders fine. http-only JSON origins now fail on both sides rather
+        // than disagreeing.
+        url = 'https://' + url.replace(/^https?:\/\//i, '');
         return { scheme: 'json_url', url };
     }
 

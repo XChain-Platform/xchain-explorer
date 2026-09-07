@@ -763,6 +763,25 @@ describe('Database#getSends', () => {
         expect(args).to.be.an('array').with.lengthOf(2);
         expect(args[0]).to.equal(SEARCH_ADDR);
     });
+
+    // A contract-emitted SEND moves balances with no broadcast transaction behind
+    // it: the injected EXECUTE carries no TX_INDEX and execute.js propagates that
+    // into the emitted action, so `actions.tx_index` is NULL while block_index is
+    // NOT NULL. Joining blocks through an INNER-joined transaction deletes such a
+    // row from the feed AND from its total, with no error, and /sends is what the
+    // SDK's x402 layer reads to confirm a payment. Same shape the tx-less action
+    // feed and getUnstakes already carry.
+    it('joins blocks off a1.block_index (INNER) and transactions off a1.tx_index (LEFT), in both the rows and count queries', () => {
+        const [query, , count] = result;
+        for(const q of [query, count]){
+            expect(q).to.include('INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)');
+            expect(q).to.include('LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)');
+            // The pre-fix shape: transactions INNER off a1.tx_index with blocks
+            // chained off t1.block_index. A tx-less send satisfies neither.
+            expect(q).to.not.include('INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)');
+            expect(q).to.not.include('b1.block_index=t1.block_index');
+        }
+    });
 });
 
 describe('Database#getSleeps', () => {

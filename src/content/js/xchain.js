@@ -239,7 +239,7 @@ function setXChainParams(coin){
     // A detail page whose type is absent here gets XC.query = null and then requests
     // its own API route with a literal 'null' segment, rendering as "not found" rather
     // than failing visibly, so every new detail route has to be added in BOTH lists.
-    if(['block','address','token','action','transaction','contract','execution','checkpoint','validator','xcall','attestation','poll','anchor','bet_feed','oracle','dispenser'].includes(type)){
+    if(['block','address','token','action','transaction','contract','execution','checkpoint','validator','xcall','attestation','poll','anchor','bet_feed','oracle','dispenser','rich_list'].includes(type)){
         // bet_feed is keyed by the creating action_index (db.getBetFeedInfo binds it to
         // m.action_index), so it belongs in the numeric branch; oracle is keyed by the
         // operator ADDRESS (db.getOracleStats binds it to a2.address, and db's id lookup
@@ -253,7 +253,9 @@ function setXChainParams(coin){
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
            (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||
-           (type=='token'   && typeof(query)=='string')){
+           // rich_list is keyed by TICK, exactly like the token page it is reached
+           // from, so it takes the same string branch rather than the numeric one.
+           (['token','rich_list'].includes(type) && typeof(query)=='string')){
             XC.type  = type;
             XC.query = query;
         }
@@ -374,144 +376,6 @@ function updateTheme(mode){
     ls.setItem('view-theme',mode)
 }
 
-// Return nice display string for token amount
-function formatAmount(amount=null){
-    // An absent amount is not a number to format, it is nothing to show. Without
-    // this, String(null) is "null", whose length clears the >=4 test, the digit
-    // regex matches nothing, and the literal word "null" is returned and rendered
-    // into the cell (measured on /RDOGE/issues: Max Supply and Max Mint, both
-    // nullable columns, showed "null" on 8 rows each). Guarded on isNull, so 0 is
-    // untouched (isNull(0) is false) and '' already returned '' by the old path.
-    if(isNull(amount))
-        return '';
-    var str = String(amount).split('.');
-    if(str[0].length>=4)
-        str[0] = str[0].replace(/(\d)(?=(\d{3})+$)/g, '$1,');
-    return str.join('.');
-}
-
-// Return nice display string for token locks. Field order MUST match the
-// 7-element pipe-string XChainExplorer.js builds for getIssues/getTokens/
-// getProjectTokens rows: max_supply|mint|mint_supply|max_mint|description|
-// sleep|callback.
-function formatLocks(locks=null){
-    var lock = String(locks).split('|'),
-        html = '';
-    if(lock[0]==1) html += '<i class="fa fa-coins pe-1"         title="Max Supply"></i>';
-    if(lock[1]==1) html += '<i class="fa fa-print pe-1"        title="Mint"></i>';
-    if(lock[2]==1) html += '<i class="fa fa-bank pe-1"         title="Mint Supply"></i>';
-    if(lock[3]==1) html += '<i class="fa fa-coins pe-1"        title="Max Mint"></i>';
-    if(lock[4]==1) html += '<i class="fa fa-circle-info pe-1"  title="Description"></i>';
-    if(lock[5]==1) html += '<i class="fa fa-bed pe-1"       title="Sleep"></i>';
-    if(lock[6]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
-    return html;
-}
-
-// Canonical NFT-pattern classification (NFT_Standard.md#classification-rule-for-clients):
-// a token follows the NFT pattern when DECIMALS=0 AND LOCK_MAX_SUPPLY=1.
-// Mirrors sdk.nft.isNft; keep the two in sync.
-function isNftToken(decimals, lockMaxSupply){
-    return Number(decimals)===0 && Number(lockMaxSupply)===1;
-}
-
-// Return path to the token icon
-function getTokenIcon(token){
-    let icon = '/icon/' + XC.coin + '/' + XC.network + '/' + token + '.png';
-    return icon
-}
-
-
-// Return nice display string for links
-function formatLink(url=null, text=null, icon=false, btn=false){
-    var html = '',
-        cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
-    // A url whose last segment stringified a missing value is not a destination:
-    // render the label alone rather than a dead link. ORDER/SWAP/DISPENSER use an
-    // empty tick to mean the native coin, which built hrefs ending in /token/null.
-    if(/\/(null|undefined)$/.test(String(url)))
-        return (text) ? String(text) : '';
-        html += '<a href="' + url + '" class="' + cls + '">';
-    if(icon && !isNull(icon))
-        html += '<img src="' + getTokenIcon(icon) + '" class="icon-20 ms-1 me-1">';
-    if(text)
-        html += text;
-    html += '</a>'
-    return html;
-}
-
-// Return a truncated hex string (hash / pubkey / request_id) with the full value as
-// a hover title, keeping long 64/128-hex identifiers readable in tables.
-
-// Hash-shaped fields are only hex on VALID rows: an INVALID-status ANCHOR persists
-// its raw BLOCK_HASH verbatim, and this string reaches jQuery .html(). Escape both
-// the truncated body and the title attribute (a no-op on real hex) so a poisoned
-// field can never break out of the attribute or inject an element.
-function formatHash(hash, len=16){
-    if(isNull(hash)) return '';
-    let str = String(hash);
-    if(str.length <= len) return escapeHtml(str);
-    return '<span title="' + escapeHtml(str) + '">' + escapeHtml(str.substring(0, len)) + '…</span>';
-}
-
-// Return a nicely formatted amount with token links
-function formatLinkAmount(url=null, text=null, icon=false, amount=false){
-    let html = '';
-    if(!isNull(icon))
-        html += formatLink(url, null, icon);
-    if(!isNull(amount))
-        html += formatAmount(amount);
-    if(!isNull(text))
-        html += ' ' + formatLink(url, text);
-    return html;
-}
-
-// Render one leg of a dispenser/order trade: an amount plus whatever it is
-// denominated in. A NATIVE-coin leg carries no tick at all (the tick column is
-// null), and handing that to formatLinkAmount builds a '/token/null' href -
-// formatLink strips such a link now, but the cell would still be labelled with a
-// token that does not exist. So an absent tick renders the coin name plainly, and
-// a leg carrying neither renders a dash rather than an empty cell.
-function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
-    if(isNull(legTick)){
-        let txt = isNull(amount) ? '' : formatAmount(amount);
-        if(!isNull(legCoin))
-            txt += (txt ? ' ' : '') + escapeHtml(String(legCoin));
-        return (txt==='') ? '-' : txt;
-    }
-    let linkCoin = isNull(legCoin) ? pageCoin : legCoin;
-    return formatLinkAmount('/' + linkCoin + '/token/' + legTick, legTick, legTick, amount);
-}
-
-// Render a DISPENSER / DISPENSE native-coin leg: network icon, amount, coin name.
-// Escaped here, not per call site: both are on-chain fields bound for a .html() sink.
-// NOT formatCoinLegAmount - that omits the icon and adds thousands separators.
-function formatNativeCoinLeg(amount, coin){
-    return ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(amount) + ' ' + escapeHtml(coin);
-}
-
-// Badge rendered in place of an amount cell when a row represents a
-// token-ownership sale (ORDER/SWAP/DISPENSER with GIVE_OWNERSHIP=1 or
-// GET_OWNERSHIP=1). The ownership record itself is the asset; there is
-// no balance amount to display.
-function ownershipBadge(){
-    return '<span class="badge bg-warning text-dark" title="Token-ownership transfer">&#128081; Ownership</span>';
-}
-
-// Handle getting the network icon using the coin name and network
-function getNetworkIcon(name=null, network=null){
-    // Set defaults for name/network
-    if(isNull(name))    name = XC.name;
-    if(isNull(network)) network = XC.network;
-    let icon = String('fa-xchain-' + name + '-' + network).toLowerCase();
-    return icon;
-}
-
-// Return nice display string for timestamps
-function formatLivestamp(timestamp=null){
-    var html = '';
-    html += '<span data-livestamp='  + timestamp + ' class="nowrap"></span>';
-    return html;
-}
 
 // Build out nice links to view transactions in other explorers.
 // SoChain (chain.so) was dropped from every network on 2026-08-29: it no longer
@@ -597,24 +461,6 @@ function getTransactionStatus(rec, depth=1){
     else if(depth>=100)
         return null;
     return getTransactionStatus(rec[Object.keys(rec)[0]], (depth+1));
-}
-
-// Determine if value is null or undefined or empty
-function isNull(value){
-    return (value === null || value === undefined || value==='');
-}
-
-// Make a value safe to hand to jQuery's .text(). jQuery (1.10.2, the build this
-// app ships) does NOT treat an absent value as "no text": .text(null) stringifies
-// it and writes the literal four characters "null" into the element, and
-// .text(undefined) is read as the GETTER, so the element silently keeps whatever
-// it already held. The /explorer feeds deliver real JS nulls for every column the
-// indexer is allowed to leave NULL (a BROADCAST v3 carries no MESSAGE, a LINK
-// carries no MEMO, and so on), so those values go through here and render as an
-// empty cell, which is what "the action does not carry this field" looks like.
-// Note .html() is NOT affected: jQuery empties the element for a null value.
-function nullToBlank(value){
-    return isNull(value) ? '' : value;
 }
 
 // Determine if a value is numeric
@@ -778,9 +624,31 @@ function getCoinNetworkInfo(callback, force){
         last   = (json && json.timestamp) ? json.timestamp : 0,
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
-    // Skip request for network info if network is not currently supported by the explorer
-    if(XC.status && isNull(XC.status.available[XC.coin]))
+    // A coin drops out of XC.status.available for as long as its indexed tip is stale
+    // (getStatus deletes it there; the same condition answers 503 COIN_DATA_STALE on
+    // the data routes). XC.status is itself served from localStorage for 5 minutes, so
+    // simply returning here dropped the caller's render callback and left the summary
+    // counters and the Network Information panel at their markup defaults (0 / blank)
+    // for the rest of that window - with no /api/* request on the page load that showed
+    // the zeros - long after the coin was serving live data again. Re-read the
+    // status instead, and come back to this coin the moment it is listed again.
+    if(XC.status && isNull(XC.status.available[XC.coin])){
+        // One recheck in flight at a time: the forced status refresh below calls back
+        // into this function itself, and a per-caller loop would multiply the polling.
+        if(!XC.pendingNetworkInfoRecheck){
+            XC.pendingNetworkInfoRecheck = true;
+            getExplorerStatusInfo(function(){
+                XC.pendingNetworkInfoRecheck = false;
+                if(XC.status && isNull(XC.status.available[XC.coin]))
+                    // Still stale. Keep the page self-healing on a slow poll rather than
+                    // waiting for the operator's user to reload it.
+                    setTimeout(function(){ getCoinNetworkInfo(callback, force); }, XC.networkRecheckMs || 15000);
+                else
+                    getCoinNetworkInfo(callback, force);
+            }, true);
+        }
         return;
+    }
     // Set the coin price from the last known price
     if(json && json.coin && json.coin.price && json.coin.price.usd)
         XC.coin_price = json.coin.price.usd;
@@ -807,6 +675,14 @@ function getCoinNetworkInfo(callback, force){
             XC.pendingNetworkInfoRequest = false;
             json.timestamp = Date.now();
             ls.setItem(name,JSON.stringify(json));
+            cb(json);
+        }, function(){
+            // The request failed (a 503 while the coin's tip is stale, or a transport
+            // error). Clear the in-flight flag so a later call can retry, and answer the
+            // caller with the last body we did store rather than never answering: a
+            // failed refresh must not be indistinguishable from a page that is still
+            // loading. Nothing is written to localStorage, so the next call re-requests.
+            XC.pendingNetworkInfoRequest = false;
             cb(json);
         });
     } else {
@@ -859,6 +735,17 @@ function getExplorerStatusInfo(callback, force){
             json.timestamp = Date.now();
             ls.setItem(name,JSON.stringify(json));
             cb(json);
+        }, function(){
+            // Same contract as the network fetch above: clear the in-flight flag and
+            // always answer the caller, here with the last status we stored. cb() only
+            // fires for a truthy body, so answer an absent one directly - a caller
+            // waiting on this (getCoinNetworkInfo's stale-coin recheck) must not be
+            // left holding a flag no response will ever clear.
+            XC.pendingStatusInfoRequest = false;
+            if(json)
+                cb(json);
+            else if(typeof callback=='function')
+                callback(null);
         });
     } else {
         // If we have a pending Network request, try again in 1000ms
@@ -1279,7 +1166,14 @@ function getActionDetails(action, info){
 
 // Load an action's rows into its datatable from the explorer API; query/type
 // narrow the results to one address/block/etc when given.
-function loadDatatablesData(coin, action, query, type){
+// `opts` is the data-table component's seam (spec M2.2) and is absent on every
+// hand-written call. It carries { columns, onDraw }: the resolved column config,
+// and a callback run after each draw so the component can apply a theme's column
+// order to the rows DataTables just built. The paging, offset-cursor and
+// per-page-length behaviour below is untouched by it on purpose - that logic is
+// the contract with the /explorer feeds' positional cursors, and the component
+// layer was built around it rather than through it.
+function loadDatatablesData(coin, action, query, type, opts){
     // Handle initializing datatable object for this action
     if(!XC.datatables[action])
         XC.datatables[action] = {}
@@ -1294,6 +1188,16 @@ function loadDatatablesData(coin, action, query, type){
         type   = action;
         action = 'search';
     }
+    // A search feed has nothing to look up until the reader has typed something.
+    // The url built below omits a null QUERY segment, which for a search yields
+    // /{COIN}/explorer/search/{TYPE} - a 4-segment path the 5-segment
+    // '/{COIN}/explorer/search/{QUERY}/{TYPE}' route cannot match, and which no
+    // 3-segment list-all route covers either, so it 404s. A bare /search or
+    // /{COIN}/search therefore fired all four of its feeds on arrival and rendered
+    // the DataTables failure row in every tab before anyone had searched.
+    // The empty state is a REQUEST the page should not make: below, this branch
+    // gives the table a local empty dataset instead of an ajax source.
+    let emptySearch = (action=='search' && (isNull(query) || String(query).trim()==''));
     // Automatically convert token searches on token page to subtoken
     if(type=='token' && action=='token')
         type = 'subtoken';
@@ -1337,44 +1241,16 @@ function loadDatatablesData(coin, action, query, type){
     $('#' + tableId).on( 'length.dt', function ( e, settings, length ){
         sm.setItem('records_per_page',length);
     });
-    // Load data into the datatable
-    $('#' + tableId).dataTable({
-        ajax: {
-            url: url,
-            data: function(data){
-                // Pass action and offset with request
-                var action = null,
-                    offset = null;
-                if(data.start==0){
-                    action = 'first';
-                } else if(data.start > (track['last_start'] + data.length)){
-                    action = 'last';
-                } else if(data.start >= track['last_start']){
-                    action = 'next';
-                    offset = track['offset_last'];
-                } else {
-                    action = 'prev';
-                    offset = track['offset_first'];
-                }
-                // Pass action and offset forward
-                data.action = action;
-                data.offset = offset;
-                // pass total back to server (used to quickly calculate how many records to display on 'last' page)
-                data.total =  track['total'];
-                if(['subtoken','roster'].includes(type))
-                    data.sortorder = 'ASC';
-                // Cleanup the request so we only send what we need
-                delete data.columns;
-                delete data.order;
-                delete data.search;
-                delete data.draw;
-            }
-        },
+    // Load data into the datatable. The config is assembled in a variable rather
+    // than passed as a literal so the no-query search state can swap the feed for a
+    // local empty dataset without duplicating the rest of it.
+    let dtOptions = {
         lengthMenu: [[10,20,30,40,50,60,70,80,90,100],[10,20,30,40,50,60,70,80,90,100]],
         pageLength: page,
         dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
         pagingType: "full",
-        serverSide: true,
+        // Server-side paging is meaningless without a feed to page against.
+        serverSide: !emptySearch,
         searching: false,
         ordering: false,
         processing: true,
@@ -1407,10 +1283,14 @@ function loadDatatablesData(coin, action, query, type){
                 page_status = $('#' + tableId + '_wrapper .page-status');
             }
             page_status.text('Page ' + numeral(page).format('0,0') + ' of ' + numeral(pages).format('0,0'));
+            // A table with no ajax source (the no-query search state) carries no
+            // o.json at all, so every read below has to go through this alias or the
+            // draw callback throws a TypeError on the first paint.
+            var json = (o && o.json) ? o.json : null;
             // Track first and last shown action_index (used for offset tracking)
-            if(o.json.data && o.json.data.length){
-                var first = o.json.data[0],
-                    last  = o.json.data[o.json.data.length-1];
+            if(json && json.data && json.data.length){
+                var first = json.data[0],
+                    last  = json.data[json.data.length-1];
                 track['offset_first'] = first[first.length-1];
                 track['offset_last']  = last[last.length-1];
             } else {
@@ -1420,7 +1300,7 @@ function loadDatatablesData(coin, action, query, type){
             // Save the start so we can determine direction when user clicks (prev/next)
             track['last_start'] = o._iDisplayStart;
             // Save total, so we can pass back in API requests (used to calculate how many records to display on 'last' page)
-            track['total'] = o.json.recordsTotal;
+            track['total'] = (json) ? json.recordsTotal : 0;
             // Handle hiding fields with unnecessary info (address / token)
             if(['address','token'].includes(type)){
                 // Set the index for the field to hide
@@ -1456,6 +1336,12 @@ function loadDatatablesData(coin, action, query, type){
                     }
                 });
             }
+            // Last, so the component sees the rows in their finished state: the
+            // per-type hiding above is part of what a permutation has to agree
+            // with, and running the hook before it would reorder cells the code
+            // above then hides by index.
+            if(opts && typeof opts.onDraw === 'function')
+                opts.onDraw(tableId, o);
         },
         createdRow: function(row, data, idx){
             // Parse the row data into the standard fields
@@ -2170,6 +2056,19 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(8).html(formatLink('/' + coin + '/action/' + execution_index, 'view', null, true));
             }
             // Attestation (ATTEST v0 request / v1 response from the `attests` table)
+            //
+            // TWO status fields ride this feed and they answer different questions.
+            // Rendering only the attester's HTTP result, under a heading a reader uses
+            // to ask whether the action COUNTED, shows an ATTEST the chain rejected as
+            // `ok`. They get a column each: Response is the attester's result (or the
+            // request's lifecycle state), Action Status is the chain's verdict on the
+            // action itself.
+            //
+            // Both the verdict and the action index are read POSITIONALLY here rather
+            // than through createdRow's generic data[length-1]/data[length-2] tail parse.
+            // The getAttestations feed appends payload, callback_params_json and
+            // fee_payer AFTER action_index, so on this page alone that parse reads
+            // fee_payer as the action index and callback_params_json as the verdict.
             if(action=='attestation'){
                 let version         = data[4];
                 let provider        = data[5];
@@ -2178,30 +2077,46 @@ function loadDatatablesData(coin, action, query, type){
                 let response_status = data[8];
                 $('td', row).eq(4).html((version == 0) ? '<span class="badge text-bg-secondary">Request</span>' : '<span class="badge text-bg-primary">Response</span>');
                 $('td', row).eq(5).text(provider);
-                $('td', row).eq(6).html(formatLink('/' + coin + '/action/' + action_index, formatHash(request_id)));
+                let att_status      = data[9];
+                let att_index       = data[10];
+                let att_valid       = (att_status==1);
+                let att_verdict     = att_valid ? 'valid' : 'invalid';
+                $(row).removeClass('bg-green bg-red').addClass(att_valid ? 'bg-green' : 'bg-red');
+                $('td', row).eq(6).html(formatLink('/' + coin + '/action/' + att_index, formatHash(request_id)));
                 // Both attests.request_status and attests.response_status are nullable
                 // ENUMs with no default; each row fills only the one for its version, and
                 // an unresolved row leaves even that one NULL.
                 $('td', row).eq(7).text(nullToBlank((version == 0) ? request_status : response_status));
-                $('td', row).eq(8).html(action_link);
+                $('td', row).eq(8).html('<span class="badge text-bg-' + (att_valid ? 'success' : 'danger')
+                    + ' attestation-action-status" data-action-status="' + att_verdict + '">' + att_verdict + '</span>');
+                $('td', row).eq(9).html(formatLink('/' + coin + '/action/' + att_index, 'view', null, true));
             }
             // VOTE poll (polls table; token-weighted governance, VOTE v0). eq(4) token,
             // eq(5) question, eq(6) lifecycle-status badge (open/finalized/failed_quorum),
             // eq(7) close block, eq(8) binding badge (a non-null callback contract means
-            // the poll result fires a contract method, i.e. it can move real value).
+            // the poll result fires a contract method, i.e. it can move real value),
+            // eq(9) the WINNER: winning_option is an INDEX into the poll's options, so
+            // option 0 is a real winner and only a null reads as "no outcome recorded".
+            // The feed carries the index and the label resolved off the options JSON
+            // (getPagingDataResults), because a bare index names nothing to a reader.
+            // Option labels are attacker-controlled on-chain bytes, so the cell is
+            // written with .text(), exactly like the question above it.
             if(action=='poll'){
                 token             = data[4];
                 let question      = data[5];
                 let poll_status   = data[6];
                 let end_block     = data[7];
                 let binding       = data[8];
+                let winner_index  = data[9];
+                let winner_label  = data[10];
                 let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
                 $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(5).text(isNull(question) ? '-' : question);
                 $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
                 $('td', row).eq(7).html(isNull(end_block) ? '-' : formatLink('/' + coin + '/block/' + end_block, numeral(end_block).format(fmtInteger)));
                 $('td', row).eq(8).html(isNull(binding) ? '-' : formatLink('/' + coin + '/contract/' + binding, '<span class="badge text-bg-danger">Binding</span>', 'Binding poll: finalization calls contract ' + binding));
-                $('td', row).eq(9).html(action_link);
+                $('td', row).eq(9).text(isNull(winner_index) ? '-' : (winner_index + (isNull(winner_label) ? '' : ': ' + winner_label)));
+                $('td', row).eq(10).html(action_link);
             }
             // VOTE ballot (votes table; one row per voter choice, VOTE v1). eq(4) links the
             // poll it voted on, eq(5) the chosen option index, eq(6) the split-mode share.
@@ -2838,12 +2753,58 @@ function loadDatatablesData(coin, action, query, type){
                 $('td', row).eq(6).text(loc || '-');
             }
         }
-    });
+    };
+    if(emptySearch){
+        // No feed, no request: DataTables paints its own zeroRecords row from a
+        // local empty dataset, so a bare search page renders an empty-but-correct
+        // table in every tab and touches the network zero times. "No records found"
+        // would be the wrong words here - nothing was looked up - so this state
+        // says what the reader has to do instead.
+        dtOptions.data = [];
+        dtOptions.language.zeroRecords = 'Enter a search term above to see results';
+    } else {
+        dtOptions.ajax = {
+            url: url,
+            data: function(data){
+                // Pass action and offset with request
+                var action = null,
+                    offset = null;
+                if(data.start==0){
+                    action = 'first';
+                } else if(data.start > (track['last_start'] + data.length)){
+                    action = 'last';
+                } else if(data.start >= track['last_start']){
+                    action = 'next';
+                    offset = track['offset_last'];
+                } else {
+                    action = 'prev';
+                    offset = track['offset_first'];
+                }
+                // Pass action and offset forward
+                data.action = action;
+                data.offset = offset;
+                // pass total back to server (lets it quickly calculate how many records to display on 'last' page)
+                data.total =  track['total'];
+                if(['subtoken','roster'].includes(type))
+                    data.sortorder = 'ASC';
+                // Cleanup the request so we only send what we need
+                delete data.columns;
+                delete data.order;
+                delete data.search;
+                delete data.draw;
+            }
+        };
+    }
+    $('#' + tableId).dataTable(dtOptions);
 }
 
 // Load an action's rows directly from the API and hand the response to callback;
 // query/type narrow the results to one address/block/etc when given.
-function loadApiData(coin, action, query, type, callback){
+// errback (optional) is called instead of callback when the request does not
+// produce a usable body: a non-2xx status, a transport failure, or a 200 whose
+// body carries an `error`. A caller that arms an in-flight flag before calling
+// MUST pass one, or that flag never clears.
+function loadApiData(coin, action, query, type, callback, errback){
     // Set the API endpoint name based on the action
     let endpoint = null;
     if(['history','block','network','token','action','status','transaction','market','markets'].includes(action) || (action=='address' && type==null)){
@@ -2852,8 +2813,18 @@ function loadApiData(coin, action, query, type, callback){
         // These take '-es', not '-s'; the three *_match names would otherwise build
         // malformed endpoints ('cross_chain_matchs') that answer 404.
         endpoint = action + 'es';
+    } else if(action=='validator_capability'){
+        // action+'s' would give the malformed 'validator_capabilitys'; the hub table
+        // (and its /api route) is 'validator_capabilities'. Kept in step with the same
+        // branch in loadDatatablesData: the two maps are written separately and have
+        // drifted before, and a detail fetch that 404s here logs nothing a reader sees.
+        endpoint = 'validator_capabilities';
+    } else if(action=='consensus_state'){
+        // consensus_state is a mass noun (no plural 's'); its /api route keeps the
+        // singular table name.
+        endpoint = 'consensus_state';
     } else {
-        endpoint = action + 's';        
+        endpoint = action + 's';
     }
     // Set the explorer API url
     let url = '/' + coin + '/api/' + endpoint;
@@ -2864,13 +2835,30 @@ function loadApiData(coin, action, query, type, callback){
     if(XC.debug)
         console.log('Requesting API data from endpoint ' + url);
     // Make request to get the API data and return to the callback function
-    $.getJSON(url, function(o){
+    let req = $.getJSON(url, function(o){
         if(o.error){
             console.log('caught error=',o.error);
+            if(typeof errback==='function')
+                errback(o, null);
         } else {
             if(typeof callback==='function')
                 callback(o);
         }
+    });
+    // jQuery always answers with a jqXHR here; the guard is for the test doubles that
+    // stand in for $.getJSON and return nothing.
+    if(!req || typeof req.fail !== 'function')
+        return;
+    req.fail(function(xhr){
+        // jQuery routes every non-2xx here, so the success handler above never runs
+        // for a 503 COIN_DATA_STALE (served while a coin's indexed tip is stale), a
+        // 404, or a dropped connection. Callers that set an in-flight flag before
+        // calling were left with it set for the life of the page, which wedged every
+        // later request behind a retry loop that never issued one.
+        if(XC.debug)
+            console.log('API request failed: ' + url + ' (' + ((xhr && xhr.status) ? xhr.status : 'no response') + ')');
+        if(typeof errback==='function')
+            errback((xhr && xhr.responseJSON) ? xhr.responseJSON : null, xhr);
     });
 }
 
@@ -3069,9 +3057,53 @@ function showActionDetails(){
     // Display the correct ACTION section and hide the 'No information available' message
     if(found){
         let name  = String(o.action).replaceAll('_','-').toLowerCase();
-        $('#info-' + name).removeClass('d-none');
+        mountActionDetailCard(name);
         $('#additionalInfoNotAvailable').hide();
     }
+}
+
+// Mount one per-type ACTION block as a detail-card (spec M2.5).
+//
+// This replaced a bare removeClass('d-none'). The block's markup is unchanged -
+// M2.5 rules that it stays in the page - but revealing it now goes through the
+// component, which also applies the row config for this type: a theme can drop
+// a row or resequence one without the page emitting different markup, and the
+// runtime reports a mount that could not find its block instead of leaving a
+// blank panel that reads as an action carrying no detail.
+//
+// Falls back to the direct reveal when the runtime or the config block is
+// absent, because a missing THEME layer must never cost a reader the data.
+function mountActionDetailCard(name){
+    let el = document.getElementById('info-' + name);
+    if(!el) return false;
+    if(typeof XCComponents === 'undefined' || !XCComponents.get('detail-card')){
+        $(el).removeClass('d-none');
+        return false;
+    }
+    let cards = actionDetailCardConfig();
+    let rows  = (cards && cards[name] && Array.isArray(cards[name].rows)) ? cards[name].rows : [];
+    let res   = XCComponents.mount(el, 'detail-card', { type: name, rows: rows, reveal: true });
+    if(!res.ok)
+        $(el).removeClass('d-none');
+    return res.ok;
+}
+
+// Read the row configs the composer embedded in action.html. Parsed once and
+// cached: showActionDetails can run more than once per view (the action panel
+// re-renders when a different action is selected).
+function actionDetailCardConfig(){
+    if(XC.actionDetailCards !== undefined) return XC.actionDetailCards;
+    XC.actionDetailCards = null;
+    let node = document.getElementById('xc-action-detail-cards');
+    if(node){
+        try {
+            let parsed = JSON.parse(node.textContent || '{}');
+            XC.actionDetailCards = parsed.cards || null;
+        } catch(e){
+            console.error('action detail-card config is not valid JSON:', e && e.message);
+        }
+    }
+    return XC.actionDetailCards;
 }
 
 // Display ADDRESS action information
@@ -3114,10 +3146,13 @@ function showAddressDetails(data){
 
 // Display AIRDROP action information
 function showAirdropDetails(data){
-    $('#info-airdrop .airdrop-list').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
-    $('#info-airdrop .airdrop-token').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    $('#info-airdrop .airdrop-amount').html(formatAmount(data.amount));
-    $('#info-airdrop .airdrop-memo').text(data.memo);
+    // A multi-airdrop pays one leg per `airdrops` row; render every leg. The header
+    // query still carries one leg's scalars, so fall back to those for a payload
+    // without `airdrops` rather than drawing an empty table.
+    let legs = (data.airdrops && data.airdrops.length) ? data.airdrops
+             : [{ tick: data.tick, list_action_index: data.list_action_index,
+                  amount: data.amount, memo: data.memo, status: data.status }];
+    showActionDatatable('airdrop', legs);
 }
 
 // Display BATCH action information
@@ -3315,24 +3350,56 @@ function showFileDetails(data){
     viewer.html(html);
 }
 
-// Display ATTEST action information (v0 request / v1 response; `attests` table)
+// Display ATTEST action information (v0 request / v1 response / v5 batch head /
+// v6 batch continuation; `attests` table)
 function showAttestDetails(data){
     let isResponse = (Number(data.version) === 1);
     // ATTEST v2 is the system-synthesized expire: it writes no attests row, so the
     // explorer resolves only baseline fields + version. Badge it as an Expire and
     // show neither the request nor the response sub-panels (their fields are absent).
     let isExpire   = (Number(data.version) === 2);
+    // v5 head / v6 continuation are batch rows: every v0/v1 request and response
+    // column is NULL on them, so both of those sub-panels stay hidden and the batch
+    // panel carries the window header and the chunk slot instead. Falling through to
+    // the request branch renders a signed window as a table of dashes.
+    let isBatchHead = (Number(data.version) === 5);
+    let isBatch     = isBatchHead || (Number(data.version) === 6);
     $('#info-attest .attest-type').html(
-        isResponse ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' :
-        isExpire   ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
-                     '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+        isResponse  ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' :
+        isExpire    ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
+        isBatchHead ? '<span class="badge text-bg-info text-dark">Batch Head (v5)</span>' :
+        isBatch     ? '<span class="badge text-bg-info text-dark">Batch Continuation (v6)</span>' :
+                      '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+    // On a batch row request_id holds the batch key, not a request id.
     $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
-    $('#info-attest .attest-provider').text(data.provider_id);
+    // provider_id is the empty string on a batch row (no single provider answers a
+    // batch), which isNull already counts as absent.
+    $('#info-attest .attest-provider').text(isNull(data.provider_id) ? '-' : data.provider_id);
     if(!isNull(data.contract_index))
         $('#info-attest .attest-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    // Batch-side fields
+    $('#info-attest .attest-batch-fields').toggleClass('d-none', !isBatch);
+    if(isBatch){
+        // The window header (start/end, row count, BTC snapshot height) is declared on
+        // the v5 head only, so a v6 continuation renders those cells as '-' rather than
+        // blank. crc32 and the chunk counters ride on both.
+        let start = data.batch_window_start, end = data.batch_window_end;
+        $('#info-attest .attest-batch-window').html(
+            (isNull(start) || isNull(end)) ? '-' :
+            (formatLivestamp(start) + ' (' + moment.unix(start).utcOffset(0).format() + ' GMT)' +
+             ' to ' + formatLivestamp(end) + ' (' + moment.unix(end).utcOffset(0).format() + ' GMT)'));
+        $('#info-attest .attest-batch-rows').text(isNull(data.batch_row_count) ? '-' : numeral(data.batch_row_count).format('0,0'));
+        $('#info-attest .attest-batch-btc-height').html(isNull(data.batch_btc_block_height) ? '-' : numeral(data.batch_btc_block_height).format('0,0'));
+        $('#info-attest .attest-batch-crc32').text(isNull(data.batch_crc32) ? '-' : String(data.batch_crc32));
+        // batch_chunk_index is 0 on the head and 1-based on each continuation, so the
+        // slot a reader counts from 1 is index+1 of total.
+        $('#info-attest .attest-batch-chunk').text(
+            (isNull(data.batch_chunk_index) || isNull(data.batch_total_chunks)) ? '-' :
+            ((Number(data.batch_chunk_index) + 1) + ' of ' + data.batch_total_chunks));
+    }
     // Request-side fields
-    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire);
-    if(!isResponse && !isExpire){
+    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire || isBatch);
+    if(!isResponse && !isExpire && !isBatch){
         $('#info-attest .attest-fee-payer').html(isNull(data.fee_payer) ? '-' : formatLink('/' + XC.coin + '/address/' + data.fee_payer, data.fee_payer));
         // Request-side economics the requester escrowed and paid (fee_amount+fee_tick, gas_escrow).
         $('#info-attest .attest-fee').html(isNull(data.fee_amount) ? '-' : formatLink('/' + XC.coin + '/token/' + data.fee_tick, data.fee_tick, formatAmount(data.fee_amount) + ' ' + data.fee_tick));
@@ -3407,7 +3474,11 @@ function showVoteDetails(data){
         $('#info-vote .vote-min-vote-balance').text(isNull(data.min_vote_balance) ? '-' : formatAmount(data.min_vote_balance));
         $('#info-vote .vote-decide-threshold').text(isNull(data.decide_threshold) ? '-' : data.decide_threshold);
         $('#info-vote .vote-poll-status').html('<span class="badge text-bg-' + pcls + '">' + (data.poll_status || '-') + '</span>');
-        $('#info-vote .vote-winning-option').text(isNull(data.winning_option) ? '-' : data.winning_option);
+        // winning_option is an INDEX into `options`, so option 0 is a real winner and
+        // only a null reads as "no outcome recorded". Named the way the finalize branch
+        // above names it, because a bare index names nothing to a reader.
+        let wopt = data.winning_option;
+        $('#info-vote .vote-winning-option').text(isNull(wopt) ? '-' : (wopt + (opts[wopt] != null ? ': ' + opts[wopt] : '')));
         // Frozen finalization detail. VOTE v2 measures the turnout and freezes it into
         // the polls row (indexer finalizePoll) precisely so a terminal outcome stays
         // auditable; the detail query has always selected it and nothing rendered it,
@@ -3506,6 +3577,8 @@ function showBetDetails(data){
     $('#info-bet .bet-feed-fields').toggleClass('d-none', kind != 'feed');
     $('#info-bet .bet-wager-fields').toggleClass('d-none', kind != 'bet');
     $('#info-bet .bet-action-fields').toggleClass('d-none', kind != 'cancel' && kind != 'resolve');
+    // Only a resolve declares an outcome; a cancel shares the rows above and has none.
+    $('#info-bet .bet-resolve-fields').toggleClass('d-none', kind != 'resolve');
 
     // Feed lifecycle badge colouring shared by the feed and cancel/resolve shapes.
     let statusClass = function(s){
@@ -3580,6 +3653,17 @@ function showBetDetails(data){
         let fs = data.feed_status;
         $('#info-bet .bet-action-status').html(isNull(fs) ? '-' : '<span class="badge text-bg-' + statusClass(fs) + '">' + esc(fs) + '</span>');
     }
+
+    if(kind=='resolve'){
+        // The outcome index the resolve declared. A REJECTED resolve settles nothing
+        // and stores the outcome the oracle merely CLAIMED (which is why
+        // db.js getBetFeedWinningOutcome reads valid rows alone), so anything but a
+        // valid action is labelled a claim rather than presented as the winner.
+        // The value is on-chain input, so it goes out escaped like the rest of the panel.
+        let ro = data.resolve_outcome;
+        $('#info-bet .bet-resolve-outcome').html(isNull(ro) ? '-'
+            : esc(ro) + (data.status == 'valid' ? '' : ' <span class="badge text-bg-warning text-dark">claimed - resolve ' + esc(isNull(data.status) ? 'not accepted' : data.status) + '</span>'));
+    }
 }
 
 // Display BET_EXPIRE action information (feed passed expire_at unresolved, so
@@ -3630,10 +3714,19 @@ function showUnstakeDetails(data){
         (isEviction ? '<span class="badge text-bg-danger me-2">Evicted</span>' : '') + formatAmount(data.amount));
     $('#info-unstake .unstake-cooldown').html(isNull(data.cooldown_end_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.cooldown_end_block, numeral(data.cooldown_end_block).format('0,0')));
     $('#info-unstake .unstake-contract-row').toggleClass('d-none', !isContract);
-    if(isContract){
+    if(isContract)
         $('#info-unstake .unstake-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
+    // Token is gated on the TICK, not on the contract index. The v2
+    // cooldown-completion action is synthetic: it has no unstakes /
+    // contract_unstakes row, so target_contract_index is always NULL, while the
+    // handler recovers the tick from the return credit (src/action-detail/
+    // staking.js, UNSTAKE afterEffects). Bundled under isContract that
+    // recovered tick could never render, so a contract release denominated in
+    // an arbitrary token read as a bare gas-coin amount.
+    let hasTick = !isNull(data.tick);
+    $('#info-unstake .unstake-token-row').toggleClass('d-none', !hasTick);
+    if(hasTick)
         $('#info-unstake .unstake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    }
 }
 
 // Display DELEGATE action information (capability v0/v2 or contract-targeted v1/v3)
@@ -4153,10 +4246,32 @@ function showCoinpayExpireDetails(data){
 // Display ANCHOR action information (DOGE checkpoint: v0 checkpoint, v1 +archive, v2 continuation chunk)
 function showAnchorDetails(data){
     $('#info-anchor .anchor-version').text(isNull(data.version) ? '-' : ('v' + data.version));
+    // A v0 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
+    // N sibling anchor_actions rows. The per-chain fields below belong to section 0
+    // alone, so say how many chains the action commits and where the full per-chain
+    // view is; presenting one section's chain, checkpoint_seq and hashes as the whole
+    // anchor elides every other chain with nothing on the page to show it happened.
+    // The section table itself lives on the anchor page (anchor-detail-render.js),
+    // which is the single renderer for it.
+    let sections = Array.isArray(data.sections) ? data.sections : [];
+    if(sections.length > 1){
+        let chains = sections.map(s => escapeHtml(isNull(s.chain) ? '-' : String(s.chain))).join(', ');
+        $('#info-anchor .anchor-sections').html(
+            sections.length + ' chains (' + chains + '); the fields below are section 0 - '
+            + formatLink('/' + XC.coin + '/anchor/' + data.action_index, 'full per-chain view'));
+    } else {
+        $('#info-anchor .anchor-sections').text(sections.length === 1 ? '1 chain' : '-');
+    }
     $('#info-anchor .anchor-chain').text(isNull(data.chain) ? '-' : data.chain);
     $('#info-anchor .anchor-network').text(isNull(data.network) ? '-' : data.network);
     $('#info-anchor .anchor-checkpoint-seq').text(isNull(data.checkpoint_seq) ? '-' : numeral(data.checkpoint_seq).format('0,0'));
-    $('#info-anchor .anchor-snapshot-block').html(isNull(data.snapshot_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.snapshot_block, numeral(data.snapshot_block).format('0,0')));
+    // SNAPSHOT_BLOCK is a BITCOIN height carried on the wire (xchain-indexer
+    // actions/anchor.js: the oracle_publish capability snapshot it names is BTC-keyed),
+    // while ANCHOR is only valid on DOGE. Linking it into the page coin therefore
+    // resolved a DOGE block of the same number, an unrelated block. Route it through
+    // the shared BTC-height renderer, which links the tier-matched BTC chain when this
+    // instance serves it and otherwise prints the bare height.
+    $('#info-anchor .anchor-snapshot-block').html(formatPriceAnchorHeight(data.snapshot_block));
     $('#info-anchor .anchor-block-hash').html(isNull(data.block_hash) ? '-' : formatHash(data.block_hash, 32));
     $('#info-anchor .anchor-ledger-hash').html(isNull(data.ledger_hash) ? '-' : formatHash(data.ledger_hash, 32));
     $('#info-anchor .anchor-actions-hash').html(isNull(data.actions_hash) ? '-' : formatHash(data.actions_hash, 32));
@@ -4199,7 +4314,12 @@ function showPriceDetails(data){
     let sigs   = Array.isArray(data.signatures) ? data.signatures : [];
     $('#info-price .price-version').html(Number(data.version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
     $('#info-price .price-coin').text(isNull(data.coin) ? '-' : data.coin);
-    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    // A PRICE v1 declares the CHAIN of the token it prices (V1_COIN, any supported
+    // coin) independently of the chain it was published on, and it is mirrored
+    // cross-chain, so a DOGE-published price can name an LTC token. Namespacing the
+    // link by the page coin opened a different chain's token page - or nothing at all.
+    // Link the declared coin instead, keeping the page's network tier.
+    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + siblingCoin(data.coin) + '/token/' + data.tick, data.tick, data.tick));
     $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
     $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
     // PRICE v1 carries the oracle's usage FEE as a decimal fraction (0.01 being 1%)
@@ -4291,10 +4411,12 @@ function showPriceRounds(rounds){
     $('#info-price .price-rounds').html(html);
 }
 
-// Render a PRICE round's BTC anchor height, linked into the BTC explorer for THIS
-// network when this instance serves it. Price rounds are anchored to Bitcoin on every
-// chain (capability staking is BTC-only), so the height belongs to BTC/TBTC/RBTC and
-// never to the page coin. An instance that does not serve the matching BTC network
+// Render a BTC-keyed height, linked into the BTC explorer for THIS network when this
+// instance serves it. Used by a PRICE round's anchor height and by an ANCHOR action's
+// SNAPSHOT_BLOCK: both name a Bitcoin height because capability staking is BTC-only,
+// so the height belongs to BTC/TBTC/RBTC and never to the page coin (an ANCHOR only
+// lands on DOGE, so the page coin is never right there).
+// An instance that does not serve the matching BTC network
 // (XC.status.available is the same map the header logo and the network-unavailable
 // notice read) gets the height as plain text rather than a link to a page it has not
 // got - a DOGE-only deployment is a supported configuration, not an error.
@@ -4415,6 +4537,17 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
                 html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
                 html += '</tr>';
+            } else if(type=='airdrop'){
+                html += '<tr class="' + cls + '">'
+                html += '    <td>' + (idx+1) + '</td>';
+                // The list is an ACTION index (airdrops.list_action_index names the LIST
+                // action that defined the recipients), not a token.
+                html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.list_action_index, formatAmount(info.list_action_index)) + '</td>';
+                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+                html += '    <td>' + formatAmount(info.amount) + '</td>';
+                html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
+                html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
+                html += '</tr>';
             } else if(type=='destroy'){
                 html += '<tr class="' + cls + '">'
                 html += '    <td>' + (idx+1) + '</td>';
@@ -4453,39 +4586,6 @@ function showLockStatus(locked){
         text = (locked) ? 'Locked' : 'Unlocked',
         html = '<i class="fa pe-1 ' + icon + '"></i>' + text;
     return html;
-}
-
-// Function to remove HTML content from string
-// Escape user-controlled text for safe insertion via jQuery .html() / innerHTML.
-// The canonical five-entity replacement. Apply to ANY on-chain free-text field
-// (description, memo, message, token names) before it reaches an HTML sink.
-// those values are attacker-controlled and the indexer stores them verbatim.
-function escapeHtml(s){
-    if(s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, function(c){
-        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
-    });
-}
-
-function stripHtml(html){
-    // Parse INERTLY. DOMParser('text/html') builds a document whose scripts do
-    // not run and whose resource handlers (img/onerror, svg/onload) do not fire,
-    // so hostile markup can't execute while we pull out plain text. The previous
-    // version assigned user input to a live element's .innerHTML, which fires
-    // onerror/onload during the assignment, which is itself an XSS execution sink.
-    try {
-        var doc = new DOMParser().parseFromString(String(html), 'text/html');
-        return doc.body.textContent || '';
-    } catch(e) {
-        // Single-pass tag stripping can leave a tag reassembled from adjacent
-        // fragments (e.g. "<scr" + "ipt>"); loop the replace to a fixpoint.
-        var out = String(html), prev;
-        do {
-            prev = out;
-            out  = out.replace(/<[^>]*>/g, '');
-        } while(out !== prev);
-        return out;
-    }
 }
 
 // Handle getting record type from array
@@ -4560,6 +4660,18 @@ function updateTokenSection(id){
     }
 }
 
+// Resolve a DECLARED base ticker (BTC/LTC/DOGE, as an on-chain payload carries it) to
+// this deployment's coin id for that chain, keeping the page's network tier: on RDOGE,
+// 'LTC' is RLTC and mainnet's prefix is '' by design. A record that declares no coin,
+// or one outside the three base chains, falls back to the page coin - which is the
+// same-chain assumption every caller of this rule already made explicitly.
+function siblingCoin(base){
+    // Same network tier as the current page: RBTC + DOGE -> RDOGE, etc.
+    var tier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '';
+    var m    = (typeof base === 'string') ? base.match(/^(BTC|LTC|DOGE)$/i) : null;
+    return m ? (tier + m[1].toUpperCase()) : XC.coin;
+}
+
 // Resolve an action reference ("action:<index>" same-chain, or
 // "action:<COIN>:<index>" sibling-chain (base ticker, network tier implied
 // by the page's chain, same convention as LINK COIN1/COIN2) to this
@@ -4570,10 +4682,7 @@ function actionRefToRawPath(ref){
     var m = ref.match(/^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i);
     if(!m)
         return false;
-    // Same network tier as the current page: RBTC + DOGE → RDOGE, etc.
-    var tier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '';
-    var coin = m[1] ? (tier + m[1].toUpperCase()) : XC.coin;
-    return '/' + coin + '/api/file/' + m[2] + '/raw';
+    return '/' + siblingCoin(m[1]) + '/api/file/' + m[2] + '/raw';
 }
 
 // Resolve TIS `data_ref` entries across the media arrays. A data_ref of
@@ -5778,8 +5887,15 @@ function showXChainParams(){
 
 $(document).ready(function(){
 
-    // Handle initializing the page 
+    // Handle initializing the page
     initPage();
+
+    // Mount whatever the composed page declared, now that initPage() has
+    // resolved the coin/network context every component reads. components.js
+    // does not mount itself for exactly this reason: it loads first, so its own
+    // ready handler would fire while XC.coin was still null.
+    if(typeof XCComponents !== 'undefined')
+        XCComponents.mountManifest();
 
     // Display debug information
     if(XC.debug)

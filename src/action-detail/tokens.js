@@ -47,10 +47,30 @@ const AIRDROP = {
                     LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN index_tickers      t3 ON (t3.id=a1.tick_id)
-                WHERE 
+                WHERE
                     a1.action_index=?
                 LIMIT 1`;
+        // Read every leg: action_index is non-unique here (formats 1-3 write one
+        // airdrops row per TICK/AMOUNT/LIST leg, each with its own status) so the
+        // LIMIT 1 header above carries an arbitrary one. Take NO ORDER BY: airdrops
+        // records no leg position, so a sort reorders the wire.
+        query2 = `SELECT
+                    t1.tick,
+                    a1.list_action_index,
+                    a1.amount,
+                    m1.memo,
+                    s1.status
+                FROM
+                    airdrops a1
+                    LEFT  JOIN index_tickers      t1 ON (t1.id=a1.tick_id)
+                    LEFT  JOIN index_memos        m1 ON (m1.id=a1.memo_id)
+                    LEFT  JOIN index_statuses     s1 ON (s1.id=a1.status_id)
+                WHERE
+                    a1.action_index=?`;
         return { query, query2, query3 };
+    },
+    afterQuery2(ctx, data, results) {
+        data.airdrops = results;
     },
 };
 
@@ -300,8 +320,8 @@ const SEND = {
                 FROM
                     sends s1
                     INNER JOIN actions            a1 ON (a1.action_index=s1.action_index)
-                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)

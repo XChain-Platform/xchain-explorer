@@ -1,7 +1,7 @@
 {
   "name": "xchain-explorer",
   "description": "xchain-explorer is a free open source token platform explorer and set of APIs to pull data from the XChain platform supported blockchains",
-  "version": "0.12.0",
+  "version": "0.15.0",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -42,8 +42,9 @@
     "test:integration": "bash bin/run-integration.sh",
     "test:conformance": "mocha test/conformance/**/*.test.js --timeout 120000 --exit --recursive",
     "test:e2e": "mocha test/e2e/**/*.test.js --timeout 30000 --exit --recursive",
-    "test:integration:up": "docker compose -f test/integration/fixtures/docker-compose.test.yml up -d --wait",
-    "test:integration:down": "docker compose -f test/integration/fixtures/docker-compose.test.yml down -v",
+    "test:integration:up": "node bin/db-fixture.js up",
+    "test:integration:down": "node bin/db-fixture.js down",
+    "test:integration:check": "node bin/db-fixture.js check",
     "test:smoke": "mocha test/smoke/**/*.test.js --timeout 15000 --exit --recursive",
     "test:smoke:unit": "mocha test/smoke/unit/**/*.test.js --timeout 5000 --exit --recursive",
     "test:smoke:connected": "mocha test/smoke/connected/**/*.test.js --timeout 15000 --exit --recursive",
@@ -102,7 +103,7 @@
     "tmp": "^0.2.7"
   },
   "engines": {
-    "comment": "Bounded to Node 22: the vendored xchain-vm optional dependency pulls isolated-vm 5.0.4, whose native binding fails node-gyp on Node 24 (removed V8 API). Being optional makes that a SILENT skip rather than a loud install failure, so the contract-read paths would go missing at runtime instead. See .nvmrc.",
+    "comment": "Bounded to Node 22: the vendored xchain-vm optional dependency is the consensus runtime, which pins process.versions.modules to 127, so a contract read served from another engine is not the value the fleet committed. isolated-vm 6.2.0 ships prebuilt bindings for Node 22 (abi127) and Node 24 (abi137) alike, so a newer major installs rather than failing; being optional, an install failure here is a SILENT skip that drops the contract-read paths at runtime instead of failing loudly. See .nvmrc.",
     "node": ">=22.0.0 <23"
   }
 }

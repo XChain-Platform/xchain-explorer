@@ -1,0 +1,20 @@
+{
+    "name": "detail-card",
+    "description": "One per-type ACTION detail block: a label/value table whose rows are config, so a theme can resequence or drop them without the page emitting different markup.",
+    "props": {
+        "type": {
+            "type": "string",
+            "required": true,
+            "description": "The action type, lowercased with underscores as hyphens. Names the block: info-<type>."
+        },
+        "rows": {
+            "type": "array",
+            "description": "Ordered { label, cell } rows. A row with cell:null is markup that is not a label/value pair and is never moved."
+        },
+        "reveal": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether mounting un-hides the block. action.html mounts exactly one card per view."
+        }
+    }
+}

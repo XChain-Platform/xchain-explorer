@@ -39,6 +39,9 @@ const ProofServer      = require('./proofServer.js');
 const rateLimit        = require('express-rate-limit');
 const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
+const listPage         = require('./list-page.js');
+const componentTpl     = require('./component-templates.js');
+const staticMounts     = require('./staticMounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
 
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
 // maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
@@ -146,19 +149,11 @@ class XChainExplorer {
 
         let urls = {
 
-            'static' : [
-                'css',
-                'fonts',
-                'charts',
-                'images',
-                'json',
-                'js',
-                // Theme directories: a theme is
-                // a folder of static assets under content/themes/<name>/, starting with
-                // its tokens.css. Served like any other asset directory, so a skin needs
-                // no route of its own and a later composer can resolve names, not paths.
-                'themes'
-            ],
+            // Mount list lives in src/staticMounts.js, which is also what the rate
+            // limiter and concurrency gate read to decide what to exempt: one list, so
+            // a directory added here can never be silently limited (or, worse, a
+            // limiter exemption granted to something that is not served from disk).
+            'static' : staticMounts.STATIC_DIRECTORIES,
 
             'html' : {
                 '/'                           : 'home.html',
@@ -231,6 +226,15 @@ class XChainExplorer {
                 '/{COIN}/prices'              : 'prices.html',
                 '/{COIN}/controllers'         : 'controllers.html',
                 '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
+                // M5 composed product views. Each of the three is a VIEW over data that
+                // already had an API, not a new data source: the gallery classifies
+                // `tokens` by its ISSUE fields, the rich list ranks `balances` for one
+                // tick, and the governance page puts two DELIBERATELY SEPARATE systems
+                // (indexer token polls, hub network-parameter proposals) side by side
+                // without merging them.
+                '/{COIN}/collectibles'        : 'collectibles.html',
+                '/{COIN}/rich_list/{QUERY}'   : 'rich_list.html',
+                '/{COIN}/governance'          : 'governance.html',
                 '/{COIN}/anchors'             : 'anchors.html',
                 // An anchor carries TWO heights and both are correct: block_index is the
                 // CHECKPOINTED height, which is what the commitments join keys off, while
@@ -547,6 +551,16 @@ class XChainExplorer {
                 '/{COIN}/api/pubkey/{QUERY}'                   : ['getPublicKey',        'address'],
                 // Project registry: current roster of a project tick (protocol/Project_Registry.md)
                 '/{COIN}/api/project/{QUERY}'                  : ['getProject',          'token'],
+                // M5.1 collectibles: `tokens` filtered to the indivisible + frozen-ceiling
+                // classification. Registered on /api only: the gallery is a card grid,
+                // not a DataTables list, so it carries no /explorer feed and owes no
+                // getPagingDataResults shaping branch.
+                '/{COIN}/api/collectibles'                     : ['getCollectibles'],
+                '/{COIN}/api/collectibles/{QUERY}/{TYPE}'      : ['getCollectibles',     ['block', 'address']],
+                // M5.2 rich list: ONE token's holder ranking plus its supply stats.
+                // Per-token by design; there is no cross-token ranking route, because
+                // that query has no indexed driving column (see getRichList's header).
+                '/{COIN}/api/rich_list/{QUERY}'                : ['getRichList',         'token'],
                 '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
                 '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken']],
                 '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],
@@ -741,7 +755,7 @@ class XChainExplorer {
 
         // Raw bytes for a FILE action, registered before the wildcard so the matcher
         // hits it first. Gated files return ciphertext as application/octet-stream for
-        // client-side decryption (protocol/TOKEN_GATED_CONTENT.md); non-gated files
+        // client-side decryption (protocol/token-gated-content.md); non-gated files
         // serve stored bytes inline only for safe media MIME types (NFT_Standard.md).
         this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processFileRawRequest(req, res); });
 
@@ -804,9 +818,15 @@ class XChainExplorer {
             legacyHeaders:   false,
             message:         { error: 'Too many checkpoint requests', code: 'RATE_LIMITED' }
         });
+        // Verify is 90 rather than the list's 120 because it is the heavier of the
+        // pair, and 90 rather than its own former 60 because the wallet's light
+        // client issues one /verify per proof job: a five-address wallet's fifteen
+        // jobs per session, x2 for the SDK's single retry and x3 for a NAT with
+        // three testers, is 90 in the worst minute. The measured wallet profile is
+        // the source of that number, not a round guess.
         const checkpointVerifyLimiter = rateLimit({
             windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 60,
+            limit:           parseInt(process.env.EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 90,
             standardHeaders: true,
             legacyHeaders:   false,
             message:         { error: 'Too many checkpoint verification requests', code: 'RATE_LIMITED' }
@@ -825,11 +845,17 @@ class XChainExplorer {
         // height, and a typed 409 below it (see the handler).
 
         // Merkle-proof recompute is CPU-bound per request (it hashes every leaf in the
-        // target block), so cap it per-IP well below the platform-wide 500rpm default,
-        // mirroring the VM-call limiter's design.
+        // target block), so cap it per-IP well below the platform-wide 1080rpm
+        // default, mirroring the VM-call limiter's design.
+        //
+        // 90, not the former 60: the wallet's balance proof rides this limiter, and a
+        // five-address wallet verifies fifteen proofs per session, x2 for the SDK's
+        // single retry and x3 for a NAT with three testers. 60 sat below the measured
+        // requirement, which only stayed invisible while the bucket keyed on the
+        // Cloudflare edge address instead of the client.
         const actionProofLimiter = rateLimit({
             windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 60,
+            limit:           parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 90,
             standardHeaders: true,
             legacyHeaders:   false,
             message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
@@ -1096,6 +1122,18 @@ class XChainExplorer {
                 badParam      = true;
                 response.code = 400;
                 response.json = { error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' };
+            // /{COIN}/api/checkpoint/{QUERY} binds its path segment via db.js's
+            // getCheckpoint as Number(config.data.search): a non-numeric segment
+            // (e.g. 'zzz-no-such') becomes NaN, which the mariadb driver cannot bind
+            // and throws, so the request reached the generic DB_ERROR 500 instead of
+            // a clean 404/400 (D-E060). Reject it here, before the DB call, using the
+            // same strict shape and the INVALID_BLOCK_INDEX code processCheckpointVerifyRequest
+            // already established for a malformed block-index segment.
+            } else if(cfg.data.method === 'getCheckpoint' && cfg.data.type === 'block' &&
+               !/^[0-9]+$/.test(String(cfg.data.search || ''))){
+                badParam      = true;
+                response.code = 400;
+                response.json = { error: 'Invalid block_index', code: 'INVALID_BLOCK_INDEX' };
             } else if(mirrorGate && mirrorGate.blocked){
                 data  = [];
                 total = 0;
@@ -1108,14 +1146,25 @@ class XChainExplorer {
                 try {
                     [data, total] = await this.db.getData(cfg);
                 } catch(e){
-                    // A read that genuinely failed (DB outage / rejected query)
-                    // throws (db.js DbQueryError, M-4); answer 5xx instead of a
-                    // misleading empty 200. A successful empty SELECT does not
-                    // throw and still returns 200 with total:0.
-                    console.error('processRequest: data query failed for', req.path, '-', (e && e.message ? e.message : e));
-                    dbError       = true;
-                    response.code = 500;
-                    response.json = { error: 'A database error occurred while serving this request.', code: 'DB_ERROR' };
+                    if(e && e.name === 'DbInputError'){
+                        // The CALLER's parameter was malformed, not the service: a
+                        // reader declined to bind it (db.js DbInputError)
+                        // rather than let MariaDB coerce it and answer with the
+                        // wrong record. Matched on `name` rather than instanceof so
+                        // a stubbed db module in tests behaves the same way.
+                        badParam      = true;
+                        response.code = 400;
+                        response.json = { error: e.message, code: e.code || 'INVALID_PARAMETER' };
+                    } else {
+                        // A read that genuinely failed (DB outage / rejected query)
+                        // throws (db.js DbQueryError, M-4); answer 5xx instead of a
+                        // misleading empty 200. A successful empty SELECT does not
+                        // throw and still returns 200 with total:0.
+                        console.error('processRequest: data query failed for', req.path, '-', (e && e.message ? e.message : e));
+                        dbError       = true;
+                        response.code = 500;
+                        response.json = { error: 'A database error occurred while serving this request.', code: 'DB_ERROR' };
+                    }
                 }
             }
 
@@ -1223,11 +1272,29 @@ class XChainExplorer {
             let templateExists  = await this.util.fileExists(templateFile);
             let templateContent = (templateExists) ? await this.util.fileGetContents(templateFile) : 'Error loading template file!';
 
-            let htmlFile    = path.join(htmlDirectory, cfg.file);
-            let htmlExists  = await this.util.fileExists(htmlFile);
-            let htmlContent = (htmlExists) ? await this.util.fileGetContents(htmlFile) : 'Error loading html file!';
+            // A list route no longer has a fragment of its own: 76 near-identical
+            // pages collapsed onto the shared list-page composition (spec M2.3),
+            // which stitches the same markup from content/layouts/list-pages.json.
+            // The url table still names the old fragment, so routes and canonical
+            // URLs are untouched; only where the markup comes from changed.
+            let htmlContent = listPage.render(cfg.file);
 
-            let pageContent = templateContent;
+            if(htmlContent === null){
+                let htmlFile    = path.join(htmlDirectory, cfg.file);
+                let htmlExists  = await this.util.fileExists(htmlFile);
+                htmlContent = (htmlExists) ? await this.util.fileGetContents(htmlFile) : 'Error loading html file!';
+            }
+
+            // The shell's chrome (nav, search box, theme toggle, footer) is four
+            // components now rather than 24KB of inline markup; fill their slots
+            // before {CONTENT}, so a component template containing {CONTENT} could
+            // never be mistaken for the page's own content slot.
+            let pageContent = componentTpl.chrome(templateContent);
+            // Layout data a page asks for by name, spliced as a JSON block the
+            // page's own script reads back. action.html uses it for the per-type
+            // detail-card row configs (spec M2.5): 38 blocks whose row ORDER is
+            // now data a theme can resequence, embedded once instead of fetched.
+            htmlContent     = listPage.dataBlocks(htmlContent);
             // Use a replacement FUNCTION, not the raw string: String.replace treats $-sequences
             // ($&, $', $`, $1) specially in a string replacement, so any page content containing
             // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.
@@ -1601,8 +1668,30 @@ class XChainExplorer {
                     // result fires a contract method) are rendered columns; status (0/1
                     // action validity) + action_index stay LAST for the client's generic
                     // row-color + paging-cursor extraction (data[len-2]/data[len-1]).
-                    if(method=='getPolls')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.question, info.poll_status, info.end_block, info.callback_contract_index, status, info.action_index];
+                    // WINNER: polls.winning_option is an INDEX into the poll's options, so
+                    // option 0 is a real winner and only a null means "no outcome recorded".
+                    // The query has always selected it and this branch dropped it, leaving
+                    // the one field a reader opens a finished poll to see with no column at
+                    // all. It rides as the raw index PLUS the label resolved off the stored
+                    // options JSON, because the feed carries no options array and a bare
+                    // index names nothing to a reader.
+                    if(method=='getPolls'){
+                        let win = this.util.isNull(info.winning_option) ? null : Number(info.winning_option);
+                        if(win !== null && !Number.isFinite(win)) win = null;
+                        let winner = null;
+                        if(win !== null){
+                            let opts = info.options;
+                            if(typeof opts == 'string'){
+                                // getPolls hands back the stored JSON verbatim; a malformed
+                                // blob costs the label, never the index.
+                                try { opts = JSON.parse(opts); }
+                                catch(_){ opts = null; }
+                            }
+                            if(Array.isArray(opts) && !this.util.isNull(opts[win]))
+                                winner = String(opts[win]);
+                        }
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.question, info.poll_status, info.end_block, info.callback_contract_index, win, winner, status, info.action_index];
+                    }
                     // VOTE ballot list page. One row per (poll, voter, chosen option); the voter
                     // is the source. action_index stays LAST (paging cursor; links the ballot action).
                     if(method=='getVotes')
@@ -1807,9 +1896,12 @@ class XChainExplorer {
     /**********************************************************
      * FILE content: GET /{COIN}/api/file/{ACTION_INDEX}/raw
      *
-     * Gated FILE returns AES-256-GCM ciphertext (12-byte nonce || ciphertext
-     * || 16-byte tag) as octet-stream; holders decrypt client-side with a key
-     * delivered over an ECIES MESSAGE.
+     * Gated FILE returns AES-256-GCM ciphertext (12-byte nonce || 16-byte
+     * authentication tag || ciphertext) as octet-stream; holders decrypt
+     * client-side with a key delivered over an ECIES MESSAGE. The tag sits
+     * BEFORE the ciphertext, matching xchain-sdk/src/gatedFile.js and
+     * xchain-documentation/protocol/actions/file.md; a decryptor written to
+     * the other order fails GCM authentication on every file.
      *
      * Non-gated FILE returns stored decoder-DB bytes, the resolution target
      * for TIS `data_ref` entries. Those bytes are ATTACKER-CONTROLLED, so the
@@ -1914,6 +2006,13 @@ class XChainExplorer {
         let mgr = this.hubMirrorSync;
         if(!mgr || !mgr.managesCoin(coin)) return { blocked: null, annotate: null };
         let status = mgr.statusForCoin(coin) || {};
+        // Third tier, checked first: the mirror is claimed by self_sync but has no
+        // hub endpoint, so no writer exists at all. That is not "not bootstrapped
+        // yet" (which resolves on its own once the hub is reachable) and it must not
+        // read as a live-but-empty ledger, so it gets its own code and its own
+        // message pointing at the configuration that is missing.
+        if(status.configured === false)
+            return { blocked: 'MIRROR_NOT_CONFIGURED', annotate: null };
         if(!status.bootstrapDrained)
             return { blocked: 'MIRROR_NOT_BOOTSTRAPPED', annotate: null };
         let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
@@ -1929,12 +2028,16 @@ class XChainExplorer {
     }
 
     _mirrorBlockedBody(blocked){
-        return {
-            error: blocked === 'MIRROR_NOT_BOOTSTRAPPED'
-                ? 'Hub-mirror has not completed its initial bootstrap; consensus data is unavailable rather than served empty.'
-                : 'Hub-mirror is stale beyond MIRROR_MAX_LAG_S and MIRROR_LAG_FAIL_CLOSED is set.',
-            code: blocked
-        };
+        let error;
+        if(blocked === 'MIRROR_NOT_CONFIGURED')
+            error = 'Hub-mirror self-sync is configured for this coin but no hub endpoint is set ' +
+                '(database.checkpoint.hub_url or HUB_API_URL), so nothing updates the mirror; ' +
+                'consensus data is refused rather than served stale.';
+        else if(blocked === 'MIRROR_NOT_BOOTSTRAPPED')
+            error = 'Hub-mirror has not completed its initial bootstrap; consensus data is unavailable rather than served empty.';
+        else
+            error = 'Hub-mirror is stale beyond MIRROR_MAX_LAG_S and MIRROR_LAG_FAIL_CLOSED is set.';
+        return { error, code: blocked };
     }
 
     // GET /{COIN}/api/hub-mirror/status: self-synced mirror observability for
@@ -2228,9 +2331,17 @@ class XChainExplorer {
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             INDEXER_UNAVAILABLE: [502, 'Indexer API unavailable for the stake set'],
                             INDEXER_AUTH_REQUIRED: [503, 'Indexer requires authentication for the stake set; set EXPLORER_INDEXER_API_KEY on the explorer'],
-                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
-                let m = map[result.error] || [500, 'Server error'];
-                return res.status(m[0]).json({ error: m[1], code: result.error });
+                            PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'],
+                            STAKE_SNAPSHOT_TRUNCATED: [409, 'Stake snapshot at this height is truncated (the qualifying validator set overflowed the indexer query cap); no proof is served until operators raise the cap'],
+                            STAKE_SNAPSHOT_MALFORMED: [500, 'Stake snapshot at this height is malformed'] };
+                // Match the PREFIX before the first ':'. The stake-snapshot errors carry a
+                // ':<capability>[:<detail>]' suffix that no exact-match row can hit, so they
+                // fall through to the generic 500 and echo the raw suffix, exception text
+                // included, back to the client in `code`. Every other code here is
+                // suffix-free, so its prefix is the whole string and its response is byte-identical.
+                let code = String(result.error).split(':')[0];
+                let m = map[code] || [500, 'Server error'];
+                return res.status(m[0]).json({ error: m[1], code: code });
             }
             return res.json(result);
         } catch(e){

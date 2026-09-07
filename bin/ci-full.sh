@@ -17,9 +17,9 @@
 # bin/ci-full.sh: run EVERY tier this repo's GitHub CI runs, in one process.
 #
 # .github/workflows/ci.yml fans this repo out as six parallel jobs (ci, perf,
-# integration, conformance, drift-guards, coverage). The pre-push venue gate
-# used to run only `npm run ci`, so a push could gate green locally and then go
-# red on GitHub on a job the gate never ran (2026-08-15: exactly that, on three
+# integration, conformance, drift-guards, coverage). A pre-push venue gate that
+# runs only `npm run ci` lets a push gate green locally and then go red on
+# GitHub on a job the gate never ran (2026-08-15: exactly that, on three
 # repos at once). This script IS the local twin of the workflow: every job's
 # run-steps, transcribed, in job order. When ci.yml gains or changes a job,
 # change this script in the same commit.
@@ -112,10 +112,33 @@ docker info >/dev/null 2>&1 || {
 # A GitHub job's service container is born empty and dies with the job, so each
 # DB tier below opens on a fresh fixture rather than inheriting the last one's
 # rows. `down -v` first because a container left behind by a hand run already
-# holds 3307.
+# holds 3307. `up` routes through bin/db-fixture.js, which refuses to start when
+# a FOREIGN server already holds 3307 and says so in one report naming the port
+# and its holder.
+FIXTURE_OK=1
 db_fixture_reset() {
   npm run test:integration:down >/dev/null 2>&1
-  npm run test:integration:up
+  if npm run test:integration:up; then
+    FIXTURE_OK=1
+    return 0
+  fi
+  FIXTURE_OK=0
+  return 1
+}
+
+# A DB tier whose fixture never came up says NOTHING about the commit: it
+# connects to whatever else answers on 3307 and prints a misleading "Access
+# denied for user 'root'@'127.0.0.1'" once per test file (measured 2026-09-02
+# against a native mariadbd holding the port). The tier still counts as
+# red, because the gate genuinely could not verify the commit, but it reports
+# the real fault instead of burying it under credential noise.
+db_tier() {
+  local name="$1"; shift
+  if [ "$FIXTURE_OK" -eq 0 ]; then
+    run_tier "$name" bash -c 'echo "ci:full: the MariaDB fixture on 127.0.0.1:3307 never came up (see the report above); this tier cannot run" >&2; exit 1'
+    return
+  fi
+  run_tier "$name" "$@"
 }
 
 # --- job: ci (XChain-Platform/.github ci-reusable.yml -> npm run ci) -------
@@ -123,14 +146,14 @@ run_tier "ci" npm run ci
 
 # --- job: perf (needs: ci) -------------------------------------------------
 run_tier "db fixture for perf (mariadb on 3307)" db_fixture_reset
-run_tier "perf (test:performance)" npm run test:performance
+db_tier "perf (test:performance)" npm run test:performance
 
 # --- job: integration (needs: ci) ------------------------------------------
 # bin/run-integration.sh runs each integration file in its own process, the way
 # the workflow invokes it; nft-endpoints creates a colocated decoder DB, so the
 # fixture's root user is what the suite expects.
 run_tier "db fixture for integration (mariadb on 3307)" db_fixture_reset
-run_tier "integration (test:integration)" npm run test:integration
+db_tier "integration (test:integration)" npm run test:integration
 
 # --- job: conformance (needs: ci) ------------------------------------------
 # Loads the REAL indexer, hub and decoder DDL from the sibling checkouts (the
@@ -138,8 +161,14 @@ run_tier "integration (test:integration)" npm run test:integration
 # not optional) into a real MariaDB. The fixture is recycled here too; when
 # CONFORMANCE_DB_* points somewhere else, the suite follows the env and simply
 # leaves the fresh fixture unused.
+# A run that points CONFORMANCE_DB_* somewhere other than the fixture address
+# does not need the fixture at all, so a failed bring-up must not stop it.
 run_tier "db fixture for conformance (mariadb on 3307)" db_fixture_reset
-run_tier "conformance: schema canary (test:conformance)" npm run test:conformance
+if [ "$CONFORMANCE_DB_HOST" = "127.0.0.1" ] && [ "$CONFORMANCE_DB_PORT" = "3307" ]; then
+  db_tier  "conformance: schema canary (test:conformance)" npm run test:conformance
+else
+  run_tier "conformance: schema canary (test:conformance)" npm run test:conformance
+fi
 
 npm run test:integration:down >/dev/null 2>&1
 echo "ci:full: db fixture torn down (no DB tiers remain)"

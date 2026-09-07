@@ -232,11 +232,28 @@ class IconDownloader {
         try {
             // Discovery: insert new tokens, mark stale ones
             await this._discover(conn);
+            // Reconcile disk against the DB before draining, and never let a
+            // reconcile failure cost this flavor its pass.
+            try { await this._sweepOrphanIcons(conn, flavor); }
+            catch (e){ this._logErr(`sweep ${flavor.coin}/${flavor.network}`, e); }
             // Process: drain a batch
             // Order: never-checked first (newest tokens at the front so
             // freshly-minted ones get icons within minutes instead of waiting
             // behind the initial-backfill queue), then re-evaluate
             // already-checked rows from oldest to newest.
+            //
+            // The 'failed' branch is what makes _markFailure's backoff live. That
+            // writer parks a RETRYABLE failure at status='failed' with a
+            // next_retry_at, and retires a TERMINAL one (attempts >= maxAttempts)
+            // at status='failed' with next_retry_at NULL. So on a failed row the
+            // NULL-ness of next_retry_at is the terminal flag, and no other writer
+            // can forge it: _markOk and _discover (b) both clear next_retry_at only
+            // while moving the row off 'failed'. Without this branch the timer
+            // predicate below is dead for exactly the rows it was written for, and
+            // one 5s fetch timeout permanently costs an icon on a
+            // description-locked token - which is the opposite of the contract
+            // _fetchActionFileBytes documents when it throws rather than answering
+            // "no source".
             const rows = await conn.query(
                 `SELECT i.id           AS icon_id,
                         i.token_id     AS token_id,
@@ -246,8 +263,11 @@ class IconDownloader {
                  FROM icons i
                  JOIN tokens          t   ON t.id        = i.token_id
                  JOIN index_tickers   idx ON idx.id      = t.tick_id
-                 WHERE i.status IN ('pending','stale')
-                   AND (i.next_retry_at IS NULL OR i.next_retry_at <= NOW())
+                 WHERE ( i.status IN ('pending','stale')
+                         AND (i.next_retry_at IS NULL OR i.next_retry_at <= NOW()) )
+                    OR ( i.status = 'failed'
+                         AND i.next_retry_at IS NOT NULL
+                         AND i.next_retry_at <= NOW() )
                  ORDER BY i.last_checked_at IS NULL DESC,
                           CASE WHEN i.last_checked_at IS NULL THEN i.token_id END DESC,
                           i.last_checked_at ASC
@@ -268,6 +288,80 @@ class IconDownloader {
         } finally {
             await conn.release();
         }
+    }
+
+    /**
+     * Delete the PNGs of tokens this flavor's DB says have NO icon.
+     *
+     * _markNoIcon keeps disk and DB in step from here on, but ok-with-NULL-icon_hash
+     * is a TERMINAL state: _discover only revisits a row when the description drifts
+     * (b) or when statement (c)'s one-shot matches, so every file already stranded in
+     * that state would go on being served forever. This drains that backlog, and is a
+     * permanent no-op once it has.
+     *
+     * Two rules make the deletion safe, and both are the opposite of the obvious
+     * shape:
+     *
+     * 1. It is driven off the DIRECTORY, not off the row set. readdir returns single
+     *    path segments and never '.' or '..', so no on-chain ticker string can steer
+     *    an unlink out of this flavor's own directory - a row-driven sweep would
+     *    build its paths from attacker-controlled `tick` text instead. It is also
+     *    the cheap direction: most tokens never had an icon, so the row set is the
+     *    large side and the file set the small one.
+     *
+     * 2. It only ever deletes on a POSITIVE answer. A file goes only when a row
+     *    exists and says status='ok' with icon_hash NULL. An empty result set - a
+     *    reindexing DB, an unreachable one, a truncated `tokens` table - deletes
+     *    nothing, where a "delete whatever the DB does not claim" sweep would wipe
+     *    every icon on the host.
+     *
+     * Rows in 'stale', 'pending' or 'failed' are deliberately left alone: they may
+     * still hold a perfectly good icon that is merely due for re-evaluation, and
+     * _processFlavor's batch drain is what decides their fate.
+     *
+     * index_tickers.tick is utf8mb4_bin, so IN (...) compares the filename bytes with
+     * no case folding - the same reason _discover statement (c) converts to binary.
+     */
+    async _sweepOrphanIcons(conn, flavor){
+        const iconDir = path.join(this.iconRoot, flavor.coin, flavor.network);
+
+        let entries;
+        try { entries = await fsp.readdir(iconDir); }
+        catch (e){ return; }   // no directory for this flavor yet: nothing to reconcile
+
+        const byTick = new Map();
+        for(const name of entries){
+            if(!name.endsWith('.png')) continue;
+            byTick.set(name.slice(0, -'.png'.length), path.join(iconDir, name));
+        }
+        if(byTick.size === 0) return;
+
+        const ticks = Array.from(byTick.keys());
+        let removed = 0;
+        // Chunked so the IN list stays inside the statement/packet limits on a host
+        // whose icon directory has grown large.
+        for(let i = 0; i < ticks.length; i += 500){
+            const chunk = ticks.slice(i, i + 500);
+            const rows = await conn.query(
+                `SELECT idx.tick AS tick
+                 FROM icons i
+                 JOIN tokens          t   ON t.id   = i.token_id
+                 JOIN index_tickers   idx ON idx.id = t.tick_id
+                 WHERE i.status = 'ok'
+                   AND i.icon_hash IS NULL
+                   AND idx.tick IN (${chunk.map(() => '?').join(',')})`,
+                chunk
+            );
+            for(const r of rows){
+                const file = byTick.get(r.tick);
+                if(!file) continue;
+                await safeUnlink(file);
+                removed++;
+            }
+        }
+        // Silent when it removes nothing, which is every pass after the first.
+        if(removed)
+            this._log(`[${flavor.coin}/${flavor.network}] removed ${removed} orphaned icon file(s)`);
     }
 
     /**
@@ -312,8 +406,12 @@ class IconDownloader {
         // long as the token exists - mintable by anyone who can issue a token with such a
         // description (#5290). Every description this predicate CAN select resolves to an
         // `action` source, and from there the row can only leave with an icon_hash or, on
-        // any read failure, as 'failed' in the retry backoff; neither is re-selectable. So
-        // after one pass this matches nothing.
+        // any read failure, as 'failed' in the retry backoff; neither state is 'ok' with a
+        // NULL icon_hash, so neither is re-selectable HERE. The batch SELECT above does
+        // re-admit such a 'failed' row once its backoff timer elapses, which retries the
+        // FETCH; because every description this predicate can select resolves, that retry
+        // ends in an icon_hash or back in the backoff, never in the ok-with-no-icon state
+        // this statement selects. So after one pass this matches nothing.
         //
         // CONVERT(... USING binary) is what holds that invariant, and it is not
         // decoration. Sharing the pattern text is NOT by itself enough to keep the two
@@ -368,7 +466,7 @@ class IconDownloader {
 
         const src = resolveDescriptionToSource(desc);
         if(!src){
-            await this._markOk(conn, row.icon_id, null, null, null, descHash);
+            await this._markNoIcon(conn, row.icon_id, iconPath, descHash);
             this._log(`    - ${tick}: no icon source`);
             return;
         }
@@ -398,7 +496,7 @@ class IconDownloader {
             // Stamp descriptions are immutable: if the decoded bytes aren't a
             // usable image, retrying won't help; mark terminal as no-icon-source.
             if(src.scheme === 'stamp'){
-                await this._markOk(conn, row.icon_id, null, null, null, descHash);
+                await this._markNoIcon(conn, row.icon_id, iconPath, descHash);
                 this._log(`    - ${tick}: stamp bytes are not a usable image`);
                 return;
             }
@@ -408,7 +506,7 @@ class IconDownloader {
         }
         if(!iconHash){
             if(src.scheme === 'stamp'){
-                await this._markOk(conn, row.icon_id, null, null, null, descHash);
+                await this._markNoIcon(conn, row.icon_id, iconPath, descHash);
                 this._log(`    - ${tick}: stamp bytes are not a usable image`);
                 return;
             }
@@ -727,6 +825,30 @@ class IconDownloader {
              WHERE id=?`,
             [sourceUrl, sourceHash, iconHash, descHash, iconId]
         );
+    }
+
+    /**
+     * Terminal "this token has no usable icon": clear the DB metadata AND remove
+     * whatever PNG is on disk for it.
+     *
+     * The unlink is the load-bearing half. _markOk alone writes icon_hash NULL and
+     * touches no filesystem, while processIconRequest (XChainExplorer) serves any
+     * file that EXISTS and only 302s to /icon/default.png when it does not. So the
+     * database and the disk disagree and the disk wins: a token whose description
+     * changed to one with no icon source keeps serving its old image, and this
+     * state is terminal (_discover only re-stales on a further description change),
+     * so it never self-corrects.
+     *
+     * The stamp branches need it for a second reason: `convert` writes straight to
+     * iconPath, so a conversion that fails or is SIGKILLed on the timeout can leave
+     * a truncated file there, on top of whatever good icon it was replacing.
+     *
+     * safeUnlink swallows ENOENT, so the common case (a token that never had an
+     * icon) costs one failed unlink and no branch.
+     */
+    async _markNoIcon(conn, iconId, iconPath, descHash){
+        await safeUnlink(iconPath);
+        await this._markOk(conn, iconId, null, null, null, descHash);
     }
 
     async _markFailure(conn, iconId, attempts, errMsg){

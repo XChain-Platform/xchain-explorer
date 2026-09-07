@@ -39,7 +39,11 @@ const fs     = require('fs');
 const path   = require('path');
 
 const HTML_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'html');
-const read     = (name) => fs.readFileSync(path.join(HTML_DIR, name), 'utf8');
+// Composer-aware: dispensers.html and dispenses.html are served by the shared
+// list-page composition now, so reading them off disk would fail on absence
+// rather than on drift, which is the thing this suite is actually watching.
+const SOURCE   = require('../helpers/content-source.js');
+const read     = (name) => SOURCE.pageSource(name);
 
 // The <thead> cells of the FIRST table carrying the given id.
 function headersOf(html, tableId) {

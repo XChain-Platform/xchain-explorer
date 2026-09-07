@@ -4,16 +4,25 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // Static companion to tools/theme-parity/parity-probe.js. That probe diffs
-// computed styles on live pages, but only 77 of the 121 selectors in these
+// computed styles on live pages, but only 79 of the 120 selectors in these
 // two stylesheets are ever instantiated by a page it can capture; the other
-// 44 render on no path it drives. This gate covers all 121 by reading the
-// stylesheet text instead of a rendered page, so it catches a reintroduced
-// literal on a selector the probe never sees. The two are complementary,
-// not redundant: the probe proves a token swap actually repaints pixels,
-// this gate proves nothing was left behind for it to miss.
+// 41 render on no path it drives (baseline-2026-08-20.json's coverage block is
+// the authority; 121/77/44 was the superseded pre-tokenization survey). This
+// gate covers all 120, plus the component sheets, by reading the stylesheet
+// text instead of a rendered page, so it catches a reintroduced literal on a
+// selector the probe never sees. The two are complementary, not redundant: the
+// probe proves a token swap actually repaints pixels, this gate proves nothing
+// was left behind for it to miss.
 const CSS_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'css');
-const TOKENS_FILE = path.join(__dirname, '..', '..', 'src', 'content', 'themes', 'classic', 'tokens.css');
+const THEME_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'themes');
+const TOKENS_FILE = path.join(THEME_DIR, 'classic', 'tokens.css');
+const SKIN_FILE = path.join(THEME_DIR, 'skin-demo', 'tokens.css');
 const CSS_FILES = ['xchain.css', 'xchain-charts.css'];
+// Component stylesheets are held to the same rule as the page-level sheets, and
+// for a sharper reason: a component is the unit a theme replaces, so a literal
+// baked into one is a value a theme cannot reach even in principle.
+const COMPONENT_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'components');
+const BOOTSTRAP_FILE = path.join(CSS_DIR, 'bootstrap.min.css');
 // The probe itself, addressed as data. Nothing else in the repo parses this
 // file: the explorer's CSP forbids eval, so it is pasted into a devtools
 // console by hand, and a syntax error or a renamed global would surface only
@@ -155,6 +164,31 @@ function isAllowlisted(d) {
   return ALLOWLIST.some((rule) => rule.match(d));
 }
 
+// Functions whose insides are deliberately NOT classified. var() holds a
+// fallback that is a degradation path rather than a stray literal, url() holds
+// an asset path, and the rgb/hsl family is already reported whole by
+// FUNC_COLOR_RE, so recursing into it would only re-report the same value.
+const OPAQUE_FUNC_RE = /^(?:var|url|rgba?|hsla?)\(/i;
+// A token that is a single function call, captured as name + argument list.
+const CALL_RE = /^([a-zA-Z][\w-]*)\((.*)\)$/s;
+
+// tokenizeValue() splits only at paren depth 0, so a whole function expression
+// arrives as ONE token and matches none of the color/numeric patterns:
+// `calc(12px + 1rem)` and `linear-gradient(red, blue)` read as clean. Expand
+// each transparent function token into its arguments as well, recursively, so
+// the classifier sees the literals inside it. Depth is bounded because the
+// input is stylesheet text, not a trusted grammar.
+function flattenTokens(value, depth = 0) {
+  const out = [];
+  for (const token of tokenizeValue(value)) {
+    out.push(token);
+    if (depth >= 8 || OPAQUE_FUNC_RE.test(token)) continue;
+    const call = CALL_RE.exec(token);
+    if (call) out.push(...flattenTokens(call[2], depth + 1));
+  }
+  return out;
+}
+
 // One declaration can only be reported once; color takes priority since a
 // stray hex/rgb/named color is always wrong regardless of which property
 // carries it, then radius, then shadow, then the generic spacing family.
@@ -163,7 +197,7 @@ function classifyViolation(d) {
 
   let sawColor = false;
   let sawNumeric = false;
-  for (const token of tokenizeValue(d.value)) {
+  for (const token of flattenTokens(d.value)) {
     if (VAR_RE.test(token)) continue;
     if (HEX_RE.test(token) || FUNC_COLOR_RE.test(token) || NAMED_COLOR_WORDS.has(token.toLowerCase())) {
       sawColor = true;
@@ -193,11 +227,42 @@ function referencedXcVars(rawCss) {
   return out;
 }
 
+function componentSheets() {
+  return fs.readdirSync(COMPONENT_DIR)
+    .filter((d) => fs.statSync(path.join(COMPONENT_DIR, d)).isDirectory())
+    .map((d) => ({ name: d + '/component.css', file: path.join(COMPONENT_DIR, d, 'component.css') }))
+    .filter((c) => fs.existsSync(c.file))
+    .map((c) => ({ name: c.name, raw: fs.readFileSync(c.file, 'utf8') }));
+}
+
+// The custom properties one selector block declares, as name -> value.
+// Whitespace between the selector parts and the brace is normalised, because
+// the shipped files are hand-formatted and the vendored Bootstrap build is
+// minified; matching the literal text would make this helper agree with one and
+// silently return null for the other.
+function declarationsIn(css, selector) {
+  const stripped = stripComments(css);
+  const pattern = selector.trim().split(/\s+/).map((part) =>
+    part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*');
+  // Anchored on a preceding block/statement boundary so a selector cannot be
+  // matched as the tail of a longer one (":root" inside ":not(:root)").
+  const re = new RegExp('(?:^|[};])\\s*' + pattern + '\\s*\\{([^{}]*)\\}');
+  const m = re.exec(stripped);
+  if (!m) return null;
+  const out = {};
+  for (const decl of m[1].split(';')) {
+    const colon = decl.indexOf(':');
+    if (colon === -1) continue;
+    out[decl.slice(0, colon).trim()] = decl.slice(colon + 1).trim();
+  }
+  return out;
+}
+
 describe('theme token-literal gate (M1 A3)', () => {
   const sheets = CSS_FILES.map((name) => ({
     name,
     raw: fs.readFileSync(path.join(CSS_DIR, name), 'utf8'),
-  }));
+  })).concat(componentSheets());
 
   it('reads no color/radius/shadow/spacing literal outside tokens.css', () => {
     const violations = [];
@@ -225,6 +290,56 @@ describe('theme token-literal gate (M1 A3)', () => {
       }
     }
     assert.deepEqual(missing, [], missing.join('\n'));
+  });
+});
+
+/*
+ * Classifier fixtures. The whole-sheet check above can only go red on a literal
+ * some first-party sheet actually carries, and none of them carries a function
+ * expression at all today, so it stays green whether or not the classifier can
+ * see inside one. These drive classifyViolation() directly, which is the only
+ * run that can say no to the function-wrapped bypass.
+ */
+describe('token-literal classifier (function-wrapped values)', () => {
+  const decl = (property, value, extra = {}) => ({
+    file: 'xchain.css', selector: '.xc-fixture', property, value, line: 1, ...extra,
+  });
+
+  it('sees a spacing literal wrapped in calc()', () => {
+    assert.equal(classifyViolation(decl('padding', 'calc(12px + 1rem)')), 'spacing');
+  });
+
+  it('sees a color literal wrapped in a gradient', () => {
+    assert.equal(classifyViolation(decl('background', 'linear-gradient(red, blue)')), 'color');
+  });
+
+  it('sees a color literal nested two functions deep', () => {
+    assert.equal(
+      classifyViolation(decl('background', 'linear-gradient(to right, rgba(0, 0, 0, .2), #fff)')),
+      'color');
+  });
+
+  it('sees a spacing literal wrapped in clamp()', () => {
+    assert.equal(classifyViolation(decl('width', 'clamp(120px, 50%, 480px)')), 'spacing');
+  });
+
+  it('still reads a var() fallback as a legitimate degradation path', () => {
+    assert.equal(classifyViolation(decl('color', 'var(--xc-body-color, #212529)')), null);
+  });
+
+  it('still honours the url() asset allowlist', () => {
+    assert.equal(classifyViolation(decl('background-image', 'url(/img/glyph-16.png)')), null);
+  });
+
+  it('still honours the chart-tooltip opacity allowlist', () => {
+    assert.equal(classifyViolation({
+      file: 'xchain-charts.css', selector: '.xc-chart-tooltip',
+      property: 'opacity', value: '0', line: 1,
+    }), null);
+  });
+
+  it('still exempts a bare 100% full-bleed width', () => {
+    assert.equal(classifyViolation(decl('width', '100%')), null);
   });
 });
 
@@ -256,5 +371,144 @@ describe('theme parity probe (static contract)', () => {
     const unseen = CSS_FILES.filter((name) => !sheetRe.test(`/content/css/${name}`));
     assert.deepEqual(unseen, [],
       `the probe's SHEET pattern skips: ${unseen.join(', ')}`);
+  });
+
+  it('admits every first-party stylesheet the page template links', () => {
+    // Pin the hand-written SHEET allowlist to the template's own link list, which
+    // moves without it (the component sheets landed 2026-09-02 and fell through).
+    // Anything linked and not on the vendor list must be admitted, so the next
+    // first-party sheet fails here instead of skipping the rule layer in silence.
+    const VENDOR = /bootstrap|dataTables|swagger-ui|highlight-|fontawesome/;
+    const template = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'src', 'content', 'html', 'template.html'), 'utf8');
+    const hrefs = [...template.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)]
+      .map((m) => m[1]);
+    assert.ok(hrefs.length >= 10, `only ${hrefs.length} stylesheet links parsed out of template.html`);
+    const firstParty = hrefs.filter((h) => !VENDOR.test(h));
+    assert.ok(firstParty.length >= 3, 'the vendor filter swallowed the first-party sheets');
+
+    const m = probe.match(/const\s+SHEET\s*=\s*(\/(?:[^/\\\n]|\\.)+\/[a-z]*)/);
+    assert.ok(m, 'the probe no longer declares a SHEET pattern in the expected form');
+    const sheetRe = new RegExp(m[1].slice(1, m[1].lastIndexOf('/')));
+    const skipped = firstParty.filter((h) => !sheetRe.test(h));
+    assert.deepEqual(skipped, [],
+      `template.html links these first-party sheets and the probe reads none of them:\n${skipped.join('\n')}`);
+  });
+
+});
+
+/*
+ * Row 22a: the token layer extended over Bootstrap's own surface variables.
+ *
+ * Before this, a skin could move exactly the values xchain.css and
+ * xchain-charts.css declared - footer, table borders, status tints, chart
+ * chrome - and the page UNDER that chrome stayed Bootstrap-default, because
+ * background, body text, links and borders come from --bs-* variables no
+ * tokens.css could reach. The bridge re-points those at --xc-surface-* tokens.
+ *
+ * The bridge is only safe if classic's values are Bootstrap's values, so the
+ * first test reads them back out of the vendored bootstrap.min.css rather than
+ * restating them: a transcription slip here would repaint every page in the
+ * explorer, and a hand-copied expectation would agree with the slip.
+ *
+ * The second test is the one that would otherwise be found by eye, weeks later,
+ * in dark mode only. updateTheme() writes data-bs-theme onto BODY, so Bootstrap
+ * redeclares its --bs-* surface variables ON body for both modes; a bridge
+ * declared only on :root is inherited by body and immediately overridden there.
+ * It has to be declared on the same elements Bootstrap uses.
+ */
+describe('Bootstrap surface bridge (row 22a)', () => {
+
+  const classic   = fs.readFileSync(TOKENS_FILE, 'utf8');
+  const skin      = fs.readFileSync(SKIN_FILE, 'utf8');
+  const bootstrap = fs.readFileSync(BOOTSTRAP_FILE, 'utf8');
+
+  const bridgeSelector = ':root,\n[data-bs-theme="light"],\n[data-bs-theme="dark"]';
+
+  function bridged() {
+    const decls = declarationsIn(classic, bridgeSelector);
+    assert.ok(decls, 'the --bs-* bridge block was not found in classic/tokens.css');
+    return decls;
+  }
+
+  it('points every bridged --bs-* variable at an --xc-surface-* token', () => {
+    const decls = bridged();
+    const names = Object.keys(decls).filter((k) => k.startsWith('--bs-'));
+    assert.ok(names.length >= 20, `only ${names.length} Bootstrap variables are bridged`);
+    const direct = names.filter((n) => !/^var\(--xc-surface-[\w-]+\)$/.test(decls[n]));
+    assert.deepEqual(direct, [],
+      'bridged variables set to a literal rather than to a token; a skin cannot move these:\n'
+      + direct.map((n) => `${n}: ${decls[n]}`).join('\n'));
+  });
+
+  it('gives classic exactly Bootstrap\'s own values, so the page renders unchanged', () => {
+    const bsLight = declarationsIn(bootstrap, ':root,[data-bs-theme=light]');
+    const bsDark  = declarationsIn(bootstrap, '[data-bs-theme=dark]');
+    assert.ok(bsLight && bsDark, 'could not read Bootstrap\'s own surface defaults');
+
+    const xcLight = declarationsIn(classic, ':root');
+    const xcDark  = declarationsIn(classic, '[data-bs-theme="dark"]');
+
+    const wrong = [];
+    for (const bsName of Object.keys(bridged())) {
+      if (!bsName.startsWith('--bs-')) continue;
+      const token = '--xc-surface-' + bsName.slice('--bs-'.length);
+      for (const [mode, xc, bs] of [['light', xcLight, bsLight], ['dark', xcDark, bsDark]]) {
+        if (xc[token] === undefined) { wrong.push(`${token} is undefined in the ${mode} block`); continue; }
+        if (xc[token] !== bs[bsName]) wrong.push(`${mode}: ${token} is ${xc[token]}, Bootstrap ships ${bs[bsName]}`);
+      }
+    }
+    assert.deepEqual(wrong, [],
+      'classic would repaint the page rather than reproduce it:\n  ' + wrong.join('\n  '));
+  });
+
+  it('declares the bridge on every selector that can carry the mode', () => {
+    // A bridge on :root alone works in light and silently fails in dark, because
+    // body carries the theme attribute and Bootstrap redeclares there.
+    assert.ok(classic.includes(bridgeSelector),
+      'the bridge is not declared on :root, [data-bs-theme="light"] and [data-bs-theme="dark"] together');
+  });
+
+  it('reaches the surface a skin most needs: background, text, links and borders', () => {
+    const decls = bridged();
+    for (const name of ['--bs-body-bg', '--bs-body-color', '--bs-link-color', '--bs-border-color'])
+      assert.ok(decls[name], `${name} is not bridged, so a skin cannot move it`);
+  });
+
+  it('carries the -rgb triples, without which every translucent overlay stays behind', () => {
+    // Bootstrap composes overlays as rgba(var(--bs-body-bg-rgb), .5). A skin that
+    // moved only the hex would leave those on the old palette - a half-recoloured
+    // page, which is worse than one that did not move at all.
+    const decls = bridged();
+    for (const name of ['--bs-body-bg-rgb', '--bs-body-color-rgb', '--bs-link-color-rgb',
+                        '--bs-secondary-bg-rgb', '--bs-tertiary-bg-rgb'])
+      assert.ok(decls[name], `${name} is not bridged`);
+  });
+
+  it('gives the demo skin the same token names as classic, so it is a drop-in', () => {
+    const names = (css) => new Set([...stripComments(css).matchAll(/(--xc-[\w-]+)\s*:/g)].map((m) => m[1]));
+    const c = names(classic);
+    const s = names(skin);
+    const missing = [...c].filter((n) => !s.has(n));
+    const extra   = [...s].filter((n) => !c.has(n));
+    // An omitted token falls back to nothing and invalidates its declaration, so
+    // a partial skin breaks a rule rather than restyling it.
+    assert.deepEqual(missing, [], 'tokens classic defines that the skin does not: ' + missing.join(', '));
+    assert.deepEqual(extra, [], 'tokens the skin defines that classic does not: ' + extra.join(', '));
+  });
+
+  it('actually MOVES the surface in the demo skin, which is what row 22a was for', () => {
+    const cLight = declarationsIn(classic, ':root');
+    const sLight = declarationsIn(skin, ':root');
+    const surface = Object.keys(cLight).filter((n) => n.startsWith('--xc-surface-'));
+    const moved = surface.filter((n) => sLight[n] !== cLight[n]);
+    assert.ok(moved.length >= 15,
+      `the skin moves only ${moved.length} of ${surface.length} surface tokens; loading it would `
+      + 'still leave the page on Bootstrap\'s palette, which is the finding row 22a recorded');
+  });
+
+  it('does not restate the bridge in the skin: a skin overrides values, not wiring', () => {
+    assert.equal(declarationsIn(skin, bridgeSelector), null,
+      'the skin redeclares the --bs-* bridge; two copies of the wiring will drift');
   });
 });

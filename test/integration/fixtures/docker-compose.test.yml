@@ -7,6 +7,12 @@ version: '3.8'
 # under the derived `fixtures` project and destroyed this file's container.
 # The published 3307 makes the collision fatal rather than merely confusing,
 # since two projects cannot both bind it.
+#
+# Bring this up through `npm run test:integration:up` (bin/db-fixture.js), never
+# by calling docker compose directly: the wrapper refuses to start when a
+# foreign server already holds 3307 and names the holder, instead of letting the
+# DB tiers run against it and report an access-denied error that mentions
+# neither the port nor the collision.
 name: xchain-explorer-it
 
 services:

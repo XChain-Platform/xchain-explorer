@@ -54,6 +54,9 @@ describe('IconResolver.resolveDescriptionToSource', function(){
         ['just some random text',                                                               null,           null],
         [null,                                                                                  null,           null],
         ['https://arweave.net/abc/x.json',                                                      'arweave_url',  'arweave.net/abc'],
+        // The json lane is https on both sides of the mirror (see the exact-URL block below).
+        ['example.com/meta.json',                                                               'json_url',     'https://example.com/meta.json'],
+        ['http://example.com/meta.json',                                                        'json_url',     'https://example.com/meta.json'],
     ];
 
     cases.forEach(([desc, expectedScheme, expectedSubstr]) => {
@@ -70,6 +73,30 @@ describe('IconResolver.resolveDescriptionToSource', function(){
                     expect(payload).to.include(expectedSubstr);
                 }
             }
+        });
+    });
+});
+
+describe('IconResolver json_url lane mirrors the token page scheme', function(){
+    // content/js/xchain.js builds this lane as 'https://' + desc.split(';')[0]
+    // with any http(s) prefix stripped, and its /relay? retry reuses that same
+    // https URL, so the page has no http path here. Forcing
+    // http:// on a scheme-less description and pass an explicit http:// through,
+    // which made the cached listing icon and the rendered page fetch different
+    // documents and pushed https-only origins into a permanent `failed` row.
+    const page = d => 'https://' + String(d).split(';')[0].replace(/^https?:\/\//i, '');
+
+    ['example.com/meta.json',
+     'http://example.com/meta.json',
+     'https://example.com/meta.json',
+     'example.com/meta.json;abc123sha',
+     'http://j-dog.net/json/JDOG.json;abc123sha'].forEach(desc => {
+        it(`"${desc}" resolves to the page's URL`, function(){
+            const r = resolveDescriptionToSource(desc);
+            expect(r).to.be.an('object');
+            expect(r.scheme).to.equal('json_url');
+            expect(r.url).to.equal(page(desc));
+            expect(r.url.slice(0, 8)).to.equal('https://');
         });
     });
 });

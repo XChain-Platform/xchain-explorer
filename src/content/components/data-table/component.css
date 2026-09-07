@@ -1,0 +1,33 @@
+/*********************************************************************
+ *
+ * Copyright © 2025-2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC - https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ * data-table component styles.
+ *
+ * Tokens only, no literals: every value here reads from the --xc-* layer the
+ * theme defines, and the token-literal gate (test/unit/theme-token-literal-gate)
+ * turns red if one is reintroduced. The table's own look still lives in
+ * xchain.css for now; what belongs here is only what the COMPONENT adds, which
+ * today is the mount-failure state and the column-permutation seam.
+ */
+
+/* A mount point whose component refused to mount says so in place. The runtime
+   also writes the message as text, so this only has to make it visible. */
+[data-xc-mount-error]{
+    outline: var(--xc-table-border-width) solid var(--xc-table-border-color);
+}
+
+/* Set by the permutation pass so a redraw can tell an already-reordered row
+   from a fresh one. Purely a marker; it must not change the rendering. */
+tr[data-xc-permuted]{
+    /* no visual effect by design */
+}

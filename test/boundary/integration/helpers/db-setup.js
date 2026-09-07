@@ -18,12 +18,10 @@ const mariadb = require('mariadb');
 const fs      = require('fs');
 const path    = require('path');
 
+const preflight = require('../../../integration/helpers/fixture-preflight.js');
+
 const DB_CONFIG = {
-    host: '127.0.0.1',
-    port: 3307,
-    user: 'root',
-    password: 'testpass',
-    database: 'XChain_BTC_Regtest_Indexer',
+    ...preflight.FIXTURE_DB,
     multipleStatements: true,
     connectionLimit: 5
 };
@@ -37,11 +35,22 @@ function getPool() {
     return pool;
 }
 
+// Same translation as the integration helper: when a foreign server holds 3307
+// the fixture container never binds, and the pool's bare "Access denied" names
+// neither the port nor the collision.
+async function acquire() {
+    try {
+        return await getPool().getConnection();
+    } catch (err) {
+        throw preflight.decorateFixtureError(err);
+    }
+}
+
 async function runSqlFile(filename, fixtureDir) {
     const dir = fixtureDir || path.join(__dirname, '..', 'fixtures');
     const filePath = path.join(dir, filename);
     const sql = fs.readFileSync(filePath, 'utf8');
-    const conn = await getPool().getConnection();
+    const conn = await acquire();
     try {
         await conn.query(sql);
     } finally {
@@ -60,7 +69,7 @@ async function seed() {
 }
 
 async function truncateAll() {
-    const conn = await getPool().getConnection();
+    const conn = await acquire();
     try {
         await conn.query('SET FOREIGN_KEY_CHECKS=0');
         const rows = await conn.query(
@@ -77,7 +86,7 @@ async function truncateAll() {
 }
 
 async function query(sql, args) {
-    const conn = await getPool().getConnection();
+    const conn = await acquire();
     try {
         return await conn.query(sql, args);
     } finally {

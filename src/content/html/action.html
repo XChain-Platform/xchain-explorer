@@ -179,31 +179,26 @@
                                 <th>Memo</th>
                                 <td class="address-memo"></td>
                             </tr>
-                            </tr>
                             </tbody>
                             </table>
                         </div>
 
-                        <!-- AIRDROP Action -->
+                        <!-- AIRDROP Action. One row per LEG: formats 1-3 pay several
+                             lists in one action, each leg with its own token, amount,
+                             memo and validation status. -->
                         <div class="d-none" id="info-airdrop">
-                            <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
+                            <table class="table table-striped cell-border table-hover table-condensed" width="100%" id="datatable-airdrop">
+                            <thead>
+                                <tr class="info">
+                                    <th class="record">#</th>
+                                    <th class="action">List</th>
+                                    <th class="token">Token</th>
+                                    <th class="quantity">Amount</th>
+                                    <th class="memo">Memo</th>
+                                    <th class="status">Status</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                            <tr>
-                                <th width="155">List</th>
-                                <td class="airdrop-list"></td>
-                            </tr>
-                            <tr>
-                                <th>Token</th>
-                                <td class="airdrop-token"></td>
-                            </tr>
-                            <tr>
-                                <th>Amount</th>
-                                <td class="airdrop-amount"></td>
-                            </tr>
-                            <tr>
-                                <th>Memo</th>
-                                <td class="airdrop-memo"></td>
-                            </tr>
                             </tbody>
                             </table>
                         </div>
@@ -616,6 +611,13 @@
                             <tr><th>Signing Pubkeys</th><td class="attest-signatures"></td></tr>
                             <tr><th>Callback Execute</th><td class="attest-callback-execute"></td></tr>
                             </tbody>
+                            <tbody class="attest-batch-fields">
+                            <tr><th>Window</th><td class="attest-batch-window"></td></tr>
+                            <tr><th>Responses</th><td class="attest-batch-rows"></td></tr>
+                            <tr><th>BTC Snapshot Height</th><td class="attest-batch-btc-height"></td></tr>
+                            <tr><th>Body CRC32</th><td class="attest-batch-crc32"></td></tr>
+                            <tr><th>Chunk</th><td class="attest-batch-chunk"></td></tr>
+                            </tbody>
                             </table>
                         </div>
 
@@ -709,6 +711,12 @@
                             <tr><th>Market</th><td class="bet-action-feed-ref"></td></tr>
                             <tr><th>Resulting Status</th><td class="bet-action-status"></td></tr>
                             </tbody>
+                            <!-- Resolve only: the outcome the oracle declared. Its own
+                                 tbody because bet-action-fields is shared with cancel,
+                                 which declares no outcome at all. -->
+                            <tbody class="bet-resolve-fields">
+                            <tr><th>Declared Outcome</th><td class="bet-resolve-outcome"></td></tr>
+                            </tbody>
                             </table>
                         </div>
 
@@ -752,7 +760,7 @@
                             <tr><th>Amount</th><td class="unstake-amount"></td></tr>
                             <tr><th>Cooldown End Block</th><td class="unstake-cooldown"></td></tr>
                             <tr class="unstake-contract-row"><th>Contract</th><td class="unstake-contract"></td></tr>
-                            <tr class="unstake-contract-row"><th>Token</th><td class="unstake-tick"></td></tr>
+                            <tr class="unstake-token-row"><th>Token</th><td class="unstake-tick"></td></tr>
                             </tbody>
                             </table>
                         </div>
@@ -1717,6 +1725,10 @@
                                 <td class="anchor-version"></td>
                             </tr>
                             <tr>
+                                <th>Sections</th>
+                                <td class="anchor-sections"></td>
+                            </tr>
+                            <tr>
                                 <th>Chain</th>
                                 <td class="anchor-chain"></td>
                             </tr>
@@ -1729,7 +1741,7 @@
                                 <td class="anchor-checkpoint-seq"></td>
                             </tr>
                             <tr>
-                                <th>Snapshot Block</th>
+                                <th>Snapshot Block (BTC)</th>
                                 <td class="anchor-snapshot-block"></td>
                             </tr>
                             <tr>
@@ -2021,6 +2033,11 @@
     </div>
 </div>
 
+<!-- Per-type detail-card row configs (spec M2.5). Spliced in by the composer
+     from content/layouts/action-detail-cards.json rather than fetched, because
+     showActionDetails() needs them before it can mount anything and a second
+     round trip would block the render on the busiest detail page here. -->
+<script type="application/json" id="xc-action-detail-cards">{DATA:action-detail-cards}</script>
 <script type="text/javascript">
 
 // Render for the SPV action-proof widget. leaf/merkle_proof are the raw

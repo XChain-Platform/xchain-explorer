@@ -49,7 +49,13 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+// formatters.js is read alongside xchain.js because the cell-rendering helpers
+// (isNull, escapeHtml, formatAmount, formatHash, formatLivestamp) moved there
+// in the component milestone. Concatenated rather than switched, so this file
+// keeps naming ONE source for every helper it lifts and does not have to know
+// which of the two a given function ended up in.
+const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/attestation-detail-render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/attestation.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
@@ -84,6 +90,7 @@ function installHelpers(dom) {
         function loadDatatablesData(){ window.__datatable = Array.prototype.slice.call(arguments); }
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}
+        ${extractFn(XCHAIN_SRC, 'siblingCoin')}
     `);
     dom.window.eval(RENDER_SRC);
 }
@@ -372,6 +379,61 @@ describe('attestation.html detail page @regression', function () {
             const $ = paint(dom, dom.window.renderAttestationResponse(expired()));
             expect($('.attestation-no-response').length).to.equal(1);
             expect($('.attestation-signature').length).to.equal(0);
+        });
+
+        // attests.batch_action_index. Three distinct states, and the two NULL ones
+        // mean opposite things: a mirror-applied response (no transaction of its
+        // own) is WAITING for the ATTEST v5/v6 batch that carries its body, while a
+        // legacy-era response WAS its own on-chain transaction and will never have
+        // one. Collapsing them into a single dash tells a reader something untrue.
+        // The batch index belongs to the DOGE rail, not to the page's chain: the
+        // schema column is "the DOGE action_index of the ATTEST v5 batch that carried
+        // this row". Namespacing it by the page coin produced a link to an unrelated
+        // action of the same index on this chain, which resolves and is wrong, so the
+        // wrong URL is asserted ABSENT rather than only the right one present.
+        it('[batch] links the batch action on the DOGE rail once the batch has landed', function () {
+            const dom = renderDom();
+            const d = completed();
+            d.response = responseLeg({ tx_hash: null, tx_index: null, batch_action_index: 6100 });
+            d.legs = [d.request, d.response];
+            const $ = paint(dom, dom.window.renderAttestationResponse(d));
+            expect($('#out').text()).to.contain('On-chain Batch');
+            expect($('a[href="/RDOGE/action/6100"]').length).to.equal(1);
+            expect($('a[href="/RBTC/action/6100"]').length).to.equal(0);
+            expect($('.attestation-batch-pending').length).to.equal(0);
+            expect($('.attestation-batch-na').length).to.equal(0);
+        });
+
+        // The network tier comes from the page coin, so this pins the prefix rather
+        // than a hard-coded 'R': a testnet page must reach TDOGE, and mainnet DOGE.
+        it('[batch] keeps the page network tier when crossing to the DOGE rail', function () {
+            for(const [pageCoin, expected] of [['TBTC', 'TDOGE'], ['BTC', 'DOGE'], ['RLTC', 'RDOGE']]){
+                const dom = renderDom();
+                dom.window.eval('XC.coin = ' + JSON.stringify(pageCoin) + ';');
+                const d = completed();
+                d.response = responseLeg({ tx_hash: null, tx_index: null, batch_action_index: 6100 });
+                d.legs = [d.request, d.response];
+                const $ = paint(dom, dom.window.renderAttestationResponse(d));
+                expect($('a[href="/' + expected + '/action/6100"]').length,
+                    'page coin ' + pageCoin + ' should link ' + expected).to.equal(1);
+            }
+        });
+
+        it('[batch] says the body is not on chain YET for a mirror-applied response', function () {
+            const dom = renderDom();
+            const d = completed();
+            d.response = responseLeg({ tx_hash: null, tx_index: null, batch_action_index: null });
+            d.legs = [d.request, d.response];
+            const $ = paint(dom, dom.window.renderAttestationResponse(d));
+            expect($('.attestation-batch-pending').text()).to.contain('not yet carried by an on-chain batch');
+            expect($('.attestation-batch-na').length).to.equal(0);
+        });
+
+        it('[batch] says NOT APPLICABLE for a response that was its own transaction', function () {
+            const dom = renderDom();
+            const $ = paint(dom, dom.window.renderAttestationResponse(completed()));
+            expect($('.attestation-batch-na').text()).to.contain('its own on-chain transaction');
+            expect($('.attestation-batch-pending').length).to.equal(0);
         });
 
         it('[retry-rounds] every v1 row is listed, not just the one the server named as `response`', function () {

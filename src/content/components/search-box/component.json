@@ -1,0 +1,10 @@
+{
+    "name": "search-box",
+    "description": "The header search form. Its coin field is filled from the page context so a search runs against the network being viewed.",
+    "props": {
+        "coin": {
+            "type": "string",
+            "description": "Preselected network for the search."
+        }
+    }
+}

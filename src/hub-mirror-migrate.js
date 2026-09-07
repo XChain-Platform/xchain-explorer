@@ -15,18 +15,27 @@
  * XChain Explorer - Hub-mirror schema drift reconciler
  *
  * ensureTables() (vendored in hub_db_sync.js) only CREATEs missing tables;
- * it never ALTERs an existing one. A mirror schema created before the
- * price_snapshots reorg-retraction columns landed (source_chain,
- * source_action_index, push_generation + idx_source_chain) therefore kept
- * its legacy shape and every deploy needed a manual ALTER TABLE, or the
- * mirror client silently dropped the retraction key on insert (columns are
- * intersected against SHOW COLUMNS) and reorg row:deleted events could
- * never match.
+ * it never ALTERs an existing one. A mirror schema predating a column that
+ * later landed therefore kept its legacy shape and every deploy needed a
+ * manual ALTER TABLE, or the mirror client silently dropped the retraction
+ * key on insert (columns are intersected against SHOW COLUMNS) and reorg
+ * row:deleted events could never match.
+ *
+ * Migrated today: price_snapshots (source_chain, source_action_index,
+ * push_generation + idx_source_chain), capability_snapshots (the uq_cap_snap
+ * widen), the item-5308 reorg fences on oracle_prices, cross_chain_matches
+ * and cross_chain_calls, and the attestation_responses utf8mb4 widen.
  *
  * This module closes that gap: after ensureTables(), it probes each known
- * table with SHOW COLUMNS / SHOW INDEX and applies only the ALTERs that
- * are actually missing. Additive-only, idempotent, and probe-based (no
+ * table with SHOW COLUMNS / SHOW FULL COLUMNS / SHOW INDEX and applies only
+ * the ALTERs that are actually missing. Idempotent and probe-based (no
  * reliance on ALTER ... IF NOT EXISTS), so re-running is always safe.
+ *
+ * MONOTONIC ONLY. Every migration here either ADDs something or WIDENS an
+ * existing thing (an index's column set, a column's character set), so no
+ * stored value is rewritten and no accepted value stops being accepted. A
+ * narrowing has no place in this module: it would fail on stored rows rather
+ * than convert them, and the mirror has no writer to repair them from.
  *
  * It lives explorer-side (NOT in the vendored client) on purpose: the
  * canonical hub_db_sync.js in xchain-indexer is byte-identity-gated by
@@ -57,6 +66,33 @@ const MIRROR_MIGRATIONS = {
             { name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }
         ]
     },
+    // Fence the three twins the same item-5308 rollout touched. _applyRetraction
+    // fences from the incoming event, not from local columns, so a missing one throws.
+    // Carry finalizing_view too (_applyRow intersects against SHOW COLUMNS, so a
+    // missing column is dropped from the insert without a word).
+    // Use no AFTER anchors, as price_snapshots above does not: order is cosmetic
+    // here, and an anchor absent from an old schema fails the whole single ALTER.
+    oracle_prices: {
+        columns: [
+            { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
+    },
+    cross_chain_matches: {
+        columns: [
+            { name: 'finalizing_view',   ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'a_push_generation', ddl: 'ADD COLUMN a_push_generation BIGINT NOT NULL DEFAULT 0' },
+            { name: 'b_push_generation', ddl: 'ADD COLUMN b_push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
+    },
+    cross_chain_calls: {
+        columns: [
+            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
+    },
     // uq_cap_snap gained `source` (a key delegated by two sources now keeps
     // both (source, pubkey) rows). The add-if-name-missing logic above cannot widen
     // an existing same-named index, so capability_snapshots uses widenIndexes: if the
@@ -69,6 +105,30 @@ const MIRROR_MIGRATIONS = {
         widenIndexes: [
             { name: 'uq_cap_snap', requiredColumn: 'source',
               addDdl: 'ADD UNIQUE KEY uq_cap_snap (snapshot_block, capability, signing_pubkey, source)' }
+        ]
+    },
+    // attestation_responses.response_payload / meta hold the PROVIDER bytes of a
+    // finalized ATTEST response, and the on-chain columns that response stands in for
+    // are utf8mb4. On a mirror still carrying the table's utf8mb3 tail a body with one
+    // 4-byte character fails the apply INSERT (errno 1366 under STRICT_TRANS_TABLES)
+    // and, because that table re-pages from cursor 0, is re-delivered and re-refused on
+    // every drain rather than skipped once. ensureTables gives a FRESH mirror the
+    // charset from the twin file; widenColumns is what reaches one that already exists.
+    // uq_attest_response gained `effective_time`: one request can finalize under two
+    // leader slots and yield two honestly signed rows that differ only in the stamp,
+    // and the indexer binds the smaller one. Same widen shape as uq_cap_snap above.
+    attestation_responses: {
+        columns: [],
+        indexes: [],
+        widenIndexes: [
+            { name: 'uq_attest_response', requiredColumn: 'effective_time',
+              addDdl: 'ADD UNIQUE KEY uq_attest_response (network, request_id, effective_time)' }
+        ],
+        widenColumns: [
+            { name: 'response_payload', charset: 'utf8mb4',
+              ddl: 'MODIFY `response_payload` MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' },
+            { name: 'meta', charset: 'utf8mb4',
+              ddl: 'MODIFY `meta` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' }
         ]
     }
 };
@@ -111,6 +171,31 @@ async function ensureMirrorColumns(dbConn, log) {
             log('[hub-mirror] migrating ' + table + ': ' + clauses.join('; '));
             await dbConn.doQuery(sql);
             applied.push(sql);
+        }
+
+        // Widen an existing column's character set. SHOW FULL COLUMNS carries the live
+        // Collation, which SHOW COLUMNS above does not, and the collation name is prefixed
+        // by its charset ('utf8mb4_general_ci'), so one probe answers both. Only ever
+        // widens, so no stored value is rewritten (utf8mb3 is a strict subset of utf8mb4)
+        // and no accepted value stops being accepted. Idempotent: a no-op once the live
+        // collation already sits on the target charset.
+        if (spec.widenColumns && spec.widenColumns.length) {
+            const fullRows = await dbConn.doQuery('SHOW FULL COLUMNS FROM `' + table + '`');
+            const collation = new Map((fullRows || []).map(
+                (r) => [String(r.Field).toLowerCase(), String(r.Collation || '').toLowerCase()]));
+            const widenClauses = [];
+            for (const w of spec.widenColumns) {
+                const live = collation.get(String(w.name).toLowerCase());
+                if (live === undefined) continue;                        // column absent: ensureTables owns it
+                if (live.startsWith(String(w.charset).toLowerCase() + '_')) continue;  // already widened
+                widenClauses.push(w.ddl);
+            }
+            if (widenClauses.length > 0) {
+                const sql = 'ALTER TABLE `' + table + '` ' + widenClauses.join(', ');
+                log('[hub-mirror] widening ' + table + ': ' + widenClauses.join('; '));
+                await dbConn.doQuery(sql);
+                applied.push(sql);
+            }
         }
 
         // Widen an existing UNIQUE key whose column set changed. Probe the

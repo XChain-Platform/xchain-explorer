@@ -435,6 +435,14 @@ class Broadcaster {
             const idx = lifecycleEvent.data && lifecycleEvent.data.feed_action_index;
             return (idx === null || idx === undefined) ? null : idx;
         }
+        // xcall is keyed on the call_id the ChangeDetector's phase cursor stamps onto
+        // XCALL_COMPLETED / XCALL_EXPIRED. Lower-cased to match ChannelManager's
+        // subscribe-time normalization: the two must agree or a subscriber holding a
+        // valid subscription receives nothing.
+        if (lifecycleEvent.channel === 'xcall') {
+            const id = lifecycleEvent.data && lifecycleEvent.data.call_id;
+            return (id === null || id === undefined) ? null : String(id).toLowerCase();
+        }
         return null;
     }
 

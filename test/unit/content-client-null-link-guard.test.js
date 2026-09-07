@@ -32,7 +32,12 @@ const path = require('path');
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
 
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+// formatters.js is read alongside xchain.js because the cell-rendering helpers
+// (isNull, escapeHtml, formatAmount, formatLink and friends) moved there in the
+// component milestone. Concatenated rather than switched, so this file keeps
+// naming ONE source for every helper it lifts.
+const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 
 function extractFn(name) {
     const sig = 'function ' + name + '(';

@@ -87,10 +87,35 @@ class HubOperationalCache {
         if(hit && (now - hit.at) < this.ttlMs)
             return hit.rows;
 
+        // Call-scoped diagnostics sink. The connector is one object for the whole
+        // process and its lastRpcError is last-call-wins, so reading it after this
+        // await let a CONCURRENT call's -32601 decide this call's outcome: the
+        // capability-gap throw below fired for a method the hub serves fine and
+        // skipped the stale-cache bridge, and the reverse (a concurrent healthy
+        // call clearing the field on entry) erased a real -32601.
+        let call = {};
         let result = await this.connector._call(
             { jsonrpc: '2.0', method, params: cleaned, id: 1 },
-            { attempts: 2 }
+            { attempts: 2, out: call }
         );
+        // Read the clock AGAIN. `now` above was taken before the RPC, and the RPC
+        // is the slow part of this function: two attempts plus their timeouts, so
+        // an unreachable hub burns real seconds here. Measuring the stale ceiling
+        // with the pre-await stamp measures the age the rows had when this request
+        // STARTED, which lets an entry be served past
+        // EXPLORER_HUB_CACHE_STALE_MAX_MS by the whole retry window and understates
+        // the age in the operator warning by the same amount. The ceiling is the
+        // only freshness bound on this path (db.js fails loud rather than falling
+        // through to the co-located schema, which has no bound at all), so it has
+        // to be measured against the clock now, not the clock then.
+        //
+        // The cache WRITE below deliberately keeps `now`. An entry's `at` is a
+        // claim about how old its DATA is, and the rows the hub just returned
+        // describe hub state at some point from the request onward; stamping them
+        // at the response instead would credit them with the RPC's duration of
+        // freshness they do not have. Request-start is the conservative end of
+        // that interval, and both the TTL and the ceiling should read it that way.
+        let after = Date.now();
         if(Array.isArray(result)){
             // Cap the map so a flood of distinct filter values cannot grow it
             // without bound (same pattern as db.js's holders cache).
@@ -105,7 +130,7 @@ class HubOperationalCache {
         // not an outage, so neither the stale-cache bridge below nor db.js's
         // unreachable-past-ceiling diagnosis applies; both would misname a
         // version mismatch as downtime.
-        let rpcErr = this.connector.lastRpcError;
+        let rpcErr = call.rpcError;
         if(rpcErr && Number(rpcErr.code) === -32601)
             throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
                 'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
@@ -114,9 +139,9 @@ class HubOperationalCache {
             console.warn('Hub operational read ' + method + ' returned error: ' + result.error);
         // Hub unreachable or degraded: serve the last-known rows while they
         // are not unreasonably old, so a hub restart doesn't blank the pages.
-        if(hit && (now - hit.at) < this.staleMaxMs){
+        if(hit && (after - hit.at) < this.staleMaxMs){
             console.warn('Hub unreachable for ' + method + '; serving cached rows ('
-                + Math.round((now - hit.at) / 1000) + 's old)');
+                + Math.round((after - hit.at) / 1000) + 's old)');
             return hit.rows;
         }
         return null;

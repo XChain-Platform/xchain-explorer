@@ -197,19 +197,36 @@ $(document).ready(function() {
 
     // --- Fee quote sandbox -------------------------------------------------------
     //
-    // Renders whatever processFeeQuoteRequest sends back on a 200: `valid` may be
-    // false (e.g. an unknown TICK) without that being a route error, so every
-    // field is shown as data rather than treated as a failure. Route-level errors
-    // (missing/invalid action, upstream outage) are non-2xx and land in .fail().
+    // Renders whatever processFeeQuoteRequest sends back on a 200. `valid` is a
+    // THREE-state verdict, not a boolean, and each state is its own badge:
+    //   true  - the indexer dry-ran the action and it is valid
+    //   false - the indexer checked and rejected it (e.g. an unknown TICK)
+    //   null  - a correctly-priced STATIC quote with no on-chain verdict. The
+    //           denylisted actions (DEPLOY, EXECUTE) are priced from the gas schedule
+    //           without entering the VM, and the busy/denied/fee-exempt branches answer
+    //           the same way, so the fee is payable while validity is unjudged.
+    // A truthiness test collapses null into false and badges a payable fee red, so the
+    // reader cannot tell an unchecked quote from a rejected one. `validated`,
+    // `staticQuote` and `note` carry that provenance and are rendered beside it.
+    // Route-level errors (missing/invalid action, upstream outage) are non-2xx and land
+    // in .fail().
     function renderFeeQuoteResult(o){
         let rows = [];
         rows.push(['Action', isNull(o.action) ? '-' : escapeHtml(String(o.action))]);
         rows.push(['Supported', o.supported ? 'Yes' : 'No']);
-        rows.push(['Valid', o.valid
-            ? '<span class="badge text-bg-success">Valid</span>'
-            : '<span class="badge text-bg-danger">Invalid</span>']);
+        let validBadge;
+        if(o.valid === true)       validBadge = '<span class="badge text-bg-success">Valid</span>';
+        else if(o.valid === false) validBadge = '<span class="badge text-bg-danger">Invalid</span>';
+        else                       validBadge = '<span class="badge text-bg-secondary">Not checked</span>';
+        rows.push(['Valid', validBadge]);
+        if(!isNull(o.validated)) rows.push(['Validated', o.validated ? 'Yes' : 'No']);
+        if(o.staticQuote)        rows.push(['Static Quote', 'Yes, priced from the gas schedule with no on-chain validation']);
+        if(o.denied)             rows.push(['Denied', 'Yes, this action is not dry-run quotable']);
+        if(o.feeExempt)          rows.push(['Fee Exempt', 'Yes']);
+        if(o.busy)               rows.push(['Busy', o.retryable ? 'Yes, retryable' : 'Yes']);
         if(!isNull(o.status))  rows.push(['Status', escapeHtml(String(o.status))]);
         if(!isNull(o.error))   rows.push(['Detail', escapeHtml(String(o.error))]);
+        if(!isNull(o.note))    rows.push(['Note', escapeHtml(String(o.note))]);
         if(!isNull(o.xchainFee)) rows.push(['XCHAIN Fee', escapeHtml(String(o.xchainFee))]);
         if(!isNull(o.requiredFeeNative)) rows.push(['Required Native Fee', escapeHtml(String(o.requiredFeeNative)) + ' ' + XC.coin]);
         if(!isNull(o.requiredFeeSats))   rows.push(['Required Fee (sats)', numeral(o.requiredFeeSats).format('0,0')]);

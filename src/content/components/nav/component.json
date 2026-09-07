@@ -1,0 +1,10 @@
+{
+    "name": "nav",
+    "description": "The site header: brand, network menu, the grouped Data mega-menu, the search box and the theme toggle. Composed server-side into the page shell.",
+    "props": {
+        "coin": {
+            "type": "string",
+            "description": "Coin whose routes the Data menu links to. The shell substitutes {COIN} at render time, as before."
+        }
+    }
+}

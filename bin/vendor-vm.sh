@@ -32,7 +32,18 @@
 # Usage:
 #   bin/vendor-vm.sh           # refresh ./xchain-vm from the sibling, then verify
 #   bin/vendor-vm.sh fix       # same as above (explicit)
-#   bin/vendor-vm.sh check     # verify version + src/ content match; non-zero exit on drift (no writes)
+#   bin/vendor-vm.sh check     # verify version + src/ content match; non-zero exit on drift
+#
+# `check` writes in exactly one case: no vendored src/ tree exists, which every
+# isolated checkout hits by construction (the copy is gitignored). It never
+# overwrites a populated src/, because overwriting is how a drifted tree gets
+# reported as in sync.
+#
+# Stated as src/ and not as "a tree that IS there" on purpose, because the guard
+# below is `[ ! -d "$DEST/src" ]`: a DEST that exists with a drifted
+# package.json but NO src/ is still staged over and then reported in sync,
+# exit 0. That residual is narrow (it needs a half-populated vendored copy) but
+# it is real.
 #
 # Requires Node 22 for the isolated-vm native build (see the Dockerfile note).
 
@@ -96,15 +107,21 @@ DEST_VER="$(vm_version "$DEST")"
 
 if [ "$MODE" = "check" ]; then
     echo "vendor-vm: canonical=${SRC_VER:-<none>} vendored=${DEST_VER:-<none>}"
-    if [ -z "$DEST_VER" ]; then
-        # No vendored copy at all. The copy is gitignored, so every isolated
-        # checkout (the pre-push CI gate clones the bare commit) lands here by
-        # construction; with the canonical sibling present (declared in
-        # .ci-siblings), stage the SOURCE files (no npm install: the gate's unit
-        # suite needs the files, not a built isolated-vm) and continue instead of
-        # failing a state no commit can ever satisfy. Mirrors xchain-indexer's
-        # vendor-vm.sh. Drift detection is unaffected: whenever a vendored copy
-        # EXISTS (every dev tree), version + manifest still verify below.
+    # No vendored copy at all. The copy is gitignored, so every isolated
+    # checkout (the pre-push CI gate clones the bare commit) lands here by
+    # construction; with the canonical sibling present (declared in
+    # .ci-siblings), stage the SOURCE files (no npm install: the gate's unit
+    # suite needs the files, not a built isolated-vm) and continue instead of
+    # failing a state no commit can ever satisfy. Drift detection is unaffected:
+    # whenever a vendored copy EXISTS (every dev tree), version + manifest still
+    # verify below.
+    #
+    # Keyed on the TREE, not on the version string. An empty $DEST_VER means three
+    # different things (no tree, no consensus-runtime.js, no parseable const), and
+    # staging over the latter two fails OPEN: the rsync carries no --delete, so it
+    # repairs a drifted tree in place and then reports the repaired tree as in
+    # sync, concealing exactly the drift the guard exists to name.
+    if [ ! -d "$DEST/src" ]; then
         echo "vendor-vm: no vendored copy at $DEST; staging src from canonical sibling."
         rsync -a \
             --exclude 'node_modules' \
@@ -114,6 +131,14 @@ if [ "$MODE" = "check" ]; then
             --exclude 'reports' \
             "$SRC/" "$DEST/"
         DEST_VER="$(vm_version "$DEST")"
+    fi
+    # A tree that is present but whose version cannot be read is DRIFT, not a
+    # blank slate: check mode refuses to touch it and says so, so the operator
+    # decides between refreshing it and inspecting what is in there.
+    if [ -z "$DEST_VER" ]; then
+        echo "vendor-vm: DRIFT - vendored tree at $DEST exists but its CONSENSUS_VERSION is unreadable." >&2
+        echo "vendor-vm: check mode will not overwrite it; run 'npm run vendor:vm' to refresh, or remove $DEST." >&2
+        exit 1
     fi
     if [ "$SRC_VER" != "$DEST_VER" ]; then
         echo "vendor-vm: DRIFT - vendored CONSENSUS_VERSION ($DEST_VER) != canonical ($SRC_VER)." >&2

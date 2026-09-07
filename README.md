@@ -4,8 +4,8 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.12.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-4%2C253%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.15.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-4%2C654%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -32,7 +32,7 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 - **Icon service**: token icons with automatic fallback and optional background downloader
 - **BigNumber precision**: arbitrary-precision arithmetic for all amounts and prices
 - **Contract pages**: on-chain source with syntax highlighting, a server-verified hash badge, extracted method list, and constructor params; a Read Contract card calls the sandboxed `POST /{COIN}/api/contract/{idx}/call` endpoint (off by default via `EXPLORER_VM_QUERY_ENABLED`), and a Write Contract card deep-links per-method calls into the wallet
-- **Self-synced hub mirror**: optional local copy of the hub-mirror tables (`database.checkpoint.self_sync` + `HUB_API_URL`) removes the hard requirement for a co-located hub DB; `GET /{COIN}/api/hub-mirror/status` reports staleness
+- **Self-synced hub mirror**: optional local copy of the hub-mirror tables (`database.checkpoint.self_sync` plus a hub endpoint, `database.checkpoint.hub_url` or the `HUB_API_URL` env) removes the hard requirement for a co-located hub DB; `GET /{COIN}/api/hub-mirror/status` reports staleness. `self_sync` with no hub endpoint is refused at startup (`ALLOW_NO_COLOCATED_HUB_DB=1` downgrades it to a warning and fails the hub-mirrored routes per request), because a mirror with no writer serves frozen rows
 - **2,762+ tests**: unit, integration, e2e, boundary, security, fuzz, chaos, mutation, smoke, performance, regression, conformance
 
 ## Documentation
@@ -176,9 +176,9 @@ defaults hold on an unconfigured box:
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~3,521 tests) |
+| `npm test` | Run unit tests (~3,909 tests) |
 | `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
-| `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (14 tests) |
+| `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (27 tests) |
 | `npm run test:e2e` | End-to-end tests (49 tests, requires full stack) |
 | `npm run test:boundary` | Boundary condition tests (226 tests) |
 | `npm run test:boundary:unit` | Boundary tests (unit only, no DB, 162 tests) |

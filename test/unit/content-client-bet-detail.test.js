@@ -37,7 +37,12 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+// formatters.js is read alongside xchain.js because the cell-rendering helpers
+// (isNull, escapeHtml, formatAmount, formatLink and friends) moved there in the
+// component milestone. Concatenated rather than switched, so this file keeps
+// naming ONE source for every helper it lifts.
+const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces, so the test
@@ -88,6 +93,9 @@ function renderBetDetails(data) {
     const $ = dom.window.$;
     return {
         fee:  $('#info-bet .bet-fee').text().trim(),
+        resolveOutcome:     $('#info-bet .bet-resolve-outcome').text().trim(),
+        resolveOutcomeHtml: $('#info-bet .bet-resolve-outcome').html(),
+        resolveHidden:      $('#info-bet .bet-resolve-fields').hasClass('d-none'),
         html: $('#info-bet').html()
     };
 }
@@ -144,5 +152,63 @@ describe('BET detail render: the oracle fee is a number, not the protocol-fee re
             'showBetDetails must read the aliased bet_fee: getActionData overwrites data.fee with the '
             + 'generic protocol-fee record, which renders as "[object Object]"');
         expect(fn).to.contain('data.bet_fee');
+    });
+});
+
+/* A BET format 3 (resolve) declares the OUTCOME that settles the market, and the
+ * indexer persists it in bet_resolves.outcome. The detail query selected only the
+ * resolve's feed reference, so the panel showed which market was settled and never
+ * what it was settled to. An INVALID resolve makes the omission total: it settles
+ * nothing and the outcome it claimed appears on no page at all, since the feed page
+ * serves only the outcome a VALID resolve produced (db.js getBetFeedWinningOutcome). */
+const RESOLVE = {
+    bet_kind: 'resolve', feed_ref: 4242, feed_status: 'resolved',
+    resolve_outcome: 2, status: 'valid', fee: PROTOCOL_FEE, action_index: 4310
+};
+
+describe('BET detail render: a resolve shows the outcome it declared', function () {
+
+    it('renders the declared outcome rather than dropping it', function () {
+        const out = renderBetDetails(RESOLVE);
+        expect(out.resolveHidden).to.equal(false);
+        expect(out.resolveOutcome).to.equal('2');
+    });
+
+    it('renders outcome 0 as a result, not as an absent field', function () {
+        // Outcome indexes are zero-based, so the first outcome is the falsy one.
+        expect(renderBetDetails({ ...RESOLVE, resolve_outcome: 0 }).resolveOutcome).to.equal('0');
+    });
+
+    it('labels a rejected resolve as a CLAIM, never as the winning outcome', function () {
+        // An invalid resolve stores what the oracle claimed and settles nothing;
+        // printing it bare would invent a settlement that never happened.
+        const out = renderBetDetails({ ...RESOLVE, status: 'invalid: OUTCOME (range)', feed_status: 'open' });
+        expect(out.resolveOutcome).to.contain('2');
+        expect(out.resolveOutcome).to.contain('claimed');
+    });
+
+    it('states no claim on a valid resolve, which really did settle the market', function () {
+        expect(renderBetDetails(RESOLVE).resolveOutcome).to.not.contain('claimed');
+    });
+
+    it('escapes the outcome, which is an on-chain attacker-supplied value', function () {
+        const out = renderBetDetails({ ...RESOLVE, resolve_outcome: '<img src=x onerror=alert(1)>' });
+        expect(out.resolveOutcomeHtml).to.not.contain('<img src=x');
+        expect(out.resolveOutcomeHtml).to.contain('&lt;img');
+    });
+
+    it('hides the row on a cancel, which shares the panel and declares no outcome', function () {
+        const out = renderBetDetails({ bet_kind: 'cancel', feed_ref: 4242,
+                                       feed_status: 'cancelled', status: 'valid', fee: null });
+        expect(out.resolveHidden).to.equal(true);
+    });
+
+    it('hides the row on a wager, whose own outcome is the bet it placed', function () {
+        expect(renderBetDetails({ bet_kind: 'bet', feed_ref: 4242, outcome: 1, amount: '10',
+                                  bet_status: 'open', status: 'valid', fee: null }).resolveHidden).to.equal(true);
+    });
+
+    it('shows a dash rather than a blank cell when the payload carries no outcome', function () {
+        expect(renderBetDetails({ ...RESOLVE, resolve_outcome: null }).resolveOutcome).to.equal('-');
     });
 });

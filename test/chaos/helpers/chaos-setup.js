@@ -31,6 +31,7 @@ const rateLimit      = require('express-rate-limit');
 const autocannon     = require('autocannon');
 const { createTestConfigInfo } = require('../../integration/helpers/app-setup');
 const XChainExplorer = require('../../../src/XChainExplorer.js');
+const staticMounts   = require('../../../src/staticMounts.js');
 const toxiproxy      = require('./toxiproxy-client');
 const mariadb        = require('mariadb');
 const fs             = require('fs');
@@ -63,9 +64,10 @@ async function bootServer(opts = {}) {
             limit:           opts.rateMax || 500,
             standardHeaders: true,
             legacyHeaders:   false,
-            skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path)
-                         || req.path.startsWith('/icon')
-                         || req.path.startsWith('/images'),
+            // Production's own predicate, not a copy of it: an inlined regex here
+            // let the load-shedding suite pass against a skip rule the server no
+            // longer uses, so a regression in the real one went unseen.
+            skip: staticMounts.isStaticAsset,
         }));
     }
 

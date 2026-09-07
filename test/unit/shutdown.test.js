@@ -17,6 +17,7 @@
 const assert = require('assert');
 const { createShutdown, createExplorerDrain, closeServer, resolveTimeoutMs, DEFAULT_SHUTDOWN_TIMEOUT_MS } = require('../../src/shutdown');
 const configInfo = require('../../src/config.js');
+const { waitUntil } = require('../helpers/wait-until.js');
 
 const silentLog = { log(){}, warn(){}, error(){} };
 
@@ -208,7 +209,22 @@ describe('graceful shutdown', function(){
 
             let done = false;
             const running = createExplorerDrain(runtime)().then(() => { done = true; });
-            await new Promise((r) => setTimeout(r, 30));
+            // Wait on the observable event, not on a duration. A fixed sleep made the
+            // negative below VACUOUS: on a box where the drain had not yet reached
+            // httpServer.close, `done === false` passed because nothing had started,
+            // which is the same green a correctly-blocked drain produces. Advancing to
+            // the recorded 'http.close' is what makes the assertion mean the drain is
+            // parked ON the in-flight request.
+            // The shared wait names the condition and rejects when it never arrives,
+            // where the turn-capped loop it replaces fell through silently and left
+            // the assertion below to report the miss.
+            await waitUntil(() => order.includes('http.close'),
+                'the drain to reach httpServer.close');
+            assert.ok(order.includes('http.close'),
+                'the drain never reached httpServer.close, so the wait below would prove nothing');
+            // One more turn, so a drain that wrongly completed WITHOUT the request has
+            // landed its .then before the negative is read.
+            await flush();
             assert.strictEqual(done, false, 'the drain must wait on the in-flight request');
             assert.strictEqual(runtime.explorer.db.closed, false,
                 'pools must still be open while a request is being served');

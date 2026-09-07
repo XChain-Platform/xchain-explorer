@@ -43,6 +43,7 @@ const ANCHOR = {
                     a2.action,
                     a1.action_format,
                     m.action_index,
+                    m.section_index,
                     m.version,
                     m.chain,
                     m.network,
@@ -81,8 +82,55 @@ const ANCHOR = {
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                 WHERE
                     m.action_index=?
+                ORDER BY m.section_index ASC
                 LIMIT 1`;
+        // A v0 ANCHOR is a BUNDLE: anchor_actions is keyed (action_index, section_index),
+        // one row per checkpointed chain, each with its own chain, block_index,
+        // checkpoint_seq, roots and signature list. The bundle-level fields (version,
+        // network, publisher, publisher_attestations, status, txid, DOGE block) are
+        // denormalized identically onto every row, so the ORDER BY above pins the header
+        // to section 0 instead of whatever the join plan returns first, and this query
+        // reads the sections the header cannot speak for. Same shape as db.getAnchor,
+        // which the /anchor page renders from. Archive rows (v1/v2) and every retired
+        // per-chain version stay at section_index 0, so they come back as one section.
+        query2 = `SELECT
+                    m.section_index,
+                    m.chain,
+                    m.block_index,
+                    m.block_hash,
+                    m.checkpoint_seq,
+                    m.snapshot_block,
+                    m.state_root,
+                    m.block_merkle_root,
+                    s1.status
+                FROM
+                    anchor_actions m
+                    LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                WHERE
+                    m.action_index=?
+                ORDER BY m.section_index ASC`;
         return { query, query2, query3 };
+    },
+    // Attach the per-chain sections of a v0 bundle. Gated on version 0 exactly as
+    // db.getAnchor gates its own section read: every other version is a single
+    // checkpoint or an archive chunk, and presenting it as a one-section bundle would
+    // invent a structure it does not have.
+    //
+    // snapshot_block on the header is the BUNDLE's block, the MAX over the sections. A
+    // chain that lagged rides at its own older section snapshot_block, while the
+    // election and the publisher attestation are both drawn at the MAX, so section 0's
+    // block as the bundle's looks the electorate up at the wrong height.
+    afterQuery2(ctx, data, results) {
+        let sections = Array.isArray(results) ? results : [];
+        data['sections']      = [];
+        data['section_count'] = 1;
+        if(Number(data['version']) !== 0) return;
+        data['sections']      = sections;
+        data['section_count'] = sections.length || 1;
+        let blocks = sections
+            .map(s => (s.snapshot_block === null || s.snapshot_block === undefined) ? null : Number(s.snapshot_block))
+            .filter(v => v !== null && !Number.isNaN(v));
+        if(blocks.length) data['snapshot_block'] = Math.max(...blocks);
     },
     // Expand the inlined publisher-attestation JSON on ANCHOR responses that
     // carry a publisher tail (today's v0 bundle and v1 archive head; formerly
@@ -100,9 +148,16 @@ const ANCHOR = {
 };
 
 const ATTEST = {
-    // ATTEST action (v0 request / v1 response; both rows live in `attests`,
-    // distinguished by `version`; verified federation sigs ride in the
-    // validator_signatures JSON column on v1 rows)
+    // ATTEST action. Every version lives in `attests`, distinguished by `version`:
+    // v0 request and v1 response (verified federation sigs ride in the
+    // validator_signatures JSON column on v1 rows), plus the batch pair, v5 head
+    // and v6 continuation. A batch row is a CHUNK TABLE entry on the ANCHOR archive
+    // precedent: the head carries the signed window header (start/end, row count, the
+    // BTC height its quorum snapshot is drawn at) and slot 0, each continuation
+    // carries one later slot, and every v0/v1 column is NULL on both. request_id
+    // holds the batch key there and provider_id is the empty string. batch_chunk_b64
+    // is omitted for the same reason ANCHOR omits archive_b64 above: it is large and
+    // only the reassembler reads it.
     queries() {
         let query  = null;
         let query2 = null;
@@ -129,6 +184,13 @@ const ATTEST = {
                     m.meta,
                     m.validator_signatures,
                     m.callback_execute_action_index,
+                    m.batch_window_start,
+                    m.batch_window_end,
+                    m.batch_row_count,
+                    m.batch_btc_block_height,
+                    m.batch_crc32,
+                    m.batch_total_chunks,
+                    m.batch_chunk_index,
                     m.payload,
                     m.callback_params_json,
                     a3.address as source,
@@ -340,9 +402,12 @@ const ROLLCALL = {
         // them; the per-validator present list is attached in afterMain below.
         //
         // LEFT JOIN on transactions rather than INNER: a detail page should render
-        // what the row holds even when no transaction joins. The unstakes LIST query
-        // uses INNER here and silently drops rows with a null tx_index, which is a
-        // real defect on the eviction path; not repeating the pattern.
+        // what the row holds even when no transaction joins. A ROLLCALL eviction
+        // (action_format 3) has no broadcast transaction behind it, so its action row
+        // carries tx_index NULL and an INNER join it can never satisfy drops it. This is
+        // the tx-less-safe shape getUnstakes (src/db/readers/staking-governance.js) and
+        // getAttestations (src/db.js) use: blocks joins off a block_index that is set on
+        // both paths, and transactions stays optional.
         query = `SELECT
                     a4.action,
                     a1.action_format,

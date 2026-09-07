@@ -1,0 +1,10 @@
+{
+    "name": "theme-toggle",
+    "description": "The light/dark switch in the header gear menu. Reads and writes the same view-theme key xchain.js has always used.",
+    "props": {
+        "mode": {
+            "type": "string",
+            "description": "Mode to apply on mount. Defaults to the stored preference, then light."
+        }
+    }
+}

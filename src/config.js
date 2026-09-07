@@ -386,8 +386,9 @@ module.exports = {
                             // externally-maintained hub schema (e.g. XChain_Hub on a
                             // single-server deployment) or, with self_sync: true, a
                             // local mirror this explorer populates itself from the
-                            // hub's /hub-db feed (HubMirrorSyncManager; needs
-                            // HUB_API_URL). Needed because xchain-sync deliberately
+                            // hub's /hub-db feed (HubMirrorSyncManager; needs a hub
+                            // endpoint, carried as hub_url in this same block or
+                            // else the HUB_API_URL env). Needed because xchain-sync deliberately
                             // excludes the hub-mirror tables (state_checkpoints /
                             // capability_snapshots / cross_chain_matches) from
                             // replication. See db.js checkpointDb.

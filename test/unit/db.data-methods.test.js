@@ -295,6 +295,60 @@ describe('Database#getBlock', () => {
         const [data] = await db.getBlock(config);
         expect(data).to.include.keys(['block_index', 'timestamp', 'ledger_hash', 'actions_hash', 'contract_hash']);
     });
+
+    // The segment is bound against the BIGINT block_index and MariaDB coerces a
+    // non-numeric string to 0, so an unguarded /api/block/zzz would answer 200
+    // with BLOCK 0's real record. The refusal lives here, in the reader that
+    // binds the value, so every caller is covered and not only the HTTP route.
+    describe('malformed block id', () => {
+        const BAD = ['zzz-no-such-entity-9999', 'junk', '9junk', '', ' ', '7.5', '-1', '1e5', '0x7', '500 ', 'null'];
+
+        BAD.forEach((bad) => {
+            it(`refuses ${JSON.stringify(bad)} instead of coercing it to a real block`, async () => {
+                const query = sinon.stub(db, 'doQuery').resolves(mockResults.blockRow());
+                const config = cfg({ data: { search: bad, sql: { where: { data: 'b1.block_index IS NOT NULL AND b1.block_index=?', offset: '' } } } });
+                let err = null;
+                try {
+                    await db.getBlock(config);
+                } catch (e) { err = e; }
+                expect(err, 'getBlock threw').to.not.be.null;
+                expect(err.name).to.equal('DbInputError');
+                expect(err.code).to.equal('INVALID_BLOCK_INDEX');
+                expect(query.called, 'the DB was never queried').to.be.false;
+            });
+        });
+
+        it('refuses a missing segment (search null)', async () => {
+            const query = sinon.stub(db, 'doQuery').resolves(mockResults.blockRow());
+            const config = cfg({ data: { search: null, sql: { where: { data: 'b1.block_index IS NOT NULL', offset: '' } } } });
+            let err = null;
+            try {
+                await db.getBlock(config);
+            } catch (e) { err = e; }
+            expect(err && err.code).to.equal('INVALID_BLOCK_INDEX');
+            expect(query.called).to.be.false;
+        });
+
+        it('still serves block 0 when block 0 is what was actually asked for', async () => {
+            const row = mockResults.blockRow()[0];
+            sinon.stub(db, 'doQuery').resolves([row]);
+            const config = cfg({ data: { search: '0', sql: { where: { data: 'b1.block_index IS NOT NULL AND b1.block_index=?', offset: '' } } } });
+            const [data] = await db.getBlock(config);
+            expect(data).to.deep.equal(row);
+        });
+
+        it('surfaces the refusal through getData, the path the route actually calls', async () => {
+            const query = sinon.stub(db, 'doQuery').resolves(mockResults.blockRow());
+            const config = cfg({ data: { method: 'getBlock', search: 'zzz-no-such-entity-9999', type: 'block' } });
+            let err = null;
+            try {
+                await db.getData(config);
+            } catch (e) { err = e; }
+            expect(err && err.name).to.equal('DbInputError');
+            expect(err.code).to.equal('INVALID_BLOCK_INDEX');
+            expect(query.called, 'the DB was never queried').to.be.false;
+        });
+    });
 });
 
 describe('Database#getStatus', () => {

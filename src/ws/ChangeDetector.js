@@ -47,7 +47,11 @@ const LIFECYCLE_MAP = {
 // rather than by LIFECYCLE_MAP. Kept beside the map because the ChannelManager
 // conformance test reconciles both directions of the VALID_TYPES contract, and a
 // name reachable only through a second cursor is invisible to a map-only check.
-const NON_ACTION_LIFECYCLE_TYPES = ['BET_CLOSED'];
+// XCALL_COMPLETED / XCALL_EXPIRED join it for the same structural reason (spec
+// explorer-coverage-completion M5.4): a cross-chain call's terminal transition on
+// the SOURCE chain is a direct status write by the callback interlock, so the
+// actions cursor never sees it. See _checkXcallPhases.
+const NON_ACTION_LIFECYCLE_TYPES = ['BET_CLOSED', 'XCALL_COMPLETED', 'XCALL_EXPIRED'];
 
 // Lifecycle events emitted inline by an enrichment path, so neither the map nor
 // a cursor names them. Declared here so the conformance test reads the producer
@@ -95,7 +99,7 @@ class ChangeDetector extends EventEmitter {
 
         for (const coin of coins) {
             if (!this.state[coin]) {
-                this.state[coin] = { blockIndex: 0, actionIndex: 0, closedBlock: 0, initialized: false };
+                this.state[coin] = { blockIndex: 0, actionIndex: 0, closedBlock: 0, xcallBlock: 0, initialized: false };
             }
             if (!this.mempoolState[coin]) {
                 this.mempoolState[coin] = { seenHashes: new Map(), initialized: false };
@@ -284,6 +288,9 @@ class ChangeDetector extends EventEmitter {
             // this process started, and replaying them as live pushes would tell every
             // subscriber that historical markets are closing right now.
             prev.closedBlock = currentBlockIndex;
+            // Same seed rule for the XCALL phase cursor: every call that resolved at or
+            // below the tip resolved before this process started.
+            prev.xcallBlock  = currentBlockIndex;
             prev.initialized = true;
             return;
         }
@@ -302,6 +309,12 @@ class ChangeDetector extends EventEmitter {
             // again. Without the rewind that second latch sits below the high-water mark
             // and is never emitted (spec §12 E8).
             if (prev.closedBlock > currentBlockIndex) prev.closedBlock = currentBlockIndex;
+            // And the XCALL phase cursor, for the same reason in a stronger form: a
+            // reorg past the resolving block rolls xcalls.resolved_block back to NULL,
+            // so a call that re-resolves on the new chain gets a fresh stamp that must
+            // be pushed again. Without the rewind that second resolution sits below the
+            // high-water mark and is never emitted.
+            if (prev.xcallBlock > currentBlockIndex) prev.xcallBlock = currentBlockIndex;
         }
 
         if (currentBlockIndex > prev.blockIndex) {
@@ -354,6 +367,122 @@ class ChangeDetector extends EventEmitter {
         // after every user tx in its block (spec §6), so a market page sees the last
         // bet before it is told betting closed.
         await this._checkBetLatches(coin, config, currentBlockIndex, prev);
+        // Same placement rationale: the callback interlock runs after the block's
+        // actions, so a subscriber sees the injected callback EXECUTE before it is
+        // told the call it belonged to is finished.
+        await this._checkXcallPhases(coin, config, currentBlockIndex, prev);
+    }
+
+    // Emit XCALL_COMPLETED / XCALL_EXPIRED for every cross-chain call whose
+    // request_status went terminal since the last poll (spec
+    // explorer-coverage-completion M5.4). A THIRD cursor, over
+    // xcalls.resolved_block, and it exists for the same reason the BET latch cursor
+    // does: the transition has no action row.
+    //
+    // The v0 request row IS the call's identity on this chain, and the interlock
+    // updates that row in place rather than minting a new action, so the generic
+    // NEW_ACTION path emits nothing when a call completes. Expiries are carried on
+    // the same cursor even though XCALL v2 does mint an action, because a subscriber
+    // filtering on the phase names must see both outcomes or the live timeline shows
+    // completions and silently drops expiries.
+    async _checkXcallPhases(coin, config, currentBlockIndex, prev) {
+        if (typeof this.db.getXcallPhasesSince !== 'function') return;
+        // Parked-with-cooldown exactly like the BET latch: a coin whose indexer
+        // predates the XCALL tables is a deploy-order fact, not a permanent property
+        // of that chain, and re-discovering it every poll fills the log.
+        if (prev.xcallUnsupported && Date.now() < prev.xcallRetryAt) return;
+
+        let since = Number(prev.xcallBlock);
+        if (!Number.isFinite(since)) since = 0;
+
+        let rows;
+        try {
+            rows = await this.db.getXcallPhasesSince(config, since, this.fetchLimit);
+        } catch (e) {
+            if (this._isMissingTableError(e)) {
+                if (!prev.xcallUnsupported) {
+                    console.log('ChangeDetector: no xcalls table for', coin,
+                                '- XCALL phase events parked for this coin, re-probing every',
+                                Math.round(this.betLatchRetryMs / 1000) + 's');
+                }
+                prev.xcallUnsupported = true;
+                prev.xcallRetryAt     = Date.now() + this.betLatchRetryMs;
+                return;
+            }
+            throw e;
+        }
+
+        // Re-armed after the table appeared: re-seed to the tip and emit nothing, so
+        // historical resolutions are not replayed as live pushes.
+        if (prev.xcallUnsupported) {
+            prev.xcallUnsupported = false;
+            prev.xcallRetryAt     = 0;
+            prev.xcallBlock       = currentBlockIndex;
+            console.log('ChangeDetector: xcalls now present for', coin,
+                        '- XCALL phase events re-armed from block', currentBlockIndex);
+            return;
+        }
+
+        if (!rows || rows.length === 0) {
+            if (currentBlockIndex > since) prev.xcallBlock = currentBlockIndex;
+            return;
+        }
+
+        let emit = rows;
+        let next = Math.max(currentBlockIndex, Number(rows[rows.length - 1].resolved_block));
+
+        if (rows.length >= this.fetchLimit) {
+            // A capped fetch can cut a block in half, and the cursor is a BLOCK HEIGHT
+            // rather than a row id, so resuming mid-block would re-emit the calls
+            // already sent from it. Stop on the last COMPLETE block and re-read the
+            // remainder next poll; when the whole fetch is one block there is no
+            // boundary to stop on, so move past it and let the REST reads stay
+            // authoritative for the tail.
+            const lastBlock = Number(rows[rows.length - 1].resolved_block);
+            const complete  = rows.filter((r) => Number(r.resolved_block) < lastBlock);
+            if (complete.length > 0) {
+                emit = complete;
+                next = Number(complete[complete.length - 1].resolved_block);
+            } else {
+                next = lastBlock;
+            }
+        }
+
+        for (const call of emit) {
+            const expired = String(call.request_status) === 'expired';
+            this.emit('lifecycle_event', coin, {
+                type:    expired ? 'XCALL_EXPIRED' : 'XCALL_COMPLETED',
+                action:  'XCALL',
+                channel: 'xcall',
+                data: {
+                    // call_id is the routing key for this channel AND the subject id, so
+                    // it is the one field a consumer can rely on being present.
+                    call_id:            call.call_id,
+                    action_index:       call.action_index,
+                    block_index:        call.resolved_block,
+                    source:             call.source || null,
+                    target_chain:       call.target_chain || null,
+                    method:             call.method || null,
+                    contract_index:     call.contract_index,
+                    // The TRANSITION being reported. request_status is the source
+                    // chain's own terminal word; result_status is the far chain's
+                    // outcome and is null on an expiry, which is the point: an expired
+                    // call has no result, it has an absence of one.
+                    request_status:     call.request_status,
+                    result_status:      expired ? null : (call.result_status || null),
+                    callback_action_index: call.callback_action_index,
+                    deadline_block:     call.deadline_block,
+                    // No causing tx for a COMPLETION: the interlock wrote the status
+                    // directly. An EXPIRY does have an XCALL v2 action behind it, so it
+                    // is not marked synthetic and a consumer can tell the two apart.
+                    tx_hash:            null,
+                    action_format:      null,
+                    synthetic:          !expired
+                }
+            });
+        }
+
+        prev.xcallBlock = next;
     }
 
     // "That table does not exist here", seen through the db layer's wrapper. db.js
@@ -781,7 +910,7 @@ class ChangeDetector extends EventEmitter {
     }
 
     getState(coin) {
-        return this.state[coin] || { blockIndex: 0, actionIndex: 0, closedBlock: 0 };
+        return this.state[coin] || { blockIndex: 0, actionIndex: 0, closedBlock: 0, xcallBlock: 0 };
     }
 }
 

@@ -62,6 +62,8 @@ const BET = {
                     -- cancel (format 1) / resolve (format 3) legs
                     bc.feed_action_index as cancel_feed_ref,
                     br.feed_action_index as resolve_feed_ref,
+                    -- Aliased: the bare outcome name is the wager's column above, which shape disambiguation reads
+                    br.outcome as resolve_outcome,
                     COALESCE(ft.tick, bt2.tick) as tick,
                     b1.block_index,
                     b1.block_time as timestamp,
@@ -141,6 +143,11 @@ const BET = {
         // The cancel/resolve feed refs are plumbing for the branch above; the
         // payload exposes one `feed_ref` for every shape.
         delete data['cancel_feed_ref']; delete data['resolve_feed_ref'];
+        // The DECLARED outcome belongs to the resolve shape alone. Keep it there and
+        // nowhere else: a null one on a create/wager/cancel reads like a resolve that
+        // named no result, which is not a state a resolve can be in.
+        if(data['bet_kind'] !== 'resolve')
+            delete data['resolve_outcome'];
         // Strip the columns belonging to the OTHER shape so the payload never
         // carries a half-populated sibling (a null `amount` on a create reads
         // like a zero-stake bet).

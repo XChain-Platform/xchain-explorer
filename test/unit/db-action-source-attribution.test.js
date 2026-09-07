@@ -37,9 +37,22 @@ const path = require('path');
 const { expect } = require('chai');
 
 const SRC   = path.resolve(__dirname, '../../src');
-const FILES = ['db.js', ...fs.readdirSync(path.join(SRC, 'action-detail'))
-    .filter(f => f.endsWith('.js'))
-    .map(f => path.join('action-detail', f))];
+
+// Every file the queries live in, walked rather than listed: db.js is being
+// decomposed into src/db/ a family at a time, and a hard
+// list would quietly stop covering each family the moment it moved out. A pin
+// that follows the code is the only kind worth having here.
+function jsFilesUnder(rel){
+    const out = [];
+    for (const entry of fs.readdirSync(path.join(SRC, rel), { withFileTypes: true })) {
+        const child = path.join(rel, entry.name);
+        if (entry.isDirectory()) out.push(...jsFilesUnder(child));
+        else if (entry.name.endsWith('.js')) out.push(child);
+    }
+    return out.sort();
+}
+
+const FILES = ['db.js', ...jsFilesUnder('action-detail'), ...jsFilesUnder('db')];
 
 // Walk each file's SQL template literals. Backtick-delimited chunks at odd indexes
 // are the template literals; the query text is what matters, not the surrounding JS.

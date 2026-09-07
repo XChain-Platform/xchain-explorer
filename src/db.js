@@ -27,6 +27,15 @@ const poolSizing = require('./poolSizing');
 const listEditResolution = require('./list_edit_resolution_activation');
 const actionDetail = require('./action-detail');
 const { TERMINAL_OFFER_STATUSES } = require('./action-detail/shared.js');
+const { resolveHubUrl } = require('./hub-mirror-url.js');
+
+// Reader families extracted out of this file so no single module holds every
+// query. Each module is authored
+// as a class body and exports that class's prototype, so the methods arrive with
+// `this` still bound to the Database instance and no call site moved.
+const actionListReaders        = require('./db/readers/action-lists.js');
+const marketReaders            = require('./db/readers/markets.js');
+const stakingGovernanceReaders = require('./db/readers/staking-governance.js');
 
 // The one field list every compact action summary projects (transaction and
 // history rows via getActionSummaryData, BATCH members via projectActionSummary).
@@ -57,6 +66,45 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
     'vote_kind',                                                                                                   // Governance
     'chain', 'network', 'checkpoint_seq', 'anchored_block_index',                                                  // Anchors
     'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count'                   // Prices
+]);
+
+// Lifecycle fields whose value the indexer writes AFTER the action confirmed.
+// A getActionData response carrying any of them is NOT immutable and must never
+// enter the action LRU, which has no TTL and reorg-only invalidation
+// (_isCacheableAction, and the header comment on
+// test/unit/db.action-state-cache.test.js for the family's first two members).
+//
+// The `state` block that guard already refuses is the same defect wearing the
+// one shape DISPENSER / ORDER / SWAP / LIST happen to share. These types carry
+// their mutable state as PLAIN COLUMNS instead, so they slipped past it:
+//
+//   request_status      ATTEST v0 request: pending -> completed, and pending ->
+//                       expired, the latter written by an ATTEST v2 that persists
+//                       NO ROW of its own (it only flips this column and stamps
+//                       resolved_block). Also XCALL's request row, pending ->
+//                       completed / expired. Measured on regtest: after an
+//                       expiry, /api/action/{idx} kept reporting `pending` while
+//                       /api/attestations reported `expired` for the same action.
+//   response_status     ATTEST response leg.
+//   result_status       XCALL execution outcome, null until the call executes.
+//   resolved_block      XCALL and VOTE poll, null until the round resolves.
+//   poll_status         VOTE poll: open -> passed / failed, with its tallies.
+//   feed_status         BET feed: open -> closed -> resolved / expired.
+//   bet_status          BET wager, and settled_block with it.
+//   settled_block       BET wager, null until the feed resolves.
+//   deactivation_block  DELEGATE: null until a later revoke deactivates the row.
+//
+// Matched by PRESENCE, not by value. Null is exactly the pending state these
+// fields hold at the moment a detail page is most likely to be asked for, so a
+// value test would cache the very reads that go stale (resolved_block is null
+// while the request is live and non-null forever after). Anything selecting one
+// of these columns is a lifecycle response, and recomputing one is cheaper than
+// serving a frozen answer for the life of the process.
+const MUTABLE_ACTION_FIELDS = Object.freeze([
+    'request_status', 'response_status', 'result_status', 'resolved_block',   // ATTEST, XCALL
+    'poll_status',                                                            // VOTE
+    'feed_status', 'bet_status', 'settled_block',                             // BET
+    'deactivation_block'                                                      // DELEGATE
 ]);
 
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
@@ -136,6 +184,46 @@ class DbQueryError extends Error {
     }
 }
 
+// Raised by a reader when the CALLER's own parameter is malformed, as opposed to
+// the query failing (DbQueryError above). The distinction matters because MariaDB
+// silently coerces a non-numeric string to 0 in a numeric comparison, so a reader
+// that binds a path segment straight into `WHERE <int column>=?` answers 200 with
+// a real, entirely wrong record instead of erroring (/api/block/zzz returned
+// block 0). Refusing in the reader protects every caller, not only the HTTP
+// route; the request layer maps it to a 4xx carrying `code`, never the 5xx
+// DbQueryError gets, because nothing is wrong with the service.
+class DbInputError extends Error {
+    constructor(message, code){
+        super(message);
+        this.name = 'DbInputError';
+        this.code = code || 'INVALID_PARAMETER';
+    }
+}
+
+// A block height is a non-negative integer and nothing else. parseInt/Number
+// cannot make this call: parseInt('9junk') is 9 and Number('') is 0, both of
+// which reproduce the coercion bug in JS instead of catching it. Same strict
+// shape as the /api/action and /api/checkpoint route guards in XChainExplorer.js.
+const BLOCK_INDEX_RE = /^[0-9]+$/;
+
+// Copies an extracted reader family onto Database.prototype. Object.assign cannot
+// do this: a class method is non-enumerable, so assign would copy nothing. Copying
+// the descriptor also keeps getters and arity intact.
+//
+// A collision throws rather than resolving by require order, because the loser
+// would vanish silently and the page it serves would start answering with another
+// family's SQL.
+function mixinReaders(target, ...sources){
+    for(let source of sources){
+        for(let name of Object.getOwnPropertyNames(source)){
+            if(name=='constructor') continue;
+            if(Object.prototype.hasOwnProperty.call(target, name))
+                throw new Error('db.js reader mixin collision: ' + name + ' is defined twice');
+            Object.defineProperty(target, name, Object.getOwnPropertyDescriptor(source, name));
+        }
+    }
+}
+
 // An ACTION's source is `actions.source_id`, never `transactions.source_id`. The two agree
 // for every user action, and DISAGREE for a VM emission: the indexer stores the emitting
 // contract's derived address on the action row (xchain-indexer db.js createActionIndex,
@@ -177,6 +265,11 @@ class Database {
         // checkReorgAndInvalidate can spot a rewind on the tip-poll loop.
         this._reorgGen = {};
         this._lastTip  = {};
+        // Per-coin tip memo backing the getData result-cache generation token.
+        // The cached list methods read tables the indexer only rewrites when a
+        // block is applied, so the tip height is exactly the generation those
+        // results belong to; see _resultCacheGeneration.
+        this._tipMemo  = {};
         // AST introspection ({methods, abi} pair) is a pure function of the
         // contract source, and code is immutable once deployed, so cache by
         // the sha256 we compute from the code itself (two deploys of identical
@@ -251,7 +344,16 @@ class Database {
             // page on the preserved client cursor; getQueryOffsetSql gives getCheckpoints
             // and getCommitments their own m.block_index cursor field below (not m.id),
             // since both lists ORDER BY the committed height.
-            'getCheckpoints','getCapabilitySnapshots','getAnchorRewardAttestations','getCommitments'
+            'getCheckpoints','getCapabilitySnapshots','getAnchorRewardAttestations','getCommitments',
+            // getCollectibles -> 'collectibles' is not a table (the rows are `tokens`
+            // filtered by the M5.1 classification), so the get->lowercase mangle cannot
+            // find a boundary; it pages on the preserved client cursor over m.id.
+            // The gallery is /api-only today (it pages by ?page=, and the cursor path
+            // runs for /explorer requests alone), so this entry and its sibling in
+            // getQueryOffsetSql are armed rather than exercised: they exist so that
+            // registering an /explorer feed later cannot silently page this method on
+            // the wrong column, which is the failure the cursor list itself documents.
+            'getCollectibles'
         ];
 
     }
@@ -287,15 +389,23 @@ class Database {
     // A NOT-FOUND response is not immutable either. When getActionType finds no
     // row yet (the normal state of an action_index in the seconds between its
     // block landing and the indexer writing its typed row), getActionData
-    // builds an all-null response with no `state` block, so it used to pass
-    // this guard and get memoized forever with no TTL and reorg-only
+    // builds an all-null response with no `state` block, so an unguarded check
+    // would pass this guard and memoize it forever with no TTL and reorg-only
     // invalidation - permanently blanking the action for anyone who asked one
     // moment too early. A real response always carries `action_index` (every
     // handler selects it, and deblankBaseline supplies it for a row-less
     // variant), so its absence is exactly the not-found case and nothing else.
+    //
+    // The third exclusion is the same defect on types that carry their mutable
+    // state as plain columns rather than a `state` block: an ATTEST or XCALL
+    // request_status, a VOTE poll_status, a BET feed/bet status. Those are
+    // listed, and the reasoning is written out, on MUTABLE_ACTION_FIELDS.
     _isCacheableAction(data){
         if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
-        return this.util.isNull(data['state']);
+        if(!this.util.isNull(data['state'])) return false;
+        for(let field of MUTABLE_ACTION_FIELDS)
+            if(Object.prototype.hasOwnProperty.call(data, field)) return false;
+        return true;
     }
     // Build an id/action cache key scoped to the coin AND its current reorg
     // generation (M-3). Coin-scoping also stops a bare address/tick key from
@@ -311,6 +421,48 @@ class Database {
     // ChangeDetector tip-poll loop via checkReorgAndInvalidate.
     bumpReorgGeneration(coin){
         this._reorgGen[coin] = (this._reorgGen[coin] || 0) + 1;
+    }
+
+    // Generation token for the getData result cache: the coin's current indexed
+    // tip height.
+    //
+    // The cached list methods (getBalances/getHolders/getTokens) read tables the
+    // indexer only rewrites when it applies a block, so a cached answer stays
+    // correct exactly as long as the tip does not move. Keying on the tip means a
+    // new block makes every pre-block entry unreachable, instead of letting the
+    // TTL keep serving the previous block's answer. Without it, /balances/{ADDR}
+    // reports the pre-block balance for up to the full TTL after the block that
+    // moved it confirmed - the balance a wallet shows its own user right after
+    // their send confirms (it is also what made the escrow e2e suite,
+    // the one template suite that reads a balance before the deposit and again
+    // after, read a 0 debit off a correctly-debited ledger).
+    //
+    // Cost: one index-max lookup per coin per memo window, NOT per request, so a
+    // request burst still collapses onto a single heavy query. A probe that fails
+    // returns null, which makes the caller skip the cache for that request: never
+    // serve a possibly-stale list because the freshness check itself broke.
+    async _resultCacheGeneration(config){
+        const coin = config.coin;
+        const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
+        const memo = this._tipMemo[coin];
+        if(memo && (Date.now() - memo.at) < (Number.isFinite(ttl) ? ttl : 1000))
+            return memo.tip;
+        let tip = null;
+        try {
+            // MAX() over the blocks PK is an index-max lookup, not a scan.
+            const rows = await this.doQuery(config, 'SELECT MAX(block_index) AS tip FROM blocks', []);
+            if(rows && rows.length && !this.util.isNull(rows[0].tip))
+                tip = String(rows[0].tip);
+            // An empty blocks table is a real answer (nothing indexed yet), not a
+            // failed probe: give it a generation of its own so a pre-genesis read
+            // is still cacheable.
+            else if(rows)
+                tip = 'none';
+        } catch(e){
+            tip = null;
+        }
+        this._tipMemo[coin] = { tip, at: Date.now() };
+        return tip;
     }
 
     // Detect a reorg cheaply on the ChangeDetector poll loop and invalidate the
@@ -593,6 +745,12 @@ class Database {
                                     this.checkpointDb[key] = {
                                         name: kcfg.name, chain: coin, network: net,
                                         selfSync: kcfg.self_sync === true || kcfg.self_sync === 'true',
+                                        // The hub endpoint the mirror writer follows,
+                                        // carried in the SAME config block as self_sync
+                                        // so the two cannot arrive by different paths
+                                        // (the HUB_API_URL env remains the fallback;
+                                        // see hub-mirror-url.js).
+                                        hubUrl: this.util.isNull(kcfg.hub_url) ? '' : String(kcfg.hub_url),
                                         host: kHost, port: kPort, user: kcfg.user, pass: kcfg.pass
                                     };
                             }
@@ -649,8 +807,9 @@ class Database {
     // Startup assertion: every coin/network this explorer serves (has an indexer
     // pool for) MUST have a checkpoint schema configured (database.checkpoint,
     // same host+credentials as the indexer DB): either a self-synced mirror
-    // (database.checkpoint.self_sync + HUB_API_URL, populated by
-    // HubMirrorSyncManager) or an externally-maintained hub schema. Without one
+    // (database.checkpoint.self_sync plus a hub endpoint - hub_url in the same
+    // block, else HUB_API_URL - populated by HubMirrorSyncManager) or an
+    // externally-maintained hub schema. Without one
     // the hub-mirrored tables cannot be served, because xchain-sync never
     // replicates them. A missing entry is a fatal misconfiguration: throw a
     // clear, named error so a mis-provisioned thin replica fails to start
@@ -661,8 +820,35 @@ class Database {
     // for deployments that intentionally do not expose the hub-mirrored endpoints.
     _assertCheckpointDbForServingCoins(){
         let missing = [];
+        // A self-synced schema with no hub endpoint is the SAME failure as a missing
+        // schema, and a quieter one: the mirror exists, reads succeed, and every row
+        // it returns is frozen at whatever the last working writer left, because
+        // nothing repopulates it. It went undetected because self_sync arrives in the
+        // hub's config push while HUB_API_URL was a container env written at install
+        // time, so the two could be emitted under different conditions and the
+        // mismatch cost one startup warning. Checked here, at the same fatal tier and
+        // behind the same opt-out, so the pairing cannot silently half-exist.
+        let unwritable = [];
         for(let key in this.pools){
-            if(!this.checkpointDb[key]) missing.push(key);
+            let kcfg = this.checkpointDb[key];
+            if(!kcfg){ missing.push(key); continue; }
+            if(kcfg.selfSync && !resolveHubUrl(kcfg)) unwritable.push(key);
+        }
+        if(unwritable.length){
+            let msg = 'Self-synced checkpoint schema has no hub endpoint for serving coin(s): ' +
+                unwritable.join(', ') + '. database.checkpoint.self_sync is set, so the hub-mirrored ' +
+                'tables (state_checkpoints, capability_snapshots, cross_chain_matches, price_snapshots, ' +
+                'oracle_prices) are expected to be written by this explorer, but no hub URL is ' +
+                'configured (neither database.checkpoint.hub_url nor the HUB_API_URL env), so nothing ' +
+                'writes them and every read serves stale rows. Set the hub URL, or drop self_sync and ' +
+                'point database.checkpoint at an externally-maintained hub schema. Set ' +
+                'ALLOW_NO_COLOCATED_HUB_DB=1 to start anyway (hub-mirrored endpoints then fail loud ' +
+                'per request instead of serving a mirror nothing updates).';
+            if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
+                console.warn('[explorer] WARNING: ' + msg);
+            } else {
+                throw new Error(msg);
+            }
         }
         if(missing.length){
             let msg = 'Checkpoint schema missing for serving coin(s): ' + missing.join(', ') +
@@ -765,9 +951,11 @@ class Database {
         // multi-table join whose token/subtoken search is a leading-% LIKE: none of
         // these have an index-only path, so each call to the public /api or /explorer
         // route is a full filesort and a cheap DoS-amplification vector. A small
-        // per-request-shape cache collapses a request burst into one query. TTL is
-        // short so lists stay fresh; each map is size-capped (oldest-evicted) so the
-        // cache itself cannot grow unbounded. The key is built from the raw request
+        // per-request-shape cache collapses a request burst into one query. The key
+        // carries the coin's current tip so a cached answer can never outlive the
+        // block it was read at (see _resultCacheGeneration); the TTL is a ceiling on
+        // top of that, and each map is size-capped (oldest-evicted) so the cache
+        // itself cannot grow unbounded. The key is built from the raw request
         // inputs (search, type, and every pagination/order query param) BEFORE
         // getQuery derives the SQL, so distinct pages/orders never collide.
         const RESULT_CACHES = {
@@ -783,15 +971,23 @@ class Database {
             const q = config.data.query || {};
             // Include the per-coin reorg generation (M-3) so a detected reorg
             // makes every pre-reorg result-cache entry unreachable instead of
-            // serving reassigned-id rows until the TTL expires.
-            cacheKey = [config.coin, this._reorgGen[config.coin] || 0,
-                        config.type, config.data.type, config.data.search,
-                        q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
-            const ttl = parseInt(process.env[envPrefix + '_MS'], 10) || 15000;
-            if(!this[cacheName]) this[cacheName] = new Map();
-            const hit = this[cacheName].get(cacheKey);
-            if(hit && (Date.now() - hit.at) < ttl)
-                return [hit.data, hit.total];
+            // serving reassigned-id rows until the TTL expires, and the coin's
+            // current tip so a block that moves the underlying rows does the same
+            // A null generation means the tip probe failed; leave
+            // cacheKey null so this request neither reads nor writes the cache.
+            const gen = await this._resultCacheGeneration(config);
+            if(gen === null){
+                cacheName = null;
+            } else {
+                cacheKey = [config.coin, this._reorgGen[config.coin] || 0, gen,
+                            config.type, config.data.type, config.data.search,
+                            q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
+                const ttl = parseInt(process.env[envPrefix + '_MS'], 10) || 15000;
+                if(!this[cacheName]) this[cacheName] = new Map();
+                const hit = this[cacheName].get(cacheKey);
+                if(hit && (Date.now() - hit.at) < ttl)
+                    return [hit.data, hit.total];
+            }
         }
 
         let [query, args, count] = await this.getQuery(config);
@@ -1327,6 +1523,19 @@ class Database {
             if(type=='contract')  sql += ' AND ce.contract_index=?';
             if(type=='execution') sql += ' AND m.execution_index=?';
             if(type=='block')     sql += ' AND ce.block_index=?';
+        } else if(method=='getCollectibles'){
+            // M5.1's classification lives HERE, not in the reader, so it binds the COUNT
+            // query as well as the row query: a filter applied only in the reader's row
+            // SELECT would page a gallery whose `total` counted every token on the chain.
+            // decimals=0 AND lock_max_supply=1 is the ISSUE-field definition of a
+            // collectible (indivisible, ceiling frozen); both columns are indexed. It is
+            // not invented here: it is the SAME rule the client already ships as
+            // isNftToken (src/content/js/formatters.js), which itself mirrors
+            // sdk.nft.isNft, so the gallery classifies exactly what the token page's own
+            // NFT badge classifies rather than introducing a second definition.
+            sql += ' AND m.decimals=0 AND m.lock_max_supply=1';
+            if(type=='block')   sql += ' AND b1.block_index=?';
+            if(type=='address') sql += ' AND a2.address=?';
         } else if(method=='getXcalls'){
             // xcalls joins the actions/transactions/blocks chain (b1 alias); filter on its own columns.
             // contract = the source contract that emitted the call (contract_index, now indexed).
@@ -1448,7 +1657,10 @@ class Database {
             let field = 'm.action_index';
             if(method=='getBlocks')
                 field = 'b1.block_index';
-            if(method=='getTokens')
+            // getCollectibles is getTokens' filtered sibling and ORDERs BY the same
+            // column, so it takes the same cursor: `tokens` has no per-row action_index
+            // uniqueness (a re-ISSUE stamps last_action_index, not a new row).
+            if(['getTokens','getCollectibles'].includes(method))
                 field = 'm.id';
             // state_checkpoints has no action_index, and unlike the id-keyed views below
             // it is not keyed by m.id either: the list ORDERs BY m.block_index (the
@@ -1793,2398 +2005,7 @@ class Database {
      * 
      *****************************************************************/
 
-    /******************************************************************
-     * XChain API ACTION Endpoints
-     * 
-     * Endpoints                                     Method Name         Types
-     * -----------------------------------------------------------------
-     * /{COIN}/api/addresses/{QUERY}/{TYPE}          getAddresses        block, address
-     * /{COIN}/api/airdrops/{QUERY}/{TYPE}           getAirdrops         block, address, token
-     * /{COIN}/api/batches/{QUERY}/{TYPE}            getBatches          block, address
-     * /{COIN}/api/broadcasts/{QUERY}/{TYPE}         getBroadcasts       block, address
-     * /{COIN}/api/callbacks/{QUERY}/{TYPE}          getCallbacks        block, address, token
-     * /{COIN}/api/destroys/{QUERY}/{TYPE}           getDestroys         block, address, token
-     * /{COIN}/api/dispensers/{QUERY}/{TYPE}         getDispensers       block, address, token, source, destination, oracle
-     * /{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}  getDispenserCancels block, address
-     * /{COIN}/api/dispenser_closes/{QUERY}/{TYPE}   getDispenserCloses  block, address
-     * /{COIN}/api/dispenser_expires/{QUERY}/{TYPE}  getDispenserExpires block, address
-     * /{COIN}/api/dispenser_edits/{QUERY}/{TYPE}    getDispenserEdits   block, address
-     * /{COIN}/api/dispenses/{QUERY}/{TYPE}          getDispenses        block, address, token, source, destination, dispenser
-     * /{COIN}/api/fees/{QUERY}/{TYPE}               getFees             block, address, token, source, destination
-     * /{COIN}/api/files/{QUERY}/{TYPE}              getFiles            block, address, token
-     * /{COIN}/api/issues/{QUERY}/{TYPE}             getIssues           block, address, token
-     * /{COIN}/api/links/{QUERY}/{TYPE}              getLinks            block, address
-     * /{COIN}/api/lists/{QUERY}/{TYPE}              getLists            block, address
-     * /{COIN}/api/messages/{QUERY}/{TYPE}           getMessages         block, address, token, source, destination
-     * /{COIN}/api/mints/{QUERY}/{TYPE}              getMints            block, address, token, source, destination
-     * /{COIN}/api/orders/{QUERY}/{TYPE}             getOrders           block, address, token
-     * /{COIN}/api/order_cancels/{QUERY}/{TYPE}      getOrderCancels     block, address
-     * /{COIN}/api/order_edits/{QUERY}/{TYPE}        getOrderEdits       block, address
-     * /{COIN}/api/order_expires/{QUERY}/{TYPE}      getOrderExpires     block, address
-     * /{COIN}/api/order_matches/{QUERY}/{TYPE}      getOrderMatches     block 
-     * /{COIN}/api/sends/{QUERY}/{TYPE}              getSends            block, address, token, source, destination
-     * /{COIN}/api/sleeps/{QUERY}/{TYPE}             getSleeps           block, address, token
-     * /{COIN}/api/swaps/{QUERY}/{TYPE}              getSwaps            block, address, token
-     * /{COIN}/api/swap_cancels/{QUERY}/{TYPE}       getSwapCancels      block, address
-     * /{COIN}/api/swap_edits/{QUERY}/{TYPE}         getSwapEdits        block, address
-     * /{COIN}/api/swap_expires/{QUERY}/{TYPE}       getSwapExpires      block, address
-     * /{COIN}/api/swap_matches/{QUERY}/{TYPE}       getSwapMatches      block 
-     * /{COIN}/api/sweeps/{QUERY}/{TYPE}             getSweeps           block, address
-     ******************************************************************/
 
-     /******************************************************************
-     * XChain Explorer Endpoints
-     * 
-     * Endpoints                                     Method Name             Types
-     * -----------------------------------------------------------------
-     * /{COIN}/explorer/addresses/{QUERY}/{TYPE}     getAddresses    block, address
-     * /{COIN}/explorer/airdrops/{QUERY}/{TYPE}      getAirdrops     block, address, token
-     * /{COIN}/explorer/balances/{QUERY}/{TYPE}      getBalances     address
-     * /{COIN}/explorer/batches/{QUERY}/{TYPE}       getBatches      block, address
-     * /{COIN}/explorer/blocks/{TYPE}                getBlocks       block
-     * /{COIN}/explorer/broadcasts/{QUERY}/{TYPE}    getBroadcasts   block, address
-     * /{COIN}/explorer/callbacks/{QUERY}/{TYPE}     getCallbacks    block, address, token
-     * /{COIN}/explorer/credits/{QUERY}/{TYPE}       getCredits      block, address
-     * /{COIN}/explorer/debits/{QUERY}/{TYPE}        getDebits       block, address
-     * /{COIN}/explorer/destroys/{QUERY}/{TYPE}      getDestroys     block, address, token
-     * /{COIN}/explorer/dispensers/{QUERY}/{TYPE}    getDispensers   block, address, token
-     * /{COIN}/explorer/dispenses/{QUERY}/{TYPE}     getDispenses    block, address, token
-     * /{COIN}/explorer/escrows/{QUERY}/{TYPE}       getEscrows      block, address
-     * /{COIN}/explorer/fees/{QUERY}/{TYPE}          getFees         block, address, token
-     * /{COIN}/explorer/files/{QUERY}/{TYPE}         getFiles        block, address, token
-     * /{COIN}/explorer/holders/{TYPE}               getHolders      token
-     * /{COIN}/explorer/history/{QUERY}/{TYPE}       getHistory      block, address, token, recent
-     * /{COIN}/explorer/issues/{QUERY}/{TYPE}        getIssues       block, address, token
-     * /{COIN}/explorer/links/{QUERY}/{TYPE}         getLinks        block, address, token
-     * /{COIN}/explorer/lists/{QUERY}/{TYPE}         getLists        block, address
-     * /{COIN}/explorer/messages/{QUERY}/{TYPE}      getMessages     block, address
-     * /{COIN}/explorer/mints/{QUERY}/{TYPE}         getMints        block, address, token
-     * /{COIN}/explorer/orders/{QUERY}/{TYPE}        getOrders       block, address, token
-     * /{COIN}/explorer/sends/{QUERY}/{TYPE}         getSends        block, address, token
-     * /{COIN}/explorer/sleeps/{QUERY}/{TYPE}        getSleeps       block, address, token
-     * /{COIN}/explorer/swaps/{QUERY}/{TYPE}         getSwaps        block, address, token
-     * /{COIN}/explorer/sweeps/{QUERY}/{TYPE}        getSweeps       block, address
-     * /{COIN}/explorer/tokens/{QUERY}/{TYPE}        getTokens       block, address
-     ******************************************************************/
-
-    async getAddresses(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        addresses m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        m.fee_preference,
-                        m.require_memo,
-                        m.dispenser_preference,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        addresses m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getAirdrops(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        airdrops m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        t3.tick,
-                        m.list_action_index,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        airdrops m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getBatches(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        batches m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        batches m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getBroadcasts(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        broadcasts m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.message,
-                        m.value,
-                        m.fee,
-                        m.broadcast_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        broadcasts m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getCallbacks(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        callbacks m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        t3.tick,
-                        t4.tick as callback_tick,
-                        m.callback_amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        callbacks m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getDestroys(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        destroys m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        t3.tick,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        destroys m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // TODO: update this SQL to pull all fields once dispensers are implemented in indexer
-    async getDispensers(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // Support searching by both source or dispenser address
-        if(config.data.type=='address')
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        dispensers m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.address as address,
-                        c1.coin as give_coin,
-                        t3.tick as give_tick,
-                        m.give_amount,
-                        m.give_escrow,
-                        m.give_ownership,
-                        c2.coin as get_coin,
-                        t4.tick as get_tick,
-                        m.get_amount,
-                        a5.address as oracle_address,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        dispensers m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        LEFT  JOIN index_addresses    a5 ON (a5.id=m.oracle_address_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    }
-
-    async getDispenserCancels(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        dispenser_cancels m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.dispenser_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        dispenser_cancels m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getDispenserCloses(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        dispenser_closes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.dispenser_action_index,
-                        a2.address as dispenser_address,
-                        c1.coin as give_coin,
-                        t2.tick as give_tick,
-                        d1.give_amount,
-                        c2.coin as get_coin,
-                        t3.tick as get_tick,
-                        d1.get_amount,
-                        f1.code as fiat,
-                        d1.fiat_amount,
-                        a5.address as oracle_address,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s1.status,
-                        -- WHY the dispenser closed ('empty' after an auto-drain, 'cancelled'
-                        -- after the DISPENSER_CLOSE_DELAY elapses on a cancel). Without it the
-                        -- two closes are indistinguishable on the wire: every other column of a
-                        -- drained close and a cancelled one is identical, so a reader cannot tell
-                        -- a dispenser that ran dry from one its owner withdrew. Joined on the
-                        -- CLOSE's own action_index, not on the dispenser's latest status, because
-                        -- dispenser_close.js writes exactly one dispenser_statuses row keyed that
-                        -- way (createDispenserStatus(data['ACTION_INDEX'], ...)) - so this is a
-                        -- point read of the reason THIS close recorded, immune to any later row.
-                        s2.status as close_reason
-                    FROM
-                        dispenser_closes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN dispenser_statuses ds ON (ds.action_index=m.action_index)
-                        LEFT  JOIN index_statuses     s2 ON (s2.id=ds.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=d1.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=d1.get_coin_id)
-                        LEFT  JOIN index_tickers      t2 ON (t2.id=d1.give_tick_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=d1.get_tick_id)
-                        LEFT  JOIN index_fiats        f1 ON (f1.id=d1.fiat_id)
-                        LEFT  JOIN index_addresses    a5 ON (a5.id=d1.oracle_address_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getDispenserEdits(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        dispenser_edits m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.dispenser_action_index,
-                        a2.address as source,
-                        m.give_escrow,
-                        m.expiration,
-                        m.allow_list,
-                        m.block_list,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        dispenser_edits m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getDispenserExpires(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        dispenser_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.dispenser_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s1.status
-                    FROM
-                        dispenser_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.dispenser_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getDispenses(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // get_amount here is dispenses.get_amount (a fill), not dispensers.get_amount
-        // (a price). When one payment fills several dispensers behind the same
-        // address in a batch, each fill's get_amount is its share of the payment
-        // rather than the whole payment restated per row (mainnet not yet armed;
-        // testnet/regtest already this way) - do not "fix" this label back to the
-        // whole-payment reading, see protocol/actions/dispenser.md "One Payment,
-        // Several Dispensers".
-        // Support searching by both source or dispenser address
-        if(config.data.type=='address')
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        dispenses m
-                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        m.dispenser_action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.address as destination,
-                        c1.coin as give_coin,
-                        t3.tick as give_tick,
-                        m.give_amount,
-                        c2.coin as get_coin,
-                        t4.tick as get_tick,
-                        m.get_amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        dispenses m
-                        INNER JOIN dispensers         d1 ON (d1.action_index=m.dispenser_action_index)
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=d1.get_address_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    }
-
-    async getDividends(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        dividends m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        t3.tick,
-                        t4.tick as dividend_tick,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        dividends m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.dividend_tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getFees(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        fees m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id) 
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.action_index,
-                        a1.action_format, 
-                        a4.action,
-                        a2.address as source,
-                        a3.address as destination,
-                        t3.tick,
-                        m.method,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m.gas_cost,
-                        m.gas_price,
-                        m.xchain_amount,
-                        m.payment_mode,
-                        m.native_coin_amount,
-                        m.native_coin,
-                        m.oracle_round,
-                        m.fee_preference,
-                        m.fee_version
-                    FROM
-                        fees m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id) 
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }  
-
-    async getFiles(config){
-        let sql   = config.data.sql;
-        let count = null;
-        let query = null;
-        // type=='name' (M1.7) falls into the else branch below like
-        // block/address/list-all: it queries the base `files` table directly, not
-        // the interned mappings_files/tick join `type=='token'` uses. The actual
-        // `m.name=?` predicate is added by getQueryWhereSql (the shared WHERE
-        // builder every getXxx method routes through); nothing here needs to branch
-        // on it. Same column set as every other mode, gated-file columns included
-        // (gate_ticker/gate_min_amount/encryption_method/key_hash), so a by-name
-        // lookup discloses nothing block/address/list-all don't already return.
-        if(config.data.type=='token'){
-            count = `SELECT
-                            count(*) as total
-                        FROM
-                            mappings_files m
-                            INNER JOIN files              f1 ON (f1.action_index=m.action_index)
-                            INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                            LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
-                            LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
-                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
-                            LEFT  JOIN index_tickers      t4 on (t4.id=m.id)
-                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        WHERE ` + sql.where.data;
-            query = `SELECT
-                            a3.action,
-                            f1.action_index,
-                            a1.action_format,
-                            f1.name,
-                            f1.title,
-                            t3.type as type,
-                            a2.address as source,
-                            b1.block_index,
-                            b1.block_time as timestamp,
-                            t2.hash as tx_hash,
-                            t1.tx_index,
-                            m1.memo,
-                            s1.status,
-                            gf.gate_ticker,
-                            gf.gate_min_amount,
-                            gf.encryption_method,
-                            gf.key_hash
-                        FROM
-                            mappings_files m
-                            INNER JOIN files              f1 ON (f1.action_index=m.action_index)
-                            INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                            LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
-                            LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
-                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            LEFT  JOIN index_mime_types   t3 ON (t3.id=f1.type_id)
-                            LEFT  JOIN index_tickers      t4 on (t4.id=m.id)
-                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                            LEFT  JOIN gated_files        gf ON (gf.action_index=f1.action_index)
-                        WHERE ` + sql.where.data + sql.where.offset +`
-                        ORDER BY m.action_index ` + sql.order + `
-                        LIMIT ` + sql.limit;
-        } else {
-            count = `SELECT
-                            count(*) as total
-                        FROM
-                            files m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                            LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            LEFT  JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                        WHERE ` + sql.where.data;
-            query = `SELECT
-                            a3.action,
-                            m.action_index,
-                            a1.action_format,
-                            m.name,
-                            m.title,
-                            t3.type as type,
-                            a2.address as source,
-                            b1.block_index,
-                            b1.block_time as timestamp,
-                            t2.hash as tx_hash,
-                            t1.tx_index,
-                            m1.memo,
-                            s1.status,
-                            gf.gate_ticker,
-                            gf.gate_min_amount,
-                            gf.encryption_method,
-                            gf.key_hash
-                        FROM
-                            files m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                            LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                            LEFT  JOIN index_mime_types   t3 ON (t3.id=m.type_id)
-                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                            LEFT  JOIN gated_files        gf ON (gf.action_index=m.action_index)
-                        WHERE ` + sql.where.data + sql.where.offset +`
-                        ORDER BY m.action_index ` + sql.order + `
-                        LIMIT ` + sql.limit;
-        }
-        return [query, null, count];
-    }    
-
-    async getIssues(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        issues m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
-                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        LEFT  JOIN index_actions      a5 ON (a5.id=a1.action_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a5.action,
-                        m.action_index,
-                        a1.action_format, 
-                        t3.tick,
-                        m.max_supply,
-                        m.max_mint,
-                        m.decimals,
-                        m.description,
-                        m.mint_supply,
-                        a3.address as transfer,
-                        a4.address as transfer_supply,
-                        m.lock_max_supply,
-                        m.lock_mint,
-                        m.lock_mint_supply,
-                        m.lock_max_mint,
-                        m.lock_description,
-                        m.lock_sleep,
-                        m.lock_callback,
-                        m.callback_block,
-                        t4.tick as callback_tick,
-                        m.callback_amount,
-                        m.allow_list,
-                        m.block_list,
-                        m.mint_address_max,
-                        m.mint_start_block,
-                        m.mint_stop_block,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        issues m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
-                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.callback_tick_id)
-                        LEFT  JOIN index_actions      a5 ON (a5.id=a1.action_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getLinks(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        links m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin1_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.coin2_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        c1.coin as coin1,
-                        m.coin1_action_index,
-                        c2.coin as coin2,
-                        m.coin2_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        links m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin1_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.coin2_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }    
-
-    async getLists(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        lists m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.type,
-                        m.edit,
-                        m.list_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        lists m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getMessages(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // Support searching by both source or destination address
-        if(config.data.type=='address')
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        messages m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        a3.address as destination,
-                        m.encryption_method,
-                        m.encryption_key,
-                        m.encrypted_message,
-                        m.plaintext_message,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status,
-                        m.coin
-                    FROM
-                        messages m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    }
-
-    async getMints(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // Support searching by both source or destination address
-        if(config.data.type=='address')
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        mints m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        a3.address as destination,
-                        t3.tick,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        mints m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    }
-
-    async getOrders(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // Support searching by both source or destination address and both sides of an order for a specific token
-        if(['address','token'].includes(config.data.type))
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        orders m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        c1.coin as give_coin,
-                        t3.tick as give_tick,
-                        m.give_amount,
-                        m.give_ownership,
-                        c2.coin as get_coin,
-                        t4.tick as get_tick,
-                        m.get_amount,
-                        m.get_ownership,
-                        a2.address as source,
-                        a3.address as get_address,
-                        m.expiration,
-                        m.allow_list,
-                        m.block_list,
-                        m.payout_legs,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        orders m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    }
-
-    async getOrderCancels(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        order_cancels m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.order_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        order_cancels m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getOrderEdits(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        order_edits m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.order_action_index,
-                        a2.address as source,
-                        m.expiration,
-                        m.allow_list,
-                        m.block_list,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        order_edits m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getOrderExpires(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        order_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.order_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s1.status
-                    FROM
-                        order_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN orders             o1 ON (o1.action_index=m.order_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.order_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getOrderMatches(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        order_matches m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a2.action,
-                        m.action_index,
-                        a1.action_format,
-                        c1.coin as give_coin,
-                        m.give_action_index,
-                        m.give_amount,
-                        c2.coin as get_coin,
-                        m.get_action_index,
-                        m.get_amount,
-                        m.settlement_type,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s1.status
-                    FROM
-                        order_matches m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getCoinpays(config){
-        // coin_amount/vout here are the settlement record's, not the obligation's
-        // (coinpay_obligations.coin_amount is the amount OWED). When one
-        // transaction pays more than one obligation, each row's coin_amount/vout
-        // name the specific output that paid THAT obligation, not the
-        // transaction's first output (mainnet not yet armed; testnet/regtest
-        // already this way) - do not "fix" this back to a single shared output.
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        coinpays m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a2.action,
-                        m.action_index,
-                        m.obligation_action_index,
-                        m.coin_amount,
-                        m.txid,
-                        m.vout,
-                        a3.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        s1.status
-                    FROM
-                        coinpays m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getCoinpayExpires(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        coinpay_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a2.action,
-                        m.action_index,
-                        m.obligation_action_index,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s1.status
-                    FROM
-                        coinpay_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getCoinpayObligations(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        if(config.data.type=='address')
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        coinpay_obligations m
-                        INNER JOIN index_addresses    a1 ON (a1.id=m.payer_address_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.payee_address_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
-                        INNER JOIN coinpay_statuses   s1 ON (s1.coinpay_action_index=m.action_index)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                    WHERE
-                        s1.action_index = (
-                            SELECT MAX(s3.action_index) FROM coinpay_statuses s3 WHERE s3.coinpay_action_index=m.action_index
-                        ) AND ` + sql.where.data;
-        let query = `SELECT
-                        m.action_index,
-                        a1.address as payer_address,
-                        a2.address as payee_address,
-                        c1.coin,
-                        m.coin_amount,
-                        m.expiration,
-                        m.block_index,
-                        s2.status as coinpay_status
-                    FROM
-                        coinpay_obligations m
-                        INNER JOIN index_addresses    a1 ON (a1.id=m.payer_address_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=m.payee_address_id)
-                        INNER JOIN index_coins        c1 ON (c1.id=m.coin_id)
-                        INNER JOIN coinpay_statuses   s1 ON (s1.coinpay_action_index=m.action_index)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                    WHERE
-                        s1.action_index = (
-                            SELECT MAX(s3.action_index) FROM coinpay_statuses s3 WHERE s3.coinpay_action_index=m.action_index
-                        ) AND ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    }
-
-    async getSends(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // Support searching by both source or destination address
-        if(config.data.type=='address')
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        sends m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        a3.address as destination,
-                        t3.tick,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        sends m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    } 
-
-    async getSleeps(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        sleeps m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.type,
-                        a2.address as source,
-                        t3.tick,
-                        m.resume_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        sleeps m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT JOIN index_tickers       t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    } 
-
-    async getSwaps(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // Support searching by both source or destination address and both sides of swap for a specific token
-        if(['address','token'].includes(config.data.type))
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        swaps m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        c1.coin as give_coin,
-                        t3.tick as give_tick,
-                        m.give_amount,
-                        m.give_ownership,
-                        c2.coin as get_coin,
-                        t4.tick as get_tick,
-                        m.get_amount,
-                        m.get_ownership,
-                        a2.address as source,
-                        a3.address as get_address,
-                        m.expiration,
-                        m.allow_list,
-                        m.block_list,
-                        m.payout_legs,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status,
-                        ss_ist.status as swap_status
-                    FROM
-                        swaps m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
-                        LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                        LEFT  JOIN swap_statuses      ss ON (ss.swap_action_index=m.action_index
-                            AND ss.action_index=(SELECT MAX(ss2.action_index) FROM swap_statuses ss2 WHERE ss2.swap_action_index=m.action_index))
-                        LEFT  JOIN index_statuses     ss_ist ON (ss_ist.id=ss.status_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    }
-
-    async getSwapCancels(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        swap_cancels m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.swap_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        swap_cancels m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getSwapEdits(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        swap_edits m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.swap_action_index,
-                        a2.address as source,
-                        m.expiration,
-                        m.allow_list,
-                        m.block_list,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        swap_edits m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getSwapExpires(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        swap_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN swaps              s2 ON (s2.action_index=m.swap_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        m.swap_action_index,
-                        a2.address as source,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s1.status
-                    FROM
-                        swap_expires m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN swaps              s2 ON (s2.action_index=m.swap_action_index)
-                        INNER JOIN actions            a3 ON (a3.action_index=m.swap_action_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a3.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getSwapMatches(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        swap_matches m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a2.action,
-                        m.action_index,
-                        a1.action_format, 
-                        c1.coin as give_coin,
-                        m.give_action_index,
-                        c2.coin as get_coin,
-                        m.get_action_index,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        s1.status
-                    FROM
-                        swap_matches m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
-                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-         return [query, null, count];
-    }
-
-    async getSweeps(config){
-        let sql   = config.data.sql;
-        let args  = [config.data.search];
-        // Support searching by both source or destination address
-        if(config.data.type=='address')
-            args.push(config.data.search);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        sweeps m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.address as destination,
-                        m.balances,
-                        m.ownerships,
-                        m.orders,
-                        m.swaps,
-                        m.dispensers,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        sweeps m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    } 
-
-    async getTokens(config){
-        let sql    = config.data.sql;
-        let search = config.data.search;
-        let type   = config.data.type;
-        // Default to no bind args: the list-all WHERE ('m.action_index IS NOT NULL') has
-        // no placeholder, so seeding [search] (= [null] with no QUERY/TYPE) prepends a
-        // phantom bind that shifts the offset args (m.id < NULL) and returns zero rows.
-        // token/subtoken set a LIKE pattern below; list-all stays [].
-        let args   = [];
-        let order  = 'm.id ' + sql.order;
-        if(['token','subtoken'].includes(type)){
-            order = 't3.tick ' + sql.order;
-            if(type=='token')
-                args = ['%' + this.util.escapeLike(config.data.search) + '%'];
-            if(type=='subtoken')
-                args = [this.util.escapeLike(config.data.search) + '.%'];
-        } else if(['block','address'].includes(type)){
-            // type=block/address falls into the generic getQueryWhereSql filter
-            // (b1.block_index=? / a2.address=?), so the search value (block height or
-            // owner address) MUST be bound as the data-WHERE arg. Leaving args=[] left
-            // that placeholder unbound (500 "Parameter at position 1 is not set"). Other
-            // action methods reach the same arg via the executor's [config.data.search]
-            // fallback; getTokens returns an explicit args array, so it must set it here.
-            args = [config.data.search];
-        }
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        tokens m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        t3.tick,
-                        m.supply,
-                        m.max_supply,
-                        m.max_mint,
-                        m.decimals,
-                        m.lock_max_supply,
-                        m.lock_mint,
-                        m.lock_mint_supply,
-                        m.lock_max_mint,
-                        m.lock_description,
-                        m.lock_sleep,
-                        m.lock_callback,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index
-                    FROM
-                        tokens m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY ` + order + `
-                    LIMIT ` + sql.limit;
-        return [query, args, count];
-    } 
-
-    /******************************************************************
-     * XChain API Market Endpoints
-     * 
-     * Endpoints                                          Method Name  
-     * -----------------------------------------------------------------
-     * /{COIN}/api/markets                                getMarkets
-     * /{COIN}/api/markets/{QUERY}                        getMarkets
-     * /{COIN}/api/market/{QUERY}/{QUERY}                 getMarket
-     * /{COIN}/api/market/{QUERY}/{QUERY}/history         getMarketHistory
-     * /{COIN}/api/market/{QUERY}/{QUERY}/history/{QUERY} getMarketHistory
-     * /{COIN}/api/market/{QUERY}/{QUERY}/orders/{QUERY}  getMarketOrders
-     * /{COIN}/api/market/{QUERY}/{QUERY}/orderbook       getOrderbook
-     ******************************************************************/
-
-    async getMarkets(config){
-        let data  = [];
-        let total = 0;
-        let tick  = config.data.search;
-        let sql   = config.data.sql;
-        let args  = [tick, tick];
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        markets m
-                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
-                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        t1.tick as tick1,
-                        m.tick1_price,
-                        m.tick1_bid,
-                        m.tick1_ask,
-                        m.tick1_24hr_price,
-                        m.tick1_24hr_high,
-                        m.tick1_24hr_low,
-                        m.tick1_24hr_change,
-                        m.tick1_24hr_volume,
-                        t2.tick as tick2,
-                        m.tick2_price,
-                        m.tick2_bid,
-                        m.tick2_ask,
-                        m.tick2_24hr_price,
-                        m.tick2_24hr_high,
-                        m.tick2_24hr_low,
-                        m.tick2_24hr_change,
-                        m.tick2_24hr_volume,
-                        m.last_updated
-                    FROM
-                        markets m
-                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
-                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        let results = await this.doQuery(config, count, args);
-        if(results.length > 0)
-            total = results[0].total;
-        if(count){
-            results = await this.doQuery(config, query, args);
-            if(results.length > 0){
-                for(let row of results){
-                    let reverse = (!this.util.isNull(tick) && String(tick).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
-                    data.push({
-                        id                : row.id,
-                        tick1             : (reverse) ? row.tick1             : row.tick2,
-                        tick1_price       : (reverse) ? row.tick1_price       : row.tick2_price,
-                        tick1_bid         : (reverse) ? row.tick1_bid         : row.tick2_bid,
-                        tick1_ask         : (reverse) ? row.tick1_ask         : row.tick2_ask,
-                        tick1_24hr_price  : (reverse) ? row.tick1_24hr_price  : row.tick2_24hr_price,
-                        tick1_24hr_high   : (reverse) ? row.tick1_24hr_high   : row.tick2_24hr_high,
-                        tick1_24hr_low    : (reverse) ? row.tick1_24hr_low    : row.tick2_24hr_low,
-                        tick1_24hr_change : (reverse) ? row.tick1_24hr_change : row.tick2_24hr_change,
-                        tick1_24hr_volume : (reverse) ? row.tick1_24hr_volume : row.tick2_24hr_volume,
-                        tick2             : (reverse) ? row.tick2             : row.tick1,
-                        tick2_price       : (reverse) ? row.tick2_price       : row.tick1_price,
-                        tick2_bid         : (reverse) ? row.tick2_bid         : row.tick1_bid,
-                        tick2_ask         : (reverse) ? row.tick2_ask         : row.tick1_ask,
-                        tick2_24hr_price  : (reverse) ? row.tick2_24hr_price  : row.tick1_24hr_price,
-                        tick2_24hr_high   : (reverse) ? row.tick2_24hr_high   : row.tick1_24hr_high,
-                        tick2_24hr_low    : (reverse) ? row.tick2_24hr_low    : row.tick1_24hr_low,
-                        tick2_24hr_change : (reverse) ? row.tick2_24hr_change : row.tick1_24hr_change,
-                        tick2_24hr_volume : (reverse) ? row.tick2_24hr_volume : row.tick1_24hr_volume,
-                        last_updated      : row.last_updated
-                    });
-                }
-            }
-        }
-        return [data, null, total];
-    } 
-
-    async getMarket(config){
-        let data  = [];
-        let total = 0;
-        let tick1 = config.data.search;
-        let tick2 = config.data.search2;
-        let sql   = config.data.sql;
-        let args  = [tick1, tick2, tick2, tick1];
-        let query = `SELECT
-                        m.id,
-                        t1.tick as tick1,
-                        m.tick1_price,
-                        m.tick1_bid,
-                        m.tick1_ask,
-                        m.tick1_24hr_price,
-                        m.tick1_24hr_high,
-                        m.tick1_24hr_low,
-                        m.tick1_24hr_change,
-                        m.tick1_24hr_volume,
-                        t2.tick as tick2,
-                        m.tick2_price,
-                        m.tick2_bid,
-                        m.tick2_ask,
-                        m.tick2_24hr_price,
-                        m.tick2_24hr_high,
-                        m.tick2_24hr_low,
-                        m.tick2_24hr_change,
-                        m.tick2_24hr_volume,
-                        m.last_updated
-                    FROM
-                        markets m
-                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
-                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        let results = await this.doQuery(config, query, args);
-        if(results.length > 0){
-            for(let row of results){
-                let reverse = (!this.util.isNull(tick2) && String(tick2).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
-                data.push({
-                    id                : row.id,
-                    tick1             : (reverse) ? row.tick1             : row.tick2,
-                    tick1_price       : (reverse) ? row.tick1_price       : row.tick2_price,
-                    tick1_bid         : (reverse) ? row.tick1_bid         : row.tick2_bid,
-                    tick1_ask         : (reverse) ? row.tick1_ask         : row.tick2_ask,
-                    tick1_24hr_price  : (reverse) ? row.tick1_24hr_price  : row.tick2_24hr_price,
-                    tick1_24hr_high   : (reverse) ? row.tick1_24hr_high   : row.tick2_24hr_high,
-                    tick1_24hr_low    : (reverse) ? row.tick1_24hr_low    : row.tick2_24hr_low,
-                    tick1_24hr_change : (reverse) ? row.tick1_24hr_change : row.tick2_24hr_change,
-                    tick1_24hr_volume : (reverse) ? row.tick1_24hr_volume : row.tick2_24hr_volume,
-                    tick2             : (reverse) ? row.tick2             : row.tick1,
-                    tick2_price       : (reverse) ? row.tick2_price       : row.tick1_price,
-                    tick2_bid         : (reverse) ? row.tick2_bid         : row.tick1_bid,
-                    tick2_ask         : (reverse) ? row.tick2_ask         : row.tick1_ask,
-                    tick2_24hr_price  : (reverse) ? row.tick2_24hr_price  : row.tick1_24hr_price,
-                    tick2_24hr_high   : (reverse) ? row.tick2_24hr_high   : row.tick1_24hr_high,
-                    tick2_24hr_low    : (reverse) ? row.tick2_24hr_low    : row.tick1_24hr_low,
-                    tick2_24hr_change : (reverse) ? row.tick2_24hr_change : row.tick1_24hr_change,
-                    tick2_24hr_volume : (reverse) ? row.tick2_24hr_volume : row.tick1_24hr_volume,
-                    last_updated      : row.last_updated
-                });
-            }
-        }
-        return data;
-    } 
-
-    async getMarketOrders(config){
-        let data    = [];
-        let total   = 0;
-        let tick1   = config.data.search;
-        let tick2   = config.data.search2;
-        let address = config.data.search3;
-        let sql     = config.data.sql;
-        let args    = [tick1, tick2, tick2, tick1];
-        if(!this.util.isNull(address))
-            args.push(address)
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        orders m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        LEFT  JOIN transactions       t3 ON (t3.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
-                        INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
-                        INNER JOIN order_statuses     s1 ON (s1.order_action_index=m.action_index)
-                        INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                    WHERE 
-                        ` + sql.where.data + ` AND 
-                        s1.action_index = (
-                            SELECT
-                                MAX(s3.action_index)
-                            FROM
-                                order_statuses s3
-                            WHERE
-                                s3.order_action_index=m.action_index
-                        ) AND
-                        s2.status='open'`;
-        let results = await this.doQuery(config, count, args);
-        if(results.length > 0)
-            total = results[0].total;
-        if(total){
-            let query   = `SELECT
-                            m.action_index
-                        FROM
-                            orders m
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            LEFT  JOIN transactions       t3 ON (t3.tx_index=a1.tx_index)
-                            LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
-                            INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                            INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
-                            INNER JOIN order_statuses     s1 ON (s1.order_action_index=m.action_index)
-                            INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
-                        WHERE 
-                            ` + sql.where.data + ` AND 
-                            s1.action_index = (
-                                SELECT
-                                    MAX(s3.action_index)
-                                FROM
-                                    order_statuses s3
-                                WHERE
-                                    s3.order_action_index=m.action_index
-                            ) AND
-                            s2.status='open'
-                        ORDER BY m.action_index ` + sql.order + `
-                        LIMIT ` + sql.limit;
-            let results = await this.doQuery(config, query, args);
-            if(results.length > 0){
-                // Batch-fetch all order info in one round-trip instead of N+1 queries.
-                let action_indexes = results.map(r => Number(r.action_index));
-                let orderMap = await this.getOrderInfoBatch(config, action_indexes);
-                for(let info of results){
-                    let order = orderMap[Number(info.action_index)];
-                    if(!order) continue;
-                    let reverse = (order.give_tick==tick2) ? true : false;
-                    data.push({
-                        type         : (reverse) ? 'buy' : 'sell',
-                        price        : (reverse) ? order.get_price : order.give_price,
-                        amount       : (reverse) ? order.get_amount : order.give_amount,
-                        action_index : order.action_index,
-                        timestamp    : order.timestamp,
-                        expiration   : order.expiration
-                    });
-                }
-            }
-        }
-        return [data, null, total];
-    }
-
-    async getMarketHistory(config){
-        let data    = [];
-        let total   = 0;
-        let tick1   = config.data.search;
-        let tick2   = config.data.search2;
-        let address = config.data.search3;
-        let sql     = config.data.sql;
-        let args    = [tick1, tick2, tick2, tick1];
-        if(!this.util.isNull(address))
-            args.push(address, address);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        order_matches m
-                        INNER JOIN orders             o1 ON (o1.action_index=m.give_action_index)
-                        INNER JOIN orders             o2 ON (o2.action_index=m.get_action_index)
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
-                        INNER JOIN index_addresses    a2 ON (a2.id=o1.get_address_id)
-                        INNER JOIN index_addresses    a3 ON (a3.id=o2.get_address_id)
-                        INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                    WHERE 
-                        ` + sql.where.data + ` AND 
-                        s1.status='valid'`;
-        let results = await this.doQuery(config, count, args);
-        if(results.length > 0)
-            total = results[0].total;
-        if(total){
-            let query   = `SELECT
-                            m.action_index,
-                            t1.tick as give_tick,
-                            t2.tick as get_tick,
-                            m.give_amount,
-                            m.get_amount,
-                            b1.block_index,
-                            b1.block_time as timestamp
-                        FROM
-                            order_matches m
-                            INNER JOIN orders             o1 ON (o1.action_index=m.give_action_index)
-                            INNER JOIN orders             o2 ON (o2.action_index=m.get_action_index)
-                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                            INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                            INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
-                            INNER JOIN index_addresses    a2 ON (a2.id=o1.get_address_id)
-                            INNER JOIN index_addresses    a3 ON (a3.id=o2.get_address_id)
-                            INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        WHERE 
-                            ` + sql.where.data + ` AND 
-                            s1.status='valid'
-                        ORDER BY m.action_index ` + sql.order + `
-                        LIMIT ` + sql.limit;
-            let results = await this.doQuery(config, query, args);
-            if(results.length > 0){
-                for(let order of results){
-                    let reverse    = (order.give_tick==tick2) ? true : false;
-                    let give_price = this.util.getPrice(order.get_amount, order.give_amount);
-                    let get_price  = this.util.getPrice(order.give_amount, order.get_amount);
-                    data.push({
-                        type         : (reverse) ? 'sell' : 'buy',
-                        price        : (reverse) ? get_price : give_price,
-                        amount       : (reverse) ? this.util.bcnum(order.get_amount) : this.util.bcnum(order.give_amount),
-                        action_index : order.action_index,
-                        block_index  : order.block_index,
-                        timestamp    : order.timestamp
-                    });
-                }
-            }
-        }
-        return [data, null, total];
-    } 
-
-    async getOrderbook(config){
-        let data   = {
-            asks: [],
-            bids: []
-        };
-        let bids   = [];
-        let asks   = [];
-        let tick1  = config.data.search;
-        let tick2  = config.data.search2;
-        let sql    = config.data.sql;
-        let args   = [tick1, tick2, tick2, tick1];
-        let query  = `SELECT
-                        m.action_index
-                    FROM
-                        orders m
-                        INNER JOIN index_tickers  t1 ON (t1.id=m.give_tick_id)
-                        INNER JOIN index_tickers  t2 ON (t2.id=m.get_tick_id)
-                        INNER JOIN order_statuses s1 ON (s1.order_action_index=m.action_index)
-                        INNER JOIN index_statuses s2 ON (s2.id=s1.status_id)
-                    WHERE 
-                        ` + sql.where.data + ` AND 
-                        s1.action_index = (
-                            SELECT
-                                MAX(s3.action_index)
-                            FROM
-                                order_statuses s3
-                            WHERE
-                                s3.order_action_index=m.action_index
-                        ) AND
-                        s2.status='open'`;
-        let results = await this.doQuery(config, query, args);
-        if(results.length > 0){
-            // Batch fetch all order info in parallel instead of N+1 queries
-            let action_indexes = results.map(r => Number(r.action_index));
-            let orderMap = await this.getOrderInfoBatch(config, action_indexes);
-            for(let info of results){
-                let order = orderMap[Number(info.action_index)];
-                if(!order) continue;
-                let type  = (order.give_tick==tick2) ? 'bid' : 'ask';
-                let price = (order.give_tick==tick2) ? order.get_price : order.give_price;
-                let found = false;
-                if(type=='bid'){
-                    for(let bid of bids){
-                        if(bid.price==price){
-                            bid.amount = this.util.bcadd(bid.amount, order.get_remaining);
-                            found = true;
-                        }
-                    }
-                    if(!found)
-                        bids.push({ price: price, amount: order.get_remaining });
-                }
-                if(type=='ask'){
-                    for(let ask of asks){
-                        if(ask.price==price){
-                            ask.amount = this.util.bcadd(ask.amount, order.give_remaining);
-                            found = true;
-                        }
-                    }
-                    if(!found)
-                        asks.push({ price: price, amount: order.give_remaining });
-                }
-            }
-            // Sort asks and bids
-            bids = this.util.priceSort(bids,'DESC');
-            asks = this.util.priceSort(asks,'ASC');
-            // Add the bids and asks to the response object
-            for(let bid of bids)
-                data.bids.push([bid.price, bid.amount]);
-            for(let ask of asks)
-                data.asks.push([ask.price, ask.amount]);
-            data.market = tick1 + '/' + tick2;
-        }
-        return [data];
-    } 
 
     /******************************************************************
      * XChain API Misc Endpoints
@@ -4233,6 +2054,29 @@ class Database {
         return [data];
     }
 
+    // The RAW action feed: one row per row of `actions`, which is the only surface
+    // that claims to enumerate the chain action by action. That claim is why the
+    // join shape here is load-bearing.
+    //
+    // `blocks` hangs off the ACTION's own m.block_index and `transactions` is a
+    // LEFT join, the same tx-less-safe shape getHistory, getAttestations and
+    // getActionsSince already use. A SYSTEM-INJECTED action (the Tier-4 families:
+    // *_EXPIRE, *_MATCH, DISPENSE, DISPENSER_CLOSE, CROSS_SETTLE, and a
+    // mirror-applied ATTEST v1 response) carries a real action_index and a real
+    // block_index but a NULL tx_index and NO transactions row at all, so reaching
+    // blocks through an INNER-joined transactions did not degrade such a row, it
+    // DELETED it from the feed.
+    //
+    // That deletion is INVISIBLE to a caller: the JSON stays well-formed, the
+    // paging stays consistent, `total` agrees with the rows returned, and the rows
+    // are simply not there - so every consumer enumerating the chain through this
+    // feed under-counted with no way to tell (measured on regtest: 483 rows served
+    // against a highest action_index of 496). tx_hash and tx_index come back NULL
+    // for those rows, which is what they are.
+    //
+    // tx_index is selected from m (the action's own column) rather than from t1, so
+    // it survives a missing transactions row on its own terms instead of depending
+    // on a join that may not resolve.
     async getActions(config){
         let sql   = config.data.sql;
         let q     = (config.data.query) ? config.data.query : {};
@@ -4257,8 +2101,8 @@ class Database {
                         count(*) as total
                     FROM
                         actions m
-                        INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + extra;
         let query = `SELECT
@@ -4269,11 +2113,11 @@ class Database {
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
-                        t1.tx_index
+                        m.tx_index
                     FROM
                         actions m
-                        INNER JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
                         LEFT  JOIN index_actions      a1 ON (a1.id=m.action_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(m.source_id, t1.source_id))
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -4397,6 +2241,13 @@ class Database {
     async getBlock(config){
         let data = null;
         let sql   = config.data.sql;
+        // The search segment is bound against the BIGINT blocks.block_index, and
+        // MariaDB coerces a non-numeric string to 0 rather than rejecting it, so
+        // an unguarded /api/block/zzz would answer 200 with BLOCK 0's real
+        // record - a wrong answer dressed as a right one, which nothing
+        // downstream can detect. Refuse the id before it reaches the query.
+        if(!BLOCK_INDEX_RE.test(String(config.data.search ?? '')))
+            throw new DbInputError('Invalid block_index', 'INVALID_BLOCK_INDEX');
         let args  = [config.data.search];
         let query = `SELECT
                         b1.block_index,
@@ -4769,17 +2620,65 @@ class Database {
         return [data];
     }
 
+    // Generation token for the network-totals cache: the coin's current indexed tip
+    // height, briefly memoized per coin (EXPLORER_TIP_MEMO_MS, default 1s) so a
+    // request burst collapses onto a single MAX(block_index) lookup rather than
+    // one per request. A probe that fails returns null, which makes the caller
+    // skip the cache for that request: never serve a possibly-stale total because
+    // the freshness check itself broke. An empty blocks table is a real answer
+    // (nothing indexed yet), not a failed probe, so it gets a generation of its
+    // own ('none') rather than falling through to null.
+    async _totalsTipGeneration(config){
+        const coin = config.coin;
+        const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
+        if(!this._totalsTipMemo) this._totalsTipMemo = {};
+        const memo = this._totalsTipMemo[coin];
+        if(memo && (Date.now() - memo.at) < (Number.isFinite(ttl) ? ttl : 1000))
+            return memo.tip;
+        let tip = null;
+        try {
+            const rows = await this.doQuery(config, 'SELECT MAX(block_index) AS tip FROM blocks', []);
+            if(rows && rows.length && !this.util.isNull(rows[0].tip))
+                tip = String(rows[0].tip);
+            else if(rows)
+                tip = 'none';
+        } catch(e){
+            tip = null;
+        }
+        this._totalsTipMemo[coin] = { tip, at: Date.now() };
+        return tip;
+    }
+
     // Exact per-action-table record counts for the homepage counters, cached per coin.
     // COUNT(*) is exact (information_schema.TABLE_ROWS is only an optimizer estimate and
     // visibly disagreed with the list views), but scanning the large action tables on every
     // /api/network call would be wasteful, so the result is cached for EXPLORER_TOTALS_CACHE_MS
-    // (default 60s) per coin. The browser additionally caches the network response for 5 min.
+    // (default 60s) per coin.
+    //
+    // The entry is keyed on the coin's current indexed tip and reorg generation, not on the
+    // coin alone. The counts are COUNT(*)s over tables the indexer only rewrites when it
+    // applies a block, so a set of counts belongs to the block it was taken at, and the TTL
+    // is only a ceiling on top of that. Keyed on the coin alone, counts read while a coin
+    // was still catching up - the state that answers 503 COIN_DATA_STALE - kept answering
+    // the public homepage for the rest of the flat TTL after the coin was healthy again, so
+    // a live coin rendered its counters at their outage values. A null generation means the
+    // tip probe itself failed: serve the counts but cache nothing, rather than let a
+    // possibly-stale set outlive the outage that produced it.
+    //
+    // NOTE ON THE CLIENT: the response carries no Cache-Control and no Expires, so nothing
+    // here is cached by HTTP. The explorer's own page script keeps the parsed response in
+    // localStorage for 5 minutes (getCoinNetworkInfo in src/content/js/xchain.js); that is a
+    // separate cache with its own recovery path, not a browser HTTP cache.
     async getActionTotals(config){
         const coin = config.coin;
         const ttl  = parseInt(process.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;
+        const gen  = await this._totalsTipGeneration(config);
+        // Only the newest generation for a coin is ever useful, so keep one entry per coin
+        // and compare its key rather than accumulating an entry per block.
+        const key  = (gen === null) ? null : [coin, this._reorgGen[coin] || 0, gen].join('|');
         if(!this._totalsCache) this._totalsCache = {};
-        const cached = this._totalsCache[coin];
-        if(cached && (Date.now() - cached.at) < ttl)
+        const cached = (key === null) ? null : this._totalsCache[coin];
+        if(cached && cached.key === key && (Date.now() - cached.at) < ttl)
             return cached.totals;
         let tables = structuredClone(this.actionTables);
         tables.push('tokens');
@@ -4810,7 +2709,8 @@ class Database {
         let fnvResult = await this.doQuery(config, `SELECT count(DISTINCT action_index) as count FROM full_node_verifications`);
         if(fnvResult && fnvResult.length)
             totals['full_node_verifications'] = Number(fnvResult[0].count);
-        this._totalsCache[coin] = { at: Date.now(), totals };
+        if(key !== null)
+            this._totalsCache[coin] = { key, at: Date.now(), totals };
         return totals;
     }
 
@@ -5636,7 +3536,7 @@ class Database {
         // Skip anything carrying a live `state` block: DISPENSER, ORDER and SWAP responses
         // derive give_remaining / status / expiration / allow_list / block_list from rows
         // written AFTER the action confirmed, and the cache has no TTL, so a cached entry
-        // would freeze that state for the process lifetime (previously measured on regtest:
+        // would freeze that state for the process lifetime (measured on regtest:
         // a fully-drained, closed dispenser kept serving `give_remaining: 200, status: open`
         // until the explorer restarted, letting the wallet's detail page show a buyer an
         // open dispenser they could pay for nothing).
@@ -8529,8 +6429,8 @@ class Database {
         return (rows && rows.length) ? String(rows[0].net) : '0';
     }
 
-    // The action's own block_index (its consensus block, a.block_index), used to
-    // resolve which block's block_merkle_root an action proof binds to. Null if the
+    // The action's own block_index (its consensus block, a.block_index), which
+    // resolves the block whose block_merkle_root an action proof binds to. Null if the
     // action does not exist on this server.
     async getActionBlockIndex(config, actionIndex) {
         let rows = await this.doQuery(config,
@@ -8742,6 +6642,15 @@ class Database {
         // a BET v3 is the payout decision. Without it a subscriber is told only
         // "a BET happened" and has to re-fetch to learn which, which defeats the
         // point of a push channel (ChangeDetector routes BET on it, §11.1).
+        // `transactions` is a LEFT join, never an INNER one: a system-synthesized
+        // action carries a real action_index and block_index but a NULL tx_index and
+        // has no transactions row at all, so an INNER join drops it from this feed
+        // ENTIRELY. That is not just a missing NEW_ACTION frame: ChangeDetector calls
+        // _emitAttestationEvents only for actions this query returns, so a
+        // mirror-applied ATTEST v1 response (attest-response-mirror spec §4.4) would
+        // never fire ATTESTATION_RESPONSE on any subscriber. The block comes off the
+        // action's own a1.block_index, so nothing here needs the transaction row;
+        // tx_hash is simply NULL for a synthesized action, which is the honest answer.
         let query = `SELECT
                         a1.action_index,
                         a3.action,
@@ -8752,7 +6661,7 @@ class Database {
                         NULL as status
                     FROM
                         actions a1
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=a1.source_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
@@ -8767,6 +6676,15 @@ class Database {
         // multi-output SEND would emit one NEW_ACTION per output) and the feed's
         // LIMIT is a limit on ACTIONS, not on output rows. See
         // _attachActionDestinations for the batch shape and its failure mode.
+        // `transactions` is a LEFT join, never an INNER one: a system-synthesized
+        // action carries a real action_index and block_index but a NULL tx_index and
+        // has no transactions row at all, so an INNER join drops it from this feed
+        // ENTIRELY. That is not just a missing NEW_ACTION frame: ChangeDetector calls
+        // _emitAttestationEvents only for actions this query returns, so a
+        // mirror-applied ATTEST v1 response (attest-response-mirror spec §4.4) would
+        // never fire ATTESTATION_RESPONSE on any subscriber. The block comes off the
+        // action's own a1.block_index, so nothing here needs the transaction row;
+        // tx_hash is simply NULL for a synthesized action, which is the honest answer.
         await this._attachActionDestinations(config, results);
         return results;
     }
@@ -8978,9 +6896,9 @@ class Database {
     }
 
     // Dispenser snapshot for the WebSocket dispenser channel. give_remaining is
-    // DERIVED: the dispensers table has no such column, so selecting it used to
-    // throw 'Unknown column' on every subscribe/update and the channel silently
-    // pushed nothing.
+    // DERIVED: the dispensers table has no such column, so selecting it throws
+    // 'Unknown column' on every subscribe/update and the channel silently pushes
+    // nothing.
     async getDispenserInfo(config, actionIndex) {
         let query = `SELECT
                         d.action_index,
@@ -9676,1197 +7594,6 @@ class Database {
         return [query, null, count];
     }
 
-    async getStakes(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        stakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.version,
-                        m.amount,
-                        m.activation_block,
-                        m.deactivation_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        stakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of capability UNSTAKE actions (UNSTAKE v0; the `unstakes` table). A capability
-    // unstake begins the global cooldown on a staked signing key; contract-targeted unstakes
-    // (UNSTAKE v1) live in contract_unstakes and have their own list view. Mirrors getStakes
-    // minus the token join. type in {block, address, source}; not in actionTables, so it serves
-    // the newest page ordered by m.action_index DESC.
-    async getUnstakes(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        unstakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        // ROLLCALL evictions (action_format 3) write an unstakes row with tx_index NULL
-        // (no broadcast transaction behind them), so blocks joins off a1.block_index
-        // (always set, synthetic or not) and transactions is LEFT so the eviction row
-        // survives instead of vanishing from an INNER join it can never satisfy.
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.amount,
-                        m.cooldown_end_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        unstakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of DELEGATE key-revocation actions (DELEGATE v2/v3; the `stake_key_revocations`
-    // table). A revocation invalidates a stake's signing key as of deactivation_block. Mirrors
-    // getUnstakes. type in {block, address, source}; ordered newest-first by m.action_index.
-    async getStakeKeyRevocations(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        stake_key_revocations m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.deactivation_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        stake_key_revocations m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getValidators(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        stakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE s1.status='valid' AND ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.version,
-                        m.amount,
-                        m.activation_block,
-                        m.deactivation_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        stakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE s1.status='valid' AND ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // The hub's own federation registry (`validators`: addr, chains,
-    // registration status), keyed by LOWERCASED signing pubkey. There is no separate
-    // federation-registry page; these hub-only columns are folded onto the on-chain
-    // active set that /validators already renders, so one table answers both "who is
-    // staked on chain" and "what does the hub know about that key".
-    //
-    // Hub JSON-RPC first (HubOperationalCache, TTL-cached), co-located hub schema as
-    // the fallback. This is DELIBERATELY the one exception to the fail-loud rule the
-    // three list endpoints follow: the registry only decorates rows that
-    // /validators already renders from on-chain state, so a hub outage must degrade
-    // the decoration, never blank a page of consensus data. Returns NULL when no
-    // registry is reachable at all (no hub endpoint configured, hub down past the
-    // stale ceiling, and no co-located hub schema). Null is the "unknown" signal:
-    // the caller must not render it as "not registered".
-    async getFederationRegistry(config){
-        let rows = null;
-        let ops  = this.explorer ? this.explorer.hubOperational : null;
-        if(ops && ops.enabled()){
-            try { rows = await ops.getFederationValidators(); }
-            catch(e){ console.log('Federation registry RPC read failed: ' + (e && e.message)); }
-        }
-        if(!rows){
-            try {
-                let src = this._hubSource(config, 'validators');
-                rows = await this.doQuery(config,
-                    'SELECT signing_pubkey, addr, chains, status FROM ' + src.table, []);
-            } catch(e){
-                if(process.env.DEBUG) console.log('Federation registry schema read failed:', e);
-                return null;
-            }
-        }
-        if(!Array.isArray(rows)) return null;
-        let registry = {};
-        for(let row of rows){
-            if(!row || this.util.isNull(row.signing_pubkey)) continue;
-            // `chains` is absent on a hub older than the getvalidators column add;
-            // absent and NULL both mean "the hub did not say", never the string
-            // "undefined".
-            registry[String(row.signing_pubkey).toLowerCase()] = {
-                addr:   this.util.isNull(row.addr)   ? null : String(row.addr),
-                chains: this.util.isNull(row.chains) ? null : String(row.chains),
-                status: this.util.isNull(row.status) ? null : String(row.status)
-            };
-        }
-        return registry;
-    }
-
-    // Get list of PRICE actions. The batch WINDOW columns (batch_first_round /
-    // batch_last_round / round_count) are selected because a validator PRICE is a batch
-    // and its single-round columns are NULL by construction, so without them a list row
-    // says nothing at all about what the action carried. rounds_json is deliberately NOT
-    // selected here: one batch is an hour of rounds times dozens of COIN/FIAT pairs, so
-    // a page of them would run to megabytes. The full bodies are served per action by
-    // the PRICE detail handler (src/action-detail/consensus.js).
-    async getPrices(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        prices m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_fiats        f1 ON (f1.id=m.fiat_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        m.version,
-                        a2.address as source,
-                        m.round_number,
-                        m.round_timestamp,
-                        m.pair_count,
-                        m.pairs_json,
-                        m.sig_count,
-                        m.sigs_json,
-                        m.batch_first_round,
-                        m.batch_last_round,
-                        m.round_count,
-                        c1.coin,
-                        t3.tick,
-                        f1.code as fiat,
-                        m.value,
-                        m.fee,
-                        m.validation_status,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status
-                    FROM
-                        prices m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_coins        c1 ON (c1.id=m.coin_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_fiats        f1 ON (f1.id=m.fiat_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of hub-mirrored price_snapshots rows (federation PRICE v0 consensus
-    // snapshots replicated by hub_db_sync). Never replicated by xchain-sync, so the
-    // read is database-qualified to the mandatory co-located hub schema and fails loud
-    // without one (item 4063); see _oracleMirrorSource.
-    async getPriceSnapshots(config){
-        let sql   = config.data.sql;
-        let src   = this._oracleMirrorSource(config, 'price_snapshots');
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        ${src.table} m
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.round_number,
-                        m.coin_pair,
-                        m.price,
-                        m.reference_block,
-                        m.reference_chain,
-                        m.block_timestamp,
-                        m.validator_count,
-                        m.consensus_round,
-                        m.consensus_proof,
-                        m.status,
-                        m.created_at
-                    FROM
-                        ${src.table} m
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of hub-mirrored oracle_prices rows (user-published PRICE v1 oracle rows
-    // replicated by hub_db_sync). These are the aggregated hub-effective published-oracle
-    // prices that feed oracle-priced DISPENSERs. type in {token, address}.
-    // Never replicated by xchain-sync, so the read is database-qualified to the
-    // mandatory co-located hub schema and fails loud without one (item 4062);
-    // see _oracleMirrorSource.
-    async getOraclePrices(config){
-        let sql   = config.data.sql;
-        let src   = this._oracleMirrorSource(config, 'oracle_prices');
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        ${src.table} m
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.source_address,
-                        m.source_chain,
-                        m.coin,
-                        m.tick,
-                        m.fiat,
-                        m.value,
-                        m.fee,
-                        m.memo,
-                        m.block_time,
-                        m.effective_at,
-                        m.action_index,
-                        m.created_at
-                    FROM
-                        ${src.table} m
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Controller bind/unbind event stream (programmable-policy guards, Controller_Bound_Tokens.md).
-    // UNION of BOTH logs: token_controllers (ISSUE-bound, per-tick) + address_controllers
-    // (ADDRESS-bound, self-signed). Each is append-only (one immutable row per bind/unbind); the
-    // *effective* gating set is resolved on the token/address detail pages; this list surfaces the
-    // raw events. status is the literal 'valid': the indexer records a controller event ONLY while
-    // applying a valid bind/unbind, and reorg rollback DELETEs the rows (DELETE WHERE action_index >=
-    // orphan), so every surviving row is a valid event by construction. (We do NOT join the parent
-    // action table for status; an ADDRESS v1 controller-bind never writes the `addresses` table,
-    // which is the fee-preference variant, so that join would always be NULL → false 'invalid'.)
-    // Like the sibling VM list views (getExecutions/getContracts), this is not in actionTables, so the
-    // cursor-offset optimizer no-ops and the list serves the newest page ordered by m.action_index DESC.
-    _controllerUnionSql(){
-        return `
-            SELECT
-                c.action_index       AS action_index,
-                'token'              AS scope,
-                b1.block_index       AS block_index,
-                b1.block_time        AS timestamp,
-                tk.tick              AS subject,
-                c.action_class       AS action_class,
-                c.contract_index     AS contract_index,
-                c.is_unbind          AS is_unbind,
-                c.cooldown_blocks    AS cooldown_blocks,
-                c.cooldown_end_block AS cooldown_end_block,
-                'valid'              AS status,
-                signer.address       AS bound_by
-            FROM token_controllers c
-                INNER JOIN actions        a1     ON (a1.action_index=c.action_index)
-                INNER JOIN transactions   t1     ON (t1.tx_index=a1.tx_index)
-                INNER JOIN blocks         b1     ON (b1.block_index=t1.block_index)
-                LEFT  JOIN index_tickers  tk     ON (tk.id=c.tick_id)
-                LEFT  JOIN index_addresses signer ON (signer.id=c.bound_by_id)
-            UNION ALL
-            SELECT
-                c.action_index       AS action_index,
-                'address'            AS scope,
-                b1.block_index       AS block_index,
-                b1.block_time        AS timestamp,
-                ad.address           AS subject,
-                c.action_class       AS action_class,
-                c.contract_index     AS contract_index,
-                c.is_unbind          AS is_unbind,
-                c.cooldown_blocks    AS cooldown_blocks,
-                c.cooldown_end_block AS cooldown_end_block,
-                'valid'              AS status,
-                NULL                 AS bound_by
-            FROM address_controllers c
-                INNER JOIN actions         a1 ON (a1.action_index=c.action_index)
-                INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                INNER JOIN blocks          b1 ON (b1.block_index=t1.block_index)
-                LEFT  JOIN index_addresses ad ON (ad.id=c.address_id)
-        `;
-    }
-
-    async getControllers(config){
-        let sql   = config.data.sql;
-        let union = this._controllerUnionSql();
-        let count = `SELECT count(*) as total FROM ( ` + union + ` ) m WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.action_index,
-                        m.scope,
-                        m.block_index,
-                        m.timestamp,
-                        m.subject,
-                        m.action_class,
-                        m.contract_index,
-                        m.is_unbind,
-                        m.cooldown_blocks,
-                        m.cooldown_end_block,
-                        m.status,
-                        m.bound_by
-                    FROM ( ` + union + ` ) m
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Chunked DEPLOY carriers (DEPLOY v4): one base64 code slice per row in deploy_chunks. The
-    // assembler reassembles the VALID chunks of a (source, code_hash) group into the final contract
-    // source (DEPLOY.md); the assembled contract itself appears under Contracts. This list surfaces
-    // each on-chain carrier (its chunk position + group size + status). code_part (the base64 slice)
-    // is intentionally NOT selected on list rows; it is a MEDIUMTEXT payload too heavy for a paged
-    // list. Rows carry code_part_length instead, and the full slice rides the single-action surface
-    // (attachActionDetailSupplements). Not in actionTables (sibling of getExecutions); serves the
-    // newest page ordered by m.action_index DESC.
-    async getDeployChunks(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        deploy_chunks m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        m.code_hash,
-                        m.chunk_index,
-                        m.total_chunks,
-                        CHAR_LENGTH(m.code_part) as code_part_length,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        deploy_chunks m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getDelegations(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        delegations m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.activation_block,
-                        m.deactivation_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        delegations m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getValidatorRewards(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        validator_rewards m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.reward_type,
-                        m.round_reference,
-                        m.amount,
-                        m.block_index,
-                        b1.block_time as timestamp
-                    FROM
-                        validator_rewards m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of COLLECT actions (validator reward claims; the `reward_claims` table). Each row
-    // is one on-chain claim of accrued capability-validator rewards by the broadcasting address.
-    // The per-reward-type accrual ledger is validator_rewards (getValidatorRewards); this is the
-    // claim event. type in {block, address, source}; ordered newest-first by m.action_index.
-    async getCollects(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        reward_claims m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        reward_claims m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of FULL-NODE VERIFICATION records (NODEPROOF v0 possession-proof verdicts).
-    // One row per (epoch, verified validator): the validator answered the derived possession
-    // challenge for `epoch_height` correctly, as recorded by a quorum-signed NODEPROOF verdict.
-    // signing_pubkey resolves the verified full node (index_pubkeys); staking_source resolves
-    // the stake the share dedupes by (index_addresses on m.source_id); source is the verdict
-    // submitter. Like the sibling list views this is ordered newest-first by m.id.
-    async getFullNodeVerifications(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        full_node_verifications m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        m.challenge_id,
-                        m.epoch_height,
-                        m.target_height,
-                        m.signing_pubkey_id,
-                        pk.pubkey as signing_pubkey,
-                        m.source_id,
-                        a3.address as staking_source,
-                        a2.address as source,
-                        m.passed,
-                        m.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index
-                    FROM
-                        full_node_verifications m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getContractStakes(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        contract_stakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.target_contract_index,
-                        t3.tick,
-                        m.amount,
-                        m.version,
-                        m.activation_block,
-                        m.deactivation_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        contract_stakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    async getContractUnstakes(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        contract_unstakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.target_contract_index,
-                        t3.tick,
-                        m.amount,
-                        m.cooldown_end_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        contract_unstakes m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of CONTRACT DELEGATION actions (DELEGATE v1/v3, type in {address, block, contract}).
-    // Mirrors getContractStakes; contract_delegations carries no amount/version; the delegation
-    // re-points a stake's signing pubkey, with activation/deactivation block bounds.
-    async getContractDelegations(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        contract_delegations m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        a2.address as source,
-                        a3.pubkey as signing_pubkey,
-                        m.target_contract_index,
-                        t3.tick,
-                        m.activation_block,
-                        m.deactivation_block,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        contract_delegations m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of VOTE v3 delegation rows (liquid democracy, type in {tick, delegator,
-    // delegate, block}). vote_delegations is an APPEND-ONLY event log: a holder can set,
-    // re-point, or clear (revoke) their standing per-token delegation, and every one of
-    // those actions writes a NEW row rather than mutating the old one, so a naive
-    // SELECT * shows every revoked/superseded delegation as if it were still live.
-    //
-    // The live delegation for a (tick_id, delegator) is its LATEST row (highest
-    // action_index), and only if that latest row is not a CLEAR (delegate_address_id IS
-    // NOT NULL). This mirrors xchain-indexer's Database#getActiveDelegations (which feeds
-    // getPollTally) exactly, minus its `block_index <= ?` bound: that bound answers "what
-    // was live AT some past height", which a poll close needs; this list answers "what is
-    // live now", so the bound is simply omitted. Every TYPE narrows WHICH keys are shown,
-    // never what "live" means.
-    //
-    // Implemented as a correlated MAX on the (tick_id, delegator_address_id) key, in the
-    // outer WHERE where the paging cursor also lives - never a GROUP BY over a "newest N
-    // rows" derived table, which is the defect class that a cursor applied OUTSIDE the
-    // window silently truncates.
-    async getVoteDelegations(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        vote_delegations m
-                        INNER JOIN actions            a1  ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1  ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1  ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_tickers      t3  ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_addresses    dgr ON (dgr.id=m.delegator_address_id)
-                        LEFT  JOIN index_addresses    dg  ON (dg.id=m.delegate_address_id)
-                        LEFT  JOIN index_statuses     s1  ON (s1.id=m.status_id)
-                    WHERE
-                        m.action_index = (
-                            SELECT MAX(s.action_index) FROM vote_delegations s
-                            WHERE s.tick_id=m.tick_id AND s.delegator_address_id=m.delegator_address_id
-                        )
-                        AND m.delegate_address_id IS NOT NULL
-                        AND ` + sql.where.data;
-        let query = `SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format,
-                        t3.tick,
-                        dgr.address as delegator,
-                        dg.address as delegate,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        vote_delegations m
-                        INNER JOIN actions            a1  ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1  ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1  ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_tickers      t3  ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_addresses    dgr ON (dgr.id=m.delegator_address_id)
-                        LEFT  JOIN index_addresses    dg  ON (dg.id=m.delegate_address_id)
-                        LEFT  JOIN index_statuses     s1  ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2  ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4  ON (a4.id=a1.action_id)
-                    WHERE
-                        m.action_index = (
-                            SELECT MAX(s.action_index) FROM vote_delegations s
-                            WHERE s.tick_id=m.tick_id AND s.delegator_address_id=m.delegator_address_id
-                        )
-                        AND m.delegate_address_id IS NOT NULL
-                        AND ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Per-validator per-provider ATTEST accountability rollup (indexer-owned counters).
-    // fulfilled_count/missed_count are live (incremented per verified signature and per
-    // expired-round absence by xchain-indexer's incrementAttestationValidatorStat);
-    // slashed_count and quality_score are Phase 4 columns the indexer defines and defaults
-    // to 0 but has no producer for yet. The table carries no action_index (rows are
-    // upsert-incremented counters, not action-chain rows); it pages on the surrogate m.id
-    // added for exactly this purpose, NOT on last_updated_block, which ties whenever a
-    // whole ATTEST responsible set misses in one block and so would split a keyset page
-    // boundary. type in {pubkey, provider}.
-    async getAttestValidatorStats(config){
-        let sql   = config.data.sql;
-        let count = `SELECT count(*) as total FROM attest_validator_stats m WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.validator_pubkey,
-                        m.provider_id,
-                        m.fulfilled_count,
-                        m.missed_count,
-                        m.slashed_count,
-                        m.quality_score,
-                        m.last_updated_block
-                    FROM
-                        attest_validator_stats m
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of cross-chain MATCH records (type ∈ {match, block, status}; block = snapshot_block).
-    // cross_chain_matches is a standalone mirror of the hub's finalized match table with no
-    // actions/transactions chain, so no joins; ordered by the mirror cursor m.id.
-    // validator_signatures (the 2f+1 quorum proof) is included: matches have no separate
-    // detail endpoint, and the proof is the point of inspecting one.
-    async getCrossChainMatches(config){
-        let sql   = config.data.sql;
-        // cross_chain_matches is hub-mirrored: xchain-sync never replicates it, so it is
-        // served only from the mandatory co-located hub DB, never from a stale local mirror.
-        // _matchSource throws (fail loud) if no co-located hub DB is configured for this coin.
-        // The hub table is multi-network, so a network filter rides along; it appends one `?`
-        // AFTER any type filter in sql.where.data, so the returned args must be ordered
-        // [<type filter?>, network].
-        let src   = this._matchSource(config);
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        ${src.table} m
-                    WHERE ` + sql.where.data + src.networkFilter;
-        let query = `SELECT
-                        m.id,
-                        m.match_id,
-                        m.snapshot_block,
-                        m.network,
-                        m.a_chain,
-                        m.a_action_index,
-                        m.a_kind,
-                        m.a_tick,
-                        m.a_amount,
-                        m.a_filled_before,
-                        m.a_ownership,
-                        m.a_payout_addr,
-                        m.b_chain,
-                        m.b_action_index,
-                        m.b_kind,
-                        m.b_tick,
-                        m.b_amount,
-                        m.b_filled_before,
-                        m.b_ownership,
-                        m.b_payout_addr,
-                        m.effective_time,
-                        m.validator_signatures,
-                        m.status,
-                        m.batch_root,
-                        m.anchor_txid,
-                        m.finalizing_view,
-                        m.created_at
-                    FROM
-                        ${src.table} m
-                    WHERE ` + sql.where.data + src.networkFilter + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        // Non-redirect path: keep args null (baseArgs defaults to [config.data.search],
-        // current behavior). Redirect path: supply explicit args so the network `?` binds;
-        // [config.data.search] only when a type filter (match/block/status) added its own `?`.
-        let args = null;
-        if(src.networkParam !== null){
-            let typeArgs = ['match','block','status'].includes(config.data.type) ? [config.data.search] : [];
-            args = [...typeArgs, src.networkParam];
-        }
-        return [query, args, count];
-    }
-
-    async getCrossChainSettlements(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        cross_chain_settlements m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.action_index,
-                        m.match_id,
-                        m.local_action_index,
-                        m.block_index,
-                        b1.block_time as timestamp
-                    FROM
-                        cross_chain_settlements m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of SLASH events (xchain.contract.slash emissions, type in {address, block, contract})
-    // slash_events has no action_index of its own (side-effect of an EXECUTE), so this joins
-    // blocks directly via m.block_index and orders by m.id rather than action_index.
-    async getSlashEvents(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        slash_events m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.destination_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.execution_index,
-                        m.target_contract_index,
-                        a3.pubkey as slashed_pubkey,
-                        a4.address as destination,
-                        t3.tick,
-                        m.amount,
-                        m.block_index,
-                        b1.block_time as timestamp
-                    FROM
-                        slash_events m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                        LEFT  JOIN index_pubkeys      a3 ON (a3.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_addresses    a4 ON (a4.id=m.destination_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Get list of capability_slash_events (equivocation bond-burns against consensus validators).
-    // Mirrors getSlashEvents; joins blocks directly via m.block_index.
-    // type in {block, capability, pubkey, address} where address matches the submitter.
-    async getCapabilitySlashEvents(config){
-        let sql   = config.data.sql;
-        let count = `SELECT
-                        count(*) as total
-                    FROM
-                        capability_slash_events m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_addresses    sub ON (sub.id=m.submitter_id)
-                        LEFT  JOIN index_addresses    dst ON (dst.id=m.destination_id)
-                    WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.slash_action_index,
-                        pk.pubkey as slashed_pubkey,
-                        m.capability,
-                        m.equiv_key,
-                        m.amount,
-                        m.bounty_amount,
-                        m.treasury_amount,
-                        sub.address as submitter,
-                        dst.address as destination,
-                        m.block_index,
-                        b1.block_time as timestamp
-                    FROM
-                        capability_slash_events m
-                        INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                        LEFT  JOIN index_pubkeys      pk ON (pk.id=m.signing_pubkey_id)
-                        LEFT  JOIN index_addresses    sub ON (sub.id=m.submitter_id)
-                        LEFT  JOIN index_addresses    dst ON (dst.id=m.destination_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Per-validator per-capability qualification flags. type in {capability, pubkey}.
-    // id-keyed. Primary transport: hub JSON-RPC via HubOperationalCache (these are
-    // hub-LOCAL operational rows, not consensus mirror data). The co-located hub
-    // schema read below serves ONLY the no-hub deployment shape; a configured hub
-    // that is unreachable past the stale ceiling fails loud.
-    async getValidatorCapabilities(config){
-        let ops = this.explorer.hubOperational;
-        if(ops && ops.enabled()){
-            let rows = await ops.getValidatorCapabilities({
-                capability:     config.data.type=='capability' ? config.data.search : undefined,
-                signing_pubkey: config.data.type=='pubkey'     ? config.data.search : undefined
-            });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('validator_capabilities');
-        }
-        let sql = config.data.sql;
-        let src = this._hubSource(config, 'validator_capabilities');
-        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.signing_pubkey,
-                        m.capability,
-                        m.qualified,
-                        m.self_test_ok,
-                        m.enabled,
-                        m.qualified_at_block,
-                        m.updated_at
-                    FROM ${src.table} m
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Governance parameter proposals. type in {status, parameter, proposal}. id-keyed.
-    // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
-    // schema read serves ONLY the no-hub deployment shape. A configured hub that is
-    // unreachable past the stale ceiling fails loud; this table is the clearest
-    // case for it, since governance_proposals carries no freshness column
-    // at all, so a per-row freshness cap on the schema read is unbuildable.
-    async getGovernanceProposals(config){
-        let ops = this.explorer.hubOperational;
-        if(ops && ops.enabled()){
-            let rows = await ops.getGovernanceProposals({
-                status:      config.data.type=='status'    ? config.data.search : undefined,
-                parameter:   config.data.type=='parameter' ? config.data.search : undefined,
-                proposal_id: config.data.type=='proposal'  ? config.data.search : undefined
-            });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('governance_proposals');
-        }
-        let sql = config.data.sql;
-        let src = this._hubSource(config, 'governance_proposals');
-        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.proposal_id,
-                        m.proposer_pubkey,
-                        m.parameter,
-                        m.current_value,
-                        m.proposed_value,
-                        m.status,
-                        m.voting_end,
-                        m.activation_block
-                    FROM ${src.table} m
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
-
-    // Per-validator governance votes. type in {proposal, voter}. id-keyed.
-    // Primary transport: hub JSON-RPC via HubOperationalCache; the co-located hub
-    // schema read serves ONLY the no-hub deployment shape. A configured hub that is
-    // unreachable past the stale ceiling fails loud.
-    async getGovernanceVotes(config){
-        let ops = this.explorer.hubOperational;
-        if(ops && ops.enabled()){
-            let rows = await ops.getGovernanceVotes({
-                proposal_id:  config.data.type=='proposal' ? config.data.search : undefined,
-                voter_pubkey: config.data.type=='voter'    ? config.data.search : undefined
-            });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('governance_votes');
-        }
-        let sql = config.data.sql;
-        let src = this._hubSource(config, 'governance_votes');
-        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
-        let query = `SELECT
-                        m.id,
-                        m.proposal_id,
-                        m.voter_pubkey,
-                        m.vote,
-                        m.created_at
-                    FROM ${src.table} m
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.id ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        return [query, null, count];
-    }
 
     // Cross-chain reorg attestations (hub-owned, id-keyed). Primary transport: hub
     // JSON-RPC via HubOperationalCache over the hub's EXISTING unauthenticated
@@ -11079,6 +7806,14 @@ class Database {
     // Get list of ATTEST actions from the consolidated `attests` table. Lists both
     // v0 (request) and v1 (response) rows; `version` + request/response status let
     // the UI tell them apart. type in {address, block, contract}.
+    //
+    // The block is resolved off the ACTION's own block_index and `transactions` is a
+    // LEFT join, the tx-less-safe shape getHistory already uses. A mirror-applied
+    // ATTEST v1 response is a system-synthesized action with a real action_index and
+    // block_index but a NULL tx_index and no transactions row (attest-response-mirror
+    // spec §4.4), so the older INNER chain through t1 made every such response
+    // VANISH from this list rather than render incompletely. tx_hash and tx_index
+    // come back NULL for those rows, which is what they are.
     async getAttestations(config){
         let sql   = config.data.sql;
         let count = `SELECT
@@ -11086,13 +7821,20 @@ class Database {
                     FROM
                         attests m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
+        // The block is resolved off the ACTION's own block_index and `transactions` is a
+        // LEFT join, the tx-less-safe shape getHistory already uses. A mirror-applied
+        // ATTEST v1 response is a system-synthesized action with a real action_index and
+        // block_index but a NULL tx_index and no transactions row (attest-response-mirror
+        // spec §4.4), so the older INNER chain through t1 made every such response
+        // VANISH from this list rather than render incompletely. tx_hash and tx_index
+        // come back NULL for those rows, which is what they are.
         let query = `SELECT
                         a4.action,
                         m.action_index,
@@ -11119,8 +7861,8 @@ class Database {
                     FROM
                         attests m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
                         LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
@@ -11144,8 +7886,8 @@ class Database {
                     FROM
                         polls m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -12492,6 +9234,10 @@ class Database {
 
         // Every leg of one round in one bounded read, oldest first so the caller renders the
         // lifecycle in the order it happened. request_id+version is indexed.
+        //
+        // `blocks` resolves off the action's own block_index, not the transaction's: a
+        // mirror-applied response has an action_index but no transaction row, and routing
+        // through t1 left the timestamp NULL for it (attest-response-mirror spec section 4.4).
         let rows = await this.doQuery(config,
             `SELECT
                 a4.action,
@@ -12522,6 +9268,7 @@ class Database {
                 m.meta,
                 m.validator_signatures,
                 m.callback_execute_action_index,
+                m.batch_action_index,
                 m.block_index,
                 b1.block_time as timestamp,
                 t2.hash as tx_hash,
@@ -12531,7 +9278,7 @@ class Database {
                 attests m
                 LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
                 LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
-                LEFT JOIN blocks              b1 ON (b1.block_index=t1.block_index)
+                LEFT JOIN blocks              b1 ON (b1.block_index=a1.block_index)
                 LEFT JOIN index_addresses     a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                 LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
                 LEFT JOIN index_tickers       ft ON (ft.id=m.fee_tick_id)
@@ -13019,6 +9766,250 @@ class Database {
         }];
     }
 
+    // Composed RICH LIST + supply stats for ONE token (spec explorer-coverage-completion
+    // M5.2). Returns [object], null when the tick was never issued, following the
+    // getXcall/getPoll single-record shape.
+    //
+    // THE COST CAP IS THE DESIGN, so it is stated rather than left to a reader to find:
+    //  - This is a PER-TOKEN ranking and there is deliberately no cross-token "richest
+    //    addresses on the chain" page. That query has no indexed driving column - it
+    //    would sort the whole `balances` table - and the platform already has a
+    //    DoS-shaped hang on record from exactly this table (getHolders' tick guard).
+    //  - The tick is resolved to an id FIRST, in one unique point read, and every leg
+    //    below binds `m.tick_id`, which is indexed. getHolders binds `t3.tick` through a
+    //    LEFT JOIN instead, which is why it needs its own existence guard to avoid a
+    //    full scan; resolving first removes that whole failure mode here.
+    //  - The ranking is capped at the caller's already-clamped limit (1..100), and the
+    //    holder COUNT is a separate bounded aggregate rather than a count of the rows
+    //    returned, so "top 100 of 4,812 holders" is honest rather than truncated.
+    //
+    // Percentages are computed against CIRCULATING supply (tokens.supply), not max
+    // supply: an unminted ceiling is not held by anyone, and dividing by it would
+    // publish a concentration figure that understates every holder. Supply is a
+    // VARCHAR on this schema and amounts can exceed 2^53, so every figure goes through
+    // the bignumber helpers rather than through Number().
+    async getRichList(config){
+        let limit = this._detailLimit(config);
+        let tick  = String(config.data.search || '');
+        let tickRow = await this.doQuery(config,
+            'SELECT id FROM index_tickers WHERE tick=? LIMIT 1', [tick]);
+        if(!tickRow || !tickRow.length) return [null];
+        let tickId = Number(tickRow[0].id);
+        let tokenRow = await this.doQuery(config,
+            `SELECT
+                t3.tick,
+                m.supply,
+                m.max_supply,
+                m.max_mint,
+                m.decimals,
+                m.lock_max_supply,
+                m.lock_mint,
+                m.description,
+                a2.address as owner,
+                m.action_index,
+                m.block_index
+            FROM
+                tokens m
+                LEFT JOIN index_tickers   t3 ON (t3.id=m.tick_id)
+                LEFT JOIN index_addresses a2 ON (a2.id=m.owner_id)
+            WHERE m.tick_id=?
+            LIMIT 1`, [tickId]);
+        // A tick can be interned by a reference (an ORDER naming a tick that was never
+        // issued) without a `tokens` row ever existing, so an interned id is not proof
+        // of a token. Answer not-found rather than composing supply stats around nulls.
+        if(!tokenRow || !tokenRow.length) return [null];
+        let token = tokenRow[0];
+
+        // Holder census. Zero balances are excluded from BOTH the count and the ranking:
+        // an address that once held the token and sent it all away is not a holder, and
+        // counting it inflates the denominator of every "share of holders" figure a
+        // reader might compute. amount is a VARCHAR, so the comparison is on the CAST.
+        let census = await this.doQuery(config,
+            `SELECT
+                count(*) as holder_count,
+                COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as held_total
+            FROM balances m
+            WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0`, [tickId]);
+        let holderCount = (census && census.length) ? Number(census[0].holder_count) : 0;
+        let heldTotal   = (census && census.length) ? String(census[0].held_total)   : '0';
+
+        let holders = await this.doQuery(config,
+            `SELECT
+                a2.address,
+                m.amount
+            FROM
+                balances m
+                LEFT JOIN index_addresses a2 ON (a2.id=m.address_id)
+            WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0
+            ORDER BY CAST(m.amount AS DECIMAL(65,18)) DESC
+            LIMIT ` + limit, [tickId]) || [];
+
+        // The denominator. Circulating supply is the token's own `supply` column; the
+        // summed balances are carried alongside rather than substituted for it, because
+        // a disagreement between the two is a real indexer symptom and hiding it behind
+        // whichever number makes the percentages total 100 would erase the evidence.
+        let supply = this.util.isNull(token.supply) ? '0' : String(token.supply);
+        let ranked = [];
+        let rank   = Number(config.data.sql && this.util.isNumeric(config.data.sql.apiOffset)
+            ? Number(config.data.sql.apiOffset) : 0);
+        for(const h of holders){
+            rank++;
+            ranked.push({
+                rank:    rank,
+                address: h.address,
+                amount:  h.amount,
+                percent: this._supplyPercent(h.amount, supply)
+            });
+        }
+        return [{
+            tick:            token.tick,
+            supply:          supply,
+            max_supply:      token.max_supply,
+            max_mint:        token.max_mint,
+            decimals:        token.decimals,
+            lock_max_supply: token.lock_max_supply,
+            lock_mint:       token.lock_mint,
+            description:     token.description,
+            owner:           token.owner,
+            action_index:    token.action_index,
+            block_index:     token.block_index,
+            holder_count:    holderCount,
+            // Sum of every non-zero balance. Equal to `supply` on a healthy index; kept
+            // as its own field precisely so the two can be compared.
+            held_total:      heldTotal,
+            ranked_count:    ranked.length,
+            top_holder_percent: ranked.length ? ranked[0].percent : null,
+            // Concentration of the top ten, which is the figure a reader actually wants
+            // from a rich list. Null (not 0) when fewer than ten holders were ranked, so
+            // "we did not measure this" never reads as "the top ten hold nothing".
+            top_ten_percent: (ranked.length >= 10)
+                ? this._supplyPercent(this._supplySum(ranked.slice(0, 10)), supply)
+                : null,
+            holders:         ranked
+        }];
+    }
+
+    // Sum of a ranked slice's amounts as a fixed-18 STRING, or null when any member is
+    // unreadable. Null rather than a partial sum on purpose: a concentration figure
+    // computed over nine of ten balances is wrong, not approximate.
+    _supplySum(rows){
+        try {
+            let acc = '0';
+            for(const r of rows) acc = this.util.bcformat(this.util.bcadd(acc, String(r.amount), 18), 18);
+            return acc;
+        } catch(e){
+            return null;
+        }
+    }
+
+    // Percent of `supply` that `amount` represents, as a fixed-8 STRING. Null when the
+    // supply is zero or unreadable: a percentage of nothing is undefined, and returning
+    // 0 there would render as "holds none of it" for an address that holds all of it.
+    _supplyPercent(amount, supply){
+        if(this.util.isNull(amount) || this.util.isNull(supply)) return null;
+        // Both figures arrive from VARCHAR columns, so a malformed row is a real
+        // possibility and mathjs THROWS on one rather than returning NaN. A percentage
+        // is decoration on a page whose subject is the balance itself; refusing to
+        // render the whole rich list because one row's amount is junk would be worse
+        // than omitting that row's percentage.
+        try {
+            let s = this.util.bcformat(supply, 18);
+            let a = this.util.bcformat(amount, 18);
+            if(!this.util.bcgt(s, '0')) return null;
+            return this.util.bcformat(
+                this.util.bcdiv(this.util.bcmul(a, '100', 18), s, 18), 8);
+        } catch(e){
+            return null;
+        }
+    }
+
+    // XCALL phase transitions latched since the cursor's block (spec
+    // explorer-coverage-completion M5.4). This is the XCALL analogue of
+    // getBetFeedsClosedSince and exists for the same reason: the transition that ends a
+    // call's life on the SOURCE chain - request_status going pending -> completed - is a
+    // direct status write performed by the callback interlock, with NO action row of its
+    // own for the ChangeDetector's actions cursor to find. `resolved_block` is the height
+    // at which that write happened, so it is the cursor column.
+    //
+    // Expired calls are included even though XCALL v2 does mint an action row: the v2
+    // action is a SEPARATE xcalls row (version 2) whose action name is XCALL, so a
+    // subscriber filtering on the phase events would otherwise see completions but not
+    // expiries, which is the asymmetry that makes a live timeline wrong rather than
+    // merely incomplete. The event carries `synthetic` so a consumer can tell which of
+    // the two had a causing action.
+    // Current phase of ONE cross-chain call, for the WS `xcall` channel's SNAPSHOT
+    // frame (spec explorer-coverage-completion M5.4). Sibling of getBetFeedInfo /
+    // getDispenserInfo: a plain (config, key) point read that the WS server can call
+    // without assembling a request config. Null when this chain has no row for the
+    // call_id, which is a normal answer on the TARGET chain of a call.
+    //
+    // Pinned to the VALID row for the same reason getXcall is: a call_id can carry
+    // more than one xcalls row (a rejected attempt indexes alongside the accepted
+    // request), and a snapshot built from an invalid row would open the subscription
+    // on a lifecycle that never happened.
+    async getXcallInfo(config, callId){
+        let rows = await this.doQuery(config,
+            `SELECT
+                m.action_index,
+                m.version,
+                m.call_id,
+                m.contract_index,
+                a2.address as source,
+                m.target_chain,
+                m.target_contract_index,
+                m.method,
+                m.gas_limit,
+                m.deadline_block,
+                m.request_status,
+                m.result_status,
+                m.resolved_block,
+                m.callback_action_index,
+                m.block_index,
+                s1.status
+            FROM
+                xcalls m
+                LEFT JOIN actions         a1 ON (a1.action_index=m.action_index)
+                LEFT JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                LEFT JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                LEFT JOIN index_statuses  s1 ON (s1.id=m.status_id)
+            WHERE m.call_id=? AND s1.status='valid'
+            ORDER BY m.action_index DESC
+            LIMIT 1`, [callId]);
+        return (rows && rows.length) ? rows[0] : null;
+    }
+
+    async getXcallPhasesSince(config, sinceBlockIndex, limit){
+        let query = `SELECT
+                        m.action_index,
+                        m.call_id,
+                        m.version,
+                        m.contract_index,
+                        m.target_chain,
+                        m.target_contract_index,
+                        m.method,
+                        m.request_status,
+                        m.result_status,
+                        m.resolved_block,
+                        m.callback_action_index,
+                        m.deadline_block,
+                        a2.address as source,
+                        s1.status
+                    FROM
+                        xcalls m
+                        LEFT JOIN actions         a1 ON (a1.action_index=m.action_index)
+                        LEFT JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                        LEFT JOIN index_statuses  s1 ON (s1.id=m.status_id)
+                    WHERE
+                        m.resolved_block > ?
+                        AND m.request_status IN ('completed','expired')
+                        AND s1.status='valid'
+                    ORDER BY m.resolved_block ASC, m.action_index ASC
+                    LIMIT ?`;
+        let results = await this.doQuery(config, query, [sinceBlockIndex, limit]);
+        return results || [];
+    }
+
     async getAttestationsSince(config, sinceBlockIndex, limit){
         let query = `SELECT
                         m.action_index,
@@ -13064,6 +10055,13 @@ class Database {
 
 }
 
+// The reader families that have moved out under proposal B stage 4 are attached
+// here, after the class exists. Order is irrelevant: mixinReaders refuses a
+// collision rather than letting require order decide a winner.
+mixinReaders(Database.prototype, actionListReaders, marketReaders, stakingGovernanceReaders);
+
 module.exports = Database;
 module.exports.DbQueryError = DbQueryError;
+module.exports.DbInputError = DbInputError;
 module.exports.ACTION_SUMMARY_FIELDS = ACTION_SUMMARY_FIELDS;
+module.exports.MUTABLE_ACTION_FIELDS = MUTABLE_ACTION_FIELDS;

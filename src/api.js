@@ -33,6 +33,8 @@ const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
+const staticMounts    = require('./staticMounts.js');     // the one file-serving mount list, shared with XChainExplorer
+const { applyTrustProxy } = require('./trustProxy.js');   // proxy-hop policy, shared with the WS path's hop count
 const { resolveMaxBatch, makeRpcBatchGuard } = require('./rpcBatchGuard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./shutdown.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
@@ -162,16 +164,37 @@ async function startApi(){
     // every page pulls a burst of them at once, so they are exempt from both
     // the per-IP rate limit and the global concurrency gate below. Counting
     // them would shed real queries to make room for favicons.
-    const isStaticAsset = (req) =>
-        /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path) ||
-        req.path.startsWith('/icon') ||
-        req.path.startsWith('/images');
+    //
+    // Exempt by FIRST PATH SEGMENT, from the one mount list in
+    // src/staticMounts.js, never by file extension: a suffix is a claim about
+    // what a URL looks like, not about what serves it. Match on it and
+    // /BTC/api/search/needle.png reads as an image, skips both guards, and
+    // still routes to the catch-all API handler, so any suffixed path buys
+    // unlimited DB-backed search.
+    const isStaticAsset = staticMounts.isStaticAsset;
 
     // Rate limiting: requests per minute per IP (image requests are excluded;
-    // override the default with EXPLORER_RATE_LIMIT_RPM)
+    // override the default with EXPLORER_RATE_LIMIT_RPM).
+    //
+    // Where 1080 comes from: a five-address wallet's worst minute is a cold
+    // open plus the two 20-second polls that fit in the same window, measured
+    // at 180 explorer reads; x2 because the wallet's SDK retries once, and x3
+    // for headroom because a NAT with three testers shares one bucket. The
+    // number is per REAL CLIENT ADDRESS, which is what the origin sees once
+    // the fronting proxy resolves real clients; it was a per-CDN-edge-address
+    // number before that, where the same wallet traffic scattered across
+    // buckets and hid the requirement. It replaces a 500 that predates any
+    // measurement of the client.
+    //
+    // Three of the explorer's eight origin limits moved on that profile: this
+    // one, the action/balance proof limiter and the checkpoint-verify limiter
+    // (both to 90, in XChainExplorer.js). The other five (fee quote 120,
+    // preflight POST 60, checkpoint list 120, validator-set proof 30, VM query
+    // 20) are not on an idle wallet's path, so the profile does not exercise
+    // them and they keep their shipped values on purpose.
     app.use(rateLimit({
         windowMs:        60 * 1000,
-        limit:           parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 500,
+        limit:           parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,
         standardHeaders: true,
         legacyHeaders:   false,
         message:         { error: 'Too many requests', code: 'RATE_LIMITED' },
@@ -206,8 +229,10 @@ async function startApi(){
         network: process.env.NETWORK || ''
     });
 
-    // Trust only the first proxy hop (prevents X-Forwarded-For spoofing)
-    app.set('trust proxy', 1);
+    // Trust only the first proxy hop (prevents X-Forwarded-For spoofing).
+    // The hop count and the topology it encodes live in src/trustProxy.js,
+    // which the WS path's WS_TRUST_PROXY_HOPS default must stay in step with.
+    applyTrustProxy(app);
 
     // Declared here so the ping closure can reference it after explorer is created.
     let explorer = null;

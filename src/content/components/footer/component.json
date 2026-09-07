@@ -1,0 +1,10 @@
+{
+    "name": "footer",
+    "description": "The site footer: copyright line and the terms/privacy links. Composed server-side into the page shell.",
+    "props": {
+        "year": {
+            "type": "number",
+            "description": "Copyright year. Left to the runtime when absent, which is what the shell has always done."
+        }
+    }
+}

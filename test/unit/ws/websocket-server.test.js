@@ -658,7 +658,8 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
         token:     { channel: 'token',     tick: 'XCP' },
         market:    { channel: 'market',    tick1: 'XCP', tick2: 'BTC' },
         dispenser: { channel: 'dispenser', action_index: '7' },
-        bet_feed:  { channel: 'bet_feed',  action_index: '900' }
+        bet_feed:  { channel: 'bet_feed',  action_index: '900' },
+        xcall:     { channel: 'xcall',     call_id: 'a'.repeat(64) }
     };
 
     function serverWithEntityDb() {
@@ -672,6 +673,11 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
             getBetFeedInfo:     sinon.stub().resolves({
                 action_index: '900', label: 'who wins', feed_status: 'open',
                 outcome_labels: ['a', 'b'], pools: [{ outcome: 0, total: '10' }], timeline: []
+            }),
+            getXcallInfo:       sinon.stub().resolves({
+                call_id: 'a'.repeat(64), action_index: '4100', target_chain: 'LTC',
+                method: 'ping', request_status: 'pending', result_status: null,
+                deadline_block: 880500, resolved_block: null
             })
         } } });
     }

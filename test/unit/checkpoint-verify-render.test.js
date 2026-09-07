@@ -31,7 +31,13 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+// formatters.js is read alongside xchain.js because the cell-rendering helpers
+// (isNull, escapeHtml, formatAmount, formatHash, formatLivestamp) moved there
+// in the component milestone. Concatenated rather than switched, so this file
+// keeps naming ONE source for every helper it lifts and does not have to know
+// which of the two a given function ended up in.
+const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/checkpoint-verify-render.js'), 'utf8');
 
 function extractFn(src, name) {

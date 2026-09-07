@@ -134,7 +134,11 @@ const PROBE_ARGS = {
     getValidator:       { search: '1' },
     getAttestation:     { search: '1' },
     getAnchor:          { search: '1' },
-    getAddressStaking:  { search: '1' }
+    getAddressStaking:  { search: '1' },
+    // M5.2's rich list resolves the TICK first and returns null when the tick was never
+    // interned, so on an empty schema this proves the identity read is legal and stops
+    // there, exactly like the four M4 compositions above.
+    getRichList:        { search: 'CONFTICK' }
 };
 
 // The canonical UTF-8 ACTION string the decoder writes to

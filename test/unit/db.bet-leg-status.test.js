@@ -74,7 +74,7 @@ function legRow(over = {}) {
         details: null, closed_block: null, terminal_block: null, feed_status: null,
         feed_action_index: null, outcome: null, amount: null, settled_block: null,
         bet_status: null,
-        cancel_feed_ref: 5, resolve_feed_ref: null,
+        cancel_feed_ref: 5, resolve_feed_ref: null, resolve_outcome: null,
         tick: null, block_index: 100, timestamp: 1700000000,
         tx_hash: 'a'.repeat(64), tx_index: 1,
         status: 'valid',
@@ -146,5 +146,40 @@ describe('BET cancel/resolve action status @regression', function () {
         // leg refs onto that column would have made every cancel look like a wager.
         assert.notStrictEqual(data.bet_kind, 'bet');
         assert.ok(!('amount' in data));
+    });
+
+    // The resolve's DECLARED outcome. bet_resolves stores it (indexer db.js INSERT INTO
+    // bet_resolves (feed_action_index, outcome, ...)), but the detail query pulled only
+    // the leg's feed ref, so the result that settled the market reached no reader. An
+    // invalid resolve is the case that has nowhere else to be read: it settles nothing,
+    // and the feed page serves the outcome of a VALID resolve alone.
+    it('serves the outcome a resolve declared', async function () {
+        const row = legRow({ action_format: 3, cancel_feed_ref: null,
+                             resolve_feed_ref: 5, resolve_outcome: 2 });
+        const db = makeDb([typeRow, ['bet_resolves', [row]]]);
+        const data = await db.getActionData(config, ACTION_INDEX);
+        const sql  = db.queries.find(q => q.includes('bet_resolves'));
+        assert.ok(sql.includes('br.outcome as resolve_outcome'),
+            'the resolve leg outcome is not selected, so the panel has nothing to render');
+        assert.strictEqual(data.bet_kind, 'resolve');
+        assert.strictEqual(data.resolve_outcome, 2);
+    });
+
+    it('serves a REJECTED resolve its claimed outcome, which no other surface carries', async function () {
+        const row = legRow({ action_format: 3, cancel_feed_ref: null, resolve_feed_ref: 5,
+                             resolve_outcome: 1, status: 'invalid: OUTCOME (range)' });
+        const db = makeDb([typeRow, ['bet_resolves', [row]]]);
+        const data = await db.getActionData(config, ACTION_INDEX);
+        assert.strictEqual(data.resolve_outcome, 1);
+        assert.strictEqual(data.status, 'invalid: OUTCOME (range)');
+    });
+
+    it('keeps the resolve outcome off every other shape', async function () {
+        // The column is on the row for a cancel too (one query, four shapes); leaving
+        // its null there reads as a resolve that named no result.
+        const db = makeDb([typeRow, ['bet_cancels', [legRow()]]]);
+        const data = await db.getActionData(config, ACTION_INDEX);
+        assert.strictEqual(data.bet_kind, 'cancel');
+        assert.ok(!('resolve_outcome' in data));
     });
 });

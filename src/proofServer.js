@@ -329,6 +329,16 @@ class ProofServer {
             try { res = await indexerConn.stakeWeights(cap, Number(cp.block_index)); }
             catch (e) { return { error: (e && e.code === 'INDEXER_AUTH_REQUIRED') ? 'INDEXER_AUTH_REQUIRED' : 'INDEXER_UNAVAILABLE' }; }
             if (!res || res.error) continue;                                 // capability not configured here -> skip
+            // Fail CLOSED on a truncated stake snapshot, read off the RESULT ENVELOPE.
+            // The indexer marks truncation in two places: a `truncated` property on the
+            // validators array (db.js getStakeWeightsByCapability) and a `truncated` field
+            // on the envelope (api.js getstakeweightsbycapability). Only the envelope
+            // survives the JSON-RPC hop, because JSON.stringify drops non-index properties
+            // of an array, so swq's array-property guard is unreachable for a snapshot that
+            // arrives over the API and this explicit check is what refuses the request. A
+            // truncated set has silently-dropped sources, so its total is under-counted:
+            // the authoring half of the quorum collapse the shared predicate fails closed on.
+            if (res.truncated === true) return { error: 'STAKE_SNAPSHOT_TRUNCATED:' + cap };
             const validators = res.validators || [];
             // Source-deduped total from the SINGLE shared predicate module.
             // A hand-rolled dedupe here once collapsed a blank-source snapshot

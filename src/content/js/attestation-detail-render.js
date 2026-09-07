@@ -75,6 +75,18 @@ function attActionLink(i){
     return formatLink('/' + XC.coin + '/action/' + i, numeral(i).format('0,0'));
 }
 
+// batch_action_index is the DOGE action_index of the ATTEST v5/v6 batch that carried
+// the response (attestation_responses.sql says so outright), never an action on the
+// page's own rail, so attActionLink's '/' + XC.coin pointed at whatever unrelated
+// action happens to hold that index here. siblingCoin resolves a declared base ticker
+// to this deployment's coin id at the PAGE's network tier, the rule the PRICE token
+// link and actionRefToRawPath already use; the tier regex is not restated here so the
+// two cannot drift apart.
+function attBatchActionLink(i){
+    if(isNull(i)) return '<span class="text-muted">-</span>';
+    return formatLink('/' + siblingCoin('DOGE') + '/action/' + i, numeral(i).format('0,0'));
+}
+
 // The recorded request_status, or 'unknown' when no v0 row reached the client.
 // An unknown state is never coerced into a lifecycle verdict.
 function attStatusName(d){
@@ -223,6 +235,27 @@ function renderAttestationResponsibleSet(r){
     return html;
 }
 
+// The ATTEST v5/v6 batch that carried this response's body on chain
+// (attests.batch_action_index). THREE states, and collapsing the last two into
+// one dash would tell a reader something untrue:
+//   - set: link the batch action ON THE DOGE RAIL at this network's tier, since
+//     that is the chain the batch was published to.
+//   - NULL on a response that has no transaction of its own (tx_index NULL, so
+//     it was applied from the hub mirror): the body has NOT reached the chain
+//     yet. The batch is published on a window boundary, so this is the normal
+//     reading for a freshly applied response and it is expected to change.
+//   - NULL on a response that WAS its own on-chain transaction (legacy era):
+//     there is no batch to wait for and there never will be.
+function attResponseBatchCell(r){
+    if(!isNull(r.batch_action_index))
+        return attBatchActionLink(r.batch_action_index);
+    if(isNull(r.tx_index))
+        return '<span class="text-muted attestation-batch-pending">'
+             + 'not yet carried by an on-chain batch</span>';
+    return '<span class="text-muted attestation-batch-na">'
+         + 'not applicable: this response was its own on-chain transaction</span>';
+}
+
 // The v1 response: the provider's answer plus the federation signatures that
 // carried it on chain.
 function renderAttestationResponse(d){
@@ -244,6 +277,7 @@ function renderAttestationResponse(d){
         + (isNull(r.timestamp) ? '' : ' <span class="small text-muted">' + formatLivestamp(r.timestamp) + '</span>'));
     html += attFieldRow('Transaction',     isNull(r.tx_hash) ? '<span class="text-muted">-</span>'
         : formatLink('/' + XC.coin + '/transaction/' + r.tx_hash, r.tx_hash));
+    html += attFieldRow('On-chain Batch',  attResponseBatchCell(r));
     html += attFieldRow('Callback Execute', isNull(d.callback_execute_action_index)
         ? '<span class="text-muted">no callback execution recorded</span>'
         : attActionLink(d.callback_execute_action_index));

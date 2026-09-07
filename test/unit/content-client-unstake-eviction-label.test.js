@@ -38,7 +38,10 @@ const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
 const CONTENT = path.resolve(__dirname, '../../src/content');
-const CLIENT  = path.join(CONTENT, 'js', 'xchain.js');
+// The client ships as formatters.js plus xchain.js, and showUnstakeDetails calls
+// isNull, which lives in the first. The helper joins them the way the browser
+// loads them, so this realm sees the same globals a page does.
+const SOURCE  = require('../helpers/content-source.js');
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const ACTION  = path.join(CONTENT, 'html', 'action.html');
 
@@ -52,7 +55,7 @@ function bootPage(){
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(fs.readFileSync(JQUERY, 'utf8'));
     win.jQuery.fn.ready = function(){ return this; };
-    win.eval(fs.readFileSync(CLIENT, 'utf8'));
+    win.eval(SOURCE.clientSource());
     win.XC = win.XC || {};
     win.XC.coin = 'RBTC';
     return win;

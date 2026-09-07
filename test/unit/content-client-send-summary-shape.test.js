@@ -25,7 +25,11 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+// The client source comes from the shared helper: the cell-rendering helpers
+// (isNull, escapeHtml, formatAmount, formatLink and friends) moved out of
+// xchain.js into formatters.js in the component milestone, and this suite
+// slices shipped functions out of whichever of the two they landed in.
+const SRC = require('../helpers/content-source.js').clientSource();
 
 function extractFn(name) {
     const sig = 'function ' + name + '(';

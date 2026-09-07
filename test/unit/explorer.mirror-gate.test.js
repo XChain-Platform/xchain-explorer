@@ -68,6 +68,21 @@ describe('explorer hub-mirror staleness gate', function () {
             expect(gate).to.deep.equal({ blocked: null, annotate: null });
         });
 
+        it('blocks a self_sync mirror that has no hub endpoint to sync from', function () {
+            // Distinct from NOT_BOOTSTRAPPED: nothing is coming, because no writer
+            // exists. Serving here is what shipped stale checkpoints indefinitely.
+            const gate = makeExplorer({ ...OK_STATUS, configured: false, reason: 'HUB_URL_MISSING' })
+                ._mirrorGate('BTC');
+            expect(gate.blocked).to.equal('MIRROR_NOT_CONFIGURED');
+            expect(gate.annotate).to.equal(null);
+        });
+
+        it('names the missing configuration in the blocked body', function () {
+            const body = makeExplorer()._mirrorBlockedBody('MIRROR_NOT_CONFIGURED');
+            expect(body.code).to.equal('MIRROR_NOT_CONFIGURED');
+            expect(body.error).to.match(/hub_url|HUB_API_URL/);
+        });
+
         it('blocks while the mirror has never bootstrapped', function () {
             const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false })._mirrorGate('BTC');
             expect(gate.blocked).to.equal('MIRROR_NOT_BOOTSTRAPPED');
@@ -125,6 +140,14 @@ describe('explorer hub-mirror staleness gate', function () {
             expect(res._body.code).to.equal('MIRROR_NOT_BOOTSTRAPPED');
         });
 
+        it('503 MIRROR_NOT_CONFIGURED when self_sync has no hub endpoint', async function () {
+            const res = mockRes();
+            await makeExplorer({ ...OK_STATUS, configured: false, reason: 'HUB_URL_MISSING' })
+                .processCheckpointsRequest(req({ coin: 'BTC' }), res);
+            expect(res._status).to.equal(503);
+            expect(res._body.code).to.equal('MIRROR_NOT_CONFIGURED');
+        });
+
         it('serves with mirror annotations once bootstrapped', async function () {
             const res = mockRes();
             await makeExplorer(OK_STATUS).processCheckpointsRequest(req({ coin: 'BTC' }), res);
@@ -170,6 +193,40 @@ describe('explorer hub-mirror staleness gate', function () {
             explorer.parseCoinCode = () => null; // short-circuits with 404 AFTER the open gate
             await explorer.processActionProofRequest(req({ coin: 'BTC', actionIndex: '1' }), res);
             expect(res._status).to.not.equal(503);
+        });
+
+        // The stake-snapshot proof errors carry a ':<capability>[:<detail>]' suffix, so an
+        // exact-match error map misses them: the client gets a generic 500 and the raw
+        // suffix, exception text included, echoed back in `code`.
+        describe('validator-set-proof error mapping', function () {
+            function routed(error) {
+                const res = mockRes();
+                const explorer = makeExplorer(null);
+                explorer.parseCoinCode = () => ({ coin: 'BTC', network: 'MAINNET' });
+                explorer.proofServer = { validatorSetProof: async () => ({ error }) };
+                process.env.INDEXER_API_URL = 'http://indexer.invalid/api';
+                return explorer.processValidatorSetProofRequest(req({ coin: 'BTC' }, { height: '100' }), res)
+                    .then(() => { delete process.env.INDEXER_API_URL; return res; },
+                          (e) => { delete process.env.INDEXER_API_URL; throw e; });
+            }
+
+            it('maps a suffixed STAKE_SNAPSHOT_TRUNCATED to 409 on its prefix', async function () {
+                const res = await routed('STAKE_SNAPSHOT_TRUNCATED:oracle_publish');
+                expect(res._status).to.equal(409);
+                expect(res._body.code).to.equal('STAKE_SNAPSHOT_TRUNCATED');
+            });
+
+            it('maps STAKE_SNAPSHOT_MALFORMED to 500 without echoing the exception text', async function () {
+                const res = await routed('STAKE_SNAPSHOT_MALFORMED:oracle_publish:blank/missing source would collapse the stake bucket');
+                expect(res._status).to.equal(500);
+                expect(res._body.code).to.equal('STAKE_SNAPSHOT_MALFORMED');
+            });
+
+            it('leaves a suffix-free code with its own status and code', async function () {
+                const res = await routed('SNAPSHOT_NOT_YET_CHECKPOINTED');
+                expect(res._status).to.equal(409);
+                expect(res._body.code).to.equal('SNAPSHOT_NOT_YET_CHECKPOINTED');
+            });
         });
     });
 });

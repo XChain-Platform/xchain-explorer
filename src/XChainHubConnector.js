@@ -88,6 +88,11 @@ class XChainHubConnector {
         // serve the method). Distinct from lastFailures: the hub was reachable and
         // refused the request, so callers can report a capability gap instead of
         // an outage. null when the last call got a result or never got an answer.
+        //
+        // Both fields are LAST-CALL-WINS diagnostics on a connector shared by the
+        // whole process, so a caller that decides control flow from them must pass
+        // `out` to _call and read the per-invocation copy instead: two calls in
+        // flight interleave across the await and one reads the other's answer.
         this.lastRpcError = null;
         // Cached full config tree + its high-water mark (epoch seconds). The mark
         // is sent back as `since_updated_at` so the hub returns only rows changed
@@ -107,7 +112,13 @@ class XChainHubConnector {
     // last one that succeeded and wrapping around through the rest. Repeats the
     // full endpoint pass up to `attempts` times with exponential backoff before
     // giving up and returning null.
-    async _call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs } = {}){
+    //
+    // `out`, when supplied, is a CALL-SCOPED diagnostics sink: this invocation
+    // writes its own `rpcError` and `failures` onto it. The instance fields below
+    // are last-call-wins on a process-wide connector, so a caller that branches on
+    // the answer (HubOperationalCache's -32601 capability-gap throw) must read
+    // `out` or it can read a concurrent call's error across its own await.
+    async _call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs, out = null } = {}){
         // A reachable-but-unhealthy hub responds with a non-2xx status (e.g. the
         // 503 "degraded" health body returned when its DB pool is down) that
         // still carries a valid JSON-RPC body. Axios throws on any non-2xx, so
@@ -117,21 +128,32 @@ class XChainHubConnector {
         // only surface it if no endpoint comes back healthy.
         let degraded = null;
         this.lastRpcError = null;
+        if(out){ out.rpcError = null; out.failures = []; }
         for(let attempt = 1; attempt <= attempts; attempt++){
             // Reset each pass so lastFailures reflects the final attempt's
             // outcome rather than accumulating duplicates across retries.
             this.lastFailures = [];
+            // A separate array, never an alias of the instance field: a concurrent
+            // call rebinds this.lastFailures out from under us on its own pass.
+            if(out) out.failures = [];
             // Endpoints this pass that answered with a JSON-RPC error body
             // rather than a result: the hub was up and refused the request at
             // the protocol layer, which is not the same signal as unreachable.
             let rpcAnswered = 0;
             // Attach the hub API key when configured: getallconfigs is in the
-            // hub's sensitive-read tier (its response carries DB credentials)
-            // and 401s without it once HUB_API_KEY is set hub-side. Read
-            // methods that don't need it ignore it, so sending unconditionally
-            // is safe (same pattern as xchain-node's HubConnector).
+            // hub's sensitive-read tier and 401s without it once HUB_API_KEY is
+            // set hub-side. Read methods that don't need it ignore it, so
+            // sending unconditionally is safe (same pattern as xchain-node's
+            // HubConnector).
+            //
+            // HUB_CONFIG_SECRETS_API_KEY wins when set: the hub can split the
+            // credential tier (getallconfigs with include_secrets, which is the
+            // only way the explorer gets its DB passwords) onto a key of its own,
+            // and one request carries one x-api-key header. Unset, the bulk key
+            // authorizes both tiers, which is the ordinary deployment.
             let headers = {};
-            if(process.env.HUB_API_KEY) headers['x-api-key'] = process.env.HUB_API_KEY;
+            let hubKey = process.env.HUB_CONFIG_SECRETS_API_KEY || process.env.HUB_API_KEY;
+            if(hubKey) headers['x-api-key'] = hubKey;
             for(let i = 0; i < this.urls.length; i++){
                 let idx = (this._lastGoodIdx + i) % this.urls.length;
                 let url = this.urls[idx];
@@ -147,17 +169,24 @@ class XChainHubConnector {
                         // does not serve). Record it and keep walking the pass:
                         // a mixed-version fleet may still hold an endpoint that
                         // serves the method.
-                        this.lastRpcError = response.data.error;
+                        // Held in a local so the detail line below describes THIS
+                        // answer even when a concurrent call overwrites the field.
+                        let rpcError = response.data.error;
+                        this.lastRpcError = rpcError;
+                        if(out) out.rpcError = rpcError;
                         rpcAnswered++;
-                        this.lastFailures.push(url + ' -> rpc ' +
-                            (this.lastRpcError.code !== undefined ? this.lastRpcError.code : '?') +
-                            ' ' + (this.lastRpcError.message || ''));
+                        let detail = url + ' -> rpc ' +
+                            (rpcError.code !== undefined ? rpcError.code : '?') +
+                            ' ' + (rpcError.message || '');
+                        this.lastFailures.push(detail);
+                        if(out) out.failures.push(detail);
                     }
                 } catch(err){
                     if(err.response && err.response.data && err.response.data.result !== undefined){
                         degraded = err.response.data.result;
                     } else {
                         this.lastFailures.push(url + ' -> ' + (err.code || err.message));
+                        if(out) out.failures.push(url + ' -> ' + (err.code || err.message));
                         console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
                     }
                 }
@@ -193,6 +222,39 @@ class XChainHubConnector {
         return result !== null;
     }
 
+    // Params for every getallconfigs call this connector makes.
+    //
+    // include_secrets is NOT optional for the explorer: db.js builds its MariaDB
+    // pools straight out of this tree (db_host/db_port/user/pass per coin), so a
+    // redacted response leaves every pool authenticating with the literal
+    // "[redacted]". The hub redacts secret-bearing params by default and serves
+    // them only to a caller that asks and is authorized to (HUB_CONFIG_SECRETS_API_KEY
+    // when the hub sets one, the bulk HUB_API_KEY otherwise), which is why the
+    // explorer sends the flag and other config consumers - the indexer's param
+    // overlay, the SDK's explorer discovery, the dashboard - do not.
+    //
+    // Older hubs ignore an unknown param and return the full tree, so this is safe
+    // to deploy ahead of the hub change (and must be: an explorer without the flag
+    // against a redacting hub loses its DB passwords).
+    _configParams(cursor){
+        return { since_updated_at: cursor, include_secrets: true };
+    }
+
+    // One warning, not one per 60s poll: a redacted response means this explorer
+    // is not authorized for credentials (wrong or missing HUB_API_KEY /
+    // HUB_CONFIG_SECRETS_API_KEY), and the DB pools built from it will fail to
+    // authenticate. Said here because the failure otherwise surfaces several
+    // layers away as an opaque MariaDB access-denied per coin.
+    _warnIfRedacted(result){
+        if(!result || typeof result !== 'object' || result.secrets_redacted !== true) return;
+        if(this._warnedRedacted) return;
+        this._warnedRedacted = true;
+        console.error('Hub served a CREDENTIAL-REDACTED config tree (' + (result.redacted_params || 0) +
+            ' params withheld): this explorer asked for secrets but is not authorized for them. ' +
+            'Set HUB_API_KEY (or the hub\'s HUB_CONFIG_SECRETS_API_KEY) to the value the hub expects; ' +
+            'until then every DB pool built from this config will fail to authenticate.');
+    }
+
     async getAllConfig(){
         let cursorEndpoint = this._watermarkEndpointIdx;
         let sentCursor     = this.lastWatermark;
@@ -210,7 +272,7 @@ class XChainHubConnector {
         let result = await this._call({
             jsonrpc: '2.0',
             method:  'getallconfigs',
-            params:  { since_updated_at: deltaCursor },
+            params:  this._configParams(deltaCursor),
             id:      1
         });
         // _call returns null when every endpoint failed after retries; preserve
@@ -229,7 +291,7 @@ class XChainHubConnector {
             result = await this._call({
                 jsonrpc: '2.0',
                 method:  'getallconfigs',
-                params:  { since_updated_at: 0 },
+                params:  this._configParams(0),
                 id:      1
             });
             if(result === null) return null;
@@ -276,7 +338,7 @@ class XChainHubConnector {
             result = await this._call({
                 jsonrpc: '2.0',
                 method:  'getallconfigs',
-                params:  { since_updated_at: 0 },
+                params:  this._configParams(0),
                 id:      1
             });
             if(result === null || degraded(result) || errorEnvelope(result)){
@@ -284,6 +346,7 @@ class XChainHubConnector {
                 return null;
             }
         }
+        this._warnIfRedacted(result);
         this.configs = this._applyConfigResult(result);
         // Bind the (possibly advanced) cursor to the endpoint that answered.
         this._watermarkEndpointIdx = this._lastGoodIdx;

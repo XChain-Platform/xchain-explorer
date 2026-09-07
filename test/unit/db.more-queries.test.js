@@ -457,6 +457,38 @@ describe('Database#getActions', () => {
         expect(query).to.include('mappings_actions');
         expect(args).to.include('XCHAIN');
     });
+
+    // The raw action feed is the only surface that claims to enumerate the chain
+    // action by action, and a system-injected action (DISPENSE, *_MATCH,
+    // *_EXPIRE, DISPENSER_CLOSE, CROSS_SETTLE, a mirror-applied ATTEST v1
+    // response) has a real block_index but NO transactions row at all. Reaching
+    // `blocks` through an INNER-joined `transactions` deleted every one of them
+    // from the feed, invisibly: well-formed JSON, consistent paging, rows simply
+    // absent. The behavioural proof against real rows lives in
+    // test/conformance/actions-feed-txless.test.js; these two pin the join shape
+    // so it cannot drift back in the fast tier.
+    it('reaches blocks through the ACTION own block_index, never through a transaction', async () => {
+        const db = makeDb();
+        const [query, , count] = await db.getActions(makeActionConfig('getActions'));
+        for(const sql of [query, count]){
+            expect(sql).to.include('INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)');
+            expect(sql, 'blocks is joined through the transaction again, which drops every tx-less action')
+                .to.not.include('b1.block_index=t1.block_index');
+        }
+    });
+
+    it('LEFT joins transactions in both the row query and the count query', async () => {
+        const db = makeDb();
+        const [query, , count] = await db.getActions(makeActionConfig('getActions'));
+        for(const sql of [query, count]){
+            expect(sql).to.include('LEFT  JOIN transactions       t1 ON (t1.tx_index=m.tx_index)');
+            expect(sql, 'an INNER join on transactions deletes system-injected actions from the feed')
+                .to.not.include('INNER JOIN transactions');
+        }
+        // tx_index comes off the action own column, so it survives a missing
+        // transactions row rather than depending on a join that cannot resolve.
+        expect(query).to.include('m.tx_index');
+    });
 });
 
 describe('Database#getAction', () => {

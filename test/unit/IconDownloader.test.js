@@ -87,7 +87,17 @@ function makeStubs(opts) {
         writeFile: sinon.stub().resolves(),
         readFile:  sinon.stub().resolves(Buffer.from('PNGOUT')),
         unlink:    sinon.stub().resolves(),
+        // The orphan sweep reads the flavor's icon directory. Empty by default, so
+        // the sweep short-circuits and every pre-existing _processFlavor test keeps
+        // its query call-order.
+        readdir:   sinon.stub().resolves([]),
     };
+    if (opts.fspReaddirResult !== undefined) {
+        fspStub.readdir.resolves(opts.fspReaddirResult);
+    }
+    if (opts.fspReaddirReject) {
+        fspStub.readdir.rejects(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    }
     if (opts.fspReadFileResult !== undefined) {
         fspStub.readFile.resolves(opts.fspReadFileResult);
     }
@@ -1768,6 +1778,210 @@ describe('IconDownloader', function () {
         });
     });
 
+    // The disk/DB invariant: whenever a row lands at ok-with-no-icon, the PNG for
+    // that token must not survive on disk. processIconRequest serves any file that
+    // exists and only falls back to /icon/default.png when it does not, so a
+    // surviving file overrides the database and keeps showing the old image - and
+    // the ok-with-no-icon state is terminal, so nothing revisits it.
+    describe('terminal no-icon paths remove the stale PNG', function () {
+        function makeRow(overrides) {
+            return Object.assign({
+                icon_id: 1, token_id: 10, attempts: 0,
+                description: 'https://example.com/a.png', tick: 'MYTOKEN',
+            }, overrides);
+        }
+        const flavor = { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' };
+
+        /** The path _processToken computes for MYTOKEN on BTC/mainnet. */
+        function iconPathFor(d, tick) {
+            return require('path').join(d.iconRoot, 'BTC', 'mainnet', tick + '.png');
+        }
+
+        it('unlinks the icon when the description resolves to no source', async function () {
+            const stubs = makeStubs({ resolveDescriptionToSource: sinon.stub().returns(null) });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._markOk = sinon.stub().resolves();
+            d._log    = () => {};
+
+            await d._processToken(makeMockConn([]), flavor, makeRow({ description: 'no-match' }));
+
+            expect(stubs.fspStub.unlink.callCount).to.equal(1);
+            expect(stubs.fspStub.unlink.firstCall.args[0]).to.equal(iconPathFor(d, 'MYTOKEN'));
+            expect(d._markOk.callCount).to.equal(1);
+        });
+
+        it('unlinks the icon when stamp bytes fail _writeIcon', async function () {
+            const stubs = makeStubs({
+                resolveDescriptionToSource: sinon.stub().returns({ scheme: 'stamp', data: 'AAAA' }),
+            });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from([0xDE, 0xAD]));
+            d._writeIcon = sinon.stub().rejects(new Error('unsupported mime'));
+            d._markOk    = sinon.stub().resolves();
+            d._log       = () => {};
+
+            await d._processToken(makeMockConn([]), flavor, makeRow());
+
+            // convert writes straight to iconPath, so a failed conversion can leave a
+            // truncated file on top of the previous good icon. That is the file this
+            // unlink removes.
+            expect(stubs.fspStub.unlink.callCount).to.equal(1);
+            expect(stubs.fspStub.unlink.firstCall.args[0]).to.equal(iconPathFor(d, 'MYTOKEN'));
+        });
+
+        it('unlinks the icon when stamp _writeIcon returns no hash', async function () {
+            const stubs = makeStubs({
+                resolveDescriptionToSource: sinon.stub().returns({ scheme: 'stamp', data: 'AAAA' }),
+            });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from([0x89, 0x50]));
+            d._writeIcon = sinon.stub().resolves(null);
+            d._markOk    = sinon.stub().resolves();
+            d._log       = () => {};
+
+            await d._processToken(makeMockConn([]), flavor, makeRow());
+
+            expect(stubs.fspStub.unlink.callCount).to.equal(1);
+            expect(stubs.fspStub.unlink.firstCall.args[0]).to.equal(iconPathFor(d, 'MYTOKEN'));
+        });
+
+        it('leaves the icon alone on the success path', async function () {
+            const stubs = makeStubs({
+                resolveDescriptionToSource: sinon.stub().returns({ scheme: 'image_url', url: 'https://e/a.png' }),
+            });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGBYTES'));
+            d._writeIcon = sinon.stub().resolves('hash123');
+            d._markOk    = sinon.stub().resolves();
+            d._log       = () => {};
+
+            await d._processToken(makeMockConn([]), flavor, makeRow());
+
+            expect(stubs.fspStub.unlink.callCount).to.equal(0);
+        });
+
+        it('does not unlink on a retryable failure: the old icon stays until it is replaced',
+           async function () {
+            const stubs = makeStubs({
+                resolveDescriptionToSource: sinon.stub().returns({ scheme: 'image_url', url: 'https://e/a.png' }),
+            });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._fetchSourceBytes = sinon.stub().rejects(new Error('network error'));
+            d._markFailure = sinon.stub().resolves();
+            d._log = () => {};
+
+            await d._processToken(makeMockConn([]), flavor, makeRow());
+
+            expect(d._markFailure.callCount).to.equal(1);
+            expect(stubs.fspStub.unlink.callCount).to.equal(0);
+        });
+    });
+
+    // The backlog half. ok-with-no-icon is terminal, so files already stranded in
+    // that state are never revisited by _processToken and the unlink above cannot
+    // reach them.
+    describe('_sweepOrphanIcons()', function () {
+        const flavor = { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' };
+
+        it('deletes only the PNGs the DB positively reports as icon-less', async function () {
+            const stubs = makeStubs({ fspReaddirResult: ['AAA.png', 'BBB.png', 'CCC.png', 'notes.txt'] });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._log = () => {};
+
+            const conn = makeMockConn([[{ tick: 'BBB' }]]);
+            await d._sweepOrphanIcons(conn, flavor);
+
+            const unlinked = stubs.fspStub.unlink.getCalls().map(c => c.args[0]);
+            const dir = require('path').join(d.iconRoot, 'BTC', 'mainnet');
+            expect(unlinked).to.deep.equal([require('path').join(dir, 'BBB.png')]);
+
+            // Bounded by the DIRECTORY, not by the row set: only the three .png names
+            // are ever asked about, and notes.txt is not one of them.
+            const [sql, args] = conn.query.firstCall.args;
+            expect(sql).to.include("i.status = 'ok'");
+            expect(sql).to.include('i.icon_hash IS NULL');
+            expect(args).to.deep.equal(['AAA', 'BBB', 'CCC']);
+        });
+
+        // The negative control for rule 2: an empty answer must delete NOTHING. A
+        // sweep written the other way round ("delete what the DB does not claim")
+        // passes every test above and wipes the host on a reindexing database.
+        it('deletes nothing when the DB returns no rows', async function () {
+            const stubs = makeStubs({ fspReaddirResult: ['AAA.png', 'BBB.png'] });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._log = () => {};
+
+            await d._sweepOrphanIcons(makeMockConn([[]]), flavor);
+
+            expect(stubs.fspStub.unlink.callCount).to.equal(0);
+        });
+
+        it('issues no query at all when the directory holds no PNGs', async function () {
+            const stubs = makeStubs({ fspReaddirResult: ['README.md'] });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            const conn = makeMockConn([]);
+
+            await d._sweepOrphanIcons(conn, flavor);
+
+            expect(conn.query.callCount).to.equal(0);
+            expect(stubs.fspStub.unlink.callCount).to.equal(0);
+        });
+
+        it('tolerates a missing flavor directory', async function () {
+            const stubs = makeStubs({ fspReaddirReject: true });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            const conn = makeMockConn([]);
+
+            await d._sweepOrphanIcons(conn, flavor);
+
+            expect(conn.query.callCount).to.equal(0);
+        });
+
+        it('chunks the IN list so a large icon directory stays inside packet limits',
+           async function () {
+            const names = [];
+            for (let i = 0; i < 1100; i++) names.push('T' + i + '.png');
+            const stubs = makeStubs({ fspReaddirResult: names });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._log = () => {};
+
+            const conn = makeMockConn([]);
+            await d._sweepOrphanIcons(conn, flavor);
+
+            expect(conn.query.callCount).to.equal(3);
+            expect(conn.query.getCall(0).args[1]).to.have.length(500);
+            expect(conn.query.getCall(2).args[1]).to.have.length(100);
+        });
+
+        it('a sweep failure does not cost the flavor its batch drain', async function () {
+            const stubs = makeStubs();
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+            d._log    = () => {};
+            d._logErr = sinon.stub();
+            d._discover = sinon.stub().resolves();
+            d._sweepOrphanIcons = sinon.stub().rejects(new Error('sweep boom'));
+            d._processToken = sinon.stub().resolves();
+            d.cfg.requestDelayMs = 0;
+
+            const conn = makeMockConn([[{ icon_id: 1, token_id: 10, attempts: 0, description: null, tick: 'AAA' }]]);
+            await d._processFlavor({ coin: 'BTC', network: 'mainnet', pool: makeMockPool(conn) });
+
+            expect(d._logErr.callCount).to.equal(1);
+            expect(d._processToken.callCount).to.equal(1);
+        });
+    });
+
     describe('_processFlavor()', function () {
         it('logs "queue empty" when SELECT returns no rows', async function () {
             const stubs = makeStubs();
@@ -1887,6 +2101,36 @@ describe('IconDownloader', function () {
 
             await d._processFlavor(flavor);
             expect(processed).to.deep.equal(['AAA']);
+        });
+
+        // The batch SELECT is the only reader of the backoff _markFailure writes.
+        // Without the 'failed' branch below, a retryable failure is parked with a
+        // next_retry_at no query ever looks at again. Shape only; the row-level
+        // proof runs against a real MariaDB in
+        // test/conformance/icon-retry-selection.test.js.
+        it('batch SELECT re-admits failed rows whose backoff timer has elapsed', async function () {
+            const stubs = makeStubs();
+            const IconDownloader = loadIconDownloader(stubs);
+            const explorer = makeExplorer();
+            const d = new IconDownloader(explorer);
+
+            const sqls = [];
+            const conn = {
+                query:   sinon.stub().callsFake(async (sql) => { sqls.push(sql); return []; }),
+                release: sinon.stub().resolves(),
+            };
+            const pool = makeMockPool(conn);
+
+            d._log = () => {};
+            await d._processFlavor({ coin: 'BTC', network: 'mainnet', pool });
+
+            const select = sqls.find(s => s.includes('FROM icons i') && /^\s*SELECT/.test(s));
+            expect(select, 'expected _processFlavor to emit a batch SELECT').to.be.a('string');
+            const flat = select.replace(/\s+/g, ' ');
+            expect(flat).to.include("i.status IN ('pending','stale')");
+            expect(flat).to.include("i.status = 'failed'");
+            expect(flat).to.include('i.next_retry_at IS NOT NULL');
+            expect(flat).to.include('i.next_retry_at <= NOW()');
         });
     });
 

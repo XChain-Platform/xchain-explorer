@@ -27,7 +27,10 @@ const GLOBAL_CHANNELS = new Set(['blocks', 'actions', 'mempool', 'network', 'att
 // bet_feed is action_index-keyed exactly like dispenser: one market per feed id,
 // carrying place / latch / resolve / cancel / expire events so a market page and a
 // wallet see live pools (§11.1).
-const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser', 'bet_feed']);
+// xcall is keyed by the deterministic 64-hex call_id, which is the only stable
+// name a cross-chain call has on BOTH chains: its action_index differs per chain
+// and the target chain has no request row at all (spec M5.4).
+const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser', 'bet_feed', 'xcall']);
 
 const ALL_CHANNELS = new Set([...GLOBAL_CHANNELS, ...ENTITY_CHANNELS]);
 
@@ -35,6 +38,14 @@ const ALL_CHANNELS = new Set([...GLOBAL_CHANNELS, ...ENTITY_CHANNELS]);
 // zeros, no fraction, no trailing junk. Anything else is a distinct subscription
 // identity that the DB would silently coerce back to a real row.
 const CANONICAL_INDEX = /^(0|[1-9][0-9]*)$/;
+
+// Canonical form of a call_id subscription key. The id is a 64-hex digest derived
+// in the source-chain VM run, and it is compared as a STRING everywhere it is
+// routed, so case is part of the identity: normalizing to lower case at
+// subscribe time keeps SUBSCRIBED, SUBSCRIPTION_LIST and the Broadcaster's
+// routing key on one representation, rather than letting an upper-case
+// subscription sit alongside a lower-case event and receive nothing.
+const CANONICAL_CALL_ID = /^[0-9a-f]{64}$/;
 
 // Valid action types for the types filter
 const VALID_TYPES = new Set([
@@ -75,6 +86,12 @@ const VALID_TYPES = new Set([
     // second cursor over bet_feeds.closed_block, because the deadline latch is a
     // direct status write with no action row behind it.
     'BET_EXPIRED', 'BET_CLOSED',
+    // The two XCALL terminal phases, emitted by the ChangeDetector's third cursor
+    // over xcalls.resolved_block. A completion is a direct status write with no
+    // action row behind it; an expiry does have an XCALL v2 action, but both ride
+    // this cursor so a subscriber narrowing to the phase names cannot see one
+    // outcome and silently miss the other.
+    'XCALL_COMPLETED', 'XCALL_EXPIRED',
     // The two ATTEST phases, enriched inline from the `attests` table because the
     // raw action row carries no version to tell request from response.
     'ATTESTATION_REQUEST', 'ATTESTATION_RESPONSE'
@@ -375,6 +392,10 @@ class ChannelManager {
             else if (entityKey.tick)    key += ':' + entityKey.tick;
             else if (entityKey.tick1)   key += ':' + entityKey.tick1 + ':' + entityKey.tick2;
             else if (entityKey.action_index !== undefined) key += ':' + entityKey.action_index;
+            // call_id is tested LAST and on its own, not folded into the address
+            // branch: an xcall subscription carries no address/tick/action_index, and
+            // an event routed by call_id must land on the same key the subscribe built.
+            else if (entityKey.call_id !== undefined) key += ':' + entityKey.call_id;
         }
         return key;
     }
@@ -404,6 +425,7 @@ class ChannelManager {
         // BIGINT-as-string (ws/schema-version.js:26-29).
         if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: parts[2] };
         if (channel === 'bet_feed'  && parts.length > 2)  entityKey = { action_index: parts[2] };
+        if (channel === 'xcall'     && parts.length > 2)  entityKey = { call_id: parts[2] };
 
         return { coin, channel, entityKey };
     }
@@ -472,6 +494,26 @@ class ChannelManager {
                         if (!CANONICAL_INDEX.test(str))
                             return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel action_index must be a canonical decimal integer (got: ${str})` } };
                         keys.push({ action_index: str });
+                    }
+                }
+                break;
+
+            case 'xcall':
+                // Same normalize-at-subscribe rule as the action_index channels above,
+                // for the same reason: String() alone would normalize the TYPE but not
+                // the VALUE, so 'AB..' and 'ab..' would become two subscription
+                // identities while the events routing to only one of them.
+                {
+                    const raw = (params.call_ids && Array.isArray(params.call_ids))
+                        ? params.call_ids
+                        : (params.call_id !== undefined ? [params.call_id] : null);
+                    if (raw === null)
+                        return { error: { code: 'INVALID_CHANNEL', message: 'xcall channel requires call_id or call_ids param' } };
+                    for (const id of raw) {
+                        const str = String(id).toLowerCase();
+                        if (!CANONICAL_CALL_ID.test(str))
+                            return { error: { code: 'INVALID_CHANNEL', message: `xcall channel call_id must be a 64-character hex string (got: ${String(id)})` } };
+                        keys.push({ call_id: str });
                     }
                 }
                 break;

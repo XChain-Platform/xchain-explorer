@@ -35,7 +35,11 @@ const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
 const CONTENT = path.resolve(__dirname, '../../src/content');
-const CLIENT  = path.join(CONTENT, 'js', 'xchain.js');
+// The shipped client source, from the shared helper: the cell-rendering
+// helpers (isNull, escapeHtml, formatAmount, formatLink and friends) moved
+// out of xchain.js into formatters.js in the component milestone, and this
+// suite needs whichever of the two a given function landed in.
+const CLIENT_SRC  = require('../helpers/content-source.js').clientSource();
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const PAGE    = fs.readFileSync(path.join(CONTENT, 'html', 'action.html'), 'utf8');
 
@@ -66,7 +70,7 @@ function bootPage(checkpointed){
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(fs.readFileSync(JQUERY, 'utf8'));
     win.jQuery.fn.ready = function(){ return this; };
-    win.eval(fs.readFileSync(CLIENT, 'utf8'));
+    win.eval(CLIENT_SRC);
     win.XC = win.XC || {};
     win.XC.coin = 'TBTC';
     win.probed = [];

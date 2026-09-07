@@ -19,6 +19,7 @@ const { testCorsOptions } = require('../helpers/cors.js');
 const rateLimit      = require('express-rate-limit');
 const { createTestConfigInfo } = require('../integration/helpers/app-setup');
 const XChainExplorer = require('../../src/XChainExplorer.js');
+const staticMounts   = require('../../src/staticMounts.js');
 const autocannon     = require('autocannon');
 
 const {
@@ -53,9 +54,9 @@ async function bootRateLimitedServer() {
         limit:           500,
         standardHeaders: true,
         legacyHeaders:   false,
-        skip: (req) => /\.(png|jpg|jpeg|gif|ico|svg|webp)$/i.test(req.path)
-                     || req.path.startsWith('/icon')
-                     || req.path.startsWith('/images'),
+        // Production's own predicate, so an overload run exercises the skip rule
+        // the server actually ships rather than a stale inlined copy of it.
+        skip: staticMounts.isStaticAsset,
     }));
 
     const configInfo = createTestConfigInfo(DB_PORT);

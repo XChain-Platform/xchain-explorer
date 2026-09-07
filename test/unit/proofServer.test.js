@@ -441,4 +441,39 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
         const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
         assert.strictEqual(r.error, 'SNAPSHOT_NOT_YET_CHECKPOINTED');
     });
+
+    // The indexer marks a capped stake query truncated in TWO places: a `truncated`
+    // property on the validators array and a `truncated` field on the JSON-RPC result
+    // envelope. Only the envelope crosses the wire, because JSON.stringify drops
+    // non-index properties of an array, so these envelopes are shaped exactly as the
+    // API delivers them: a plain array plus the envelope flag. A proof authored over a
+    // truncated set commits a __total__ leaf summed from surviving sources only.
+    it('fails closed on an envelope-level truncated snapshot instead of summing a partial set', async function () {
+        const { server } = makeServer();
+        const indexerConn = {
+            async stakeWeights(cap) {
+                return (cap === CAP)
+                    ? { capability: cap, block_index: S, count: VALS.length, source_count: 2, truncated: true, validators: JSON.parse(JSON.stringify(VALS)) }
+                    : { error: 'capability not configured' };
+            }
+        };
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
+        assert.ok(!r.proof, 'no proof may be authored from a truncated snapshot');
+        assert.strictEqual(r.error, 'STAKE_SNAPSHOT_TRUNCATED:' + CAP);
+    });
+
+    it('still authors the proof when the envelope reports truncated false', async function () {
+        const { server, stakesRoot } = makeServer();
+        const indexerConn = {
+            async stakeWeights(cap) {
+                return (cap === CAP)
+                    ? { capability: cap, block_index: S, count: VALS.length, source_count: 2, truncated: false, validators: JSON.parse(JSON.stringify(VALS)) }
+                    : { error: 'capability not configured' };
+            }
+        };
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
+        assert.ok(!r.error, 'no error: ' + r.error);
+        assert.strictEqual(r.proof.capabilities[CAP].total, M.canonicalAmount('40'));
+        assert.strictEqual(r.proof.stakes_root, stakesRoot);
+    });
 });

@@ -1,0 +1,21 @@
+{
+    "name": "qr-card",
+    "description": "The address QR panel. Renders into an existing mount point using the page jquery.qrcode build.",
+    "props": {
+        "id": {
+            "type": "string",
+            "required": true,
+            "description": "Element the QR canvas is drawn into."
+        },
+        "text": {
+            "type": "string",
+            "required": true,
+            "description": "The value encoded - an address today."
+        },
+        "size": {
+            "type": "number",
+            "default": 180,
+            "description": "Edge length in pixels."
+        }
+    }
+}

@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.15.3] - 2026-09-08
 
 ### Added
 - The action detail of a chunked DEPLOY reports which action deployed the contract and whether the assembly is still pending.

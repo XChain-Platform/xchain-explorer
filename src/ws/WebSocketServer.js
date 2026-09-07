@@ -226,6 +226,15 @@ class WebSocketServer {
         catch (e) { return false; }
     }
 
+    // Whether a stale coin is refused on CATCH_UP / SNAPSHOT (an error frame)
+    // rather than served with `stale: true` on every frame. Same opt-in as the
+    // HTTP 503 (db.staleFailClosed), so a subscriber never gets a different
+    // answer for the same question over a different transport.
+    _staleFailClosed() {
+        const db = this.explorer && this.explorer.db;
+        return !!(db && typeof db.staleFailClosed === 'function' && db.staleFailClosed());
+    }
+
     // Send WELCOME message with server info
     async _sendWelcome(client) {
         // Get latest indexes from the database
@@ -528,14 +537,17 @@ class WebSocketServer {
         const db     = this.explorer.db;
         const config = { coin: client.coin };
 
-        // Fail closed on a frozen replica, matching the HTTP path's 503
-        // COIN_DATA_STALE. A catch-up replays chain history the client is missing;
-        // served from a stale replica it silently hands back a SHORT replay and a
-        // CATCH_UP_COMPLETE whose latest_action_index the client then treats as
-        // caught-up, so the gap never heals. Refused through the same error frame
-        // and requestId the depth gate below uses, so no new frame type or schema
-        // version is involved.
-        if (await this._isCoinTipStale(client.coin)) {
+        // A catch-up from a stale replica hands back a SHORT replay and a
+        // CATCH_UP_COMPLETE whose latest_action_index the client would otherwise
+        // treat as caught-up. It is still served (the rows are real, and a wallet
+        // reconnecting during an indexer stall must not be told nothing), but
+        // every replayed frame and the COMPLETE carry `stale: true` so the client
+        // knows the replay is bounded by a tip that is behind, and does not close
+        // its gap on it. The HTTP path carries the same marker; the fail-closed
+        // opt-in keeps the old refusal through the same error frame and requestId
+        // the depth gate below uses.
+        const tipStale = await this._isCoinTipStale(client.coin);
+        if (tipStale && this._staleFailClosed()) {
             this._sendError(client, 'COIN_DATA_STALE',
                 'Indexed data for this coin is stale beyond its maximum tip age; refusing to replay it as current.',
                 requestId);
@@ -575,6 +587,7 @@ class WebSocketServer {
                     network:   info.network,
                     timestamp: Date.now(),
                     catch_up:  true,
+                    ...(tipStale ? { stale: true } : {}),
                     data: {
                         action_index: action.action_index,
                         action:       action.action       || null,
@@ -619,6 +632,7 @@ class WebSocketServer {
                 chain:     info.chain,
                 network:   info.network,
                 timestamp: Date.now(),
+                ...(tipStale ? { stale: true } : {}),
                 data: {
                     events_replayed:    eventsReplayed,
                     latest_action_index: latestIdx,
@@ -645,18 +659,15 @@ class WebSocketServer {
         const db     = this.explorer.db;
         const config = { coin: client.coin };
 
-        // Fail closed on a frozen replica, matching the HTTP path's 503
-        // COIN_DATA_STALE. A SNAPSHOT is the WS answer to "what is the current
-        // state of this address/token/market", and on a stale replica it answered
-        // out of frozen tables stamped `timestamp: Date.now()` with no marker: a
-        // balance the chain has since moved, presented as live.
-        // Withheld, not annotated, because the HTTP read of the same rows is
-        // already refused and a subscriber must not get a different answer for the
-        // same question over a different transport. One error frame carries the
-        // reason so the withholding is visible rather than an empty silence; the
-        // client's live subscriptions stay attached, so emission resumes on its own
-        // once isCoinTipStale clears.
-        if (await this._isCoinTipStale(client.coin)) {
+        // A SNAPSHOT is the WS answer to "what is the current state of this
+        // address/token/market". On a stale replica it is answered out of tables
+        // that are behind, so it carries `stale: true` (the same additive marker
+        // WELCOME uses) rather than being withheld: the HTTP read of the same rows
+        // is served with the same marker, and a subscriber must not get a
+        // different answer for the same question over a different transport. The
+        // fail-closed opt-in keeps the old error frame.
+        const snapshotStale = await this._isCoinTipStale(client.coin);
+        if (snapshotStale && this._staleFailClosed()) {
             this._sendError(client, 'COIN_DATA_STALE',
                 'Indexed data for this coin is stale beyond its maximum tip age; refusing to snapshot it as current.');
             return;
@@ -744,6 +755,7 @@ class WebSocketServer {
                         chain:     client.chain,
                         network:   client.network,
                         timestamp: Date.now(),
+                        ...(snapshotStale ? { stale: true } : {}),
                         data:      snapshotData
                     });
                 }

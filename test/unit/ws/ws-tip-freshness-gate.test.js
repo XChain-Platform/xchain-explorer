@@ -90,8 +90,18 @@ describe('WS frozen-replica freshness gate', function () {
 
         const subs = [{ channel: 'address', address: 'addr1' }, { channel: 'blocks' }];
 
-        it('withholds every snapshot and says why when the tip is stale', async function () {
+        it('serves every snapshot marked stale when the tip is stale, rather than withholding it', async function () {
             const s = makeServer(true);
+            const { client, frames } = makeClient('BTC');
+            await s._sendSnapshots(client, subs);
+            const snaps = typesOf(frames, 'SNAPSHOT');
+            expect(snaps, 'the rows still go out').to.have.lengthOf(2);
+            for (const f of snaps) expect(f.stale, 'but never unmarked as live').to.equal(true);
+            expect(typesOf(frames, 'error')).to.have.lengthOf(0);
+        });
+
+        it('withholds every snapshot and says why under the fail-closed opt-in', async function () {
+            const s = makeServer(true, { staleFailClosed: () => true });
             const { client, frames } = makeClient('BTC');
             await s._sendSnapshots(client, subs);
             expect(typesOf(frames, 'SNAPSHOT'), 'no stale balance goes out as live').to.have.lengthOf(0);
@@ -100,19 +110,38 @@ describe('WS frozen-replica freshness gate', function () {
             expect(errs[0].data.code).to.equal('COIN_DATA_STALE');
         });
 
-        it('still serves every snapshot when the tip is fresh', async function () {
+        it('still serves every snapshot, unmarked, when the tip is fresh', async function () {
             const s = makeServer(false);
             const { client, frames } = makeClient('BTC');
             await s._sendSnapshots(client, subs);
-            expect(typesOf(frames, 'SNAPSHOT')).to.have.lengthOf(2);
+            const snaps = typesOf(frames, 'SNAPSHOT');
+            expect(snaps).to.have.lengthOf(2);
+            for (const f of snaps) expect(f).to.not.have.property('stale');
             expect(typesOf(frames, 'error')).to.have.lengthOf(0);
         });
     });
 
     describe('CATCH_UP', function () {
 
-        it('refuses the replay with COIN_DATA_STALE when the tip is stale', async function () {
-            const s = makeServer(true);
+        it('replays past a stale tip with every frame marked stale, so a short replay is not read as caught-up', async function () {
+            const s = makeServer(true, {
+                getActionsSince: async () => [{ action_index: 7n, action: 'SEND', block_index: 5 }]
+            });
+            // The replay runs each row through the live filter pipeline.
+            s.broadcaster = { _passesFilter: () => true, _applyFieldsProjection: (e) => e };
+            const { client, frames } = makeClient('BTC');
+            await s._handleCatchUp(client, '0', {}, 'req-1');
+            const replayed = typesOf(frames, 'NEW_ACTION');
+            expect(replayed).to.have.lengthOf(1);
+            expect(replayed[0].stale).to.equal(true);
+            const complete = typesOf(frames, 'CATCH_UP_COMPLETE');
+            expect(complete).to.have.lengthOf(1);
+            expect(complete[0].stale).to.equal(true);
+            expect(typesOf(frames, 'error')).to.have.lengthOf(0);
+        });
+
+        it('refuses the replay with COIN_DATA_STALE under the fail-closed opt-in', async function () {
+            const s = makeServer(true, { staleFailClosed: () => true });
             const { client, frames } = makeClient('BTC');
             await s._handleCatchUp(client, '0', {}, 'req-1');
             expect(typesOf(frames, 'CATCH_UP_COMPLETE'),
@@ -130,11 +159,13 @@ describe('WS frozen-replica freshness gate', function () {
             expect(client.catchUpInProgress).to.not.equal(true);
         });
 
-        it('still replays when the tip is fresh', async function () {
+        it('still replays, unmarked, when the tip is fresh', async function () {
             const s = makeServer(false);
             const { client, frames } = makeClient('BTC');
             await s._handleCatchUp(client, '0', {}, 'req-1');
-            expect(typesOf(frames, 'CATCH_UP_COMPLETE')).to.have.lengthOf(1);
+            const complete = typesOf(frames, 'CATCH_UP_COMPLETE');
+            expect(complete).to.have.lengthOf(1);
+            expect(complete[0]).to.not.have.property('stale');
             expect(typesOf(frames, 'error')).to.have.lengthOf(0);
         });
 
@@ -167,9 +198,11 @@ describe('WS frozen-replica freshness gate', function () {
     // newest block_time is hours old, and pushed historical blocks as live frames.
     describe('ChangeDetector live feed', function () {
 
-        function makeDetector(stale) {
+        function makeDetector(stale, failClosed) {
             const calls = { checkCoin: 0, mempool: 0 };
-            const d = new ChangeDetector({ db: { isCoinTipStale: async () => stale }, pollInterval: 1e9 });
+            const db = { isCoinTipStale: async () => stale };
+            if (failClosed) db.staleFailClosed = () => true;
+            const d = new ChangeDetector({ db, pollInterval: 1e9 });
             d.state = { BTC: {} };
             d.running = true;
             d._checkCoin           = async () => { calls.checkCoin++; };
@@ -177,8 +210,22 @@ describe('WS frozen-replica freshness gate', function () {
             return { d, calls };
         }
 
-        it('suppresses the whole poll for a coin whose tip is stale', async function () {
+        it('polls a stale coin normally and records it so Broadcaster can mark its frames', async function () {
             const { d, calls } = makeDetector(true);
+            await d._poll();
+            expect(calls).to.deep.equal({ checkCoin: 1, mempool: 1 });
+            expect(d.staleCoins.has('BTC')).to.equal(true);
+        });
+
+        it('clears the record once the coin is fresh again', async function () {
+            const { d } = makeDetector(false);
+            d.staleCoins.add('BTC');
+            await d._poll();
+            expect(d.staleCoins.has('BTC')).to.equal(false);
+        });
+
+        it('suppresses the whole poll for a stale coin under the fail-closed opt-in', async function () {
+            const { d, calls } = makeDetector(true, true);
             await d._poll();
             expect(calls).to.deep.equal({ checkCoin: 0, mempool: 0 });
         });

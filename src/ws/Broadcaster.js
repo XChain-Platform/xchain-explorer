@@ -523,6 +523,14 @@ class Broadcaster {
                 try {
                     if (msg && typeof msg === 'object' && msg.schema_version === undefined)
                         msg.schema_version = WS_SCHEMA_VERSION;
+                    // Same additive stale marker _send stamps, and for the same
+                    // reason: a live frame from a coin whose indexed tip is behind
+                    // must not read as the chain tip. After projection too, so a
+                    // fields filter cannot strip it.
+                    if (msg && typeof msg === 'object' && msg.stale === undefined &&
+                        this.changeDetector && this.changeDetector.staleCoins &&
+                        this.changeDetector.staleCoins.has(client.coin))
+                        msg.stale = true;
                     client.ws.send(safeStringify(msg));
                 } catch (e) {
                     // Connection error
@@ -635,6 +643,14 @@ class Broadcaster {
             try {
                 if (msg && typeof msg === 'object' && msg.schema_version === undefined)
                     msg.schema_version = WS_SCHEMA_VERSION;
+                // Live frames for a coin whose indexed tip is stale carry the same
+                // additive `stale: true` marker WELCOME, CATCH_UP and SNAPSHOT do,
+                // so a subscriber never mistakes a replayed or lagging row for the
+                // chain tip. ChangeDetector maintains the set once per poll cycle.
+                if (msg && typeof msg === 'object' && msg.stale === undefined &&
+                    this.changeDetector && this.changeDetector.staleCoins &&
+                    this.changeDetector.staleCoins.has(client.coin))
+                    msg.stale = true;
                 client.ws.send(safeStringify(msg));
             } catch (e) {
                 // ignore

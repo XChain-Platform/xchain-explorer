@@ -171,4 +171,87 @@ describe('action detail render: fields that reached the API with nowhere to go',
             expect(text(win, '#info-deploy .deploy-code-part')).to.equal('');
         });
     });
+
+    // A chunked group deploys at whichever piece confirms LAST, in that piece's own
+    // action. Two pages were wrong about that: the completing carrier's, which showed
+    // only its base64 slice and left the contract it created unreachable, and the
+    // assembler's, which linked /contract/{its own index} whether or not a contract had
+    // ever been created there.
+    describe('deferred chunked assembly', function(){
+
+        it('shows the deploy card on the carrier that completed the group', function(){
+            const win = bootPage();
+            win.showDeployDetails({
+                action_format: 4, action_index: 1421, code_hash: 'abc', chunk_index: 0,
+                total_chunks: 3, code_part: 'bW9k', deployed_contract_index: 1421,
+                api_version: 2, cooldown_blocks: 144, slash_destination: 'addr-slash',
+                contract_status: 'valid', assembler_action_index: 1419
+            });
+            expect(hidden(win, '#info-deploy .deploy-chunk-row'), 'the slice rows stay').to.equal(false);
+            expect(hidden(win, '#info-deploy .deploy-contract-row'), 'the contract card is revealed').to.equal(false);
+            expect(win.jQuery('#info-deploy .deploy-contract a').attr('href'))
+                .to.equal('/RDOGE/contract/1421');
+            expect(text(win, '#info-deploy .deploy-api-version')).to.equal('2');
+            expect(hidden(win, '#info-deploy .deploy-staking-row')).to.equal(false);
+            expect(text(win, '#info-deploy .deploy-cooldown')).to.equal('144 blocks');
+            expect(win.jQuery('#info-deploy .deploy-slash a').attr('href'))
+                .to.equal('/RDOGE/address/addr-slash');
+        });
+
+        it('leaves an ordinary carrier with its slice alone, and no dead contract link', function(){
+            const win = bootPage();
+            win.showDeployDetails({
+                action_format: 4, action_index: 1420, code_hash: 'abc', chunk_index: 1,
+                total_chunks: 3, code_part: 'bW9k', deployed_contract_index: null
+            });
+            expect(hidden(win, '#info-deploy .deploy-contract-row')).to.equal(true);
+            expect(hidden(win, '#info-deploy .deploy-staking-row')).to.equal(true);
+            expect(text(win, '#info-deploy .deploy-chunk')).to.equal('Code chunk 2 of 3');
+        });
+
+        it('points the assembler at the carrier the contract actually landed on', function(){
+            const win = bootPage();
+            win.showDeployDetails({
+                action_format: 2, action_index: 1419, code_hash: 'abc', api_version: 2,
+                status: 'pending: CODE_HASH (awaiting chunks)',
+                deployed_contract_index: 1421, assembly_status: 'valid'
+            });
+            expect(win.jQuery('#info-deploy .deploy-contract a').attr('href'))
+                .to.equal('/RDOGE/contract/1421');
+            expect(text(win, '#info-deploy .deploy-contract')).to.equal('1421');
+        });
+
+        it('states the status instead of a dead link while the group is incomplete', function(){
+            const win = bootPage();
+            win.showDeployDetails({
+                action_format: 2, action_index: 1419, code_hash: 'abc', api_version: 2,
+                status: 'pending: CODE_HASH (awaiting chunks)',
+                deployed_contract_index: null, assembly_status: 'pending: CODE_HASH (awaiting chunks)'
+            });
+            expect(text(win, '#info-deploy .deploy-contract'))
+                .to.equal('pending: CODE_HASH (awaiting chunks)');
+            expect(win.jQuery('#info-deploy .deploy-contract a').length, 'no link to a contract that does not exist')
+                .to.equal(0);
+        });
+
+        it('keeps linking its own index when the assembler deployed the contract itself', function(){
+            const win = bootPage();
+            win.showDeployDetails({
+                action_format: 2, action_index: 1427, code_hash: 'abc', api_version: 2,
+                status: 'valid', deployed_contract_index: 1427, assembly_status: 'valid'
+            });
+            expect(win.jQuery('#info-deploy .deploy-contract a').attr('href'))
+                .to.equal('/RDOGE/contract/1427');
+        });
+
+        it('links its own index on a pre-assembly deploy that carries neither field', function(){
+            // An older explorer response, and every DEPLOY on a chain before the gate.
+            const win = bootPage();
+            win.showDeployDetails({
+                action_format: 0, action_index: 1138, code_hash: 'abc', api_version: 1, status: 'valid'
+            });
+            expect(win.jQuery('#info-deploy .deploy-contract a').attr('href'))
+                .to.equal('/RDOGE/contract/1138');
+        });
+    });
 });

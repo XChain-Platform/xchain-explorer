@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - A ROLLCALL action detail exposes the gates list a v1 roll call carried.
+- The action detail of a chunked DEPLOY reports which action deployed the contract and whether the assembly is still pending.
 
 ## [0.15.2] - 2026-09-07
 

@@ -67,6 +67,9 @@ class ChangeDetector extends EventEmitter {
         this.channelManager = options.channelManager || null;
         this.pollInterval   = options.pollInterval || 5000;
         this.fetchLimit     = options.fetchLimit   || 100;
+        // Coins whose indexed tip was stale at the last poll. Broadcaster reads it
+        // to stamp `stale: true` on every live frame for those coins.
+        this.staleCoins     = new Set();
         // How long a coin's BET_CLOSED cursor stays parked after its indexer answers
         // "no bet_feeds table". A schema gap is a deploy-order fact, not a permanent
         // property of the chain, so it is a cooldown rather than a switch: see
@@ -131,23 +134,31 @@ class ChangeDetector extends EventEmitter {
         catch (e) { return false; }
     }
 
+    // Same opt-in as the HTTP 503 (db.staleFailClosed): skip a stale coin's
+    // emits entirely instead of marking them.
+    _staleFailClosed() {
+        return !!(this.db && typeof this.db.staleFailClosed === 'function' && this.db.staleFailClosed());
+    }
+
     async _poll() {
         if (!this.running) return;
 
         for (const coin of Object.keys(this.state)) {
-            // Fail closed on a stale replica, matching the HTTP path and the WS
-            // serving boundaries. A FROZEN replica emits nothing here
-            // anyway (every emit below is triggered by the tip advancing), but a
-            // replica REPLAYING history from a snapshot does advance while its
-            // newest block_time is hours old, and it pushed NEW_BLOCK/NEW_ACTION/
-            // ADDRESS_UPDATE frames for historical blocks stamped
-            // `timestamp: Date.now()`, which a subscriber reads as the chain tip.
-            // Evaluated once per coin per cycle, which is what the cached verdict is
-            // sized for, and it suppresses the mempool diff too: a mempool read from
-            // a replica that cannot vouch for its own tip is no more current than its
-            // blocks. Cursors are left untouched, so the backlog emits normally once
-            // the tip catches up rather than being skipped.
-            if (await this._isCoinTipStale(coin)) continue;
+            // A FROZEN replica emits nothing here anyway (every emit below is
+            // triggered by the tip advancing), but a replica REPLAYING history from
+            // a snapshot, or catching up after a stall, does advance while its
+            // newest block_time is hours old, and its NEW_BLOCK/NEW_ACTION/
+            // ADDRESS_UPDATE frames are stamped `timestamp: Date.now()`, which a
+            // subscriber would read as the chain tip. Those frames are still sent
+            // (a wallet watching an address during a stall must see the rows land),
+            // but Broadcaster stamps them `stale: true` while the coin is in this
+            // set, matching the HTTP marker. Evaluated once per coin per cycle,
+            // which is what the cached verdict is sized for. The fail-closed opt-in
+            // keeps the old behaviour: skip the coin, cursors untouched, so the
+            // backlog emits normally once the tip catches up.
+            const tipStale = await this._isCoinTipStale(coin);
+            if (tipStale) this.staleCoins.add(coin); else this.staleCoins.delete(coin);
+            if (tipStale && this._staleFailClosed()) continue;
 
             try {
                 await this._checkCoin(coin);

@@ -439,7 +439,8 @@ describe('Database#getStatus', () => {
 describe('Database tip-freshness gate', () => {
     let db;
     const ENV_KEYS = ['EXPLORER_TIP_MAX_AGE_S', 'EXPLORER_TIP_MAX_AGE_S_RBTC',
-                      'EXPLORER_TIP_MAX_FUTURE_SKEW_S', 'EXPLORER_TIP_MAX_FUTURE_SKEW_S_RBTC'];
+                      'EXPLORER_TIP_MAX_FUTURE_SKEW_S', 'EXPLORER_TIP_MAX_FUTURE_SKEW_S_RBTC',
+                      'EXPLORER_STALE_FAIL_CLOSED'];
     let savedEnv;
 
     beforeEach(() => {
@@ -568,12 +569,74 @@ describe('Database tip-freshness gate', () => {
         });
     });
 
+    // The snapshot every data response is annotated with. One cache fill per
+    // coin per TTL: the boolean verdict above is a view of it.
+    describe('#getCoinFreshness', () => {
+        it('reports the tip block, its age, the stale verdict and the halt signal for a stale coin', async () => {
+            poolWithBlockTime('RBTC', 1700000000);            // years old
+            const f = await db.getCoinFreshness('RBTC');
+            expect(f.stale).to.equal(true);
+            expect(f.tip_block).to.equal(850);
+            expect(f.tip_time).to.equal(1700000000);
+            expect(f.tip_age_seconds).to.be.above(21600);
+            expect(f.max_age_seconds).to.equal(21600);
+            expect(f.replica_halted).to.be.a('boolean');
+        });
+
+        it('reports a fresh coin as not halted without querying sync_halt', async () => {
+            poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - 60);
+            const halt = sinon.spy(db, 'getReplicaHaltStatus');
+            const f = await db.getCoinFreshness('RBTC');
+            expect(f.stale).to.equal(false);
+            expect(f.replica_halted).to.equal(false);
+            expect(halt.called).to.equal(false);
+        });
+
+        it('reads as stale with null tip fields when the indexer is unreadable', async () => {
+            sinon.stub(db, 'getMaxBlockTime').rejects(new Error('db down'));
+            const f = await db.getCoinFreshness('RBTC');
+            expect(f.stale).to.equal(true);
+            expect(f.tip_block).to.equal(null);
+            expect(f.tip_age_seconds).to.equal(null);
+        });
+
+        it('serves the boolean verdict and the snapshot from one cache fill', async () => {
+            poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - 60);
+            await db.getCoinFreshness('RBTC');
+            const calls = db.pools['RBTC'].pool.getConnection.callCount;
+            expect(await db.isCoinTipStale('RBTC')).to.equal(false);
+            expect(db.pools['RBTC'].pool.getConnection.callCount).to.equal(calls);
+        });
+    });
+
+    describe('#staleFailClosed', () => {
+        it('is off unless EXPLORER_STALE_FAIL_CLOSED=1', () => {
+            expect(db.staleFailClosed()).to.equal(false);
+            process.env.EXPLORER_STALE_FAIL_CLOSED = '1';
+            expect(db.staleFailClosed()).to.equal(true);
+            process.env.EXPLORER_STALE_FAIL_CLOSED = 'true';
+            expect(db.staleFailClosed()).to.equal(false);
+        });
+    });
+
     describe('#getStatus availability gating', () => {
-        it('drops a coin with a stale tip from `available` while leaving it `supported`', async () => {
+        // A stale coin is served with a marker, so it stays listed: `stale` is
+        // the signal now, and delisting it made every client read the coin as
+        // not served at all.
+        it('keeps a coin with a stale tip in `available` and reports it in `stale`', async () => {
             poolWithBlockTime('RBTC', 1700000000);            // years old
             const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
             expect(data.stale).to.have.property('RBTC', true);
             expect(data.tip_age_seconds['RBTC']).to.be.above(21600);
+            expect(data.available).to.have.property('RBTC');
+            expect(data.supported).to.have.property('RBTC');
+        });
+
+        it('drops a stale coin from `available` only under the EXPLORER_STALE_FAIL_CLOSED opt-in', async () => {
+            process.env.EXPLORER_STALE_FAIL_CLOSED = '1';
+            poolWithBlockTime('RBTC', 1700000000);
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.stale).to.have.property('RBTC', true);
             expect(data.available).to.not.have.property('RBTC');
             expect(data.supported).to.have.property('RBTC');   // still a known coin
         });
@@ -586,6 +649,7 @@ describe('Database tip-freshness gate', () => {
         });
 
         it('does not mutate the shared hub-config COIN_AVAILABLE map when it drops a coin', async () => {
+            process.env.EXPLORER_STALE_FAIL_CLOSED = '1';
             poolWithBlockTime('RBTC', 1700000000);
             const [data]  = await db.getStatus(cfg({ coin: 'RBTC' }));
             const fullCfg = await configInfo.getConfig();
@@ -616,7 +680,7 @@ describe('Database tip-freshness gate', () => {
             expect(data.tip_age_seconds['RBTC']).to.equal(0);
             expect(data.tip_future_seconds['RBTC']).to.be.above(7200);
             expect(data.stale).to.have.property('RBTC', true);
-            expect(data.available).to.not.have.property('RBTC');
+            expect(data.available).to.have.property('RBTC');   // served and marked, like any stale coin
         });
 
         it('reports tip_future_seconds 0 for an ordinary past-dated tip, and null when block_time is unusable', async () => {

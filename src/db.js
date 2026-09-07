@@ -125,10 +125,27 @@ const TIP_MAX_AGE_DEFAULT_S = 21600;
 // vouch for. Overridable per coin, 0 disables the check.
 const TIP_MAX_FUTURE_SKEW_DEFAULT_S = 7200;
 
-// TTL of the cached per-coin tip-staleness verdict. Short enough that a freeze
-// surfaces within one status poll, long enough that the per-request availability
-// gate costs no extra query on a busy explorer.
+// TTL of the cached per-coin freshness snapshot (tip block, tip age, stale
+// verdict, replica halt). Short enough that a freeze surfaces within one status
+// poll, long enough that annotating every response costs no extra query on a
+// busy explorer.
 const TIP_STALE_CACHE_TTL_MS = 15000;
+
+// A stale coin is SERVED, not refused. The indexed rows are a true record of
+// the chain up to the tip this instance holds; what a stale tip means is that
+// newer blocks exist somewhere that are not here yet. Refusing the read turned
+// every indexer stall into a whole-coin blackout that presented, through the
+// explorer and every wallet the SDK drives from it, as the network being down,
+// with years of history sitting unread in the database behind a 503. So the
+// data routes answer normally and carry a freshness marker instead (headers on
+// every data response, a `freshness` body field while the coin is stale, and
+// `stale` on /status), and the consumer that knows whether it is reading or
+// spending decides what a stale tip means for it. The old refusal is kept
+// behind this opt-in for a deployment that would rather go dark than serve a
+// tip it cannot vouch for; it mirrors MIRROR_LAG_FAIL_CLOSED for the hub mirror.
+function staleFailClosed() {
+    return process.env.EXPLORER_STALE_FAIL_CLOSED === '1';
+}
 
 // The action families that carry a real RECIPIENT, and the column on each that
 // points back at the action (decision I-46, measured against xchain-indexer/src/sql).
@@ -2865,10 +2882,15 @@ class Database {
                     }
                 }
                 data.stale[coin] = this.isTipStale(coin, tipSec, nowSec);
-                if (data.stale[coin]) delete data.available[coin];
-                // Published beside stale, not folded into the gate: available already
-                // drops a coin once its tip ages, so the two compose (halted detects
-                // immediately, stale removes eventually) rather than duplicating.
+                // A stale coin stays listed in `available`: it IS served, with its
+                // rows annotated (see staleFailClosed). The client reads `stale`,
+                // tip_age_seconds, last_block and indexer_state to draw its degraded
+                // banner. Only the fail-closed opt-in still delists it, because
+                // there the data routes really do answer 503.
+                if (data.stale[coin] && staleFailClosed()) delete data.available[coin];
+                // Published beside stale, not folded into it: a halted replica keeps
+                // reporting a small lag until its source mints past it, so stale
+                // detects it eventually and halted detects it immediately.
                 data.replica_halted[coin] = await this.getReplicaHaltStatus(coin);
             }
         }
@@ -5007,22 +5029,77 @@ class Database {
         return delta > maxAge;
     }
 
-    // Cached tip-staleness verdict for the per-request availability gate. An
-    // unreadable indexer counts as stale: the gate exists to stop this instance
-    // presenting data it cannot vouch for as current.
+    // Whether a stale coin is refused (503 COIN_DATA_STALE, delisted from
+    // /status `available`, WS replay/snapshot errors) rather than served with a
+    // freshness marker. Off by default; see staleFailClosed for why.
+    /**
+     * @returns {boolean}
+     */
+    staleFailClosed() {
+        return staleFailClosed();
+    }
+
+    // Cached per-coin freshness snapshot: the newest indexed block, how old it is
+    // against this host's clock, whether that age passes the coin's stale
+    // threshold, and whether the replica carries an active sync halt. This is
+    // what every data response is annotated with (XChainExplorer.processRequest)
+    // and what the WS serving boundaries read, so it is one cache fill per coin
+    // per TIP_STALE_CACHE_TTL_MS rather than a query per request. An unreadable
+    // indexer reads as stale with null tip fields: the marker exists to say this
+    // instance cannot vouch for the tip, and an unreadable one is the clearest
+    // case of that.
+    /**
+     * @param {string} coin coin code
+     * @returns {Promise<{stale: boolean, tip_block: number|null, tip_time: number|null,
+     *   tip_age_seconds: number|null, replica_halted: boolean|null, max_age_seconds: number}>}
+     */
+    async getCoinFreshness(coin) {
+        if (!this._tipStaleCache) this._tipStaleCache = {};
+        const cached = this._tipStaleCache[coin];
+        if (cached && (Date.now() - cached.at) < TIP_STALE_CACHE_TTL_MS) return cached.snapshot;
+        let snapshot = {
+            stale:           this.tipMaxAgeSeconds(coin) !== 0,
+            tip_block:       null,
+            tip_time:        null,
+            tip_age_seconds: null,
+            replica_halted:  null,
+            max_age_seconds: this.tipMaxAgeSeconds(coin)
+        };
+        try {
+            let tipSec = await this.getMaxBlockTime({ coin, data: {} });
+            let nowSec = Math.floor(Date.now() / 1000);
+            snapshot.stale = this.isTipStale(coin, tipSec, nowSec);
+            if (Number.isFinite(Number(tipSec)) && Number(tipSec) > 0) {
+                snapshot.tip_time        = Number(tipSec);
+                snapshot.tip_age_seconds = Math.max(0, nowSec - Number(tipSec));
+            }
+            snapshot.tip_block = await this.getMaxBlockIndex({ coin, data: {} });
+        } catch (e) {
+            // Leave the fail-closed defaults: stale unless the gate is disabled,
+            // and no tip to report.
+        }
+        // The halt signal is only worth a query while the tip is already stale:
+        // a fresh tip means the replica is applying blocks, so it cannot be
+        // halted, and the banner only needs the reason once there is one.
+        if (snapshot.stale) {
+            try { snapshot.replica_halted = await this.getReplicaHaltStatus(coin); }
+            catch (e) { snapshot.replica_halted = null; }
+        } else {
+            snapshot.replica_halted = false;
+        }
+        this._tipStaleCache[coin] = { at: Date.now(), snapshot };
+        return snapshot;
+    }
+
+    // Cached tip-staleness verdict, the boolean view of getCoinFreshness. An
+    // unreadable indexer counts as stale: the marker exists to say this instance
+    // cannot vouch for the tip as current.
     /**
      * @param {string} coin coin code
      * @returns {Promise<boolean>}
      */
     async isCoinTipStale(coin) {
-        if (!this._tipStaleCache) this._tipStaleCache = {};
-        const cached = this._tipStaleCache[coin];
-        if (cached && (Date.now() - cached.at) < TIP_STALE_CACHE_TTL_MS) return cached.stale;
-        let stale;
-        try { stale = this.isTipStale(coin, await this.getMaxBlockTime({ coin, data: {} })); }
-        catch (e) { stale = this.tipMaxAgeSeconds(coin) !== 0; }
-        this._tipStaleCache[coin] = { at: Date.now(), stale };
-        return stale;
+        return (await this.getCoinFreshness(coin)).stale;
     }
 
     // Reads whether this coin's indexer replica carries an active

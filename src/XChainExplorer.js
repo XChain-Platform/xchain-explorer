@@ -988,14 +988,24 @@ class XChainExplorer {
         // validDataRequest is false when the coin is supported but not yet configured in this instance
         let validDataRequest = (!this.util.isNull(config['COIN_SUPPORTED'][coin]) && !this.util.isNull(config['COIN_AVAILABLE'][coin])) ? true : false;
 
-        // Fail closed on a frozen replica: a coin whose newest indexed block has aged
-        // past its threshold is no longer serving current data, so refuse the read
-        // rather than present a stale balance or action as live. Cached in db.js, so
-        // this costs no per-request query.
-        let tipStale = false;
-        if(validDataRequest && this.db.pools && this.db.pools[coin])
-            tipStale = await this.db.isCoinTipStale(coin);
-        if(tipStale)
+        // Freshness of this coin's indexed tip, read once per request from the
+        // 15s cache in db.js. A stale tip does NOT refuse the read: the rows are a
+        // true record of the chain up to the tip this instance holds, and refusing
+        // them turned every indexer stall into a whole-coin blackout that read as
+        // the network being down (see staleFailClosed in db.js). The snapshot is
+        // stamped onto the response instead, and only the EXPLORER_STALE_FAIL_CLOSED
+        // opt-in keeps the old 503.
+        let freshness = null;
+        let tipStale  = false;
+        if(validDataRequest && this.db.pools && this.db.pools[coin] && typeof this.db.getCoinFreshness === 'function'){
+            freshness = await this.db.getCoinFreshness(coin);
+            tipStale  = !!(freshness && freshness.stale);
+        } else if(validDataRequest && this.db.pools && this.db.pools[coin] && typeof this.db.isCoinTipStale === 'function'){
+            // Unit doubles that stub only the boolean verdict.
+            tipStale  = await this.db.isCoinTipStale(coin);
+            freshness = { stale: tipStale, tip_block: null, tip_age_seconds: null, replica_halted: null };
+        }
+        if(tipStale && this.db.staleFailClosed && this.db.staleFailClosed())
             validDataRequest = false;
 
         // Force /{COIN}/api/status valid so we always return explorer config for that coin
@@ -1314,6 +1324,28 @@ class XChainExplorer {
             response.json.runtime = this.util.getTimerString(response.time);
 
         response.head = structuredClone(this.headers);
+
+        // Freshness marker on every data response for this coin, so a consumer
+        // (the SDK, a wallet, the explorer's own pages) can tell served-and-current
+        // from served-and-behind without a second request. Headers always; the
+        // `freshness` body field only while the coin is stale, so the fresh-path
+        // body stays byte-identical to what it was (the same additive convention
+        // the WS WELCOME frame uses for its `stale` marker). Skipped on the 503
+        // path, whose body is the refusal itself.
+        if(['api','explorer'].includes(cfg.type) && freshness && response.json && response.code !== 503){
+            response.head['XChain-Freshness'] = freshness.stale ? 'stale' : 'live';
+            if(freshness.tip_block !== null && freshness.tip_block !== undefined)
+                response.head['XChain-Tip-Block'] = String(freshness.tip_block);
+            if(freshness.tip_age_seconds !== null && freshness.tip_age_seconds !== undefined)
+                response.head['XChain-Tip-Age-S'] = String(freshness.tip_age_seconds);
+            if(freshness.stale && typeof response.json === 'object' && !Array.isArray(response.json))
+                response.json.freshness = {
+                    stale:           true,
+                    tip_block:       freshness.tip_block,
+                    tip_age_seconds: freshness.tip_age_seconds,
+                    replica_halted:  freshness.replica_halted
+                };
+        }
 
         if(process.env.DEBUG && !this.util.isNull(response.time))
             response.head['XChain-Runtime-Ms'] = response.time;
@@ -2482,16 +2514,18 @@ class XChainExplorer {
             if(!/^[0-9]+$/.test(String(contractIndex)))
                 return res.status(400).json({ error: 'Invalid contract index', code: 'INVALID_CONTRACT_INDEX' });
 
-            // Fail closed on a frozen replica, as the catch-all data routes do. This
-            // route is hand-registered ahead of the catch-all, so it never passes through
-            // processRequest's gate, yet a simulation reads MUTABLE contract state and
-            // must not answer a "current state" question from state the replica cannot
-            // vouch for. Same coin key the pool check above and the catch-all use.
-            if(await this.db.isCoinTipStale(coin))
+            // Same freshness contract as the catch-all data routes. This route is
+            // hand-registered ahead of the catch-all, so it never passes through
+            // processRequest; a simulation reads MUTABLE contract state, so it carries
+            // the same marker (and the same fail-closed opt-in) rather than answering
+            // a "current state" question with nothing said about how current.
+            let simTipStale = await this.db.isCoinTipStale(coin);
+            if(simTipStale && this.db.staleFailClosed && this.db.staleFailClosed())
                 return res.status(503).json({
                     error: 'Indexed data for this coin is stale beyond its maximum tip age; refusing to serve it as current.',
                     code: 'COIN_DATA_STALE'
                 });
+            res.set('XChain-Freshness', simTipStale ? 'stale' : 'live');
 
             let config = { coin, data: {} };
             let result = await vmQuery.simulate(this.db, config, Number(contractIndex), req.body || {}, parsed.coin, parsed.network, req.ip);

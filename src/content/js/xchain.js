@@ -615,6 +615,74 @@ function isCryptoAddress(address, chain, network){
     return false;
 }
 
+// Coarse "how long ago" for the freshness banner: seconds in, one unit out.
+// Deliberately not moment(): the banner must not depend on a script that
+// loads after this one, and a reader stuck on a delayed page does not need
+// precision past the largest unit.
+function formatTipAge(seconds){
+    if(isNull(seconds)) return null;
+    let s = Number(seconds);
+    if(!isFinite(s) || s < 0) return null;
+    if(s < 60)     return 'under a minute';
+    if(s < 3600)   { let m = Math.round(s / 60);    return m + ' minute' + (m===1 ? '' : 's'); }
+    if(s < 86400)  { let h = Math.round(s / 3600);  return h + ' hour'   + (h===1 ? '' : 's'); }
+    let d = Math.round(s / 86400); return d + ' day' + (d===1 ? '' : 's');
+}
+
+// The sentence the freshness banner shows for a coin, built from the /status
+// body, or null when the coin is current (or not measured by this instance).
+// Reads the same per-coin maps /status already publishes: `stale` is the
+// verdict, last_block / tip_age_seconds say where the data stops, and
+// replica_halted / indexer_state / indexer_wait_clears_at say WHY, so the
+// reader is told the specific thing that is happening rather than a generic
+// "degraded". Every page keeps rendering from the database underneath this;
+// the banner is the only thing that changes while a coin is behind.
+function freshnessBannerText(status, coin){
+    if(!status || !status.stale || !status.stale[coin]) return null;
+    let block  = (status.last_block          && !isNull(status.last_block[coin]))          ? status.last_block[coin]          : null;
+    let age    = (status.tip_age_seconds     && !isNull(status.tip_age_seconds[coin]))     ? status.tip_age_seconds[coin]     : null;
+    let halted = (status.replica_halted      && status.replica_halted[coin] === true);
+    let state  = (status.indexer_state       && !isNull(status.indexer_state[coin]))       ? status.indexer_state[coin]       : null;
+    let clears = (status.indexer_wait_clears_at && !isNull(status.indexer_wait_clears_at[coin])) ? status.indexer_wait_clears_at[coin] : null;
+    let text   = '';
+    if(block !== null){
+        text += 'The last confirmed block was #' + String(block).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        let ago = formatTipAge(age);
+        if(ago) text += ', about ' + ago + ' ago';
+        text += '. ';
+    }
+    if(halted){
+        text += 'Indexing is paused while this server is repaired; everything up to that block is shown and will update when indexing resumes.';
+    } else if(state === 'future_block_wait' && clears){
+        let wait = formatTipAge((Date.parse(clears) - Date.now()) / 1000);
+        text += 'The next block is dated ahead of this server\'s clock; indexing resumes ' + (wait ? 'in about ' + wait : 'shortly') + '.';
+    } else {
+        text += 'The indexer is catching up; everything up to that block is shown and will update shortly.';
+    }
+    return text;
+}
+
+// Show or hide the freshness banner for the current coin from XC.status, and
+// while the coin is behind, re-read /status on a short cadence so the banner
+// clears itself the moment the coin catches up. The ordinary status refresh is
+// five minutes (getExplorerStatusInfo's localStorage window), which is the
+// wrong cadence for a notice whose whole job is to go away.
+function updateFreshnessBanner(){
+    if(typeof $ === 'undefined' || !XC || isNull(XC.coin)) return;
+    let text = freshnessBannerText(XC.status, XC.coin);
+    if(text){
+        $('#freshness-banner-text').text(text);
+        $('#freshness-banner').show();
+        if(!XC.freshnessRecheckTimer)
+            XC.freshnessRecheckTimer = setTimeout(function(){
+                XC.freshnessRecheckTimer = null;
+                getExplorerStatusInfo(null, true);
+            }, XC.freshnessRecheckMs || 60000);
+    } else {
+        $('#freshness-banner').hide();
+    }
+}
+
 // Handle updating coin network information and passing it to callback function for processing
 // NOTE: This information is cached in localStorage and updated every 5 minutes as
 function getCoinNetworkInfo(callback, force){
@@ -624,14 +692,16 @@ function getCoinNetworkInfo(callback, force){
         last   = (json && json.timestamp) ? json.timestamp : 0,
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
-    // A coin drops out of XC.status.available for as long as its indexed tip is stale
-    // (getStatus deletes it there; the same condition answers 503 COIN_DATA_STALE on
-    // the data routes). XC.status is itself served from localStorage for 5 minutes, so
-    // simply returning here dropped the caller's render callback and left the summary
-    // counters and the Network Information panel at their markup defaults (0 / blank)
-    // for the rest of that window - with no /api/* request on the page load that showed
-    // the zeros - long after the coin was serving live data again. Re-read the
-    // status instead, and come back to this coin the moment it is listed again.
+    // A coin drops out of XC.status.available only on an explorer running with
+    // EXPLORER_STALE_FAIL_CLOSED=1, where a stale tip also answers 503
+    // COIN_DATA_STALE on the data routes; by default a stale coin stays listed and
+    // is served with a freshness marker (see updateFreshnessBanner). XC.status is
+    // itself served from localStorage for 5 minutes, so simply returning here
+    // dropped the caller's render callback and left the summary counters and the
+    // Network Information panel at their markup defaults (0 / blank) for the rest
+    // of that window - with no /api/* request on the page load that showed the
+    // zeros - long after the coin was serving live data again. Re-read the status
+    // instead, and come back to this coin the moment it is listed again.
     if(XC.status && isNull(XC.status.available[XC.coin])){
         // One recheck in flight at a time: the forced status refresh below calls back
         // into this function itself, and a per-caller loop would multiply the polling.
@@ -707,13 +777,19 @@ function getExplorerStatusInfo(callback, force){
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
     // Set the coin price from the last known price
-    if(json)
+    if(json){
         XC.status = json;
+        if(typeof updateFreshnessBanner === 'function')
+            updateFreshnessBanner();
+    }
     // Define callback function to handle processing data once we have it
     let cb = function(json){
         if(json){
             // Update the xchain-explorer status
             XC.status = json;
+            // Show, refresh or clear the delayed-data banner for this coin
+            if(typeof updateFreshnessBanner === 'function')
+                updateFreshnessBanner();
             // Get basic information on the COIN network
             getCoinNetworkInfo();
             // Handle processing the callback if we have one

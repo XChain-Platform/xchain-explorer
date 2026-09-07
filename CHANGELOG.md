@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A ROLLCALL action detail exposes the gates list a v1 roll call carried.
 - The action detail of a chunked DEPLOY reports which action deployed the contract and whether the assembly is still pending.
 
+### Fixed
+- `/api/action/{index}` answers 404 for an index the chain has no action at, instead of a 200 with every field null.
+
 ## [0.15.2] - 2026-09-07
 
 ### Fixed

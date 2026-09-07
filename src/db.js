@@ -2081,6 +2081,22 @@ class Database {
      ******************************************************************/
 
     async getAction(config){
+        // getActionData has no not-found return of its own: when getActionType
+        // finds no `actions` row, getActionData still falls through to a
+        // truthy all-null baseline object ({credits, debits, escrows, fee:
+        // null}), so wrapping that as [data] answered 200 with a body of
+        // nulls instead of the 404 getBlock and getCheckpoint give a missing
+        // index (their not-found is [null]). A bug report misread that
+        // 200-with-nulls, hit under rapid reads, as a rate limit; it was this
+        // branch. Resolve the type here first and match that convention.
+        //
+        // This runs getActionType twice on a hit, since getActionData
+        // resolves it again from its own preload logic below - accepted,
+        // because the expensive path is unaffected and a not-found now takes
+        // the cheap one instead of the whole getActionData detail fan-out.
+        let type = await this.getActionType(config, config.data.search);
+        if(this.util.isNull(type))
+            return [null];
         let data = await this.getActionData(config, config.data.search);
         return [data];
     }

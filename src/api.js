@@ -113,6 +113,12 @@ async function startApi(){
                 styleSrc:    ["'self'", "'unsafe-inline'"],
                 // data: URIs are required for QR code generation; https: allows external images in token descriptions
                 imgSrc:      ["'self'", "data:", "https:"],
+                // Token descriptions can carry <video>/<audio> sources on any https host,
+                // and the sandboxed custom-content srcdoc frame inherits THIS policy (a
+                // srcdoc document has no origin of its own to carry one), so without an
+                // explicit media-src the default-src 'self' fallback refuses every
+                // external clip. Same shape as img-src: any https origin, nothing else.
+                mediaSrc:    ["'self'", "https:"],
                 // cloudflareinsights.com receives the RUM beacon's measurement POSTs
                 // (older beacon builds post cross-origin instead of to /cdn-cgi/rum).
                 connectSrc:  ["'self'", "wss:", "ws:", "https://cloudflareinsights.com"],

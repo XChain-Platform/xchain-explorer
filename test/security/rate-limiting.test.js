@@ -264,17 +264,21 @@ describe('Security: Rate Limiting: Rate limiter config', function () {
     });
 
     it('has max requests configured', function () {
-        // express-rate-limit v7 renamed `max` to `limit`; api.js uses
-        // `limit: parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || <default>`
-        // assert the fallback default is sane. The ceiling is 1080 because that is
-        // the measured requirement of a five-address wallet's worst minute with
+        // The app-wide ceiling is resolved from its knob, so the assertion reads
+        // the resolution itself (`parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10)
+        // || <default>`) wherever api.js puts it, rather than a `limit:` line that
+        // happens to carry `||` on the same line: the old shape passed only while
+        // the ceiling stayed inline in the limiter's options, and any other way of
+        // resolving it would have matched nothing. The default is 1080 because that
+        // is the measured requirement of a five-address wallet's worst minute with
         // retries and 3x headroom, not a round number picked for comfort; a default
-        // above it would be room nothing on the wallet's path asked for.
-        const match = apiSource.match(/limit:\s*.*?\|\|\s*(\d+)/) || apiSource.match(/max:\s*(\d+)/);
-        expect(match).to.not.be.null;
-        const maxRequests = parseInt(match[1], 10);
-        expect(maxRequests).to.be.at.most(1080);
-        expect(maxRequests).to.be.at.least(1);
+        // above it would be room nothing on the wallet's path asked for, and one
+        // below it would refuse an honest wallet. rate-limit-pins.test.js holds the
+        // same number against the deploy drop-in.
+        const resolved = apiSource.match(/parseInt\(process\.env\.EXPLORER_RATE_LIMIT_RPM,\s*10\)\s*\|\|\s*(\d+)/g) || [];
+        expect(resolved, 'exactly one resolution of the app-wide ceiling').to.have.lengthOf(1);
+        const maxRequests = parseInt(resolved[0].match(/\|\|\s*(\d+)/)[1], 10);
+        expect(maxRequests).to.equal(1080);
     });
 });
 

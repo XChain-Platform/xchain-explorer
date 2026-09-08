@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A security test pins the eight rate-limit environment variables and their code defaults against `deploy/rate-limits.conf`, so a limiter added without a pin or a default that moves without the drop-in fails at test time.
 - Every rate limiter logs one counter line per window when it refuses requests, naming the limiter, the count and the knob to raise, so an operator can see a 429 happening.
 
+### Changed
+- The app-wide rate-limit ceiling test reads the knob's resolution wherever api.js puts it instead of a `limit:` line, so a relocated default cannot pass unread.
+
 ### Fixed
 - `/api/action/{index}` answers 404 for an index the chain has no action at, instead of a 200 with every field null.
 

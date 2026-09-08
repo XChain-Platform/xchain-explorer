@@ -10939,6 +10939,178 @@
         }
       },
       "x-registered": "express"
+    },
+    "/{COIN}/api/balances": {
+      "post": {
+        "operationId": "balances",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Token balances and address summary for up to 20 addresses in one request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES"
+                  }
+                },
+                "required": [
+                  "addresses"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "One entry per requested address, keyed by the address string",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "balances": {
+                        "description": "The GET /balances/{address} body, or null when that read failed",
+                        "nullable": true
+                      },
+                      "address": {
+                        "description": "The GET /address/{address} body, or null when that read failed",
+                        "nullable": true
+                      },
+                      "error": {
+                        "description": "null, or { code, error, status } from the failed per-address read",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/coinpay_obligations": {
+      "post": {
+        "operationId": "coinpay_obligations",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Open COINPAY obligations for up to 20 addresses in one request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES"
+                  }
+                },
+                "required": [
+                  "addresses"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "One entry per requested address, keyed by the address string",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "coinpay_obligations": {
+                        "description": "The GET /coinpay_obligations/{address}/address body, or null when that read failed",
+                        "nullable": true
+                      },
+                      "error": {
+                        "description": "null, or { code, error, status } from the failed per-address read",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
     }
   },
   "components": {

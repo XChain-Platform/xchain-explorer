@@ -433,6 +433,85 @@ const SPECIAL = [
                 },
             },
         }],
+    // Batch reads: one POST for up to 20 addresses answering the same bodies the
+    // per-address GETs return, keyed by address. A wallet polling several
+    // addresses per chain sends one request per chain instead of two per address;
+    // both share one rate limit (EXPLORER_BATCH_RATE_LIMIT_RPM).
+    ['/{COIN}/api/balances', 'Core',
+        'Token balances and address summary for up to 20 addresses in one request',
+        null,
+        {
+            noGet: true,
+            schema: {
+                type: 'object',
+                description: 'One entry per requested address, keyed by the address string',
+                additionalProperties: {
+                    type: 'object',
+                    properties: {
+                        balances: { description: 'The GET /balances/{address} body, or null when that read failed', nullable: true },
+                        address:  { description: 'The GET /address/{address} body, or null when that read failed', nullable: true },
+                        error:    { description: 'null, or { code, error, status } from the failed per-address read', nullable: true },
+                    },
+                },
+            },
+            responses: {
+                429: { description: 'Too many batch requests from this client; retry after the window',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            },
+            post: {
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    addresses: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 20, description: 'Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES' },
+                                },
+                                required: ['addresses'],
+                            },
+                        },
+                    },
+                },
+            },
+        }],
+    ['/{COIN}/api/coinpay_obligations', 'Markets',
+        'Open COINPAY obligations for up to 20 addresses in one request',
+        null,
+        {
+            noGet: true,
+            schema: {
+                type: 'object',
+                description: 'One entry per requested address, keyed by the address string',
+                additionalProperties: {
+                    type: 'object',
+                    properties: {
+                        coinpay_obligations: { description: 'The GET /coinpay_obligations/{address}/address body, or null when that read failed', nullable: true },
+                        error: { description: 'null, or { code, error, status } from the failed per-address read', nullable: true },
+                    },
+                },
+            },
+            responses: {
+                429: { description: 'Too many batch requests from this client; retry after the window',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            },
+            post: {
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    addresses: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 20, description: 'Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES' },
+                                },
+                                required: ['addresses'],
+                            },
+                        },
+                    },
+                },
+            },
+        }],
 ];
 
 const QUERY_DESC = {

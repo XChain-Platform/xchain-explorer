@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `POST /{COIN}/api/balances` and `POST /{COIN}/api/coinpay_obligations` read up to 20 addresses in one request, answering the same bodies as the per-address reads keyed by address, behind their own rate limit (`EXPLORER_BATCH_RATE_LIMIT_RPM`).
 - A ROLLCALL action detail exposes the gates list a v1 roll call carried.
 - A security test pins the eight rate-limit environment variables and their code defaults against `deploy/rate-limits.conf`, so a limiter added without a pin or a default that moves without the drop-in fails at test time.
 - Every rate limiter logs one counter line per window when it refuses requests, naming the limiter, the count and the knob to raise, so an operator can see a 429 happening.

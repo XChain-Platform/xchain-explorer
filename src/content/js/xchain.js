@@ -4876,6 +4876,29 @@ function pickDisplayMedia(arr, types){
     return false;
 }
 
+// The Artwork Information title, in precedence order: the document's top-level
+// `title` (what community JSONs write for the piece as a whole), then the first
+// display entry carrying a TIS v1.1.0 `title`, then the first entry `name`
+// (the filename, the only thing the old code read). Entries come in
+// image, audio, video order so a picture's caption wins over a soundtrack's.
+// Measured live: a token whose display image came from the legacy image_large field
+// (no name) fell through to its audio filename and titled the artwork "BADGUY.mp3".
+function resolveArtworkTitle(topTitle, entries){
+    var present = function(v){ return v !== undefined && v !== null && String(v).trim() !== ''; };
+    if(present(topTitle))
+        return String(topTitle);
+    var list = entries || [];
+    for(var i=0; i<list.length; i++){
+        if(list[i] && present(list[i].title))
+            return String(list[i].title);
+    }
+    for(var j=0; j<list.length; j++){
+        if(list[j] && present(list[j].name))
+            return String(list[j].name);
+    }
+    return false;
+}
+
 // Handle displaying token content (images, audio, video, etc)
 function showTokenContent(json){
     // Convert any legacy formated JSON to the new XChain Token Information Standard (TIS)
@@ -4895,6 +4918,11 @@ function showTokenContent(json){
         video = false,
         image = false,
         title = false;
+    // The display entry each media section settled on; resolveArtworkTitle reads
+    // their title/name fields once all three sections have run.
+    var imageItem = false,
+        audioItem = false,
+        videoItem = false;
 
     // Basic Token Information
     var main  = getArrayItemByType(o.categories, 'main'),
@@ -4974,11 +5002,9 @@ function showTokenContent(json){
         // first, then the first non-locked entry (fixes the old `first.data`
         // dereference of a string, which hid the artwork for plain TIS docs
         // whose entries carry MIME types instead of display-type tags)
-        var imageItem = pickDisplayMedia(o.images, ['large','standard']);
-        if(imageItem){
+        imageItem = pickDisplayMedia(o.images, ['large','standard']);
+        if(imageItem)
             image = imageItem.data;
-            title = imageItem.name;
-        }
     }
 
     // Audio
@@ -4992,12 +5018,9 @@ function showTokenContent(json){
         });
         updateTokenSection('#audioInfo');
         // Extract the display audio from the audio array
-        var audioItem = pickDisplayMedia(o.audio, ['m4a','mp3','wav']);
-        if(audioItem){
+        audioItem = pickDisplayMedia(o.audio, ['m4a','mp3','wav']);
+        if(audioItem)
             audio = audioItem.data;
-            if(!title)
-                title = audioItem.name;
-        }
     }
 
     // Video
@@ -5011,13 +5034,11 @@ function showTokenContent(json){
         });
         updateTokenSection('#videoInfo');
         // Extract the display video from the videos array
-        var videoItem = pickDisplayMedia(o.video, ['mp4','mov','wmv']);
-        if(videoItem){
+        videoItem = pickDisplayMedia(o.video, ['mp4','mov','wmv']);
+        if(videoItem)
             video = videoItem.data;
-            if(!title)
-                title = videoItem.name;
-        }
     }
+    title = resolveArtworkTitle(o.title, [imageItem, audioItem, videoItem]);
 
     // Files
     if(o.files.length){
@@ -5517,8 +5538,10 @@ function legacyJsonToXChainTIS(o){
     // Replace any ar: urls with the arweave.net gateway
     if(ar.test(o.image))
         o.image = 'https://arweave.net/' + String(o.image).replace(ar,'');
-    // Pass basic token info fields forward
-    ['token','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
+    // Pass basic token info fields forward. `title` is the piece's display title
+    // (community JSONs carry it at the top level beside `name`); the token page
+    // reads it ahead of any per-entry title or filename (resolveArtworkTitle).
+    ['token','description','image','website','pgpsig','name','title'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
     // Owner fields
     json.owner = {};
     if(o.owner)

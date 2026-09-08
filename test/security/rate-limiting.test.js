@@ -304,6 +304,15 @@ describe('Security: Rate Limiting: Helmet configuration', function () {
         expect(apiSource).to.match(/mediaSrc:\s*\["'self'",\s*"https:"\]/);
         expect(apiSource).to.not.match(/mediaSrc:[^\n]*(data:|blob:|\*)/);
     });
+
+    it('frame-src admits any https origin (token custom content embeds third-party iframes)', function () {
+        // A token's TIS `html` may wrap an <iframe> to its own site; the sandboxed
+        // srcdoc frame inherits this policy, so a host allowlist blanks every such
+        // token. https only, like img-src and media-src: no data:/blob:,
+        // no http:, no bare wildcard.
+        expect(apiSource).to.match(/frameSrc:\s*\["'self'",\s*"https:"\]/);
+        expect(apiSource).to.not.match(/frameSrc:[^\n]*(data:|blob:|http:|\*)/);
+    });
 });
 
 describe('Security: Rate Limiting: CORS configuration', function () {

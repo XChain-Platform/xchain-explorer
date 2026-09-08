@@ -126,8 +126,15 @@ async function startApi(){
                 // Font Awesome is self-hosted at /fontawesome (CSS + webfonts served
                 // from the bundled Free package), so 'self' covers its fonts too.
                 fontSrc:     ["'self'"],
-                // Token descriptions can embed YouTube and SoundCloud players
-                frameSrc:    ["'self'", "https://www.youtube.com", "https://w.soundcloud.com"],
+                // Token custom content (the TIS `html` field) embeds third-party pages
+                // by <iframe>, and the sandboxed srcdoc frame it renders in inherits THIS
+                // policy, so a host allowlist here decides what a token page may show.
+                // The old allowlist (self, YouTube, SoundCloud) refused every other host
+                // with Chrome's "This content is blocked" panel, blanking community tokens
+                //. Same shape as img-src and media-src: any https origin, nothing
+                // else. The frame runs in an opaque origin with no allow-same-origin, so an
+                // embedded page cannot reach the explorer's origin, storage or cookies.
+                frameSrc:    ["'self'", "https:"],
                 // Block all plugins (Flash, etc.)
                 objectSrc:   ["'none'"],
                 // Only force-upgrade subresources to HTTPS when TLS-fronted (see HTTPS_HARDENING).

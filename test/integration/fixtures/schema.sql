@@ -1032,10 +1032,10 @@ CREATE TABLE contracts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index         ON contracts (action_index);
+CREATE        INDEX source_code_hash     ON contracts (source_id, code_hash);
 CREATE        INDEX source_id            ON contracts (source_id);
 CREATE        INDEX code_hash            ON contracts (code_hash);
 CREATE        INDEX status_id            ON contracts (status_id);
-CREATE        INDEX source_code_hash     ON contracts (source_id, code_hash);
 CREATE        INDEX slash_destination_id ON contracts (slash_destination_id);
 
 DROP TABLE IF EXISTS contract_permissions;

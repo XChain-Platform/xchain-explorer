@@ -28,7 +28,7 @@ jobs:
       # sibling snapshot against a sibling still declaring the old version. That
       # is unsatisfiable: the snapshot must move for the release, and develop
       # must not. Empty everywhere else, which keeps the existing behaviour.
-      siblings-ref: ${{ startsWith(github.head_ref, 'release/') && github.head_ref || '' }}
+      siblings-ref: ${{ (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/')) && github.head_ref || '' }}
     # Override the Node version for a repo if ever needed:
     #   node-version: "20"
 
@@ -147,7 +147,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: XChain-Platform/xchain-indexer
-          ref: ${{ github.ref == 'refs/heads/master' && 'master' || 'develop' }}
+          ref: ${{ (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/')) && github.head_ref || (github.ref == 'refs/heads/master' && 'master' || 'develop') }}
           ssh-key: ${{ secrets.XCHAIN_INDEXER_DEPLOY_KEY }}
           path: xchain-indexer
 
@@ -155,17 +155,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: XChain-Platform/xchain-hub
-          ref: ${{ github.ref == 'refs/heads/master' && 'master' || 'develop' }}
+          ref: ${{ startsWith(github.head_ref, 'release/') && github.head_ref || (startsWith(github.head_ref, 'hotfix/') && 'master') || (github.ref == 'refs/heads/master' && 'master' || 'develop') }}
           ssh-key: ${{ secrets.XCHAIN_HUB_DEPLOY_KEY }}
           path: xchain-hub
 
       # No deploy key is provisioned on this repo for the decoder, and none is
       # needed: it is public post-flip, so clone it unauthenticated the way the
       # shared workflow clones every declared sibling. Tracks the caller's branch
-      # so a DDL change on develop is measured against develop.
+      # so a DDL change on develop is measured against develop; a hotfix or
+      # release PR is measured against siblings at its own branch (the hub at
+      # master on a hotfix, the tagged line it pairs with).
       - name: Check out the real decoder DDL (xchain-decoder)
         env:
-          SIBLINGS_REF: ${{ github.ref == 'refs/heads/master' && 'master' || 'develop' }}
+          SIBLINGS_REF: ${{ (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/')) && github.head_ref || (github.ref == 'refs/heads/master' && 'master' || 'develop') }}
         run: |
           set -euo pipefail
           url="https://github.com/${{ github.repository_owner }}/xchain-decoder.git"
@@ -206,7 +208,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: XChain-Platform/xchain-hub
-          ref: ${{ github.ref == 'refs/heads/master' && 'master' || 'develop' }}
+          ref: ${{ startsWith(github.head_ref, 'release/') && github.head_ref || (startsWith(github.head_ref, 'hotfix/') && 'master') || (github.ref == 'refs/heads/master' && 'master' || 'develop') }}
           ssh-key: ${{ secrets.XCHAIN_HUB_DEPLOY_KEY }}
           path: xchain-hub
 
@@ -238,7 +240,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: XChain-Platform/xchain-indexer
-          ref: ${{ github.ref == 'refs/heads/master' && 'master' || 'develop' }}
+          ref: ${{ (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/')) && github.head_ref || (github.ref == 'refs/heads/master' && 'master' || 'develop') }}
           ssh-key: ${{ secrets.XCHAIN_INDEXER_DEPLOY_KEY }}
           path: xchain-indexer
 
@@ -269,7 +271,7 @@ jobs:
         # suite, so a sibling pinned at develop makes it measure the bundled
         # snapshot against a version develop is never going to carry.
         with:
-          ref: ${{ startsWith(github.head_ref, 'release/') && github.head_ref || '' }}
+          ref: ${{ (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/')) && github.head_ref || '' }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4

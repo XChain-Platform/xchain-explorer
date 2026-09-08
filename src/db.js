@@ -417,9 +417,23 @@ class Database {
     // state as plain columns rather than a `state` block: an ATTEST or XCALL
     // request_status, a VOTE poll_status, a BET feed/bet status. Those are
     // listed, and the reasoning is written out, on MUTABLE_ACTION_FIELDS.
+    //
+    // The fourth is the status itself. A `pending:` status is the indexer saying
+    // this action has not settled: a chunked DEPLOY assembler waiting on its
+    // carriers reports `pending: CODE_HASH (awaiting chunks)` and a null
+    // deployed_contract_index, and the action that completes the group is a
+    // DIFFERENT action, so nothing about this response is rewritten when it
+    // completes - the values simply resolve differently on the next read. Cached,
+    // the null would be served for the life of the process to the very clients
+    // polling this endpoint to learn where their contract landed. The status is
+    // matched rather than deployed_contract_index being added to
+    // MUTABLE_ACTION_FIELDS, because that list is matched by PRESENCE: the field
+    // is on every DEPLOY response, so listing it would uncache every settled
+    // deploy forever for a mutation only the pending case has.
     _isCacheableAction(data){
         if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
         if(!this.util.isNull(data['state'])) return false;
+        if(!this.util.isNull(data['status']) && /^pending:/i.test(String(data['status']))) return false;
         for(let field of MUTABLE_ACTION_FIELDS)
             if(Object.prototype.hasOwnProperty.call(data, field)) return false;
         return true;

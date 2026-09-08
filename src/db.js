@@ -9945,6 +9945,12 @@ class Database {
         let holderCount = (census && census.length) ? Number(census[0].holder_count) : 0;
         let heldTotal   = (census && census.length) ? String(census[0].held_total)   : '0';
 
+        // The page offset is applied to the QUERY as well as to the rank numbers
+        // below. Seeding the ranks alone made page 2 return the same top-N addresses
+        // relabelled 101..200, which is worse than restarting at 1: it names the
+        // largest holder as the 101st. Same OFFSET idiom getData uses for API paging.
+        let offset = Number(config.type == 'api' && config.data.sql && this.util.isNumeric(config.data.sql.apiOffset)
+            ? Number(config.data.sql.apiOffset) : 0);
         let holders = await this.doQuery(config,
             `SELECT
                 a2.address,
@@ -9954,7 +9960,8 @@ class Database {
                 LEFT JOIN index_addresses a2 ON (a2.id=m.address_id)
             WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0
             ORDER BY CAST(m.amount AS DECIMAL(65,18)) DESC
-            LIMIT ` + limit, [tickId]) || [];
+            LIMIT ` + limit + (offset > 0 ? ' OFFSET ?' : ''),
+            offset > 0 ? [tickId, offset] : [tickId]) || [];
 
         // The denominator. Circulating supply is the token's own `supply` column; the
         // summed balances are carried alongside rather than substituted for it, because
@@ -9962,8 +9969,7 @@ class Database {
         // whichever number makes the percentages total 100 would erase the evidence.
         let supply = this.util.isNull(token.supply) ? '0' : String(token.supply);
         let ranked = [];
-        let rank   = Number(config.data.sql && this.util.isNumeric(config.data.sql.apiOffset)
-            ? Number(config.data.sql.apiOffset) : 0);
+        let rank   = offset;
         for(const h of holders){
             rank++;
             ranked.push({

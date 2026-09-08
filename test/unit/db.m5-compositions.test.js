@@ -317,6 +317,24 @@ describe('M5.2 getRichList (spec row 33)', function () {
         expect(data.holders.map((h) => h.rank)).to.deep.equal([101, 102, 103]);
     });
 
+    it('applies the page offset to the ranking QUERY, not only to the rank numbers', async function () {
+        // Seeding the ranks without offsetting the query returned the same top-N
+        // addresses on every page, relabelled: the venue's page 2 named the largest
+        // holder as #101. Found by driving /api/rich_list/XCHAIN?page=2 on RDOGE.
+        const { db } = await run({}, { sql: {
+            order: 'DESC', limit: LIMIT, apiOffset: 100,
+            where: { data: 'm.action_index IS NOT NULL', offset: '', offsetArgs: [] }
+        } });
+        const call = db.doQuery.getCalls().find((c) => flat(c.args[1]).includes('FROM balances m LEFT JOIN index_addresses'));
+        expect(flat(call.args[1])).to.match(/LIMIT \d+ OFFSET \?/);
+        expect(call.args[2]).to.deep.equal([7, 100]);
+        // Page 1 binds no offset placeholder at all.
+        const first = await run();
+        const p1 = first.db.doQuery.getCalls().find((c) => flat(c.args[1]).includes('FROM balances m LEFT JOIN index_addresses'));
+        expect(flat(p1.args[1])).to.not.include('OFFSET');
+        expect(p1.args[2]).to.deep.equal([7]);
+    });
+
     it('bounds the ranking with the caller-clamped limit', async function () {
         const { db } = await run();
         const ranking = db.doQuery.getCalls()

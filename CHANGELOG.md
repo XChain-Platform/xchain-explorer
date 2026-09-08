@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - A ROLLCALL action detail exposes the gates list a v1 roll call carried.
+- A security test pins the eight rate-limit environment variables and their code defaults against `deploy/rate-limits.conf`, so a limiter added without a pin or a default that moves without the drop-in fails at test time.
 
 ### Fixed
 - `/api/action/{index}` answers 404 for an index the chain has no action at, instead of a 200 with every field null.

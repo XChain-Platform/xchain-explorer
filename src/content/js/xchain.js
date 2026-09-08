@@ -1309,6 +1309,14 @@ function loadDatatablesData(coin, action, query, type, opts){
         url += '/' + query;
     if(type)
         url += '/' + type;
+    // The contracts list is the one list page whose feed can answer a text search:
+    // contract names and descriptions live in an indexed column pair (the contracts
+    // table's FULLTEXT meta_search), so a term is answered by the FEED. Every other
+    // list page keeps its box hidden, because with server-side paging a client-side
+    // search filters only the ten rows already on screen, which reads as "no results"
+    // for a term that has hundreds.
+    let nameSearch = (action=='contract' && !emptySearch);
+    let baseUrl    = url;
     // Set number of records per page to display
     var sm   = localStorage,
         rec  = sm.getItem('records_per_page');
@@ -1323,11 +1331,15 @@ function loadDatatablesData(coin, action, query, type, opts){
     let dtOptions = {
         lengthMenu: [[10,20,30,40,50,60,70,80,90,100],[10,20,30,40,50,60,70,80,90,100]],
         pageLength: page,
-        dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
+        // 'f' (the filter box) is rendered only where a term can actually be answered;
+        // DataTables draws no control for an option it is not given a slot for.
+        dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>'
+            + (nameSearch ? '<"xc-name-filter float-end me-2"f>' : '')
+            + '><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
         pagingType: "full",
         // Server-side paging is meaningless without a feed to page against.
         serverSide: !emptySearch,
-        searching: false,
+        searching: nameSearch,
         ordering: false,
         processing: true,
         autoWidth: false,
@@ -2015,16 +2027,41 @@ function loadDatatablesData(coin, action, query, type, opts){
                     $('td', row).eq(1).html(formatLink('/' + coin + '/transaction/' + transaction, highlightSearchTerm(XC.query, transaction)));
                     $('td', row).eq(2).html(formatLink('/' + coin + '/transaction/' + transaction, 'view', null, true));
                 }
+                // Contract: the fifth search category, matched on the declared name or
+                // description through the contracts FULLTEXT index rather than by LIKE.
+                // Name and description are author-supplied on-chain text, so both are
+                // hardened before the term highlighter (which escapes) sees them; the
+                // derived address is served by the API and is never omitted.
+                if(type=='contract'){
+                    let meta_name    = data[1];
+                    let meta_version = data[2];
+                    let address      = data[3];
+                    let snippet      = data[4];
+                    let idx          = data[5];
+                    $('td', row).eq(1).html(isNull(meta_name)
+                        ? '<span class="text-muted fst-italic">Unnamed contract</span>'
+                        : highlightSearchTerm(XC.query, hardenText(meta_name, 64)));
+                    $('td', row).eq(2).text(isNull(meta_version) ? '' : hardenText(meta_version, 32));
+                    $('td', row).eq(3).html(formatLink('/' + coin + '/contract/' + idx, escapeHtml(address)));
+                    $('td', row).eq(4).html(highlightSearchTerm(XC.query, hardenText(snippet, 160)));
+                    $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + idx, 'view', null, true));
+                }
             }
-            // Contract (DEPLOY list)
+            // Contract (DEPLOY list). The Name cell carries the contract's declared
+            // meta.name (spec contract-meta-manifest 2.6), hardened and escaped: it is
+            // author-supplied on-chain text reaching an HTML sink. A contract deployed
+            // before CONTRACT_META_REQUIRED has none, and reads "Unnamed contract"
+            // rather than blank, which would look like a missing value.
             if(action=='contract'){
-                let code_hash = data[4];
-                let api       = data[5];
-                let cooldown  = data[6];
-                $('td', row).eq(4).html(formatHash(code_hash));
-                $('td', row).eq(5).text(api);
-                $('td', row).eq(6).html(isNull(cooldown) ? 'No' : ('<span class="badge text-bg-info text-white">Stakeable</span> ' + numeral(cooldown).format(fmtInteger) + ' blk'));
-                $('td', row).eq(7).html(formatLink('/' + coin + '/contract/' + action_index, 'view', null, true));
+                let meta_name = data[4];
+                let code_hash = data[5];
+                let api       = data[6];
+                let cooldown  = data[7];
+                $('td', row).eq(4).html(formatContractName(meta_name, null));
+                $('td', row).eq(5).html(formatHash(code_hash));
+                $('td', row).eq(6).text(api);
+                $('td', row).eq(7).html(isNull(cooldown) ? 'No' : ('<span class="badge text-bg-info text-white">Stakeable</span> ' + numeral(cooldown).format(fmtInteger) + ' blk'));
+                $('td', row).eq(8).html(formatLink('/' + coin + '/contract/' + action_index, 'view', null, true));
             }
             // Execution (EXECUTE list)
             if(action=='execution'){
@@ -2871,7 +2908,27 @@ function loadDatatablesData(coin, action, query, type, opts){
             }
         };
     }
+    // The search box asks the feed a QUESTION, it does not filter what is on screen.
+    // These feeds take their term as a path segment (/explorer/contracts/<term>/name),
+    // never as a request parameter, so the term is turned into a url here. preXhr
+    // fires before DataTables extends its base ajax config with settings.ajax, so
+    // rewriting .url on the live object retargets THIS request: one fetch per term,
+    // not the term's own fetch plus a reload.
+    if(nameSearch){
+        $('#' + tableId).on('preXhr.dt', function(e, settings, params){
+            let term = (params && params.search && !isNull(params.search.value))
+                ? String(params.search.value).trim() : '';
+            // The same 3-character floor the server holds the FULLTEXT term to
+            // (innodb_ft_min_token_size): a shorter term matches nothing, so show the
+            // unfiltered list rather than an empty page the reader cannot explain.
+            settings.ajax.url = (term.length >= 3)
+                ? baseUrl + '/' + encodeURIComponent(term) + '/name'
+                : baseUrl;
+        });
+    }
     $('#' + tableId).dataTable(dtOptions);
+    if(nameSearch)
+        $('#' + tableId + '_filter input').attr('placeholder', 'Search contract names');
 }
 
 // Load an action's rows directly from the API and hand the response to callback;
@@ -3891,7 +3948,7 @@ function showDeployDetails(data){
         let carrierStakeable = (deployed !== null) && !isNull(data.cooldown_blocks);
         $('#info-deploy .deploy-staking-row').toggleClass('d-none', !carrierStakeable);
         if(deployed !== null){
-            $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + deployed, deployed));
+            $('#info-deploy .deploy-contract').html(formatContractIdentity(XC.coin, XC.chain, deployed, data.contract_meta_name, data.contract_meta_version));
             $('#info-deploy .deploy-api-version').text(isNull(data.api_version) ? '-' : data.api_version);
             $('#info-deploy .deploy-stakeable').html(carrierStakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
             if(carrierStakeable){
@@ -3911,8 +3968,11 @@ function showDeployDetails(data){
     if(deployed === null && /^pending:/i.test(assembly)){
         $('#info-deploy .deploy-contract').text(assembly);
     } else {
+        // Name WITH address, never instead of it (spec 2.6). The meta fields come off
+        // this DEPLOY's own contracts row, so a pending assembler (whose contract lands
+        // at another action) carries none and reads "Unnamed contract" until it does.
         let contractIdx = (deployed === null) ? data.action_index : deployed;
-        $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + contractIdx, contractIdx));
+        $('#info-deploy .deploy-contract').html(formatContractIdentity(XC.coin, XC.chain, contractIdx, data.contract_meta_name, data.contract_meta_version));
     }
     $('#info-deploy .deploy-api-version').text(data.api_version);
     let stakeable = !isNull(data.cooldown_blocks);
@@ -3926,7 +3986,7 @@ function showDeployDetails(data){
 
 // Display EXECUTE action information (contract method call)
 function showExecuteDetails(data){
-    $('#info-execute .execute-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    $('#info-execute .execute-contract').html(formatContractIdentity(XC.coin, XC.chain, data.contract_index, data.contract_meta_name, data.contract_meta_version));
     $('#info-execute .execute-caller').html(formatLink('/' + XC.coin + '/address/' + data.caller, data.caller));
     $('#info-execute .execute-method').text(data.method_name);
     $('#info-execute .execute-gas').text(numeral(data.gas_used).format('0,0') + ' / ' + numeral(data.gas_limit).format('0,0'));
@@ -3960,7 +4020,7 @@ function showExecuteDetails(data){
 function showDepositDetails(data){  showCustodyDetails('deposit', data);  }
 function showWithdrawDetails(data){ showCustodyDetails('withdraw', data); }
 function showCustodyDetails(kind, data){
-    $('#info-' + kind + ' .' + kind + '-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    $('#info-' + kind + ' .' + kind + '-contract').html(formatContractIdentity(XC.coin, XC.chain, data.contract_index, data.contract_meta_name, data.contract_meta_version));
     $('#info-' + kind + ' .' + kind + '-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-' + kind + ' .' + kind + '-amount').html(formatAmount(data.amount));
 }

@@ -8,7 +8,9 @@
                 </div>
                 <table class="table table-sm table-striped table-bordered mb-0">
                 <tbody>
-                    <tr><th width="175">Contract</th><td class="contract-index">-</td></tr>
+                    <tr><th width="175">Name</th><td class="contract-name">-</td></tr>
+                    <tr class="contract-description-row d-none"><th>Description</th><td class="contract-description text-break">-</td></tr>
+                    <tr><th>Contract</th><td class="contract-index">-</td></tr>
                     <tr><th>Deployer</th><td class="contract-source">-</td></tr>
                     <tr><th>Code Hash</th><td class="contract-code-hash text-truncate">-</td></tr>
                     <tr><th>Methods</th><td class="contract-methods">-</td></tr>
@@ -269,6 +271,18 @@ $(document).ready(function() {
     // loadApiData's pluralizing helper, so request it directly).
     $.getJSON('/' + XC.coin + '/api/contract/' + XC.query, function(o){
         if(o && !o.error){
+            // Contract identity (spec contract-meta-manifest 2.6): the declared name
+            // and version WITH the derived address, which stays the identity because
+            // names are not unique. A contract deployed before CONTRACT_META_REQUIRED
+            // declares none and reads "Unnamed contract". Both fields are author-
+            // supplied on-chain text: hardened, then escaped, before any HTML sink.
+            $('.contract-name').html(formatContractName(o.meta_name, o.meta_version)
+                + ' <span class="text-muted">·</span> <span class="font-monospace">'
+                + escapeHtml('C:' + XC.chain + ':' + o.action_index) + '</span>');
+            if(!isNull(o.meta_description)){
+                $('.contract-description').text(hardenText(o.meta_description, 512));
+                $('.contract-description-row').removeClass('d-none');
+            }
             $('.contract-index').html(formatLink('/' + XC.coin + '/action/' + o.action_index, o.action_index));
             $('.contract-source').html(isNull(o.source) ? '-' : formatLink('/' + XC.coin + '/address/' + o.source, o.source));
             $('.contract-code-hash').html(formatHash(o.code_hash, 48));

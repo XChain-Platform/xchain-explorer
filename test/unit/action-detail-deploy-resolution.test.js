@@ -75,7 +75,7 @@ function seed() {
         CREATE TABLE index_statuses     (id INTEGER, status TEXT);
         CREATE TABLE index_transactions (id INTEGER, hash TEXT);
         CREATE TABLE deploy_chunks      (action_index INTEGER, source_id INTEGER, code_hash TEXT, chunk_index INTEGER, total_chunks INTEGER, status_id INTEGER);
-        CREATE TABLE contracts          (action_index INTEGER, source_id INTEGER, code_hash TEXT, api_version INTEGER, cooldown_blocks INTEGER, slash_destination_id INTEGER, status_id INTEGER);
+        CREATE TABLE contracts          (action_index INTEGER, source_id INTEGER, code_hash TEXT, api_version INTEGER, cooldown_blocks INTEGER, slash_destination_id INTEGER, status_id INTEGER, meta_name TEXT, meta_version TEXT);
         CREATE TABLE contract_executions(action_index INTEGER, contract_index INTEGER, assembler_action_index INTEGER, status_id INTEGER);
         INSERT INTO index_actions      VALUES (9, 'DEPLOY');
         INSERT INTO index_addresses    VALUES (1, 'source-address'), (2, 'slash-address');
@@ -93,13 +93,20 @@ function addAction(db, index, format) {
     db.prepare('INSERT INTO transactions VALUES (?, 10, 1, 1)').run(index);
 }
 
+// Columns are NAMED rather than positional: the contracts row grew the identity
+// manifest (meta_name / meta_version, spec contract-meta-manifest 2.5), and a
+// positional INSERT would have to be rewritten by every column that lands next.
 function addContract(db, index, statusId, opts) {
     const o = opts || {};
     addAction(db, index, o.format === undefined ? 2 : o.format);
-    db.prepare('INSERT INTO contracts VALUES (?, 1, ?, ?, ?, ?, ?)').run(
+    db.prepare(`INSERT INTO contracts
+            (action_index, source_id, code_hash, api_version, cooldown_blocks, slash_destination_id, status_id, meta_name, meta_version)
+            VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)`).run(
         index, 'code-hash', o.api_version === undefined ? 1 : o.api_version,
         o.cooldown_blocks === undefined ? null : o.cooldown_blocks,
-        o.slash_destination_id === undefined ? null : o.slash_destination_id, statusId);
+        o.slash_destination_id === undefined ? null : o.slash_destination_id, statusId,
+        o.meta_name === undefined ? null : o.meta_name,
+        o.meta_version === undefined ? null : o.meta_version);
 }
 
 function addExecution(db, index, assemblerIndex, statusId) {
@@ -252,6 +259,58 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
             await DEPLOY.afterMain({ db, config, action_index: 300 }, data);
             assert.equal(issued, 0, 'the v0-v3 resolution is in the detail query, not a follow-up');
             assert.equal(data.deployed_contract_index, 305, 'the query answer was overwritten');
+        });
+    });
+
+    // The contract identity manifest on the DEPLOY payload (spec
+    // contract-meta-manifest 2.6): the wallet and the explorer both render
+    // "<name> v<version> · C:<CHAIN>:<index>" off these two keys, and a contract
+    // deployed before the rule declares neither, so they must be present-and-null
+    // rather than absent, exactly like deployed_contract_index.
+    describe('the declared contract identity on the DEPLOY payload', function () {
+
+        beforeEach(function () {
+            if (!sqlite) this.skip();
+        });
+
+        function sqlDb(sq) {
+            return { doQuery: async (cfg, sql, args) => sq.prepare(String(sql)).all(...(args || [])) };
+        }
+
+        it('a v0-v3 deploy answers the name and version off its own contracts row', async function () {
+            const db = seed();
+            addContract(db, 400, VALID, { meta_name: 'Escrow', meta_version: '2.0.0' });
+            const row = await detailRow(db, 400);
+            assert.equal(row.contract_meta_name, 'Escrow');
+            assert.equal(row.contract_meta_version, '2.0.0');
+        });
+
+        it('a pre-activation deploy answers null for both, not a missing key', async function () {
+            const db = seed();
+            addContract(db, 401, VALID);
+            const row = await detailRow(db, 401);
+            assert.equal(row.contract_meta_name, null);
+            assert.equal(row.contract_meta_version, null);
+            assert.equal('contract_meta_name' in row, true);
+        });
+
+        it('a carrier that completed the group answers the assembled contract identity', async function () {
+            const sq = seed();
+            addContract(sq, 405, VALID, { format: 4, meta_name: 'Escrow', meta_version: '2.0.0' });
+            addExecution(sq, 405, 400, VALID);
+            const data = { action_format: 4, action_index: 405 };
+            await DEPLOY.afterMain({ db: sqlDb(sq), config, action_index: 405 }, data);
+            assert.equal(data.contract_meta_name, 'Escrow');
+            assert.equal(data.contract_meta_version, '2.0.0');
+        });
+
+        it('a carrier that completed nothing answers null for both', async function () {
+            const sq = seed();
+            addAction(sq, 406, 4);
+            const data = { action_format: 4, action_index: 406 };
+            await DEPLOY.afterMain({ db: sqlDb(sq), config, action_index: 406 }, data);
+            assert.equal(data.contract_meta_name, null);
+            assert.equal(data.contract_meta_version, null);
         });
     });
 

@@ -1095,6 +1095,13 @@ class Database {
                     row.escrow_remaining = '0';
             }
         }
+        // Contract list rows carry the same identity shape the single-contract route
+        // serves: three flat meta_* columns plus the parsed `meta` object. Done here
+        // rather than in getContracts because that method returns SQL, not rows.
+        if(config.data.method=='getContracts' && Array.isArray(data) && data.length){
+            for(let row of data)
+                this.attachContractMeta(row);
+        }
         // /validators stays the ONE validator table (no second federation-registry
         // page), so every on-chain active-set row also carries the hub registry's view of
         // the same signing pubkey: network addr, served chains, registration status. One
@@ -1662,6 +1669,15 @@ class Database {
             // in xchain-indexer, out of this surface) can serve it directly.
             if(type=='name' && method=='getFiles')
                 sql += ' AND m.name=?';
+            // getContracts 'name' mode (spec contract-meta-manifest 2.6): find a
+            // contract by a word from its declared name or description. The house
+            // filter is a leading-% LIKE, which no index can serve; these two columns
+            // are the schema's first FULLTEXT index (meta_search), so this lane uses
+            // MATCH ... AGAINST over it instead. The bound term is the SANITIZED one
+            // getContracts computes, never the raw path segment: BOOLEAN MODE reads
+            // operator characters inside the value.
+            if(type=='name' && method=='getContracts')
+                sql += ' AND MATCH (m.meta_name, m.meta_description) AGAINST (? IN BOOLEAN MODE)';
         }
         return sql;
     }
@@ -4424,23 +4440,31 @@ class Database {
         const SEARCH_MIN_LENGTH = 3;
         const searchRaw = (config.data.search || '').trim();
         if(searchRaw.length < SEARCH_MIN_LENGTH){
-            return [{ data: [], totals: { addresses: 0, broadcasts: 0, tokens: 0, transactions: 0 } }, null, 0];
+            return [{ data: [], totals: { addresses: 0, broadcasts: 0, contracts: 0, tokens: 0, transactions: 0 } }, null, 0];
         }
         // Cap the result LIMIT to a safe ceiling regardless of what the pager computed,
         // as a defense-in-depth measure against runaway scans on popular terms.
         const SEARCH_MAX_ROWS = 100;
         // --- End Fix A ---
-        let searchTypes = ['address', 'broadcast', 'token', 'transaction'];
+        let searchTypes = ['address', 'broadcast', 'contract', 'token', 'transaction'];
         let dataType    = config.data.type;
         let search      = '%' + this.util.escapeLike(searchRaw) + '%';
         let total       = 0;
         let sql  = config.data.sql;
         const searchLimit = Math.min(Number(sql.limit) || SEARCH_MAX_ROWS, SEARCH_MAX_ROWS);
+        // The contract panel is the ONE panel that is not a LIKE (spec 2.6): contracts
+        // carry a FULLTEXT index over (meta_name, meta_description), so a name or
+        // description word is matched through it rather than by a leading-% scan. Its
+        // term is sanitized for BOOLEAN MODE and can come back empty (a term of nothing
+        // but operator characters), which leaves the contract panel at zero while the
+        // other four still answer their own counts.
+        let ftTerm = this.fulltextTerm(searchRaw);
         let data = {
             data: [],
             totals: {
                 addresses:    0,
                 broadcasts:   0,
+                contracts:    0,
                 tokens:       0,
                 transactions: 0
             },
@@ -4451,6 +4475,8 @@ class Database {
             { type: 'broadcast',   query: `SELECT COUNT(*) AS count FROM broadcasts b LEFT JOIN index_memos m ON (m.id=b.memo_id) WHERE LOWER(b.message) LIKE LOWER( ? ) OR LOWER(m.memo) LIKE LOWER( ? )`, args: [search, search] },
             { type: 'token',       query: `SELECT COUNT(*) AS count FROM tokens t1 LEFT JOIN index_tickers t2 ON (t2.id=t1.tick_id) WHERE LOWER(t2.tick) LIKE LOWER( ? ) OR LOWER(t1.description) LIKE LOWER( ? )`, args: [search, search] }
         ];
+        if(ftTerm !== '')
+            countQueries.push({ type: 'contract', query: `SELECT COUNT(*) AS count FROM contracts m WHERE MATCH (m.meta_name, m.meta_description) AGAINST (? IN BOOLEAN MODE)`, args: [ftTerm] });
         let countResults = await Promise.all(countQueries.map(q => this.doQuery(config, q.query, q.args)));
         for(let i = 0; i < countQueries.length; i++){
             let results = countResults[i];
@@ -4459,6 +4485,7 @@ class Database {
                 let cnt = Number(results[0].count);
                 if(type=='address')     data.totals.addresses    = cnt;
                 if(type=='broadcast')   data.totals.broadcasts   = cnt;
+                if(type=='contract')    data.totals.contracts    = cnt;
                 if(type=='token')       data.totals.tokens       = cnt;
                 if(type=='transaction') data.totals.transactions = cnt;
                 if(type==dataType)      total = cnt;
@@ -4469,6 +4496,9 @@ class Database {
             let args  = [search];
             if(['broadcast','token'].includes(dataType))
                 args.push(search);
+            // The contract panel binds the FULLTEXT term, not the LIKE pattern.
+            if(dataType=='contract')
+                args = [ftTerm];
             if(dataType=='address')
                 query = `SELECT
                             address
@@ -4516,10 +4546,41 @@ class Database {
                         ORDER BY t2.tick ASC
                         LIMIT ` + searchLimit;
             }
+            // Contracts, matched through meta_search rather than by LIKE. Newest
+            // first: contract indexes are monotonic, so ORDER BY action_index DESC
+            // is "most recently deployed", which is what a name search is looking
+            // for when several contracts share a name (they are not unique).
+            if(dataType=='contract'){
+                query = `SELECT
+                            m.action_index,
+                            m.meta_name,
+                            m.meta_version,
+                            m.meta_description
+                        FROM
+                            contracts m
+                        WHERE
+                            MATCH (m.meta_name, m.meta_description) AGAINST (? IN BOOLEAN MODE)
+                        ORDER BY m.action_index DESC
+                        LIMIT ` + searchLimit;
+            }
             if(query){
                 let results = await this.doQuery(config, query, args);
                 if(results && results.length)
                     data.data = results;
+                // A contract hit carries the derived address the reader actually
+                // navigates by (C:<CHAIN>:<action_index>, the same derivation
+                // getContractBalance uses) and a bounded description snippet: the
+                // column holds up to 512 bytes, which is a paragraph in a results row.
+                if(dataType=='contract' && Array.isArray(data.data)){
+                    let chain = this.baseCoin ? (this.baseCoin[config.coin] || config.coin) : config.coin;
+                    data.data = data.data.map((row) => ({
+                        action_index:     row.action_index,
+                        contract_address: 'C:' + chain + ':' + row.action_index,
+                        meta_name:        this.util.isNull(row.meta_name)    ? null : row.meta_name,
+                        meta_version:     this.util.isNull(row.meta_version) ? null : row.meta_version,
+                        snippet:          this._metaSnippet(row.meta_description)
+                    }));
+                }
             }
         }
         // Get count of total number of addresses
@@ -7184,8 +7245,25 @@ class Database {
         return results || [];
     }
 
+    // Deployed contracts. Every contract query is an explicit column list, so the
+    // four meta_* columns (spec contract-meta-manifest 2.5) are named here as well
+    // as on getContract; meta_json is parsed into the nested `meta` object by
+    // getData's post-pass, the same shape the single-contract route serves.
+    //
+    // The `name` lane binds the FULLTEXT term the WHERE clause built (see
+    // getQueryWhereSql), which is the one filter on this method whose bind value is
+    // not the raw path segment: BOOLEAN MODE reads +, -, *, ", ( ), ~, < > and @ as
+    // operators, so an unsanitized term is a query-syntax injection into the search
+    // itself. A term left with nothing to match after sanitizing returns the empty
+    // page rather than a MATCH that would match everything.
     async getContracts(config){
         let sql   = config.data.sql;
+        let args  = null;
+        if(config.data.type=='name'){
+            let term = this.fulltextTerm(config.data.search);
+            if(term === '') return [[], null, 0];
+            args = [term];
+        }
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -7207,6 +7285,10 @@ class Database {
                         m.api_version,
                         m.cooldown_blocks,
                         sd.address as slash_destination,
+                        m.meta_name,
+                        m.meta_description,
+                        m.meta_version,
+                        m.meta_json,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -7225,7 +7307,7 @@ class Database {
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, null, count];
+        return [query, args, count];
     }
 
     // Get single CONTRACT by action_index. Data method (returns [data]): the
@@ -7246,6 +7328,10 @@ class Database {
                         m.api_version,
                         m.cooldown_blocks,
                         sd.address as slash_destination,
+                        m.meta_name,
+                        m.meta_description,
+                        m.meta_version,
+                        m.meta_json,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -7282,6 +7368,12 @@ class Database {
             }
             row.permissions  = permissions;
             row.max_take_bps = this.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps);
+            // Contract identity manifest (spec contract-meta-manifest 2.1): the three
+            // extracted columns ride flat beside permissions, and the whole declared
+            // object rides nested as `meta`, the way `abi` already does. meta_json
+            // holds the isolate's own JSON.stringify bytes; parse it here so no
+            // consumer has to (and so a malformed one is null rather than a string).
+            this.attachContractMeta(row);
             // action_index stays the driver's BIGINT so utility.jsonStringify emits the
             // exact decimal string openapi's info.description promises; a Number() here
             // collapsed values above 2^53 and made it the one index in this row typed
@@ -7344,6 +7436,54 @@ class Database {
             data = row;
         }
         return [data];
+    }
+
+    // Turn a contracts row's stored meta_json into the nested `meta` object every
+    // contract-bearing response carries, and drop the raw column: a consumer that
+    // had to JSON.parse a string field would eventually forget to, and the two
+    // forms of the same value on one row is the drift that produces. A row whose
+    // meta_json is absent, unparseable, or not a plain object gets meta null; the
+    // three flat columns are served exactly as stored (the author's own bytes,
+    // hardened at render, never here).
+    attachContractMeta(row){
+        if(!row || typeof row !== 'object') return row;
+        let meta = null;
+        if(!this.util.isNull(row.meta_json)){
+            try {
+                let parsed = JSON.parse(row.meta_json);
+                if(parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed))
+                    meta = parsed;
+            } catch(e){ meta = null; }
+        }
+        row.meta = meta;
+        delete row.meta_json;
+        return row;
+    }
+
+    // One search row's share of a contract description: enough to tell two hits
+    // apart, short enough that a 512-byte description cannot take over the results
+    // list. Truncated on characters, not bytes, because the consumer is a table
+    // cell. The bytes are otherwise the author's own and are hardened at render,
+    // never here.
+    _metaSnippet(description){
+        const SNIPPET_MAX = 160;
+        if(this.util.isNull(description)) return null;
+        let s = String(description);
+        return (s.length > SNIPPET_MAX) ? s.slice(0, SNIPPET_MAX - 1) + '…' : s;
+    }
+
+    // Sanitize a search term for MATCH ... AGAINST (? IN BOOLEAN MODE). BOOLEAN MODE
+    // gives +, -, ~, <, >, *, ", ( ), and @ operator meaning inside the bound value,
+    // so an unsanitized term is a query-language injection into the search (a bare
+    // '-foo' means "must NOT contain foo", '@10' is a distance operator, and an odd
+    // quote is a syntax error the driver reports as a failed read). Strip them, then
+    // hold the term to the same 3-character floor as the LIKE panels: InnoDB's
+    // innodb_ft_min_token_size is 3, so a shorter term indexes to nothing anyway.
+    // Returns '' when nothing usable survives, which callers answer as no results.
+    fulltextTerm(term){
+        if(this.util.isNull(term)) return '';
+        let out = String(term).replace(/[+\-~<>()"*@]/g, ' ').replace(/\s+/g, ' ').trim();
+        return (out.length < 3) ? '' : out;
     }
 
     // Get a contract's permissions manifest (protocol/Controller_Bound_Tokens.md):

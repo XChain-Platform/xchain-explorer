@@ -1018,6 +1018,10 @@
                 "cls": "address"
             },
             {
+                "label": "Name",
+                "cls": ""
+            },
+            {
                 "label": "Code Hash",
                 "cls": ""
             },

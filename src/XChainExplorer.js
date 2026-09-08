@@ -374,7 +374,9 @@ class XChainExplorer {
                 // Controller-bound token / address policy guards (Controller_Bound_Tokens.md): bind/unbind event stream
                 '/{COIN}/api/controllers'                     : ['getControllers'],
                 // VM / Contract Endpoints
-                '/{COIN}/api/contracts/{QUERY}/{TYPE}'         : ['getContracts',        ['block', 'address', 'source']],
+                // 'name' searches the contract identity manifest (meta_name, meta_description)
+                // through the contracts table's FULLTEXT index, not by LIKE (spec 2.6).
+                '/{COIN}/api/contracts/{QUERY}/{TYPE}'         : ['getContracts',        ['block', 'address', 'source', 'name']],
                 '/{COIN}/api/contracts'                        : ['getContracts'],
                 '/{COIN}/api/contract/{QUERY}'                 : ['getContract',          'contract'],
                 '/{COIN}/api/contract/{QUERY}/state'           : ['getContractState',     'contract'],
@@ -548,7 +550,9 @@ class XChainExplorer {
                 // a filter it silently ignores; single blocks have /{COIN}/api/block/{QUERY}.
                 '/{COIN}/api/blocks'                           : ['getBlocks'],
                 '/{COIN}/api/search/{QUERY}'                   : ['getSearch'],
-                '/{COIN}/api/search/{QUERY}/{TYPE}'            : ['getSearch',           ['address', 'broadcast', 'token', 'transaction']],
+                // 'contract' is the fifth search category (spec contract-meta-manifest
+                // 2.6): a contract found by a word from its declared name or description.
+                '/{COIN}/api/search/{QUERY}/{TYPE}'            : ['getSearch',           ['address', 'broadcast', 'contract', 'token', 'transaction']],
                 '/{COIN}/api/projects/{QUERY}/{TYPE}'          : ['getProjectTokens',    ['roster']],
                 '/{COIN}/api/credits/{QUERY}/{TYPE}'           : ['getCredits',          ['block', 'address']],
                 '/{COIN}/api/debits/{QUERY}/{TYPE}'            : ['getDebits',           ['block', 'address']], 
@@ -668,7 +672,8 @@ class XChainExplorer {
                 // whatever loadDatatablesData the fragment eventually calls.
                 '/{COIN}/explorer/anchor_reward_attestations/{QUERY}/{TYPE}' : ['getAnchorRewardAttestations', ['anchor', 'block', 'pubkey']],
                 '/{COIN}/explorer/anchor_reward_attestations'                : ['getAnchorRewardAttestations'],
-                '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address']],
+                // 'name' is what the contracts list page's own search box asks for.
+                '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address', 'name']],
                 '/{COIN}/explorer/executions/{QUERY}/{TYPE}'                 : ['getExecutions',   ['block', 'address', 'contract']],
                 '/{COIN}/explorer/emissions/{QUERY}/{TYPE}'                  : ['getEmissions',    ['contract', 'execution', 'block']],
                 '/{COIN}/explorer/emissions'                                 : ['getEmissions'],
@@ -717,7 +722,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/prices'                                   : ['getPrices'],
                 '/{COIN}/explorer/controllers'                              : ['getControllers'],
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'token', 'transaction']],
+                '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'contract', 'token', 'transaction']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/swap_matches/{QUERY}/{TYPE}'              : ['getSwapMatches',  ['block']],
                 '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'                     : ['getSwaps',        ['block', 'address', 'token']],
@@ -1718,9 +1723,12 @@ class XChainExplorer {
                     // locks (lock_max_supply) let the client badge NFT-pattern tokens.
                     if(['getTokens','getProjectTokens'].includes(method))
                         info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.decimals, info.id];
-                    // VM / Contract list pages
+                    // VM / Contract list pages. meta_name rides in the slot AFTER
+                    // source: the first four elements are the shared count/block/time/
+                    // source cells every list page renders generically, and status +
+                    // action_index stay last (row color + paging cursor).
                     if(method=='getContracts')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.code_hash, info.api_version, info.cooldown_blocks, info.slash_destination, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.meta_name, info.code_hash, info.api_version, info.cooldown_blocks, info.slash_destination, status, info.action_index];
                     if(method=='getExecutions')
                         info = [count_reverse, info.block_index, info.timestamp, info.contract_index, info.caller, info.method_name, info.gas_used, status, info.action_index];
                     // Per-contract emission rollup (contract_emissions joined through
@@ -1998,6 +2006,12 @@ class XChainExplorer {
                             info = [count, info.tick, info.description, null];
                         if(cfg.data.type=='transaction')
                             info = [count, info.hash, null];
+                        // Contract hits carry the identity a reader searched by: the
+                        // declared name, its version, the derived address they navigate
+                        // to, and a snippet of the description. action_index rides LAST,
+                        // the same paging-cursor position the broadcast panel uses.
+                        if(cfg.data.type=='contract')
+                            info = [count, info.meta_name, info.meta_version, info.contract_address, info.snippet, info.action_index];
                     }
                 }
 

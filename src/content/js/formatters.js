@@ -59,6 +59,69 @@ function escapeHtml(s){
     });
 }
 
+// Bidi overrides (LRE/RLE/PDF/LRO/RLO, LRI/RLI/FSI/PDI, LRM/RLM), zero-width
+// characters (ZWSP/ZWNJ/ZWJ, word joiner, BOM) and C0/C1 controls. The same three
+// sets the wallet's textHardening.js and the SDK's decoder/hardening.js carry, and
+// the same code points the CONTRACT_META_REQUIRED grammar refuses at consensus.
+// The grammar only binds deploys at/after its flag day, so a pre-activation
+// contract can hold any of them and every render has to neutralize them itself.
+var BIDI_CONTROLS    = /[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g;
+var ZERO_WIDTH       = /[\u200B-\u200D\u2060\uFEFF]/g;
+var TEXT_CONTROLS    = /[\u0000-\u001F\u007F-\u009F]/g;
+var BIDI_PLACEHOLDER = '\u2426'; // SYMBOL FOR SUBSTITUTE FORM TWO
+
+// Neutralize on-chain free text for display. A bidi control becomes a VISIBLE
+// placeholder rather than vanishing: silently dropping it would let "evil<RLO>txt"
+// read clean, which is the attack. Zero-width characters are dropped, controls
+// become a space, and whitespace runs collapse so a stripped control cannot leave
+// a fake line break behind. Returns plain text: the caller still escapes it before
+// it reaches an HTML sink.
+function hardenText(value, maxLength){
+    if(isNull(value)) return '';
+    var s = String(value)
+        .replace(BIDI_CONTROLS, BIDI_PLACEHOLDER)
+        .replace(ZERO_WIDTH, '')
+        .replace(TEXT_CONTROLS, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if(typeof maxLength === 'number' && maxLength > 1 && s.length > maxLength)
+        s = s.slice(0, maxLength - 1) + '…';
+    return s;
+}
+
+// A contract's identity label: its declared meta.name plus meta.version, hardened
+// and escaped, or the copy for a contract that declares no name (every contract
+// deployed before CONTRACT_META_REQUIRED). Never rendered without the address
+// beside it (see formatContractIdentity): names are not unique and never will be,
+// so the derived address stays the identity.
+function formatContractName(metaName, metaVersion){
+    var name = hardenText(metaName, 64);
+    var ver  = hardenText(metaVersion, 32);
+    if(name === '')
+        return '<span class="text-muted fst-italic">Unnamed contract</span>';
+    // meta.version is free text, so an author who wrote 'v1.0.0' would otherwise
+    // render as "vv1.0.0"; the display 'v' is ours, not theirs.
+    if(/^[vV][0-9]/.test(ver))
+        ver = ver.substring(1);
+    return escapeHtml(name) + (ver === '' ? '' : ' <span class="text-muted">v' + escapeHtml(ver) + '</span>');
+}
+
+// "Escrow v1.0.0 · C:BTC:2154": the label WITH the derived address, which is the
+// only form any surface prints (spec 2.6). chain is the base chain name (XC.chain:
+// RBTC -> BTC), matching how the indexer derives C:<CHAIN>:<action_index>.
+function formatContractIdentity(coin, chain, contractIndex, metaName, metaVersion){
+    // A caller that has not resolved its chain name yet prints the bare index, the
+    // way every contract cell did before the manifest: half a derived address
+    // ("C::1421") would be a wrong address, and a reader cannot tell that from a
+    // right one.
+    var address = isNull(chain)
+        ? escapeHtml(contractIndex)
+        : escapeHtml('C:' + chain + ':' + contractIndex);
+    return formatContractName(metaName, metaVersion)
+        + ' <span class="text-muted">·</span> '
+        + formatLink('/' + coin + '/contract/' + contractIndex, address);
+}
+
 function stripHtml(html){
     // Parse INERTLY. DOMParser('text/html') builds a document whose scripts do
     // not run and whose resource handlers (img/onerror, svg/onload) do not fire,
@@ -263,6 +326,9 @@ if(typeof module !== 'undefined' && module.exports){
         isNull: isNull,
         nullToBlank: nullToBlank,
         escapeHtml: escapeHtml,
+        hardenText: hardenText,
+        formatContractName: formatContractName,
+        formatContractIdentity: formatContractIdentity,
         stripHtml: stripHtml,
         formatAmount: formatAmount,
         formatLocks: formatLocks,

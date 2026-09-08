@@ -555,12 +555,15 @@ describe('Database#getSearch', () => {
         expect(total).to.equal(0);
     });
 
-    it('data has totals for addresses, broadcasts, tokens, transactions', async () => {
+    // Five categories since the contract identity manifest: a search UI reads the
+    // whole totals map to decide which tabs to offer, so a missing key is a tab that
+    // never appears rather than one that reads zero.
+    it('data has totals for addresses, broadcasts, contracts, tokens, transactions', async () => {
         sinon.stub(db, 'doQuery').resolves([{ count: 0 }]);
         const config = makeActionConfig('getSearch', 'address');
         config.data.search = 'addr';
         const [data] = await db.getSearch(config);
-        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'tokens', 'transactions']);
+        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions']);
     });
 
     it('populates address results when address type matches', async () => {
@@ -617,7 +620,7 @@ describe('Database#getSearch', () => {
         config.data.search = 'abc';
         const [data, , total] = await db.getSearch(config);
         expect(total).to.equal(0);
-        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'tokens', 'transactions']);
+        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions']);
     });
 
     it('clamps LIMIT to 100 even when sql.limit is larger', async () => {

@@ -88,6 +88,8 @@ const DEPLOY = {
                         m.api_version,
                         m.cooldown_blocks,
                         sd.address as slash_destination,
+                        m.meta_name    as contract_meta_name,
+                        m.meta_version as contract_meta_version,
                         b1.block_index,
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
@@ -139,6 +141,8 @@ const DEPLOY = {
                 c1.api_version,
                 c1.cooldown_blocks,
                 sd1.address as slash_destination,
+                c1.meta_name,
+                c1.meta_version,
                 cs1.status as contract_status
              FROM
                 contracts c1
@@ -149,6 +153,11 @@ const DEPLOY = {
              LIMIT 1`, [action_index]);
         let row = (rows && rows.length) ? rows[0] : null;
         data['deployed_contract_index'] = (row) ? row.action_index : null;
+        // The contract's declared identity, on the same prefix convention as
+        // deployed_contract_index: present (null allowed) on every DEPLOY response, so
+        // a carrier that completed nothing answers null rather than omitting the keys.
+        data['contract_meta_name']    = (row) ? row.meta_name    : null;
+        data['contract_meta_version'] = (row) ? row.meta_version : null;
         if(!row) return;
         data['api_version']       = row.api_version;
         data['cooldown_blocks']   = row.cooldown_blocks;
@@ -171,6 +180,12 @@ const DEPLOY = {
 
 const EXECUTE = {
     // EXECUTE action (contract method call → contract_executions)
+    //
+    // The called contract's declared identity (contract_meta_name /
+    // contract_meta_version) rides the payload so an EXECUTE reads
+    // "Escrow v1.0.0 · C:BTC:2154" instead of a bare index. LEFT JOIN, and null for
+    // a contract deployed before CONTRACT_META_REQUIRED: an execution row must not
+    // disappear because the contract it called declared no name.
     queries() {
         let query  = null;
         let query2 = null;
@@ -193,6 +208,8 @@ const EXECUTE = {
                     m.gas_limit,
                     m.emitted_count,
                     m.error_message,
+                    c1.meta_name    as contract_meta_name,
+                    c1.meta_version as contract_meta_version,
                     b1.block_index,
                     b1.block_time as timestamp,
                     t2.hash as tx_hash,
@@ -208,6 +225,7 @@ const EXECUTE = {
                     LEFT  JOIN index_addresses    a5 ON (a5.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN contracts          c1 ON (c1.action_index=m.contract_index)
                 WHERE
                     m.action_index=?
                 LIMIT 1`;
@@ -228,6 +246,10 @@ const EXECUTE = {
 
 const DEPOSIT_WITHDRAW = {
     // DEPOSIT / WITHDRAW action (contract custody transfers)
+    //
+    // Carries the custody counterparty's declared identity for the same reason
+    // EXECUTE does: the action names the contract it moved value to or from, and a
+    // name beside that index is the whole point of the manifest.
     queries({ type }) {
         let query  = null;
         let query2 = null;
@@ -241,6 +263,8 @@ const DEPOSIT_WITHDRAW = {
                     a3.address as source,
                     tk.tick,
                     m.amount,
+                    c1.meta_name    as contract_meta_name,
+                    c1.meta_version as contract_meta_version,
                     b1.block_index,
                     b1.block_time as timestamp,
                     t2.hash as tx_hash,
@@ -256,6 +280,7 @@ const DEPOSIT_WITHDRAW = {
                     LEFT  JOIN index_tickers      tk ON (tk.id=m.tick_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN contracts          c1 ON (c1.action_index=m.contract_index)
                 WHERE
                     m.action_index=?
                 LIMIT 1`;

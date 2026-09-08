@@ -218,7 +218,9 @@ describe('action detail render: fields that reached the API with nowhere to go',
             });
             expect(win.jQuery('#info-deploy .deploy-contract a').attr('href'))
                 .to.equal('/RDOGE/contract/1421');
-            expect(text(win, '#info-deploy .deploy-contract')).to.equal('1421');
+            // A contract deployed before CONTRACT_META_REQUIRED declares no identity,
+            // so the cell names it "Unnamed contract" beside the address it links.
+            expect(text(win, '#info-deploy .deploy-contract')).to.equal('Unnamed contract · 1421');
         });
 
         it('states the status instead of a dead link while the group is incomplete', function(){

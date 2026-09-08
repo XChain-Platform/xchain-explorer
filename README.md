@@ -4,8 +4,8 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.15.3-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-4%2C858%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.16.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-4%2C893%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -191,9 +191,8 @@ parity check CI runs across the vendored copies.
 These four names configure the shim itself. The fleet deploy path carries them
 into the container: `xchain-node` forwards any of them set in the module config
 store or in the deploy host's environment (`ModuleService.resolveObservabilityEnv`),
-and the validator compose files under `claude/deploy/testnet-validators/` name
-them outright. Nothing is fabricated when neither source sets one, so these
-defaults hold on an unconfigured box:
+and the validator compose files name them outright. Nothing is fabricated when
+neither source sets one, so these defaults hold on an unconfigured box:
 
 | Variable | Default | Effect |
 |---|---|---|
@@ -207,7 +206,7 @@ defaults hold on an unconfigured box:
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~4,095 tests) |
+| `npm test` | Run unit tests (~4,106 tests) |
 | `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
 | `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (34 tests) |
 | `npm run test:e2e` | End-to-end tests (49 tests, requires full stack) |
@@ -217,7 +216,7 @@ defaults hold on an unconfigured box:
 | `npm run test:smoke` | Smoke tests (unit + connected, 39 tests) |
 | `npm run test:smoke:unit` | Smoke tests (unit only, 13 tests) |
 | `npm run test:smoke:connected` | Smoke tests (connected, requires services, 26 tests) |
-| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal, 170 tests) |
+| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal, 194 tests) |
 | `npm run test:fuzz` | Fuzz tests (property-based, 10 tests) |
 | `npm run test:fuzz:deep` | Fuzz tests with `FUZZ_ITERATIONS=10000` (10 tests) |
 | `npm run test:performance` | Performance tests (baseline, throughput, concurrency, pool, memory, 33 tests) |

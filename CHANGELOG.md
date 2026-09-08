@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0] - 2026-09-08
+
+### Added
+- A ROLLCALL action detail exposes the gates list a v1 roll call carried.
+- A security test pins the eight rate-limit environment variables and their code defaults against `deploy/rate-limits.conf`, so a limiter added without a pin or a default that moves without the drop-in fails at test time.
+- Every rate limiter logs one counter line per window when it refuses requests, naming the limiter, the count and the knob to raise, so an operator can see a 429 happening.
+
+### Changed
+- The app-wide rate-limit ceiling test reads the knob's resolution wherever api.js puts it instead of a `limit:` line, so a relocated default cannot pass unread.
+
+### Fixed
+- `/api/action/{index}` answers 404 for an index the chain has no action at, instead of a 200 with every field null.
+- The code chunk that completes a chunked deploy shows the constructor gas it paid and its deploy card below the chunk rows, instead of ending at the code slice.
+
 ## [0.15.3] - 2026-09-08
 
 ### Added

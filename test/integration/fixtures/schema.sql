@@ -1188,9 +1188,9 @@ CREATE TABLE contract_executions (
     assembler_action_index BIGINT UNSIGNED,             -- deferred chunked DEPLOY: the pending assembler this constructor row consumed; NULL for inline and self-completed deploys
     fee_payment_mode    TINYINT UNSIGNED                 -- DEPLOY constructor rows from DEPLOY_DEFERRED_ASSEMBLY on: 1 native, 2 XCHAIN
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+CREATE        INDEX assembler_action_index ON contract_executions (assembler_action_index);
 
 CREATE UNIQUE INDEX action_index   ON contract_executions (action_index);
-CREATE        INDEX assembler_action_index ON contract_executions (assembler_action_index);
 CREATE        INDEX contract_index ON contract_executions (contract_index);
 CREATE        INDEX caller_id      ON contract_executions (caller_id);
 CREATE        INDEX block_index    ON contract_executions (block_index);
@@ -1342,6 +1342,7 @@ CREATE TABLE rollcall_signers (
     publisher     CHAR(64)        NOT NULL,        -- publishing validator's signing key; the publish reward attaches to it
     action_index  BIGINT UNSIGNED NOT NULL,        -- the ROLLCALL action this signature landed in
     block_index   BIGINT UNSIGNED NOT NULL,        -- DOGE block the action landed in
+    gates         TEXT            DEFAULT NULL,    -- ROLLCALL v1 GATES field as carried; NULL for v0
     PRIMARY KEY (epoch_height, pubkey),
     KEY idx_rollcall_signers_action (action_index),
     KEY idx_rollcall_signers_block (block_index),

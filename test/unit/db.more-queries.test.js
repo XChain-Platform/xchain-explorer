@@ -496,7 +496,11 @@ describe('Database#getAction', () => {
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
-    it('calls getActionData with config.data.search', async () => {
+    it('calls getActionData with config.data.search once the index resolves to a type', async () => {
+        // getAction now asks getActionType first and answers [null] for an
+        // index with no actions row (test/unit/action-not-found.test.js),
+        // so the detail path is only reached when a type comes back.
+        sinon.stub(db, 'getActionType').resolves('SEND');
         const stub = sinon.stub(db, 'getActionData').resolves({ action: 'SEND' });
         const config = cfg({ data: { search: '100' } });
         const [data] = await db.getAction(config);

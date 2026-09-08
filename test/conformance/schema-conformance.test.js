@@ -136,9 +136,12 @@ const PROBE_ARGS = {
     getAnchor:          { search: '1' },
     getAddressStaking:  { search: '1' },
     // M5.2's rich list resolves the TICK first and returns null when the tick was never
-    // interned, so on an empty schema this proves the identity read is legal and stops
-    // there, exactly like the four M4 compositions above.
-    getRichList:        { search: 'CONFTICK' }
+    // interned OR when the interned tick has no `tokens` row. The probe test seeds both
+    // for RICHTICK (see seedRichListSubject), because with only the tick interned the
+    // method stopped at its second guard and the tokens query never ran: that is how
+    // a `tokens.block_index` reference reached the RDOGE venue as a 500 while this
+    // canary printed green.
+    getRichList:        { search: 'RICHTICK' }
 };
 
 // The canonical UTF-8 ACTION string the decoder writes to
@@ -365,7 +368,28 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
      * 1. Every API-route read path executes against the real schema
      *****************************************************************/
 
+    // A composition that returns not-found before its composed legs run proves
+    // only that its identity read is legal. getRichList's subject is one seeded
+    // token, so its tokens/balances legs execute against the real DDL here.
+    async function seedRichListSubject() {
+        const conn = await adminPool.getConnection();
+        try {
+            await conn.query('USE `' + INDEXER_DB + '`');
+            const tick = await conn.query('INSERT INTO index_tickers (tick) VALUES (?)', ['RICHTICK']);
+            const addr = await conn.query('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qrichlist']);
+            await conn.query(
+                'INSERT INTO tokens (tick_id, action_index, supply, max_supply, max_mint, decimals, lock_max_supply, owner_id) ' +
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [Number(tick.insertId), 1, '1000', '1000', '0', 0, 1, Number(addr.insertId)]);
+            await conn.query('INSERT INTO balances (address_id, tick_id, amount) VALUES (?, ?, ?)',
+                [Number(addr.insertId), Number(tick.insertId), '1000']);
+        } finally {
+            conn.release();
+        }
+    }
+
     it('runs every routed db.getData read path without a schema error', async function () {
+        await seedRichListSubject();
         // Pull the method list from the LIVE route table so a new endpoint is
         // covered the moment it is routed, with no test edit.
         const methods = new Set();

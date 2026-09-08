@@ -33,6 +33,7 @@ const ChangeDetector  = require('./ws/ChangeDetector.js');
 const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
+const { limitedHandler } = require('./rateLimitLog.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
 const staticMounts    = require('./staticMounts.js');     // the one file-serving mount list, shared with XChainExplorer
 const { applyTrustProxy } = require('./trustProxy.js');   // proxy-hop policy, shared with the WS path's hop count
 const { resolveMaxBatch, makeRpcBatchGuard } = require('./rpcBatchGuard.js');   // JSON-RPC batch cardinality cap
@@ -198,12 +199,22 @@ async function startApi(){
     // preflight POST 60, checkpoint list 120, validator-set proof 30, VM query
     // 20) are not on an idle wallet's path, so the profile does not exercise
     // them and they keep their shipped values on purpose.
+    //
+    // The ceiling, the knob's name and the refusal body are resolved once here
+    // and spread into both the limiter and its counter line, so the number an
+    // operator reads in the log is always the number that actually refused.
+    const appWidePolicy = {
+        limit:    parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,
+        envVar:   'EXPLORER_RATE_LIMIT_RPM',
+        windowMs: 60 * 1000,
+        message:  { error: 'Too many requests', code: 'RATE_LIMITED' }
+    };
     app.use(rateLimit({
-        windowMs:        60 * 1000,
-        limit:           parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,
+        windowMs:        appWidePolicy.windowMs,
+        limit:           appWidePolicy.limit,
         standardHeaders: true,
         legacyHeaders:   false,
-        message:         { error: 'Too many requests', code: 'RATE_LIMITED' },
+        handler:         limitedHandler({ service: 'Explorer', name: 'app-wide', ...appWidePolicy }),
         skip: isStaticAsset,
     }));
 

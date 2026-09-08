@@ -2081,6 +2081,22 @@ class Database {
      ******************************************************************/
 
     async getAction(config){
+        // getActionData has no not-found return of its own: when getActionType
+        // finds no `actions` row, getActionData still falls through to a
+        // truthy all-null baseline object ({credits, debits, escrows, fee:
+        // null}), so wrapping that as [data] answered 200 with a body of
+        // nulls instead of the 404 getBlock and getCheckpoint give a missing
+        // index (their not-found is [null]). A bug report misread that
+        // 200-with-nulls, hit under rapid reads, as a rate limit; it was this
+        // branch. Resolve the type here first and match that convention.
+        //
+        // This runs getActionType twice on a hit, since getActionData
+        // resolves it again from its own preload logic below - accepted,
+        // because the expensive path is unaffected and a not-found now takes
+        // the cheap one instead of the whole getActionData detail fan-out.
+        let type = await this.getActionType(config, config.data.search);
+        if(this.util.isNull(type))
+            return [null];
         let data = await this.getActionData(config, config.data.search);
         return [data];
     }
@@ -3640,12 +3656,22 @@ class Database {
                 data.code_part_length = this.util.isNull(rows[0].code_part_length) ? null : Number(rows[0].code_part_length);
             }
         }
-        if(type=='DEPLOY' && fmt !== null && fmt !== 4){
-            // v0-v3 deploy: the constructor run is billed like any EXECUTE and the
-            // indexer records it in contract_executions, but the detail row showed
-            // no gas at all, hiding the deployer's cost. Surface the recorded gas
-            // plus the execution linkage (contract_index / method_name); this reads
-            // existing execution rows only and invents no fee artifacts.
+        // A v4 carrier is normally a code slice and nothing else, but the piece that
+        // COMPLETES a chunked group runs the deployment at its own action_index, so
+        // the constructor was billed here and its execution row sits at this index
+        // too. The detail handler's own probe has already answered whether a
+        // contracts row exists here (deployed_contract_index, set in afterMain,
+        // which runs before this method), so this reuses that answer rather than
+        // asking again: an ordinary carrier that completed nothing still issues no
+        // contract_executions query at all.
+        let carrierDeployed = (fmt === 4 && !this.util.isNull(data.deployed_contract_index));
+        if(type=='DEPLOY' && fmt !== null && (fmt !== 4 || carrierDeployed)){
+            // v0-v3 deploy, and the completing v4 carrier: the constructor run is
+            // billed like any EXECUTE and the indexer records it in
+            // contract_executions, but the detail row showed no gas at all, hiding
+            // the deployer's cost. Surface the recorded gas plus the execution
+            // linkage (contract_index / method_name); this reads existing execution
+            // rows only and invents no fee artifacts.
             data.contract_index = null;
             data.method_name    = null;
             data.gas_used       = null;
@@ -9898,13 +9924,18 @@ class Database {
                 m.description,
                 a2.address as owner,
                 m.action_index,
-                m.block_index
+                t3.block_index
             FROM
                 tokens m
                 LEFT JOIN index_tickers   t3 ON (t3.id=m.tick_id)
                 LEFT JOIN index_addresses a2 ON (a2.id=m.owner_id)
             WHERE m.tick_id=?
             LIMIT 1`, [tickId]);
+        // `tokens` carries no block_index of its own (see xchain-indexer
+        // src/sql/tokens.sql); the height a token became deterministic lives on
+        // its index_tickers row, which is what getToken reads too. Selecting it
+        // off the tokens alias 500'd every rich list on a real schema while the
+        // unit tier, which stubs the query, stayed green.
         // A tick can be interned by a reference (an ORDER naming a tick that was never
         // issued) without a `tokens` row ever existing, so an interned id is not proof
         // of a token. Answer not-found rather than composing supply stats around nulls.
@@ -9924,6 +9955,12 @@ class Database {
         let holderCount = (census && census.length) ? Number(census[0].holder_count) : 0;
         let heldTotal   = (census && census.length) ? String(census[0].held_total)   : '0';
 
+        // The page offset is applied to the QUERY as well as to the rank numbers
+        // below. Seeding the ranks alone made page 2 return the same top-N addresses
+        // relabelled 101..200, which is worse than restarting at 1: it names the
+        // largest holder as the 101st. Same OFFSET idiom getData uses for API paging.
+        let offset = Number(config.type == 'api' && config.data.sql && this.util.isNumeric(config.data.sql.apiOffset)
+            ? Number(config.data.sql.apiOffset) : 0);
         let holders = await this.doQuery(config,
             `SELECT
                 a2.address,
@@ -9933,7 +9970,8 @@ class Database {
                 LEFT JOIN index_addresses a2 ON (a2.id=m.address_id)
             WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0
             ORDER BY CAST(m.amount AS DECIMAL(65,18)) DESC
-            LIMIT ` + limit, [tickId]) || [];
+            LIMIT ` + limit + (offset > 0 ? ' OFFSET ?' : ''),
+            offset > 0 ? [tickId, offset] : [tickId]) || [];
 
         // The denominator. Circulating supply is the token's own `supply` column; the
         // summed balances are carried alongside rather than substituted for it, because
@@ -9941,8 +9979,7 @@ class Database {
         // whichever number makes the percentages total 100 would erase the evidence.
         let supply = this.util.isNull(token.supply) ? '0' : String(token.supply);
         let ranked = [];
-        let rank   = Number(config.data.sql && this.util.isNumeric(config.data.sql.apiOffset)
-            ? Number(config.data.sql.apiOffset) : 0);
+        let rank   = offset;
         for(const h of holders){
             rank++;
             ranked.push({

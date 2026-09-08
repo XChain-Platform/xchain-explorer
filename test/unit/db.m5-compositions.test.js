@@ -229,6 +229,21 @@ describe('M5.2 getRichList (spec row 33)', function () {
             expect(c.args[2][0]).to.equal(7);
     });
 
+    it('reads the token block height off index_tickers, the only table that has one', async function () {
+        // `tokens` has no block_index column (xchain-indexer src/sql/tokens.sql).
+        // The first shipped query selected m.block_index and 500'd every rich
+        // list on the RDOGE venue while this stubbed tier stayed green, so the
+        // column source is pinned here and the conformance canary now seeds a
+        // tokens row so the same query also runs against the real DDL.
+        const { db } = await run();
+        const tokenQuery = db.doQuery.getCalls()
+            .map((c) => flat(c.args[1]))
+            .find((q) => q.includes('FROM tokens m'));
+        expect(tokenQuery).to.be.a('string');
+        expect(tokenQuery).to.include('t3.block_index');
+        expect(tokenQuery).to.not.include('m.block_index');
+    });
+
     it('answers not-found for a tick that was never interned', async function () {
         const { data, db } = await run({ tick: [] });
         expect(data).to.equal(null);
@@ -300,6 +315,24 @@ describe('M5.2 getRichList (spec row 33)', function () {
             where: { data: 'm.action_index IS NOT NULL', offset: '', offsetArgs: [] }
         } });
         expect(data.holders.map((h) => h.rank)).to.deep.equal([101, 102, 103]);
+    });
+
+    it('applies the page offset to the ranking QUERY, not only to the rank numbers', async function () {
+        // Seeding the ranks without offsetting the query returned the same top-N
+        // addresses on every page, relabelled: the venue's page 2 named the largest
+        // holder as #101. Found by driving /api/rich_list/XCHAIN?page=2 on RDOGE.
+        const { db } = await run({}, { sql: {
+            order: 'DESC', limit: LIMIT, apiOffset: 100,
+            where: { data: 'm.action_index IS NOT NULL', offset: '', offsetArgs: [] }
+        } });
+        const call = db.doQuery.getCalls().find((c) => flat(c.args[1]).includes('FROM balances m LEFT JOIN index_addresses'));
+        expect(flat(call.args[1])).to.match(/LIMIT \d+ OFFSET \?/);
+        expect(call.args[2]).to.deep.equal([7, 100]);
+        // Page 1 binds no offset placeholder at all.
+        const first = await run();
+        const p1 = first.db.doQuery.getCalls().find((c) => flat(c.args[1]).includes('FROM balances m LEFT JOIN index_addresses'));
+        expect(flat(p1.args[1])).to.not.include('OFFSET');
+        expect(p1.args[2]).to.deep.equal([7]);
     });
 
     it('bounds the ranking with the caller-clamped limit', async function () {

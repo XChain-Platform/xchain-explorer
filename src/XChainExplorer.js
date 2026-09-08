@@ -37,6 +37,7 @@ const swq              = require('./stake_weighted_quorum.js');
 const ckpt             = require('./checkpoint_commitment_activation.js');
 const ProofServer      = require('./proofServer.js');
 const rateLimit        = require('express-rate-limit');
+const { limitedHandler } = require('./rateLimitLog.js');   // limiter counter line, shared with api.js's app-wide limiter
 const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
 const listPage         = require('./list-page.js');
@@ -768,12 +769,23 @@ class XChainExplorer {
         // JSON-RPC round trip, so an uncapped caller amplifies into a second process.
         // One tier looser than the proof routes, a quote being a lookup rather than a
         // cryptographic recompute.
+        //
+        // Every limiter below resolves its ceiling, knob name and refusal body into
+        // one policy const that is spread into both the limiter and its counter
+        // line, so the number an operator reads in the log is the number that
+        // actually refused. See src/rateLimitLog.js for why the line is throttled.
+        const feeQuotePolicy = {
+            limit:    parseInt(process.env.EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120,
+            envVar:   'EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many fee requests', code: 'RATE_LIMITED' }
+        };
         const feeQuoteLimiter = rateLimit({
-            windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120,
+            windowMs:        feeQuotePolicy.windowMs,
+            limit:           feeQuotePolicy.limit,
             standardHeaders: true,
             legacyHeaders:   false,
-            message:         { error: 'Too many fee requests', code: 'RATE_LIMITED' }
+            handler:         limitedHandler({ service: 'Explorer', name: 'fee-quote', ...feeQuotePolicy })
         });
         this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { this.processFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
@@ -787,12 +799,18 @@ class XChainExplorer {
         // tight 10kb global json() to everything else, and the limiter is per-route
         // because this is the only unauthenticated explorer surface taking a body
         // this large.
+        const preflightPostPolicy = {
+            limit:    parseInt(process.env.EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM, 10) || 60,
+            envVar:   'EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many pre-flight requests', code: 'RATE_LIMITED' }
+        };
         const preflightPostLimiter = rateLimit({
-            windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM, 10) || 60,
+            windowMs:        preflightPostPolicy.windowMs,
+            limit:           preflightPostPolicy.limit,
             standardHeaders: true,
             legacyHeaders:   false,
-            message:         { error: 'Too many pre-flight requests', code: 'RATE_LIMITED' }
+            handler:         limitedHandler({ service: 'Explorer', name: 'preflight-post', ...preflightPostPolicy })
         });
         // Limiter BEFORE the parser on purpose: a rate-limited caller is refused without
         // the server reading their megabyte first.
@@ -811,12 +829,18 @@ class XChainExplorer {
         // The list is a hub-mirror scan; verify re-runs Ed25519 once per signature over
         // the qualifying validator set and reads that set's capability snapshot, so it
         // is proof-tier work and takes the tighter of the two caps.
+        const checkpointListPolicy = {
+            limit:    parseInt(process.env.EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM, 10) || 120,
+            envVar:   'EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many checkpoint requests', code: 'RATE_LIMITED' }
+        };
         const checkpointListLimiter = rateLimit({
-            windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM, 10) || 120,
+            windowMs:        checkpointListPolicy.windowMs,
+            limit:           checkpointListPolicy.limit,
             standardHeaders: true,
             legacyHeaders:   false,
-            message:         { error: 'Too many checkpoint requests', code: 'RATE_LIMITED' }
+            handler:         limitedHandler({ service: 'Explorer', name: 'checkpoint-list', ...checkpointListPolicy })
         });
         // Verify is 90 rather than the list's 120 because it is the heavier of the
         // pair, and 90 rather than its own former 60 because the wallet's light
@@ -824,12 +848,18 @@ class XChainExplorer {
         // jobs per session, x2 for the SDK's single retry and x3 for a NAT with
         // three testers, is 90 in the worst minute. The measured wallet profile is
         // the source of that number, not a round guess.
+        const checkpointVerifyPolicy = {
+            limit:    parseInt(process.env.EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 90,
+            envVar:   'EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many checkpoint verification requests', code: 'RATE_LIMITED' }
+        };
         const checkpointVerifyLimiter = rateLimit({
-            windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 90,
+            windowMs:        checkpointVerifyPolicy.windowMs,
+            limit:           checkpointVerifyPolicy.limit,
             standardHeaders: true,
             legacyHeaders:   false,
-            message:         { error: 'Too many checkpoint verification requests', code: 'RATE_LIMITED' }
+            handler:         limitedHandler({ service: 'Explorer', name: 'checkpoint-verify', ...checkpointVerifyPolicy })
         });
         this.app.get('/:coin/api/checkpoints', checkpointListLimiter, (req, res) => { this.processCheckpointsRequest(req, res); });
         this.app.get('/:coin/api/checkpoint/:blockIndex/verify', checkpointVerifyLimiter, (req, res) => { this.processCheckpointVerifyRequest(req, res); });
@@ -853,23 +883,35 @@ class XChainExplorer {
         // single retry and x3 for a NAT with three testers. 60 sat below the measured
         // requirement, which only stayed invisible while the bucket keyed on the
         // Cloudflare edge address instead of the client.
+        const actionProofPolicy = {
+            limit:    parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 90,
+            envVar:   'EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many proof requests', code: 'RATE_LIMITED' }
+        };
         const actionProofLimiter = rateLimit({
-            windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 90,
+            windowMs:        actionProofPolicy.windowMs,
+            limit:           actionProofPolicy.limit,
             standardHeaders: true,
             legacyHeaders:   false,
-            message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
+            handler:         limitedHandler({ service: 'Explorer', name: 'action-proof', ...actionProofPolicy })
         });
         // The validator-set proof is the heaviest endpoint: its handler calls _prove
         // once per validator per capability (up to VALIDATOR_QUERY_LIMIT), each a
         // 256-deep SMT descent reading the DB per non-empty level, plus an indexer RPC
         // per capability. Worst case ~2000 descents, so it caps below the action tier.
+        const validatorSetProofPolicy = {
+            limit:    parseInt(process.env.EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM, 10) || 30,
+            envVar:   'EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many proof requests', code: 'RATE_LIMITED' }
+        };
         const validatorSetProofLimiter = rateLimit({
-            windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM, 10) || 30,
+            windowMs:        validatorSetProofPolicy.windowMs,
+            limit:           validatorSetProofPolicy.limit,
             standardHeaders: true,
             legacyHeaders:   false,
-            message:         { error: 'Too many proof requests', code: 'RATE_LIMITED' }
+            handler:         limitedHandler({ service: 'Explorer', name: 'validator-set-proof', ...validatorSetProofPolicy })
         });
         // The balance proof is the same single-descent SMT shape as the contract-state
         // and locked-balance proofs, so it carries the same cap. The checkpoint range
@@ -891,12 +933,18 @@ class XChainExplorer {
         // sandboxed xchain-vm against current state and discards all effects.
         // Default-off (EXPLORER_VM_QUERY_ENABLED) and capped far below the global
         // limit, since every call burns real CPU in the VM subprocess.
+        const vmQueryPolicy = {
+            limit:    parseInt(process.env.EXPLORER_VM_QUERY_RATE_LIMIT_RPM, 10) || 20,
+            envVar:   'EXPLORER_VM_QUERY_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many simulation requests', code: 'RATE_LIMITED' }
+        };
         const vmQueryLimiter = rateLimit({
-            windowMs:        60 * 1000,
-            limit:           parseInt(process.env.EXPLORER_VM_QUERY_RATE_LIMIT_RPM, 10) || 20,
+            windowMs:        vmQueryPolicy.windowMs,
+            limit:           vmQueryPolicy.limit,
             standardHeaders: true,
             legacyHeaders:   false,
-            message:         { error: 'Too many simulation requests', code: 'RATE_LIMITED' }
+            handler:         limitedHandler({ service: 'Explorer', name: 'vm-query', ...vmQueryPolicy })
         });
         this.app.post('/:coin/api/contract/:contractIndex/call', vmQueryLimiter, (req, res) => { this.processContractCallRequest(req, res); });
 

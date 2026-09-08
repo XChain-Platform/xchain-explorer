@@ -752,6 +752,14 @@
             ]
         },
         "deploy": {
+            "_comment": [
+                "The chunk rows are placed FIRST (order 0 and 1), so a chunk carrier's",
+                "page reads slice-then-card: what this action carried, then the contract",
+                "it created if it was the piece that completed the group. The array below",
+                "stays in the page's markup order, which is what makes a row addressable",
+                "(permuteRows matches config position to table position); `order` is the",
+                "only thing that moves a row."
+            ],
             "rows": [
                 {
                     "label": "Contract",
@@ -787,11 +795,13 @@
                 },
                 {
                     "label": "Chunk",
-                    "cell": "deploy-chunk"
+                    "cell": "deploy-chunk",
+                    "order": 0
                 },
                 {
                     "label": "Code Part",
-                    "cell": "deploy-code-part"
+                    "cell": "deploy-code-part",
+                    "order": 1
                 }
             ]
         },

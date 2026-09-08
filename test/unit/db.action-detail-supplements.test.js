@@ -160,7 +160,7 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
         });
     });
 
-    describe('DEPLOY v0-v3 constructor gas', function () {
+    describe('DEPLOY constructor gas (v0-v3, and a carrier that completed a group)', function () {
 
         const DEPLOY_ROW = {
             action: 'DEPLOY', action_format: 0, action_index: 1138, source: 'addr-dev',
@@ -198,14 +198,44 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             assert.strictEqual(data.contract_index, null);
         });
 
-        it('a v4 carrier does not get the execution lookup (a chunk is not a contract)', async function () {
+        // Deferred assembly made "v4 = no contract" false for exactly one carrier in a
+        // group: the piece that COMPLETES it runs the deployment at its own index, so
+        // the constructor was billed there and the execution row sits there too. The
+        // gate is therefore not the format but whether a contracts row exists at this
+        // action, which the detail handler's own probe has already answered.
+        it('a v4 carrier with NO contract row of its own gets no gas supplement', async function () {
             const db = makeDb('DEPLOY', [
                 ['SELECT action_format FROM actions', [{ action_format: 4 }]],
+                ['contracts c1',                      []],
                 ['deploy_chunks m',                   [{ action_format: 4, action_index: 9 }]],
             ]);
-            await db.getActionData(config, 9);
+            const data = await db.getActionData(config, 9);
             assert.ok(!db.calls.some(c => c.sql.includes('contract_executions')),
-                'v4 chunk carrier must not query contract_executions');
+                'an ordinary chunk carrier deployed nothing, so it must not query contract_executions');
+            assert.strictEqual('gas_used' in data, false, 'a chunk with no contract row invented a gas field');
+            assert.strictEqual('method_name' in data, false);
+        });
+
+        it('a v4 carrier that COMPLETED the group gets the constructor gas', async function () {
+            const db = makeDb('DEPLOY', [
+                ['SELECT action_format FROM actions', [{ action_format: 4 }]],
+                // The handler's own probe: a contracts row AT this carrier is what says
+                // the deployment ran here.
+                ['contracts c1',                      [{ action_index: 1421, api_version: 2, cooldown_blocks: null, slash_destination: null, contract_status: 'valid' }]],
+                ['contract_executions e1',            [{ assembler_action_index: 1419 }]],
+                ['contract_executions m',             [Object.assign({}, EXEC_ROW, { contract_index: 1421 })]],
+                ['deploy_chunks m',                   [{ action: 'DEPLOY', action_format: 4, action_index: 1421, chunk_index: 2, total_chunks: 3, status: 'valid' }]],
+            ]);
+            const data = await db.getActionData(config, 1421);
+            assert.strictEqual(data.gas_used, '118072',
+                'the constructor ran at the completing carrier, and its page shows no gas');
+            assert.strictEqual(data.gas_limit, '500000');
+            assert.strictEqual(data.method_name, 'constructor');
+            assert.strictEqual(data.contract_index, 1421,
+                'the carrier does not link the contract its constructor created');
+            const gas = db.calls.filter(c => c.sql.includes('contract_executions m'));
+            assert.strictEqual(gas.length, 1, 'the gas supplement ran more than once');
+            assert.deepStrictEqual(gas[0].args, [1421], 'the gas lookup is not bound to this carrier');
         });
     });
 

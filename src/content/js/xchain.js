@@ -3861,6 +3861,19 @@ function showDeployDetails(data){
     $('#info-deploy .deploy-contract-row').toggleClass('d-none', isChunk && deployed === null);
     $('#info-deploy .deploy-chunk-row').toggleClass('d-none', !isChunk);
     $('#info-deploy .deploy-code-hash').html(formatHash(data.code_hash, 32));
+    // A DEPLOY runs the contract's constructor, and that gas is recorded on the
+    // contract_executions row rather than as a protocol fee, so a deployer's
+    // cost is invisible in the Fee tab and has to render here instead. Rendered
+    // before the chunk branch returns because a carrier that COMPLETED a group
+    // is where the constructor actually ran, so its page is the only one that
+    // carries that gas.
+    let hasGas = !isNull(data.gas_used);
+    $('#info-deploy .deploy-execution-row').toggleClass('d-none', !hasGas);
+    if(hasGas){
+        $('#info-deploy .deploy-method').text(isNull(data.method_name) ? '-' : data.method_name);
+        $('#info-deploy .deploy-gas').text(numeral(data.gas_used).format('0,0') +
+            (isNull(data.gas_limit) ? '' : ' / ' + numeral(data.gas_limit).format('0,0')));
+    }
     if(isChunk){
         let idx = isNull(data.chunk_index) ? '?' : (Number(data.chunk_index) + 1);
         let total = isNull(data.total_chunks) ? '?' : data.total_chunks;
@@ -3908,16 +3921,6 @@ function showDeployDetails(data){
     if(stakeable){
         $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');
         $('#info-deploy .deploy-slash').html(isNull(data.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + data.slash_destination, data.slash_destination));
-    }
-    // A DEPLOY runs the contract's constructor, and that gas is recorded on the
-    // contract_executions row rather than as a protocol fee row, so a deployer's
-    // cost is invisible in the Fee tab and has to render here instead.
-    let hasGas = !isNull(data.gas_used);
-    $('#info-deploy .deploy-execution-row').toggleClass('d-none', !hasGas);
-    if(hasGas){
-        $('#info-deploy .deploy-method').text(isNull(data.method_name) ? '-' : data.method_name);
-        $('#info-deploy .deploy-gas').text(numeral(data.gas_used).format('0,0') +
-            (isNull(data.gas_limit) ? '' : ' / ' + numeral(data.gas_limit).format('0,0')));
     }
 }
 

@@ -3656,12 +3656,22 @@ class Database {
                 data.code_part_length = this.util.isNull(rows[0].code_part_length) ? null : Number(rows[0].code_part_length);
             }
         }
-        if(type=='DEPLOY' && fmt !== null && fmt !== 4){
-            // v0-v3 deploy: the constructor run is billed like any EXECUTE and the
-            // indexer records it in contract_executions, but the detail row showed
-            // no gas at all, hiding the deployer's cost. Surface the recorded gas
-            // plus the execution linkage (contract_index / method_name); this reads
-            // existing execution rows only and invents no fee artifacts.
+        // A v4 carrier is normally a code slice and nothing else, but the piece that
+        // COMPLETES a chunked group runs the deployment at its own action_index, so
+        // the constructor was billed here and its execution row sits at this index
+        // too. The detail handler's own probe has already answered whether a
+        // contracts row exists here (deployed_contract_index, set in afterMain,
+        // which runs before this method), so this reuses that answer rather than
+        // asking again: an ordinary carrier that completed nothing still issues no
+        // contract_executions query at all.
+        let carrierDeployed = (fmt === 4 && !this.util.isNull(data.deployed_contract_index));
+        if(type=='DEPLOY' && fmt !== null && (fmt !== 4 || carrierDeployed)){
+            // v0-v3 deploy, and the completing v4 carrier: the constructor run is
+            // billed like any EXECUTE and the indexer records it in
+            // contract_executions, but the detail row showed no gas at all, hiding
+            // the deployer's cost. Surface the recorded gas plus the execution
+            // linkage (contract_index / method_name); this reads existing execution
+            // rows only and invents no fee artifacts.
             data.contract_index = null;
             data.method_name    = null;
             data.gas_used       = null;

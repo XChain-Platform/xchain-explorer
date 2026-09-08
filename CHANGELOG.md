@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - `/api/action/{index}` answers 404 for an index the chain has no action at, instead of a 200 with every field null.
+- The code chunk that completes a chunked deploy shows the constructor gas it paid and its deploy card below the chunk rows, instead of ending at the code slice.
 
 ## [0.15.3] - 2026-09-08
 

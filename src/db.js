@@ -9914,13 +9914,18 @@ class Database {
                 m.description,
                 a2.address as owner,
                 m.action_index,
-                m.block_index
+                t3.block_index
             FROM
                 tokens m
                 LEFT JOIN index_tickers   t3 ON (t3.id=m.tick_id)
                 LEFT JOIN index_addresses a2 ON (a2.id=m.owner_id)
             WHERE m.tick_id=?
             LIMIT 1`, [tickId]);
+        // `tokens` carries no block_index of its own (see xchain-indexer
+        // src/sql/tokens.sql); the height a token became deterministic lives on
+        // its index_tickers row, which is what getToken reads too. Selecting it
+        // off the tokens alias 500'd every rich list on a real schema while the
+        // unit tier, which stubs the query, stayed green.
         // A tick can be interned by a reference (an ORDER naming a tick that was never
         // issued) without a `tokens` row ever existing, so an interned id is not proof
         // of a token. Answer not-found rather than composing supply stats around nulls.

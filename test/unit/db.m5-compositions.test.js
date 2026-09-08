@@ -229,6 +229,21 @@ describe('M5.2 getRichList (spec row 33)', function () {
             expect(c.args[2][0]).to.equal(7);
     });
 
+    it('reads the token block height off index_tickers, the only table that has one', async function () {
+        // `tokens` has no block_index column (xchain-indexer src/sql/tokens.sql).
+        // The first shipped query selected m.block_index and 500'd every rich
+        // list on the RDOGE venue while this stubbed tier stayed green, so the
+        // column source is pinned here and the conformance canary now seeds a
+        // tokens row so the same query also runs against the real DDL.
+        const { db } = await run();
+        const tokenQuery = db.doQuery.getCalls()
+            .map((c) => flat(c.args[1]))
+            .find((q) => q.includes('FROM tokens m'));
+        expect(tokenQuery).to.be.a('string');
+        expect(tokenQuery).to.include('t3.block_index');
+        expect(tokenQuery).to.not.include('m.block_index');
+    });
+
     it('answers not-found for a tick that was never interned', async function () {
         const { data, db } = await run({ tick: [] });
         expect(data).to.equal(null);

@@ -217,12 +217,70 @@ describe('integration fixture preflight', function () {
         it('keeps the fixture address in one place', function () {
             const compose = fs.readFileSync(
                 path.join(REPO, 'test', 'integration', 'fixtures', 'docker-compose.test.yml'), 'utf8');
-            assert.match(compose, new RegExp(`"${pre.FIXTURE_DB.port}:3306"`),
+            // CONTAINER_DB, not FIXTURE_DB: on a venue the latter is the shared
+            // server and no container is published, so this would fail there.
+            assert.match(compose, new RegExp(`"${pre.CONTAINER_DB.port}:3306"`),
                 'the compose file must publish the port the preflight probes');
             const dbSetup = require('../integration/helpers/db-setup.js');
             assert.strictEqual(dbSetup.DB_CONFIG.port, pre.FIXTURE_DB.port);
             assert.strictEqual(dbSetup.DB_CONFIG.host, pre.FIXTURE_DB.host);
             assert.strictEqual(dbSetup.DB_CONFIG.database, pre.FIXTURE_DB.database);
+        });
+    });
+
+    // Where a venue publishes a shared CI database, the server on the port is the
+    // one to use, not a foreign holder. Parsing is guarded because a half-read
+    // would connect with undefined parts and read as a credential bug.
+    describe('venue CI database', function () {
+        const os  = require('os');
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'venue-env-'));
+
+        function write(name, body) {
+            const p = path.join(tmp, name);
+            fs.writeFileSync(p, body, { mode: 0o600 });
+            return p;
+        }
+
+        it('returns null when the venue file is absent, which is every non-venue host', function () {
+            assert.strictEqual(pre.readVenueDb(path.join(tmp, 'nope.env')), null);
+        });
+
+        it('reads a complete venue file into a connection', function () {
+            const p = write('full.env',
+                'CI_DB_HOST=127.0.0.1\nCI_DB_PORT=3307\nCI_DB_USER=ci\nCI_DB_PASS=dummy-not-a-real-secret\n');
+            const db = pre.readVenueDb(p);
+            assert.strictEqual(db.host, '127.0.0.1');
+            assert.strictEqual(db.port, 3307, 'the port must be a number, not the string from the file');
+            assert.strictEqual(db.user, 'ci');
+            assert.strictEqual(db.database, pre.FIXTURE_DATABASE);
+        });
+
+        it('strips surrounding quotes, which a shell-style env file may carry', function () {
+            const p = write('quoted.env',
+                'CI_DB_HOST="127.0.0.1"\nCI_DB_PORT="3307"\nCI_DB_USER=\'ci\'\nCI_DB_PASS="dummy"\n');
+            const db = pre.readVenueDb(p);
+            assert.strictEqual(db.host, '127.0.0.1');
+            assert.strictEqual(db.user, 'ci');
+        });
+
+        it('refuses a partial file rather than building a half-formed connection', function () {
+            // A connection with an undefined user would surface later as an
+            // access-denied error that reads like a credential bug.
+            const missingPass = write('partial.env', 'CI_DB_HOST=127.0.0.1\nCI_DB_PORT=3307\nCI_DB_USER=ci\n');
+            assert.strictEqual(pre.readVenueDb(missingPass), null);
+            const badPort = write('badport.env',
+                'CI_DB_HOST=127.0.0.1\nCI_DB_PORT=notaport\nCI_DB_USER=ci\nCI_DB_PASS=dummy\n');
+            assert.strictEqual(pre.readVenueDb(badPort), null);
+        });
+
+        it('never lets a venue read throw, whatever the path turns out to be', function () {
+            // Module load calls this everywhere, and a throw would take down the
+            // DB-free unit suite too, since db-setup requires this module.
+            assert.doesNotThrow(() => pre.readVenueDb(tmp));
+        });
+
+        it('agrees with itself about whether a venue is in use', function () {
+            assert.strictEqual(pre.USING_VENUE, pre.FIXTURE_DB !== pre.CONTAINER_DB);
         });
     });
 });

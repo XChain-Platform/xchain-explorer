@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - History and transaction rows for DEPLOY, EXECUTE, DEPOSIT and WITHDRAW carry the contract's recorded name and version, so a wallet can label them "Name vX (C:COIN:n)".
 - Contracts carry their declared name, description and version everywhere they are shown, the contracts list filters by name, and global search finds a contract by a word from its name or description.
 
+### Fixed
+- The integration fixture uses the CI venue's shared MariaDB when the venue publishes one, instead of failing to bind a port that server already holds.
+
 ## [0.16.0] - 2026-09-08
 
 ### Added

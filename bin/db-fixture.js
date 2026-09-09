@@ -28,6 +28,13 @@
  * GitHub CI supplies the fixture as an Actions service container and never runs
  * `up`, but `check` still passes there because the discrimination is by
  * credentials, not by container identity.
+ *
+ * On the CI venue there is no container at all. The venue runs one shared
+ * MariaDB for gate runs and publishes its credentials in a 0600 env file; when
+ * fixture-preflight finds that file, `up` creates this repo's database on that
+ * server and `down` drops it, docker is never invoked, and no host port is
+ * bound. That is what resolves the 3307 collision this script used to report:
+ * the server holding the port was the venue's own CI database all along.
  */
 
 const { spawnSync } = require('child_process');
@@ -55,7 +62,38 @@ function reportCollision(detail) {
     fail(pre.collisionMessage(detail, pre.describeHolders()));
 }
 
+// Admin connection to the venue server: same credentials as FIXTURE_DB but with
+// NO database selected, because these are the calls that create and drop it.
+function venueAdminConnection() {
+    const mariadb = require('mariadb');
+    return mariadb.createConnection({
+        host:           pre.FIXTURE_DB.host,
+        port:           pre.FIXTURE_DB.port,
+        user:           pre.FIXTURE_DB.user,
+        password:       pre.FIXTURE_DB.password,
+        connectTimeout: 5000
+    });
+}
+
+// The shared server is already running, so "up" only has to make this repo's
+// database exist and be empty, as a fresh container did. It names our own schema,
+// so nothing else on that server is touched.
+async function upOnVenue() {
+    const conn = await venueAdminConnection();
+    try {
+        await conn.query('DROP DATABASE IF EXISTS `' + pre.FIXTURE_DATABASE + '`');
+        await conn.query('CREATE DATABASE `' + pre.FIXTURE_DATABASE + '`');
+    } finally {
+        await conn.end();
+    }
+    console.log('explorer integration fixture: using the venue CI database on ' +
+                `${pre.FIXTURE_DB.host}:${pre.FIXTURE_DB.port} (per ${pre.VENUE_ENV_PATH}); ` +
+                'docker is not used and no host port is bound');
+}
+
 async function up() {
+    if (pre.USING_VENUE) return upOnVenue();
+
     // Preflight BEFORE docker: when the port is already held, compose's own
     // failure is a networking-driver stack trace, and worse, a stale fixture
     // container from a previous run may still satisfy `--wait` while the
@@ -79,7 +117,20 @@ async function up() {
     process.exit(res.status === null ? 1 : res.status);
 }
 
-function down() {
+async function down() {
+    // The venue server is shared and is NOT ours to stop; dropping the schema we
+    // created is the whole of teardown there, and is the equivalent of the
+    // volume removal `compose down -v` does for the container fixture.
+    if (pre.USING_VENUE) {
+        const conn = await venueAdminConnection();
+        try {
+            await conn.query('DROP DATABASE IF EXISTS `' + pre.FIXTURE_DATABASE + '`');
+        } finally {
+            await conn.end();
+        }
+        return;
+    }
+
     const res = compose(['down', '-v'], { stdio: 'inherit' });
     process.exit(res.status === null ? 1 : res.status);
 }

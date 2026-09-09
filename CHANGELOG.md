@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The hub connector accepts only an array of endpoint URLs; the unused host+port form is removed and a non-array argument now throws instead of building an `http://undefined:undefined` endpoint.
 
 ### Fixed
+- The integration and conformance tiers take the database credentials for the app under test from the fixture, so they follow it to a shared venue server instead of connecting as the container fixture user.
 - The integration fixture uses the CI venue's shared MariaDB when the venue publishes one, instead of failing to bind a port that server already holds.
 
 ## [0.16.0] - 2026-09-08

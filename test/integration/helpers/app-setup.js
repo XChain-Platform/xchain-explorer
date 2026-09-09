@@ -20,10 +20,14 @@ const cors           = require('cors');
 const { testCorsOptions } = require('../../helpers/cors.js');
 const path           = require('path');
 const XChainExplorer = require('../../../src/XChainExplorer.js');
+const pre            = require('./fixture-preflight.js');
 
 // Build a configInfo stub that behaves like src/config.js but uses our test config
 function createTestConfigInfo(dbPort) {
-    const port = dbPort || 3307;
+    // From the preflight, the one place the fixture address lives, so the app
+    // connects wherever the fixture is. A literal root/testpass only coincides
+    // with the container fixture and cannot reach a shared venue server.
+    const port = dbPort || pre.FIXTURE_DB.port;
     let configCache = null;
     const listeners = [];
 
@@ -65,8 +69,8 @@ function createTestConfigInfo(dbPort) {
                 chain: coinConfig.chain,
                 regtest: {
                     database: {
-                        indexer: { db_host: '127.0.0.1', db_port: port, user: 'root', pass: 'testpass', name: 'XChain_BTC_Regtest_Indexer' },
-                        decoder: { db_host: '127.0.0.1', db_port: port, user: 'root', pass: 'testpass', name: 'XChain_BTC_Regtest_Decoder' }
+                        indexer: { db_host: pre.FIXTURE_DB.host, db_port: port, user: pre.FIXTURE_DB.user, pass: pre.FIXTURE_DB.password, name: 'XChain_BTC_Regtest_Indexer' },
+                        decoder: { db_host: pre.FIXTURE_DB.host, db_port: port, user: pre.FIXTURE_DB.user, pass: pre.FIXTURE_DB.password, name: 'XChain_BTC_Regtest_Decoder' }
                     },
                     address: coinConfig.address
                 }

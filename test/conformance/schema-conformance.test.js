@@ -62,11 +62,12 @@ const { expect } = require('chai');
 const XChainExplorer = require('../../src/XChainExplorer.js');
 const ChangeDetector = require('../../src/ws/ChangeDetector.js');
 const { makeConfig } = require('../fixtures/mock-query-args.js');
+const pre = require('../integration/helpers/fixture-preflight.js');
 
-const DB_HOST = process.env.CONFORMANCE_DB_HOST || '127.0.0.1';
-const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || 3307);
-const DB_USER = process.env.CONFORMANCE_DB_USER || 'root';
-const DB_PASS = process.env.CONFORMANCE_DB_PASS || 'testpass';
+const DB_HOST = process.env.CONFORMANCE_DB_HOST || pre.FIXTURE_DB.host;
+const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || pre.FIXTURE_DB.port);
+const DB_USER = process.env.CONFORMANCE_DB_USER || pre.FIXTURE_DB.user;
+const DB_PASS = process.env.CONFORMANCE_DB_PASS || pre.FIXTURE_DB.password;
 
 const INDEXER_DB = 'XChain_Conformance_Indexer';
 const DECODER_DB = 'XChain_Conformance_Decoder';

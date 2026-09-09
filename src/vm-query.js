@@ -112,7 +112,7 @@ try {
 // consensus input. Moving it is a deliberate edit made when the VM's epoch
 // moves, and the parity guard in test/unit/vm-query.test.js reddens if the
 // canonical sibling has moved past it.
-const REQUIRED_VM_CONSENSUS_VERSION = '3';
+const REQUIRED_VM_CONSENSUS_VERSION = '4';
 
 // Exports only a contract-era VM carries. Presence, not value: the values are
 // frozen by the VM's own determinism goldens, and pinning them here would put

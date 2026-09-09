@@ -5658,8 +5658,29 @@ class Database {
                 if(Number.isFinite(p) && p > 0){
                     const v = String(r.price);
                     this._priceCache[sym] = { t: now, v };
+                    this._priceStaleSince = this._priceStaleSince || {};
+                    delete this._priceStaleSince[sym];
                     return v;
                 }
+            }
+            // The hub answers a well-formed verdict when it refuses to quote: a
+            // stale snapshot (its reference block aged past the oracle bound, which
+            // a long Bitcoin block gap does routinely) or no finalized round at all.
+            // Surface that verdict as the hub wrote it; "malformed" is reserved for
+            // a body the parser genuinely cannot read.
+            if(r && typeof r.error === 'string' && r.error){
+                if(/\bstale\b/i.test(r.error)){
+                    // Expected between rounds during a long block gap, and the last
+                    // good value keeps serving, so log the transition once rather
+                    // than every cache expiry until the next round finalizes.
+                    this._priceStaleSince = this._priceStaleSince || {};
+                    if(!this._priceStaleSince[sym]){
+                        this._priceStaleSince[sym] = now;
+                        console.log('getCoinPriceUsd: hub declines to quote ' + sym + ' (' + r.error + '); serving the last finalized value until the next round');
+                    }
+                    return (hit && hit.v) || null;
+                }
+                throw new Error('hub: ' + r.error);
             }
             throw new Error('malformed getprice response');
         } catch(e){

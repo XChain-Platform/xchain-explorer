@@ -139,12 +139,20 @@ function attestationStages(d){
         {
             key: 'expiry', label: 'Expiry (v2)', reached: exp,
             note: exp
-                ? 'recorded as expired'
+                ? (isNull(d.expiry.expire_action_index)
+                    ? 'recorded as expired'
+                    : 'action ' + d.expiry.expire_action_index)
                 : 'not recorded as expired'
         },
         {
             key: 'callback', label: 'Callback', reached: cb,
-            note: cb ? 'executed by action ' + d.callback_execute_action_index : 'no callback execution recorded'
+            // A stamped link and a derived one are both real callbacks, but only the
+            // first was written by the indexer; the note says which, because an
+            // expired round's link is matched on the execution's own columns.
+            note: cb
+                ? 'executed by action ' + d.callback_execute_action_index
+                    + (d.callback_execute_derived ? ' (matched by request id)' : '')
+                : 'no callback execution recorded'
         }
     ];
 }
@@ -341,10 +349,19 @@ function renderAttestationExpiry(d){
     let html = '';
 
     if(attIsExpired(d)){
+        // The old copy here said the expiry could not be linked to. It confused two
+        // things: ATTEST v2 writes no `attests` ROW, but it does mint an ACTION, and
+        // that action has a working page. The server resolves it by in-block
+        // correlation (db._correlateAttestationExpiries) and leaves it null only when
+        // that correlation would have to guess, which is the one case that still reads
+        // as unlinked.
         html += '<div class="alert alert-secondary py-2 mb-2 attestation-expired" data-expired="true">'
              + '<span class="fw-bold">Expired.</span> The expiry sweep recorded this request as expired'
              + (isNull(e.resolved_block) ? '' : ' at block ' + attEsc(e.resolved_block))
-             + '. ATTEST v2 writes no action row of its own, so there is no expiry action to link to: it flips this stored status.'
+             + '. ATTEST v2 writes no row of its own: it flips this stored status'
+             + (isNull(e.expire_action_index)
+                 ? ', and the expire action for this request could not be identified in that block.'
+                 : ', and the expire action is ' + attActionLink(e.expire_action_index) + '.')
              + '</div>';
     } else if(status === 'pending'){
         html += '<div class="alert alert-warning py-2 mb-2 attestation-not-expired" data-expired="false">'
@@ -366,6 +383,17 @@ function renderAttestationExpiry(d){
     html += attFieldRow('Resolved Block',  isNull(e.resolved_block)
         ? '<span class="text-muted">not resolved</span>'
         : '<span class="attestation-resolved-block">' + attBlockLink(e.resolved_block) + '</span>');
+    if(attIsExpired(d)){
+        html += attFieldRow('Expire Action', isNull(e.expire_action_index)
+            ? '<span class="text-muted attestation-expire-action-none">not identified</span>'
+            : '<span class="attestation-expire-action">' + attActionLink(e.expire_action_index) + '</span>');
+        // The expired callback fires from the v2 sweep, so it belongs on the expiry
+        // panel: an expired request has no response panel to carry it, which is the
+        // whole reason the link was invisible after an expiry.
+        html += attFieldRow('Callback Execute', isNull(d.callback_execute_action_index)
+            ? '<span class="text-muted attestation-expiry-callback-none">no callback execution recorded</span>'
+            : '<span class="attestation-expiry-callback">' + attActionLink(d.callback_execute_action_index) + '</span>');
+    }
     html += '</tbody></table>';
     return html;
 }

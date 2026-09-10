@@ -2837,6 +2837,14 @@
                 "cls": ""
             },
             {
+                "label": "Rounds",
+                "cls": ""
+            },
+            {
+                "label": "Pairs",
+                "cls": ""
+            },
+            {
                 "label": "Value",
                 "cls": "quantity"
             },

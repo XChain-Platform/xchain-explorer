@@ -186,6 +186,9 @@ class WebSocketServer {
             msgLastRefill:    Date.now(),
             catchUpInProgress: false,
             snapshotInProgress: false,
+            // Entities whose SNAPSHOT was deferred because a fan-out was already
+            // running for this client; drained when that fan-out settles.
+            pendingSnapshots:  [],
             backpressureSkips: 0
         };
 
@@ -464,14 +467,18 @@ class WebSocketServer {
         // re-send the same batch at the message-rate limit and re-trigger the full
         // per-entity snapshot DB fan-out every message (~50 queries/batch). A per-client
         // in-progress guard (like catch-up) bounds concurrent fan-outs to one batch.
-        if (params.snapshot && !client.snapshotInProgress) {
+        if (params.snapshot) {
             const fresh = result.subscribed.filter(sub =>
                 !prevKeys.has(this.channelManager.channelKeyForSub(client.coin, sub)));
             if (fresh.length) {
-                client.snapshotInProgress = true;
-                Promise.resolve(this._sendSnapshots(client, fresh))
-                    .catch(() => {})
-                    .finally(() => { client.snapshotInProgress = false; });
+                // A second subscribe{snapshot:true} landing mid fan-out must not be
+                // dropped on the floor: ChannelManager has already registered the
+                // entity, so it is excluded from every later fresh filter too and
+                // only unsubscribe/resubscribe could ever recover its SNAPSHOT. Queue
+                // it instead, so concurrency stays bounded to one fan-out AND every
+                // accepted request is eventually answered.
+                if (client.snapshotInProgress) this._queueSnapshots(client, fresh, msg.id);
+                else                           this._startSnapshotFanout(client, fresh);
             }
         }
 
@@ -491,7 +498,31 @@ class WebSocketServer {
             return;
         }
 
-        this.channelManager.unsubscribe(client, channels, params);
+        const result = this.channelManager.unsubscribe(client, channels, params);
+
+        // Send an UNSUBSCRIBED confirmation for each entity targeted, so a client
+        // can tell an honoured unsubscribe from a message the server dropped
+        //. Shape matches SUBSCRIBED/Broadcaster's server-initiated
+        // UNSUBSCRIBED: bare channel name plus entity identifiers as siblings.
+        for (const target of result.unsubscribed) {
+            const confirmation = {
+                type:      'UNSUBSCRIBED',
+                timestamp: Date.now(),
+                data: {
+                    channel:       target.channel,
+                    was_subscribed: target.was_subscribed,
+                    reason:        'client_request'
+                }
+            };
+            if (target.address)      confirmation.data.address      = target.address;
+            if (target.tick)         confirmation.data.tick          = target.tick;
+            if (target.tick1)        confirmation.data.tick1         = target.tick1;
+            if (target.tick2)        confirmation.data.tick2         = target.tick2;
+            if (target.action_index !== undefined) confirmation.data.action_index = target.action_index;
+            if (target.call_id !== undefined)      confirmation.data.call_id      = target.call_id;
+            if (msg.id !== undefined) confirmation.id = msg.id;
+            this._send(client, confirmation);
+        }
     }
 
     // Handle list_subscriptions message
@@ -652,6 +683,51 @@ class WebSocketServer {
     // Get chain/network info for a coin prefix
     _getCoinInfo(coin) {
         return this._resolveCoin(coin) || { chain: coin, network: 'mainnet' };
+    }
+
+    // Run one snapshot fan-out for this client, then drain anything that queued
+    // behind it. The in-progress flag is the concurrency bound (one batch of DB
+    // fan-out per client at a time); the queue is what keeps that bound from
+    // silently swallowing a request.
+    _startSnapshotFanout(client, subs) {
+        client.snapshotInProgress = true;
+        Promise.resolve(this._sendSnapshots(client, subs))
+            .catch(() => {})
+            .finally(() => {
+                client.snapshotInProgress = false;
+                const queued = client.pendingSnapshots;
+                if (queued && queued.length) {
+                    client.pendingSnapshots = [];
+                    // Nothing to fan out to once the socket is gone.
+                    if (client.ws && client.ws.readyState === 1) this._startSnapshotFanout(client, queued);
+                }
+            });
+    }
+
+    // Defer a snapshot request that arrived mid fan-out. Deduped by entity key and
+    // capped at the per-client subscription limit, so a resubscribe loop cannot
+    // grow the queue without bound; an overflow gets an explicit refusal frame
+    // rather than the silent drop this replaced.
+    _queueSnapshots(client, subs, requestId) {
+        if (!Array.isArray(client.pendingSnapshots)) client.pendingSnapshots = [];
+        const queue = client.pendingSnapshots;
+        const have  = new Set(queue.map(s => this.channelManager.channelKeyForSub(client.coin, s)));
+        const limit = this.channelManager.maxSubscriptions;
+        let refused = false;
+
+        for (const sub of subs) {
+            const key = this.channelManager.channelKeyForSub(client.coin, sub);
+            if (have.has(key)) continue;
+            if (queue.length >= limit) { refused = true; break; }
+            have.add(key);
+            queue.push(sub);
+        }
+
+        if (refused) {
+            this._sendError(client, 'SNAPSHOT_QUEUE_FULL',
+                'A snapshot fan-out is already running and its queue is full (max ' + limit +
+                ' pending entities); retry the subscribe with snapshot:true once it completes.', requestId);
+        }
     }
 
     // Send snapshot data for subscribed entities

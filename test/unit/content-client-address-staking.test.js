@@ -108,7 +108,7 @@ function pageMarkup() {
 const ADDRESS = 'moJERw6emt4gjdFKc3RPHMzY3zWtT468Ct';
 const PUBKEY  = 'ed'.repeat(32);
 
-function makeWindow(coin, chain) {
+function makeWindow(coin, chain, query) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + pageMarkup() + '</body>', { runScripts: 'outside-only' });
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(NUMERAL_SRC);
@@ -123,7 +123,12 @@ function makeWindow(coin, chain) {
     dom.window.XC = {
         coin:  coin  || 'RBTC',
         chain: chain || 'BTC',
-        name: 'Bitcoin', network: 'regtest', query: ADDRESS, pageInfo: {}
+        name: 'Bitcoin', network: 'regtest',
+        // Compared against undefined, not truthiness, so a caller can plant the
+        // ABSENT ids (null, '') setXChainParams leaves behind on a path segment it
+        // could not read as an address for this coin.
+        query: query === undefined ? ADDRESS : query,
+        pageInfo: {}
     };
     dom.window.eval(RENDER_SRC);
     return dom.window;
@@ -139,16 +144,65 @@ function cardShown(w) {
 
 // Drives the shipped inline loader with a stubbed $.getJSON, exactly as the
 // browser runs it, and returns the populated window.
-function page(mode, payload, coin, chain) {
-    const w = makeWindow(coin, chain);
+function page(mode, payload, coin, chain, query) {
+    const w = makeWindow(coin, chain, query);
+    w.__requestedUrls = [];
     w.$.getJSON = function (url, cb) {
         w.__requestedUrl = url;
+        w.__requestedUrls.push(url);
         if (mode === 'success') cb(payload);
         const handle = { fail: function (f) { if (mode === 'fail') f(payload); return handle; } };
         return handle;
     };
     w.eval(stakingInlineScript());
     return new Promise(resolve => setTimeout(() => resolve(w), 0));
+}
+
+/* ------------------------------------------------------------------------- *
+ * The address page's OTHER inline block: the header fetch and the two SPV
+ * proof widgets. It is driven here rather than in a file of its own because
+ * the id guard it shares with the staking loader is one behaviour, and pinning
+ * the two halves apart is how they drift.
+ * ------------------------------------------------------------------------- */
+function addressInlineScript() {
+    const blocks = [...PAGE_HTML.matchAll(/<script type="text\/javascript">([\s\S]*?)<\/script>/g)]
+        .map(m => m[1])
+        .filter(b => b.includes("loadApiData(XC.coin, 'address'"));
+    if (blocks.length !== 1)
+        throw new Error('expected exactly one address-info inline script in address.html, found ' + blocks.length);
+    return blocks[0];
+}
+
+// Runs that block with the REAL loadApiData out of xchain.js, so the URL the
+// assertions read is the one the shipped code builds rather than a restatement
+// of it, then clicks both proof buttons with a tick filled in.
+function addressPage(query) {
+    const w = makeWindow('RBTC', 'BTC', query);
+    const seen = [];
+    w.$.getJSON = function (url, cb) {
+        seen.push(url);
+        return { fail: function () { return this; } };
+    };
+    w.eval(extractFn(XCHAIN_SRC, 'isNumeric'));
+    w.eval(`
+        function updatePageInfo(){}
+        function setupActionListeners(){}
+        function loadDatatablesData(){}
+        function renderControllerBindings(){}
+        function proofNotice(level, msg){ return '<span class="proof-notice" data-level="' + level + '">' + msg + '</span>'; }
+        function loadProofWidget(url){ window.__proofUrls.push(url); }
+        jQuery.fn.qrcode = function(){ return this; };
+        // Run the ready callback synchronously so the assertions do not race
+        // jQuery's deferred ready queue. Harness-only; the page is untouched.
+        jQuery.fn.ready = function(fn){ fn(jQuery); return this; };
+    `);
+    w.__proofUrls = [];
+    w.eval(extractFn(XCHAIN_SRC, 'loadApiData'));
+    w.eval(addressInlineScript());
+    w.$('#address-proof-tick').val('XCHAIN');
+    w.$('#address-proof-balance-btn').click();
+    w.$('#address-proof-locked-btn').click();
+    return { w: w, seen: seen, proofUrls: w.__proofUrls };
 }
 
 /* ---------------------------------------------------------------- fixtures */
@@ -465,6 +519,72 @@ describe('address.html staking panel @regression', function () {
             const ids = [...PAGE_HTML.matchAll(/id="(addr-staking[^"]*)"/g)].map(m => m[1]);
             expect(ids.length).to.be.at.least(6);
             for (const id of ids) expect(id).to.match(/^addr-staking-/);
+        });
+    });
+
+    /* XC.query is null on any /{COIN}/address/{X} whose segment did not read as an
+     * address for this coin (setXChainParams only assigns it behind isCryptoAddress).
+     * The page then asked for three things that do not exist: the BARE collection
+     * route /{COIN}/api/address (loadApiData drops a falsy query from the path
+     * entirely, so the required id segment simply went missing), the staking record
+     * of an address named "null", and an SPV proof for that same "null" address,
+     * because encodeURIComponent(null) is the STRING "null". */
+    describe('an absent address never becomes a path segment', function () {
+
+        [['null', null], ['empty string', '']].forEach(function (pair) {
+
+            it('[no-id] XC.query ' + pair[0] + ' issues NO staking request', async function () {
+                const w = await page('success', VENUE, 'RBTC', 'BTC', pair[1]);
+                expect(w.__requestedUrls).to.deep.equal([]);
+                // Hidden, exactly as a no-activity address is, and not broken.
+                expect(cardShown(w)).to.equal(false);
+                expect(w.$('#data-panels').length).to.equal(1);
+            });
+
+            it('[no-id] XC.query ' + pair[0] + ' issues NO address request, bare route included', function () {
+                const p = addressPage(pair[1]);
+                expect(p.seen, 'no address request may be issued without an id').to.deep.equal([]);
+                // The specific shape the old code produced: the id segment dropped
+                // and the collection route requested in its place.
+                expect(p.seen).to.not.include('/RBTC/api/address');
+                expect(p.w.$('#address-missing-id').length).to.equal(1);
+                // and the placeholder zero is gone rather than left reading as data
+                expect(p.w.$('#address').text()).to.not.equal('0');
+            });
+
+            it('[no-id] XC.query ' + pair[0] + ' proves no balance for an address named "null"', function () {
+                const p = addressPage(pair[1]);
+                expect(p.proofUrls).to.deep.equal([]);
+                // Both widgets say why, rather than sitting silent.
+                expect(p.w.$('#address-proof-balance-result .proof-notice').attr('data-level')).to.equal('warning');
+                expect(p.w.$('#address-proof-locked-result .proof-notice').attr('data-level')).to.equal('warning');
+            });
+        });
+
+        it('[has-id] a real address still reaches all three routes with its id in the path', function () {
+            const p = addressPage();
+            expect(p.seen).to.deep.equal(['/RBTC/api/address/' + ADDRESS]);
+            expect(p.proofUrls).to.deep.equal([
+                '/RBTC/api/proof/balance/' + ADDRESS + '/XCHAIN',
+                '/RBTC/api/proof/locked-balance/' + ADDRESS + '/XCHAIN'
+            ]);
+            expect(p.w.$('#address-missing-id').length).to.equal(0);
+        });
+
+        it('[has-id] the staking route is unchanged for a real address', async function () {
+            const w = await page('success', VENUE);
+            expect(w.__requestedUrls).to.deep.equal(['/RBTC/api/staking/' + ADDRESS]);
+        });
+
+        it('[hostile-id] a path-bearing address is escaped into ONE segment on every route', async function () {
+            const hostile = '../../admin';
+            const w = await page('success', VENUE, 'RBTC', 'BTC', hostile);
+            expect(w.__requestedUrls).to.deep.equal(['/RBTC/api/staking/..%2F..%2Fadmin']);
+            const p = addressPage(hostile);
+            expect(p.proofUrls).to.deep.equal([
+                '/RBTC/api/proof/balance/..%2F..%2Fadmin/XCHAIN',
+                '/RBTC/api/proof/locked-balance/..%2F..%2Fadmin/XCHAIN'
+            ]);
         });
     });
 

@@ -1,41 +1,7 @@
 <!-- Candlestick Chart -->
+<!-- Markup only, deliberately. This fragment is fetched and injected at
+     runtime; an inline script block here would be handed to jQuery.globalEval
+     (window.eval of a string), which a Content-Security-Policy without
+     'unsafe-eval' refuses, losing the chart silently. The drawing code lives
+     in renderMarketChartCandlestick() in src/content/js/xchain.js. -->
 <div id="market-chart-candlestick"></div>
-
-<script type="text/javascript">
-
-// Handle updating candlestick chart
-function updateChart(){
-
-    // Get the trade data from XC.CHART_DATA
-    var data = XC.CHART_DATA.ohlc;
-
-    if(data){
-        var maxTs = XCC.lastTimestamp(data.ohlc),
-            range = XCC.normalizeRange(localStorage.getItem('marketChartZoom')),
-            cfg   = XCC.candlestickConfig(data, { tick1: XC.tick1, tick2: XC.tick2 });
-
-        XCC.applyRange(cfg, range, maxTs);
-
-        // Failover to the simple line chart if the candlestick controller is
-        // unavailable or the data will not plot
-        try {
-            XCC.render('market-chart-candlestick', cfg, {
-                name:          'candlestick',
-                height:        400,
-                rangeSelector: true,
-                range:         range,
-                maxTs:         maxTs,
-                noData:        'No Trades Found'
-            });
-        } catch (e){
-            loadMarketChart('line');
-        }
-    }
-}
-
-
-// Handle updating the chart once the page has loaded
-$(document).ready(function(){
-    updateChart();
-});
-</script>

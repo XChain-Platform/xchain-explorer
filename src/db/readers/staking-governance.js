@@ -312,6 +312,11 @@ class StakingGovernanceReaders {
                         m.batch_first_round,
                         m.batch_last_round,
                         m.round_count,
+                        -- A batch stores NULL pair_count (it would describe one round out of the
+                        -- window), so the list row's pair count is the width of the batch's FIRST
+                        -- round: every round in a batch is one publisher's full snapshot. Counted
+                        -- server-side rather than shipped as rounds_json, which is megabytes a page.
+                        JSON_LENGTH(m.rounds_json, '$[0].pairs') as batch_pair_count,
                         c1.coin,
                         t3.tick,
                         f1.code as fiat,

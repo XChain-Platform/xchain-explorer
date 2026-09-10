@@ -180,9 +180,163 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(snap.callCount).to.equal(1);
         expect(client.snapshotInProgress).to.equal(true);
 
-        // New entity, but a fan-out is still running -> skipped by the guard.
+        // New entity, but a fan-out is still running -> deferred, not concurrent.
         s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
         expect(snap.callCount).to.equal(1);
+        expect(client.pendingSnapshots.map((x) => x.address)).to.deep.equal(['b']);
+    });
+
+    // D-E063: the second subscribe was subscribed by ChannelManager, skipped by the
+    // in-progress guard, and then excluded from every later fresh filter, so its
+    // SNAPSHOT never arrived and nothing told the client.
+    it('delivers the SNAPSHOT of a subscribe that arrived mid fan-out (D-E063)', async function () {
+        const s = makeServer();
+        let releaseFirst;
+        const snap = sinon.stub(s, '_sendSnapshots');
+        snap.onFirstCall().returns(new Promise((r) => { releaseFirst = r; }));
+        snap.onSecondCall().resolves();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: () => {} } };
+
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+        expect(snap.callCount, 'second fan-out must not run concurrently').to.equal(1);
+
+        releaseFirst();
+        await tick();
+
+        expect(snap.callCount, 'the deferred entity was never snapshotted').to.equal(2);
+        expect(snap.secondCall.args[1].map((x) => x.address)).to.deep.equal(['b']);
+        expect(client.pendingSnapshots).to.have.lengthOf(0);
+        expect(client.snapshotInProgress).to.equal(false);
+    });
+
+    it('drains several deferred subscribes in ONE follow-up fan-out, deduped', async function () {
+        const s = makeServer();
+        let releaseFirst;
+        const snap = sinon.stub(s, '_sendSnapshots');
+        snap.onFirstCall().returns(new Promise((r) => { releaseFirst = r; }));
+        snap.onSecondCall().resolves();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: () => {} } };
+
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+        // 'b' is already subscribed by now, so only 'c' is fresh here.
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b', 'c'] } });
+
+        releaseFirst();
+        await tick();
+
+        expect(snap.callCount).to.equal(2);
+        expect(snap.secondCall.args[1].map((x) => x.address)).to.deep.equal(['b', 'c']);
+    });
+
+    it('answers an overflowing snapshot queue with an explicit refusal frame', function () {
+        // The queue cap is the per-client subscription limit, so dedupe normally
+        // keeps it out of reach; drive the deferral helper directly to pin the
+        // overflow branch, which must refuse loudly rather than drop silently.
+        const s = makeServer({ maxSubscriptions: 2 });
+        const sent = [];
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: (d) => sent.push(JSON.parse(d)) } };
+        const subs = ['b', 'c', 'd'].map((address) => ({ channel: 'address', address }));
+
+        s._queueSnapshots(client, subs, 7);
+
+        const err = sent.find((m) => m.data && m.data.code === 'SNAPSHOT_QUEUE_FULL');
+        expect(err, 'the client must be told, not silently dropped').to.exist;
+        expect(err.id).to.equal(7);
+        // Everything that fit is still queued for delivery.
+        expect(client.pendingSnapshots.map((x) => x.address)).to.deep.equal(['b', 'c']);
+    });
+
+    it('drops the deferred queue instead of fanning out to a closed socket', async function () {
+        const s = makeServer();
+        let releaseFirst;
+        const snap = sinon.stub(s, '_sendSnapshots');
+        snap.onFirstCall().returns(new Promise((r) => { releaseFirst = r; }));
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: () => {} } };
+
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+
+        client.ws.readyState = 3; // CLOSED
+        releaseFirst();
+        await tick();
+
+        expect(snap.callCount).to.equal(1);
+        expect(client.pendingSnapshots).to.have.lengthOf(0);
+    });
+});
+
+describe('WebSocketServer#_handleUnsubscribe (client cannot tell honoured from dropped)', function () {
+
+    it('sends an UNSUBSCRIBED frame naming a global channel that was subscribed', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleSubscribe(client, { channels: ['blocks'] });
+        client.ws.send.resetHistory();
+        s._handleUnsubscribe(client, { channels: ['blocks'] });
+
+        const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
+        const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
+        expect(unsub, 'an UNSUBSCRIBED frame was sent').to.exist;
+        expect(unsub.data.channel).to.equal('blocks');
+        expect(unsub.data.was_subscribed).to.equal(true);
+    });
+
+    it('sends an UNSUBSCRIBED frame naming an entity channel with its entity identifier', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleSubscribe(client, { channels: ['address'], params: { address: '1abc' } });
+        client.ws.send.resetHistory();
+        s._handleUnsubscribe(client, { channels: ['address'], params: { address: '1abc' } });
+
+        const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
+        const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
+        expect(unsub, 'an UNSUBSCRIBED frame was sent').to.exist;
+        expect(unsub.data.channel).to.equal('address');
+        expect(unsub.data.address).to.equal('1abc');
+        expect(unsub.data.was_subscribed).to.equal(true);
+    });
+
+    it('still answers with was_subscribed:false for a channel the client never held', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleUnsubscribe(client, { channels: ['blocks'] });
+
+        const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
+        const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
+        expect(unsub, 'an UNSUBSCRIBED frame was sent even for a no-op unsubscribe').to.exist;
+        expect(unsub.data.was_subscribed).to.equal(false);
+    });
+
+    it('echoes the request id on the UNSUBSCRIBED frame when the client sent one', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleSubscribe(client, { channels: ['blocks'] });
+        client.ws.send.resetHistory();
+        s._handleUnsubscribe(client, { channels: ['blocks'], id: 'req-7' });
+
+        const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
+        const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
+        expect(unsub.id).to.equal('req-7');
+    });
+
+    it('sends one UNSUBSCRIBED frame per channel in a multi-channel batch', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s._handleSubscribe(client, { channels: ['blocks', 'actions'] });
+        client.ws.send.resetHistory();
+        s._handleUnsubscribe(client, { channels: ['blocks', 'actions'] });
+
+        const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]))
+            .filter((m) => m.type === 'UNSUBSCRIBED');
+        expect(frames).to.have.lengthOf(2);
+        expect(frames.map((f) => f.data.channel).sort()).to.deep.equal(['actions', 'blocks']);
     });
 });
 

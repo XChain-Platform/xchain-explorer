@@ -116,16 +116,30 @@ describe('src/content charting assets: licence hygiene', () => {
         expect(fs.existsSync(path.join(CSS_DIR, 'xchain-charts.css'))).to.equal(true);
     });
 
-    it('drives all three chart views through the XCC layer', () => {
+    it('drives all three chart views through the XCC layer, from the bundle', () => {
+        // XCC calls must not live in an inline <script> inside each chart
+        // fragment. Those fragments are fetched and injected at runtime, and
+        // jQuery 1.10 hands any script it finds to globalEval (window.eval of a
+        // string), which the service's CSP refuses for want of 'unsafe-eval'
+        // so the chart silently never draws. The renderers ship in
+        // xchain.js and the fragments stay markup only.
+        const src   = fs.readFileSync(path.join(JS_DIR, 'xchain.js'), 'utf8');
         const views = {
-            'line.html':         'lineConfig',
-            'candlestick.html':  'candlestickConfig',
-            'market-depth.html': 'depthConfig'
+            'line.html':         ['renderMarketChartLine',        'lineConfig'],
+            'candlestick.html':  ['renderMarketChartCandlestick', 'candlestickConfig'],
+            'market-depth.html': ['renderMarketChartDepth',       'depthConfig']
         };
-        for(const [file, builder] of Object.entries(views)){
+        for(const [file, [fn, builder]] of Object.entries(views)){
             const body = fs.readFileSync(path.join(CHARTS_DIR, file), 'utf8');
-            expect(body, `${file} does not build its config via XCC`).to.include('XCC.' + builder);
-            expect(body, `${file} does not render via XCC`).to.include('XCC.render');
+            expect(/<script\b/i.test(body),
+                `${file} must stay markup only: an inline script is eval'd by jQuery and refused by CSP`)
+                .to.equal(false);
+            const start = src.indexOf('function ' + fn + '(');
+            expect(start, `${fn} is missing from xchain.js`).to.be.greaterThan(-1);
+            const end      = src.indexOf('\n}', start);
+            const renderer = src.slice(start, end);
+            expect(renderer, `${fn} does not build its config via XCC`).to.include('XCC.' + builder);
+            expect(renderer, `${fn} does not render via XCC`).to.include('XCC.render');
         }
     });
 

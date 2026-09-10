@@ -217,7 +217,7 @@ const ATTEST = {
     },
     // Expand the inlined validator-signature JSON on ATTEST responses into
     // a structured array the action-detail page can render.
-    afterMain({ db, action_index }, data) {
+    async afterMain({ db, config, action_index }, data) {
         if(data['validator_signatures']){
             try { data['signatures'] = JSON.parse(data['validator_signatures']); }
             catch(_) { console.warn('getActionData: ATTEST validator_signatures parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
@@ -230,11 +230,30 @@ const ATTEST = {
         // branch returned nothing and the de-blank fallback populated only
         // baseline fields, leaving version NULL. Tag the version from the
         // action format so the client badges it 'Expire (v2)' instead of
-        // mislabeling it 'Request (v0)'. The correlated v0 request's fields
-        // are not resolvable here (the indexer stores no link from the
-        // expire action to the request), so only baseline data + version show.
+        // mislabeling it 'Request (v0)'.
         if(db.util.isNull(data['version']) && !db.util.isNull(data['action_format']))
             data['version'] = data['action_format'];
+        // A v2 page that names nothing is a dead end: REQUEST_ID is on the wire (the
+        // synthetic action is VERSION|REQUEST_ID) but no column persists it, so the
+        // page rendered Request ID, Provider and Contract blank beside a badge saying
+        // this action expired something. The request is recovered from the SAME
+        // in-block correlation the lifecycle page uses (db._correlateAttestationExpiries),
+        // which resolves to null rather than to a guess when the block's two lists
+        // disagree; a page with no link beats a page with the wrong one.
+        if(Number(data['version']) === 2 && db.util.isNull(data['request_id'])){
+            let request = await db.resolveAttestationExpireRequest(config, action_index, data['block_index']);
+            if(request){
+                data['request_id']           = request.request_id;
+                data['provider_id']          = request.provider_id;
+                data['contract_index']       = request.contract_index;
+                data['request_action_index'] = request.action_index;
+                data['request_status']       = request.request_status;
+                data['deadline_block']       = request.deadline_block;
+                // The expired callback the sweep injected. Same derivation the
+                // lifecycle page uses, and null when there was no callback to fire.
+                data['callback_execute_action_index'] = await db._deriveAttestationCallbackExecute(config, request);
+            }
+        }
     },
 };
 

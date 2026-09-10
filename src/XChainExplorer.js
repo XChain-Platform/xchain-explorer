@@ -1658,8 +1658,18 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.method, info.action, info.action_index];
                     if(method=='getFiles')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, info.gate_ticker, status, info.action_index];
+                    // A validator PRICE on the wire today is a BATCH: one signed action
+                    // carrying an hourly window of rounds, whose coin/tick/fiat/value/fee
+                    // are NULL by construction (they are the v1 user-oracle columns) and
+                    // whose pair_count is NULL too (it would describe one round out of the
+                    // window). Carrying only those five is why every validator row rendered
+                    // as dashes. The round window (batch_first_round/batch_last_round/
+                    // round_count), the round the action is about and the pair counts ride
+                    // ahead of status/action_index so the client can describe the batch;
+                    // batch_pair_count is the width of the batch's first round, counted by
+                    // the feed query rather than shipped as rounds_json (megabytes a page).
                     if(method=='getPrices')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.coin, info.tick, info.fiat, info.value, info.fee, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.coin, info.tick, info.fiat, info.round_number, info.batch_first_round, info.batch_last_round, info.round_count, info.pair_count, (info.batch_pair_count === undefined) ? null : info.batch_pair_count, info.value, info.fee, status, info.action_index];
                     if(method=='getControllers')
                         info = [count_reverse, info.block_index, info.timestamp, info.scope, info.subject, info.action_class, info.contract_index, info.is_unbind, info.cooldown_blocks, info.cooldown_end_block, status, info.action_index];
                     if(method=='getDeployChunks')

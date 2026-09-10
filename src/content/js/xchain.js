@@ -1580,21 +1580,60 @@ function loadDatatablesData(coin, action, query, type, opts){
                 $('td', row).eq(6).html(fee);
                 $('td', row).eq(7).html(action_link);
             }
-            // Price (PRICE oracle: v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)
+            // Price (PRICE oracle: v0 validator COIN/FIAT snapshot, v0 validator BATCH
+            // of rounds, v1 user TOKEN/FIAT oracle).
+            //
+            // A batch is the shape a validator actually publishes, and its coin, token,
+            // fiat, value, fee and pair_count columns are ALL NULL by construction (the
+            // first five are v1 oracle columns; pair_count would describe one round out
+            // of the window). Reading only those left every validator row a line of
+            // dashes over an action that carried an hour of prices. The batch's own
+            // fields - the round window, how many rounds it carries and how wide a round
+            // is - describe it instead.
             if(action=='price'){
-                let version = data[4];
-                let pcoin   = data[5];
-                token       = data[6];
-                let fiat    = data[7];
-                value       = data[8];
-                fee         = data[9];
-                $('td', row).eq(4).html(Number(version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
+                let version    = data[4];
+                let pcoin      = data[5];
+                token          = data[6];
+                let fiat       = data[7];
+                let round      = data[8];
+                let firstRound = data[9];
+                let lastRound  = data[10];
+                let roundCount = data[11];
+                let pairCount  = data[12];
+                let batchPairs = data[13];
+                value          = data[14];
+                fee            = data[15];
+                // Both bounds, never one: a half-set window is not a window, and a v0
+                // single-round row and a v1 oracle carry neither.
+                let isBatch    = !isNull(firstRound) && !isNull(lastRound);
+                let typeHtml   = (Number(version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
+                if(isBatch)
+                    typeHtml += ' <span class="badge text-bg-dark">Batch</span>';
+                $('td', row).eq(4).html(typeHtml);
                 $('td', row).eq(5).text(isNull(pcoin) ? '-' : pcoin);
                 $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(7).text(isNull(fiat) ? '-' : fiat);
-                $('td', row).eq(8).text(isNull(value) ? '-' : value);
-                $('td', row).eq(9).text(isNull(fee) ? '-' : fee);
-                $('td', row).eq(10).html(action_link);
+                // Rounds: the batch's declared window and its round count; on every
+                // other shape the single round the action is about.
+                let roundText = isNull(round) ? '-' : numeral(round).format(fmtInteger);
+                if(isBatch){
+                    roundText = numeral(firstRound).format(fmtInteger) + ' - ' + numeral(lastRound).format(fmtInteger);
+                    if(!isNull(roundCount))
+                        roundText += ' (' + numeral(roundCount).format(fmtInteger) + ' round' + (Number(roundCount)===1 ? '' : 's') + ')';
+                }
+                $('td', row).eq(8).text(roundText);
+                // Pairs: a single-round row states its own width; a batch states the
+                // width of one round in the window, since every round in a batch is one
+                // publisher's full snapshot.
+                let pairText = '-';
+                if(!isNull(pairCount))
+                    pairText = numeral(pairCount).format(fmtInteger);
+                else if(!isNull(batchPairs))
+                    pairText = numeral(batchPairs).format(fmtInteger) + ' per round';
+                $('td', row).eq(9).text(pairText);
+                $('td', row).eq(10).text(isNull(value) ? '-' : value);
+                $('td', row).eq(11).text(isNull(fee) ? '-' : fee);
+                $('td', row).eq(12).html(action_link);
             }
             // Controller binding (programmable-policy guard: bind/unbind event on a token or address)
             if(action=='controller'){
@@ -3504,7 +3543,32 @@ function showAttestDetails(data){
         isBatch     ? '<span class="badge text-bg-info text-dark">Batch Continuation (v6)</span>' :
                       '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
     // On a batch row request_id holds the batch key, not a request id.
-    $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
+    //
+    // An EXPIRE names the request it retired and is the only page in the round with
+    // nowhere else to go: it has no request or response panel, so the id cell carries
+    // the whole path back - the lifecycle page, the v0 request action, and the expired
+    // callback EXECUTE the sweep injected. The id itself is resolved server-side by
+    // in-block correlation and is absent when that correlation refuses to guess, which
+    // reads as "not recorded" rather than as a blank cell.
+    if(isExpire){
+        let expireHtml = '';
+        if(isNull(data.request_id)){
+            expireHtml = '<span class="text-muted attest-expire-unresolved">not recorded</span>';
+        } else {
+            expireHtml = formatLink('/' + XC.coin + '/attestation/' + data.request_id,
+                                    formatHash(data.request_id, 32), 'View this attestation lifecycle');
+            let links = [];
+            if(!isNull(data.request_action_index))
+                links.push('request ' + formatLink('/' + XC.coin + '/action/' + data.request_action_index, data.request_action_index));
+            if(!isNull(data.callback_execute_action_index))
+                links.push('callback ' + formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
+            if(links.length)
+                expireHtml += ' <span class="small text-muted attest-expire-links">(' + links.join(' &middot; ') + ')</span>';
+        }
+        $('#info-attest .attest-request-id').html(expireHtml);
+    } else {
+        $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
+    }
     // provider_id is the empty string on a batch row (no single provider answers a
     // batch), which isNull already counts as absent.
     $('#info-attest .attest-provider').text(isNull(data.provider_id) ? '-' : data.provider_id);
@@ -5918,6 +5982,121 @@ function loadMarket(market){
     updateMarketHistory(market, 1, true);
 }
 
+// Draw the simple line view from the trade series already parsed into XC.CHART_DATA
+function renderMarketChartLine(){
+    let data = XC.CHART_DATA.trades;
+    if(!data)
+        return;
+    let maxTs = XCC.lastTimestamp(data.trades),
+        range = XCC.normalizeRange(ls.getItem('marketChartZoom')),
+        cfg   = XCC.lineConfig(data, { tick1: XC.tick1, tick2: XC.tick2 });
+    XCC.applyRange(cfg, range, maxTs);
+    XCC.render('market-chart-line', cfg, {
+        name:          'market',
+        height:        400,
+        rangeSelector: true,
+        range:         range,
+        maxTs:         maxTs,
+        noData:        'No Trades Found'
+    });
+}
+
+// Draw the candlestick view from the OHLC series already parsed into XC.CHART_DATA
+function renderMarketChartCandlestick(){
+    let data = XC.CHART_DATA.ohlc;
+    if(!data)
+        return;
+    let maxTs = XCC.lastTimestamp(data.ohlc),
+        range = XCC.normalizeRange(ls.getItem('marketChartZoom')),
+        cfg   = XCC.candlestickConfig(data, { tick1: XC.tick1, tick2: XC.tick2 });
+    XCC.applyRange(cfg, range, maxTs);
+    // Failover to the simple line chart if the candlestick controller is
+    // unavailable or the data will not plot
+    try {
+        XCC.render('market-chart-candlestick', cfg, {
+            name:          'candlestick',
+            height:        400,
+            rangeSelector: true,
+            range:         range,
+            maxTs:         maxTs,
+            noData:        'No Trades Found'
+        });
+    } catch(e){
+        loadMarketChart('line');
+    }
+}
+
+// Draw the market depth view from the orderbook already stored on XC.CHART_DATA
+function renderMarketChartDepth(){
+    let orders = XC.CHART_DATA.orderbook,
+        types  = ['asks','bids'];
+    if(!orders)
+        return;
+    // A market with only one side of the book still has to draw
+    $.each(types, function(idx,name){
+        if(!Array.isArray(orders[name]))
+            orders[name] = [];
+    });
+    // Accumulate each side into running volume/value sums, which is what the
+    // depth curve plots and what the tooltip reports
+    $.each(types, function(idx,name){
+        var a = 0,
+            b = 0;
+        $.each(orders[name],function(ndx,data){
+            data[2] = numeral(parseFloat(data[0]) * parseFloat(data[1])).format('0.00000000');
+            a       = numeral(parseFloat(a) + parseFloat(data[1])).format('0.00000000');
+            b       = numeral(parseFloat(b) + parseFloat(data[2])).format('0.00000000');
+            data[1] = a;
+            data[2] = b;
+        });
+    });
+    // Convert all values to floats
+    $.each(types, function(idx,name){
+        $.each(orders[name],function(ndx,data){
+            data[0] = parseFloat(data[0]);
+            data[1] = parseFloat(data[1]);
+        });
+    });
+    // Sort the data in ascending order
+    $.each(types, function(idx, name){
+        orders[name].sort(function(a,b){
+            if(a[0] < b[0]) return -1;
+            if(a[0] > b[0]) return 1;
+            return 0;
+        });
+    });
+    let cfg = XCC.depthConfig(orders, { tick1: XC.tick1, tick2: XC.tick2 });
+    XCC.render('market-chart-depth', cfg, {
+        name:   'market-depth',
+        height: 400,
+        noData: 'No buy or sell orders found'
+    });
+}
+
+// Every market chart view draws from a renderer that ships inside this bundle.
+// A fragment that carries its own <script> block is a hazard here, because
+// jQuery 1.10's .load()/.html() hands any script it finds to jQuery.globalEval,
+// which is window.eval() of a string. Under a Content-Security-Policy without
+// 'unsafe-eval' (the policy this service actually sets, src/api.js) that eval
+// is refused, the exception is uncaught inside the AJAX success handler, and
+// the chart silently never draws while the page still reads green. Keeping the
+// drawing code here and the fragments script-free removes the eval entirely.
+let MARKET_CHART_RENDERERS = {
+    'line':         renderMarketChartLine,
+    'candlestick':  renderMarketChartCandlestick,
+    'market-depth': renderMarketChartDepth
+};
+
+// Insert an HTML fragment WITHOUT evaluating any script it carries.
+// $.parseHTML(html) defaults keepScripts to false, so script nodes are dropped
+// before they can reach the globalEval path described above.
+function loadChartFragment(target, html, done){
+    let nodes = $.parseHTML(String(html || ''));
+    $(target).empty().append(nodes);
+    if(typeof done === 'function')
+        done();
+}
+
 // Handle loading a market chart and uplading the title and icon
 function loadMarketChart(chart){
     // Hide all tab panels and only show the active one
@@ -5929,8 +6108,13 @@ function loadMarketChart(chart){
         text = 'Charts - ' + el.text();
     $('#datatable-header-icon').removeClass().addClass(icon);
     $('#datatable-header-text').text(text);
-    // Handle loading the correct chart
-    $('#market-chart-container').load('/charts/' + chart + '.html');
+    // The active view's renderer is what the data refresh re-runs
+    let renderer = MARKET_CHART_RENDERERS[chart] || null;
+    XC.chartRenderer = renderer;
+    // Handle loading the correct chart markup, scripts stripped
+    $.get('/charts/' + chart + '.html', function(html){
+        loadChartFragment('#market-chart-container', html, renderer);
+    }, 'html');
     if(['line','candlestick'].includes(chart))
         ls.setItem('marketChart',chart);
 }
@@ -6104,9 +6288,9 @@ function updateMarketHistory(market, page=1, full=false, count=0){
             ohlc: ohlc,
             volume: volume2
         };
-        // If we have an updateChart() function defined, run it to update the chart with the new data
-        if(typeof updateChart === 'function')
-            updateChart();
+        // Re-draw whichever market chart view is currently mounted with the new data
+        if(typeof XC.chartRenderer === 'function')
+            XC.chartRenderer();
     });
 }
 

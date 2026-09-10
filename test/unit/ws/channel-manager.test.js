@@ -329,6 +329,44 @@ describe('ChannelManager', function () {
             cm.unsubscribe(client, ['blocks']); // should not throw
             expect(client.subscriptions.size).to.equal(0);
         });
+
+        // the caller (WebSocketServer) needs to know what was targeted
+        // so it can send back a frame naming it -- unsubscribe must not be a
+        // silent void call.
+        it('returns the unsubscribed global channel, naming it and honoured=true', function () {
+            const client = createClient(1);
+            cm.subscribe(client, ['blocks']);
+            const result = cm.unsubscribe(client, ['blocks']);
+            expect(result.unsubscribed).to.have.lengthOf(1);
+            expect(result.unsubscribed[0]).to.deep.equal({ channel: 'blocks', was_subscribed: true });
+        });
+
+        it('returns the unsubscribed entity channel with its entity identifier', function () {
+            const client = createClient(1);
+            cm.subscribe(client, ['address'], { address: '1abc' });
+            const result = cm.unsubscribe(client, ['address'], { address: '1abc' });
+            expect(result.unsubscribed).to.have.lengthOf(1);
+            expect(result.unsubscribed[0]).to.deep.equal({
+                channel: 'address', address: '1abc', was_subscribed: true
+            });
+        });
+
+        it('returns was_subscribed:false for a channel the client never held, still naming it', function () {
+            const client = createClient(1);
+            const result = cm.unsubscribe(client, ['blocks']);
+            expect(result.unsubscribed).to.have.lengthOf(1);
+            expect(result.unsubscribed[0]).to.deep.equal({ channel: 'blocks', was_subscribed: false });
+        });
+
+        it('reports each requested channel independently across a mixed batch', function () {
+            const client = createClient(1);
+            cm.subscribe(client, ['blocks']);
+            const result = cm.unsubscribe(client, ['blocks', 'actions']);
+            expect(result.unsubscribed).to.have.lengthOf(2);
+            const byChannel = Object.fromEntries(result.unsubscribed.map((u) => [u.channel, u.was_subscribed]));
+            expect(byChannel.blocks).to.equal(true);
+            expect(byChannel.actions).to.equal(false);
+        });
     });
 
     describe('removeClient', function () {

@@ -1731,6 +1731,30 @@ describe('Database#getPrices', () => {
         expect(query).to.include('index_fiats');
         expect(query).to.include('m.round_number');
     });
+
+    // a validator batch stores NULL in pair_count, so the only server-side
+    // statement of how wide a round is comes from counting the first round's pairs.
+    // Counted in SQL rather than shipped as rounds_json, which is megabytes a page.
+    it('counts the first batch round\'s pairs so the list row can state a width', async () => {
+        const db = makeDb();
+        const [query] = await db.getPrices(makeActionConfig('getPrices'));
+        expect(query).to.match(/JSON_LENGTH\(m\.rounds_json,\s*'\$\[0\]\.pairs'\)\s+as\s+batch_pair_count/);
+    });
+
+    it('carries the batch window columns the list row describes a batch with', async () => {
+        const db = makeDb();
+        const [query] = await db.getPrices(makeActionConfig('getPrices'));
+        for(const col of ['m.batch_first_round', 'm.batch_last_round', 'm.round_count', 'm.pair_count'])
+            expect(query).to.include(col);
+    });
+
+    // rounds_json itself is the megabyte column; only its counted width may ship.
+    it('never selects rounds_json into the list feed', async () => {
+        const db = makeDb();
+        const [query, , count] = await db.getPrices(makeActionConfig('getPrices'));
+        expect(query).to.not.match(/^\s*m\.rounds_json,?\s*$/m);
+        expect(count).to.not.include('rounds_json');
+    });
 });
 
 describe('Database#getPriceSnapshots', () => {

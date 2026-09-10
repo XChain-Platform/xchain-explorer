@@ -119,7 +119,10 @@ function loadPage(routes, query) {
 
     const dom = new JSDOM('<!DOCTYPE html><body>' + bodyHtml + '</body>', { runScripts: 'outside-only' });
     installHelpers(dom);
-    if (query) dom.window.eval('XC.query = ' + JSON.stringify(query) + ';');
+    // Compared against undefined rather than truthiness so a caller can plant the
+    // ABSENT ids (null, '') this suite has to drive; a truthiness check would have
+    // silently handed those cases the harness default instead.
+    if (query !== undefined) dom.window.eval('XC.query = ' + JSON.stringify(query) + ';');
 
     // Run the ready callback synchronously so the assertions do not race
     // jQuery's deferred ready queue. Harness-only; the page is untouched.
@@ -211,15 +214,31 @@ function completed() {
 
 // EXPIRED: the expiry sweep flipped the stored status. No v1 row, no v2 row
 // (ATTEST v2 writes none), resolved_block stamped at the sweep.
+// EXPIRED, with the expire action and the injected callback UNRESOLVED. The server
+// leaves both null when the block's expire actions and expired requests do not line
+// up (db._correlateAttestationExpiries refuses to guess), so this is the shape the
+// page must still render without inventing a link.
 function expired() {
     const req = requestLeg({ request_status: 'expired', resolved_block: 901, callback_execute_action_index: null });
     return {
         query: REQ_ID, request_id: REQ_ID, provider_id: 'http_get',
         legs: [req], request: req, response: null,
-        expiry: { request_status: 'expired', deadline_block: 900, resolved_block: 901, expired: true },
+        expiry: { request_status: 'expired', deadline_block: 900, resolved_block: 901, expired: true,
+                  expire_action_index: null },
         relay: { is_relay: false, origin_chain: null, origin_action_index: null, response_relayed: false },
-        callback_execute_action_index: null
+        callback_execute_action_index: null, callback_execute_derived: false
     };
+}
+
+// The ordinary expiry: the v2 expire action was resolved, and the callback EXECUTE
+// the sweep injected was matched on the execution's own columns (there is no v1
+// response row after an expiry, so nothing stamped attests.callback_execute_action_index).
+function expiredLinked() {
+    const d = expired();
+    d.expiry.expire_action_index = 5101;
+    d.callback_execute_action_index = 5102;
+    d.callback_execute_derived = true;
+    return d;
 }
 
 // PENDING PAST ITS DEADLINE: deadline_block is BEHIND every block in the round
@@ -315,10 +334,63 @@ describe('attestation.html detail page @regression', function () {
             expect($l('[data-stage="response"]').attr('data-reached')).to.equal('false');
         });
 
-        it('[expired] says plainly that ATTEST v2 wrote no action row', function () {
+        it('[expired] says v2 wrote no ROW without claiming the expiry action cannot be linked', function () {
             const dom = renderDom();
-            const $ = paint(dom, dom.window.renderAttestationExpiry(expired()));
-            expect($('.attestation-expired').text()).to.contain('ATTEST v2 writes no action row of its own');
+            const $ = paint(dom, dom.window.renderAttestationExpiry(expiredLinked()));
+            const copy = $('.attestation-expired').text();
+            expect(copy).to.contain('ATTEST v2 writes no row of its own');
+            // The old copy denied the expiry ACTION existed. It does, and it has a page.
+            expect(copy).to.not.contain('no expiry action to link to');
+        });
+
+        it('[expired] links the expire ACTION on the panel and names it on the ladder', function () {
+            const dom = renderDom();
+            const d = expiredLinked();
+            const $ = paint(dom, dom.window.renderAttestationExpiry(d));
+            expect($('.attestation-expire-action a').attr('href')).to.equal('/RBTC/action/5101');
+            expect($('.attestation-expire-action-none').length).to.equal(0);
+            expect($('.attestation-expired a[href="/RBTC/action/5101"]').length).to.equal(1);
+
+            const $l = paint(dom, dom.window.renderAttestationLifecycle(d));
+            expect($l('[data-stage="expiry"]').text()).to.contain('action 5101');
+        });
+
+        it('[expired] links the injected callback EXECUTE, which no response panel exists to carry', function () {
+            const dom = renderDom();
+            const d = expiredLinked();
+            const $ = paint(dom, dom.window.renderAttestationExpiry(d));
+            expect($('.attestation-expiry-callback a').attr('href')).to.equal('/RBTC/action/5102');
+            expect($('.attestation-expiry-callback-none').length).to.equal(0);
+
+            // And the ladder counts the callback stage as reached, saying where the link
+            // came from rather than implying the indexer stamped it.
+            const stages = {};
+            dom.window.attestationStages(d).forEach(function (s) { stages[s.key] = s; });
+            expect(stages.callback.reached).to.equal(true);
+            expect(stages.callback.note).to.contain('5102');
+            expect(stages.callback.note).to.contain('matched by request id');
+        });
+
+        it('[expired-unresolved] an unresolvable expiry says so instead of linking a guess', function () {
+            const dom = renderDom();
+            const d = expired();
+            const $ = paint(dom, dom.window.renderAttestationExpiry(d));
+            expect($('.attestation-expire-action-none').length).to.equal(1);
+            expect($('.attestation-expired a[href^="/RBTC/action/"]').length).to.equal(0);
+            expect($('.attestation-expiry-callback-none').length).to.equal(1);
+            expect($('.attestation-expired').text()).to.contain('could not be identified');
+
+            const stages = {};
+            dom.window.attestationStages(d).forEach(function (s) { stages[s.key] = s; });
+            expect(stages.expiry.reached).to.equal(true);
+            expect(stages.callback.reached).to.equal(false);
+        });
+
+        it('[completed] the expiry panel carries no expire or callback row when nothing expired', function () {
+            const dom = renderDom();
+            const $ = paint(dom, dom.window.renderAttestationExpiry(completed()));
+            expect($('.attestation-expire-action, .attestation-expire-action-none').length).to.equal(0);
+            expect($('.attestation-expiry-callback, .attestation-expiry-callback-none').length).to.equal(0);
         });
 
         it('[completed] a fulfilled request is not expired and reaches response and callback', function () {
@@ -591,6 +663,47 @@ describe('attestation.html detail page @regression', function () {
             }, REQ_ID);
             expect(page.$('#attestation-load-error').hasClass('text-danger')).to.equal(true);
             expect(page.$('#attestation-load-error').text()).to.equal('A database error occurred while serving this request.');
+        });
+    });
+
+    /* XC.query is null on every attestation URL whose last path segment did not
+     * match a shape setXChainParams accepts (src/content/js/xchain.js). The page
+     * must not concatenate that null and ask the server about the attestation
+     * literally named "null": a 404 that painted the not-found branch, so a reader
+     * was told "no such attestation" when the truth was "this page never had an
+     * id", and the console filled with 404s that hide a real one. */
+    describe('an absent request id never becomes a path segment', function () {
+
+        [['null', null], ['empty string', '']].forEach(function (pair) {
+            it('[no-id] XC.query ' + pair[0] + ' issues NO request at all', function () {
+                const page = loadPage({}, pair[1]);
+                expect(page.seen, 'no request may be issued without an id').to.deep.equal([]);
+            });
+
+            it('[no-id] XC.query ' + pair[0] + ' says the id is missing, not that the attestation is', function () {
+                const page = loadPage({}, pair[1]);
+                expect(page.$('#attestation-missing-id').length).to.equal(1);
+                // The two dead ends mean different things and must not be confused:
+                // one is "bad address bar", the other "the server had nothing".
+                expect(page.$('#attestation-not-found').length).to.equal(0);
+                expect(page.$('#attestation-load-error').length).to.equal(0);
+                // and the page is not left sitting on its loading placeholders
+                expect(page.$('#attestation-headline').text()).to.not.contain('Loading');
+                expect(page.$('#attestation-legs').text()).to.equal('-');
+                expect(page.$('#attestation-lifecycle [data-stage]').length).to.equal(0);
+            });
+        });
+
+        it('[has-id] a real request id still reaches the composed route unchanged', function () {
+            const page = loadPage({ [URL_FOR(REQ_ID)]: completed() }, REQ_ID);
+            expect(page.seen).to.deep.equal([URL_FOR(REQ_ID)]);
+            expect(page.$('#attestation-missing-id').length).to.equal(0);
+        });
+
+        it('[hostile-id] a path-bearing id is escaped into ONE segment rather than steering the route', function () {
+            const page = loadPage({}, '../../admin');
+            expect(page.seen.length).to.equal(1);
+            expect(page.seen[0]).to.equal('/RBTC/api/attestation/..%2F..%2Fadmin');
         });
     });
 

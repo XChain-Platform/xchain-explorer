@@ -6,16 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-10
+
 ### Added
 - History and transaction rows for DEPLOY, EXECUTE, DEPOSIT and WITHDRAW carry the contract's recorded name and version, so a wallet can label them "Name vX (C:COIN:n)".
 - Contracts carry their declared name, description and version everywhere they are shown, the contracts list filters by name, and global search finds a contract by a word from its name or description.
 
 ### Changed
 - The hub connector accepts only an array of endpoint URLs; the unused host+port form is removed and a non-array argument now throws instead of building an `http://undefined:undefined` endpoint.
+- The vm-query consensus pin moves to VM epoch 4, so a rebuilt explorer simulates instead of answering VM_QUERY_VM_DRIFT to every call.
+- The checkpoint readers move out of `db.js` into their own module.
 
 ### Fixed
 - The integration and conformance tiers take the database credentials for the app under test from the fixture, so they follow it to a shared venue server instead of connecting as the container fixture user.
 - The integration fixture uses the CI venue's shared MariaDB when the venue publishes one, instead of failing to bind a port that server already holds.
+- Market chart renderers moved into the main bundle, so a chart fragment carries no inline script and the market page raises no CSP violation.
+- A null or absent entity id is refused before it reaches the attestation, address and staking API requests.
+- A snapshot fan-out that arrives mid fan-out is queued instead of dropped.
+- A client-driven unsubscribe is acknowledged with an UNSUBSCRIBED frame per targeted channel.
+- A validator PRICE batch on the prices list is described by its round window and pair count instead of a row of nulls.
+- ATTEST expiries link back to their request and injected callback across the lifecycle, action and list pages.
+- The transaction page ships an empty panel manifest matching the zero tab controls it carries.
+- A hub stale verdict is logged once per transition, as the hub wrote it, instead of as malformed.
 
 ## [0.16.0] - 2026-09-08
 

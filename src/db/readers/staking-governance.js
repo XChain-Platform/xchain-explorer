@@ -225,20 +225,28 @@ class StakingGovernanceReaders {
         return [query, null, count];
     }
 
-    // The hub's own federation registry (`validators`: addr, chains,
-    // registration status), keyed by LOWERCASED signing pubkey. There is no separate
-    // federation-registry page; these hub-only columns are folded onto the on-chain
-    // active set that /validators already renders, so one table answers both "who is
-    // staked on chain" and "what does the hub know about that key".
+    // What the hub knows about each signing pubkey, keyed by LOWERCASED pubkey. There
+    // is no separate federation-registry page; these hub-only columns are folded onto
+    // the on-chain active set that /validators already renders, so one table answers
+    // both "who is staked on chain" and "what does the hub know about that key".
+    //
+    // Two sources, merged. The hub's manual `validators` registry (registervalidator:
+    // addr, chains, status) wins when it has a row, but membership is the on-chain
+    // stake set and nothing populates that registry on a live federation, so on its
+    // own it labelled every staked validator, the hub's own peers included,
+    // "unregistered". The gossiped validator_capabilities rows are what the hub
+    // actually learns over P2P: a pubkey with any row has peered with this hub, and
+    // it is `active` once one capability is qualified, self-tested and enabled, else
+    // `peered`. A pubkey in neither source is one the hub has never heard from.
     //
     // Hub JSON-RPC first (HubOperationalCache, TTL-cached), co-located hub schema as
-    // the fallback. This is DELIBERATELY the one exception to the fail-loud rule the
-    // three list endpoints follow: the registry only decorates rows that
-    // /validators already renders from on-chain state, so a hub outage must degrade
-    // the decoration, never blank a page of consensus data. Returns NULL when no
-    // registry is reachable at all (no hub endpoint configured, hub down past the
-    // stale ceiling, and no co-located hub schema). Null is the "unknown" signal:
-    // the caller must not render it as "not registered".
+    // the fallback, for both sources. This is DELIBERATELY the one exception to the
+    // fail-loud rule the three list endpoints follow: the registry only decorates
+    // rows that /validators already renders from on-chain state, so a hub outage
+    // must degrade the decoration, never blank a page of consensus data. Returns
+    // NULL when neither source is reachable at all (no hub endpoint configured, hub
+    // down past the stale ceiling, and no co-located hub schema). Null is the
+    // "unknown" signal: the caller must not render it as "not registered".
     async getFederationRegistry(config){
         let rows = null;
         let ops  = this.explorer ? this.explorer.hubOperational : null;
@@ -253,12 +261,13 @@ class StakingGovernanceReaders {
                     'SELECT signing_pubkey, addr, chains, status FROM ' + src.table, []);
             } catch(e){
                 if(process.env.DEBUG) console.log('Federation registry schema read failed:', e);
-                return null;
+                rows = null;
             }
         }
-        if(!Array.isArray(rows)) return null;
+        let caps = await this._federationCapabilityRows(config, ops);
+        if(!Array.isArray(rows) && !Array.isArray(caps)) return null;
         let registry = {};
-        for(let row of rows){
+        for(let row of (Array.isArray(rows) ? rows : [])){
             if(!row || this.util.isNull(row.signing_pubkey)) continue;
             // `chains` is absent on a hub older than the getvalidators column add;
             // absent and NULL both mean "the hub did not say", never the string
@@ -269,7 +278,45 @@ class StakingGovernanceReaders {
                 status: this.util.isNull(row.status) ? null : String(row.status)
             };
         }
+        // One flag per pubkey: active if ANY capability is fully on. The gossip
+        // carries no network address or chain list, so those stay null here.
+        let peered = {};
+        for(let row of (Array.isArray(caps) ? caps : [])){
+            if(!row || this.util.isNull(row.signing_pubkey)) continue;
+            let key    = String(row.signing_pubkey).toLowerCase();
+            let active = Number(row.qualified) === 1 && Number(row.self_test_ok) === 1 &&
+                         Number(row.enabled) === 1;
+            peered[key] = Boolean(peered[key]) || active;
+        }
+        for(let key of Object.keys(peered)){
+            if(registry[key]) continue;
+            registry[key] = { addr: null, chains: null, status: peered[key] ? 'active' : 'peered' };
+        }
         return registry;
+    }
+
+    // Every validator_capabilities row the hub holds, on the same dual transport the
+    // capability list view uses. Null means this source is unreachable, which is not
+    // an outage by itself: getFederationRegistry needs BOTH sources gone before it
+    // reports unknown.
+    async _federationCapabilityRows(config, ops){
+        if(ops && ops.enabled() && typeof ops.getValidatorCapabilities === 'function'){
+            try {
+                let rows = await ops.getValidatorCapabilities({});
+                if(Array.isArray(rows)) return rows;
+            } catch(e){
+                console.log('Federation capability RPC read failed: ' + (e && e.message));
+            }
+        }
+        try {
+            let src  = this._hubSource(config, 'validator_capabilities');
+            let rows = await this.doQuery(config,
+                'SELECT signing_pubkey, qualified, self_test_ok, enabled FROM ' + src.table, []);
+            return Array.isArray(rows) ? rows : null;
+        } catch(e){
+            if(process.env.DEBUG) console.log('Federation capability schema read failed:', e);
+            return null;
+        }
     }
 
     // Get list of PRICE actions. The batch WINDOW columns (batch_first_round /

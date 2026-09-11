@@ -101,6 +101,59 @@ describe('db.getFederationRegistry()', function () {
         expect(registry[PK_B].status).to.equal('suspended');
     });
 
+    // On a live federation the manual registry is empty (membership is the on-chain
+    // stake set), so the gossiped capability rows are the only thing the hub knows
+    // about a peer. A pubkey with any row has peered; any fully-on capability makes
+    // it active; a pubkey in neither source is one the hub has never heard from.
+    it('derives active and peered entries from the gossiped capability rows when the registry is empty', async function () {
+        const ops = {
+            enabled: () => true,
+            getFederationValidators: sinon.stub().resolves([]),
+            getValidatorCapabilities: sinon.stub().resolves([
+                { signing_pubkey: PK_A.toUpperCase(), capability: 'price',      qualified: 1, self_test_ok: 1, enabled: 1 },
+                { signing_pubkey: PK_A,               capability: 'full_node',  qualified: 0, self_test_ok: 0, enabled: 1 },
+                { signing_pubkey: PK_B,               capability: 'price',      qualified: 0, self_test_ok: 0, enabled: 1 },
+                { signing_pubkey: PK_B,               capability: 'attestation', qualified: 1, self_test_ok: 0, enabled: 1 }
+            ])
+        };
+        const db = makeDb(ops);
+        const registry = await db.getFederationRegistry(validatorConfig());
+        expect(registry[PK_A]).to.deep.equal({ addr: null, chains: null, status: 'active' });
+        expect(registry[PK_B]).to.deep.equal({ addr: null, chains: null, status: 'peered' });
+        expect(ops.getValidatorCapabilities.firstCall.args[0]).to.deep.equal({});
+    });
+
+    it('lets a manual registry row win over the gossip-derived status for the same pubkey', async function () {
+        const ops = {
+            enabled: () => true,
+            getFederationValidators: sinon.stub().resolves([
+                { signing_pubkey: PK_A, addr: 'v1.example.com:10001', chains: 'BTC', status: 'suspended' }
+            ]),
+            getValidatorCapabilities: sinon.stub().resolves([
+                { signing_pubkey: PK_A, capability: 'price', qualified: 1, self_test_ok: 1, enabled: 1 }
+            ])
+        };
+        const db = makeDb(ops);
+        const registry = await db.getFederationRegistry(validatorConfig());
+        expect(registry[PK_A].status).to.equal('suspended');
+        expect(registry[PK_A].addr).to.equal('v1.example.com:10001');
+    });
+
+    it('still answers from the capability rows when the manual registry read fails', async function () {
+        const ops = {
+            enabled: () => true,
+            getFederationValidators: sinon.stub().rejects(new Error('boom')),
+            getValidatorCapabilities: sinon.stub().resolves([
+                { signing_pubkey: PK_B, capability: 'price', qualified: 0, self_test_ok: 0, enabled: 1 }
+            ])
+        };
+        const db = makeDb(ops);
+        db.checkpointDb = null;
+        const registry = await db.getFederationRegistry(validatorConfig());
+        expect(registry).to.not.equal(null);
+        expect(registry[PK_B].status).to.equal('peered');
+    });
+
     it('returns null (unknown) with no hub endpoint and no co-located hub schema', async function () {
         const db = makeDb(null);
         db.checkpointDb = null;

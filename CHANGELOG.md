@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Markets, orderbooks and order detail list a token traded against the chain's native coin, labelling that side by the coin symbol, and the WebSocket market snapshot returns real prices instead of an empty object.
+
 ## [0.17.0] - 2026-09-10
 
 ### Added

@@ -1277,11 +1277,31 @@ describe('Database#getMarketInfo', () => {
         expect(await db.getMarketInfo(cfg(), 'XCHAIN', 'BTC')).to.be.null;
     });
 
-    it('passes [tick1, tick2] as args', async () => {
+    // The pair is stored in whichever orientation traded first, so the query matches
+    // both and resolves the caller's tick1 to the side it actually is: two label binds,
+    // four CASE binds that ask "is tick1 side one?", then the two-orientation WHERE.
+    it('binds the caller ticks for the labels, the CASEs and both orientations', async () => {
         let capturedArgs = null;
         sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { capturedArgs = a; return []; });
         await db.getMarketInfo(cfg(), 'XCHAIN', 'BTC');
-        expect(capturedArgs).to.deep.equal(['XCHAIN', 'BTC']);
+        expect(capturedArgs).to.deep.equal([
+            'XCHAIN', 'BTC',                             // the tick1 / tick2 labels echoed back
+            'XCHAIN', 'XCHAIN', 'XCHAIN', 'XCHAIN',      // last_price / volume_24h / bid / ask side pick
+            'XCHAIN', 'BTC', 'BTC', 'XCHAIN'             // stored either way round
+        ]);
+    });
+
+    it('never selects a column markets does not have', async () => {
+        let query = null;
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => { query = q; return []; });
+        await db.getMarketInfo(cfg(), 'XCHAIN', 'BTC');
+        // markets holds its stats per side (tick1_*/tick2_*); these four names were
+        // selected as if they were columns, so every subscribe raised 'Unknown column'
+        // and the channel pushed an empty snapshot.
+        for (const phantom of ['m.last_price', 'm.volume_24h', 'm.bid', 'm.ask'])
+            expect(query, phantom).to.not.include(phantom);
+        expect(query).to.include('as last_price');
+        expect(query).to.include('as volume_24h');
     });
 });
 

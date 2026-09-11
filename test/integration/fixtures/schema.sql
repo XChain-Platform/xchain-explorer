@@ -966,7 +966,9 @@ CREATE TABLE markets (
     tick2_24hr_low     VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour low price
     tick2_24hr_change  VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour percentage change
     tick2_24hr_volume  VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour volume
-    last_updated  BIGINT UNSIGNED                       -- Last updated
+    last_updated  BIGINT UNSIGNED,                      -- Last updated
+    coin1_id           BIGINT UNSIGNED NOT NULL DEFAULT 0, -- tick1 - id of record in index_coins table
+    coin2_id           BIGINT UNSIGNED NOT NULL DEFAULT 0  -- tick2 - id of record in index_coins table
 ) ENGINE=InnoDB CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE INDEX tick1_id on markets (tick1_id);

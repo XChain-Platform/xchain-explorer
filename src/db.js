@@ -1381,13 +1381,17 @@ class Database {
                 if(type=='block')
                     sql += ' AND b1.block_index=?';
             }
+        // Every market predicate matches on COALESCE(ticker, coin), not on the ticker
+        // alone: the native side of a token/native pair has no index_tickers row, so
+        // t1.tick is NULL there and a bare `t1.tick=?` can never match the coin symbol
+        // the caller asked for. The readers join c1/c2 (index_coins) for exactly this.
         } else if(method=='getMarket'){
-            sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
+            sql += ` AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?))`;
         } else if(method=='getMarkets'){
             if(type=='token')
-                sql += ` AND (t1.tick=? OR t2.tick=?)`;
+                sql += ` AND (COALESCE(t1.tick, c1.coin)=? OR COALESCE(t2.tick, c2.coin)=?)`;
         } else if(['getMarketOrders','getOrderbook','getMarketHistory'].includes(method)){
-            sql += ` AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))`;
+            sql += ` AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?))`;
             if(!this.util.isNull(config.data.search3)){
                 if(method=='getMarketHistory'){
                     sql += ' AND (a2.address=? OR a3.address=?)';
@@ -4596,6 +4600,7 @@ class Database {
                         o1.action_index,
                         t2.tick as give_tick,
                         o1.give_amount,
+                        c2.coin as give_coin,
                         c1.coin as get_coin,
                         t3.tick as get_tick,
                         o1.get_amount,
@@ -4616,8 +4621,12 @@ class Database {
                         LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
-                        INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
-                        INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
+                        -- LEFT, not INNER: an order against the native coin carries a NULL
+                        -- tick id on that side, and inner-joining the ticker dropped the order
+                        -- outright, which emptied the orderbook of every token/native market.
+                        -- The side is named by give_coin / get_coin instead.
+                        LEFT  JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
+                        LEFT  JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
                         INNER JOIN index_coins     c1 ON (c1.id=o1.get_coin_id)
                         INNER JOIN index_coins     c2 ON (c2.id=o1.give_coin_id)
                         LEFT  JOIN index_memos     m1 ON (m1.id=o1.memo_id)
@@ -4906,6 +4915,7 @@ class Database {
                         o1.action_index,
                         t2.tick as give_tick,
                         o1.give_amount,
+                        c2.coin as give_coin,
                         c1.coin as get_coin,
                         t3.tick as get_tick,
                         o1.get_amount,
@@ -4926,8 +4936,12 @@ class Database {
                         LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
                         INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
-                        INNER JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
-                        INNER JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
+                        -- LEFT, not INNER: an order against the native coin carries a NULL
+                        -- tick id on that side, and inner-joining the ticker dropped the order
+                        -- outright, which emptied the orderbook of every token/native market.
+                        -- The side is named by give_coin / get_coin instead.
+                        LEFT  JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)
+                        LEFT  JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)
                         INNER JOIN index_coins     c1 ON (c1.id=o1.get_coin_id)
                         INNER JOIN index_coins     c2 ON (c2.id=o1.give_coin_id)
                         LEFT  JOIN index_memos     m1 ON (m1.id=o1.memo_id)
@@ -6267,22 +6281,38 @@ class Database {
         return null;
     }
 
+    // Market snapshot for the WebSocket market channel. Two things this query could not
+    // do before: last_price / volume_24h / bid / ask are not columns of `markets` (the
+    // stats are stored per side as tick1_*/tick2_*), so it raised 'Unknown column' and
+    // the channel pushed an empty snapshot on every subscribe; and it matched only the
+    // orientation the pair happened to be stored in, which is whichever side traded
+    // first. The CASE resolves the caller's tick1 to the side it actually is, so the
+    // response keys stay what the channel has always advertised.
+    //
+    // LEFT JOIN + COALESCE for the same reason as the market readers: the native side
+    // of a token/native pair has no index_tickers row (see src/db/readers/markets.js).
     async getMarketInfo(config, tick1, tick2) {
+        let side1 = 'COALESCE(t1.tick, c1.coin)';
+        let side2 = 'COALESCE(t2.tick, c2.coin)';
         let query = `SELECT
-                        t1.tick as tick1,
-                        t2.tick as tick2,
-                        m.last_price,
-                        m.volume_24h,
-                        m.bid,
-                        m.ask
+                        ? as tick1,
+                        ? as tick2,
+                        CASE WHEN ` + side1 + `=? THEN m.tick1_price        ELSE m.tick2_price        END as last_price,
+                        CASE WHEN ` + side1 + `=? THEN m.tick1_24hr_volume  ELSE m.tick2_24hr_volume  END as volume_24h,
+                        CASE WHEN ` + side1 + `=? THEN m.tick1_bid          ELSE m.tick2_bid          END as bid,
+                        CASE WHEN ` + side1 + `=? THEN m.tick1_ask          ELSE m.tick2_ask          END as ask
                     FROM
                         markets m
-                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
-                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        LEFT JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_coins   c1 ON (c1.id=m.coin1_id)
+                        LEFT JOIN index_coins   c2 ON (c2.id=m.coin2_id)
                     WHERE
-                        t1.tick=? AND t2.tick=?
+                        (` + side1 + `=? AND ` + side2 + `=?) OR
+                        (` + side1 + `=? AND ` + side2 + `=?)
                     LIMIT 1`;
-        let results = await this.doQuery(config, query, [tick1, tick2]);
+        let args = [tick1, tick2, tick1, tick1, tick1, tick1, tick1, tick2, tick2, tick1];
+        let results = await this.doQuery(config, query, args);
         if (results && results.length) return results[0];
         return null;
     }

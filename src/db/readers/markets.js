@@ -17,6 +17,16 @@
  * markets, one market, market history, market orders and the orderbook.
  * One of the reader families extracted out of db.js.
  *
+ * WHY EVERY TICKER JOIN HERE IS A LEFT JOIN
+ *
+ * A market side is a token OR the chain's native coin, and the coin has no
+ * index_tickers row: markets.tickN_id is 0 for it and orders/order_matches carry
+ * NULL. An inner join on the ticker therefore dropped the whole pair, so a market
+ * with any number of resting orders answered as an empty list. Each side is
+ * labelled COALESCE(ticker, coin), which leaves a token/token pair byte-identical
+ * and names a native side by its coin, the same value the order feeds already
+ * return in get_coin / give_coin.
+ *
  * HOW THIS ATTACHES
  *
  * The readers are authored as a class body and exported as that class's
@@ -30,6 +40,13 @@
  ********************************************************************/
 
 'use strict';
+
+// How a market side is named when it may have no ticker. The SQL half of this is
+// COALESCE(ticker, coin); the order feeds hand back the two fields separately, so
+// the JS half has to make the same choice before comparing against a caller's tick.
+function marketSideLabel(tick, coin){
+    return (tick === null || tick === undefined || tick === '') ? coin : tick;
+}
 
 class MarketReaders {
     /******************************************************************
@@ -56,12 +73,14 @@ class MarketReaders {
                         count(*) as total
                     FROM
                         markets m
-                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
-                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        LEFT JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_coins   c1 ON (c1.id=m.coin1_id)
+                        LEFT JOIN index_coins   c2 ON (c2.id=m.coin2_id)
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
-                        t1.tick as tick1,
+                        COALESCE(t1.tick, c1.coin) as tick1,
                         m.tick1_price,
                         m.tick1_bid,
                         m.tick1_ask,
@@ -70,7 +89,7 @@ class MarketReaders {
                         m.tick1_24hr_low,
                         m.tick1_24hr_change,
                         m.tick1_24hr_volume,
-                        t2.tick as tick2,
+                        COALESCE(t2.tick, c2.coin) as tick2,
                         m.tick2_price,
                         m.tick2_bid,
                         m.tick2_ask,
@@ -82,8 +101,10 @@ class MarketReaders {
                         m.last_updated
                     FROM
                         markets m
-                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
-                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        LEFT JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_coins   c1 ON (c1.id=m.coin1_id)
+                        LEFT JOIN index_coins   c2 ON (c2.id=m.coin2_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -132,7 +153,7 @@ class MarketReaders {
         let args  = [tick1, tick2, tick2, tick1];
         let query = `SELECT
                         m.id,
-                        t1.tick as tick1,
+                        COALESCE(t1.tick, c1.coin) as tick1,
                         m.tick1_price,
                         m.tick1_bid,
                         m.tick1_ask,
@@ -141,7 +162,7 @@ class MarketReaders {
                         m.tick1_24hr_low,
                         m.tick1_24hr_change,
                         m.tick1_24hr_volume,
-                        t2.tick as tick2,
+                        COALESCE(t2.tick, c2.coin) as tick2,
                         m.tick2_price,
                         m.tick2_bid,
                         m.tick2_ask,
@@ -153,8 +174,10 @@ class MarketReaders {
                         m.last_updated
                     FROM
                         markets m
-                        INNER JOIN index_tickers t1 ON (t1.id=m.tick1_id)
-                        INNER JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_tickers t1 ON (t1.id=m.tick1_id)
+                        LEFT JOIN index_tickers t2 ON (t2.id=m.tick2_id)
+                        LEFT JOIN index_coins   c1 ON (c1.id=m.coin1_id)
+                        LEFT JOIN index_coins   c2 ON (c2.id=m.coin2_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.id ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -206,8 +229,10 @@ class MarketReaders {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         LEFT  JOIN transactions       t3 ON (t3.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
-                        INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                        LEFT  JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN order_statuses     s1 ON (s1.order_action_index=m.action_index)
                         INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                     WHERE 
@@ -232,8 +257,10 @@ class MarketReaders {
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             LEFT  JOIN transactions       t3 ON (t3.tx_index=a1.tx_index)
                             LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
-                            INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                            INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                            LEFT  JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
+                            LEFT  JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                             INNER JOIN order_statuses     s1 ON (s1.order_action_index=m.action_index)
                             INNER JOIN index_statuses     s2 ON (s2.id=s1.status_id)
                         WHERE 
@@ -257,7 +284,7 @@ class MarketReaders {
                 for(let info of results){
                     let order = orderMap[Number(info.action_index)];
                     if(!order) continue;
-                    let reverse = (order.give_tick==tick2) ? true : false;
+                    let reverse = (marketSideLabel(order.give_tick, order.give_coin)==tick2) ? true : false;
                     data.push({
                         type         : (reverse) ? 'buy' : 'sell',
                         price        : (reverse) ? order.get_price : order.give_price,
@@ -290,8 +317,10 @@ class MarketReaders {
                         INNER JOIN orders             o2 ON (o2.action_index=m.get_action_index)
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                        INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                        LEFT  JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                        LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN index_addresses    a2 ON (a2.id=o1.get_address_id)
                         INNER JOIN index_addresses    a3 ON (a3.id=o2.get_address_id)
                         INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -304,8 +333,8 @@ class MarketReaders {
         if(total){
             let query   = `SELECT
                             m.action_index,
-                            t1.tick as give_tick,
-                            t2.tick as get_tick,
+                            COALESCE(t1.tick, c1.coin) as give_tick,
+                            COALESCE(t2.tick, c2.coin) as get_tick,
                             m.give_amount,
                             m.get_amount,
                             b1.block_index,
@@ -316,8 +345,10 @@ class MarketReaders {
                             INNER JOIN orders             o2 ON (o2.action_index=m.get_action_index)
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                            INNER JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
-                            INNER JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                            LEFT  JOIN index_tickers      t1 ON (t1.id=m.give_tick_id)
+                            LEFT  JOIN index_tickers      t2 ON (t2.id=m.get_tick_id)
+                            LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)
+                            LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                             INNER JOIN index_addresses    a2 ON (a2.id=o1.get_address_id)
                             INNER JOIN index_addresses    a3 ON (a3.id=o2.get_address_id)
                             INNER JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -361,8 +392,10 @@ class MarketReaders {
                         m.action_index
                     FROM
                         orders m
-                        INNER JOIN index_tickers  t1 ON (t1.id=m.give_tick_id)
-                        INNER JOIN index_tickers  t2 ON (t2.id=m.get_tick_id)
+                        LEFT  JOIN index_tickers  t1 ON (t1.id=m.give_tick_id)
+                        LEFT  JOIN index_tickers  t2 ON (t2.id=m.get_tick_id)
+                        LEFT  JOIN index_coins    c1 ON (c1.id=m.give_coin_id)
+                        LEFT  JOIN index_coins    c2 ON (c2.id=m.get_coin_id)
                         INNER JOIN order_statuses s1 ON (s1.order_action_index=m.action_index)
                         INNER JOIN index_statuses s2 ON (s2.id=s1.status_id)
                     WHERE 
@@ -384,8 +417,9 @@ class MarketReaders {
             for(let info of results){
                 let order = orderMap[Number(info.action_index)];
                 if(!order) continue;
-                let type  = (order.give_tick==tick2) ? 'bid' : 'ask';
-                let price = (order.give_tick==tick2) ? order.get_price : order.give_price;
+                let give  = marketSideLabel(order.give_tick, order.give_coin);
+                let type  = (give==tick2) ? 'bid' : 'ask';
+                let price = (give==tick2) ? order.get_price : order.give_price;
                 let found = false;
                 if(type=='bid'){
                     for(let bid of bids){

@@ -201,21 +201,29 @@ class ChannelManager {
         return { success: true, subscribed, filter };
     }
 
-    // Unsubscribe a client from channels
+    // Unsubscribe a client from channels. Returns the list of entities actually
+    // targeted so the caller (WebSocketServer) can send back an UNSUBSCRIBED
+    // frame naming each one -- without this a client cannot tell an honoured
+    // unsubscribe from a message the server dropped.
     unsubscribe(client, channels, params) {
         params = params || {};
+        const unsubscribed = [];
 
         for (const channel of channels) {
             if (GLOBAL_CHANNELS.has(channel)) {
-                this._removeSubscription(client, channel, null);
+                const was_subscribed = this._removeSubscription(client, channel, null);
+                unsubscribed.push({ channel, was_subscribed });
             } else {
                 const entityKeys = this._resolveEntityKeys(channel, params);
                 if (entityKeys.error) continue;
                 for (const entityKey of entityKeys.keys) {
-                    this._removeSubscription(client, channel, entityKey);
+                    const was_subscribed = this._removeSubscription(client, channel, entityKey);
+                    unsubscribed.push({ channel, ...entityKey, was_subscribed });
                 }
             }
         }
+
+        return { unsubscribed };
     }
 
     // Remove all subscriptions for a client (on disconnect)
@@ -373,14 +381,18 @@ class ChannelManager {
         return { success: true };
     }
 
+    // Returns true when the client actually held this subscription (and it was
+    // removed), false when it was already absent (a no-op unsubscribe).
     _removeSubscription(client, channel, entityKey) {
         const channelKey = this._buildChannelKey(client.coin, channel, entityKey);
         const clientMap  = this.subscriptions.get(channelKey);
+        const was_subscribed = !!(clientMap && clientMap.has(client.id));
         if (clientMap) {
             clientMap.delete(client.id);
             if (clientMap.size === 0) this.subscriptions.delete(channelKey);
         }
         client.subscriptions.delete(channelKey);
+        return was_subscribed;
     }
 
     // Build a unique key for a channel subscription

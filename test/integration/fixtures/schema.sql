@@ -1028,7 +1028,13 @@ CREATE TABLE contracts (
     status_id             BIGINT UNSIGNED,
     block_index           BIGINT UNSIGNED NOT NULL,
     cooldown_blocks       INT UNSIGNED,
-    slash_destination_id  BIGINT UNSIGNED
+    slash_destination_id  BIGINT UNSIGNED,
+    -- Contract identity manifest (CONTRACT_META_REQUIRED): declared LAST, utf8mb4 on
+    -- a utf8 table, all nullable. Written only for a valid deploy whose meta conforms.
+    meta_name             VARCHAR(64)  CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL,
+    meta_description      VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL,
+    meta_version          VARCHAR(32)  CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL,
+    meta_json             TEXT         CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index         ON contracts (action_index);
@@ -1037,6 +1043,9 @@ CREATE        INDEX source_id            ON contracts (source_id);
 CREATE        INDEX code_hash            ON contracts (code_hash);
 CREATE        INDEX status_id            ON contracts (status_id);
 CREATE        INDEX slash_destination_id ON contracts (slash_destination_id);
+-- The schema's first FULLTEXT index: the explorer's contract name search and the
+-- contracts list `name` filter are MATCH ... AGAINST over exactly this pair.
+CREATE FULLTEXT INDEX meta_search        ON contracts (meta_name, meta_description);
 
 DROP TABLE IF EXISTS contract_permissions;
 CREATE TABLE contract_permissions (

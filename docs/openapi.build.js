@@ -70,7 +70,7 @@ const ROUTES = [
     ['/{COIN}/api/price_snapshots', 'getPriceSnapshots', null, 'Prices', 'Federation price snapshots (PBFT-finalized rounds)'],
     ['/{COIN}/api/controllers', 'getControllers', null, 'Tokens', 'Controller bind/unbind events (programmable-policy guards on tokens + addresses)'],
     // ── Contracts ─────────────────────────────────────────────────────────
-    ['/{COIN}/api/contracts/{QUERY}/{TYPE}', 'getContracts', ['block', 'address', 'source'], 'Contracts', 'Deployed contracts, filtered'],
+    ['/{COIN}/api/contracts/{QUERY}/{TYPE}', 'getContracts', ['block', 'address', 'source', 'name'], 'Contracts', 'Deployed contracts, filtered'],
     ['/{COIN}/api/contracts', 'getContracts', null, 'Contracts', 'Deployed smart contracts'],
     ['/{COIN}/api/contract/{QUERY}', 'getContract', 'contract', 'Contracts', 'One contract (by action index)'],
     ['/{COIN}/api/contract/{QUERY}/state', 'getContractState', 'contract', 'Contracts', 'Contract state (all keys)'],
@@ -204,7 +204,7 @@ const ROUTES = [
           query: [{ name: 'limit', required: false,
                     schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
                     description: 'Rows to return for the matched category; clamped server-side to 100' }] }],
-    ['/{COIN}/api/search/{QUERY}/{TYPE}', 'getSearch', ['address', 'broadcast', 'token', 'transaction'], 'Core', 'Site-wide search, one category: matching rows plus the same per-category totals',
+    ['/{COIN}/api/search/{QUERY}/{TYPE}', 'getSearch', ['address', 'broadcast', 'contract', 'token', 'transaction'], 'Core', 'Site-wide search, one category: matching rows plus the same per-category totals',
         { schema: { $ref: '#/components/schemas/SearchResponse' },
           description: 'The row-returning half of the two-form search contract: `data` carries the '
             + 'matching rows for TYPE, and `totals` still carries every category\'s match count '
@@ -433,11 +433,91 @@ const SPECIAL = [
                 },
             },
         }],
+    // Batch reads: one POST for up to 20 addresses answering the same bodies the
+    // per-address GETs return, keyed by address. A wallet polling several
+    // addresses per chain sends one request per chain instead of two per address;
+    // both share one rate limit (EXPLORER_BATCH_RATE_LIMIT_RPM).
+    ['/{COIN}/api/balances', 'Core',
+        'Token balances and address summary for up to 20 addresses in one request',
+        null,
+        {
+            noGet: true,
+            schema: {
+                type: 'object',
+                description: 'One entry per requested address, keyed by the address string',
+                additionalProperties: {
+                    type: 'object',
+                    properties: {
+                        balances: { description: 'The GET /balances/{address} body, or null when that read failed', nullable: true },
+                        address:  { description: 'The GET /address/{address} body, or null when that read failed', nullable: true },
+                        error:    { description: 'null, or { code, error, status } from the failed per-address read', nullable: true },
+                    },
+                },
+            },
+            responses: {
+                429: { description: 'Too many batch requests from this client; retry after the window',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            },
+            post: {
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    addresses: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 20, description: 'Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES' },
+                                },
+                                required: ['addresses'],
+                            },
+                        },
+                    },
+                },
+            },
+        }],
+    ['/{COIN}/api/coinpay_obligations', 'Markets',
+        'Open COINPAY obligations for up to 20 addresses in one request',
+        null,
+        {
+            noGet: true,
+            schema: {
+                type: 'object',
+                description: 'One entry per requested address, keyed by the address string',
+                additionalProperties: {
+                    type: 'object',
+                    properties: {
+                        coinpay_obligations: { description: 'The GET /coinpay_obligations/{address}/address body, or null when that read failed', nullable: true },
+                        error: { description: 'null, or { code, error, status } from the failed per-address read', nullable: true },
+                    },
+                },
+            },
+            responses: {
+                429: { description: 'Too many batch requests from this client; retry after the window',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            },
+            post: {
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    addresses: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 20, description: 'Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES' },
+                                },
+                                required: ['addresses'],
+                            },
+                        },
+                    },
+                },
+            },
+        }],
 ];
 
 const QUERY_DESC = {
     block: 'block height', address: 'an XChain address', source: 'source address',
-    destination: 'destination address', token: 'a token tick', contract: 'contract action index',
+    destination: 'destination address', token: 'a token tick',
+    contract: 'contract action index (on /search: a word from a contract name or description)',
     oracle: "a dispenser's ORACLE_ADDRESS (PRICE v1 publisher)",
     execution: 'execution action index', action_index: 'action index', match: 'cross-chain match id',
     pair: 'COIN/FIAT pair (e.g. BTC/USD)', round: 'oracle round id', status: 'lifecycle status',
@@ -455,7 +535,7 @@ const QUERY_DESC = {
     install: 'anonymous install UUID', country: 'ISO-3166 country code',
     search: 'free-text search term, minimum 3 characters (shorter terms return zero totals rather than erroring)',
     roster: 'project tick (returns that project\'s token roster)',
-    name: 'FILE discovery name (by-name lookup)',
+    name: 'FILE discovery name (by-name lookup); on /contracts: a word from a contract name or description',
     broadcast: 'a BROADCAST message or memo (substring match)',
     transaction: 'a transaction hash (substring match)',
 };
@@ -702,10 +782,14 @@ const spec = {
                 },
                 required: ['checkpoints', 'count'],
             },
-            // getSearch always runs all four category COUNT queries (so `totals` is
+            // getSearch always runs all five category COUNT queries (so `totals` is
             // complete on every call, typed or not) but only populates `data` when TYPE
             // names the matched category; the untyped /search/{QUERY} form therefore
             // always answers with an empty `data` and real `totals`.
+            //
+            // `contracts` is the one category that is not a substring match: contract
+            // names and descriptions are matched through the contracts table's FULLTEXT
+            // index, so its count is word-based where the other four are LIKE.
             SearchResponse: {
                 type: 'object',
                 properties: {
@@ -717,10 +801,11 @@ const spec = {
                         properties: {
                             addresses:    { type: 'integer' },
                             broadcasts:   { type: 'integer' },
+                            contracts:    { type: 'integer', description: 'Contracts whose declared name or description matches (FULLTEXT, word-based)' },
                             tokens:       { type: 'integer' },
                             transactions: { type: 'integer' },
                         },
-                        required: ['addresses', 'broadcasts', 'tokens', 'transactions'],
+                        required: ['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions'],
                     },
                 },
                 required: ['data', 'totals'],

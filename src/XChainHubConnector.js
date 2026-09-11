@@ -57,13 +57,12 @@ function mergeConfigDelta(base, delta){
 
 class XChainHubConnector {
 
-    // Accept an array of endpoint URLs or a single host+port for backward compatibility
-    constructor(endpoints, port) {
-        if(Array.isArray(endpoints)){
-            this.urls = endpoints;
-        } else {
-            this.urls = ["http://" + endpoints + ":" + port];
+    // Endpoints are always an array of full URL strings (see parseEndpoints()).
+    constructor(endpoints) {
+        if (!Array.isArray(endpoints)) {
+            throw new TypeError('XChainHubConnector: endpoints must be an array of URL strings');
         }
+        this.urls = endpoints;
         // Retry policy for config fetches. After a power cycle the hub (and its
         // MariaDB) may take several seconds to come up; a single-pass attempt
         // loses that race and leaves the explorer with no config. Retrying a

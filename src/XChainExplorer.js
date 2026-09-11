@@ -70,6 +70,22 @@ const MAX_PREFLIGHT_SOURCE_LENGTH = 4096;
 // character check on the decoded value, not this.
 const PREFLIGHT_BODY_LIMIT = '1mb';
 
+// Ceiling on one batch body's address list. Twenty covers a wallet's worst
+// per-chain address count, so the caller the endpoint exists for never has to
+// split a chain across two requests, while an abusive body stays bounded work.
+const BATCH_ADDRESS_MAX = 20;
+
+// How many of a batch's inner per-address reads run at once. Well under the
+// 200-request global concurrency cap (api.js), so one batch caller cannot
+// occupy the whole gate and shed everyone else's queries.
+const BATCH_READ_CONCURRENCY = 8;
+
+// Longest rejected entry echoed back in an INVALID_ADDRESS refusal.
+// isAddressLike refuses anything above 128 characters, so a rejected entry can
+// be arbitrarily long and echoing it whole would let the caller size the error
+// body from an unvalidated string.
+const BATCH_INVALID_ECHO_MAX = 128;
+
 let slowRequests = 0;
 
 // Lightweight rolling latency reservoir: last 256 request times (ms). The
@@ -358,7 +374,9 @@ class XChainExplorer {
                 // Controller-bound token / address policy guards (Controller_Bound_Tokens.md): bind/unbind event stream
                 '/{COIN}/api/controllers'                     : ['getControllers'],
                 // VM / Contract Endpoints
-                '/{COIN}/api/contracts/{QUERY}/{TYPE}'         : ['getContracts',        ['block', 'address', 'source']],
+                // 'name' searches the contract identity manifest (meta_name, meta_description)
+                // through the contracts table's FULLTEXT index, not by LIKE (spec 2.6).
+                '/{COIN}/api/contracts/{QUERY}/{TYPE}'         : ['getContracts',        ['block', 'address', 'source', 'name']],
                 '/{COIN}/api/contracts'                        : ['getContracts'],
                 '/{COIN}/api/contract/{QUERY}'                 : ['getContract',          'contract'],
                 '/{COIN}/api/contract/{QUERY}/state'           : ['getContractState',     'contract'],
@@ -532,7 +550,9 @@ class XChainExplorer {
                 // a filter it silently ignores; single blocks have /{COIN}/api/block/{QUERY}.
                 '/{COIN}/api/blocks'                           : ['getBlocks'],
                 '/{COIN}/api/search/{QUERY}'                   : ['getSearch'],
-                '/{COIN}/api/search/{QUERY}/{TYPE}'            : ['getSearch',           ['address', 'broadcast', 'token', 'transaction']],
+                // 'contract' is the fifth search category (spec contract-meta-manifest
+                // 2.6): a contract found by a word from its declared name or description.
+                '/{COIN}/api/search/{QUERY}/{TYPE}'            : ['getSearch',           ['address', 'broadcast', 'contract', 'token', 'transaction']],
                 '/{COIN}/api/projects/{QUERY}/{TYPE}'          : ['getProjectTokens',    ['roster']],
                 '/{COIN}/api/credits/{QUERY}/{TYPE}'           : ['getCredits',          ['block', 'address']],
                 '/{COIN}/api/debits/{QUERY}/{TYPE}'            : ['getDebits',           ['block', 'address']], 
@@ -652,7 +672,8 @@ class XChainExplorer {
                 // whatever loadDatatablesData the fragment eventually calls.
                 '/{COIN}/explorer/anchor_reward_attestations/{QUERY}/{TYPE}' : ['getAnchorRewardAttestations', ['anchor', 'block', 'pubkey']],
                 '/{COIN}/explorer/anchor_reward_attestations'                : ['getAnchorRewardAttestations'],
-                '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address']],
+                // 'name' is what the contracts list page's own search box asks for.
+                '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address', 'name']],
                 '/{COIN}/explorer/executions/{QUERY}/{TYPE}'                 : ['getExecutions',   ['block', 'address', 'contract']],
                 '/{COIN}/explorer/emissions/{QUERY}/{TYPE}'                  : ['getEmissions',    ['contract', 'execution', 'block']],
                 '/{COIN}/explorer/emissions'                                 : ['getEmissions'],
@@ -701,7 +722,7 @@ class XChainExplorer {
                 '/{COIN}/explorer/prices'                                   : ['getPrices'],
                 '/{COIN}/explorer/controllers'                              : ['getControllers'],
                 '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'token', 'transaction']],
+                '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'contract', 'token', 'transaction']],
                 '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
                 '/{COIN}/explorer/swap_matches/{QUERY}/{TYPE}'              : ['getSwapMatches',  ['block']],
                 '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'                     : ['getSwaps',        ['block', 'address', 'token']],
@@ -818,6 +839,41 @@ class XChainExplorer {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
+
+        // Batch reads: one POST answering up to BATCH_ADDRESS_MAX addresses, the shape
+        // a multi-address wallet's cold open would otherwise ask for one request at a
+        // time (five addresses x three chains was 30 balance reads plus 15 coinpay
+        // reads in one minute, all counted separately by every ceiling in front of us).
+        //
+        // The explorer STILL fans out to the coin's tracker for each /address/ half
+        // inside the request, so the fan-out is relocated behind the global 200-request
+        // concurrency gate rather than removed: what changes is that the gate and the
+        // rate limiter now see one caller-visible request instead of twenty, and the
+        // work inside it is capped at BATCH_READ_CONCURRENCY in flight. Both halves are
+        // produced by the same dispatcher that answers the per-address GETs (_readApi
+        // re-drives processRequest), so a batch entry and its GET can never drift.
+        //
+        // One limiter for both routes on purpose: the wallet's balance beat and its
+        // coinpay badge are two callers of one wallet, and a single shared bucket is
+        // the honest ceiling on what that wallet costs the origin per minute.
+        const batchPolicy = {
+            limit:    parseInt(process.env.EXPLORER_BATCH_RATE_LIMIT_RPM, 10) || 72,
+            envVar:   'EXPLORER_BATCH_RATE_LIMIT_RPM',
+            windowMs: 60 * 1000,
+            message:  { error: 'Too many batch requests', code: 'RATE_LIMITED' }
+        };
+        const batchLimiter = rateLimit({
+            windowMs:        batchPolicy.windowMs,
+            limit:           batchPolicy.limit,
+            standardHeaders: true,
+            legacyHeaders:   false,
+            handler:         limitedHandler({ service: 'Explorer', name: 'batch', ...batchPolicy })
+        });
+        this.app.post('/:coin/api/balances', batchLimiter,
+            (req, res) => { this.processBalancesBatchRequest(req, res).catch(err => this._sendUnhandled(err, req, res)); });
+        this.app.post('/:coin/api/coinpay_obligations', batchLimiter,
+            (req, res) => { this.processCoinpayObligationsBatchRequest(req, res).catch(err => this._sendUnhandled(err, req, res)); });
+
         this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { this.processFeeScheduleRequest(req, res); });
 
         // Quorum-signed state checkpoints, the light-client verification surface.
@@ -1602,8 +1658,18 @@ class XChainExplorer {
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.method, info.action, info.action_index];
                     if(method=='getFiles')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.name, info.type, info.title, info.gate_ticker, status, info.action_index];
+                    // A validator PRICE on the wire today is a BATCH: one signed action
+                    // carrying an hourly window of rounds, whose coin/tick/fiat/value/fee
+                    // are NULL by construction (they are the v1 user-oracle columns) and
+                    // whose pair_count is NULL too (it would describe one round out of the
+                    // window). Carrying only those five is why every validator row rendered
+                    // as dashes. The round window (batch_first_round/batch_last_round/
+                    // round_count), the round the action is about and the pair counts ride
+                    // ahead of status/action_index so the client can describe the batch;
+                    // batch_pair_count is the width of the batch's first round, counted by
+                    // the feed query rather than shipped as rounds_json (megabytes a page).
                     if(method=='getPrices')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.coin, info.tick, info.fiat, info.value, info.fee, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.coin, info.tick, info.fiat, info.round_number, info.batch_first_round, info.batch_last_round, info.round_count, info.pair_count, (info.batch_pair_count === undefined) ? null : info.batch_pair_count, info.value, info.fee, status, info.action_index];
                     if(method=='getControllers')
                         info = [count_reverse, info.block_index, info.timestamp, info.scope, info.subject, info.action_class, info.contract_index, info.is_unbind, info.cooldown_blocks, info.cooldown_end_block, status, info.action_index];
                     if(method=='getDeployChunks')
@@ -1667,9 +1733,12 @@ class XChainExplorer {
                     // locks (lock_max_supply) let the client badge NFT-pattern tokens.
                     if(['getTokens','getProjectTokens'].includes(method))
                         info = [count_reverse, info.block_index, info.timestamp, info.tick, info.supply, info.max_supply, info.max_mint, locks, info.decimals, info.id];
-                    // VM / Contract list pages
+                    // VM / Contract list pages. meta_name rides in the slot AFTER
+                    // source: the first four elements are the shared count/block/time/
+                    // source cells every list page renders generically, and status +
+                    // action_index stay last (row color + paging cursor).
                     if(method=='getContracts')
-                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.code_hash, info.api_version, info.cooldown_blocks, info.slash_destination, status, info.action_index];
+                        info = [count_reverse, info.block_index, info.timestamp, info.source, info.meta_name, info.code_hash, info.api_version, info.cooldown_blocks, info.slash_destination, status, info.action_index];
                     if(method=='getExecutions')
                         info = [count_reverse, info.block_index, info.timestamp, info.contract_index, info.caller, info.method_name, info.gas_used, status, info.action_index];
                     // Per-contract emission rollup (contract_emissions joined through
@@ -1947,6 +2016,12 @@ class XChainExplorer {
                             info = [count, info.tick, info.description, null];
                         if(cfg.data.type=='transaction')
                             info = [count, info.hash, null];
+                        // Contract hits carry the identity a reader searched by: the
+                        // declared name, its version, the derived address they navigate
+                        // to, and a snippet of the description. action_index rides LAST,
+                        // the same paging-cursor position the broadcast panel uses.
+                        if(cfg.data.type=='contract')
+                            info = [count, info.meta_name, info.meta_version, info.contract_address, info.snippet, info.action_index];
                     }
                 }
 
@@ -1959,6 +2034,172 @@ class XChainExplorer {
             show = show.reverse();
 
         return show;
+    }
+
+    /**********************************************************
+     * BATCH reads: POST /{COIN}/api/balances
+     *              POST /{COIN}/api/coinpay_obligations
+     *
+     * Body {"addresses":[..]}, answered as an object keyed by address so a
+     * caller matches results without relying on array order.
+     *
+     * Nothing new reads the database here. Each entry is assembled by driving
+     * the SAME dispatcher that answers the per-address GETs, so a batch body
+     * and a GET body cannot disagree about a field, a paging default or a
+     * freshness marker; only the number of HTTP requests it takes to get them
+     * changes. See _readApi for why re-driving is sound.
+     *********************************************************/
+
+    /**
+     * Drive one per-address API read through processRequest with no HTTP hop.
+     *
+     * processRequest reads only req.path and req.query and answers through
+     * res.set/res.status/res.send, so a synthetic request plus a capturing
+     * response reproduces exactly what the equivalent GET would have sent.
+     *
+     * Returns { code, json }, json parsed back from the bytes that were sent
+     * (null when the body was not JSON). A throw is degraded to a 500 entry
+     * rather than propagated: one address failing must not lose the other
+     * nineteen answers the caller already paid for.
+     */
+    async _readApi(coin, apiPath, query){
+        let code = 200;
+        const body = [];
+        const res  = {
+            set:    function(){ return this; },
+            status: function(c){ code = c; return this; },
+            send:   function(chunk){ body.push(chunk); return this; }
+        };
+        try {
+            await this.processRequest({ path: '/' + coin + '/api' + apiPath, query: query || {} }, res);
+        } catch(err){
+            console.error('batch read failed for', apiPath, '-', (err && err.message) ? err.message : err);
+            return { code: 500, json: { error: 'An unexpected error occurred while serving this request.', code: 'INTERNAL_ERROR' } };
+        }
+        let json = null;
+        try { json = JSON.parse(body.join('')); } catch(_){ json = null; }
+        return { code, json };
+    }
+
+    /**
+     * Validate a batch body's address list against the endpoint contract.
+     * Returns { addresses } (deduplicated, input order preserved) or
+     * { refusal } carrying the 400 body to send.
+     */
+    _parseBatchAddresses(body){
+        const list = (body && Array.isArray(body.addresses)) ? body.addresses : null;
+        if(list === null || list.length === 0 || list.some(entry => typeof entry !== 'string'))
+            return { refusal: { error: 'addresses must be a non-empty array of address strings', code: 'INVALID_ADDRESSES' } };
+        // Counted before deduplication: the cap bounds what the caller sent, so a
+        // body of 500 repeats of one address is refused rather than quietly served.
+        if(list.length > BATCH_ADDRESS_MAX)
+            return { refusal: { error: 'Too many addresses (max ' + BATCH_ADDRESS_MAX + ')', code: 'TOO_MANY_ADDRESSES' } };
+        const addresses = [];
+        for(const entry of list){
+            if(!this.util.isAddressLike(entry))
+                return { refusal: { error: 'Invalid address: ' + entry.slice(0, BATCH_INVALID_ECHO_MAX), code: 'INVALID_ADDRESS' } };
+            if(!addresses.includes(entry))
+                addresses.push(entry);
+        }
+        return { addresses };
+    }
+
+    // Same wire convention processRequest ends on: the JSON content type set
+    // explicitly rather than through res.type(), and the body serialized by
+    // util.jsonStringify, so a batch body and a per-address body are encoded by
+    // the same code path.
+    _sendBatchJson(res, code, json){
+        res.status(code);
+        res.set('Content-Type', 'application/json; charset=utf-8');
+        res.send(this.util.jsonStringify(json));
+    }
+
+    /**
+     * Shared body of both batch routes. `parts` names the per-address reads one
+     * entry is built from, in the order their failures take precedence:
+     * [{ key, path(address) }, ..].
+     */
+    async _processBatchRequest(req, res, parts){
+        const coin   = String((req.params && req.params.coin) || '').toUpperCase();
+        const parsed = this._parseBatchAddresses(req.body);
+        if(parsed.refusal)
+            return this._sendBatchJson(res, 400, parsed.refusal);
+
+        const addresses = parsed.addresses;
+        const query     = (req.query && typeof req.query === 'object') ? req.query : {};
+
+        // The coin gate (unsupported coin, or a tip stale past the fail-closed
+        // threshold) is a whole-request verdict every inner read would repeat, so
+        // the first read is driven alone and its refusal answers the batch. Buried
+        // inside a 200 it would read to a client as twenty empty addresses, which
+        // is the opposite of what a fail-closed gate is for. Its result is carried
+        // into the fan-out below rather than re-read.
+        const firstPath = parts[0].path(addresses[0]);
+        const firstRead = await this._readApi(coin, firstPath, query);
+        if(firstRead.code === 503 && firstRead.json && String(firstRead.json.code || '').startsWith('COIN_'))
+            return this._sendBatchJson(res, firstRead.code, firstRead.json);
+
+        const seeded  = new Map([[firstPath, firstRead]]);
+        const entries = new Map();
+        let cursor    = 0;
+        const worker  = async () => {
+            for(;;){
+                const idx = cursor++;
+                if(idx >= addresses.length) return;
+                const address = addresses[idx];
+                const entry   = {};
+                let failure   = null;
+                for(const part of parts){
+                    const readPath = part.path(address);
+                    const read     = seeded.has(readPath) ? seeded.get(readPath) : await this._readApi(coin, readPath, query);
+                    if(read.code === 200){
+                        entry[part.key] = read.json;
+                        continue;
+                    }
+                    // A half that did not answer 200 is null with its own body's
+                    // reason attached, so the caller degrades this address alone
+                    // instead of losing the batch. First failure wins, in `parts`
+                    // order, because that is the more specific read.
+                    entry[part.key] = null;
+                    if(failure === null)
+                        failure = {
+                            code:   (read.json && read.json.code)  ? read.json.code  : 'READ_FAILED',
+                            error:  (read.json && read.json.error) ? read.json.error : 'The batch read failed for this address.',
+                            status: read.code
+                        };
+                }
+                entry.error = failure;
+                entries.set(address, entry);
+            }
+        };
+
+        const workers = [];
+        for(let i = 0; i < Math.min(BATCH_READ_CONCURRENCY, addresses.length); i++)
+            workers.push(worker());
+        await Promise.all(workers);
+
+        // Keyed in the caller's own address order, not completion order, so a
+        // response body is deterministic for a given request.
+        const out = {};
+        for(const address of addresses)
+            out[address] = entries.get(address);
+        return this._sendBatchJson(res, 200, out);
+    }
+
+    async processBalancesBatchRequest(req, res){
+        // encodeURIComponent is a no-op on anything isAddressLike admits
+        // ([A-Za-z0-9] only); it is here so a future loosening of that predicate
+        // cannot turn an entry into extra path segments.
+        return this._processBatchRequest(req, res, [
+            { key: 'balances', path: (address) => '/balances/' + encodeURIComponent(address) },
+            { key: 'address',  path: (address) => '/address/'  + encodeURIComponent(address) }
+        ]);
+    }
+
+    async processCoinpayObligationsBatchRequest(req, res){
+        return this._processBatchRequest(req, res, [
+            { key: 'coinpay_obligations', path: (address) => '/coinpay_obligations/' + encodeURIComponent(address) + '/address' }
+        ]);
     }
 
     async processIconRequest(req, res){

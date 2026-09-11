@@ -89,10 +89,38 @@ $(document).ready(function() {
     // Page-local escape: the request id reaches this page as a raw path segment.
     let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
 
+    // Blank every panel down to a dash and put one message in the headline. Shared
+    // by the three dead ends below so they cannot drift apart.
+    let clearPanels = function(headline){
+        $('#attestation-headline').html(headline);
+        $('#attestation-lifecycle').empty();
+        $('#attestation-status-badge').empty();
+        $('#attestation-request-id').html('<span class="text-muted">-</span>');
+        $('#attestation-provider').html('<span class="text-muted">-</span>');
+        $('#attestation-request').html('<span class="text-muted">-</span>');
+        $('#attestation-response').html('<span class="text-muted">-</span>');
+        $('#attestation-expiry').html('<span class="text-muted">-</span>');
+        $('#attestation-relay').html('<span class="text-muted">-</span>');
+        $('#attestation-legs').html('<span class="text-muted">-</span>');
+    };
+
+    // XC.query is null whenever the path segment did not match a shape
+    // setXChainParams accepts, so a page reached without a usable id concatenated
+    // that null and asked the server for the attestation literally named "null".
+    // That answers 404 and paints the not-found branch, which reads to the visitor
+    // as "no such attestation" when the truth is "this page never had an id"; the
+    // 404s it leaves behind also raise the console noise floor that hides a real
+    // failure. No id, no request.
+    let requestId = isNull(XC.query) ? '' : String(XC.query);
+    if(!requestId.length){
+        clearPanels('<span class="text-muted" id="attestation-missing-id">No attestation request id in this address. Open an attestation from an ATTEST action to see its round.</span>');
+        return;
+    }
+
     // Every panel is filled from ONE composed read. The legs are rendered inline
     // rather than through a datatable: no /explorer feed is registered for a
     // single attestation round, and a round is a handful of rows by construction.
-    $.getJSON('/' + XC.coin + '/api/attestation/' + XC.query, function(o){
+    $.getJSON('/' + XC.coin + '/api/attestation/' + encodeURIComponent(requestId), function(o){
         // Single-resource route: it answers a BARE object, not the {total,data}
         // envelope the list routes use, so both shapes are accepted. Reading only
         // `o.data` would render a real attestation as "not found", which a reader
@@ -103,17 +131,10 @@ $(document).ready(function() {
             else if(!isNull(o.request_id)) d = o;
         }
         if(!d){
-            // NOT FOUND is its own branch, not a page of blank placeholders.
-            $('#attestation-headline').html('<span class="text-muted" id="attestation-not-found">No attestation exists for this request id or action index.</span>');
-            $('#attestation-lifecycle').empty();
-            $('#attestation-status-badge').empty();
-            $('#attestation-request-id').html('<span class="text-muted">-</span>');
-            $('#attestation-provider').html('<span class="text-muted">-</span>');
-            $('#attestation-request').html('<span class="text-muted">-</span>');
-            $('#attestation-response').html('<span class="text-muted">-</span>');
-            $('#attestation-expiry').html('<span class="text-muted">-</span>');
-            $('#attestation-relay').html('<span class="text-muted">-</span>');
-            $('#attestation-legs').html('<span class="text-muted">-</span>');
+            // NOT FOUND is its own branch, not a page of blank placeholders. It is
+            // also NOT the missing-id branch above: this one means the server was
+            // asked about a real id and had nothing.
+            clearPanels('<span class="text-muted" id="attestation-not-found">No attestation exists for this request id or action index.</span>');
             return;
         }
 
@@ -145,16 +166,7 @@ $(document).ready(function() {
         // than left as a page of loading placeholders.
         let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
         let msg  = body.error ? body.error : 'Could not load this attestation';
-        $('#attestation-headline').html('<span class="text-danger" id="attestation-load-error">' + esc(msg) + '</span>');
-        $('#attestation-lifecycle').empty();
-        $('#attestation-status-badge').empty();
-        $('#attestation-request-id').html('<span class="text-muted">-</span>');
-        $('#attestation-provider').html('<span class="text-muted">-</span>');
-        $('#attestation-request').html('<span class="text-muted">-</span>');
-        $('#attestation-response').html('<span class="text-muted">-</span>');
-        $('#attestation-expiry').html('<span class="text-muted">-</span>');
-        $('#attestation-relay').html('<span class="text-muted">-</span>');
-        $('#attestation-legs').html('<span class="text-muted">-</span>');
+        clearPanels('<span class="text-danger" id="attestation-load-error">' + esc(msg) + '</span>');
     });
 
 });

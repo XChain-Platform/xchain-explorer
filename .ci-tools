@@ -11,3 +11,8 @@
 # then blocks every push with a VENUE TOOLING GAP for a tool no venue can ever
 # have, so this is a false positive that never self-heals.
 -DELETE
+#
+# CREATE is SQL too: test/unit/db.contract-meta.test.js hands a fixture schema
+# (`CREATE TABLE contracts ...`) to sqlite.exec(), and the scan reads its
+# leading word as a binary. Same false positive as DELETE, same correction.
+-CREATE

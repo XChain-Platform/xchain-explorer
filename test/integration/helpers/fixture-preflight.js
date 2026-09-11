@@ -27,22 +27,74 @@
  * The discrimination here is by CREDENTIALS, not by container identity: on
  * GitHub the fixture is an Actions service container with no compose project
  * at all, so "is our compose container up" would be false there while the
- * fixture is perfectly healthy. A server that accepts root/testpass IS the
- * fixture for these tiers' purposes; one that answers and refuses it is a
- * foreign server holding the port.
+ * fixture is perfectly healthy. A server that accepts the fixture credentials
+ * IS the fixture for these tiers' purposes; one that answers and refuses them
+ * is a foreign server holding the port.
+ *
+ * There is a third case, and it resolves the collision rather than reporting it.
+ * A CI venue may run one shared MariaDB for gate runs and publish its
+ * credentials in a 0600 env file; where that file is present the server on the
+ * port is not foreign at all, it is the database to use. FIXTURE_DB then
+ * resolves to it and the lifecycle wrapper skips docker entirely, which is why
+ * the address is read from here and never written at a call site.
  */
 
+const fs  = require('fs');
 const net = require('net');
 
-// The one place the fixture address lives. docker-compose.test.yml publishes it
-// and helpers/db-setup.js builds its pool config from these.
-const FIXTURE_DB = {
+const FIXTURE_DATABASE = 'XChain_BTC_Regtest_Indexer';
+
+// Presence of this file means the host provides a shared CI database and this
+// repo must use it rather than publish its own on the same fixed port.
+const VENUE_ENV_PATH = process.env.XCHAIN_VENUE_ENV || '/misc/ci/venue.env';
+
+// Null unless all four keys parse, so a partial file falls back to the container
+// fixture instead of connecting with undefined parts. Never throws: this runs at
+// module load on every host, including ones with no venue.
+function readVenueDb(envPath) {
+    let raw;
+    try {
+        raw = fs.readFileSync(envPath || VENUE_ENV_PATH, 'utf8');
+    } catch {
+        return null;
+    }
+    const env = {};
+    for (const line of raw.split('\n')) {
+        const m = /^([A-Z_]+)=(.*)$/.exec(line.trim());
+        if (m) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    }
+    const port = Number(env.CI_DB_PORT);
+    if (!env.CI_DB_HOST || !env.CI_DB_USER || !env.CI_DB_PASS || !Number.isInteger(port)) return null;
+    return {
+        host:     env.CI_DB_HOST,
+        port,
+        user:     env.CI_DB_USER,
+        password: env.CI_DB_PASS,
+        database: FIXTURE_DATABASE
+    };
+}
+
+const VENUE_DB = readVenueDb();
+
+// Tells the lifecycle wrapper not to run docker, and never to tear down a server
+// it does not own.
+const USING_VENUE = VENUE_DB !== null;
+
+// What docker-compose.test.yml publishes and the Actions service containers map.
+// Named so the guard can pin the compose file against it even on a venue, where
+// FIXTURE_DB is a different address.
+const CONTAINER_DB = {
     host:     '127.0.0.1',
     port:     3307,
     user:     'root',
     password: 'testpass',
-    database: 'XChain_BTC_Regtest_Indexer'
+    database: FIXTURE_DATABASE
 };
+
+// The one place the fixture address lives, and what helpers/db-setup.js builds
+// its pool config from: the venue server where there is one, the container
+// fixture everywhere else.
+const FIXTURE_DB = VENUE_DB || CONTAINER_DB;
 
 const COMPOSE_FILE = 'test/integration/fixtures/docker-compose.test.yml';
 
@@ -100,10 +152,11 @@ function looksLikeForeignServerError(err) {
 // that yields nothing is normal and must not turn into an error of its own.
 function describeHolders(runner) {
     const run = runner || defaultRunner;
+    const port   = String(FIXTURE_DB.port);
     const probes = [
-        ['docker', ['ps', '--filter', 'publish=3307', '--format', '{{.Names}} {{.Ports}}']],
+        ['docker', ['ps', '--filter', `publish=${port}`, '--format', '{{.Names}} {{.Ports}}']],
         ['ss',     ['-ltnp']],
-        ['lsof',   ['-nP', '-iTCP:3307', '-sTCP:LISTEN']]
+        ['lsof',   ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN']]
     ];
     const lines = [];
     for (const [cmd, args] of probes) {
@@ -113,7 +166,7 @@ function describeHolders(runner) {
         for (const line of String(out).split('\n')) {
             // ss and docker ps print every listener, so keep only the rows that
             // actually mention the fixture port.
-            if (line.includes('3307') && line.trim()) lines.push(`${cmd}: ${line.trim()}`);
+            if (line.includes(port) && line.trim()) lines.push(`${cmd}: ${line.trim()}`);
         }
     }
     return lines;
@@ -214,9 +267,14 @@ function collisionMessage(detail, holders) {
     lines.push(
         '',
         'Fix one of these, then re-run:',
-        `  - stop whatever holds 127.0.0.1:${FIXTURE_DB.port} on this host, or`,
-        `  - move that service off ${FIXTURE_DB.port} (this port is fixed by the committed compose`,
-        '    file and by the GitHub CI service containers, so the fixture cannot move).',
+        `  - if that server IS a shared CI database, point this repo at it instead of`,
+        `    starting our own: write ${VENUE_ENV_PATH} (0600) with CI_DB_HOST,`,
+        '    CI_DB_PORT, CI_DB_USER and CI_DB_PASS, and the fixture will use it and',
+        '    never try to bind the port at all,',
+        `  - or stop whatever holds ${FIXTURE_DB.host}:${FIXTURE_DB.port} on this host,`,
+        `  - or move that service off ${FIXTURE_DB.port} (this port is fixed by the committed`,
+        '    compose file and by the GitHub CI service containers, so the fixture itself',
+        '    cannot simply be repointed).',
         RULE
     );
     return lines.join('\n');
@@ -258,7 +316,12 @@ function decorateFixtureError(err, holders) {
 
 module.exports = {
     FIXTURE_DB,
+    FIXTURE_DATABASE,
+    CONTAINER_DB,
     COMPOSE_FILE,
+    USING_VENUE,
+    VENUE_ENV_PATH,
+    readVenueDb,
     isBindCollisionOutput,
     looksLikeForeignServerError,
     describeHolders,

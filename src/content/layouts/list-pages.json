@@ -1018,6 +1018,10 @@
                 "cls": "address"
             },
             {
+                "label": "Name",
+                "cls": ""
+            },
+            {
                 "label": "Code Hash",
                 "cls": ""
             },
@@ -2830,6 +2834,14 @@
             },
             {
                 "label": "Fiat",
+                "cls": ""
+            },
+            {
+                "label": "Rounds",
+                "cls": ""
+            },
+            {
+                "label": "Pairs",
                 "cls": ""
             },
             {

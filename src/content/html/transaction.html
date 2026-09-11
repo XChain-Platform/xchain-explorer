@@ -87,11 +87,12 @@
 <script type="text/javascript">
 $(document).ready(function(){
 
-    // Build out a list of data panels for this page
-    XC.panels = [
-        'info',
-        'rawdata'
-    ];
+    // Build out a list of data panels for this page. This page ships a single
+    // static Actions panel with no #tab-dropdown-* switcher (unlike action.html,
+    // market.html, etc.), so there is nothing for setupActionListeners() to wire
+    // up yet; keep this manifest empty rather than naming panels ('info',
+    // 'rawdata') that have never shipped a matching tab control.
+    XC.panels = [];
 
     if(XC.query){
 

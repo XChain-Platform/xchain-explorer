@@ -62,6 +62,7 @@
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" id="tab-dropdown-address"    ><i class="fa fa-qrcode"  ></i> Addresses</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-broadcast"  ><i class="fa fa-bullhorn"></i> Broadcasts</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-contract"   ><i class="fa fa-file-code"></i> Contracts</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-token"      ><i class="fa fa-database"></i> Tokens</a></li>
                                     <li><a class="dropdown-item" id="tab-dropdown-transaction"><i class="fa fa-chain"   ></i> Transactions</a></li>
                                 </ul>
@@ -102,6 +103,28 @@
                     <tbody>
                         <tr>
                             <td colspan="8" class="loading-data">Loading broadcast data...</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+
+                <!-- Contracts (matched on the declared contract identity: meta.name /
+                     meta.description, through the contracts FULLTEXT index) -->
+                <div class="tab-pane fade table-responsive" id="tab-pane-contract" role="tabpanel" aria-labelledby="tab-contract" tabindex="0">
+                    <table class="table table-striped cell-border view-button table-hover table-condensed" width="100%" id="datatable-contract">
+                    <thead>
+                        <tr class="info">
+                            <th class="record">#</th>
+                            <th>Name</th>
+                            <th>Version</th>
+                            <th>Contract</th>
+                            <th>Description</th>
+                            <th class="view"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" class="loading-data">Loading contract data...</td>
                         </tr>
                     </tbody>
                     </table>
@@ -160,6 +183,7 @@
         XC.panels = [
             'address',
             'broadcast',
+            'contract',
             'token',
             'transaction'
         ];
@@ -220,7 +244,7 @@
         // word went into the meta description that search engines index.
         XC.pageInfo.title       = isNull(XC.query) ? 'Search' : ('Search for `' + XC.query + '`');
         XC.pageInfo.description = isNull(XC.query)
-            ? ('Search the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network by address, token, transaction or broadcast.')
+            ? ('Search the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network by address, token, contract, transaction or broadcast.')
             : ('Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform search results for `' + XC.query + '`.');
         XC.pageInfo.canonical   = '/search?' + window.location.search;
         updatePageInfo();

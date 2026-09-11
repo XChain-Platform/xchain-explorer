@@ -555,12 +555,15 @@ describe('Database#getSearch', () => {
         expect(total).to.equal(0);
     });
 
-    it('data has totals for addresses, broadcasts, tokens, transactions', async () => {
+    // Five categories since the contract identity manifest: a search UI reads the
+    // whole totals map to decide which tabs to offer, so a missing key is a tab that
+    // never appears rather than one that reads zero.
+    it('data has totals for addresses, broadcasts, contracts, tokens, transactions', async () => {
         sinon.stub(db, 'doQuery').resolves([{ count: 0 }]);
         const config = makeActionConfig('getSearch', 'address');
         config.data.search = 'addr';
         const [data] = await db.getSearch(config);
-        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'tokens', 'transactions']);
+        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions']);
     });
 
     it('populates address results when address type matches', async () => {
@@ -617,7 +620,7 @@ describe('Database#getSearch', () => {
         config.data.search = 'abc';
         const [data, , total] = await db.getSearch(config);
         expect(total).to.equal(0);
-        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'tokens', 'transactions']);
+        expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions']);
     });
 
     it('clamps LIMIT to 100 even when sql.limit is larger', async () => {
@@ -1727,6 +1730,30 @@ describe('Database#getPrices', () => {
         expect(query).to.include('index_coins');
         expect(query).to.include('index_fiats');
         expect(query).to.include('m.round_number');
+    });
+
+    // a validator batch stores NULL in pair_count, so the only server-side
+    // statement of how wide a round is comes from counting the first round's pairs.
+    // Counted in SQL rather than shipped as rounds_json, which is megabytes a page.
+    it('counts the first batch round\'s pairs so the list row can state a width', async () => {
+        const db = makeDb();
+        const [query] = await db.getPrices(makeActionConfig('getPrices'));
+        expect(query).to.match(/JSON_LENGTH\(m\.rounds_json,\s*'\$\[0\]\.pairs'\)\s+as\s+batch_pair_count/);
+    });
+
+    it('carries the batch window columns the list row describes a batch with', async () => {
+        const db = makeDb();
+        const [query] = await db.getPrices(makeActionConfig('getPrices'));
+        for(const col of ['m.batch_first_round', 'm.batch_last_round', 'm.round_count', 'm.pair_count'])
+            expect(query).to.include(col);
+    });
+
+    // rounds_json itself is the megabyte column; only its counted width may ship.
+    it('never selects rounds_json into the list feed', async () => {
+        const db = makeDb();
+        const [query, , count] = await db.getPrices(makeActionConfig('getPrices'));
+        expect(query).to.not.match(/^\s*m\.rounds_json,?\s*$/m);
+        expect(count).to.not.include('rounds_json');
     });
 });
 

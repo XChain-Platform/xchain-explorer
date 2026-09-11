@@ -91,6 +91,14 @@ describe('action summary field contract: projection vs getActionDetails', functi
         expect(exec.details.contract_index).to.equal(12);
         const deploy = db.projectActionSummary({ action: 'DEPLOY', status: 'valid', action_index: 31, action_format: 4, chunk_index: 1, total_chunks: 3, cooldown_blocks: 10 });
         expect(deploy.details).to.include({ action_index: 31, chunk_index: 1, total_chunks: 3, cooldown_blocks: 10 });
+        // The identity the chain recorded rides the summary too: a history row
+        // that carried only contract_index printed "Unnamed contract" for a named
+        // contract (wallet regtest run, 2026-09-09) because these three never
+        // left getActionData.
+        const named = db.projectActionSummary({ action: 'DEPLOY', status: 'valid', action_index: 32, deployed_contract_index: 32, contract_meta_name: 'Escrow', contract_meta_version: '1.0.0' });
+        expect(named.details).to.include({ deployed_contract_index: 32, contract_meta_name: 'Escrow', contract_meta_version: '1.0.0' });
+        const call = db.projectActionSummary({ action: 'EXECUTE', status: 'valid', contract_index: 32, contract_meta_name: 'Escrow', contract_meta_version: null });
+        expect(call.details).to.include({ contract_index: 32, contract_meta_name: 'Escrow', contract_meta_version: null });
         const vote = db.projectActionSummary({ action: 'VOTE', status: 'valid', vote_kind: 'yes' });
         expect(vote.details.vote_kind).to.equal('yes');
         const slash = db.projectActionSummary({ action: 'SLASH', status: 'valid', amount: '1', capability: 'validator' });

@@ -44,20 +44,23 @@ describe('XChainHubConnector', function () {
 
     describe('constructor', function () {
 
-        it('builds the URL as http://<url>:<port>', function () {
+        it('stores the endpoint URLs it was given', function () {
             const axiosStub = makeAxiosStub();
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
-            // Source was refactored to multi-endpoint: single host+port is stored as urls[0]
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             expect(connector.urls[0]).to.equal('http://localhost:3000');
         });
 
-        it('stores the port on the instance', function () {
+        it('keeps the port inside the endpoint URL', function () {
             const axiosStub = makeAxiosStub();
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('127.0.0.1', 8765);
-            // Port is captured inside urls[0] after the multi-endpoint refactor
+            const connector = new XChainHubConnector(['http://127.0.0.1:8765']);
             expect(connector.urls[0]).to.include('8765');
+        });
+
+        it('throws on a non-array argument (the removed host+port form)', function () {
+            const XChainHubConnector = loadConnector(makeAxiosStub());
+            expect(() => new XChainHubConnector('localhost', 3000)).to.throw(TypeError, /array of URL strings/);
         });
 
     });
@@ -68,7 +71,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: 'pong' } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.ping();
             expect(result).to.be.true;
         });
@@ -77,7 +80,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: 'pong' } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             await connector.ping();
             const [url, payload] = axiosStub.post.firstCall.args;
             expect(url).to.equal('http://localhost:3000');
@@ -88,7 +91,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: {} });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.ping();
             expect(result).to.be.false;
         });
@@ -97,7 +100,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: null } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.ping();
             expect(result).to.be.false;
         });
@@ -106,7 +109,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.rejects(new Error('ECONNREFUSED'));
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.ping();
             expect(result).to.be.false;
         });
@@ -116,7 +119,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.rejects(degraded503Error());
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.ping();
             expect(result).to.be.true;
         });
@@ -130,7 +133,7 @@ describe('XChainHubConnector', function () {
             const axiosStub  = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: mockResult } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.deep.equal(mockResult);
         });
@@ -139,7 +142,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: {} } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             await connector.getAllConfig();
             const [, payload, options] = axiosStub.post.firstCall.args;
             expect(payload).to.deep.include({ method: 'getallconfigs' });
@@ -152,7 +155,7 @@ describe('XChainHubConnector', function () {
             timeoutErr.code  = 'ECONNABORTED';
             axiosStub.post.rejects(timeoutErr);
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.be.null;
         });
@@ -161,7 +164,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.rejects(new Error('ECONNREFUSED'));
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.be.null;
         });
@@ -172,7 +175,7 @@ describe('XChainHubConnector', function () {
             const consoleStub  = sinon.stub(console, 'warn');
             axiosStub.post.rejects(new Error('network down'));
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             await connector.getAllConfig();
             // With multi-attempt retry, warn is called multiple times; just check it fired
             expect(consoleStub.called).to.be.true;
@@ -184,7 +187,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: {} });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.be.null;
         });
@@ -195,7 +198,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.rejects(degraded503Error());
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.be.null;
         });
@@ -207,7 +210,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: { error: 'there was an error trying to get all configs' } } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.be.null;
         });
@@ -217,7 +220,7 @@ describe('XChainHubConnector', function () {
             const axiosStub  = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: { configs, seq: 7 } } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             // Caller still sees the bare nested map, not the wrapper.
             expect(result).to.deep.equal(configs);
@@ -229,7 +232,7 @@ describe('XChainHubConnector', function () {
             const axiosStub  = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: configs } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.deep.equal(configs);
             expect(connector.lastSeq).to.equal(0);
@@ -244,7 +247,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: { configs: {}, seq: 1, watermark: 1000 } } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             connector.lastWatermark = 1000;
 
             await connector.getAllConfig();
@@ -257,7 +260,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.resolves({ data: { result: { configs: {}, seq: 1, watermark: 1000 } } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
 
             await connector.getAllConfig();
 
@@ -268,7 +271,7 @@ describe('XChainHubConnector', function () {
         it('re-merging the same boundary-second row on the next poll does not lose or duplicate it', async function () {
             const axiosStub = makeAxiosStub();
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             connector.lastWatermark = 1000;
             connector.configs       = { bitcoin: { mainnet: { indexer: { a: 1 } } } };
 
@@ -294,7 +297,7 @@ describe('XChainHubConnector', function () {
                 const axiosStub = makeAxiosStub();
                 axiosStub.post.rejects(new Error('ECONNREFUSED'));
                 const XChainHubConnector = loadConnector(axiosStub);
-                const connector = new XChainHubConnector('localhost', 3000);
+                const connector = new XChainHubConnector(['http://localhost:3000']);
                 const result = await connector.getAllConfig();
                 expect(result).to.be.null;
                 // One endpoint × 4 attempts
@@ -312,7 +315,7 @@ describe('XChainHubConnector', function () {
             axiosStub.post.onFirstCall().rejects(new Error('ECONNREFUSED'));
             axiosStub.post.onSecondCall().resolves({ data: { result: mockResult } });
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.getAllConfig();
             expect(result).to.deep.equal(mockResult);
             expect(axiosStub.post.callCount).to.equal(2);
@@ -322,7 +325,7 @@ describe('XChainHubConnector', function () {
             const axiosStub = makeAxiosStub();
             axiosStub.post.rejects(new Error('ECONNREFUSED'));
             const XChainHubConnector = loadConnector(axiosStub);
-            const connector = new XChainHubConnector('localhost', 3000);
+            const connector = new XChainHubConnector(['http://localhost:3000']);
             const result = await connector.ping();
             expect(result).to.be.false;
             expect(axiosStub.post.callCount).to.equal(1);
@@ -400,7 +403,7 @@ describe('XChainHubConnector', function () {
 
         it('replaces with the full tree for a bare-map result (legacy hub)', function () {
             const Connector = loadConnector(makeAxiosStub());
-            let c = new Connector('localhost', 3000);
+            let c = new Connector(['http://localhost:3000']);
             let tree = { BTC: { mainnet: { mod: { p: '1' } } } };
             let out = c._applyConfigResult(tree);
             expect(out).to.deep.equal(tree);
@@ -410,7 +413,7 @@ describe('XChainHubConnector', function () {
 
         it('resets the cursor when the hub reports no watermark', function () {
             const Connector = loadConnector(makeAxiosStub());
-            let c = new Connector('localhost', 3000);
+            let c = new Connector(['http://localhost:3000']);
             c.lastWatermark = 50;
             let out = c._applyConfigResult({ configs: { BTC: {} }, seq: 7 });
             expect(c.lastSeq).to.equal(7);
@@ -420,7 +423,7 @@ describe('XChainHubConnector', function () {
 
         it('returns the full payload on the first watermarked fetch', function () {
             const Connector = loadConnector(makeAxiosStub());
-            let c = new Connector('localhost', 3000);
+            let c = new Connector(['http://localhost:3000']);
             let out = c._applyConfigResult({ configs: { BTC: { mainnet: {} } }, seq: 1, watermark: 1000 });
             expect(c.lastWatermark).to.equal(1000);
             expect(out).to.deep.equal({ BTC: { mainnet: {} } });
@@ -428,7 +431,7 @@ describe('XChainHubConnector', function () {
 
         it('merges a delta into the cached tree on a subsequent watermarked fetch', function () {
             const Connector = loadConnector(makeAxiosStub());
-            let c = new Connector('localhost', 3000);
+            let c = new Connector(['http://localhost:3000']);
             c.configs = { BTC: { mainnet: { fees: { a: '1' } } } };
             c.lastWatermark = 1000; // we sent a cursor last time
             let out = c._applyConfigResult({
@@ -490,7 +493,7 @@ describe('XChainHubConnector', function () {
                 configs: { BTC: { mainnet: { 'xchain-indexer': { name: 'restored' } } } }, seq: 3, watermark: 3000
             } } });
             const Connector = loadConnector(axiosStub);
-            let c = new Connector('localhost', 3000);
+            let c = new Connector(['http://localhost:3000']);
             await c.getAllConfig();
             expect(c.lastWatermark).to.equal(5000);
 
@@ -525,7 +528,7 @@ describe('XChainHubConnector', function () {
                 configs: { BTC: { mainnet: { fees: { b: '2' } } } }, seq: 1, watermark: 1000
             } } });
             const Connector = loadConnector(axiosStub);
-            let c = new Connector('localhost', 3000);
+            let c = new Connector(['http://localhost:3000']);
             await c.getAllConfig();
             let second = await c.getAllConfig();
             expect(second.BTC.mainnet.fees).to.deep.equal({ a: '1', b: '2' });

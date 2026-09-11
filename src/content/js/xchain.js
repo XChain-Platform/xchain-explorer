@@ -1309,6 +1309,14 @@ function loadDatatablesData(coin, action, query, type, opts){
         url += '/' + query;
     if(type)
         url += '/' + type;
+    // The contracts list is the one list page whose feed can answer a text search:
+    // contract names and descriptions live in an indexed column pair (the contracts
+    // table's FULLTEXT meta_search), so a term is answered by the FEED. Every other
+    // list page keeps its box hidden, because with server-side paging a client-side
+    // search filters only the ten rows already on screen, which reads as "no results"
+    // for a term that has hundreds.
+    let nameSearch = (action=='contract' && !emptySearch);
+    let baseUrl    = url;
     // Set number of records per page to display
     var sm   = localStorage,
         rec  = sm.getItem('records_per_page');
@@ -1323,11 +1331,15 @@ function loadDatatablesData(coin, action, query, type, opts){
     let dtOptions = {
         lengthMenu: [[10,20,30,40,50,60,70,80,90,100],[10,20,30,40,50,60,70,80,90,100]],
         pageLength: page,
-        dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
+        // 'f' (the filter box) is rendered only where a term can actually be answered;
+        // DataTables draws no control for an option it is not given a slot for.
+        dom: '<"search-options text-center border-bottom p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>'
+            + (nameSearch ? '<"xc-name-filter float-end me-2"f>' : '')
+            + '><"search-results"t><"search-options text-center border-bottom-0 p-1"<"float-start d-none d-md-inline"l>p<"float-end d-none d-md-inline"i>>',
         pagingType: "full",
         // Server-side paging is meaningless without a feed to page against.
         serverSide: !emptySearch,
-        searching: false,
+        searching: nameSearch,
         ordering: false,
         processing: true,
         autoWidth: false,
@@ -1568,21 +1580,60 @@ function loadDatatablesData(coin, action, query, type, opts){
                 $('td', row).eq(6).html(fee);
                 $('td', row).eq(7).html(action_link);
             }
-            // Price (PRICE oracle: v0 validator COIN/FIAT snapshot, v1 user TOKEN/FIAT oracle)
+            // Price (PRICE oracle: v0 validator COIN/FIAT snapshot, v0 validator BATCH
+            // of rounds, v1 user TOKEN/FIAT oracle).
+            //
+            // A batch is the shape a validator actually publishes, and its coin, token,
+            // fiat, value, fee and pair_count columns are ALL NULL by construction (the
+            // first five are v1 oracle columns; pair_count would describe one round out
+            // of the window). Reading only those left every validator row a line of
+            // dashes over an action that carried an hour of prices. The batch's own
+            // fields - the round window, how many rounds it carries and how wide a round
+            // is - describe it instead.
             if(action=='price'){
-                let version = data[4];
-                let pcoin   = data[5];
-                token       = data[6];
-                let fiat    = data[7];
-                value       = data[8];
-                fee         = data[9];
-                $('td', row).eq(4).html(Number(version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
+                let version    = data[4];
+                let pcoin      = data[5];
+                token          = data[6];
+                let fiat       = data[7];
+                let round      = data[8];
+                let firstRound = data[9];
+                let lastRound  = data[10];
+                let roundCount = data[11];
+                let pairCount  = data[12];
+                let batchPairs = data[13];
+                value          = data[14];
+                fee            = data[15];
+                // Both bounds, never one: a half-set window is not a window, and a v0
+                // single-round row and a v1 oracle carry neither.
+                let isBatch    = !isNull(firstRound) && !isNull(lastRound);
+                let typeHtml   = (Number(version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
+                if(isBatch)
+                    typeHtml += ' <span class="badge text-bg-dark">Batch</span>';
+                $('td', row).eq(4).html(typeHtml);
                 $('td', row).eq(5).text(isNull(pcoin) ? '-' : pcoin);
                 $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
                 $('td', row).eq(7).text(isNull(fiat) ? '-' : fiat);
-                $('td', row).eq(8).text(isNull(value) ? '-' : value);
-                $('td', row).eq(9).text(isNull(fee) ? '-' : fee);
-                $('td', row).eq(10).html(action_link);
+                // Rounds: the batch's declared window and its round count; on every
+                // other shape the single round the action is about.
+                let roundText = isNull(round) ? '-' : numeral(round).format(fmtInteger);
+                if(isBatch){
+                    roundText = numeral(firstRound).format(fmtInteger) + ' - ' + numeral(lastRound).format(fmtInteger);
+                    if(!isNull(roundCount))
+                        roundText += ' (' + numeral(roundCount).format(fmtInteger) + ' round' + (Number(roundCount)===1 ? '' : 's') + ')';
+                }
+                $('td', row).eq(8).text(roundText);
+                // Pairs: a single-round row states its own width; a batch states the
+                // width of one round in the window, since every round in a batch is one
+                // publisher's full snapshot.
+                let pairText = '-';
+                if(!isNull(pairCount))
+                    pairText = numeral(pairCount).format(fmtInteger);
+                else if(!isNull(batchPairs))
+                    pairText = numeral(batchPairs).format(fmtInteger) + ' per round';
+                $('td', row).eq(9).text(pairText);
+                $('td', row).eq(10).text(isNull(value) ? '-' : value);
+                $('td', row).eq(11).text(isNull(fee) ? '-' : fee);
+                $('td', row).eq(12).html(action_link);
             }
             // Controller binding (programmable-policy guard: bind/unbind event on a token or address)
             if(action=='controller'){
@@ -2015,16 +2066,41 @@ function loadDatatablesData(coin, action, query, type, opts){
                     $('td', row).eq(1).html(formatLink('/' + coin + '/transaction/' + transaction, highlightSearchTerm(XC.query, transaction)));
                     $('td', row).eq(2).html(formatLink('/' + coin + '/transaction/' + transaction, 'view', null, true));
                 }
+                // Contract: the fifth search category, matched on the declared name or
+                // description through the contracts FULLTEXT index rather than by LIKE.
+                // Name and description are author-supplied on-chain text, so both are
+                // hardened before the term highlighter (which escapes) sees them; the
+                // derived address is served by the API and is never omitted.
+                if(type=='contract'){
+                    let meta_name    = data[1];
+                    let meta_version = data[2];
+                    let address      = data[3];
+                    let snippet      = data[4];
+                    let idx          = data[5];
+                    $('td', row).eq(1).html(isNull(meta_name)
+                        ? '<span class="text-muted fst-italic">Unnamed contract</span>'
+                        : highlightSearchTerm(XC.query, hardenText(meta_name, 64)));
+                    $('td', row).eq(2).text(isNull(meta_version) ? '' : hardenText(meta_version, 32));
+                    $('td', row).eq(3).html(formatLink('/' + coin + '/contract/' + idx, escapeHtml(address)));
+                    $('td', row).eq(4).html(highlightSearchTerm(XC.query, hardenText(snippet, 160)));
+                    $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + idx, 'view', null, true));
+                }
             }
-            // Contract (DEPLOY list)
+            // Contract (DEPLOY list). The Name cell carries the contract's declared
+            // meta.name (spec contract-meta-manifest 2.6), hardened and escaped: it is
+            // author-supplied on-chain text reaching an HTML sink. A contract deployed
+            // before CONTRACT_META_REQUIRED has none, and reads "Unnamed contract"
+            // rather than blank, which would look like a missing value.
             if(action=='contract'){
-                let code_hash = data[4];
-                let api       = data[5];
-                let cooldown  = data[6];
-                $('td', row).eq(4).html(formatHash(code_hash));
-                $('td', row).eq(5).text(api);
-                $('td', row).eq(6).html(isNull(cooldown) ? 'No' : ('<span class="badge text-bg-info text-white">Stakeable</span> ' + numeral(cooldown).format(fmtInteger) + ' blk'));
-                $('td', row).eq(7).html(formatLink('/' + coin + '/contract/' + action_index, 'view', null, true));
+                let meta_name = data[4];
+                let code_hash = data[5];
+                let api       = data[6];
+                let cooldown  = data[7];
+                $('td', row).eq(4).html(formatContractName(meta_name, null));
+                $('td', row).eq(5).html(formatHash(code_hash));
+                $('td', row).eq(6).text(api);
+                $('td', row).eq(7).html(isNull(cooldown) ? 'No' : ('<span class="badge text-bg-info text-white">Stakeable</span> ' + numeral(cooldown).format(fmtInteger) + ' blk'));
+                $('td', row).eq(8).html(formatLink('/' + coin + '/contract/' + action_index, 'view', null, true));
             }
             // Execution (EXECUTE list)
             if(action=='execution'){
@@ -2871,7 +2947,27 @@ function loadDatatablesData(coin, action, query, type, opts){
             }
         };
     }
+    // The search box asks the feed a QUESTION, it does not filter what is on screen.
+    // These feeds take their term as a path segment (/explorer/contracts/<term>/name),
+    // never as a request parameter, so the term is turned into a url here. preXhr
+    // fires before DataTables extends its base ajax config with settings.ajax, so
+    // rewriting .url on the live object retargets THIS request: one fetch per term,
+    // not the term's own fetch plus a reload.
+    if(nameSearch){
+        $('#' + tableId).on('preXhr.dt', function(e, settings, params){
+            let term = (params && params.search && !isNull(params.search.value))
+                ? String(params.search.value).trim() : '';
+            // The same 3-character floor the server holds the FULLTEXT term to
+            // (innodb_ft_min_token_size): a shorter term matches nothing, so show the
+            // unfiltered list rather than an empty page the reader cannot explain.
+            settings.ajax.url = (term.length >= 3)
+                ? baseUrl + '/' + encodeURIComponent(term) + '/name'
+                : baseUrl;
+        });
+    }
     $('#' + tableId).dataTable(dtOptions);
+    if(nameSearch)
+        $('#' + tableId + '_filter input').attr('placeholder', 'Search contract names');
 }
 
 // Load an action's rows directly from the API and hand the response to callback;
@@ -3447,7 +3543,32 @@ function showAttestDetails(data){
         isBatch     ? '<span class="badge text-bg-info text-dark">Batch Continuation (v6)</span>' :
                       '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
     // On a batch row request_id holds the batch key, not a request id.
-    $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
+    //
+    // An EXPIRE names the request it retired and is the only page in the round with
+    // nowhere else to go: it has no request or response panel, so the id cell carries
+    // the whole path back - the lifecycle page, the v0 request action, and the expired
+    // callback EXECUTE the sweep injected. The id itself is resolved server-side by
+    // in-block correlation and is absent when that correlation refuses to guess, which
+    // reads as "not recorded" rather than as a blank cell.
+    if(isExpire){
+        let expireHtml = '';
+        if(isNull(data.request_id)){
+            expireHtml = '<span class="text-muted attest-expire-unresolved">not recorded</span>';
+        } else {
+            expireHtml = formatLink('/' + XC.coin + '/attestation/' + data.request_id,
+                                    formatHash(data.request_id, 32), 'View this attestation lifecycle');
+            let links = [];
+            if(!isNull(data.request_action_index))
+                links.push('request ' + formatLink('/' + XC.coin + '/action/' + data.request_action_index, data.request_action_index));
+            if(!isNull(data.callback_execute_action_index))
+                links.push('callback ' + formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
+            if(links.length)
+                expireHtml += ' <span class="small text-muted attest-expire-links">(' + links.join(' &middot; ') + ')</span>';
+        }
+        $('#info-attest .attest-request-id').html(expireHtml);
+    } else {
+        $('#info-attest .attest-request-id').html(formatHash(data.request_id, 32));
+    }
     // provider_id is the empty string on a batch row (no single provider answers a
     // batch), which isNull already counts as absent.
     $('#info-attest .attest-provider').text(isNull(data.provider_id) ? '-' : data.provider_id);
@@ -3891,7 +4012,7 @@ function showDeployDetails(data){
         let carrierStakeable = (deployed !== null) && !isNull(data.cooldown_blocks);
         $('#info-deploy .deploy-staking-row').toggleClass('d-none', !carrierStakeable);
         if(deployed !== null){
-            $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + deployed, deployed));
+            $('#info-deploy .deploy-contract').html(formatContractIdentity(XC.coin, XC.chain, deployed, data.contract_meta_name, data.contract_meta_version));
             $('#info-deploy .deploy-api-version').text(isNull(data.api_version) ? '-' : data.api_version);
             $('#info-deploy .deploy-stakeable').html(carrierStakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
             if(carrierStakeable){
@@ -3911,8 +4032,11 @@ function showDeployDetails(data){
     if(deployed === null && /^pending:/i.test(assembly)){
         $('#info-deploy .deploy-contract').text(assembly);
     } else {
+        // Name WITH address, never instead of it (spec 2.6). The meta fields come off
+        // this DEPLOY's own contracts row, so a pending assembler (whose contract lands
+        // at another action) carries none and reads "Unnamed contract" until it does.
         let contractIdx = (deployed === null) ? data.action_index : deployed;
-        $('#info-deploy .deploy-contract').html(formatLink('/' + XC.coin + '/contract/' + contractIdx, contractIdx));
+        $('#info-deploy .deploy-contract').html(formatContractIdentity(XC.coin, XC.chain, contractIdx, data.contract_meta_name, data.contract_meta_version));
     }
     $('#info-deploy .deploy-api-version').text(data.api_version);
     let stakeable = !isNull(data.cooldown_blocks);
@@ -3926,7 +4050,7 @@ function showDeployDetails(data){
 
 // Display EXECUTE action information (contract method call)
 function showExecuteDetails(data){
-    $('#info-execute .execute-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    $('#info-execute .execute-contract').html(formatContractIdentity(XC.coin, XC.chain, data.contract_index, data.contract_meta_name, data.contract_meta_version));
     $('#info-execute .execute-caller').html(formatLink('/' + XC.coin + '/address/' + data.caller, data.caller));
     $('#info-execute .execute-method').text(data.method_name);
     $('#info-execute .execute-gas').text(numeral(data.gas_used).format('0,0') + ' / ' + numeral(data.gas_limit).format('0,0'));
@@ -3960,7 +4084,7 @@ function showExecuteDetails(data){
 function showDepositDetails(data){  showCustodyDetails('deposit', data);  }
 function showWithdrawDetails(data){ showCustodyDetails('withdraw', data); }
 function showCustodyDetails(kind, data){
-    $('#info-' + kind + ' .' + kind + '-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+    $('#info-' + kind + ' .' + kind + '-contract').html(formatContractIdentity(XC.coin, XC.chain, data.contract_index, data.contract_meta_name, data.contract_meta_version));
     $('#info-' + kind + ' .' + kind + '-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
     $('#info-' + kind + ' .' + kind + '-amount').html(formatAmount(data.amount));
 }
@@ -4876,6 +5000,29 @@ function pickDisplayMedia(arr, types){
     return false;
 }
 
+// The Artwork Information title, in precedence order: the document's top-level
+// `title` (what community JSONs write for the piece as a whole), then the first
+// display entry carrying a TIS v1.1.0 `title`, then the first entry `name`
+// (the filename, the only thing the old code read). Entries come in
+// image, audio, video order so a picture's caption wins over a soundtrack's.
+// Measured live: a token whose display image came from the legacy image_large field
+// (no name) fell through to its audio filename and titled the artwork "BADGUY.mp3".
+function resolveArtworkTitle(topTitle, entries){
+    var present = function(v){ return v !== undefined && v !== null && String(v).trim() !== ''; };
+    if(present(topTitle))
+        return String(topTitle);
+    var list = entries || [];
+    for(var i=0; i<list.length; i++){
+        if(list[i] && present(list[i].title))
+            return String(list[i].title);
+    }
+    for(var j=0; j<list.length; j++){
+        if(list[j] && present(list[j].name))
+            return String(list[j].name);
+    }
+    return false;
+}
+
 // Handle displaying token content (images, audio, video, etc)
 function showTokenContent(json){
     // Convert any legacy formated JSON to the new XChain Token Information Standard (TIS)
@@ -4895,6 +5042,11 @@ function showTokenContent(json){
         video = false,
         image = false,
         title = false;
+    // The display entry each media section settled on; resolveArtworkTitle reads
+    // their title/name fields once all three sections have run.
+    var imageItem = false,
+        audioItem = false,
+        videoItem = false;
 
     // Basic Token Information
     var main  = getArrayItemByType(o.categories, 'main'),
@@ -4974,11 +5126,9 @@ function showTokenContent(json){
         // first, then the first non-locked entry (fixes the old `first.data`
         // dereference of a string, which hid the artwork for plain TIS docs
         // whose entries carry MIME types instead of display-type tags)
-        var imageItem = pickDisplayMedia(o.images, ['large','standard']);
-        if(imageItem){
+        imageItem = pickDisplayMedia(o.images, ['large','standard']);
+        if(imageItem)
             image = imageItem.data;
-            title = imageItem.name;
-        }
     }
 
     // Audio
@@ -4992,12 +5142,9 @@ function showTokenContent(json){
         });
         updateTokenSection('#audioInfo');
         // Extract the display audio from the audio array
-        var audioItem = pickDisplayMedia(o.audio, ['m4a','mp3','wav']);
-        if(audioItem){
+        audioItem = pickDisplayMedia(o.audio, ['m4a','mp3','wav']);
+        if(audioItem)
             audio = audioItem.data;
-            if(!title)
-                title = audioItem.name;
-        }
     }
 
     // Video
@@ -5011,13 +5158,11 @@ function showTokenContent(json){
         });
         updateTokenSection('#videoInfo');
         // Extract the display video from the videos array
-        var videoItem = pickDisplayMedia(o.video, ['mp4','mov','wmv']);
-        if(videoItem){
+        videoItem = pickDisplayMedia(o.video, ['mp4','mov','wmv']);
+        if(videoItem)
             video = videoItem.data;
-            if(!title)
-                title = videoItem.name;
-        }
     }
+    title = resolveArtworkTitle(o.title, [imageItem, audioItem, videoItem]);
 
     // Files
     if(o.files.length){
@@ -5517,8 +5662,10 @@ function legacyJsonToXChainTIS(o){
     // Replace any ar: urls with the arweave.net gateway
     if(ar.test(o.image))
         o.image = 'https://arweave.net/' + String(o.image).replace(ar,'');
-    // Pass basic token info fields forward
-    ['token','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
+    // Pass basic token info fields forward. `title` is the piece's display title
+    // (community JSONs carry it at the top level beside `name`); the token page
+    // reads it ahead of any per-entry title or filename (resolveArtworkTitle).
+    ['token','description','image','website','pgpsig','name','title'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
     // Owner fields
     json.owner = {};
     if(o.owner)
@@ -5835,6 +5982,121 @@ function loadMarket(market){
     updateMarketHistory(market, 1, true);
 }
 
+// Draw the simple line view from the trade series already parsed into XC.CHART_DATA
+function renderMarketChartLine(){
+    let data = XC.CHART_DATA.trades;
+    if(!data)
+        return;
+    let maxTs = XCC.lastTimestamp(data.trades),
+        range = XCC.normalizeRange(ls.getItem('marketChartZoom')),
+        cfg   = XCC.lineConfig(data, { tick1: XC.tick1, tick2: XC.tick2 });
+    XCC.applyRange(cfg, range, maxTs);
+    XCC.render('market-chart-line', cfg, {
+        name:          'market',
+        height:        400,
+        rangeSelector: true,
+        range:         range,
+        maxTs:         maxTs,
+        noData:        'No Trades Found'
+    });
+}
+
+// Draw the candlestick view from the OHLC series already parsed into XC.CHART_DATA
+function renderMarketChartCandlestick(){
+    let data = XC.CHART_DATA.ohlc;
+    if(!data)
+        return;
+    let maxTs = XCC.lastTimestamp(data.ohlc),
+        range = XCC.normalizeRange(ls.getItem('marketChartZoom')),
+        cfg   = XCC.candlestickConfig(data, { tick1: XC.tick1, tick2: XC.tick2 });
+    XCC.applyRange(cfg, range, maxTs);
+    // Failover to the simple line chart if the candlestick controller is
+    // unavailable or the data will not plot
+    try {
+        XCC.render('market-chart-candlestick', cfg, {
+            name:          'candlestick',
+            height:        400,
+            rangeSelector: true,
+            range:         range,
+            maxTs:         maxTs,
+            noData:        'No Trades Found'
+        });
+    } catch(e){
+        loadMarketChart('line');
+    }
+}
+
+// Draw the market depth view from the orderbook already stored on XC.CHART_DATA
+function renderMarketChartDepth(){
+    let orders = XC.CHART_DATA.orderbook,
+        types  = ['asks','bids'];
+    if(!orders)
+        return;
+    // A market with only one side of the book still has to draw
+    $.each(types, function(idx,name){
+        if(!Array.isArray(orders[name]))
+            orders[name] = [];
+    });
+    // Accumulate each side into running volume/value sums, which is what the
+    // depth curve plots and what the tooltip reports
+    $.each(types, function(idx,name){
+        var a = 0,
+            b = 0;
+        $.each(orders[name],function(ndx,data){
+            data[2] = numeral(parseFloat(data[0]) * parseFloat(data[1])).format('0.00000000');
+            a       = numeral(parseFloat(a) + parseFloat(data[1])).format('0.00000000');
+            b       = numeral(parseFloat(b) + parseFloat(data[2])).format('0.00000000');
+            data[1] = a;
+            data[2] = b;
+        });
+    });
+    // Convert all values to floats
+    $.each(types, function(idx,name){
+        $.each(orders[name],function(ndx,data){
+            data[0] = parseFloat(data[0]);
+            data[1] = parseFloat(data[1]);
+        });
+    });
+    // Sort the data in ascending order
+    $.each(types, function(idx, name){
+        orders[name].sort(function(a,b){
+            if(a[0] < b[0]) return -1;
+            if(a[0] > b[0]) return 1;
+            return 0;
+        });
+    });
+    let cfg = XCC.depthConfig(orders, { tick1: XC.tick1, tick2: XC.tick2 });
+    XCC.render('market-chart-depth', cfg, {
+        name:   'market-depth',
+        height: 400,
+        noData: 'No buy or sell orders found'
+    });
+}
+
+// Every market chart view draws from a renderer that ships inside this bundle.
+// A fragment that carries its own <script> block is a hazard here, because
+// jQuery 1.10's .load()/.html() hands any script it finds to jQuery.globalEval,
+// which is window.eval() of a string. Under a Content-Security-Policy without
+// 'unsafe-eval' (the policy this service actually sets, src/api.js) that eval
+// is refused, the exception is uncaught inside the AJAX success handler, and
+// the chart silently never draws while the page still reads green. Keeping the
+// drawing code here and the fragments script-free removes the eval entirely.
+let MARKET_CHART_RENDERERS = {
+    'line':         renderMarketChartLine,
+    'candlestick':  renderMarketChartCandlestick,
+    'market-depth': renderMarketChartDepth
+};
+
+// Insert an HTML fragment WITHOUT evaluating any script it carries.
+// $.parseHTML(html) defaults keepScripts to false, so script nodes are dropped
+// before they can reach the globalEval path described above.
+function loadChartFragment(target, html, done){
+    let nodes = $.parseHTML(String(html || ''));
+    $(target).empty().append(nodes);
+    if(typeof done === 'function')
+        done();
+}
+
 // Handle loading a market chart and uplading the title and icon
 function loadMarketChart(chart){
     // Hide all tab panels and only show the active one
@@ -5846,8 +6108,13 @@ function loadMarketChart(chart){
         text = 'Charts - ' + el.text();
     $('#datatable-header-icon').removeClass().addClass(icon);
     $('#datatable-header-text').text(text);
-    // Handle loading the correct chart
-    $('#market-chart-container').load('/charts/' + chart + '.html');
+    // The active view's renderer is what the data refresh re-runs
+    let renderer = MARKET_CHART_RENDERERS[chart] || null;
+    XC.chartRenderer = renderer;
+    // Handle loading the correct chart markup, scripts stripped
+    $.get('/charts/' + chart + '.html', function(html){
+        loadChartFragment('#market-chart-container', html, renderer);
+    }, 'html');
     if(['line','candlestick'].includes(chart))
         ls.setItem('marketChart',chart);
 }
@@ -6021,9 +6288,9 @@ function updateMarketHistory(market, page=1, full=false, count=0){
             ohlc: ohlc,
             volume: volume2
         };
-        // If we have an updateChart() function defined, run it to update the chart with the new data
-        if(typeof updateChart === 'function')
-            updateChart();
+        // Re-draw whichever market chart view is currently mounted with the new data
+        if(typeof XC.chartRenderer === 'function')
+            XC.chartRenderer();
     });
 }
 

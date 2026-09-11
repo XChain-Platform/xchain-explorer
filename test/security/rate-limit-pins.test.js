@@ -103,9 +103,9 @@ describe('Security: Rate Limiting: pinned drop-in matches source defaults (rows 
 
     const { unpinned, orphaned, drifted } = comparePinsToSource(pins, sourceDefaults);
 
-    it('sees eight limiter env vars on each side today (sanity: the parsers matched something)', function () {
-        expect(pins.size).to.equal(8);
-        expect(sourceDefaults.size).to.equal(8);
+    it('sees nine limiter env vars on each side today (sanity: the parsers matched something)', function () {
+        expect(pins.size).to.equal(9);
+        expect(sourceDefaults.size).to.equal(9);
     });
 
     it('pins every knob the source reads (row 33: no unpinned variable)', function () {

@@ -38,8 +38,18 @@ const CONTENT    = path.resolve(__dirname, '../../src/content');
 const CLIENT_SRC = require('../helpers/content-source.js').clientSource();
 const JQUERY     = path.join(CONTENT, 'js', 'jquery.min.js');
 
-// The four result tabs search.html registers in XC.panels.
-const SEARCH_PANELS = ['address', 'broadcast', 'token', 'transaction'];
+// The result tabs search.html registers in XC.panels, READ from the shipped page
+// rather than restated: the list grew a fifth (contract) when contracts gained a
+// searchable name, and a hand-copied list is how a new tab ends up uncovered by
+// the guard below while looking covered.
+const SEARCH_PANELS = (function(){
+    const page = require('../helpers/content-source.js').pageSource('search.html');
+    const block = /XC\.panels\s*=\s*\[([\s\S]*?)\]/.exec(page);
+    if(!block) throw new Error('search.html no longer registers XC.panels');
+    const panels = block[1].split(',').map((s) => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
+    if(panels.length < 4) throw new Error('the XC.panels extraction looks broken: ' + JSON.stringify(panels));
+    return panels;
+})();
 
 // One jsdom realm carrying the shipped jQuery and the shipped client, matching
 // content-client-search-null-render.test.js. dataTable() is stubbed to capture

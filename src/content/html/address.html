@@ -901,8 +901,20 @@
             'token'
         ];
 
+        // XC.query is null whenever the path segment did not parse as an address for
+        // this coin (setXChainParams only assigns it behind isCryptoAddress), and
+        // loadApiData drops a falsy query from the path entirely: this page asked the
+        // server for the BARE /{COIN}/api/address collection route, which is not the
+        // detail route and answers nothing this page can use. Ask for nothing instead,
+        // and say why in the header rather than leaving the placeholder zeros up.
+        let addressId = isNull(XC.query) ? '' : String(XC.query);
+        if(!addressId.length){
+            $('#address').html('<span class="text-muted" id="address-missing-id">No address in this URL</span>');
+            $('#address-type').html('<span class="text-muted">-</span>');
+        }
+
         // Request information on this address and update the header with this information
-        loadApiData(XC.coin, 'address', XC.query, null, function(o){
+        if(addressId.length) loadApiData(XC.coin, 'address', addressId, null, function(o){
             if(o){
                 $('#address').html(o.address);
                 // Native-coin balance/UTXO figures come from the utxo-tracker. When it is not
@@ -978,7 +990,13 @@
                 $('#address-proof-balance-result').html(proofNotice('warning', 'Enter a token tick first'));
                 return;
             }
-            loadProofWidget('/' + XC.coin + '/api/proof/balance/' + encodeURIComponent(XC.query) + '/' + encodeURIComponent(tick),
+            // encodeURIComponent(null) is the STRING "null", so an unresolved address
+            // asked the SPV endpoint to prove a balance for an address named "null".
+            if(!addressId.length){
+                $('#address-proof-balance-result').html(proofNotice('warning', 'No address in this URL to prove a balance for'));
+                return;
+            }
+            loadProofWidget('/' + XC.coin + '/api/proof/balance/' + encodeURIComponent(addressId) + '/' + encodeURIComponent(tick),
                 '#address-proof-balance-result', renderBalanceProof);
         });
 
@@ -988,7 +1006,11 @@
                 $('#address-proof-locked-result').html(proofNotice('warning', 'Enter a token tick first'));
                 return;
             }
-            loadProofWidget('/' + XC.coin + '/api/proof/locked-balance/' + encodeURIComponent(XC.query) + '/' + encodeURIComponent(tick),
+            if(!addressId.length){
+                $('#address-proof-locked-result').html(proofNotice('warning', 'No address in this URL to prove a balance for'));
+                return;
+            }
+            loadProofWidget('/' + XC.coin + '/api/proof/locked-balance/' + encodeURIComponent(addressId) + '/' + encodeURIComponent(tick),
                 '#address-proof-locked-result', renderBalanceProof);
         });
 
@@ -999,11 +1021,19 @@
 <script type="text/javascript">
     $(document).ready(function(){
 
+        // A page reached without a resolvable address has nothing to compose a
+        // staking panel from, and concatenating the null asked for the staking
+        // record of an address literally named "null". The card is hidden by
+        // default, so skipping the fetch leaves exactly the page a no-activity
+        // address already gets, minus the 404.
+        let stakingAddress = isNull(XC.query) ? '' : String(XC.query);
+        if(!stakingAddress.length) return;
+
         // The composed staking panel. Fetched on its own rather than through
         // loadApiData: this is a single composed resource, and it must be able
         // to fail without touching the tabs above, which serve every other
         // address (staking is a minority of them).
-        $.getJSON('/' + XC.coin + '/api/staking/' + XC.query, function(o){
+        $.getJSON('/' + XC.coin + '/api/staking/' + encodeURIComponent(stakingAddress), function(o){
             // Single-resource routes answer a BARE object; the plural routes
             // answer the {total, data} envelope. Both are accepted, because
             // reading only o.data would render a real staker's page as empty,

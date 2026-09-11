@@ -1019,7 +1019,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; name = FILE discovery name (by-name lookup)"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; name = FILE discovery name (by-name lookup); on /contracts: a word from a contract name or description"
           },
           {
             "name": "TYPE",
@@ -2840,7 +2840,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; name = FILE discovery name (by-name lookup); on /contracts: a word from a contract name or description"
           },
           {
             "name": "TYPE",
@@ -2851,7 +2851,8 @@
               "enum": [
                 "block",
                 "address",
-                "source"
+                "source",
+                "name"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -2951,7 +2952,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index (on /search: a word from a contract name or description)"
           }
         ],
         "responses": {
@@ -2995,7 +2996,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index (on /search: a word from a contract name or description)"
           }
         ],
         "responses": {
@@ -3039,7 +3040,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -3093,7 +3094,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index (on /search: a word from a contract name or description)"
           }
         ],
         "responses": {
@@ -3137,7 +3138,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -3191,7 +3192,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -3346,7 +3347,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index; execution = execution action index; block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): contract = contract action index (on /search: a word from a contract name or description); execution = execution action index; block = block height"
           },
           {
             "name": "TYPE",
@@ -3501,7 +3502,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -3569,7 +3570,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -4143,7 +4144,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -4254,7 +4255,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -4365,7 +4366,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -4476,7 +4477,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -6879,7 +6880,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; contract = contract action index; status = lifecycle status"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; contract = contract action index (on /search: a word from a contract name or description); status = lifecycle status"
           },
           {
             "name": "TYPE",
@@ -7034,7 +7035,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; contract = contract action index (on /search: a word from a contract name or description)"
           },
           {
             "name": "TYPE",
@@ -8442,7 +8443,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): address = an XChain address; broadcast = a BROADCAST message or memo (substring match); token = a token tick; transaction = a transaction hash (substring match)"
+            "description": "The value to look up (interpreted per {TYPE}): address = an XChain address; broadcast = a BROADCAST message or memo (substring match); contract = contract action index (on /search: a word from a contract name or description); token = a token tick; transaction = a transaction hash (substring match)"
           },
           {
             "name": "TYPE",
@@ -8453,6 +8454,7 @@
               "enum": [
                 "address",
                 "broadcast",
+                "contract",
                 "token",
                 "transaction"
               ]
@@ -10939,6 +10941,178 @@
         }
       },
       "x-registered": "express"
+    },
+    "/{COIN}/api/balances": {
+      "post": {
+        "operationId": "balances",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Token balances and address summary for up to 20 addresses in one request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES"
+                  }
+                },
+                "required": [
+                  "addresses"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "One entry per requested address, keyed by the address string",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "balances": {
+                        "description": "The GET /balances/{address} body, or null when that read failed",
+                        "nullable": true
+                      },
+                      "address": {
+                        "description": "The GET /address/{address} body, or null when that read failed",
+                        "nullable": true
+                      },
+                      "error": {
+                        "description": "null, or { code, error, status } from the failed per-address read",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/coinpay_obligations": {
+      "post": {
+        "operationId": "coinpay_obligations",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Open COINPAY obligations for up to 20 addresses in one request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES"
+                  }
+                },
+                "required": [
+                  "addresses"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "One entry per requested address, keyed by the address string",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "coinpay_obligations": {
+                        "description": "The GET /coinpay_obligations/{address}/address body, or null when that read failed",
+                        "nullable": true
+                      },
+                      "error": {
+                        "description": "null, or { code, error, status } from the failed per-address read",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
     }
   },
   "components": {
@@ -11195,6 +11369,10 @@
               "broadcasts": {
                 "type": "integer"
               },
+              "contracts": {
+                "type": "integer",
+                "description": "Contracts whose declared name or description matches (FULLTEXT, word-based)"
+              },
               "tokens": {
                 "type": "integer"
               },
@@ -11205,6 +11383,7 @@
             "required": [
               "addresses",
               "broadcasts",
+              "contracts",
               "tokens",
               "transactions"
             ]

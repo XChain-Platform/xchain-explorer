@@ -30,6 +30,7 @@
 const http        = require('http');
 const proxyquire  = require('proxyquire');
 const { expect }  = require('chai');
+const sinon       = require('sinon');
 const Utility     = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
@@ -173,5 +174,64 @@ describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
         const fallback = await db.getCoinPriceUsd({ coin: 'BTC' });
         expect(fallback).to.equal(ORACLE_BTC_USD);   // prior good value reused, not null
         expect(hub.hits).to.equal(2);                // it re-fetched (cache was stale) before falling back
+    });
+
+    // The hub's stale verdict is a well-formed answer, not a malformed body: during
+    // a long Bitcoin block gap the latest finalized snapshot ages past the oracle
+    // bound and getprice returns {error: "... is stale ..."} until the next round.
+    describe('hub stale verdict', function () {
+        let logs, warns;
+        beforeEach(function () {
+            logs  = []; warns = [];
+            sinon.stub(console, 'log').callsFake((...a) => logs.push(a.join(' ')));
+            sinon.stub(console, 'warn').callsFake((...a) => warns.push(a.join(' ')));
+        });
+        afterEach(function () { sinon.restore(); });
+
+        it('keeps serving the last finalized value and logs the transition once, never as malformed', async function () {
+            const db = makeDb();
+            expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(ORACLE_BTC_USD);
+            hub.respond = (coinPair) => ({ error: 'oracle price for ' + coinPair + ' is stale (age 2917s exceeds max 1800s)' });
+            for (let i = 0; i < 3; i++) {
+                db._priceCache.BTC.t -= 60 * 60 * 1000;   // expire the cache each pass
+                expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(ORACLE_BTC_USD);
+            }
+            expect(hub.hits).to.equal(4);
+            expect(warns.filter(l => /getCoinPriceUsd/.test(l))).to.have.length(0);
+            const stale = logs.filter(l => /getCoinPriceUsd/.test(l));
+            expect(stale).to.have.length(1);
+            expect(stale[0]).to.match(/is stale \(age 2917s/);
+            expect(stale[0]).to.not.match(/malformed/);
+        });
+
+        it('logs the transition again after a fresh round breaks the stale run', async function () {
+            const db = makeDb();
+            hub.respond = (coinPair) => ({ error: 'oracle price for ' + coinPair + ' is stale (age 2000s exceeds max 1800s)' });
+            expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(null);   // nothing cached yet
+            hub.respond = (coinPair) => ({ coin_pair: coinPair, price: ORACLE_BTC_USD, status: 'finalized', round_number: 43 });
+            db._priceCache.BTC = { t: 0, v: 'expired' };
+            expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(ORACLE_BTC_USD);
+            hub.respond = (coinPair) => ({ error: 'oracle price for ' + coinPair + ' is stale (age 1900s exceeds max 1800s)' });
+            db._priceCache.BTC.t -= 60 * 60 * 1000;
+            expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(ORACLE_BTC_USD);
+            expect(logs.filter(l => /getCoinPriceUsd/.test(l))).to.have.length(2);
+        });
+
+        it('names the hub verdict, not "malformed", for any other hub-declared error', async function () {
+            const db = makeDb();
+            hub.respond = () => ({ error: 'no price data for BTC/USD' });
+            expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(null);
+            expect(warns).to.have.length(1);
+            expect(warns[0]).to.match(/hub: no price data for BTC\/USD/);
+            expect(warns[0]).to.not.match(/malformed/);
+        });
+
+        it('still reports a body it cannot parse as malformed', async function () {
+            const db = makeDb();
+            hub.respond = () => ({ coin_pair: 'BTC/USD', status: 'finalized' });   // no price, no error
+            expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(null);
+            expect(warns).to.have.length(1);
+            expect(warns[0]).to.match(/malformed getprice response/);
+        });
     });
 });

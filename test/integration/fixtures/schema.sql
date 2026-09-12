@@ -196,7 +196,11 @@ CREATE TABLE tokens (
     owner_id           BIGINT UNSIGNED,                     -- id of record in index_addresses table
     coin_price         VARCHAR(250) NOT NULL default 0,     -- last  price of 1 token in native coin (BTC, LTC, DOGE, etc)
     coin_floor         VARCHAR(250) NOT NULL default 0,     -- floor price of 1 token in native coin (BTC, LTC, DOGE, etc)
-    escrow_action_index BIGINT UNSIGNED DEFAULT NULL        -- action_index of ORDER/SWAP/DISPENSER holding ownership in escrow (NULL = ownership not escrowed)
+    escrow_action_index BIGINT UNSIGNED DEFAULT NULL,        -- action_index of ORDER/SWAP/DISPENSER holding ownership in escrow (NULL = ownership not escrowed)
+    bridge_chains         VARCHAR(250),                     -- comma list of destination coins this token may bridge to
+    min_depth             BIGINT UNSIGNED,                  -- issuer-raised confirmation depth
+    lock_bridge           TINYINT(1) NOT NULL DEFAULT 0,    -- locks BRIDGE_CHAINS and MIN_DEPTH forever
+    bridged               TINYINT(1) NOT NULL DEFAULT 0     -- set by the first applied XBRIDGE v3 lock
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE        INDEX tick_id          ON tokens (tick_id);
@@ -559,7 +563,10 @@ CREATE TABLE issues (
     mint_start_block    VARCHAR(15),              -- block_index when MINT transactions are allowed (begin mint)
     mint_stop_block     VARCHAR(15),              -- BLOCK_INDEX when MINT transactions are NOT allowed (end mint)
     memo_id             BIGINT UNSIGNED,          -- id of record in index_memos table
-    status_id           BIGINT UNSIGNED           -- id of record in index_statuses table
+    status_id           BIGINT UNSIGNED,           -- id of record in index_statuses table
+    bridge_chains       VARCHAR(250) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,     -- comma list of destination coins (ISSUE format 7), raw wire text
+    min_depth           VARCHAR(15) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,      -- issuer-raised confirmation depth, raw wire text
+    lock_bridge         VARCHAR(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci        -- locks BRIDGE_CHAINS and MIN_DEPTH forever, raw wire text
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index       ON issues (action_index);

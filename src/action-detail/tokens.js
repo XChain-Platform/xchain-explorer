@@ -404,6 +404,44 @@ const SWEEP = {
     },
 };
 
+// XBRIDGE action (the cross-chain bridge leg: v0/v3 lock on BTC, v1/v4 burn off
+// BTC, v2/v5 the mirror-injected settle). There is no bespoke wire table for the
+// user-broadcast legs, so the baseline row (action, format, source, block, tx)
+// comes from getActionData's de-blank fallback and this handler only attaches
+// the bridge context that is knowable on THIS chain:
+//
+//   - an injected leg is keyed by its OWN action_index in bridge_settlements,
+//     the table the settle pass writes, so v2/v5 resolve their transfer_id,
+//     kind, the source leg they close and the destination they credited;
+//   - a user leg's settlement is applied on the OTHER chain (a BTC lock settles
+//     on DOGE, a DOGE burn settles on BTC), so this chain holds no settlement
+//     row for it and `bridge_settlement` is null until the far leg lands. That
+//     null is the in-flight state, not a missing record, which is why it is
+//     reported as an explicit `bridge_pending` flag rather than left blank.
+//
+// The amount moved is not re-read here: the shared ledger-effect step already
+// attaches the credits and debits (the escrow credit on a lock, the escrow debit
+// on an out-leg), which is the same ledger the consensus rule wrote.
+const XBRIDGE = {
+    // No detail table of its own; the de-blank baseline is the main row.
+    queries() {
+        return { query: null, query2: null, query3: null };
+    },
+    async afterMain({ db, config, action_index }, data) {
+        let settle = await db.doQuery(config,
+            `SELECT transfer_id, kind, block_index, src_chain, src_action_index, dest_chain, dest_address, tick
+             FROM bridge_settlements WHERE action_index=? LIMIT 1`, [action_index]);
+        let row = (settle && settle.length) ? settle[0] : null;
+        data['bridge_settlement'] = row;
+        // Lift the identifying fields to the top level so the detail card reads
+        // one shape whether the leg was injected or broadcast.
+        data['transfer_id']   = (row) ? row.transfer_id : null;
+        data['bridge_kind']   = (row) ? row.kind        : null;
+        data['tick']          = (row) ? row.tick        : (data['tick'] || null);
+        data['bridge_pending'] = (row) ? false : true;
+    },
+};
+
 module.exports = {
     AIRDROP,
     DESTROY,
@@ -412,5 +450,6 @@ module.exports = {
     LINK,
     MINT,
     SEND,
-    SWEEP
+    SWEEP,
+    XBRIDGE
 };

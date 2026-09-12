@@ -922,6 +922,12 @@
                             </table>
                         </div>
 
+                        <!-- XBRIDGE Action. Filled wholesale by renderXbridgeAction() (js/xbridge-panels-render.js)
+                             via showActionDetails() in xchain.js: the renderer returns its own complete table
+                             markup (xc-bridge-* classes, no ids), the token.html #token-bridge-* precedent, so
+                             this container carries no pre-built rows of its own. -->
+                        <div class="d-none" id="info-xbridge"></div>
+
                         <!-- ISSUE action -->
                         <div class="d-none" id="info-issue">
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
@@ -2038,6 +2044,7 @@
      showActionDetails() needs them before it can mount anything and a second
      round trip would block the render on the busiest detail page here. -->
 <script type="application/json" id="xc-action-detail-cards">{DATA:action-detail-cards}</script>
+<script type="text/javascript" src="/js/xbridge-panels-render.js"></script>
 <script type="text/javascript">
 
 // Render for the SPV action-proof widget. leaf/merkle_proof are the raw

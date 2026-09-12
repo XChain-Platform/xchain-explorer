@@ -93,6 +93,28 @@ const MIRROR_MIGRATIONS = {
         ],
         indexes: []
     },
+    // The two bridge mirror twins carry the same fence pair as cross_chain_calls
+    // above, for the same reason: _applyRetraction fences from the incoming event,
+    // so a mirror missing push_generation throws on a retraction, and _applyRow
+    // intersects against SHOW COLUMNS, so a missing finalizing_view is dropped from
+    // the insert silently and the EQUIV header can no longer be rebuilt. A mirror
+    // that predates these tables gets them from ensureTables(); these entries are
+    // for the legacy case where the table exists but was created before the fence
+    // columns did. No AFTER anchors, matching every entry above.
+    bridge_transfers: {
+        columns: [
+            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
+    },
+    policy_snapshots: {
+        columns: [
+            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
+    },
     // uq_cap_snap gained `source` (a key delegated by two sources now keeps
     // both (source, pubkey) rows). The add-if-name-missing logic above cannot widen
     // an existing same-named index, so capability_snapshots uses widenIndexes: if the

@@ -140,6 +140,20 @@ describe('hub-mirror-migrate', function () {
         expect(db.executed).to.deep.equal(applied);
     });
 
+    it('falls back to console.log when no logger is passed, and adds the bridge fence columns', async function () {
+        const db = fakeDb({ tables: ["bridge_transfers", "policy_snapshots"], columns: [], indexes: [] });
+        const seen = [];
+        const orig = console.log;
+        console.log = (msg) => seen.push(String(msg));
+        let applied;
+        try { applied = await ensureMirrorColumns(db); }
+        finally { console.log = orig; }
+        expect(applied.length).to.be.greaterThan(0);
+        expect(seen.length).to.equal(applied.length);
+        expect(applied.some((ddl) => /bridge_transfers.*finalizing_view/.test(ddl))).to.equal(true);
+        expect(applied.some((ddl) => /policy_snapshots.*push_generation/.test(ddl))).to.equal(true);
+    });
+
     it('is a no-op on an up-to-date schema', async function () {
         const db = fakeDb({ columns: CURRENT_COLUMNS, indexes: CURRENT_INDEXES });
         const applied = await ensureMirrorColumns(db, noLog);
@@ -280,6 +294,42 @@ describe('hub-mirror-migrate', function () {
             + 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0'
         ]);
     });
+
+    // The two bridge mirror twins landed with the same fence pair as
+    // cross_chain_calls. Drive the legacy shape off the twin file itself rather
+    // than a hand-typed column list, so a twin that gains a column cannot leave
+    // this fixture describing a table that never existed.
+    for (const table of ['bridge_transfers', 'policy_snapshots']) {
+        it('adds the fence columns to a legacy ' + table, async function () {
+            const twin = fs.readFileSync(
+                path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', table + '.sql'), 'utf8');
+            const columns = [];
+            for (const line of twin.split('\n')) {
+                const m = line.match(/^\s{2,}`?([a-z_]+)`?\s+[A-Z]/);
+                // Skip the KEY / UNIQUE KEY / PRIMARY KEY lines and the fence pair
+                // the reconciler is the one expected to add back.
+                if (m && !FENCE_COLUMNS.includes(m[1])) columns.push(m[1]);
+            }
+            expect(columns, 'twin scan found no columns for ' + table).to.have.length.of.at.least(5);
+            const db = fakeShapeDb({ [table]: { columns, indexes: ['PRIMARY'] } });
+            const applied = await ensureMirrorColumns(db, noLog);
+            expect(applied).to.deep.equal([
+                'ALTER TABLE `' + table + '` ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0, '
+                + 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0'
+            ]);
+            expect(db.executed).to.deep.equal(applied);
+        });
+
+        it('is a no-op once ' + table + ' already carries its fence columns', async function () {
+            const db = fakeShapeDb({ [table]: {
+                columns: ['id'].concat(MIRROR_MIGRATIONS[table].columns.map((c) => c.name)),
+                indexes: ['PRIMARY']
+            } });
+            const applied = await ensureMirrorColumns(db, noLog);
+            expect(applied).to.have.lengthOf(0);
+            expect(db.executed).to.have.lengthOf(0);
+        });
+    }
 
     it('migrates every legacy 5308 twin in one pass, one ALTER each', async function () {
         const db = fakeShapeDb(LEGACY_SHAPES);

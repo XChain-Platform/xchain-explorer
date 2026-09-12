@@ -18,7 +18,8 @@
  * xchain-indexer) for every checkpoint DB the explorer is configured to
  * SELF-SYNC, so an explorer node maintains its own local mirror of the hub's
  * consensus tables (state_checkpoints, capability_snapshots,
- * cross_chain_matches, cross_chain_calls, oracle_prices, price_snapshots)
+ * cross_chain_matches, cross_chain_calls, oracle_prices, price_snapshots,
+ * bridge_transfers, policy_snapshots)
  * instead of requiring a hub-owned schema to be provisioned next to it
  * (#4138 decoupling). The read path is unchanged: db.js keeps reading the
  * schema named by database.checkpoint on the indexer pool; this manager is

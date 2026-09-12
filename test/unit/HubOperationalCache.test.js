@@ -470,7 +470,9 @@ describe('db.js RPC-first operational reads', function () {
             db.checkpointDb = { BTC: { name: 'XChain_Hub', chain: 'BTC', network: 'mainnet' } };
             db.doQuery = sinon.stub().resolves([{ signing_pubkey: 'AA', addr: 'bc1q', chains: 'BTC', status: 'active' }]);
             const registry = await db.getFederationRegistry(makeConfig({ type: 'explorer', data: { method: 'getValidators' } }));
-            expect(db.doQuery.calledOnce).to.equal(true);
+            // Both hub sources fall back to the schema: the manual registry first,
+            // then the capability rows that the merged status is derived from.
+            expect(db.doQuery.firstCall.args[1]).to.contain('validators');
             expect(registry).to.have.property('aa');
             expect(registry.aa.status).to.equal('active');
         });

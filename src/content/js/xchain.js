@@ -2132,7 +2132,9 @@ function loadDatatablesData(coin, action, query, type, opts){
 
             // Registry strings are hub-supplied free text and render as TEXT, never
             // markup. A null status means no registry was reachable (unknown);
-            // 'unregistered' means the registry answered and does not list this pubkey.
+            // 'peered' means the hub has heard this pubkey over P2P but no capability
+            // is active yet; 'unregistered' means the hub answered and has never
+            // heard from this pubkey.
             if(action=='validator'){
                 let pubkey     = data[4];
                 let version    = data[5];
@@ -2141,6 +2143,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let hub_chains = data[8];
                 let hub_status = data[9];
                 let reg_cls    = (hub_status=='active')     ? 'success'
+                               : (hub_status=='peered')     ? 'info'
                                : (hub_status=='suspended')  ? 'warning text-dark'
                                : (hub_status=='removed')    ? 'danger'
                                : (hub_status=='unregistered') ? 'secondary'

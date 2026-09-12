@@ -342,7 +342,8 @@ CREATE TABLE destroys (
     tick_id      BIGINT UNSIGNED,          -- id of record in index_ticks table
     amount       VARCHAR(250),              -- Amount of token to destroy
     memo_id      BIGINT UNSIGNED,          -- id of record in index_memos table
-    status_id    BIGINT UNSIGNED           -- id of record in index_statuses table
+    status_id    BIGINT UNSIGNED,          -- id of record in index_statuses table
+    leg_ordinal  SMALLINT UNSIGNED NOT NULL DEFAULT 0 -- 0-based position of this leg on the wire, stamped by createDestroy
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE UNIQUE INDEX action_index   ON destroys (action_index);
@@ -790,7 +791,8 @@ CREATE TABLE sends (
     destination_id BIGINT UNSIGNED,          -- id of record in index_addresses table
     amount         VARCHAR(250),              -- Amount of token in send
     memo_id        BIGINT UNSIGNED,          -- id of record in index_memos table
-    status_id      BIGINT UNSIGNED           -- id of record in index_statuses table
+    status_id      BIGINT UNSIGNED,          -- id of record in index_statuses table
+    leg_ordinal    SMALLINT UNSIGNED NOT NULL DEFAULT 0 -- 0-based position of this leg on the wire, stamped by createSend
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE        INDEX action_index   ON sends (action_index);
@@ -966,7 +968,9 @@ CREATE TABLE markets (
     tick2_24hr_low     VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour low price
     tick2_24hr_change  VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour percentage change
     tick2_24hr_volume  VARCHAR(250) NOT NULL default 0, -- tick2 - 24-hour volume
-    last_updated  BIGINT UNSIGNED                       -- Last updated
+    last_updated  BIGINT UNSIGNED,                      -- Last updated
+    coin1_id           BIGINT UNSIGNED NOT NULL DEFAULT 0, -- tick1 - id of record in index_coins table
+    coin2_id           BIGINT UNSIGNED NOT NULL DEFAULT 0  -- tick2 - id of record in index_coins table
 ) ENGINE=InnoDB CHARSET=utf8 COLLATE=utf8_general_ci;
 
 CREATE INDEX tick1_id on markets (tick1_id);

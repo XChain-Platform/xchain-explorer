@@ -257,37 +257,37 @@ describe('Database#getQueryWhereSql', () => {
 
     it('getMarket: appends tick OR-pair clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarket', null));
-        expect(sql).to.equal('m.id IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))');
+        expect(sql).to.equal('m.id IS NOT NULL AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?))');
     });
 
-    it('getMarkets + type=token: appends AND (t1.tick=? OR t2.tick=?)', async () => {
+    it('getMarkets + type=token: appends AND (COALESCE(t1.tick, c1.coin)=? OR COALESCE(t2.tick, c2.coin)=?)', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarkets', 'token'));
-        expect(sql).to.equal('m.id IS NOT NULL AND (t1.tick=? OR t2.tick=?)');
+        expect(sql).to.equal('m.id IS NOT NULL AND (COALESCE(t1.tick, c1.coin)=? OR COALESCE(t2.tick, c2.coin)=?)');
     });
 
     it('getMarketOrders: appends tick clause, no search3', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarketOrders', null));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))');
+        expect(sql).to.equal('m.action_index IS NOT NULL AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?))');
     });
 
     it('getOrderbook: appends tick clause, no search3', async () => {
         const sql = await db.getQueryWhereSql(cfg('getOrderbook', null));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))');
+        expect(sql).to.equal('m.action_index IS NOT NULL AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?))');
     });
 
     it('getMarketHistory: appends tick clause, no search3', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarketHistory', null));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?))');
+        expect(sql).to.equal('m.action_index IS NOT NULL AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?))');
     });
 
     it('getMarketOrders + search3: appends AND a2.address=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarketOrders', null, { search3: 'addr1' }));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?)) AND a2.address=?');
+        expect(sql).to.equal('m.action_index IS NOT NULL AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?)) AND a2.address=?');
     });
 
     it('getMarketHistory + search3: appends AND (a2.address=? OR a3.address=?)', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarketHistory', null, { search3: 'addr1' }));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND ((t1.tick=? AND t2.tick=?) OR (t1.tick=? AND t2.tick=?)) AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?)) AND (a2.address=? OR a3.address=?)');
     });
 
     it('getHistory + type=address: appends m.type_id=2 AND m.id=?', async () => {

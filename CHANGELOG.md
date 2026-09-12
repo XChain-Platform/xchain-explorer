@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-09-11
+
+### Changed
+- The vendored hub-mirror client is resynced to the indexer canonical and now carries price_batching_floor_activation.js, which the client requires, with the twin guard pinned to the sync script's client file list.
+
+### Fixed
+- Markets, orderbooks and order detail list a token traded against the chain's native coin, labelling that side by the coin symbol, and the WebSocket market snapshot returns real prices instead of an empty object.
+- The validators endpoint derives `hub_status` by merging the manual registry with the gossiped capability roster, so a staked validator on a live federation no longer reads as unregistered.
+
 ## [0.17.0] - 2026-09-10
 
 ### Added

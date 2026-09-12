@@ -4,8 +4,8 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.16.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-5%2C087%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.17.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-5%2C099%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -206,7 +206,7 @@ neither source sets one, so these defaults hold on an unconfigured box:
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~4,281 tests) |
+| `npm test` | Run unit tests (~4,293 tests) |
 | `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
 | `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (34 tests) |
 | `npm run test:e2e` | End-to-end tests (55 tests, requires full stack) |

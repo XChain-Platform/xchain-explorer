@@ -30,7 +30,10 @@ const CANON_PRESENT = fs.existsSync(path.join(CANON_SRC, 'hub_db_sync.js'));
 const SQL_DIR    = path.join(LOCAL_SRC, 'sql', 'hub-mirror');
 const SYNC_SCRIPT = path.join(CANON_SRC, '..', 'bin', 'sync-hub-mirror-client.sh');
 
-const CLIENT_FILES = ['hub_db_sync.js', 'hub-schema-version.js'];
+// The client, its lockstep constant, and the modules the client requires by relative
+// path; the sync script's CLIENT_FILES= line is pinned against this list below, so a
+// module added to one side and not the other fails here instead of at require on boot.
+const CLIENT_FILES = ['hub_db_sync.js', 'hub-schema-version.js', 'price_batching_floor_activation.js'];
 
 // Enumerate the vendored twins instead of hand-copying their names: a literal list here
 // narrows silently against the sync script's shell variable (miss one name, say
@@ -53,15 +56,17 @@ const SQL_FILES_FLOOR = 7;
 // a twin the script syncs but nobody vendored, or one vendored after the script stopped
 // syncing it, both fail here. Same extraction shape (and same hard failure on an empty
 // match) that bin/ci-all.sh already uses against sibling sync scripts.
-function scriptSqlFiles(){
+function scriptFileList(variable){
     const text = fs.readFileSync(SYNC_SCRIPT, 'utf8');
-    const m = /^SQL_FILES="([^"]*)"$/m.exec(text);
-    assert.ok(m, 'could not read the SQL_FILES= list from ' + SYNC_SCRIPT +
+    const m = new RegExp('^' + variable + '="([^"]*)"$', 'm').exec(text);
+    assert.ok(m, 'could not read the ' + variable + '= list from ' + SYNC_SCRIPT +
         '; that line is what this guard pins, so an unparseable script is a failure, not a skip.');
     const names = m[1].trim().split(/\s+/).filter(Boolean);
-    assert.ok(names.length > 0, 'SQL_FILES= in ' + SYNC_SCRIPT + ' is empty; nothing would be guarded.');
+    assert.ok(names.length > 0, variable + '= in ' + SYNC_SCRIPT + ' is empty; nothing would be guarded.');
     return names.sort();
 }
+function scriptSqlFiles(){ return scriptFileList('SQL_FILES'); }
+function scriptClientFiles(){ return scriptFileList('CLIENT_FILES'); }
 // Byte-identical consensus twins that are NOT vendored by sync-hub-mirror-client.sh
 // (they are hand-maintained in xchain-hub/src, xchain-indexer/src and here). The
 // twin's own header claims "the hub-mirror conformance suites compare the consumers",
@@ -80,6 +85,13 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
                 'this repo\'s ' + f + ' has drifted from the canonical source; ' +
                 'edit xchain-indexer/src/' + f + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
         });
+    });
+
+    it('the CLIENT_FILES list matches the sync script CLIENT_FILES list', function(){
+        assert.deepStrictEqual([...CLIENT_FILES].sort(), scriptClientFiles(),
+            'this guard and xchain-indexer/bin/sync-hub-mirror-client.sh disagree about which client ' +
+            'files are vendored; a module the client requires but the script does not copy fails at ' +
+            'require on boot, so keep the two lists one definition.');
     });
 
     TWIN_FILES.forEach(function(f){

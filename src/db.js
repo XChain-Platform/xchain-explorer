@@ -3069,7 +3069,17 @@ class Database {
                         a1.address as owner,
                         t1.coin_price,
                         t1.coin_floor,
-                        t1.escrow_action_index
+                        t1.escrow_action_index,
+                        -- Token-bridge state (ISSUE format 7, xchain-token-bridge.md section 8).
+                        -- The wallet's tokenInfo projection reads these off the grouped row, so
+                        -- where each lands matters: lock_bridge carries the lock_ prefix and the
+                        -- grouping loop below folds it into locks.bridge, while bridge_chains,
+                        -- min_depth and bridged match no group prefix and land in info. Omitting
+                        -- them made every wallet bridge surface read null in production.
+                        t1.bridge_chains,
+                        t1.min_depth,
+                        t1.lock_bridge,
+                        t1.bridged
                     FROM
                         tokens t1
                         LEFT  JOIN index_tickers      t2 ON (t2.id=t1.tick_id)
@@ -3104,6 +3114,7 @@ class Database {
                     block: null
                 },
                 locks: {
+                    bridge: false,  // LOCK_BRIDGE: freezes BRIDGE_CHAINS/MIN_DEPTH forever
                     callback: false,
                     description: false,
                     max_mint: false,

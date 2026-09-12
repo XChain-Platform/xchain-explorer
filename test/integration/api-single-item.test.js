@@ -114,6 +114,14 @@ describe('Single-Item API Endpoints', function () {
         // supply section: values are formatted strings
         expect(res.body.supply.current).to.be.a('string');
         expect(res.body.supply.max).to.be.a('string');
+
+        // Token-bridge state (ISSUE format 7): TOKENONE never opted in, so the
+        // wallet must read "no destinations" rather than a stale or invented list.
+        // null here is the distinction the wallet's tokenInfo projection keeps.
+        expect(res.body.info.bridge_chains).to.equal(null);
+        expect(res.body.info.min_depth).to.equal(null);
+        expect(res.body.locks.bridge).to.equal(false);
+        expect(Number(res.body.info.bridged)).to.equal(0);
     });
 
     it('GET /RBTC/api/token/{tick}: token with all locks', async function () {
@@ -133,6 +141,17 @@ describe('Single-Item API Endpoints', function () {
         expect(locks.mint).to.equal(true);
         expect(locks.mint_supply).to.equal(true);
         expect(locks.sleep).to.equal(false);
+
+        // Token-bridge state (ISSUE format 7). TOKENTHREE is the seed's opted-in
+        // token: LOCK_BRIDGE carries the lock_ prefix so it groups into
+        // locks.bridge, while BRIDGE_CHAINS/MIN_DEPTH/BRIDGED land in info, which
+        // is exactly where the wallet's tokenInfo projection reads them.
+        // min_depth is BIGINT and the REST serializer renders a BigInt as a string,
+        // so compare the value, not the JS type.
+        expect(locks.bridge).to.equal(true);
+        expect(res.body.info.bridge_chains).to.equal('RLTC,RDOGE');
+        expect(String(res.body.info.min_depth)).to.equal('6');
+        expect(Number(res.body.info.bridged)).to.equal(1);
     });
 
     it('GET /RBTC/api/transaction/{hash}/tx_hash: returns transaction by hash', async function () {

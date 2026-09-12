@@ -1487,6 +1487,97 @@ describe('Database#getToken', () => {
     });
 });
 
+// Token-bridge columns (ISSUE format 7). The wallet's tokenInfo projection
+// (xchain-wallet/packages/core/src/flows/tokenInfo.js) reads them off THIS
+// response as info.bridge_chains, info.min_depth, locks.bridge and info.bridged,
+// so both halves matter: the SELECT has to ask the DB for the columns, and the
+// grouping loop has to land each one where the wallet looks.
+describe('Database#getToken bridge columns', () => {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    // A column only comes back from a DB when the SELECT asked for it. Rather than
+    // hand a stub a fixed row the query never requested, derive the returned row
+    // from the query's own column list, so dropping a column from the SELECT drops
+    // it from the response exactly as MariaDB would. SQL comments are stripped
+    // first: the SELECT's comment names these columns in prose, and matching that
+    // prose would keep a dropped column "present".
+    function stubFromSelect(overrides){
+        const base = Object.assign(mockResults.tokenRow()[0], overrides || {});
+        return sinon.stub(db, 'doQuery').callsFake(async (cfgArg, queryStr) => {
+            const sql = String(queryStr).replace(/--[^\n]*/g, '');
+            // getToken runs follow-up lookups (projects, controllers, open polls,
+            // linked files) through the same doQuery; only the token SELECT itself
+            // answers with a row.
+            if(!sql.includes('tokens t1')) return [];
+            const row = {};
+            for(const key of Object.keys(base)){
+                if(new RegExp('(^|[\\s,.])' + key + '(\\s|,|$)').test(sql))
+                    row[key] = base[key];
+            }
+            return [row];
+        });
+    }
+
+    it('lands bridge_chains, min_depth and bridged in info, and lock_bridge in locks.bridge', async () => {
+        stubFromSelect();
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        // The four reads the wallet projection performs, at their exact paths
+        expect(data.info.bridge_chains).to.equal('LTC,DOGE');
+        expect(data.info.min_depth).to.equal(6);
+        expect(data.locks.bridge).to.equal(true);
+        expect(data.info.bridged).to.equal(1);
+    });
+
+    it('keeps lock_bridge out of info (the wallet reads it as locks.bridge)', async () => {
+        stubFromSelect();
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        expect(data.info).to.not.have.property('lock_bridge');
+        expect(data.locks).to.not.have.property('lock_bridge');
+    });
+
+    it('passes an unset bridge_chains/min_depth through as null instead of defaulting them', async () => {
+        // A token that never opted in: BRIDGE_CHAINS/MIN_DEPTH are NULL in the row.
+        // null must survive to the wallet, which reads it as "not bridgeable" rather
+        // than inventing a destination list or a depth.
+        stubFromSelect({ bridge_chains: null, min_depth: null, lock_bridge: '0', bridged: 0 });
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        expect(data.info.bridge_chains).to.equal(null);
+        expect(data.info.min_depth).to.equal(null);
+        expect(data.locks.bridge).to.equal(false);
+        expect(data.info.bridged).to.equal(0);
+    });
+
+    it("carries the '-' opt-out sentinel through unchanged", async () => {
+        // BRIDGE_CHAINS='-' is the issuer saying "opted out", a different claim from
+        // NULL ("never set"); the wallet distinguishes them, so the explorer must not
+        // normalise one into the other.
+        stubFromSelect({ bridge_chains: '-' });
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        expect(data.info.bridge_chains).to.equal('-');
+    });
+
+    it('passes a BIGINT min_depth through untouched so the REST serializer renders it', async () => {
+        // min_depth is BIGINT UNSIGNED and the pool leaves bigIntAsNumber off, so the
+        // driver hands back a BigInt. utility.jsonStringify renders a BigInt as its
+        // decimal string, which is the wire value the wallet parses; narrowing it to
+        // a Number here would silently truncate a large depth instead.
+        stubFromSelect({ min_depth: 6n });
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        expect(data.info.min_depth).to.equal(6n);
+        expect(JSON.parse(db.util.jsonStringify(data)).info.min_depth).to.equal('6');
+    });
+
+    it('asks the DB for all four bridge columns off the tokens table', async () => {
+        const dq = stubFromSelect();
+        await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        const sql = String(dq.firstCall.args[1]).replace(/--[^\n]*/g, '');
+        for(const col of ['bridge_chains', 'min_depth', 'lock_bridge', 'bridged'])
+            expect(sql, col).to.include('t1.' + col);
+    });
+});
+
 describe('Database#getTransaction', () => {
     let db;
     beforeEach(() => { db = makeDb(); });

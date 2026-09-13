@@ -241,7 +241,7 @@ neither source sets one, so these defaults hold on an unconfigured box:
 
 | Type | Tests | Description |
 |---|---|---|
-| Unit | ~1,925 | `db.action-queries.test.js`, `db.data-methods.test.js`, `db.query-builder.test.js`, `db.connection.test.js`, `utility.test.js`, `explorer.routing.test.js`, `explorer.paging.test.js`, `explorer.response.test.js`, `explorer.relay.test.js`, `explorer.icon.test.js`, `config.test.js`, `hub-connector.test.js`, `ws/*.test.js`, and more |
+| Unit | ~1,925 | `db_action_queries.test.js`, `db_data_methods.test.js`, `db_query_builder.test.js`, `db_connection.test.js`, `utility.test.js`, `explorer_routing.test.js`, `explorer_paging.test.js`, `explorer_response.test.js`, `explorer_relay.test.js`, `explorer_icon.test.js`, `config.test.js`, `hub_connector.test.js`, `ws/*.test.js`, and more |
 | Integration | ~154 | API actions, paging, markets, status, response format, error handling, pagination boundaries |
 | Conformance | 5 | Real-schema canary: executes explorer read paths against the indexer's live DDL in a real MariaDB |
 | E2E | 49 | Pipeline integrity, data formatting, markets, cross-endpoint consistency |

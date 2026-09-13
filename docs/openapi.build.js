@@ -10,7 +10,7 @@
  * ROUTES below deliberately mirrors the `api` table in src/XChainExplorer.js
  * key-for-key (same path templates, same {TYPE} enums) plus the special
  * pre-wildcard routes registered in setupUrls(). The unit test
- * test/unit/openapi-coverage.test.js fails if the two drift apart, so edits to
+ * test/unit/openapi_coverage.test.js fails if the two drift apart, so edits to
  * either side must land together. The /{COIN}/explorer/* datatable routes are
  * an internal surface for the web UI and are intentionally NOT documented.
  *
@@ -257,7 +257,7 @@ const ROUTES = [
 // Mirrors MAX_PREFLIGHT_PARAMS_LENGTH in src/XChainExplorer.js, which is the protocol's
 // own action-payload ceiling (ENVELOPE_MAX_PAYLOAD). Declared here rather than required
 // from the service so this generator keeps its zero-dependency, side-effect-free shape;
-// test/unit/preflight-route.test.js asserts the two never drift apart.
+// test/unit/preflight_route.test.js asserts the two never drift apart.
 const PREFLIGHT_PARAMS_MAX_LENGTH = 390000;
 
 // Pre-wildcard routes registered directly on the Express app in setupUrls().
@@ -703,7 +703,7 @@ const spec = {
             ObjectResponse: { type: 'object', description: 'Single result object (fields vary per endpoint; amounts are decimal strings)' },
             // Typed because a downstream alert depends on it. The shape is
             // db.getNetwork()'s object plus the `runtime` every JSON response carries;
-            // test/unit/network-response-contract.test.js drives the real producer
+            // test/unit/network_response_contract.test.js drives the real producer
             // against this schema, so a field rename fails there rather than in the
             // dashboard. Chain values here are plain integers, not the decimal-string
             // chain indices the info.description describes.

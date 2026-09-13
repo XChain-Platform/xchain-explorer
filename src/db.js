@@ -12,9 +12,28 @@
  *
  **********************************************************************
  *
- * XChain Explorer - Database Class
- * 
- * This file handles connecting to databases and running SQL queries
+ * XChain Explorer - Database Class, the composition root
+ *
+ * Proposal B stage 5. This file used to hold every query the explorer issues;
+ * it now holds the constructor, the mixin that assembles the class, and the
+ * exports, and nothing else. The queries live in src/db/, one module per family,
+ * and arrive on Database.prototype through mixinReaders below.
+ *
+ * Nothing about the class a caller sees changed: `new Database(explorer)` still
+ * returns one object carrying every method, reached by the same name, with the
+ * same `this`. What changed is where the source of each method is read.
+ *
+ * Two invariants this file owes the split, both guarded by
+ * test/unit/db_prototype_install.test.js:
+ *
+ *   - The surface is complete. Every method the class had is still on the
+ *     prototype; a module that is written but never required here would
+ *     otherwise throw at 2am on the one page that calls it.
+ *   - The methods stay NON-ENUMERABLE. A class-body method is non-enumerable,
+ *     and mixinReaders copies the descriptor rather than the value to keep it
+ *     that way. A plain assignment would install enumerable properties, and
+ *     every `for (const k in db)` and JSON/spread of a Database instance would
+ *     quietly start walking 285 methods.
  *
  ********************************************************************/
 

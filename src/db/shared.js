@@ -28,6 +28,38 @@
 
 'use strict';
 
+// The one field list every compact action summary projects (transaction and
+// history rows via getActionSummaryData, BATCH members via projectActionSummary).
+// Every field the client's getActionDetails reads must be here, or the summary
+// renders blank on one path while the full detail page works; the drift guard
+// (test/unit/db.action-summary-field-contract.test.js) pins the two against
+// each other, so a new summary branch adds its field here in the same change.
+const ACTION_SUMMARY_FIELDS = Object.freeze([
+    'coin', 'tick',  'amount', 'source', 'destination', 'type', 'edit', 'expiration', 'allow_list', 'block_list',  // Common fields
+    'action_format', 'action_index',                                                                               // Action details
+    'fee_preference', 'require_memo', 'dispenser_preference',                                                      // Addresses
+    'action_class', 'controller', 'unbind',                                                                        // Addresses (controller bind, v1)
+    'message', 'value', 'broadcast_action_index', 'broadcast_fee',                                                 // Broadcasts
+    'callback_tick', 'callback_amount',                                                                            // Callbacks
+    'dividend_tick',                                                                                               // Dividends
+    'name', 'title',                                                                                               // Files
+    'coin1', 'coin2', 'coin1_action_index', 'coin2_action_index',                                                  // Links
+    'list_action_index',                                                                                           // Lists
+    'encryption_method', 'plaintext_message',                                                                      // Messages
+    'give_coin', 'get_coin', 'give_tick', 'get_tick', 'give_amount', 'get_amount', 'give_escrow',                  // Orders, Swaps, Dispensers
+    'order_action_index',                                                                                          // Order (cancels, edits, expires)
+    'swap_action_index',                                                                                           // Swap  (cancels, edits, expires)
+    'dispenser_action_index',                                                                                      // Dispesnser (cancels, edits, expires)
+    'resume_block',                                                                                                // Sleep
+    'balances', 'ownerships', 'orders', 'swaps', 'dispensers',                                                     // Sweeps
+    'target_contract_index', 'cooldown_end_block', 'capability',                                                   // Staking (stake, unstake, delegate, slash)
+    'contract_index', 'method_name', 'cooldown_blocks', 'chunk_index', 'total_chunks',                             // Contracts (deploy, execute, deposit, withdraw)
+    'deployed_contract_index', 'contract_meta_name', 'contract_meta_version',                                      // Contracts: the identity the chain recorded, so history rows can print "Name vX (C:COIN:n)"
+    'vote_kind',                                                                                                   // Governance
+    'chain', 'network', 'checkpoint_seq', 'anchored_block_index',                                                  // Anchors
+    'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count'                   // Prices
+]);
+
 // Lifecycle fields whose value the indexer writes AFTER the action confirmed.
 // A getActionData response carrying any of them is NOT immutable and must never
 // enter the action LRU, which has no TTL and reorg-only invalidation
@@ -114,4 +146,4 @@ function staleFailClosed() {
     return process.env.EXPLORER_STALE_FAIL_CLOSED === '1';
 }
 
-module.exports = { DbQueryError, DbInputError, MUTABLE_ACTION_FIELDS, staleFailClosed };
+module.exports = { ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, DbQueryError, DbInputError, staleFailClosed };

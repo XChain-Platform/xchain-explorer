@@ -107,13 +107,17 @@ describe('action-detail registry @regression', function () {
 
     // The item this extraction closes is a god-file regression: the if-chain had
     // grown from 2,105 to ~2,667 lines because every new action was appended to
-    // it. Pin the method small so the chain cannot quietly grow back inside db.js.
+    // it. Pin the method small so the chain cannot quietly grow back. The method
+    // moved to src/db/readers/action_detail_io.js with proposal B stage 4; the
+    // pin follows the method rather than the file, because reading db.js after
+    // the carve would find no marker and the assertion below is what catches that.
+    const ACTION_DETAIL_IO = ['..', '..', 'src', 'db', 'readers', 'action_detail_io.js'];
     describe('getActionData stays a pipeline', function () {
         function getActionDataBody() {
-            const src    = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'db.js'), 'utf8');
+            const src    = fs.readFileSync(path.join(__dirname, ...ACTION_DETAIL_IO), 'utf8');
             const marker = 'async getActionData(';
             const start  = src.indexOf(marker);
-            assert.ok(start >= 0, 'getActionData not found in src/db.js');
+            assert.ok(start >= 0, 'getActionData not found in src/db/readers/action_detail_io.js');
             const rest = src.slice(start + marker.length);
             const next = rest.match(/\n {4}(?:async\s+)?[A-Za-z_$][\w$]*\s*\(/);
             return next ? rest.slice(0, next.index) : rest;

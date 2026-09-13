@@ -167,11 +167,14 @@ describe('bin/explorer-identity.js (AT1)', function () {
     });
 
     it('the base record holds through a rename map, and only when the map explains every move', function () {
-        // The base record is rewritten in a temp dir to hold OLD paths, which is
-        // the state it is in once wave 1a's renames land. Nothing in the tree is
-        // touched: the rename is simulated backwards, on a copy, so this cannot
-        // leave the worktree dirty the way a real `git mv` and revert would.
-        const base = JSON.parse(fs.readFileSync(BASE_PIN, 'utf8'));
+        // A record is rewritten in a temp dir to hold OLD paths, the state a pin
+        // is in once a wave renames test files. Nothing in the tree is touched:
+        // the rename is simulated backwards, on a copy, so this cannot leave the
+        // worktree dirty the way a real `git mv` and revert would. The copy is
+        // taken from the LIVE pin, the one record that equals this tree; the
+        // frozen base also differs by every later refactor, so a rename map alone
+        // could never make it compare clean past the first barrier.
+        const base = JSON.parse(fs.readFileSync(PIN, 'utf8'));
         const collected = Object.keys(base.suites.scripts)
             .filter((n) => base.suites.scripts[n].files)
             .sort();

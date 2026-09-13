@@ -16,7 +16,7 @@
  * Integration tests: ROLLCALL eviction rows in the UNSTAKE surfaces.
  *
  * A validator that misses K roll-call epochs is evicted by the BTC indexer
- * (xchain-indexer/src/rollcall_close.js evictSource()), which writes:
+ * (xchain-indexer/src/consensus/rollcall_close.js evictSource()), which writes:
  *   - an `actions` row with action_format=3, tx_index NULL, source_id NULL
  *     (no user broadcast it, so there is no transaction behind it)
  *   - an `unstakes` row (STATUS 'valid') keyed to that same action_index,

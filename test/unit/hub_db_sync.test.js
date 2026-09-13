@@ -6,7 +6,7 @@
 // This file is part of XChain Platform. Licensed under the GNU Affero
 // General Public License v3.0 or later; see LICENSE.md.
 
-// Unit coverage for src/hub_db_sync.js (the explorer's byte-identical vendored
+// Unit coverage for src/hub/hub_db_sync.js (the explorer's byte-identical vendored
 // copy of the hub-mirror client). These exercise the price-sync barrier logic
 // in isolation with a stubbed local-DB query: no network, WS, or MariaDB. The
 // barrier gates block processing on the local price mirror catching up, so its
@@ -16,7 +16,7 @@
 const assert = require('assert');
 const sinon = require('sinon');
 
-const HubDbSync = require('../../src/hub_db_sync.js');
+const HubDbSync = require('../../src/hub/hub_db_sync.js');
 
 // A HubDbSync backed by a stubbed doQuery that reports MAX(reference_block).
 function makeSync(maxReferenceBlock, opts = {}) {

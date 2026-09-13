@@ -272,7 +272,7 @@ class Utility {
     }
 
     // Verify an Ed25519 signature over a UTF-8 payload: returns true/false (never
-    // throws). Mirrors xchain-indexer/src/ed25519.js / the hub's ValidatorIdentity
+    // throws). Mirrors xchain-indexer/src/consensus/ed25519.js / the hub's ValidatorIdentity
     // (raw 32-byte pubkey wrapped in the RFC 8410 SPKI DER prefix), so checkpoint
     // signatures produced by validators verify identically here.
     ed25519Verify(payload, sigHex, pubkeyHex){

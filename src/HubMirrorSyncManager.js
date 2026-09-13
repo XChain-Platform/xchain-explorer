@@ -14,7 +14,7 @@
  *
  * XChain Explorer - Hub-mirror sync manager
  *
- * Runs the vendored HubDbSync client (see src/hub_db_sync.js, canonical in
+ * Runs the vendored HubDbSync client (see src/hub/hub_db_sync.js, canonical in
  * xchain-indexer) for every checkpoint DB the explorer is configured to
  * SELF-SYNC, so an explorer node maintains its own local mirror of the hub's
  * consensus tables (state_checkpoints, capability_snapshots,
@@ -49,7 +49,7 @@
  *
  ********************************************************************/
 
-const HubDbSync     = require('./hub_db_sync.js');
+const HubDbSync     = require('./hub/hub_db_sync.js');
 const HubMirrorPool = require('./hub-mirror-pool.js');
 const { ensureMirrorColumns } = require('./hub-mirror-migrate.js');
 const { resolveHubUrl }       = require('./hub-mirror-url.js');

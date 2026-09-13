@@ -6,14 +6,14 @@
 // This file is part of XChain Platform. Licensed under the GNU Affero
 // General Public License v3.0 or later; see LICENSE.md.
 
-// Unit coverage for src/hub-schema-version.js: the hub-mirror schema-version
+// Unit coverage for src/hub/hub-schema-version.js: the hub-mirror schema-version
 // constant the mirror client stamps into (and version-gates) every WS/REST
 // payload. A wrong shape here would silently disable the fork-guard, so the
 // module's contract (a single positive-integer export, and nothing else) is
 // pinned.
 
 const assert = require('assert');
-const mod = require('../../src/hub-schema-version.js');
+const mod = require('../../src/hub/hub-schema-version.js');
 
 describe('hub-schema-version', function () {
     it('exports exactly HUB_SCHEMA_VERSION and nothing else', function () {
@@ -30,8 +30,8 @@ describe('hub-schema-version', function () {
     it('is a stable primitive (not an object that could drift a JSON payload)', function () {
         assert.notStrictEqual(typeof mod.HUB_SCHEMA_VERSION, 'object');
         // Re-require must yield the identical value (module is a frozen constant, no lazy init).
-        delete require.cache[require.resolve('../../src/hub-schema-version.js')];
-        const again = require('../../src/hub-schema-version.js');
+        delete require.cache[require.resolve('../../src/hub/hub-schema-version.js')];
+        const again = require('../../src/hub/hub-schema-version.js');
         assert.strictEqual(again.HUB_SCHEMA_VERSION, mod.HUB_SCHEMA_VERSION);
     });
 });

@@ -75,7 +75,7 @@ function render(quote) {
     return { html, rowFor, badge: $('#fee-quote-result .badge').first() };
 }
 
-// The static-quote lane in xchain-indexer/src/actions.js prices DEPLOY and
+// The static-quote lane in xchain-indexer/src/actions/index.js prices DEPLOY and
 // EXECUTE from the gas schedule and downgrades a true verdict to null, keeping
 // requiredFeeNative / requiredFeeSats payable.
 const STATIC_QUOTE = {

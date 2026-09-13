@@ -321,7 +321,7 @@ const PRICE = {
     // THE BATCH COLUMNS ARE NOT OPTIONAL EXTRAS. A validator PRICE on the wire today
     // is a BATCH (PRICE|0|Z|<deflate> carrying an hourly window of full round bodies),
     // and the indexer deliberately stores NULL in pair_count / pairs_json / sig_count
-    // for one (xchain-indexer src/actions/price.js: those three would describe only one
+    // for one (xchain-indexer src/actions/price/index.js: those three would describe only one
     // round out of the window), putting the actual COIN/FIAT prices in rounds_json and
     // the window in batch_first_round / batch_last_round / round_count. Selecting only
     // the single-round columns is why a batch rendered as a page of dashes with every
@@ -408,7 +408,7 @@ const ROLLCALL = {
     //
     // NO LEDGER EFFECTS ON THIS action_index. The publish reward exists
     // (ROLLCALL_REWARD_AMOUNT) but it is credited by the BTC-side epoch close
-    // (xchain-indexer/src/rollcall_close.js), on a different chain from the action
+    // (xchain-indexer/src/consensus/rollcall_close.js), on a different chain from the action
     // being rendered here, so credits/debits/escrows keyed on this action_index are
     // always empty. Same shape as NODEPROOF above.
     effects: { credits: false, debits: false, escrows: false },

@@ -25,15 +25,21 @@ const assert = require('assert');
 
 const LOCAL_SRC  = path.join(__dirname, '../../src');
 const CANON_SRC  = path.join(__dirname, '../../../xchain-indexer/src');
-const CANON_PRESENT = fs.existsSync(path.join(CANON_SRC, 'hub_db_sync.js'));
+const CANON_PRESENT = fs.existsSync(path.join(CANON_SRC, 'hub', 'hub_db_sync.js'));
 
 const SQL_DIR    = path.join(LOCAL_SRC, 'sql', 'hub-mirror');
 const SYNC_SCRIPT = path.join(CANON_SRC, '..', 'bin', 'sync-hub-mirror-client.sh');
 
-// The client, its lockstep constant, and the modules the client requires by relative
-// path; the sync script's CLIENT_FILES= line is pinned against this list below, so a
-// module added to one side and not the other fails here instead of at require on boot.
-const CLIENT_FILES = ['hub_db_sync.js', 'hub-schema-version.js', 'price_batching_floor_activation.js'];
+// The vendored client set, in two halves because the canonical tree has two depths and
+// the copies MUST mirror them. hub_db_sync.js and its lockstep constant live at
+// xchain-indexer/src/hub/ and the client reaches its dependency-free modules with `../`,
+// so the vendored copies land at src/hub/ here and the dependency modules stay at src/.
+// Flattening the client into src/ would resolve those `../` requires one directory above
+// this repo's src/ and fail at require on boot. The sync script's HUB_FILES= and
+// DEP_FILES= lines are pinned against these lists below, so a module added to one side
+// and not the other fails here rather than on boot.
+const HUB_FILES = ['hub_db_sync.js', 'hub-schema-version.js'];
+const DEP_FILES = ['price_batching_floor_activation.js', 'mirror_admission_activation.js'];
 
 // Enumerate the vendored twins instead of hand-copying their names: a literal list here
 // narrows silently against the sync script's shell variable (miss one name, say
@@ -66,7 +72,8 @@ function scriptFileList(variable){
     return names.sort();
 }
 function scriptSqlFiles(){ return scriptFileList('SQL_FILES'); }
-function scriptClientFiles(){ return scriptFileList('CLIENT_FILES'); }
+function scriptHubFiles(){ return scriptFileList('HUB_FILES'); }
+function scriptDepFiles(){ return scriptFileList('DEP_FILES'); }
 // Byte-identical consensus twins that are NOT vendored by sync-hub-mirror-client.sh
 // (they are hand-maintained in xchain-hub/src, xchain-indexer/src and here). The
 // twin's own header claims "the hub-mirror conformance suites compare the consumers",
@@ -77,21 +84,32 @@ const TWIN_FILES = ['retraction_signing_activation.js'];
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
     before(function(){ if(!CANON_PRESENT) this.skip(); });
 
-    CLIENT_FILES.forEach(function(f){
-        it(f + ' is byte-identical to xchain-indexer/src', function(){
-            const local = fs.readFileSync(path.join(LOCAL_SRC, f), 'utf8');
-            const canon = fs.readFileSync(path.join(CANON_SRC, f), 'utf8');
-            assert.strictEqual(local, canon,
-                'this repo\'s ' + f + ' has drifted from the canonical source; ' +
-                'edit xchain-indexer/src/' + f + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
+    [['hub', HUB_FILES], ['', DEP_FILES]].forEach(function(pair){
+        const sub = pair[0], names = pair[1];
+        const rel = sub ? sub + '/' : '';
+        names.forEach(function(f){
+            it(rel + f + ' is byte-identical to xchain-indexer/src/' + rel, function(){
+                const local = fs.readFileSync(path.join(LOCAL_SRC, sub, f), 'utf8');
+                const canon = fs.readFileSync(path.join(CANON_SRC, sub, f), 'utf8');
+                assert.strictEqual(local, canon,
+                    'this repo\'s src/' + rel + f + ' has drifted from the canonical source; ' +
+                    'edit xchain-indexer/src/' + rel + f + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
+            });
         });
     });
 
-    it('the CLIENT_FILES list matches the sync script CLIENT_FILES list', function(){
-        assert.deepStrictEqual([...CLIENT_FILES].sort(), scriptClientFiles(),
+    it('the HUB_FILES list matches the sync script HUB_FILES list', function(){
+        assert.deepStrictEqual([...HUB_FILES].sort(), scriptHubFiles(),
             'this guard and xchain-indexer/bin/sync-hub-mirror-client.sh disagree about which client ' +
-            'files are vendored; a module the client requires but the script does not copy fails at ' +
-            'require on boot, so keep the two lists one definition.');
+            'files are vendored into src/hub/; a module the client requires but the script does not ' +
+            'copy fails at require on boot, so keep the two lists one definition.');
+    });
+
+    it('the DEP_FILES list matches the sync script DEP_FILES list', function(){
+        assert.deepStrictEqual([...DEP_FILES].sort(), scriptDepFiles(),
+            'this guard and xchain-indexer/bin/sync-hub-mirror-client.sh disagree about which modules ' +
+            'the client reaches with ../; one missing here resolves above this repo\'s src/ and fails ' +
+            'at require on boot, so keep the two lists one definition.');
     });
 
     TWIN_FILES.forEach(function(f){

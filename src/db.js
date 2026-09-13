@@ -3924,7 +3924,7 @@ class Database {
         //
         // mappings_actions is an address/tick LOOKUP INDEX, not an action list: the
         // indexer writes it from the addresses/tickers an action touched
-        // (xchain-indexer src/mapper.js, fed by util.getAddressesList(), which is only
+        // (xchain-indexer src/chain/mapper.js, fed by util.getAddressesList(), which is only
         // populated by credit/debit bookkeeping). An action that moves no ledger entry
         // - ANCHOR, PRICE, ATTEST, NODEPROOF, ROLLCALL and every future consensus
         // action - therefore has NO row there and is structurally unreachable through

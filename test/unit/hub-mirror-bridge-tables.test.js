@@ -122,7 +122,7 @@ describe('hub-mirror bridge tables: ensureTables creates them @regression', func
     }
 
     it('creates bridge_transfers and policy_snapshots from the vendored directory', async function () {
-        const { ensureTables } = require('../../src/hub_db_sync.js');
+        const { ensureTables } = require('../../src/hub/hub_db_sync.js');
         const conn = fakeConn();
         await ensureTables(conn, MIRROR_SQL);
         const created = conn.created.filter(e => e.create).map(e => e.create);
@@ -132,7 +132,7 @@ describe('hub-mirror bridge tables: ensureTables creates them @regression', func
     });
 
     it('skips a table that already exists, so a restart does not re-run its DDL', async function () {
-        const { ensureTables } = require('../../src/hub_db_sync.js');
+        const { ensureTables } = require('../../src/hub/hub_db_sync.js');
         const conn = fakeConn();
         const inner = conn.doQuery.bind(conn);
         conn.doQuery = async function (sql, args) {

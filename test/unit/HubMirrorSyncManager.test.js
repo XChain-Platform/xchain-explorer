@@ -53,7 +53,7 @@ function load({ env = {} } = {}) {
     else delete process.env.HUB_API_URL;
 
     const HubMirrorSyncManager = proxyquire('../../src/HubMirrorSyncManager.js', {
-        './hub_db_sync.js':    FakeSync,
+        './hub/hub_db_sync.js':    FakeSync,
         './hub-mirror-pool.js': FakePool,
         './hub-mirror-migrate.js': { ensureMirrorColumns }
     });

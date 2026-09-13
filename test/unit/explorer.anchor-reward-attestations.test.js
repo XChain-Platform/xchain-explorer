@@ -22,7 +22,7 @@
  *
  * THE ROW'S SUBSTANCE (spec §8): anchor_reward_attestations is a locally-
  * mirrored checkpoint-schema table (HUB_STATE_TABLES in hub_db_sync.js,
- * confirmed at src/hub_db_sync.js:224 -- verified directly against the
+ * confirmed at src/hub/hub_db_sync.js:224 -- verified directly against the
  * source before writing this file, not assumed from the spec), transported
  * on the SAME terms as state_checkpoints: id-parity INSERT IGNORE, never
  * retracted. It must be read ONLY via a new `_checkpointSource(config)`

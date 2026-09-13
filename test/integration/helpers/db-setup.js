@@ -57,7 +57,7 @@ async function acquire() {
 
 // Remove SQL `--` line comments while respecting quoted strings, so a ';' in
 // comment prose is never read as a statement terminator. Mirrors the same-named
-// helper in src/hub_db_sync.js; the fixtures carry a license header whose text
+// helper in src/hub/hub_db_sync.js; the fixtures carry a license header whose text
 // ("...v3.0 or later; see LICENSE.md...") tore every DELIMITER-bearing fixture
 // into an invalid fragment until this ran first.
 function stripSqlLineComments(sql) {

@@ -164,7 +164,7 @@ const COMPLETED = {
     callback_delivery: { callback_result_status: 'ok', callback_block_index: 900123 }
 };
 
-// The expire path (xchain-indexer/src/actions/xcall.js:329) flips the request to
+// The expire path (xchain-indexer/src/actions/xcall/index.js:329) flips the request to
 // expired/expired with an empty payload and synthesizes an 'expired' callback. No
 // execution row is ever written: the far chain never ran it.
 const EXPIRED = {

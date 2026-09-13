@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for the per-coin config modules (src/configs/*.js).
+ * Unit tests for the per-coin config modules (src/coin-config/*.js).
  */
 
 'use strict';
@@ -27,7 +27,7 @@ const COINS = {
 describe('configs/*', function () {
     for (let coin of Object.keys(COINS)) {
         describe(coin + '.js', function () {
-            const cfgModule = require('../../src/configs/' + coin + '.js');
+            const cfgModule = require('../../src/coin-config/' + coin + '.js');
 
             it('returns the chain identity', function () {
                 let c = cfgModule.getConfig('mainnet');

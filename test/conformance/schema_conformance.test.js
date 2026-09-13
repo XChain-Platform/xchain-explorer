@@ -238,7 +238,7 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
     // (key RBTC) at the conformance schemas. Same shape the integration
     // harness uses; distinct DB names so the tiers never clobber each other.
     function createConfigInfo() {
-        const coinConfig = require('../../src/configs/BTC.js').getConfig('regtest');
+        const coinConfig = require('../../src/coin-config/BTC.js').getConfig('regtest');
         const listeners  = [];
         const dbCreds    = { db_host: DB_HOST, db_port: DB_PORT, user: DB_USER, pass: DB_PASS };
         const config = {

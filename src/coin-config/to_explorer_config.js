@@ -15,7 +15,7 @@
  * XChain Explorer - COIN Config Adapter
  *
  * Maps the canonical coin definition (src/coins/<COIN>.js) into the display
- * shape the explorer's configs/<COIN>.js has always returned: a chain identity
+ * shape the explorer's coin-config/<COIN>.js has always returned: a chain identity
  * block plus a lowercase address map. The canonical UPPERCASE roles map to the
  * explorer's display names (DONATE1 -> protocol, DONATE2 -> community).
  *

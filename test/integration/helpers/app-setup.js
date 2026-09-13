@@ -35,7 +35,7 @@ function createTestConfigInfo(dbPort) {
         getConfig: async function () {
             if (configCache) return configCache;
 
-            const coinFile = require('../../../src/configs/BTC.js');
+            const coinFile = require('../../../src/coin-config/BTC.js');
             const coinConfig = coinFile.getConfig('regtest');
 
             const config = {};

@@ -198,12 +198,12 @@ describe('mirror-applied ATTEST response with no transaction row (real MariaDB)'
                 COIN_SUPPORTED: { RBTC: 'BTC (regtest)' },
                 COIN_AVAILABLE: { RBTC: 'BTC (regtest)' },
                 BTC: {
-                    chain: require('../../src/configs/BTC.js').getConfig('regtest').chain,
+                    chain: require('../../src/coin-config/BTC.js').getConfig('regtest').chain,
                     regtest: {
                         database: {
                             indexer: { name: INDEXER_DB, db_host: DB_HOST, db_port: DB_PORT, user: DB_USER, pass: DB_PASS }
                         },
-                        address: require('../../src/configs/BTC.js').getConfig('regtest').address
+                        address: require('../../src/coin-config/BTC.js').getConfig('regtest').address
                     }
                 }
             }),

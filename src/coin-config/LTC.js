@@ -17,7 +17,7 @@
  * Thin adapter over the canonical coin definition in src/coins/LTC.js.
  *
  ********************************************************************/
-const { toExplorerConfig } = require('./_adapter');
+const { toExplorerConfig } = require('./to_explorer_config');
 
 module.exports = {
     getConfig: function(network){

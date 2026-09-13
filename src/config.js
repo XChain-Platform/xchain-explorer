@@ -16,7 +16,7 @@
  * 
  * This config file contains explorer specific configuration data
  * 
- * COIN specific configuration data is loaded from configs/<COIN>.js
+ * COIN specific configuration data is loaded from coin-config/<COIN>.js
  *
  ********************************************************************/
 
@@ -118,7 +118,83 @@ function loadConfigCacheFromDisk(){
     return null;
 }
 
+// Fixed COIN_NETWORKS x COIN_PREFIXES cross product (see getConfig() above,
+// which builds the same nine codes at request time from those two module-
+// scope tables): BTC/LTC/DOGE crossed with the '', 'T', 'R' network
+// prefixes. Repeated here as a flat literal, rather than reached from
+// inside getConfig(), because that function's locals do not exist until it
+// runs and the env object below is built once, at module load.
+const ENV_COIN_TICKERS = ['BTC', 'LTC', 'DOGE'];
+const ENV_CODE_PREFIXES = ['', 'T', 'R'];
+
+// Build a frozen { CODE: rawEnvString } lookup for one env-var family (e.g.
+// UTXO_TRACKER_URL_) keyed by the nine coin codes (BTC, TBTC, RBTC, ...),
+// reading process.env exactly once here rather than per request. No
+// coercion and no default: this mirrors the flat env keys below, so a
+// caller that today does process.env['PREFIX_' + code] keeps its own
+// fallback logic unchanged against env.PREFIX_BY_CODE[code].
+function buildEnvByCode(varPrefix){
+    let byCode = {};
+    for(let ticker of ENV_COIN_TICKERS){
+        for(let codePrefix of ENV_CODE_PREFIXES){
+            let code = codePrefix + ticker;
+            byCode[code] = process.env[varPrefix + code];
+        }
+    }
+    return Object.freeze(byCode);
+}
+
+// Every process.env read the gate's process_env_outside_config rule would
+// otherwise flag across db.js and its readers, gathered into one frozen
+// object so that rule has a single home (config.js is itself exempt from
+// it). Read ONCE here, at config-module load time, never per call. Every
+// value is the RAW string from process.env (or undefined if unset): NO
+// coercion and NO default is applied here, so each existing call site keeps
+// its own `|| default` / `parseInt(...) || x` / `!== undefined ? ... : ...`
+// semantics byte-for-byte against env.<KEY> in place of process.env.<KEY>.
+// The six EXPLORER_{HOLDERS,TOKENS,BALANCES}_CACHE_{MS,MAX} keys come from
+// db.js's own closed RESULT_CACHES table (three entries, not user
+// extensible), so they are flattened here rather than nested. The three
+// per-coin-code families (UTXO_TRACKER_URL_<CODE>,
+// EXPLORER_TIP_MAX_AGE_S_<CODE>, EXPLORER_TIP_MAX_FUTURE_SKEW_S_<CODE>) are
+// NOT a closed table declared in this file, so they get a nested lookup
+// instead of nine more flat keys, immune to a future coin being added
+// without a config.js edit.
+const env = Object.freeze({
+    EXPLORER_TIP_MEMO_MS:           process.env.EXPLORER_TIP_MEMO_MS,
+    DEBUG:                          process.env.DEBUG,
+    ALLOW_NO_COLOCATED_HUB_DB:      process.env.ALLOW_NO_COLOCATED_HUB_DB,
+    EXPLORER_STALE_FAIL_CLOSED:     process.env.EXPLORER_STALE_FAIL_CLOSED,
+    UTXO_TRACKER_URL:               process.env.UTXO_TRACKER_URL,
+    EXPLORER_TOTALS_CACHE_MS:       process.env.EXPLORER_TOTALS_CACHE_MS,
+    EXPLORER_TIP_MAX_AGE_S:         process.env.EXPLORER_TIP_MAX_AGE_S,
+    EXPLORER_TIP_MAX_FUTURE_SKEW_S: process.env.EXPLORER_TIP_MAX_FUTURE_SKEW_S,
+    MEMPOOL_COUNT_CACHE_MS:         process.env.MEMPOOL_COUNT_CACHE_MS,
+    ENCODER_URL:                    process.env.ENCODER_URL,
+    FEE_CACHE_MS:                   process.env.FEE_CACHE_MS,
+    HUB_URL:                        process.env.HUB_URL,
+    PRICE_CACHE_MS:                 process.env.PRICE_CACHE_MS,
+    EXPLORER_VM_QUERY_ENABLED:      process.env.EXPLORER_VM_QUERY_ENABLED,
+    EXPLORER_WALLET_URL:            process.env.EXPLORER_WALLET_URL,
+    EXPLORER_HOLDERS_CACHE_MS:      process.env.EXPLORER_HOLDERS_CACHE_MS,
+    EXPLORER_HOLDERS_CACHE_MAX:     process.env.EXPLORER_HOLDERS_CACHE_MAX,
+    EXPLORER_TOKENS_CACHE_MS:       process.env.EXPLORER_TOKENS_CACHE_MS,
+    EXPLORER_TOKENS_CACHE_MAX:      process.env.EXPLORER_TOKENS_CACHE_MAX,
+    EXPLORER_BALANCES_CACHE_MS:     process.env.EXPLORER_BALANCES_CACHE_MS,
+    EXPLORER_BALANCES_CACHE_MAX:    process.env.EXPLORER_BALANCES_CACHE_MAX,
+    UTXO_TRACKER_URL_BY_CODE:               buildEnvByCode('UTXO_TRACKER_URL_'),
+    EXPLORER_TIP_MAX_AGE_S_BY_CODE:         buildEnvByCode('EXPLORER_TIP_MAX_AGE_S_'),
+    EXPLORER_TIP_MAX_FUTURE_SKEW_S_BY_CODE: buildEnvByCode('EXPLORER_TIP_MAX_FUTURE_SKEW_S_'),
+});
+
 module.exports = {
+
+    // Frozen snapshot of every process.env read the db.js/readers env tier
+    // centralizes (see the env const above for the full contract). Consumed
+    // read-only as this.configInfo.env.<KEY>, this.configInfo already being
+    // this module's singleton via the existing api.js -> XChainExplorer ->
+    // Database DI chain, so no new require is needed at any call site.
+    env: env,
 
     // Epoch ms of the last successful hub-config fetch (null until the first success).
     // Exposed so the status endpoint can report how stale the served hub config is when
@@ -352,7 +428,7 @@ module.exports = {
 
             for(let info of jsonConfig.configs ){
 
-                let coinFile   = path.join(__dirname, 'configs', info.coin + '.js');
+                let coinFile   = path.join(__dirname, 'coin-config', info.coin + '.js');
 
                 // Load COIN specific configuration file, or skip this entry.
                 // A missing file means the config carried a coin this explorer

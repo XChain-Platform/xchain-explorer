@@ -13,7 +13,7 @@
 // Transport-integrity cross-check on the hub's additive coin_consensus_hashes
 // field. The hub serves { network: { COIN: sha256 } } of its OWN bundled coin
 // files on getallconfigs; the explorer derives consensus values only from its
-// vendored bundle (configs/_adapter.js), so the field is compared and logged,
+// vendored bundle (coin-config/to_explorer_config.js), so the field is compared and logged,
 // NEVER applied. Before this the field was destructured away in
 // _applyConfigResult and a hub running a divergent bundle was invisible here.
 

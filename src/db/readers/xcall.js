@@ -508,7 +508,7 @@ class XcallReaders {
     // WHAT THE SCHEMA FORCED, and it contradicts the obvious reading of the lifecycle:
     // ATTEST v2 (expire) writes NO ROW OF ITS OWN. It is system-synthesized, allocates an
     // action_index with FORMAT 2, and then only FLIPS the v0 request row's request_status to
-    // 'expired' and stamps resolved_block (xchain-indexer attest.js _parseExpire). So the
+    // 'expired' and stamps resolved_block (xchain-indexer attest.js parseExpire). So the
     // expiry leg below is DERIVED from the request row, not selected from a v2 row. The
     // expire ACTION does exist and has a working page, so it is resolved through the
     // in-block correlation above and named here rather than declared unlinkable.

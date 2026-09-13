@@ -44,6 +44,12 @@ const listEditResolution = require('../../list_edit_resolution_activation');
 const actionDetail = require('../../action-detail');
 const { ACTION_SUMMARY_FIELDS } = require('../shared.js');
 
+// Structured logging. Cached at require time: getLogger() resolves lazily on
+// every call, so this reaches the real shipper once api.js has run
+// installObservability and falls through to bare console.* before that.
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
 // The action families that carry a real RECIPIENT, and the column on each that
 // points back at the action (decision I-46, measured against xchain-indexer/src/sql).
 // Backs getActionsSince's `destinations` (spec wallet-unconfirmed-and-sounds M1.4).
@@ -997,7 +1003,8 @@ class ActionDetailReaders {
         // the batched concurrent fetch (#3841), so any residual slow path stays visible.
         const elapsed = Date.now() - t0;
         if(elapsed > 500)
-            console.warn('getActionSummaryData: slow page (' + elapsed + 'ms, ' + actions.length + ' actions) -- batched getActionData fetch still slow; see #3841');
+            log.warn('ACTION_SUMMARY_SLOW_PAGE', { method: 'getActionSummaryData', elapsedMs: elapsed,
+                actions: actions.length, note: 'batched getActionData fetch still slow; see #3841' });
         return actions;
     }
 
@@ -1697,8 +1704,8 @@ class ActionDetailReaders {
                     if(this.isSchemaShapeError(err)){
                         skip.add(family.table);
                         this._actionDestinationSkip.set(config.coin, skip);
-                        console.error('Action destinations: disabling ' + family.table +
-                                      ' for ' + config.coin + ' (' + (err && err.message) + ')');
+                        log.error('ACTION_DESTINATIONS_FAMILY_DISABLED', { table: family.table,
+                            coin: config.coin, err: err && err.message });
                     }
                 }
             }

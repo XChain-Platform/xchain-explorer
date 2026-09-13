@@ -41,6 +41,12 @@
 const DecoderConnector = require('../../XChainDecoderConnector.js');
 const { DbQueryError, staleFailClosed } = require('../shared.js');
 
+// Structured logging. Cached at require time: getLogger() resolves lazily on
+// every call, so this reaches the real shipper once api.js has run
+// installObservability and falls through to bare console.* before that.
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
 // instance is no longer serving current data for a coin. Deliberately far above
 // every chain's normal inter-block gap (BTC ~10min): a fail-closed gate that
@@ -289,7 +295,7 @@ class HealthReaders {
                 return Number(results[0].max_index);
         } catch(e){
             // Decoder DB unreachable, missing, or no cross-DB grant: omit the tip.
-            console.warn('getDecoderTip: decoder tip unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
+            log.warn('DECODER_TIP_UNAVAILABLE', { method: 'getDecoderTip', coin: config.coin, err: e && e.message ? e.message : e });
         }
         return null;
     }
@@ -313,7 +319,7 @@ class HealthReaders {
             if (results && results.length && results[0].block_time !== null)
                 return Number(results[0].block_time);
         } catch(e){
-            console.warn('getDecoderBlockTime: decoder block_time unavailable for ' + config.coin + ' at ' + height + ': ' + (e && e.message ? e.message : e));
+            log.warn('DECODER_BLOCK_TIME_UNAVAILABLE', { method: 'getDecoderBlockTime', coin: config.coin, height, err: e && e.message ? e.message : e });
         }
         return null;
     }
@@ -378,7 +384,7 @@ class HealthReaders {
             this._mempoolApiCache[code] = { t: now, v };
             return v;
         } catch(e){
-            console.warn('getDecoderMempoolSnapshot: decoder mempool unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            log.warn('DECODER_MEMPOOL_UNAVAILABLE', { method: 'getDecoderMempoolSnapshot', code, err: e && e.message ? e.message : e });
             // Serve the stale snapshot once more; refresh the clock so a dead
             // decoder is retried once per TTL, not on every request.
             this._mempoolApiCache[code] = { t: now, v: (hit && hit.v) || null };
@@ -438,7 +444,7 @@ class HealthReaders {
         } catch(e){
             // Decoder DB unreachable, missing table, or no cross-DB grant: serve the
             // last good count if we have one, else report 0.
-            console.warn('getDecoderMempoolCount: mempool count unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
+            log.warn('DECODER_MEMPOOL_COUNT_UNAVAILABLE', { method: 'getDecoderMempoolCount', coin: config.coin, err: e && e.message ? e.message : e });
         }
         return (hit && hit.v) || 0;
     }
@@ -510,11 +516,11 @@ class HealthReaders {
                     let results = await this.doDecoderQuery(config, query, []);
                     return results || [];
                 } catch(e2){
-                    console.warn('getDecoderMempoolRows: mempool rows unavailable for ' + config.coin + ': ' + (e2 && e2.message ? e2.message : e2));
+                    log.warn('DECODER_MEMPOOL_ROWS_UNAVAILABLE', { method: 'getDecoderMempoolRows', coin: config.coin, err: e2 && e2.message ? e2.message : e2 });
                     return [];
                 }
             }
-            console.warn('getDecoderMempoolRows: mempool rows unavailable for ' + config.coin + ': ' + (e && e.message ? e.message : e));
+            log.warn('DECODER_MEMPOOL_ROWS_UNAVAILABLE', { method: 'getDecoderMempoolRows', coin: config.coin, err: e && e.message ? e.message : e });
         }
         return [];
     }
@@ -633,7 +639,7 @@ class HealthReaders {
             }
             throw new Error('malformed estimatefee response');
         } catch(e){
-            console.warn('getFeeEstimate: fee estimate unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            log.warn('FEE_ESTIMATE_UNAVAILABLE', { method: 'getFeeEstimate', code, err: e && e.message ? e.message : e });
             // Reuse a prior good value if we have one; otherwise the safe fallback.
             return (hit && hit.v) || fallback;
         }
@@ -703,7 +709,8 @@ class HealthReaders {
                     this._priceStaleSince = this._priceStaleSince || {};
                     if(!this._priceStaleSince[sym]){
                         this._priceStaleSince[sym] = now;
-                        console.log('getCoinPriceUsd: hub declines to quote ' + sym + ' (' + r.error + '); serving the last finalized value until the next round');
+                        log.info('COIN_PRICE_HUB_DECLINED', { method: 'getCoinPriceUsd', sym, err: r.error,
+                            note: 'serving the last finalized value until the next round' });
                     }
                     return (hit && hit.v) || null;
                 }
@@ -711,7 +718,7 @@ class HealthReaders {
             }
             throw new Error('malformed getprice response');
         } catch(e){
-            console.warn('getCoinPriceUsd: price unavailable for ' + sym + ': ' + (e && e.message ? e.message : e));
+            log.warn('COIN_PRICE_UNAVAILABLE', { method: 'getCoinPriceUsd', sym, err: e && e.message ? e.message : e });
             // Reuse a prior good value if we have one; otherwise null (placeholder).
             return (hit && hit.v) || null;
         }

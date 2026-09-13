@@ -43,6 +43,12 @@ const coinsRegistry = require('../../coins');
 const DecoderConnector = require('../../XChainDecoderConnector.js');
 const { DbInputError, staleFailClosed } = require('../shared.js');
 
+// Structured logging. Cached at require time: getLogger() resolves lazily on
+// every call, so this reaches the real shipper once api.js has run
+// installObservability and falls through to bare console.* before that.
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
 // A block height is a non-negative integer and nothing else. parseInt/Number
 // cannot make this call: parseInt('9junk') is 9 and Number('') is 0, both of
 // which reproduce the coercion bug in JS instead of catching it. Same strict
@@ -273,7 +279,7 @@ class EntityReaders {
             if(j && j.balances && j.utxos) return j;
             throw new Error('malformed /info response');
         } catch(e){
-            console.warn('getAddressTrackerInfo: tracker unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            log.warn('UTXO_TRACKER_UNAVAILABLE', { method: 'getAddressTrackerInfo', code, err: e && e.message ? e.message : e });
             return null;
         }
     }
@@ -1583,7 +1589,7 @@ class EntityReaders {
                 return { raw_data: results[0].raw_data, type: rows[0].type, data: results[0].data };
         } catch(e){
             // Decoder DB unreachable, missing, or no cross-DB grant: omit the bytes.
-            console.warn('getFileRaw: decoder raw_data unavailable for ' + config.coin + ' action ' + actionIndex + ': ' + (e && e.message ? e.message : e));
+            log.warn('FILE_RAW_UNAVAILABLE', { method: 'getFileRaw', coin: config.coin, actionIndex, err: e && e.message ? e.message : e });
         }
         return null;
     }

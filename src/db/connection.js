@@ -45,6 +45,13 @@ const poolSizing = require('../poolSizing');
 const { resolveHubUrl } = require('../hub-mirror-url.js');
 const { DbQueryError, MUTABLE_ACTION_FIELDS } = require('./shared.js');
 
+// Structured logging. Cached at require time on purpose: getLogger() resolves
+// lazily on every call, so this reaches the real shipper once api.js has run
+// installObservability and falls through to bare console.* before that, which
+// is the shape the unit suites see.
+const { getLogger } = require('../observability');
+const log = getLogger();
+
 class DatabaseConnection {
     async init(){
         await this.setupConnectionPools()
@@ -547,7 +554,7 @@ class DatabaseConnection {
                 'ALLOW_NO_COLOCATED_HUB_DB=1 to start anyway (hub-mirrored endpoints then fail loud ' +
                 'per request instead of serving a mirror nothing updates).';
             if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
-                console.warn('[explorer] WARNING: ' + msg);
+                log.warn('CHECKPOINT_HUB_URL_MISSING', { coins: unwritable, detail: msg });
             } else {
                 throw new Error(msg);
             }
@@ -563,7 +570,7 @@ class DatabaseConnection {
                 'externally-maintained hub schema. Set ALLOW_NO_COLOCATED_HUB_DB=1 to start ' +
                 'anyway (hub-mirrored endpoints will fail loud per request instead).';
             if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
-                console.warn('[explorer] WARNING: ' + msg);
+                log.warn('CHECKPOINT_SCHEMA_MISSING', { coins: missing, detail: msg });
                 return;
             }
             throw new Error(msg);
@@ -594,20 +601,20 @@ class DatabaseConnection {
                 try {
                     connection = await pool.getConnection();
                 } catch (e){
-                    if(process.env.DEBUG) console.log('Database connection error:', e);
+                    if(process.env.DEBUG) log.debug('DB_CONNECTION_ERROR', { coin: config && config.coin, err: e && e.message ? e.message : e });
                     connection = null;
                     if(retryCount <= maxRetrys){
                         retryCount++;
-                        console.log("Can't connect to database. Trying again (attempt " + retryCount + ")...");
+                        log.info('DB_CONNECT_RETRY', { coin: config && config.coin, attempt: retryCount });
                         await this.util.sleep(1000);
                     } else {
-                        console.log('Failed to get database connection after ' + maxRetrys + ' attempts');
+                        log.info('DB_CONNECT_FAILED', { coin: config && config.coin, attempts: maxRetrys });
                         break;
                     }
                 }
             }
         } else {
-            console.log("Unable to get database connection pool");
+            log.info('DB_POOL_UNAVAILABLE', { coin: config && config.coin });
         }
         this.transactionConnection = connection;
         return connection;
@@ -626,7 +633,7 @@ class DatabaseConnection {
         this._lastPoolRebuild = now;
         this._poolRebuildPromise = (async () => {
             try { await this.setupConnectionPools(); }
-            catch(e){ console.log('Pool rebuild failed: ' + (e && e.message)); }
+            catch(e){ log.info('POOL_REBUILD_FAILED', { err: e && e.message }); }
             finally { this._poolRebuildPromise = null; }
         })();
         return this._poolRebuildPromise;
@@ -661,7 +668,7 @@ class DatabaseConnection {
         if(this.util.isNull(query)) return false;
         let pool = poolOverride || ((this.pools[config.coin]) ? this.pools[config.coin].pool : null);
         if(!pool){
-            console.log('Unable to get database connection pool');
+            log.info('DB_POOL_UNAVAILABLE', { coin: config && config.coin });
             throw new DbQueryError('No database connection pool for ' + (config && config.coin));
         }
         let db = null,
@@ -671,14 +678,14 @@ class DatabaseConnection {
             try {
                 db = await pool.getConnection();
             } catch (e){
-                if(process.env.DEBUG) console.log('Database connection error:', e);
+                if(process.env.DEBUG) log.debug('DB_CONNECTION_ERROR', { coin: config && config.coin, err: e && e.message ? e.message : e });
                 db = null;
                 if(retryCount <= maxRetrys){
                     retryCount++;
-                    console.log("Can't connect to database. Trying again (attempt " + retryCount + ")...");
+                    log.info('DB_CONNECT_RETRY', { coin: config && config.coin, attempt: retryCount });
                     await this.util.sleep(1000);
                 } else {
-                    console.log('Failed to get database connection after ' + maxRetrys + ' attempts');
+                    log.info('DB_CONNECT_FAILED', { coin: config && config.coin, attempts: maxRetrys });
                     throw new DbQueryError('Database connection unavailable after ' + maxRetrys + ' retries', e);
                 }
             }
@@ -687,8 +694,8 @@ class DatabaseConnection {
         try {
             result = await db.query(query, args);
         } catch (error){
-            if(process.env.DEBUG) console.log('SQL Query Error:', error);
-            else console.error('SQL query failed:', error.message, error.stack);
+            if(process.env.DEBUG) log.debug('SQL_QUERY_ERROR', { coin: config && config.coin, err: error && error.message, stack: error && error.stack });
+            else log.error('SQL_QUERY_FAILED', { coin: config && config.coin, err: error.message, stack: error.stack });
             throw new DbQueryError('SQL query failed: ' + (error && error.message), error);
         } finally {
             db.release();

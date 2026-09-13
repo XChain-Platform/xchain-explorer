@@ -33,6 +33,12 @@
 
 'use strict';
 
+// Structured logging. Cached at require time: getLogger() resolves lazily on
+// every call, so this reaches the real shipper once api.js has run
+// installObservability and falls through to bare console.* before that.
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
 class StakingGovernanceReaders {
     async getStakes(config){
         let sql   = config.data.sql;
@@ -252,7 +258,7 @@ class StakingGovernanceReaders {
         let ops  = this.explorer ? this.explorer.hubOperational : null;
         if(ops && ops.enabled()){
             try { rows = await ops.getFederationValidators(); }
-            catch(e){ console.log('Federation registry RPC read failed: ' + (e && e.message)); }
+            catch(e){ log.info('FEDERATION_REGISTRY_RPC_FAILED', { err: e && e.message }); }
         }
         if(!rows){
             try {
@@ -260,7 +266,7 @@ class StakingGovernanceReaders {
                 rows = await this.doQuery(config,
                     'SELECT signing_pubkey, addr, chains, status FROM ' + src.table, []);
             } catch(e){
-                if(process.env.DEBUG) console.log('Federation registry schema read failed:', e);
+                if(process.env.DEBUG) log.debug('FEDERATION_REGISTRY_SCHEMA_FAILED', { err: e && e.message ? e.message : e });
                 rows = null;
             }
         }
@@ -305,7 +311,7 @@ class StakingGovernanceReaders {
                 let rows = await ops.getValidatorCapabilities({});
                 if(Array.isArray(rows)) return rows;
             } catch(e){
-                console.log('Federation capability RPC read failed: ' + (e && e.message));
+                log.info('FEDERATION_CAPABILITY_RPC_FAILED', { err: e && e.message });
             }
         }
         try {
@@ -314,7 +320,7 @@ class StakingGovernanceReaders {
                 'SELECT signing_pubkey, qualified, self_test_ok, enabled FROM ' + src.table, []);
             return Array.isArray(rows) ? rows : null;
         } catch(e){
-            if(process.env.DEBUG) console.log('Federation capability schema read failed:', e);
+            if(process.env.DEBUG) log.debug('FEDERATION_CAPABILITY_SCHEMA_FAILED', { err: e && e.message ? e.message : e });
             return null;
         }
     }

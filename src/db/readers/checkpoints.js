@@ -846,6 +846,158 @@ class CheckpointReaders {
         await this._attachActionDestinations(config, results);
         return results;
     }
+
+    // Cross-chain reorg attestations (hub-owned, id-keyed). Primary transport: hub
+    // JSON-RPC via HubOperationalCache over the hub's EXISTING unauthenticated
+    // getreorghistory RPC, so this row needs no new hub-side surface. Unlike the three
+    // tables above (platform-global, no per-chain column), reorg_attestations carries
+    // source_chain and getreorghistory returns EVERY chain's history with no server-side
+    // chain filter at all, so a per-coin page would otherwise leak another chain's
+    // reorgs. Both transports therefore scope to THIS coin's own chain: client-side
+    // inside HubOperationalCache.getReorgHistory (the established pattern for a param the
+    // hub RPC does not support server-side, see getGovernanceProposals' proposal_id), and
+    // via an explicit m.source_chain=? on the co-located leg, matching
+    // getCrossChainMatches' mandatory network filter.
+    //
+    // this.baseCoin[config.coin] (RBTC -> BTC) is the chain source rather than
+    // _checkpointSource().chain because it is populated for every configured coin whether
+    // or not a co-located checkpoint DB exists, so the RPC-only deployment shape still
+    // scopes correctly. A configured-but-unreachable hub still fails loud past the stale
+    // ceiling; the co-located read below serves only the no-hub shape.
+    // type in {status, block}; 'block' reuses the platform-wide type name (reorg_height IS
+    // a block height) rather than inventing 'height'.
+    async getReorgs(config){
+        let ops   = this.explorer.hubOperational;
+        let chain = this.baseCoin ? (this.baseCoin[config.coin] || config.coin) : config.coin;
+        if(ops && ops.enabled()){
+            let rows = await ops.getReorgHistory({
+                chain,
+                status:       config.data.type=='status' ? config.data.search : undefined,
+                reorg_height: config.data.type=='block'  ? config.data.search : undefined
+            });
+            if(rows) return this._pageHubOperationalRows(config, rows);
+            this._hubOperationalOutage('reorg_attestations');
+        }
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'reorg_attestations');
+        // Mandatory per-coin chain scope, appended AFTER the optional type filter (the
+        // same placement getCrossChainMatches uses for its network filter), so the args
+        // stay [<type filter?>, chain] in strict left-to-right text order.
+        let chainFilter = ' AND m.source_chain=?';
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data + chainFilter;
+        let query = `SELECT
+                        m.id,
+                        m.reorg_id,
+                        m.source_chain,
+                        m.reorg_height,
+                        m.reorg_timestamp,
+                        m.affected_chains,
+                        m.validator_count,
+                        m.status,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + chainFilter + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        let typeArgs = ['status','block'].includes(config.data.type) ? [config.data.search] : [];
+        let args = [...typeArgs, chain];
+        return [query, args, count];
+    }
+
+    // ── Hub operational-state pages (p2p_peers / consensus_state / configs /
+    // telemetry_pings). These are hub-LOCAL operational tables with no on-chain
+    // action and, unlike validator_capabilities/governance_*, no hub JSON-RPC read
+    // surface at all, so they are served ONLY from the co-located hub DB via
+    // _hubSource (same host+creds as the indexer pool; #4138), which is therefore
+    // mandatory for these four on any install that serves them. That is the reverse
+    // of the three RPC-first tables above, where the co-located schema serves only
+    // the no-hub shape and a configured-but-down hub fails loud. Each is
+    // id-keyed (no action_index), so the paging cursor compares m.id (see
+    // getQueryOffsetSql).
+
+    // P2P peer roster the hub gossips with. type in {validator}. id-keyed.
+    async getPeers(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'p2p_peers');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.addr,
+                        m.validator_id,
+                        m.last_seen_at,
+                        m.is_seed,
+                        m.updated_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Hub consensus key/value state. type in {key}. id-keyed.
+    async getConsensusState(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'consensus_state');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.key_name,
+                        m.value,
+                        m.updated_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Hub config-oracle parameter store (per coin/network/module). type in {coin, module}.
+    // id-keyed.
+    async getConfigs(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'configs');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.coin,
+                        m.network,
+                        m.module,
+                        m.param_name,
+                        m.param_value,
+                        m.updated_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
+
+    // Anonymous xchain-node telemetry pings. type in {event, install, country}. id-keyed.
+    // Privacy: ip_hash (a keyed HMAC of the source IP) is deliberately NOT selected;
+    // only the anonymous install UUID + coarse country/region + software fingerprint
+    // are surfaced.
+    async getTelemetryPings(config){
+        let sql = config.data.sql;
+        let src = this._hubSource(config, 'telemetry_pings');
+        let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
+        let query = `SELECT
+                        m.id,
+                        m.install_id,
+                        m.country,
+                        m.region,
+                        m.node_version,
+                        m.os_platform,
+                        m.os_release,
+                        m.arch,
+                        m.docker_version,
+                        m.event,
+                        m.created_at
+                    FROM ${src.table} m
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                    ORDER BY m.id ` + sql.order + `
+                    LIMIT ` + sql.limit;
+        return [query, null, count];
+    }
 }
 
 module.exports = CheckpointReaders.prototype;

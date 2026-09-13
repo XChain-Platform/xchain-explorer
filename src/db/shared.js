@@ -63,7 +63,7 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
 // Lifecycle fields whose value the indexer writes AFTER the action confirmed.
 // A getActionData response carrying any of them is NOT immutable and must never
 // enter the action LRU, which has no TTL and reorg-only invalidation
-// (_isCacheableAction, and the header comment on
+// (isCacheableAction, and the header comment on
 // test/unit/db.action-state-cache.test.js for the family's first two members).
 //
 // The `state` block that guard already refuses is the same defect wearing the

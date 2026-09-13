@@ -642,7 +642,7 @@ class PollBetReaders {
     async getOraclePriceRecord(config, address){
         let src = null;
         try {
-            src = this._oracleMirrorSource(config, 'oracle_prices');
+            src = this.oracleMirrorSource(config, 'oracle_prices');
         } catch(e) {
             return null;
         }

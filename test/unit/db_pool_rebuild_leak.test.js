@@ -13,7 +13,7 @@
  **********************************************************************
  * setupConnectionPools() must not orphan pool handles on re-entry.
  *
- * _rebuildPoolsIfStale() re-enters setup as a lazy recovery path whenever a
+ * rebuildPoolsIfStale() re-enters setup as a lazy recovery path whenever a
  * query finds no pool, throttled to once per 10 seconds. Every pool handle the
  * rebuild drops WITHOUT calling end() keeps its connections alive until the
  * process exits, so a stack that rebuilds continuously leaks continuously.

@@ -63,7 +63,7 @@ class ProjectReaders {
     // Every roster consumer below reads members through the membership
     // index, so a project that dropped or added a token shows the roster the
     // chain is enforcing rather than the one it shipped with. Flag-day gated at
-    // the tip by _isListEditResolutionActiveAtTip, so below the height the two
+    // the tip by isListEditResolutionActiveAtTip, so below the height the two
     // indexes are equal and the legacy create-index read runs unchanged.
     async getProjectRosterInfo(config, tick){
         let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
@@ -91,7 +91,7 @@ class ProjectReaders {
             link_action_index:       Number(rows[0].link_action_index),
             total: 0
         };
-        if(await this._isListEditResolutionActiveAtTip(config))
+        if(await this.isListEditResolutionActiveAtTip(config))
             info.membership_action_index = Number(await this.getListHeadIndex(config, info.roster_action_index));
         let count = await this.doQuery(config, `SELECT count(*) AS total FROM list_items WHERE action_index=?`, [info.membership_action_index]);
         if(count && count.length)
@@ -138,7 +138,7 @@ class ProjectReaders {
                         latest.link_action_index,
                         lk.coin1_action_index  AS roster_action_index
                     `;
-        if(!(await this._isListEditResolutionActiveAtTip(config))){
+        if(!(await this.isListEditResolutionActiveAtTip(config))){
             let query = select + latestRosterLinks + `
                         INNER JOIN list_items     li ON (li.action_index=lk.coin1_action_index)
                         INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND t2.tick=?)
@@ -194,7 +194,7 @@ class ProjectReaders {
     // address_controllers) to the array of bindings that are still gating at the
     // chain tip. keyColumn is tick_id / address_id. Returns the shared shape:
     // [{ action_class, contract_index, cooldown_blocks, is_unbind, bind_block, bound_by }].
-    async _resolveControllerBindings(config, table, keyColumn, keyValue){
+    async resolveControllerBindings(config, table, keyColumn, keyValue){
         if(this.util.isNull(keyValue)) return [];
         // token_controllers carries bound_by_id (the token owner who signed the event);
         // address_controllers has no such column so bound_by is NULL for address-scoped bindings.
@@ -247,13 +247,13 @@ class ProjectReaders {
     // Controller bindings still gating a token (token-page display surface).
     async getTokenControllerBindings(config, tick){
         let tick_id = await this.getTickId(config, tick);
-        return this._resolveControllerBindings(config, 'token_controllers', 'tick_id', tick_id);
+        return this.resolveControllerBindings(config, 'token_controllers', 'tick_id', tick_id);
     }
 
     // Controller bindings still gating an address (address-page display surface).
     async getAddressControllerBindings(config, address){
         let address_id = await this.getAddressId(config, address);
-        return this._resolveControllerBindings(config, 'address_controllers', 'address_id', address_id);
+        return this.resolveControllerBindings(config, 'address_controllers', 'address_id', address_id);
     }
 
     // Project detail (API endpoint): project tick + roster metadata + member

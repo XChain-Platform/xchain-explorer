@@ -299,7 +299,7 @@ describe('db.js RPC-first operational reads', function () {
         it('default action: DESC order, LIMIT window, total = filtered count', function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { limit: 3 } });
-            const [page, args, total] = db._pageHubOperationalRows(cfg, rows(10));
+            const [page, args, total] = db.pageHubOperationalRows(cfg, rows(10));
             expect(args).to.equal(null);
             expect(total).to.equal(10);
             expect(page.map(r => r.id)).to.deep.equal(['10', '9', '8']);
@@ -308,7 +308,7 @@ describe('db.js RPC-first operational reads', function () {
         it("action 'next': id < start window", function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { limit: 3 }, offset: { action: 'next', start: 8, stop: null } });
-            const [page, , total] = db._pageHubOperationalRows(cfg, rows(10));
+            const [page, , total] = db.pageHubOperationalRows(cfg, rows(10));
             expect(page.map(r => r.id)).to.deep.equal(['7', '6', '5']);
             expect(total).to.equal(10, 'total ignores the cursor window, matching the SQL count query');
         });
@@ -316,21 +316,21 @@ describe('db.js RPC-first operational reads', function () {
         it("action 'prev': id > start, ASC order (reversed downstream)", function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { order: 'ASC', limit: 3 }, offset: { action: 'prev', start: 4, stop: null } });
-            const [page] = db._pageHubOperationalRows(cfg, rows(10));
+            const [page] = db.pageHubOperationalRows(cfg, rows(10));
             expect(page.map(r => r.id)).to.deep.equal(['5', '6', '7']);
         });
 
         it("action 'last': id <= start, ASC order", function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { order: 'ASC', limit: 3 }, offset: { action: 'last', start: 3, stop: null } });
-            const [page] = db._pageHubOperationalRows(cfg, rows(10));
+            const [page] = db.pageHubOperationalRows(cfg, rows(10));
             expect(page.map(r => r.id)).to.deep.equal(['1', '2', '3']);
         });
 
         it('api paging applies apiOffset slice', function () {
             const db  = makeDb(null);
             const cfg = makeConfig({ type: 'api', data: { method: 'getGovernanceVotes', sql: { limit: 3, apiOffset: 3 } } });
-            const [page] = db._pageHubOperationalRows(cfg, rows(10));
+            const [page] = db.pageHubOperationalRows(cfg, rows(10));
             expect(page.map(r => r.id)).to.deep.equal(['7', '6', '5']);
         });
 
@@ -343,7 +343,7 @@ describe('db.js RPC-first operational reads', function () {
         it('normalizes BIGINT id columns to decimal strings on the RPC path', function () {
             const db  = makeDb(null);
             const cfg = listConfig('getValidatorCapabilities', { sql: { limit: 5 } });
-            const [page] = db._pageHubOperationalRows(cfg, [
+            const [page] = db.pageHubOperationalRows(cfg, [
                 { id: 2, capability: 'price',       qualified_at_block: 900001 },
                 { id: 1, capability: 'cross_chain', qualified_at_block: null }
             ]);
@@ -356,7 +356,7 @@ describe('db.js RPC-first operational reads', function () {
         it('leaves a BIGINT column absent from the row shape absent', function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceVotes', { sql: { limit: 5 } });
-            const [page] = db._pageHubOperationalRows(cfg, [{ id: 7, proposal_id: 'p-1', vote: 'approve' }]);
+            const [page] = db.pageHubOperationalRows(cfg, [{ id: 7, proposal_id: 'p-1', vote: 'approve' }]);
             expect(page[0].id).to.equal('7');
             expect(page[0]).to.not.have.property('qualified_at_block');
             expect(page[0]).to.not.have.property('activation_block');
@@ -365,7 +365,7 @@ describe('db.js RPC-first operational reads', function () {
         it('stringifies governance_proposals activation_block', function () {
             const db  = makeDb(null);
             const cfg = listConfig('getGovernanceProposals', { sql: { limit: 5 } });
-            const [page] = db._pageHubOperationalRows(cfg, [{ id: 4, proposal_id: 'p-9', activation_block: 910000 }]);
+            const [page] = db.pageHubOperationalRows(cfg, [{ id: 4, proposal_id: 'p-9', activation_block: 910000 }]);
             expect(page[0].activation_block).to.equal('910000');
         });
     });

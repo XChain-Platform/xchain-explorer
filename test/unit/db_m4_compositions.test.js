@@ -31,7 +31,7 @@
  * asymmetry and the outage posture, all of which are venue-independent.
  *
  * THE MIRROR-SCHEMA ASYMMETRY these tests exist to pin: both tables are
- * reached through _checkpointSource, but `capability_snapshots` is
+ * reached through checkpointSource, but `capability_snapshots` is
  * CHAIN-AGNOSTIC (its key is snapshot_block+capability+signing_pubkey+source;
  * there are no chain/network columns to filter on) while
  * `anchor_reward_attestations` is CHAIN-SCOPED (chain/network are part of
@@ -506,8 +506,8 @@ describe('Database#getAnchor (M4 composed anchor detail)', () => {
         await db.getAnchor(detailConfig('getAnchor', '1006'));
         const q = findQuery(db, '`XChain_Hub`.state_checkpoints sc');
         expect(q).to.exist;
-        const src      = db._checkpointSource(detailConfig('getAnchor', '1006'));
-        const expected = db._latestCheckpointPredicate(src, 'sc').sql.replace(/\s+/g, ' ').trim();
+        const src      = db.checkpointSource(detailConfig('getAnchor', '1006'));
+        const expected = db.latestCheckpointPredicate(src, 'sc').sql.replace(/\s+/g, ' ').trim();
         expect(q.query).to.include(expected);
         // Left-to-right: the height, the outer chain/network filter, then the same
         // pair inside the correlated subquery.

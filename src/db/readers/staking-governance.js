@@ -256,7 +256,7 @@ class StakingGovernanceReaders {
         }
         if(!rows){
             try {
-                let src = this._hubSource(config, 'validators');
+                let src = this.hubSource(config, 'validators');
                 rows = await this.doQuery(config,
                     'SELECT signing_pubkey, addr, chains, status FROM ' + src.table, []);
             } catch(e){
@@ -264,7 +264,7 @@ class StakingGovernanceReaders {
                 rows = null;
             }
         }
-        let caps = await this._federationCapabilityRows(config, ops);
+        let caps = await this.federationCapabilityRows(config, ops);
         if(!Array.isArray(rows) && !Array.isArray(caps)) return null;
         let registry = {};
         for(let row of (Array.isArray(rows) ? rows : [])){
@@ -299,7 +299,7 @@ class StakingGovernanceReaders {
     // capability list view uses. Null means this source is unreachable, which is not
     // an outage by itself: getFederationRegistry needs BOTH sources gone before it
     // reports unknown.
-    async _federationCapabilityRows(config, ops){
+    async federationCapabilityRows(config, ops){
         if(ops && ops.enabled() && typeof ops.getValidatorCapabilities === 'function'){
             try {
                 let rows = await ops.getValidatorCapabilities({});
@@ -309,7 +309,7 @@ class StakingGovernanceReaders {
             }
         }
         try {
-            let src  = this._hubSource(config, 'validator_capabilities');
+            let src  = this.hubSource(config, 'validator_capabilities');
             let rows = await this.doQuery(config,
                 'SELECT signing_pubkey, qualified, self_test_ok, enabled FROM ' + src.table, []);
             return Array.isArray(rows) ? rows : null;
@@ -398,10 +398,10 @@ class StakingGovernanceReaders {
     // Get list of hub-mirrored price_snapshots rows (federation PRICE v0 consensus
     // snapshots replicated by hub_db_sync). Never replicated by xchain-sync, so the
     // read is database-qualified to the mandatory co-located hub schema and fails loud
-    // without one (item 4063); see _oracleMirrorSource.
+    // without one (item 4063); see oracleMirrorSource.
     async getPriceSnapshots(config){
         let sql   = config.data.sql;
-        let src   = this._oracleMirrorSource(config, 'price_snapshots');
+        let src   = this.oracleMirrorSource(config, 'price_snapshots');
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -433,10 +433,10 @@ class StakingGovernanceReaders {
     // prices that feed oracle-priced DISPENSERs. type in {token, address}.
     // Never replicated by xchain-sync, so the read is database-qualified to the
     // mandatory co-located hub schema and fails loud without one (item 4062);
-    // see _oracleMirrorSource.
+    // see oracleMirrorSource.
     async getOraclePrices(config){
         let sql   = config.data.sql;
-        let src   = this._oracleMirrorSource(config, 'oracle_prices');
+        let src   = this.oracleMirrorSource(config, 'oracle_prices');
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -475,7 +475,7 @@ class StakingGovernanceReaders {
     // which is the fee-preference variant, so that join would always be NULL → false 'invalid'.)
     // Like the sibling VM list views (getExecutions/getContracts), this is not in actionTables, so the
     // cursor-offset optimizer no-ops and the list serves the newest page ordered by m.action_index DESC.
-    _controllerUnionSql(){
+    controllerUnionSql(){
         return `
             SELECT
                 c.action_index       AS action_index,
@@ -520,7 +520,7 @@ class StakingGovernanceReaders {
 
     async getControllers(config){
         let sql   = config.data.sql;
-        let union = this._controllerUnionSql();
+        let union = this.controllerUnionSql();
         let count = `SELECT count(*) as total FROM ( ` + union + ` ) m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.action_index,
@@ -1025,11 +1025,11 @@ class StakingGovernanceReaders {
         let sql   = config.data.sql;
         // cross_chain_matches is hub-mirrored: xchain-sync never replicates it, so it is
         // served only from the mandatory co-located hub DB, never from a stale local mirror.
-        // _matchSource throws (fail loud) if no co-located hub DB is configured for this coin.
+        // matchSource throws (fail loud) if no co-located hub DB is configured for this coin.
         // The hub table is multi-network, so a network filter rides along; it appends one `?`
         // AFTER any type filter in sql.where.data, so the returned args must be ordered
         // [<type filter?>, network].
-        let src   = this._matchSource(config);
+        let src   = this.matchSource(config);
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -1189,11 +1189,11 @@ class StakingGovernanceReaders {
                 capability:     config.data.type=='capability' ? config.data.search : undefined,
                 signing_pubkey: config.data.type=='pubkey'     ? config.data.search : undefined
             });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('validator_capabilities');
+            if(rows) return this.pageHubOperationalRows(config, rows);
+            this.hubOperationalOutage('validator_capabilities');
         }
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'validator_capabilities');
+        let src = this.hubSource(config, 'validator_capabilities');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -1225,11 +1225,11 @@ class StakingGovernanceReaders {
                 parameter:   config.data.type=='parameter' ? config.data.search : undefined,
                 proposal_id: config.data.type=='proposal'  ? config.data.search : undefined
             });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('governance_proposals');
+            if(rows) return this.pageHubOperationalRows(config, rows);
+            this.hubOperationalOutage('governance_proposals');
         }
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'governance_proposals');
+        let src = this.hubSource(config, 'governance_proposals');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -1259,11 +1259,11 @@ class StakingGovernanceReaders {
                 proposal_id:  config.data.type=='proposal' ? config.data.search : undefined,
                 voter_pubkey: config.data.type=='voter'    ? config.data.search : undefined
             });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('governance_votes');
+            if(rows) return this.pageHubOperationalRows(config, rows);
+            this.hubOperationalOutage('governance_votes');
         }
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'governance_votes');
+        let src = this.hubSource(config, 'governance_votes');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -1301,7 +1301,7 @@ class StakingGovernanceReaders {
     // explorer-side redaction alone would leak.
     //
     // A configured-but-unreachable hub fails loud past the stale ceiling
-    // (_hubOperationalOutage); the co-located read below serves only the no-hub
+    // (hubOperationalOutage); the co-located read below serves only the no-hub
     // deployment shape. type in {status, pubkey}, matching the hub RPC's two
     // server-side filters exactly, so neither transport post-filters. No 'block'
     // type: round_number is an oracle round (or an attestation pseudo-round), not a
@@ -1313,11 +1313,11 @@ class StakingGovernanceReaders {
                 status:           config.data.type=='status' ? config.data.search : undefined,
                 validator_pubkey: config.data.type=='pubkey' ? config.data.search : undefined
             });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('slash_proposals');
+            if(rows) return this.pageHubOperationalRows(config, rows);
+            this.hubOperationalOutage('slash_proposals');
         }
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'slash_proposals');
+        let src = this.hubSource(config, 'slash_proposals');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -1358,10 +1358,10 @@ class StakingGovernanceReaders {
     // The capability leg follows the established hub DUAL PATH (getValidatorCapabilities):
     // hub JSON-RPC first, the co-located hub schema only on a deployment with no hub
     // endpoint at all, and a CONFIGURED hub unreachable past the stale ceiling throws
-    // through _hubOperationalOutage. That throw is not caught here: an outage rendered as
+    // through hubOperationalOutage. That throw is not caught here: an outage rendered as
     // "this validator qualified for nothing" is a false claim about consensus state.
     async getValidator(config){
-        let limit  = this._detailLimit(config);
+        let limit  = this.detailLimit(config);
         let search = config.data.search;
         let pubkeyRow  = await this.doQuery(config,
             'SELECT id FROM index_pubkeys WHERE pubkey=? LIMIT 1', [search]);
@@ -1531,7 +1531,7 @@ class StakingGovernanceReaders {
             ORDER BY m.id DESC
             LIMIT ` + limit, [pubkey]);
 
-        let claimable = await this._collectTrail(config, source, limit);
+        let claimable = await this.collectTrail(config, source, limit);
 
         // Both slash families. capability_slash_events is the equivocation bond-burn against
         // a CONSENSUS validator (keyed by the signing pubkey directly); slash_events is the
@@ -1622,7 +1622,7 @@ class StakingGovernanceReaders {
             ORDER BY m.id DESC
             LIMIT ` + limit, [pubkey]);
 
-        let capabilities = await this._validatorCapabilityRows(config, pubkey, limit);
+        let capabilities = await this.validatorCapabilityRows(config, pubkey, limit);
 
         // The hub registry decorates, never gates: getFederationRegistry returns null when
         // no registry is reachable at all, and null means UNKNOWN, not "unregistered".
@@ -1665,7 +1665,7 @@ class StakingGovernanceReaders {
     // Accrual (validator_rewards) minus claims (reward_claims), both summed in SQL over an
     // indexed source_id lookup rather than over a fetched page, because a page-local sum
     // would silently under-report the moment a validator has more rows than one page.
-    async _collectTrail(config, source, limit){
+    async collectTrail(config, source, limit){
         let accrued = await this.doQuery(config,
             `SELECT COALESCE(SUM(CAST(m.amount AS DECIMAL(65,18))),0) as total
              FROM validator_rewards m
@@ -1712,14 +1712,14 @@ class StakingGovernanceReaders {
     // composition cannot drift into a second, differently-degrading copy of that rule.
     // The RPC leg filters server-side by signing_pubkey; an EMPTY array back is a legitimate
     // "qualified for nothing", while a null past the stale ceiling is an OUTAGE and throws.
-    async _validatorCapabilityRows(config, pubkey, limit){
+    async validatorCapabilityRows(config, pubkey, limit){
         let ops = this.explorer ? this.explorer.hubOperational : null;
         if(ops && ops.enabled()){
             let rows = await ops.getValidatorCapabilities({ signing_pubkey: pubkey });
-            if(rows) return this._normalizeHubOperationalRows(rows.slice(0, limit));
-            this._hubOperationalOutage('validator_capabilities');
+            if(rows) return this.normalizeHubOperationalRows(rows.slice(0, limit));
+            this.hubOperationalOutage('validator_capabilities');
         }
-        let src  = this._hubSource(config, 'validator_capabilities');
+        let src  = this.hubSource(config, 'validator_capabilities');
         let rows = await this.doQuery(config,
             `SELECT
                 m.id,
@@ -1734,7 +1734,7 @@ class StakingGovernanceReaders {
             WHERE m.signing_pubkey=?
             ORDER BY m.id DESC
             LIMIT ` + limit, [pubkey]);
-        return this._normalizeHubOperationalRows(rows || []);
+        return this.normalizeHubOperationalRows(rows || []);
     }
 
     // Composed ADDRESS STAKING panel (M4.6). One address, four questions the raw tabs below
@@ -1752,7 +1752,7 @@ class StakingGovernanceReaders {
     // for the capability family, `contract_stakes` for the contract family). Scoping both
     // from one ledger would over- or under-report, depending which one was picked.
     async getAddressStaking(config){
-        let limit   = this._detailLimit(config);
+        let limit   = this.detailLimit(config);
         let address = config.data.search;
         if(this.util.isNull(address)) return [null];
         let tip = await this.getMaxBlockIndex(config);
@@ -1849,7 +1849,7 @@ class StakingGovernanceReaders {
             row.matured          = tip >= end;
         }
 
-        let trail = await this._collectTrail(config, address, limit);
+        let trail = await this.collectTrail(config, address, limit);
         let rewards = await this.doQuery(config,
             `SELECT
                 m.id,

@@ -24,7 +24,7 @@
  * THE ROW'S SUBSTANCE (spec §5's corrected pattern for M3.4): capability_snapshots
  * is NOT hub-RPC data. It is self-synced by the explorer into the co-located
  * checkpoint-mirror schema and must be read ONLY via
- * `_checkpointSource(config).capTable` -- never through HubOperationalCache,
+ * `checkpointSource(config).capTable` -- never through HubOperationalCache,
  * never via a new hub RPC call. The milestone acceptance test drives exactly
  * this: the list must answer for a named block WITH THE HUB UNREACHABLE. The
  * "never touches hub RPC" and "answers with hub down" describe blocks below
@@ -109,7 +109,7 @@ describe('Database#getCapabilitySnapshots (M3.4 data leg)', () => {
         expect(query).to.include('`XChain_Hub`.capability_snapshots m');
         expect(count).to.include('`XChain_Hub`.capability_snapshots m');
         // Must read the capTable accessor, never the state_checkpoints table
-        // sibling _checkpointSource also resolves.
+        // sibling checkpointSource also resolves.
         expect(query).to.not.include('.state_checkpoints');
     });
 
@@ -209,11 +209,11 @@ describe('Database#getCapabilitySnapshots (M3.4 data leg)', () => {
         const src = db.getCapabilitySnapshots.toString();
         expect(src).to.not.match(/hubOperational/i);
         expect(src).to.not.match(/HubOperationalCache/i);
-        expect(src).to.not.match(/_pageHubOperationalRows/);
-        expect(src).to.not.match(/_hubOperationalOutage/);
+        expect(src).to.not.match(/pageHubOperationalRows/);
+        expect(src).to.not.match(/hubOperationalOutage/);
         // Confirms it reads the checkpoint-mirror helper, not the RPC-first
-        // _hubSource helper getValidatorCapabilities/getGovernanceProposals use.
-        expect(src).to.match(/_checkpointSource/);
+        // hubSource helper getValidatorCapabilities/getGovernanceProposals use.
+        expect(src).to.match(/checkpointSource/);
     });
 
     it('answers WITH THE HUB UNREACHABLE: resolves purely from the co-located mirror when hub RPC would throw', async () => {

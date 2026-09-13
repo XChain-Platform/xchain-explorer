@@ -321,7 +321,7 @@ class HealthReaders {
     // Split a route code (TBTC / RDOGE / BTC) into { coin, network } using the
     // loaded config's COIN_PREFIXES/COIN_NETWORKS. Returns null when the code
     // doesn't parse (config momentarily unavailable, or an unknown base coin).
-    async _parseCoinCode(code){
+    async parseCoinCode(code){
         try {
             let full     = await this.configInfo.getConfig();
             let networks = full['COIN_NETWORKS'] || {};
@@ -355,14 +355,14 @@ class HealthReaders {
     // fetch failure for one extra TTL so one decoder hiccup doesn't blank the
     // homepage counter. Returns { node_tx_count, total, rows } or null when
     // unconfigured/unreachable with nothing cached.
-    async _getDecoderMempoolSnapshot(config){
+    async getDecoderMempoolSnapshot(config){
         const code = config.coin;
         const ttl  = parseInt(process.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
         const now  = Date.now();
         this._mempoolApiCache = this._mempoolApiCache || {};
         const hit = this._mempoolApiCache[code];
         if(hit && (now - hit.t) < ttl) return hit.v;
-        let parsed = await this._parseCoinCode(code);
+        let parsed = await this.parseCoinCode(code);
         let url    = DecoderConnector.resolveDecoderUrl(
                         parsed ? parsed.coin    : null,
                         parsed ? parsed.network : null,
@@ -378,7 +378,7 @@ class HealthReaders {
             this._mempoolApiCache[code] = { t: now, v };
             return v;
         } catch(e){
-            console.warn('_getDecoderMempoolSnapshot: decoder mempool unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
+            console.warn('getDecoderMempoolSnapshot: decoder mempool unavailable for ' + code + ': ' + (e && e.message ? e.message : e));
             // Serve the stale snapshot once more; refresh the clock so a dead
             // decoder is retried once per TTL, not on every request.
             this._mempoolApiCache[code] = { t: now, v: (hit && hit.v) || null };
@@ -392,12 +392,12 @@ class HealthReaders {
     // know this number (the decoder DB only holds the XChain-carrying subset),
     // so there is deliberately no fallback and callers render null as absent.
     async getNodeMempoolCount(config){
-        let snap = await this._getDecoderMempoolSnapshot(config);
+        let snap = await this.getDecoderMempoolSnapshot(config);
         return (snap && typeof snap.node_tx_count === 'number') ? snap.node_tx_count : null;
     }
 
     // Count of unconfirmed (mempool) transactions for this coin: the decoder
-    // API snapshot when one resolves (see _getDecoderMempoolSnapshot), else the
+    // API snapshot when one resolves (see getDecoderMempoolSnapshot), else the
     // decoder DB's mempool_transactions table. Same access pattern + safety as
     // getDecoderTip (DB-qualified query on the indexer pool; only works when the
     // decoder DB shares the indexer's server/credentials). Returns 0 when the
@@ -408,7 +408,7 @@ class HealthReaders {
     // is a full-scan the public read path can be made to repeat on every hit.
     // A stale prior value is served when the query fails mid-flight.
     async getDecoderMempoolCount(config) {
-        let snap = await this._getDecoderMempoolSnapshot(config);
+        let snap = await this.getDecoderMempoolSnapshot(config);
         if(snap) return snap.total;
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return 0;
@@ -466,10 +466,10 @@ class HealthReaders {
     // and decodeMempoolRow below are the other half of it.
     async getDecoderMempoolRows(config, limit) {
         let max = Math.max(1, Math.min(Number(limit) || 200, 500));
-        // Live path first: the decoder API snapshot (see _getDecoderMempoolSnapshot).
+        // Live path first: the decoder API snapshot (see getDecoderMempoolSnapshot).
         // Its rows carry the same tx_hash/source/data shape this method's DB path
         // returns, plus first_seen (unix seconds, from the decoder's own table).
-        let snap = await this._getDecoderMempoolSnapshot(config);
+        let snap = await this.getDecoderMempoolSnapshot(config);
         if(snap) return snap.rows.slice(0, max);
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if(this.util.isNull(dbName)) return [];

@@ -196,7 +196,7 @@ class ContractReaders {
             // stored hash mismatches its code must not poison (or read) the
             // entry of the code that hash really belongs to.
             let introspected = computedHash === null ? { methods: null, abi: null }
-                : this._cacheGet(this._methodsCache, computedHash);
+                : this.cacheGet(this._methodsCache, computedHash);
             if(introspected === undefined){
                 try {
                     let ex = extractMethods(row.code);
@@ -204,7 +204,7 @@ class ContractReaders {
                 } catch(e){
                     introspected = { methods: null, abi: null };
                 }
-                this._cacheSet(this._methodsCache, computedHash, introspected);
+                this.cacheSet(this._methodsCache, computedHash, introspected);
             }
             row.methods = introspected.methods;
             row.abi     = introspected.abi;
@@ -263,7 +263,7 @@ class ContractReaders {
     // list. Truncated on characters, not bytes, because the consumer is a table
     // cell. The bytes are otherwise the author's own and are hardened at render,
     // never here.
-    _metaSnippet(description){
+    metaSnippet(description){
         const SNIPPET_MAX = 160;
         if(this.util.isNull(description)) return null;
         let s = String(description);

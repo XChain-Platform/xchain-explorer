@@ -81,7 +81,7 @@ const MIRROR_SQL_DIR  = path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirr
 const FIXTURE_SCHEMA  = path.join(__dirname, '..', 'integration', 'fixtures', 'schema.sql');
 
 // Hub-LOCAL operational tables the explorer reads out of the co-located hub
-// schema in the no-hub shape (db.js _hubSource). These are the hub's own
+// schema in the no-hub shape (db.js hubSource). These are the hub's own
 // tables, never vendored here, so their DDL comes from the sibling checkout.
 // The mirror twins (state_checkpoints, capability_snapshots, price_snapshots,
 // oracle_prices, cross_chain_matches, cross_chain_calls,
@@ -460,7 +460,7 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             '/RBTC/api/consensus_state',
             '/RBTC/api/configs',
             // M3: four more callers of the same bare-request shape. commitments and
-            // anchor_reward_attestations carry unconditional _checkpointSource
+            // anchor_reward_attestations carry unconditional checkpointSource
             // placeholders (the exact "phantom search seed drops a real placeholder"
             // risk this test exists for), capability_snapshots binds none, and reorgs
             // binds its own mandatory chain scope.
@@ -529,7 +529,7 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
 
             // First poll seeds cursors from the (empty) real schema. Any bad
             // column in the tip poll throws HERE, exactly like production.
-            await detector._checkCoin('RBTC');
+            await detector.checkCoin('RBTC');
 
             // Index one block with one SEND action, real-schema column names.
             const ledgerHashId = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['conformance-ledger-1']);
@@ -551,7 +551,7 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
             // checkReorgAndInvalidate, getMax*, get*Since AND the lifecycle /
             // entity / attestation emit queries against the real DDL; a
             // schema error in any of them throws and fails the test.
-            await detector._checkCoin('RBTC');
+            await detector.checkCoin('RBTC');
 
             expect(events.block.length, 'NEW_BLOCK feed emitted nothing for a fresh block').to.be.at.least(1);
             expect(Number(events.block[0].block_index)).to.equal(101);

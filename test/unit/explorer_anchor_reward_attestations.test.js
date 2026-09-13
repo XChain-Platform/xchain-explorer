@@ -25,7 +25,7 @@
  * confirmed at src/hub/hub_db_sync.js:224 -- verified directly against the
  * source before writing this file, not assumed from the spec), transported
  * on the SAME terms as state_checkpoints: id-parity INSERT IGNORE, never
- * retracted. It must be read ONLY via a new `_checkpointSource(config)`
+ * retracted. It must be read ONLY via a new `checkpointSource(config)`
  * accessor -- never through HubOperationalCache, never via a new hub RPC.
  * Unlike row 21's capability_snapshots (chain-agnostic, no chain/network
  * columns -- see that row's proposal), the real DDL at
@@ -34,7 +34,7 @@
  * unique key is `(chain, network, reward_type, round_reference,
  * snapshot_block, publisher)`. This table is therefore `table`-shaped (like
  * state_checkpoints), NOT `capTable`-shaped: it DOES need
- * `_checkpointSource().filter` / `.filterParams` bound, chain/network FIRST,
+ * `checkpointSource().filter` / `.filterParams` bound, chain/network FIRST,
  * exactly as getCheckpoints already does. See the proposal file's header for
  * the full citation.
  *
@@ -43,7 +43,7 @@
  * /private/tmp/claude-501/-Users-jdog-Sites-XChain-Platform/2638fcd2-4d57-4275-acf1-aba41d9c05fc/scratchpad/m3-proposal-row24.md
  * (getAnchorRewardAttestations itself, its getQueryWhereSql branch, its
  * cursorPagedMethods / getQueryOffsetSql cursor-map entries, the new
- * `_checkpointSource().rewardTable` accessor, and the getPagingDataResults
+ * `checkpointSource().rewardTable` accessor, and the getPagingDataResults
  * row branch in XChainExplorer.js). Until spliced they are expected to fail
  * (method undefined / branch missing), per the seam contract: written to be
  * run, not to pass vacuously.
@@ -120,7 +120,7 @@ describe('Database#getAnchorRewardAttestations (M3.7 data leg)', () => {
         expect(query).to.include('`XChain_Hub`.anchor_reward_attestations m');
         expect(count).to.include('`XChain_Hub`.anchor_reward_attestations m');
         // Must read the new rewardTable accessor, never the sibling tables
-        // _checkpointSource also resolves.
+        // checkpointSource also resolves.
         expect(query).to.not.include('.state_checkpoints');
         expect(query).to.not.include('.capability_snapshots');
     });
@@ -276,11 +276,11 @@ describe('Database#getAnchorRewardAttestations (M3.7 data leg)', () => {
         const src = db.getAnchorRewardAttestations.toString();
         expect(src).to.not.match(/hubOperational/i);
         expect(src).to.not.match(/HubOperationalCache/i);
-        expect(src).to.not.match(/_pageHubOperationalRows/);
-        expect(src).to.not.match(/_hubOperationalOutage/);
+        expect(src).to.not.match(/pageHubOperationalRows/);
+        expect(src).to.not.match(/hubOperationalOutage/);
         // Confirms it reads the checkpoint-mirror helper, not the RPC-first
-        // _hubSource helper getValidatorCapabilities/getGovernanceProposals use.
-        expect(src).to.match(/_checkpointSource/);
+        // hubSource helper getValidatorCapabilities/getGovernanceProposals use.
+        expect(src).to.match(/checkpointSource/);
     });
 
     it('answers WITH THE HUB UNREACHABLE: resolves purely from the co-located mirror when hub RPC would throw', async () => {
@@ -334,7 +334,7 @@ describe('Database#getAnchorRewardAttestations (M3.7 data leg)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// _checkpointSource: the new rewardTable accessor this row proposes adding.
+// checkpointSource: the new rewardTable accessor this row proposes adding.
 // Verified against the SAME helper getCheckpoints/getCapabilitySnapshotRows
 // already use, never a hand-built schema-qualified string.
 // ─────────────────────────────────────────────────────────────────────────
@@ -344,14 +344,14 @@ describe('Database#_checkpointSource rewardTable accessor (M3.7 addition)', () =
     it('resolves rewardTable to the database-qualified anchor_reward_attestations name', () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const src = db._checkpointSource(makeConfig({ coin: 'BTC' }));
+        const src = db.checkpointSource(makeConfig({ coin: 'BTC' }));
         expect(src.rewardTable).to.equal('`XChain_Hub`.anchor_reward_attestations');
     });
 
     it('still resolves table/capTable unchanged (additive accessor, no regression)', () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const src = db._checkpointSource(makeConfig({ coin: 'BTC' }));
+        const src = db.checkpointSource(makeConfig({ coin: 'BTC' }));
         expect(src.table).to.equal('`XChain_Hub`.state_checkpoints');
         expect(src.capTable).to.equal('`XChain_Hub`.capability_snapshots');
     });
@@ -359,7 +359,7 @@ describe('Database#_checkpointSource rewardTable accessor (M3.7 addition)', () =
     it('rewardTable fails loud with no co-located hub DB configured, same as table/capTable', () => {
         const db = makeRealDb();
         let err = null;
-        try { db._checkpointSource(makeConfig({ coin: 'BTC' })); }
+        try { db.checkpointSource(makeConfig({ coin: 'BTC' })); }
         catch (e) { err = e; }
         expect(err).to.be.an('error');
         expect(err.message).to.match(/co-located hub DB/i);

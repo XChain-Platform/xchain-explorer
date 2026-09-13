@@ -15,7 +15,7 @@
  * (spec explorer-coverage-completion, row 25): the block.html "Commitments"
  * section tying state_tree_roots (this coin's own indexer DB) to the covering
  * state_checkpoints row (the co-located hub-mirror schema, via
- * _checkpointSource) and any local ANCHOR action (anchor_actions) that
+ * checkpointSource) and any local ANCHOR action (anchor_actions) that
  * carried it.
  *
  * These exercise the db.js SQL-generating method directly, the same way
@@ -180,7 +180,7 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         const [query, , count] = await db.getCommitments(commitmentsConfig());
         expect(query).to.not.match(/GROUP BY/i);
         expect(count).to.not.match(/GROUP BY/i);
-        // Checkpoint leg reuses _latestCheckpointPredicate (frontier rows 40/41's fix).
+        // Checkpoint leg reuses latestCheckpointPredicate (frontier rows 40/41's fix).
         expect(query).to.match(/sc\.checkpoint_seq = \(SELECT MAX\(s\.checkpoint_seq\)/);
         // Anchor leg applies the identical shape against anchor_actions.
         expect(query).to.match(/an\.checkpoint_seq = \(SELECT MAX\(a2\.checkpoint_seq\)/);

@@ -16,7 +16,7 @@
  * getActionDataBatch used to overlap up to BATCH_CONCURRENCY unmodified
  * getActionData calls, so a page's DB work stayed O(actions x queries): every
  * index ran its own action-type, three ledger-effect, fee and transaction
- * queries. It now prefetches those legs ONCE for the page (_buildActionPreload)
+ * queries. It now prefetches those legs ONCE for the page (buildActionPreload)
  * and threads them in, leaving only the per-handler detail queries per index.
  *
  * This file is the evidence that the rewrite is payload-neutral, and it is
@@ -182,10 +182,10 @@ describe('getActionData page preload: golden parity', function () {
         // The finding is about total DB work, so measure it, and measure it against a
         // control that REPRODUCES the original failure: without a control, a green
         // number here only certifies that the harness never entered the path.
-        // _buildActionPreload returning null is exactly the pre-change code (every
+        // buildActionPreload returning null is exactly the pre-change code (every
         // preload read in getActionData falls back to its single-index query).
         const realQuery   = database.doQuery.bind(database);
-        const realPreload = database._buildActionPreload.bind(database);
+        const realPreload = database.buildActionPreload.bind(database);
         let count = 0;
         database.doQuery = async function (...args) { count++; return realQuery(...args); };
 
@@ -198,13 +198,13 @@ describe('getActionData page preload: golden parity', function () {
 
         try {
             // Control: the fan-out this finding filed.
-            database._buildActionPreload = async () => null;
+            database.buildActionPreload = async () => null;
             const controlPage = await countPage(ACTION_INDEXES);
             const controlOne  = await countPage([ACTION_INDEXES[0]]);
             const controlPer  = (controlPage - controlOne) / (ACTION_INDEXES.length - 1);
 
             // Fixed: the same page through the real preload.
-            database._buildActionPreload = realPreload;
+            database.buildActionPreload = realPreload;
             const fixedPage = await countPage(ACTION_INDEXES);
             const fixedOne  = await countPage([ACTION_INDEXES[0]]);
             const fixedPer  = (fixedPage - fixedOne) / (ACTION_INDEXES.length - 1);
@@ -222,7 +222,7 @@ describe('getActionData page preload: golden parity', function () {
             expect(fixedPage, 'page still runs O(actions x queries)').to.be.lessThan(controlPage / 2);
         } finally {
             database.doQuery            = realQuery;
-            database._buildActionPreload = realPreload;
+            database.buildActionPreload = realPreload;
             database._actionDataCache.clear();
         }
     });

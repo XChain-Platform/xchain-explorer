@@ -695,7 +695,7 @@ class EntityReaders {
     // the freshness check itself broke. An empty blocks table is a real answer
     // (nothing indexed yet), not a failed probe, so it gets a generation of its
     // own ('none') rather than falling through to null.
-    async _totalsTipGeneration(config){
+    async totalsTipGeneration(config){
         const coin = config.coin;
         const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
         if(!this._totalsTipMemo) this._totalsTipMemo = {};
@@ -739,7 +739,7 @@ class EntityReaders {
     async getActionTotals(config){
         const coin = config.coin;
         const ttl  = parseInt(process.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;
-        const gen  = await this._totalsTipGeneration(config);
+        const gen  = await this.totalsTipGeneration(config);
         // Only the newest generation for a coin is ever useful, so keep one entry per coin
         // and compare its key rather than accumulating an entry per block.
         const key  = (gen === null) ? null : [coin, this._reorgGen[coin] || 0, gen].join('|');
@@ -1334,8 +1334,8 @@ class EntityReaders {
     }
 
     async getAddressId(config, address){
-        let key    = this._cacheKey(config.coin, address);
-        let cached = this._cacheGet(this._addressIdCache, key);
+        let key    = this.cacheKey(config.coin, address);
+        let cached = this.cacheGet(this._addressIdCache, key);
         if(cached !== undefined) return cached;
         let id    = null;
         let args  = [address];
@@ -1349,7 +1349,7 @@ class EntityReaders {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
-        if(id !== null) this._cacheSet(this._addressIdCache, key, id);
+        if(id !== null) this.cacheSet(this._addressIdCache, key, id);
         return id;
     }
 
@@ -1380,8 +1380,8 @@ class EntityReaders {
     // Collating the column alone in the seek predicate would force a full scan.
     // Cached like getAddressId, non-null results only, in its own LRU.
     async getExactAddressId(config, address){
-        let key    = this._cacheKey(config.coin, address);
-        let cached = this._cacheGet(this._exactAddressIdCache, key);
+        let key    = this.cacheKey(config.coin, address);
+        let cached = this.cacheGet(this._exactAddressIdCache, key);
         if(cached !== undefined) return cached;
         let id    = null;
         let args  = [address, address];
@@ -1395,7 +1395,7 @@ class EntityReaders {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
-        if(id !== null) this._cacheSet(this._exactAddressIdCache, key, id);
+        if(id !== null) this.cacheSet(this._exactAddressIdCache, key, id);
         return id;
     }
 
@@ -1424,8 +1424,8 @@ class EntityReaders {
         let str = String(tick);
         if(str.charAt(0) === '^' && this.util.isNumeric(str.substring(1)))
             return Number(str.substring(1));
-        let key    = this._cacheKey(config.coin, tick);
-        let cached = this._cacheGet(this._tickIdCache, key);
+        let key    = this.cacheKey(config.coin, tick);
+        let cached = this.cacheGet(this._tickIdCache, key);
         if(cached !== undefined) return cached;
         let id    = null;
         let args  = [tick];
@@ -1439,7 +1439,7 @@ class EntityReaders {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             id = results[0].id;
-        if(id !== null) this._cacheSet(this._tickIdCache, key, id);
+        if(id !== null) this.cacheSet(this._tickIdCache, key, id);
         return id;
     }
 
@@ -1804,7 +1804,7 @@ class EntityReaders {
     // VARCHAR on this schema and amounts can exceed 2^53, so every figure goes through
     // the bignumber helpers rather than through Number().
     async getRichList(config){
-        let limit = this._detailLimit(config);
+        let limit = this.detailLimit(config);
         let tick  = String(config.data.search || '');
         let tickRow = await this.doQuery(config,
             'SELECT id FROM index_tickers WHERE tick=? LIMIT 1', [tick]);
@@ -1884,7 +1884,7 @@ class EntityReaders {
                 rank:    rank,
                 address: h.address,
                 amount:  h.amount,
-                percent: this._supplyPercent(h.amount, supply)
+                percent: this.supplyPercent(h.amount, supply)
             });
         }
         return [{
@@ -1909,7 +1909,7 @@ class EntityReaders {
             // from a rich list. Null (not 0) when fewer than ten holders were ranked, so
             // "we did not measure this" never reads as "the top ten hold nothing".
             top_ten_percent: (ranked.length >= 10)
-                ? this._supplyPercent(this._supplySum(ranked.slice(0, 10)), supply)
+                ? this.supplyPercent(this.supplySum(ranked.slice(0, 10)), supply)
                 : null,
             holders:         ranked
         }];
@@ -1918,7 +1918,7 @@ class EntityReaders {
     // Sum of a ranked slice's amounts as a fixed-18 STRING, or null when any member is
     // unreadable. Null rather than a partial sum on purpose: a concentration figure
     // computed over nine of ten balances is wrong, not approximate.
-    _supplySum(rows){
+    supplySum(rows){
         try {
             let acc = '0';
             for(const r of rows) acc = this.util.bcformat(this.util.bcadd(acc, String(r.amount), 18), 18);
@@ -1931,7 +1931,7 @@ class EntityReaders {
     // Percent of `supply` that `amount` represents, as a fixed-8 STRING. Null when the
     // supply is zero or unreadable: a percentage of nothing is undefined, and returning
     // 0 there would render as "holds none of it" for an address that holds all of it.
-    _supplyPercent(amount, supply){
+    supplyPercent(amount, supply){
         if(this.util.isNull(amount) || this.util.isNull(supply)) return null;
         // Both figures arrive from VARCHAR columns, so a malformed row is a real
         // possibility and mathjs THROWS on one rather than returning NaN. A percentage

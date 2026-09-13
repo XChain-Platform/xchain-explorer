@@ -113,7 +113,7 @@ describe('ATTEST expiry: in-block correlation of the v2 expire action', () => {
 
     it('ranks the block\'s expire actions against its expired requests, in the sweep order', async () => {
         const db = stubQueries(makeDb(), twoExpiries());
-        const pairs = await db._correlateAttestationExpiries(detailConfig('getAttestation', REQ_A), 1480);
+        const pairs = await db.correlateAttestationExpiries(detailConfig('getAttestation', REQ_A), 1480);
         expect(pairs.map(p => [p.expire_action_index, p.request.request_id]))
             .to.deep.equal([[461, REQ_A], [470, REQ_B]]);
 
@@ -131,18 +131,18 @@ describe('ATTEST expiry: in-block correlation of the v2 expire action', () => {
         const plan = twoExpiries();
         plan[1][1] = [plan[1][1][0]];   // one expired request, two expire actions
         const db = stubQueries(makeDb(), plan);
-        const pairs = await db._correlateAttestationExpiries(detailConfig('getAttestation', REQ_A), 1480);
+        const pairs = await db.correlateAttestationExpiries(detailConfig('getAttestation', REQ_A), 1480);
         expect(pairs).to.deep.equal([]);
     });
 
     it('resolves the expire action for one request, and null for a request that did not expire', async () => {
         const db = stubQueries(makeDb(), twoExpiries());
         const cfg = detailConfig('getAttestation', REQ_B);
-        expect(await db._resolveAttestationExpireAction(cfg,
+        expect(await db.resolveAttestationExpireAction(cfg,
             { request_id: REQ_B, request_status: 'expired', resolved_block: 1480 })).to.equal(470);
         // A pending request must not even read the block: it has no expiry to name.
         db.doQuery.resetHistory();
-        expect(await db._resolveAttestationExpireAction(cfg,
+        expect(await db.resolveAttestationExpireAction(cfg,
             { request_id: REQ_B, request_status: 'pending', resolved_block: null })).to.equal(null);
         expect(db.doQuery.called).to.equal(false);
     });
@@ -161,7 +161,7 @@ describe('ATTEST expiry: the injected callback EXECUTE', () => {
 
     it('matches the callback on contract, method and the request id as first parameter', async () => {
         const db = stubQueries(makeDb(), [[CALLBACK_EXEC, [{ action_index: 462 }]]]);
-        const idx = await db._deriveAttestationCallbackExecute(detailConfig('getAttestation', REQ_A), request);
+        const idx = await db.deriveAttestationCallbackExecute(detailConfig('getAttestation', REQ_A), request);
         expect(idx).to.equal(462);
         const q = findQuery(db, CALLBACK_EXEC);
         expect(q.query).to.include("m.input_params LIKE CONCAT(?, '|%')");
@@ -171,7 +171,7 @@ describe('ATTEST expiry: the injected callback EXECUTE', () => {
 
     it('never lets a non-hex id reach the LIKE pattern', async () => {
         const db = stubQueries(makeDb(), [[CALLBACK_EXEC, [{ action_index: 462 }]]]);
-        const idx = await db._deriveAttestationCallbackExecute(detailConfig('getAttestation', REQ_A),
+        const idx = await db.deriveAttestationCallbackExecute(detailConfig('getAttestation', REQ_A),
             { request_id: '%', contract_index: 12, callback_method: 'onPrice' });
         expect(idx).to.equal(null);
         expect(db.doQuery.called, 'a wildcard id was handed to the pattern').to.equal(false);
@@ -179,7 +179,7 @@ describe('ATTEST expiry: the injected callback EXECUTE', () => {
 
     it('returns null for a request that named no callback method', async () => {
         const db = stubQueries(makeDb(), [[CALLBACK_EXEC, [{ action_index: 462 }]]]);
-        expect(await db._deriveAttestationCallbackExecute(detailConfig('getAttestation', REQ_A),
+        expect(await db.deriveAttestationCallbackExecute(detailConfig('getAttestation', REQ_A),
             { request_id: REQ_A, contract_index: 12, callback_method: null })).to.equal(null);
         expect(db.doQuery.called).to.equal(false);
     });

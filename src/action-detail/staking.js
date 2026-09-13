@@ -112,7 +112,7 @@ const DELEGATE = {
     async afterMain({ db, config }, data) {
         let fmt = Number(data['action_format']);
         if((fmt===2 || fmt===3) && db.util.isNull(data['signing_pubkey']) && db.util.isNull(data['revoked_pubkey'])){
-            let seg = db._parseDelegateRevokeWire(data['wire_data'], fmt);
+            let seg = db.parseDelegateRevokeWire(data['wire_data'], fmt);
             if(seg && seg.pubkey){
                 data['signing_pubkey'] = seg.pubkey;
                 let prow;

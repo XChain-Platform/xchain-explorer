@@ -125,7 +125,7 @@ class Database {
         // Per-coin tip memo backing the getData result-cache generation token.
         // The cached list methods read tables the indexer only rewrites when a
         // block is applied, so the tip height is exactly the generation those
-        // results belong to; see _resultCacheGeneration.
+        // results belong to; see resultCacheGeneration.
         this._tipMemo  = {};
         // AST introspection ({methods, abi} pair) is a pure function of the
         // contract source, and code is immutable once deployed, so cache by

@@ -241,7 +241,7 @@ class XcallReaders {
     // it (if any). The three legs live in three places and are not casually joinable:
     // state_tree_roots is this coin's own indexer DB (no action chain, one row per block,
     // unique on (chain, network, block_index)); state_checkpoints is the co-located
-    // hub-mirror schema reached via _checkpointSource, DB-qualified but on the SAME
+    // hub-mirror schema reached via checkpointSource, DB-qualified but on the SAME
     // connection pool as the indexer DB (checkpointDb is registered ONLY when it shares
     // host/port/user/pass with that pool), which is exactly what the co-location guarantee
     // is FOR; anchor_actions is this same coin's own local indexer DB, parsed from the
@@ -251,7 +251,7 @@ class XcallReaders {
     // Both decoration legs are LEFT JOINs correlated on this row's own block_index, so a
     // block with no covering checkpoint yet (normal near the tip: checkpoints cut on a
     // cadence) or no carrying ANCHOR yet (anchoring batches several heights) comes back
-    // with those columns NULL rather than the row vanishing. _checkpointSource still
+    // with those columns NULL rather than the row vanishing. checkpointSource still
     // throws when this coin has no co-located hub DB configured at ALL, which is a
     // deployment misconfiguration and a different case entirely.
     //
@@ -260,9 +260,9 @@ class XcallReaders {
     // the anchor leg's own latest-checkpoint_seq-per-height lookup.
     async getCommitments(config){
         let sql      = config.data.sql;
-        let src      = this._checkpointSource(config);
+        let src      = this.checkpointSource(config);
         let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
-        let latest   = this._latestCheckpointPredicate(src, 'sc');
+        let latest   = this.latestCheckpointPredicate(src, 'sc');
         // anchor_actions.chain/network name the CHECKPOINTED chain (the same convention
         // state_checkpoints uses), not the chain the ANCHOR transaction landed on, so this
         // coin's own (chain, network) identity is the correct filter here too: block_index
@@ -400,7 +400,7 @@ class XcallReaders {
     //
     // The rank machinery is only load-bearing for a block that expired several requests
     // at once; the common block carries one of each.
-    async _correlateAttestationExpiries(config, blockIndex){
+    async correlateAttestationExpiries(config, blockIndex){
         if(this.util.isNull(blockIndex)) return [];
         // Bounded well above the indexer's per-block expiry cap
         // (ATTEST_MAX_EXPIRIES_PER_BLOCK = 25) so a raised cap widens the read instead of
@@ -438,17 +438,17 @@ class XcallReaders {
     }
 
     // The v2 expire action that retired one v0 request row, or null when the block's
-    // two lists do not line up (see _correlateAttestationExpiries).
-    async _resolveAttestationExpireAction(config, request){
+    // two lists do not line up (see correlateAttestationExpiries).
+    async resolveAttestationExpireAction(config, request){
         if(!request || String(request.request_status) !== 'expired') return null;
-        let pairs = await this._correlateAttestationExpiries(config, request.resolved_block);
+        let pairs = await this.correlateAttestationExpiries(config, request.resolved_block);
         let hit   = pairs.find(p => p.request && String(p.request.request_id) === String(request.request_id));
         return (hit) ? hit.expire_action_index : null;
     }
 
     // The inverse read, for the ACTION page of a v2: the v0 request this expire retired.
     async resolveAttestationExpireRequest(config, expireActionIndex, blockIndex){
-        let pairs = await this._correlateAttestationExpiries(config, blockIndex);
+        let pairs = await this.correlateAttestationExpiries(config, blockIndex);
         let hit   = pairs.find(p => Number(p.expire_action_index) === Number(expireActionIndex));
         return (hit) ? hit.request : null;
     }
@@ -456,7 +456,7 @@ class XcallReaders {
     // Seed the lifecycle page from a v2 expire's own action_index. Reads the action's
     // block (the expire writes no attests row, so there is nothing else to key on) and
     // hands back the correlated v0 request row.
-    async _seedAttestationFromExpireAction(config, actionIndex){
+    async seedAttestationFromExpireAction(config, actionIndex){
         if(!this.util.isNumeric(actionIndex)) return null;
         let rows = await this.doQuery(config,
             `SELECT
@@ -484,7 +484,7 @@ class XcallReaders {
     //
     // The id is re-validated as 64 hex before it reaches the LIKE: a request_id is the
     // only user-influenced part of the pattern and hex carries no % or _ wildcard.
-    async _deriveAttestationCallbackExecute(config, request){
+    async deriveAttestationCallbackExecute(config, request){
         if(!request) return null;
         let requestId = String(request.request_id || '').toLowerCase();
         if(!/^[0-9a-f]{64}$/.test(requestId)) return null;
@@ -518,7 +518,7 @@ class XcallReaders {
     // relay block below names them rather than issuing a second query for rows that are by
     // construction on ANOTHER chain's indexer DB.
     async getAttestation(config){
-        let limit  = this._detailLimit(config);
+        let limit  = this.detailLimit(config);
         let search = config.data.search;
         let requestId = null;
         if(this.util.isNumeric(search)){
@@ -526,7 +526,7 @@ class XcallReaders {
             // A v2 expire has no attests row, so the point read answers nothing for it and
             // the lifecycle page for the expire's own action_index rendered NOT FOUND. The
             // in-block correlation resolves it to the request it retired.
-            if(!seed) seed = await this._seedAttestationFromExpireAction(config, Number(search));
+            if(!seed) seed = await this.seedAttestationFromExpireAction(config, Number(search));
             if(!seed) return [null];
             requestId = seed.request_id;
         } else {
@@ -599,10 +599,10 @@ class XcallReaders {
             catch(e){ request.callback_params = request.callback_params_json; }
             // The responsible set was PINNED as-of the request block; it is the electorate a
             // reader checks the response signatures against, so it is parsed, not echoed raw.
-            request.responsible_set = this._parseSignaturesArray(request.responsible_set_json);
+            request.responsible_set = this.parseSignaturesArray(request.responsible_set_json);
         }
         if(response)
-            response.quorum_signatures = this._parseSignaturesArray(response.validator_signatures);
+            response.quorum_signatures = this.parseSignaturesArray(response.validator_signatures);
 
         let status = (request) ? request.request_status : null;
 
@@ -615,9 +615,9 @@ class XcallReaders {
         let callbackDerived = false;
         let expireAction    = null;
         if(request && status === 'expired'){
-            expireAction = await this._resolveAttestationExpireAction(config, request);
+            expireAction = await this.resolveAttestationExpireAction(config, request);
             if(this.util.isNull(callbackIndex)){
-                callbackIndex   = await this._deriveAttestationCallbackExecute(config, request);
+                callbackIndex   = await this.deriveAttestationCallbackExecute(config, request);
                 callbackDerived = !this.util.isNull(callbackIndex);
             }
         }
@@ -660,7 +660,7 @@ class XcallReaders {
     // Three legs beyond the payload, and each reads a DIFFERENT source:
     //   - the covering hub-mirror state_checkpoints row, through the SAME correlated
     //     latest-checkpoint_seq-per-height predicate getCheckpoints/getCommitments use
-    //     (_latestCheckpointPredicate), never a fourth differently-bounded variant;
+    //     (latestCheckpointPredicate), never a fourth differently-bounded variant;
     //   - the publisher ELECTION, from capability_snapshots at this anchor's snapshot_block.
     //     That table is CHAIN-AGNOSTIC (no chain/network columns; its key is
     //     snapshot_block+capability+signing_pubkey+source), so src.filter/filterParams are
@@ -674,7 +674,7 @@ class XcallReaders {
     // archive_b64 is never selected. It is a MEDIUMTEXT gzip chunk with nothing legible in
     // it; its LENGTH and crc32 are what a reader can actually check an archive against.
     async getAnchor(config){
-        let limit  = this._detailLimit(config);
+        let limit  = this.detailLimit(config);
         let search = config.data.search;
         let numeric   = this.util.isNumeric(search);
         let predicate = numeric ? 'm.action_index=?' : 't2.hash=?';
@@ -726,11 +726,11 @@ class XcallReaders {
             LIMIT 1`, [key]);
         if(!rows || !rows.length) return [null];
         let row = rows[0];
-        row.validator_signatures   = this._parseSignaturesArray(row.validator_signatures);
+        row.validator_signatures   = this.parseSignaturesArray(row.validator_signatures);
         // The v4/v5/v6 XANCPUB tail is RAW WIRE transport, not the quorum-verified subset
         // (anchor_actions.sql), so it is parsed for display and named as attestations to
         // re-verify, never presented as a verified quorum.
-        row.publisher_attestations = this._parseSignaturesArray(row.publisher_attestations);
+        row.publisher_attestations = this.parseSignaturesArray(row.publisher_attestations);
 
         // A v0 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
         // N sibling rows sharing one action_index at section_index 0..N-1. Each row holds
@@ -773,7 +773,7 @@ class XcallReaders {
                 ORDER BY m.section_index ASC
                 LIMIT ` + limit, [Number(row.action_index)]) || [];
             row.sections = sections.map(s => {
-                s.validator_signatures = this._parseSignaturesArray(s.validator_signatures);
+                s.validator_signatures = this.parseSignaturesArray(s.validator_signatures);
                 return s;
             });
             if(row.sections.length){
@@ -805,9 +805,9 @@ class XcallReaders {
                 ORDER BY m.chunk_index ASC
                 LIMIT ` + limit, [row.match_batch_seq]) || [];
 
-        let src         = this._checkpointSource(config);
+        let src         = this.checkpointSource(config);
         let scFilter    = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
-        let latest      = this._latestCheckpointPredicate(src, 'sc');
+        let latest      = this.latestCheckpointPredicate(src, 'sc');
         // The anchor names the CHECKPOINTED height on the CHECKPOINTED chain, which is what
         // state_checkpoints is keyed by too, so this coin's own (chain, network) identity is
         // the right filter here (the same reasoning getCommitments' anchor leg carries).
@@ -881,7 +881,7 @@ class XcallReaders {
             LIMIT ` + limit, rewardArgs) || [];
 
         row.chunks             = chunks;
-        row.checkpoint         = (checkpoint.length) ? this._normalizeCheckpointRows(checkpoint)[0] : null;
+        row.checkpoint         = (checkpoint.length) ? this.normalizeCheckpointRows(checkpoint)[0] : null;
         row.publisher_election = electorate;
         row.reward_attestations = rewards;
         return [row];

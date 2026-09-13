@@ -44,7 +44,7 @@ describe('action LRU skips responses carrying a live state block', function () {
 
     it('caches an action with no state block (SEND, immutable once confirmed)', function () {
         const db = makeDb();
-        expect(db._isCacheableAction({ action: 'SEND', action_index: 7 })).to.equal(true);
+        expect(db.isCacheableAction({ action: 'SEND', action_index: 7 })).to.equal(true);
     });
 
     it('[REGRESSION] refuses to cache a DISPENSER, whose state keeps changing', function () {
@@ -55,15 +55,15 @@ describe('action LRU skips responses carrying a live state block', function () {
             give_escrow: '200',
             state: { give_remaining: '200', status: 'open' },
         };
-        expect(db._isCacheableAction(dispenser)).to.equal(false);
+        expect(db.isCacheableAction(dispenser)).to.equal(false);
     });
 
     it('[REGRESSION] refuses to cache ORDER and SWAP for the same reason', function () {
         const db = makeDb();
         const order = { action: 'ORDER', state: { give_remaining: '5', get_remaining: '5' } };
         const swap  = { action: 'SWAP',  state: { give_remaining: '1', get_remaining: '1' } };
-        expect(db._isCacheableAction(order)).to.equal(false);
-        expect(db._isCacheableAction(swap)).to.equal(false);
+        expect(db.isCacheableAction(order)).to.equal(false);
+        expect(db.isCacheableAction(swap)).to.equal(false);
     });
 
     it('treats an empty-string or null state as cacheable rather than throwing', function () {
@@ -72,9 +72,9 @@ describe('action LRU skips responses carrying a live state block', function () {
         // previously passed `{ state }` alone, which is also the
         // shape of a NOT-FOUND. The property being pinned here is unchanged:
         // odd `state` values are answered, not thrown on.
-        expect(db._isCacheableAction({ action_index: 7, state: null })).to.equal(true);
-        expect(db._isCacheableAction({ action_index: 7, state: '' })).to.equal(true);
-        expect(db._isCacheableAction(null)).to.equal(false);
+        expect(db.isCacheableAction({ action_index: 7, state: null })).to.equal(true);
+        expect(db.isCacheableAction({ action_index: 7, state: '' })).to.equal(true);
+        expect(db.isCacheableAction(null)).to.equal(false);
     });
 
     // The sibling of the defect above, in the other direction: the LRU was also
@@ -95,13 +95,13 @@ describe('action LRU skips responses carrying a live state block', function () {
     describe('[REGRESSION] a not-yet-indexed action must not be memoized', function () {
         it('refuses the blank getActionData builds when the action has no row', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({ credits: null, debits: null, escrows: null, fee: null }))
+            expect(db.isCacheableAction({ credits: null, debits: null, escrows: null, fee: null }))
                 .to.equal(false);
         });
 
         it('accepts the same response once the action exists', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'DEPLOY', action_index: 2206, credits: null, debits: null,
                 escrows: null, fee: null,
             })).to.equal(true);
@@ -109,14 +109,14 @@ describe('action LRU skips responses carrying a live state block', function () {
 
         it('a miss stays absent from the LRU, so the next read recomputes', function () {
             const db  = makeDb();
-            const key = db._cacheKey('BTC', 2206);
+            const key = db.cacheKey('BTC', 2206);
             const miss = { credits: null, debits: null, escrows: null, fee: null };
-            if (db._isCacheableAction(miss)) db._cacheSet(db._actionDataCache, key, miss);
-            expect(db._cacheGet(db._actionDataCache, key)).to.be.undefined;
+            if (db.isCacheableAction(miss)) db.cacheSet(db._actionDataCache, key, miss);
+            expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
             // ...and the real row, once written, caches normally.
             const real = Object.assign({ action: 'DEPLOY', action_index: 2206 }, miss);
-            if (db._isCacheableAction(real)) db._cacheSet(db._actionDataCache, key, real);
-            expect(db._cacheGet(db._actionDataCache, key)).to.deep.equal(real);
+            if (db.isCacheableAction(real)) db.cacheSet(db._actionDataCache, key, real);
+            expect(db.cacheGet(db._actionDataCache, key)).to.deep.equal(real);
         });
     });
 
@@ -135,7 +135,7 @@ describe('action LRU skips responses carrying a live state block', function () {
 
         it('refuses a pending ATTEST request, whose request_status still flips', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'ATTEST', action_index: 460, version: 0,
                 request_id: 'ab'.repeat(32), request_status: 'pending',
                 deadline_block: 1200, resolved_block: null, response_status: null,
@@ -144,7 +144,7 @@ describe('action LRU skips responses carrying a live state block', function () {
 
         it('refuses the same ATTEST once expired, since the shape cannot prove a value is terminal', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'ATTEST', action_index: 460, version: 0,
                 request_status: 'expired', resolved_block: 1201,
             })).to.equal(false);
@@ -152,7 +152,7 @@ describe('action LRU skips responses carrying a live state block', function () {
 
         it('refuses a pending XCALL, whose request_status and result_status both land later', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'XCALL', action_index: 512, version: 0, call_id: 'cd'.repeat(32),
                 request_status: 'pending', result_status: null, resolved_block: null,
                 execution: null, callback_delivery: null,
@@ -161,14 +161,14 @@ describe('action LRU skips responses carrying a live state block', function () {
 
         it('refuses a VOTE poll and a BET feed/wager, the same defect on other columns', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'VOTE', action_index: 700, vote_kind: 'poll',
                 poll_status: 'open', total_voters: 0, resolved_block: null,
             })).to.equal(false);
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'BET', action_index: 701, bet_kind: 'feed', feed_status: 'open',
             })).to.equal(false);
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'BET', action_index: 702, bet_kind: 'bet',
                 bet_status: 'open', settled_block: null,
             })).to.equal(false);
@@ -176,7 +176,7 @@ describe('action LRU skips responses carrying a live state block', function () {
 
         it('refuses a DELEGATE, whose deactivation_block is written by a later revoke', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({
+            expect(db.isCacheableAction({
                 action: 'DELEGATE', action_index: 703,
                 activation_block: 900, deactivation_block: null,
             })).to.equal(false);
@@ -186,7 +186,7 @@ describe('action LRU skips responses carrying a live state block', function () {
         // read that goes stale. A value test would cache exactly the wrong rows.
         it('a null lifecycle field blocks caching just as a populated one does', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({ action: 'XCALL', action_index: 512, resolved_block: null }))
+            expect(db.isCacheableAction({ action: 'XCALL', action_index: 512, resolved_block: null }))
                 .to.equal(false);
         });
 
@@ -194,17 +194,17 @@ describe('action LRU skips responses carrying a live state block', function () {
         // reason the LRU exists at all.
         it('still caches the action types that carry no lifecycle column', function () {
             const db = makeDb();
-            expect(db._isCacheableAction({ action: 'SEND', action_index: 7, status: 'valid' })).to.equal(true);
-            expect(db._isCacheableAction({ action: 'ISSUE', action_index: 8, status: 'valid', tick: 'PEPECREATURE' }))
+            expect(db.isCacheableAction({ action: 'SEND', action_index: 7, status: 'valid' })).to.equal(true);
+            expect(db.isCacheableAction({ action: 'ISSUE', action_index: 8, status: 'valid', tick: 'PEPECREATURE' }))
                 .to.equal(true);
         });
 
         it('a pending ATTEST stays absent from the LRU, so the next read sees the expiry', function () {
             const db  = makeDb();
-            const key = db._cacheKey('RDOGE', 460);
+            const key = db.cacheKey('RDOGE', 460);
             const pending = { action: 'ATTEST', action_index: 460, request_status: 'pending' };
-            if (db._isCacheableAction(pending)) db._cacheSet(db._actionDataCache, key, pending);
-            expect(db._cacheGet(db._actionDataCache, key)).to.be.undefined;
+            if (db.isCacheableAction(pending)) db.cacheSet(db._actionDataCache, key, pending);
+            expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
         });
 
         // Drift guard: a field listed here that no detail handler selects is dead
@@ -225,13 +225,13 @@ describe('action LRU skips responses carrying a live state block', function () {
 
     it('a state-bearing action stays absent from the LRU, so a later read recomputes', function () {
         const db  = makeDb();
-        const key = db._cacheKey('BTC', 3508);
+        const key = db.cacheKey('BTC', 3508);
         // What getActionData does now: consult the cache, then write back only
         // when the response is cacheable.
-        expect(db._cacheGet(db._actionDataCache, key)).to.be.undefined;
+        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
         const fresh = { action: 'DISPENSER', state: { give_remaining: '0', status: 'empty' } };
-        if (db._isCacheableAction(fresh))
-            db._cacheSet(db._actionDataCache, key, fresh);
-        expect(db._cacheGet(db._actionDataCache, key)).to.be.undefined;
+        if (db.isCacheableAction(fresh))
+            db.cacheSet(db._actionDataCache, key, fresh);
+        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
     });
 });

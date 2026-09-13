@@ -216,7 +216,7 @@ function completed() {
 // (ATTEST v2 writes none), resolved_block stamped at the sweep.
 // EXPIRED, with the expire action and the injected callback UNRESOLVED. The server
 // leaves both null when the block's expire actions and expired requests do not line
-// up (db._correlateAttestationExpiries refuses to guess), so this is the shape the
+// up (db.correlateAttestationExpiries refuses to guess), so this is the shape the
 // page must still render without inventing a link.
 function expired() {
     const req = requestLeg({ request_status: 'expired', resolved_block: 901, callback_execute_action_index: null });

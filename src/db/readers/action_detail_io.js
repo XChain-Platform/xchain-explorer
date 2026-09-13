@@ -94,7 +94,7 @@ class ActionDetailReaders {
     // wire is absent/unparseable. Locates the `DELEGATE|<fmt>|...` segment so it works
     // for a standalone DELEGATE and one nested in a BATCH (`VERSION|CMD;CMD`); the
     // 64-hex signing pubkey is a fixed-width token, so the match is unambiguous.
-    _parseDelegateRevokeWire(wire, fmt){
+    parseDelegateRevokeWire(wire, fmt){
         if(this.util.isNull(wire)) return null;
         let str = String(wire);
         if(Number(fmt)===3){
@@ -111,7 +111,7 @@ class ActionDetailReaders {
     // configured coin, which callers must treat as "cannot mirror consensus
     // here" rather than as mainnet.
     // @param {config}  object  request config carrying the route code in .coin
-    async _resolveCoinNetwork(config){
+    async resolveCoinNetwork(config){
         let code = String((config && config.coin) || '').toUpperCase();
         if(!code) return null;
         let full     = await this.configInfo.getConfig();
@@ -227,10 +227,10 @@ class ActionDetailReaders {
     // below the flag day consensus still reads the pinned create's rows and the
     // explorer must not advertise a rule the chain is not applying yet. An
     // unresolvable coin/network is treated as inactive (the safe side).
-    async _isListEditResolutionActiveAtTip(config){
+    async isListEditResolutionActiveAtTip(config){
         let resolved = null;
         try {
-            resolved = await this._resolveCoinNetwork(config);
+            resolved = await this.resolveCoinNetwork(config);
         } catch(e){ /* config momentarily unavailable: fall through to inactive */ }
         if(!resolved) return false;
         let tip = await this.getMaxBlockIndex(config);
@@ -253,7 +253,7 @@ class ActionDetailReaders {
     // @param {action_index}  integer  ACTION_INDEX of the LIST action being viewed
     // @param {type}          integer  list type (1 = tick, 2 = address)
     async getListCurrentMembership(config, action_index, type){
-        let active = await this._isListEditResolutionActiveAtTip(config);
+        let active = await this.isListEditResolutionActiveAtTip(config);
         let state  = { edit_resolution_active: active, membership_action_index: Number(action_index), current_list: null };
         if(!active) return state;
         let head = await this.getListHeadIndex(config, action_index);
@@ -276,7 +276,7 @@ class ActionDetailReaders {
         return state;
     }
 
-    // @param {object} preload  optional page-level prefetch from _buildActionPreload.
+    // @param {object} preload  optional page-level prefetch from buildActionPreload.
     //                          Every leg it carries is OPTIONAL: an
     //                          index or tx_hash it does not cover falls through to
     //                          the single-index query, so the payload is the same
@@ -285,15 +285,15 @@ class ActionDetailReaders {
         // Check LRU cache first. Action data is immutable once confirmed, but a
         // reorg can reassign action_index, so the key carries coin + reorg
         // generation (action_index is per-coin, and a reorg bumps the generation
-        // to invalidate; see _cacheKey / bumpReorgGeneration).
+        // to invalidate; see cacheKey / bumpReorgGeneration).
         //
         // "Immutable once confirmed" does NOT hold for the responses that carry a
         // live `state` block (DISPENSER, ORDER, SWAP): give_remaining, status,
         // expiration and the allow/block lists are all recomputed from LATER
         // dispenses, matches, edits and closes. Those are not written back here -
-        // see the _cacheSet guard at the end of this method - so this lookup only
+        // see the cacheSet guard at the end of this method - so this lookup only
         // ever returns a genuinely immutable action.
-        let cached = this._cacheGet(this._actionDataCache, this._cacheKey(config.coin, action_index));
+        let cached = this.cacheGet(this._actionDataCache, this.cacheKey(config.coin, action_index));
         if(cached !== undefined) return structuredClone(cached);
         let coinConfigs = await this.configInfo.getConfig()
         let data = {
@@ -374,8 +374,8 @@ class ActionDetailReaders {
         // a fully-drained, closed dispenser kept serving `give_remaining: 200, status: open`
         // until the explorer restarted, letting the wallet's detail page show a buyer an
         // open dispenser they could pay for nothing).
-        if(this._isCacheableAction(data))
-            this._cacheSet(this._actionDataCache, this._cacheKey(config.coin, action_index), structuredClone(data));
+        if(this.isCacheableAction(data))
+            this.cacheSet(this._actionDataCache, this.cacheKey(config.coin, action_index), structuredClone(data));
         return data;
     }
 
@@ -811,7 +811,7 @@ class ActionDetailReaders {
     // set are equal by construction and a page of non-ledger actions queries none of them.
     // Per-handler detail queries are deliberately untouched: they differ per action type
     // and batching them is the high-risk half of this change.
-    async _buildActionPreload(config, action_indexes){
+    async buildActionPreload(config, action_indexes){
         let idxs = (action_indexes || []).map((i) => Number(i));
         if(!idxs.length) return null;
         let preload = {
@@ -925,8 +925,8 @@ class ActionDetailReaders {
         // per-handler detail queries still fan out. Indexes already in the LRU are
         // excluded, so a warm page prefetches nothing, and at a single cold index the
         // query count is unchanged (the type and tx legs merge into one meta query).
-        let cold = distinct.filter((idx) => this._cacheGet(this._actionDataCache, this._cacheKey(config.coin, idx)) === undefined);
-        let preload = (cold.length) ? await this._buildActionPreload(config, cold) : null;
+        let cold = distinct.filter((idx) => this.cacheGet(this._actionDataCache, this.cacheKey(config.coin, idx)) === undefined);
+        let preload = (cold.length) ? await this.buildActionPreload(config, cold) : null;
         let out = new Map();
         let cursor = 0;
         const worker = async () => {
@@ -1150,7 +1150,7 @@ class ActionDetailReaders {
                         contract_address: 'C:' + chain + ':' + row.action_index,
                         meta_name:        this.util.isNull(row.meta_name)    ? null : row.meta_name,
                         meta_version:     this.util.isNull(row.meta_version) ? null : row.meta_version,
-                        snippet:          this._metaSnippet(row.meta_description)
+                        snippet:          this.metaSnippet(row.meta_description)
                     }));
                 }
             }
@@ -1330,7 +1330,7 @@ class ActionDetailReaders {
     // Render a derived amount as a plain decimal string. mathjs bignumbers
     // stringify to exponential notation below 1e-7 ('3e-8'), which no client
     // parses as an amount, so 18-decimal dust would render unusable.
-    _amountString(value){
+    amountString(value){
         if(this.util.isNull(value)) return null;
         return (value && typeof value.toFixed === 'function') ? value.toFixed() : String(value);
     }
@@ -1417,8 +1417,8 @@ class ActionDetailReaders {
                 entry.escrow_remaining = this.util.bcsub(entry.escrow_remaining, row.give_amount, 64);
         }
         for(let key of Object.keys(map)){
-            map[key].give_escrow      = this._amountString(map[key].give_escrow);
-            map[key].escrow_remaining = this._amountString(map[key].escrow_remaining);
+            map[key].give_escrow      = this.amountString(map[key].give_escrow);
+            map[key].escrow_remaining = this.amountString(map[key].escrow_remaining);
         }
         return map;
     }
@@ -1647,7 +1647,7 @@ class ActionDetailReaders {
     // Every row is given the key unconditionally and up front, so a subscriber
     // never has to tell "no destinations" from "the lookup failed" from "the field
     // is missing": all three are `[]`.
-    async _attachActionDestinations(config, rows){
+    async attachActionDestinations(config, rows){
         let indexes = [];
         for(let row of rows){
             row.destinations = [];
@@ -1655,7 +1655,7 @@ class ActionDetailReaders {
         }
         if(!indexes.length) return rows;
 
-        let map = await this._getActionDestinationMap(config, indexes);
+        let map = await this.getActionDestinationMap(config, indexes);
         for(let row of rows){
             let list = map.get(String(row.action_index));
             if(list) row.destinations = list;
@@ -1666,7 +1666,7 @@ class ActionDetailReaders {
     // action_index (as a decimal string) -> ordered, DEDUPED list of destination
     // addresses, for the given batch of action indexes. Returns an EMPTY map, never
     // throws: every caller treats "no destinations" and "lookup broke" identically.
-    async _getActionDestinationMap(config, indexes){
+    async getActionDestinationMap(config, indexes){
         // Lazily initialized (not in the constructor) because the unit harness
         // builds a Database with Object.create(Database.prototype) and never runs it.
         if(!this._actionDestinationSkip) this._actionDestinationSkip = new Map();
@@ -1676,8 +1676,8 @@ class ActionDetailReaders {
         if(!families.length) return map;
 
         try {
-            let [query, args] = this._actionDestinationSql(families, indexes);
-            this._collectActionDestinations(map, await this.doQuery(config, query, args));
+            let [query, args] = this.actionDestinationSql(families, indexes);
+            this.collectActionDestinations(map, await this.doQuery(config, query, args));
             return map;
         } catch(e){
             // The union is all-or-nothing: one absent table (an older deployment
@@ -1691,10 +1691,10 @@ class ActionDetailReaders {
             map.clear();
             for(let family of families){
                 try {
-                    let [q, a] = this._actionDestinationSql([family], indexes);
-                    this._collectActionDestinations(map, await this.doQuery(config, q, a));
+                    let [q, a] = this.actionDestinationSql([family], indexes);
+                    this.collectActionDestinations(map, await this.doQuery(config, q, a));
                 } catch(err){
-                    if(this._isSchemaShapeError(err)){
+                    if(this.isSchemaShapeError(err)){
                         skip.add(family.table);
                         this._actionDestinationSkip.set(config.coin, skip);
                         console.error('Action destinations: disabling ' + family.table +
@@ -1709,7 +1709,7 @@ class ActionDetailReaders {
     // Build the UNION ALL (or the single-family retry). INNER JOIN on
     // index_addresses is what drops a NULL destination_id and an id that resolves to
     // nothing, so the result set holds only real, literal addresses.
-    _actionDestinationSql(families, indexes){
+    actionDestinationSql(families, indexes){
         let holes = indexes.map(() => '?').join(',');
         let parts = [];
         let args  = [];
@@ -1736,7 +1736,7 @@ class ActionDetailReaders {
     // or a fee and a send landing on the same treasury): a subscriber must not be
     // told about it twice, and the Broadcaster must not broadcast to that channel
     // twice. Insertion order is kept so the wire order is stable across polls.
-    _collectActionDestinations(map, rows){
+    collectActionDestinations(map, rows){
         if(!rows || !rows.length) return map;
         for(let row of rows){
             if(!row || this.util.isNull(row.action_index) || this.util.isNull(row.destination)) continue;
@@ -1755,9 +1755,9 @@ class ActionDetailReaders {
     // doQuery rethrows as DbQueryError with its OWN code ('DB_ERROR') and the
     // driver's SqlError on .cause, so testing the top-level error alone never
     // matches a real one; walk the (short, bounded) cause chain. Mirrors
-    // ChangeDetector._isMissingTableError, widened to the bad-column case because
+    // ChangeDetector.isMissingTableError, widened to the bad-column case because
     // that is the exact error class that killed this feed once already.
-    _isSchemaShapeError(err){
+    isSchemaShapeError(err){
         for(let e = err, depth = 0; e && depth < 5; e = e.cause, depth++){
             if(e.code === 'ER_NO_SUCH_TABLE'   || Number(e.errno) === 1146) return true;
             if(e.code === 'ER_BAD_FIELD_ERROR' || Number(e.errno) === 1054) return true;

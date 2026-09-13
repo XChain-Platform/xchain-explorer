@@ -48,7 +48,7 @@ const util         = new Utility(configInfo);
 const mockExplorer = { configInfo, util };
 
 // getActionTotals issues four shapes of query through doQuery: the tip probe
-// (via _totalsTipGeneration), the information_schema existence check, the
+// (via totalsTipGeneration), the information_schema existence check, the
 // UNION ALL of COUNT(*)s, and the full_node_verifications DISTINCT count. Route
 // each to a canned answer so the suite exercises the cache, not the pool.
 // `state` is mutable so a test can move the tip or change the counts.

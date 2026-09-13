@@ -83,24 +83,24 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
     describe('_assertCheckpointDbForServingCoins()', function () {
         it('refuses to start when a serving coin self-syncs with no hub endpoint', function () {
             const db = makeDb({ RBTC: SELF_SYNC() });
-            expect(() => db._assertCheckpointDbForServingCoins()).to.throw(/no hub endpoint/i);
-            expect(() => db._assertCheckpointDbForServingCoins()).to.throw(/RBTC/);
+            expect(() => db.assertCheckpointDbForServingCoins()).to.throw(/no hub endpoint/i);
+            expect(() => db.assertCheckpointDbForServingCoins()).to.throw(/RBTC/);
         });
 
         it('starts when the hub URL rides in the checkpoint block', function () {
             const db = makeDb({ RBTC: SELF_SYNC({ hubUrl: 'http://hub:10000' }) });
-            expect(() => db._assertCheckpointDbForServingCoins()).to.not.throw();
+            expect(() => db.assertCheckpointDbForServingCoins()).to.not.throw();
         });
 
         it('starts when only the HUB_API_URL env names the hub', function () {
             process.env.HUB_API_URL = 'http://env-hub:10000';
             const db = makeDb({ RBTC: SELF_SYNC() });
-            expect(() => db._assertCheckpointDbForServingCoins()).to.not.throw();
+            expect(() => db.assertCheckpointDbForServingCoins()).to.not.throw();
         });
 
         it('leaves externally-maintained (non-self_sync) schemas alone', function () {
             const db = makeDb({ RBTC: SELF_SYNC({ selfSync: false }) });
-            expect(() => db._assertCheckpointDbForServingCoins()).to.not.throw();
+            expect(() => db.assertCheckpointDbForServingCoins()).to.not.throw();
         });
 
         it('downgrades to a warning under ALLOW_NO_COLOCATED_HUB_DB=1', function () {
@@ -110,14 +110,14 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
             console.warn = (m) => warned.push(String(m));
             try {
                 const db = makeDb({ RBTC: SELF_SYNC() });
-                expect(() => db._assertCheckpointDbForServingCoins()).to.not.throw();
+                expect(() => db.assertCheckpointDbForServingCoins()).to.not.throw();
             } finally { console.warn = saved; }
             expect(warned.join(' ')).to.match(/no hub endpoint/i);
         });
 
         it('still refuses a MISSING checkpoint schema, unchanged', function () {
             const db = makeDb({}, { RBTC: {} });
-            expect(() => db._assertCheckpointDbForServingCoins()).to.throw(/Checkpoint schema missing/);
+            expect(() => db.assertCheckpointDbForServingCoins()).to.throw(/Checkpoint schema missing/);
         });
 
         it('names every affected coin, not just the first', function () {
@@ -125,7 +125,7 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
                 { RBTC: SELF_SYNC(), RLTC: SELF_SYNC({ chain: 'LTC' }) },
                 { RBTC: {}, RLTC: {} }
             );
-            expect(() => db._assertCheckpointDbForServingCoins()).to.throw(/RBTC, RLTC/);
+            expect(() => db.assertCheckpointDbForServingCoins()).to.throw(/RBTC, RLTC/);
         });
     });
 });

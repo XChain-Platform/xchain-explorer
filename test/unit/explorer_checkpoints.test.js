@@ -453,7 +453,7 @@ describe('explorer canonicalCheckpointString == SDK canonicalCheckpoint @regress
         });
     }
 
-    // The verify route builds the canonical from the row _normalizeCheckpointRows
+    // The verify route builds the canonical from the row normalizeCheckpointRows
     // returns, whose indices are decimal strings rather than Numbers.
     // The canonical String()s every index and the flag-day gates parseInt them, so
     // the signed bytes must be identical under either typing. Pin that: it is what
@@ -543,7 +543,7 @@ describe('Database#getCheckpoints (M2.1 data leg)', () => {
         }
         // The list carries only the derived signer count, never the raw
         // validator_signatures column, so the detail family's wire-format
-        // normalization (see _normalizeCheckpointRows) has nothing to act on here.
+        // normalization (see normalizeCheckpointRows) has nothing to act on here.
         const selectClause = query.slice(0, query.indexOf('FROM'));
         expect(selectClause).to.not.include('m.validator_signatures,');
     });

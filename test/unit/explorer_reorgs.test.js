@@ -23,7 +23,7 @@
  * seam file owned by the main loop per the M3 seam contract; likewise
  * HubOperationalCache.js's new getReorgHistory() method, the
  * getQueryWhereSql branch, the cursorPagedMethods/getQueryOffsetSql cursor
- * entries, and the _normalizeHubOperationalRows bigintKeys extension). Every
+ * entries, and the normalizeHubOperationalRows bigintKeys extension). Every
  * test below is written to be RUN once the main loop splices the proposal
  * in (m3-proposal-row22.md) - not to pass vacuously today - the same
  * pattern test/unit/explorer.attest-validator-stats.test.js and
@@ -66,7 +66,7 @@
  *
  * Cross-chain scoping fact this row's design turns on: unlike those three
  * tables (explicitly "platform-global, no per-chain network column" per
- * _hubSource's doc comment), reorg_attestations DOES carry source_chain, and
+ * hubSource's doc comment), reorg_attestations DOES carry source_chain, and
  * the hub's getreorghistory RPC has NO server-side chain filter at all
  * (ReorgHandler.getReorgHistory: `SELECT * FROM reorg_attestations ORDER BY
  * created_at DESC LIMIT ?`) - it returns every chain's history. A per-coin
@@ -77,7 +77,7 @@
  * filters proposal_id post-fetch since getproposals has no such filter
  * either); co-located-side via an unconditional `m.source_chain=?`, matching
  * getCrossChainMatches' mandatory network filter. `baseCoin` (not
- * `_checkpointSource().chain`) is used because it is populated for every
+ * `checkpointSource().chain`) is used because it is populated for every
  * configured coin regardless of whether a co-located checkpoint DB exists,
  * so the RPC-only (HUB_API_URL set, no database.checkpoint) deployment shape
  * can still scope correctly.
@@ -186,7 +186,7 @@ describe('Database#getReorgs (M3.5 dual-path data leg)', () => {
             // response sink stringifies. Both must reach consumers as decimal
             // strings or a hub outage flips the wire type of reorg_height/
             // reorg_timestamp mid-deployment, exactly the defect class
-            // _normalizeHubOperationalRows already exists to close for `id` and the
+            // normalizeHubOperationalRows already exists to close for `id` and the
             // other two tables' BIGINT columns (qualified_at_block/activation_block).
             const ops = { enabled: () => true, getReorgHistory: sinon.stub().resolves([rpcRow(1)]) };
             const db  = makeDb(ops);

@@ -243,7 +243,7 @@ const ATTEST = {
         // synthetic action is VERSION|REQUEST_ID) but no column persists it, so the
         // page rendered Request ID, Provider and Contract blank beside a badge saying
         // this action expired something. The request is recovered from the SAME
-        // in-block correlation the lifecycle page uses (db._correlateAttestationExpiries),
+        // in-block correlation the lifecycle page uses (db.correlateAttestationExpiries),
         // which resolves to null rather than to a guess when the block's two lists
         // disagree; a page with no link beats a page with the wrong one.
         if(Number(data['version']) === 2 && db.util.isNull(data['request_id'])){
@@ -257,7 +257,7 @@ const ATTEST = {
                 data['deadline_block']       = request.deadline_block;
                 // The expired callback the sweep injected. Same derivation the
                 // lifecycle page uses, and null when there was no callback to fire.
-                data['callback_execute_action_index'] = await db._deriveAttestationCallbackExecute(config, request);
+                data['callback_execute_action_index'] = await db.deriveAttestationCallbackExecute(config, request);
             }
         }
     },

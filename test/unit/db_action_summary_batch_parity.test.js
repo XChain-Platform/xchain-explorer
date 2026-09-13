@@ -113,7 +113,7 @@ function makeDb() {
     // prefetch's own payload parity is proved against a real MariaDB in
     // test/integration/action-preload-parity.test.js, never here: this file stubs
     // getActionData, so it can say nothing about getActionData's internals.
-    db._buildActionPreload = async () => null;
+    db.buildActionPreload = async () => null;
     // configInfo.getConfig is not exercised by the stubbed getActionData path.
     return db;
 }

@@ -23,7 +23,7 @@
  * shared seam file owned by the main loop per the M3 seam contract; likewise
  * HubOperationalCache.js's new getSlashProposals() method, the
  * getQueryWhereSql branch, the cursorPagedMethods / getQueryOffsetSql cursor
- * entries, and the _normalizeHubOperationalRows bigintKeys extension). Every
+ * entries, and the normalizeHubOperationalRows bigintKeys extension). Every
  * test below is written to be RUN once the main loop splices the proposal in
  * (m3-proposal-row23.md), not to pass vacuously today, matching
  * test/unit/explorer.reorgs.test.js from the same wave. The hub half of this
@@ -184,7 +184,7 @@ describe('Database#getSlashProposals (M3.6 dual-path data leg)', () => {
         });
 
         it('normalizes the id and round_number BIGINT columns to decimal strings', async () => {
-            // Same wire-type unification _normalizeHubOperationalRows already does
+            // Same wire-type unification normalizeHubOperationalRows already does
             // for id/qualified_at_block/activation_block/reorg_height: the RPC
             // transport delivers BIGINT as JS Number while the co-located read
             // delivers BigInt that the response sink stringifies, so an

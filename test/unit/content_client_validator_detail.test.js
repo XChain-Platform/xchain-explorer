@@ -126,7 +126,7 @@ function page(mode, payload) {
 }
 
 // Field names taken from getValidator (src/db.js:11014) and its two helpers
-// _collectTrail / _validatorCapabilityRows: nothing here is invented.
+// collectTrail / validatorCapabilityRows: nothing here is invented.
 const BASE = {
     query: PUBKEY,
     signing_pubkey: PUBKEY,

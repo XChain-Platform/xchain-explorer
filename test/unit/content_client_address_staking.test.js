@@ -207,7 +207,7 @@ function addressPage(query) {
 
 /* ---------------------------------------------------------------- fixtures */
 /* Column names below are taken from getAddressStaking (src/db.js) and its
- * _collectTrail helper; nothing here is invented. */
+ * collectTrail helper; nothing here is invented. */
 
 // The live regtest venue, as driven against address moJERw6emt4gjdFKc3RPHMzY3zWtT468Ct:
 // tip 2720, two contract positions, ONE pending cooldown maturing at 2770

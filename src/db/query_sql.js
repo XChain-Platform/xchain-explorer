@@ -58,7 +58,7 @@ class QueryBuilder {
         // route is a full filesort and a cheap DoS-amplification vector. A small
         // per-request-shape cache collapses a request burst into one query. The key
         // carries the coin's current tip so a cached answer can never outlive the
-        // block it was read at (see _resultCacheGeneration); the TTL is a ceiling on
+        // block it was read at (see resultCacheGeneration); the TTL is a ceiling on
         // top of that, and each map is size-capped (oldest-evicted) so the cache
         // itself cannot grow unbounded. The key is built from the raw request
         // inputs (search, type, and every pagination/order query param) BEFORE
@@ -80,7 +80,7 @@ class QueryBuilder {
             // current tip so a block that moves the underlying rows does the same
             // A null generation means the tip probe failed; leave
             // cacheKey null so this request neither reads nor writes the cache.
-            const gen = await this._resultCacheGeneration(config);
+            const gen = await this.resultCacheGeneration(config);
             if(gen === null){
                 cacheName = null;
             } else {
@@ -1100,7 +1100,7 @@ class QueryBuilder {
     // 1..getMaxMethodResults() by getQuery, and EVERY sub-list interpolates it. An unbounded
     // sub-list inside a composition pulls the same whole table a missing LIMIT pulls on a
     // list route; it is only harder to see, because the response looks like one record.
-    _detailLimit(config){
+    detailLimit(config){
         let sql = config.data.sql;
         return (sql && this.util.isNumeric(sql.limit)) ? Number(sql.limit) : 100;
     }

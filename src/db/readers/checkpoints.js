@@ -56,7 +56,7 @@ class CheckpointReaders {
     // serving stale rows. dbName is config-derived, not client input, but
     // database identifiers can't be bound; restrict to a safe identifier charset
     // before use (same rule as the decoderDb readers above).
-    _checkpointSource(config){
+    checkpointSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
             return { table: '`' + src.name + '`.state_checkpoints',
@@ -80,7 +80,7 @@ class CheckpointReaders {
             'never from a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
-    // Resolve the cross_chain_matches source for a coin, mirroring _checkpointSource:
+    // Resolve the cross_chain_matches source for a coin, mirroring checkpointSource:
     // same hub-mirror-only rule, same FAIL LOUD posture, same identifier-safety
     // restriction. The hub table carries every chain AND network here, so a network
     // filter is required (unlike the state_checkpoints table above). Self-sync note:
@@ -88,7 +88,7 @@ class CheckpointReaders {
     // publication and the feed has no update event, so on a self-synced mirror those
     // two audit columns can read NULL; all settlement-relevant columns arrive on the
     // insert.
-    _matchSource(config){
+    matchSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
             return { table: '`' + src.name + '`.cross_chain_matches',
@@ -101,12 +101,12 @@ class CheckpointReaders {
     }
 
     // Resolve an ORACLE hub-mirror table for a coin (price_snapshots, oracle_prices),
-    // mirroring _matchSource: same hub-mirror-only, FAIL LOUD rule. A serving node's
+    // mirroring matchSource: same hub-mirror-only, FAIL LOUD rule. A serving node's
     // local copy is an empty bootstrap table the live stream never fills. Neither
     // table carries a network column, so there is no network filter to apply (unlike
     // cross_chain_matches); `table` is whitelisted to lowercase identifiers and
     // dbName to a safe identifier charset, since database identifiers cannot be bound.
-    _oracleMirrorSource(config, table){
+    oracleMirrorSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
             return { table: '`' + src.name + '`.' + table };
@@ -123,7 +123,7 @@ class CheckpointReaders {
     // filtered count BEFORE the cursor window (matching the SQL count query, which
     // uses where.data but not where.offset). Rows arrive server-filtered and capped
     // hub-side (500), so totals saturate there; these are small operational datasets.
-    _pageHubOperationalRows(config, rows){
+    pageHubOperationalRows(config, rows){
         let filtered = rows.slice();
         let total    = filtered.length;
         let offset = config.data.offset || {};
@@ -143,7 +143,7 @@ class CheckpointReaders {
         let limit = (config.data.sql && this.util.isNumeric(config.data.sql.limit)) ? Number(config.data.sql.limit) : 100;
         let from  = (config.type == 'api' && config.data.sql && Number(config.data.sql.apiOffset) > 0)
             ? Number(config.data.sql.apiOffset) : 0;
-        return [this._normalizeHubOperationalRows(filtered.slice(from, from + limit)), null, total];
+        return [this.normalizeHubOperationalRows(filtered.slice(from, from + limit)), null, total];
     }
 
     // One wire type for the BIGINT columns these three endpoints serve, on both
@@ -152,12 +152,12 @@ class CheckpointReaders {
     // returns BigInt that the response sink stringifies (utility.jsonStringify), so
     // an unnormalized pass-through flips `id` between 100 and "100" whenever the hub
     // goes unreachable mid-deployment. Coerce to decimal STRING, matching
-    // _normalizeCheckpointRows and the platform-wide BIGINT-as-string convention.
+    // normalizeCheckpointRows and the platform-wide BIGINT-as-string convention.
     // Key-guarded because the three row shapes carry different subsets
     // (validator_capabilities has qualified_at_block, governance_proposals has
     // activation_block, governance_votes has neither): an absent or null column must
     // stay absent or null, never become the literal string "undefined".
-    _normalizeHubOperationalRows(rows){
+    normalizeHubOperationalRows(rows){
         const bigintKeys = ['id', 'qualified_at_block', 'activation_block',
                             'reorg_height', 'reorg_timestamp', 'round_number'];
         return (rows || []).map(r => {
@@ -170,7 +170,7 @@ class CheckpointReaders {
 
     // Resolve a co-located hub-DB federation/governance table for a coin
     // (validator_capabilities, governance_proposals, governance_votes). Mirrors
-    // _matchSource: DB-qualified to the co-located hub DB, read directly, never a
+    // matchSource: DB-qualified to the co-located hub DB, read directly, never a
     // local replica. `table` is whitelisted to lowercase identifiers (no injection).
     // Federation data is platform-global (no per-chain network column), so there is
     // no network filter.
@@ -180,10 +180,10 @@ class CheckpointReaders {
     // HubOperationalCache); this direct-schema read serves only deployments with NO
     // hub endpoint configured at all (hubOperational.enabled() false). It is NOT a
     // fallback for a configured-but-unreachable hub: that case fails loud through
-    // _hubOperationalOutage below, because this table carries no freshness bound and
+    // hubOperationalOutage below, because this table carries no freshness bound and
     // would otherwise serve indefinitely stale operational rows. New deployments
     // should set HUB_API_URL instead of provisioning a co-located hub schema.
-    _hubSource(config, table){
+    hubSource(config, table){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^[a-z0-9_]+$/.test(table))
             return { table: '`' + src.name + '`.' + table };
@@ -202,7 +202,7 @@ class CheckpointReaders {
     // accepted cost is that these three pages blank on a co-located install whose hub
     // PROCESS is down while its hub DB is still up; a blank page with a reason beats a
     // stale page without one.
-    _hubOperationalOutage(table){
+    hubOperationalOutage(table){
         let ops     = this.explorer ? this.explorer.hubOperational : null;
         let ceiling = (ops && this.util.isNumeric(ops.staleMaxMs)) ? Math.round(ops.staleMaxMs / 1000) : 600;
         throw new Error('Hub unreachable: ' + table + ' could not be read over hub JSON-RPC and the ' +
@@ -222,7 +222,7 @@ class CheckpointReaders {
     // keeps the wire type precision-safe past 2^53. Consensus-safe: the canonical
     // signing string String()s these fields (canonicalCheckpointString) and the
     // flag-day gates parseInt them, so the verified bytes are unchanged.
-    _normalizeCheckpointRows(rows){
+    normalizeCheckpointRows(rows){
         return (rows || []).map(r => ({
             ...r,
             block_index:    String(r.block_index),
@@ -234,11 +234,11 @@ class CheckpointReaders {
             // STRING while /checkpoints/range emitted an ARRAY for the same
             // logical field (api-contracts drift). Malformed JSON degrades to
             // [] like the SDK's own defensive coercion.
-            validator_signatures: this._parseSignaturesArray(r.validator_signatures)
+            validator_signatures: this.parseSignaturesArray(r.validator_signatures)
         }));
     }
 
-    _parseSignaturesArray(v){
+    parseSignaturesArray(v){
         if (Array.isArray(v)) return v;
         if (typeof v !== 'string' || !v.length) return [];
         try {
@@ -251,7 +251,7 @@ class CheckpointReaders {
     // blockIndex null → latest N (one per height: MAX(checkpoint_seq) wins);
     // blockIndex set → that height's latest-seq row only.
     async getCheckpointRows(config, blockIndex, limit) {
-        let src = this._checkpointSource(config);
+        let src = this.checkpointSource(config);
         if (blockIndex !== null && blockIndex !== undefined) {
             let query = `SELECT chain, network, block_index, block_hash, ledger_hash, actions_hash,
                                 contract_hash, checkpoint_seq, snapshot_block,
@@ -260,14 +260,14 @@ class CheckpointReaders {
                          FROM ${src.table}
                          WHERE block_index = ?${src.filter}
                          ORDER BY checkpoint_seq DESC LIMIT 1`;
-            return this._normalizeCheckpointRows(await this.doQuery(config, query, [Number(blockIndex), ...src.filterParams]));
+            return this.normalizeCheckpointRows(await this.doQuery(config, query, [Number(blockIndex), ...src.filterParams]));
         }
         // Shares the latest-per-height rule with getCheckpoints rather than carrying a
         // second list query with its own bounding. This branch backs the public
         // /api/checkpoints route, so an unbounded whole-table GROUP BY here reaches
         // further than the same mistake would in the internal feed.
         let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
-        let latest   = this._latestCheckpointPredicate(src, 'sc');
+        let latest   = this.latestCheckpointPredicate(src, 'sc');
         let query = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
                             sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block,
                             sc.state_root, sc.state_root_version, sc.block_merkle_root, sc.block_merkle_version,
@@ -276,7 +276,7 @@ class CheckpointReaders {
                      WHERE 1=1${scFilter}${latest.sql}
                      ORDER BY sc.block_index DESC
                      LIMIT ?`;
-        return this._normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...latest.params, Number(limit) || 10]));
+        return this.normalizeCheckpointRows(await this.doQuery(config, query, [...src.filterParams, ...latest.params, Number(limit) || 10]));
     }
 
     // Detail-page load for ONE checkpointed height (highest checkpoint_seq wins,
@@ -288,7 +288,7 @@ class CheckpointReaders {
     // single-element array (null when not found), matching getBlock's convention for
     // a getData-dispatched detail getter.
     async getCheckpoint(config){
-        let src   = this._checkpointSource(config);
+        let src   = this.checkpointSource(config);
         let query = `SELECT chain, network, block_index, block_hash, ledger_hash, actions_hash,
                             contract_hash, checkpoint_seq, snapshot_block,
                             state_root, state_root_version, block_merkle_root, block_merkle_version,
@@ -296,7 +296,7 @@ class CheckpointReaders {
                      FROM ${src.table}
                      WHERE block_index = ?${src.filter}
                      ORDER BY checkpoint_seq DESC LIMIT 1`;
-        let rows = this._normalizeCheckpointRows(
+        let rows = this.normalizeCheckpointRows(
             await this.doQuery(config, query, [Number(config.data.search), ...src.filterParams]));
         return [(rows && rows.length) ? rows[0] : null];
     }
@@ -328,7 +328,7 @@ class CheckpointReaders {
     // key one row at a time, so it needs no window, cannot truncate a page, and
     // leaves the cursor in the outer WHERE where getData's arg assembly expects
     // it (baseArgs first, offsetArgs appended last).
-    _latestCheckpointPredicate(src, alias){
+    latestCheckpointPredicate(src, alias){
         let innerFilter = src.filter.replace(/\b(chain|network)\b/g, 's.$1');
         return {
             sql: ` AND ${alias}.checkpoint_seq = (SELECT MAX(s.checkpoint_seq)
@@ -340,12 +340,12 @@ class CheckpointReaders {
 
     async getCheckpoints(config){
         let sql   = config.data.sql;
-        let src   = this._checkpointSource(config);
+        let src   = this.checkpointSource(config);
         // Requalify the bare chain/network filter to the `m` alias: the latest-per-
         // height predicate alone is not enough to scope by coin, since checkpoint_seq
         // is only unique WITHIN one (chain, network) pair (uq_chain_seq), not globally.
         let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
-        let latest      = this._latestCheckpointPredicate(src, 'm');
+        let latest      = this.latestCheckpointPredicate(src, 'm');
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -376,7 +376,7 @@ class CheckpointReaders {
     // anchor_reward_attestations, one of HUB_STATE_TABLES in hub_db_sync.js, mirrored on
     // the SAME terms as state_checkpoints: id-parity INSERT IGNORE, never retracted). Read
     // from the same co-located checkpoint schema as getCheckpoints via
-    // _checkpointSource().rewardTable, NEVER through HubOperationalCache and never over a
+    // checkpointSource().rewardTable, NEVER through HubOperationalCache and never over a
     // hub RPC: this is locally-mirrored transport, not an RPC-served cache with a TTL and
     // a row cap. Unlike capability_snapshots (chain-agnostic), this table carries its own
     // chain/network columns and its unique key is scoped by them, so src.filter/
@@ -392,7 +392,7 @@ class CheckpointReaders {
     // deliberately excluded from the list SELECT. type in {anchor, block, pubkey}.
     async getAnchorRewardAttestations(config){
         let sql   = config.data.sql;
-        let src   = this._checkpointSource(config);
+        let src   = this.checkpointSource(config);
         let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
         let count = `SELECT
                         count(*) as total
@@ -437,7 +437,7 @@ class CheckpointReaders {
     // height (a "latest" balance-proof query): the freshest signed checkpoint (DESC),
     // not the oldest, so a no-height query binds to current state rather than genesis.
     async getCheckpointAtOrAbove(config, height) {
-        let src = this._checkpointSource(config);
+        let src = this.checkpointSource(config);
         let scFilter   = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
         let heightInner = (height != null) ? ' AND block_index >= ?' : '';
         let order       = (height != null) ? 'ASC' : 'DESC';
@@ -459,7 +459,7 @@ class CheckpointReaders {
 
     // Ordered signed checkpoints in [from, to] (forward-following, spec §8.1).
     async getCheckpointRange(config, fromH, toH, limit) {
-        let src = this._checkpointSource(config);
+        let src = this.checkpointSource(config);
         let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
         let q = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
                         sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.state_root, sc.state_root_version,
@@ -601,7 +601,7 @@ class CheckpointReaders {
     // is per-block, so unlike a balance proof (nearest at-or-above) it needs the exact
     // height. Null if that block was never checkpointed (D3: checkpointed heights only).
     async getCheckpointAt(config, blockIndex) {
-        let src = this._checkpointSource(config);
+        let src = this.checkpointSource(config);
         let scFilter = src.filter.replace(/\b(chain|network)\b/g, 'sc.$1');
         let q = `SELECT sc.chain, sc.network, sc.block_index, sc.block_hash, sc.ledger_hash, sc.actions_hash,
                         sc.contract_hash, sc.checkpoint_seq, sc.snapshot_block, sc.state_root, sc.state_root_version,
@@ -715,7 +715,7 @@ class CheckpointReaders {
     // capability_snapshots is chain-agnostic (keyed by capability + BTC snapshot
     // block), so the configured checkpoint DB needs no chain/network filter here.
     async getCapabilitySnapshotRows(config, capability, snapshotBlock) {
-        let src = this._checkpointSource(config);
+        let src = this.checkpointSource(config);
         // `source` carries the stake-weight grouping key (the staking source a
         // signing key delegates from); `amount` is that key's stake weight. Both
         // are needed for stake-weighted quorum at/above the activation flag-day;
@@ -740,7 +740,7 @@ class CheckpointReaders {
     // columns), so unlike getCheckpoints there is no src.filter/src.filterParams to bind.
     async getCapabilitySnapshots(config){
         let sql   = config.data.sql;
-        let src   = this._checkpointSource(config);
+        let src   = this.checkpointSource(config);
         let count = `SELECT count(*) as total FROM ${src.capTable} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -804,7 +804,7 @@ class CheckpointReaders {
         // action carries a real action_index and block_index but a NULL tx_index and
         // has no transactions row at all, so an INNER join drops it from this feed
         // ENTIRELY. That is not just a missing NEW_ACTION frame: ChangeDetector calls
-        // _emitAttestationEvents only for actions this query returns, so a
+        // emitAttestationEvents only for actions this query returns, so a
         // mirror-applied ATTEST v1 response (attest-response-mirror spec §4.4) would
         // never fire ATTESTATION_RESPONSE on any subscriber. The block comes off the
         // action's own a1.block_index, so nothing here needs the transaction row;
@@ -833,17 +833,17 @@ class CheckpointReaders {
         // query above, because eight LEFT JOINs would multiply the feed's rows (a
         // multi-output SEND would emit one NEW_ACTION per output) and the feed's
         // LIMIT is a limit on ACTIONS, not on output rows. See
-        // _attachActionDestinations for the batch shape and its failure mode.
+        // attachActionDestinations for the batch shape and its failure mode.
         // `transactions` is a LEFT join, never an INNER one: a system-synthesized
         // action carries a real action_index and block_index but a NULL tx_index and
         // has no transactions row at all, so an INNER join drops it from this feed
         // ENTIRELY. That is not just a missing NEW_ACTION frame: ChangeDetector calls
-        // _emitAttestationEvents only for actions this query returns, so a
+        // emitAttestationEvents only for actions this query returns, so a
         // mirror-applied ATTEST v1 response (attest-response-mirror spec §4.4) would
         // never fire ATTESTATION_RESPONSE on any subscriber. The block comes off the
         // action's own a1.block_index, so nothing here needs the transaction row;
         // tx_hash is simply NULL for a synthesized action, which is the honest answer.
-        await this._attachActionDestinations(config, results);
+        await this.attachActionDestinations(config, results);
         return results;
     }
 
@@ -860,7 +860,7 @@ class CheckpointReaders {
     // getCrossChainMatches' mandatory network filter.
     //
     // this.baseCoin[config.coin] (RBTC -> BTC) is the chain source rather than
-    // _checkpointSource().chain because it is populated for every configured coin whether
+    // checkpointSource().chain because it is populated for every configured coin whether
     // or not a co-located checkpoint DB exists, so the RPC-only deployment shape still
     // scopes correctly. A configured-but-unreachable hub still fails loud past the stale
     // ceiling; the co-located read below serves only the no-hub shape.
@@ -875,11 +875,11 @@ class CheckpointReaders {
                 status:       config.data.type=='status' ? config.data.search : undefined,
                 reorg_height: config.data.type=='block'  ? config.data.search : undefined
             });
-            if(rows) return this._pageHubOperationalRows(config, rows);
-            this._hubOperationalOutage('reorg_attestations');
+            if(rows) return this.pageHubOperationalRows(config, rows);
+            this.hubOperationalOutage('reorg_attestations');
         }
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'reorg_attestations');
+        let src = this.hubSource(config, 'reorg_attestations');
         // Mandatory per-coin chain scope, appended AFTER the optional type filter (the
         // same placement getCrossChainMatches uses for its network filter), so the args
         // stay [<type filter?>, chain] in strict left-to-right text order.
@@ -908,7 +908,7 @@ class CheckpointReaders {
     // telemetry_pings). These are hub-LOCAL operational tables with no on-chain
     // action and, unlike validator_capabilities/governance_*, no hub JSON-RPC read
     // surface at all, so they are served ONLY from the co-located hub DB via
-    // _hubSource (same host+creds as the indexer pool; #4138), which is therefore
+    // hubSource (same host+creds as the indexer pool; #4138), which is therefore
     // mandatory for these four on any install that serves them. That is the reverse
     // of the three RPC-first tables above, where the co-located schema serves only
     // the no-hub shape and a configured-but-down hub fails loud. Each is
@@ -918,7 +918,7 @@ class CheckpointReaders {
     // P2P peer roster the hub gossips with. type in {validator}. id-keyed.
     async getPeers(config){
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'p2p_peers');
+        let src = this.hubSource(config, 'p2p_peers');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -937,7 +937,7 @@ class CheckpointReaders {
     // Hub consensus key/value state. type in {key}. id-keyed.
     async getConsensusState(config){
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'consensus_state');
+        let src = this.hubSource(config, 'consensus_state');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -955,7 +955,7 @@ class CheckpointReaders {
     // id-keyed.
     async getConfigs(config){
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'configs');
+        let src = this.hubSource(config, 'configs');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,
@@ -978,7 +978,7 @@ class CheckpointReaders {
     // are surfaced.
     async getTelemetryPings(config){
         let sql = config.data.sql;
-        let src = this._hubSource(config, 'telemetry_pings');
+        let src = this.hubSource(config, 'telemetry_pings');
         let count = `SELECT count(*) as total FROM ${src.table} m WHERE ` + sql.where.data;
         let query = `SELECT
                         m.id,

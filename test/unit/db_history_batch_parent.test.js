@@ -117,7 +117,7 @@ describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
         // Exercise the REAL getActionSummaryData (mutate-in-place), not a stub, to
         // confirm the column survives it: getActionSummaryData only ever ADDS
         // .status/.details onto each row, never rebuilds the row object.
-        sinon.stub(db, '_buildActionPreload').resolves(null);
+        sinon.stub(db, 'buildActionPreload').resolves(null);
         sinon.stub(db, 'getActionData').resolves({ action: 'BATCH', status: 'valid' });
         const config = makeHistoryConfig('block', '500');
         const [data] = await db.getHistoryData(config);

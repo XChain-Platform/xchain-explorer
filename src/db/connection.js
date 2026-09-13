@@ -54,7 +54,7 @@ class DatabaseConnection {
      * LRU Cache Helpers
      *****************************************************************/
 
-    _cacheGet(cache, key){
+    cacheGet(cache, key){
         if(!cache.has(key)) return undefined;
         const val = cache.get(key);
         cache.delete(key);
@@ -62,7 +62,7 @@ class DatabaseConnection {
         return val;
     }
 
-    _cacheSet(cache, key, value, maxSize = 1000){
+    cacheSet(cache, key, value, maxSize = 1000){
         if(cache.has(key)) cache.delete(key);
         else if(cache.size >= maxSize) cache.delete(cache.keys().next().value);
         cache.set(key, value);
@@ -101,7 +101,7 @@ class DatabaseConnection {
     // MUTABLE_ACTION_FIELDS, because that list is matched by PRESENCE: the field
     // is on every DEPLOY response, so listing it would uncache every settled
     // deploy forever for a mutation only the pending case has.
-    _isCacheableAction(data){
+    isCacheableAction(data){
         if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
         if(!this.util.isNull(data['state'])) return false;
         if(!this.util.isNull(data['status']) && /^pending:/i.test(String(data['status']))) return false;
@@ -113,7 +113,7 @@ class DatabaseConnection {
     // generation (M-3). Coin-scoping also stops a bare address/tick key from
     // colliding across coins on a multi-coin explorer; the generation prefix is
     // what makes a reorg invalidation cheap (see bumpReorgGeneration).
-    _cacheKey(coin, key){
+    cacheKey(coin, key){
         return coin + ':' + (this._reorgGen[coin] || 0) + ':' + key;
     }
 
@@ -143,7 +143,7 @@ class DatabaseConnection {
     // request burst still collapses onto a single heavy query. A probe that fails
     // returns null, which makes the caller skip the cache for that request: never
     // serve a possibly-stale list because the freshness check itself broke.
-    async _resultCacheGeneration(config){
+    async resultCacheGeneration(config){
         const coin = config.coin;
         const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
         const memo = this._tipMemo[coin];
@@ -240,7 +240,7 @@ class DatabaseConnection {
     // handles are deduped by identity: end() must run once per handle, not once
     // per key. Failures are swallowed because this runs on the way to replacing
     // the map, and a pool that cannot be closed must not block the rebuild.
-    async _endPools(maps){
+    async endPools(maps){
         let seen = new Set();
         for(let map of maps){
             if(!map) continue;
@@ -257,11 +257,11 @@ class DatabaseConnection {
     // Release every pool this instance holds and leave the maps empty. Called from
     // the process shutdown drain (src/shutdown.js), which is the only caller: a
     // serving explorer holds its pools for its whole lifetime. Public wrapper over
-    // _endPools so the drain does not reach into a private method, and so the map
+    // endPools so the drain does not reach into a private method, and so the map
     // list stays in ONE place - a future third pool map added to setupConnectionPools
-    // must be added to the _endPools call there, and this inherits it.
+    // must be added to the endPools call there, and this inherits it.
     async close(){
-        await this._endPools([this.pools, this.decoderPools]);
+        await this.endPools([this.pools, this.decoderPools]);
         this.pools        = {};
         this.decoderPools = {};
     }
@@ -279,12 +279,12 @@ class DatabaseConnection {
         // decoderPools was missed when the guard above was first written, and it
         // is the DEFAULT shape rather than an edge case, because xchain-node
         // installs provision per-service DB users and so always take the
-        // dedicated-pool branch below. _rebuildPoolsIfStale() re-enters here as
+        // dedicated-pool branch below. rebuildPoolsIfStale() re-enters here as
         // often as every 10s, so the omission leaked the decoder pool's 3
         // connections per coin per rebuild: one live regtest explorer had
         // accumulated 870 of that server's 1000 connections over four days, which
         // surfaced as OTHER services being unable to connect at all.
-        await this._endPools([this.pools, this.decoderPools]);
+        await this.endPools([this.pools, this.decoderPools]);
 
         this.pools = {};
         // Per-coin decoder database name, used for the colocated-decoder reads
@@ -305,7 +305,7 @@ class DatabaseConnection {
         // explorer reads DBs only, so a decoder stalled behind its coin node
         // still reports decoder_lag_blocks 0 once the indexer catches up to it.
         // Absent for a coin whose config carries no endpoint; that coin reports
-        // decoder_health 'unconfigured'. See _decoderApiUrlFromConfig.
+        // decoder_health 'unconfigured'. See decoderApiUrlFromConfig.
         this.decoderApiUrl = {};
         // Per-coin checkpoint-source database: the MANDATORY co-located hub DB for
         // serving the hub-mirrored tables (state_checkpoints, capability_snapshots,
@@ -315,9 +315,9 @@ class DatabaseConnection {
         // per-network `checkpoint` config block, honored only when it shares server +
         // credentials with the indexer pool and read database-qualified, filtered by
         // chain/network so the per-coin endpoints don't leak siblings. This is a hard
-        // requirement: a serving coin with no entry here makes _checkpointSource /
-        // _matchSource / _oracleMirrorSource throw instead of falling back to a stale
-        // local mirror, and _assertCheckpointDbForServingCoins() turns the same gap
+        // requirement: a serving coin with no entry here makes checkpointSource /
+        // matchSource / oracleMirrorSource throw instead of falling back to a stale
+        // local mirror, and assertCheckpointDbForServingCoins() turns the same gap
         // into a fatal startup error so a misconfigured thin replica never silently
         // serves empty hub data.
         this.checkpointDb = {};
@@ -346,7 +346,7 @@ class DatabaseConnection {
                         // config carries one. Resolved here rather than in the pool
                         // branch below so a coin whose indexer entry is not usable
                         // as a pool can still report decoder health.
-                        let dApiUrl = this._decoderApiUrlFromConfig(info[net].database.decoder);
+                        let dApiUrl = this.decoderApiUrlFromConfig(info[net].database.decoder);
                         if(dApiUrl) this.decoderApiUrl[key] = dApiUrl;
                         if (("db_host" in cfg) && ("db_port" in cfg)){
                             this.pools[key] = {
@@ -468,7 +468,7 @@ class DatabaseConnection {
         // (self-synced via HubMirrorSyncManager, or externally maintained) has
         // only a stale/empty bootstrap copy. Fail loud at startup rather than
         // letting a thin replica silently serve empty hub-mirror data with no alarm.
-        this._assertCheckpointDbForServingCoins();
+        this.assertCheckpointDbForServingCoins();
     }
 
     // Decoder JSON-RPC endpoint for one coin/network, read out of the config the
@@ -487,7 +487,7 @@ class DatabaseConnection {
     // an explicit operator override honored in EITHER shape, so a config.json
     // deployment can name the endpoint beside the DB instead of exporting one env
     // var per chain. Returns null when the entry carries nothing usable.
-    _decoderApiUrlFromConfig(dcfg){
+    decoderApiUrlFromConfig(dcfg){
         if(!dcfg || typeof dcfg !== 'object') return null;
         let trim = (v) => this.util.isNull(v) ? '' : String(v).trim();
         // Accept a host written with or without a scheme; default to http, which
@@ -520,7 +520,7 @@ class DatabaseConnection {
     // price_snapshots / oracle_prices (items 4062 / 4063).
     // Opt-out: ALLOW_NO_COLOCATED_HUB_DB=1 downgrades the fatal error to a warning,
     // for deployments that intentionally do not expose the hub-mirrored endpoints.
-    _assertCheckpointDbForServingCoins(){
+    assertCheckpointDbForServingCoins(){
         let missing = [];
         // A self-synced schema with no hub endpoint is the SAME failure as a missing
         // schema, and a quieter one: the mirror exists, reads succeed, and every row
@@ -586,7 +586,7 @@ class DatabaseConnection {
         // current config once (throttled) and retry, rather than failing every
         // read until a manual restart.
         if(!pool){
-            await this._rebuildPoolsIfStale();
+            await this.rebuildPoolsIfStale();
             pool = (this.pools[config.coin]) ? this.pools[config.coin].pool : null;
         }
         if(pool){
@@ -617,7 +617,7 @@ class DatabaseConnection {
     // Rebuild connection pools from the current config, at most once per 10s and
     // never concurrently. Used as a lazy recovery path when a query finds no pool
     // (e.g. the explorer came up before the hub and the config arrived later).
-    async _rebuildPoolsIfStale(){
+    async rebuildPoolsIfStale(){
         let now = Date.now();
         if(this._lastPoolRebuild && (now - this._lastPoolRebuild) < 10000)
             return;

@@ -36,7 +36,7 @@
  *   - getActionSummaryData (basic pass-through)
  *
  * Covers (LRU cache helpers):
- *   - _cacheGet, _cacheSet
+ *   - cacheGet, cacheSet
  *
  * Covers (setup helpers):
  *   - init (calls setupConnectionPools)
@@ -94,37 +94,37 @@ describe('Database LRU cache helpers', () => {
     beforeEach(() => { db = makeDb(); });
 
     it('_cacheGet returns undefined for a key not in the cache', () => {
-        expect(db._cacheGet(db._addressIdCache, 'missing')).to.be.undefined;
+        expect(db.cacheGet(db._addressIdCache, 'missing')).to.be.undefined;
     });
 
     it('_cacheSet + _cacheGet round-trip a value', () => {
-        db._cacheSet(db._addressIdCache, 'addr1', 42);
-        expect(db._cacheGet(db._addressIdCache, 'addr1')).to.equal(42);
+        db.cacheSet(db._addressIdCache, 'addr1', 42);
+        expect(db.cacheGet(db._addressIdCache, 'addr1')).to.equal(42);
     });
 
     it('_cacheGet returns undefined after the key was consumed (LRU re-inserts)', () => {
-        db._cacheSet(db._addressIdCache, 'addr1', 99);
-        const v1 = db._cacheGet(db._addressIdCache, 'addr1');
+        db.cacheSet(db._addressIdCache, 'addr1', 99);
+        const v1 = db.cacheGet(db._addressIdCache, 'addr1');
         expect(v1).to.equal(99);
         // After get, the key is re-inserted (LRU touch); it is still present
-        expect(db._cacheGet(db._addressIdCache, 'addr1')).to.equal(99);
+        expect(db.cacheGet(db._addressIdCache, 'addr1')).to.equal(99);
     });
 
     it('_cacheSet evicts the LRU entry when the cache is at maxSize', () => {
         const cache = new Map();
-        db._cacheSet(cache, 'a', 1, 2);
-        db._cacheSet(cache, 'b', 2, 2);
+        db.cacheSet(cache, 'a', 1, 2);
+        db.cacheSet(cache, 'b', 2, 2);
         // Cache is full (size=2). Adding 'c' should evict 'a' (the LRU entry).
-        db._cacheSet(cache, 'c', 3, 2);
+        db.cacheSet(cache, 'c', 3, 2);
         expect(cache.has('a')).to.be.false;
         expect(cache.has('b')).to.be.true;
         expect(cache.has('c')).to.be.true;
     });
 
     it('_cacheSet replaces an existing key without growing the cache', () => {
-        db._cacheSet(db._tickIdCache, 'XCHAIN', 7);
-        db._cacheSet(db._tickIdCache, 'XCHAIN', 77);
-        expect(db._cacheGet(db._tickIdCache, 'XCHAIN')).to.equal(77);
+        db.cacheSet(db._tickIdCache, 'XCHAIN', 7);
+        db.cacheSet(db._tickIdCache, 'XCHAIN', 77);
+        expect(db.cacheGet(db._tickIdCache, 'XCHAIN')).to.equal(77);
     });
 });
 
@@ -827,7 +827,7 @@ describe('Database#getActionSummaryData', () => {
         // shared-leg prefetch has no reader; null is the "no preload" state getActionData
         // already handles. Its parity is covered against a real MariaDB in
         // test/integration/action-preload-parity.test.js.
-        sinon.stub(db, '_buildActionPreload').resolves(null);
+        sinon.stub(db, 'buildActionPreload').resolves(null);
     });
     afterEach(() => { sinon.restore(); });
 
@@ -1029,7 +1029,7 @@ describe('Database#getProjectRosterInfo', () => {
         stub.onSecondCall().resolves([{ total: 2 }]);
         // Edit resolution off: the pinned index IS the membership index (the armed
         // case is covered in db.list-edit-resolution.test.js).
-        sinon.stub(db, '_isListEditResolutionActiveAtTip').resolves(false);
+        sinon.stub(db, 'isListEditResolutionActiveAtTip').resolves(false);
         const info = await db.getProjectRosterInfo(cfg(), 'PROJECTX');
         expect(info).to.deep.equal({ roster_action_index: 73, membership_action_index: 73, link_action_index: 74, total: 2 });
         // The roster query must filter to the LOCAL chain on BOTH link sides and
@@ -1063,7 +1063,7 @@ describe('Database#getTokenProjects', () => {
     // Edit resolution off: the single-query legacy form runs, and the pinned
     // index IS the membership index (the armed, two-phase path is covered in
     // db.list-edit-resolution.test.js).
-    beforeEach(() => { sinon.stub(Database.prototype, '_isListEditResolutionActiveAtTip').resolves(false); });
+    beforeEach(() => { sinon.stub(Database.prototype, 'isListEditResolutionActiveAtTip').resolves(false); });
 
     it('returns normalized membership rows', async () => {
         sinon.stub(db, 'doQuery').resolves([{ project: 'PROJECTX', link_action_index: 74n, roster_action_index: 73n }]);
@@ -2341,7 +2341,7 @@ describe('Database#getActionSummaryData: non-SEND actions', () => {
         db = makeDb();
         // Same reason as the sibling describe above: getActionData is stubbed here, so
         // the shared-leg prefetch has no reader (see action-preload-parity.test.js).
-        sinon.stub(db, '_buildActionPreload').resolves(null);
+        sinon.stub(db, 'buildActionPreload').resolves(null);
     });
     afterEach(() => { sinon.restore(); });
 
@@ -4075,7 +4075,7 @@ describe('Database.getCheckpointAtOrAbove ordering (SPV latest-default)', () => 
     let db;
     beforeEach(() => {
         db = makeDb();
-        sinon.stub(db, '_checkpointSource').returns({ table: 'state_checkpoints', filter: '', filterParams: [] });
+        sinon.stub(db, 'checkpointSource').returns({ table: 'state_checkpoints', filter: '', filterParams: [] });
     });
     afterEach(() => sinon.restore());
 
@@ -4106,7 +4106,7 @@ describe('Database._normalizeCheckpointRows emits BigInt indices as strings @reg
     const db = makeDb();
 
     it('coerces block_index/checkpoint_seq/snapshot_block to decimal strings', () => {
-        const [row] = db._normalizeCheckpointRows([{
+        const [row] = db.normalizeCheckpointRows([{
             chain: 'BTC', network: 'mainnet', block_hash: 'ff'.repeat(32),
             block_index: 100n, checkpoint_seq: 7n, snapshot_block: 2000000n
         }]);
@@ -4116,12 +4116,12 @@ describe('Database._normalizeCheckpointRows emits BigInt indices as strings @reg
     });
 
     it('preserves precision past 2^53 (the reason Number() was wrong)', () => {
-        const [row] = db._normalizeCheckpointRows([{ block_index: 9007199254740993n, checkpoint_seq: 1n, snapshot_block: 1n }]);
+        const [row] = db.normalizeCheckpointRows([{ block_index: 9007199254740993n, checkpoint_seq: 1n, snapshot_block: 1n }]);
         expect(row.block_index).to.equal('9007199254740993');
     });
 
     it('leaves non-index fields untouched (validator_signatures excepted: parsed to array)', () => {
-        const [row] = db._normalizeCheckpointRows([{
+        const [row] = db.normalizeCheckpointRows([{
             block_index: 1n, checkpoint_seq: 1n, snapshot_block: 1n,
             state_root: 'ab'.repeat(32), validator_signatures: '[]'
         }]);
@@ -4131,7 +4131,7 @@ describe('Database._normalizeCheckpointRows emits BigInt indices as strings @reg
 
     it('validator_signatures: one wire type (array) across the checkpoint REST family', () => {
         const sigs = [{ pubkey: 'aa', sig: 'bb' }];
-        const mk = (v) => db._normalizeCheckpointRows([{
+        const mk = (v) => db.normalizeCheckpointRows([{
             block_index: 1n, checkpoint_seq: 1n, snapshot_block: 1n, validator_signatures: v
         }])[0].validator_signatures;
         expect(mk(JSON.stringify(sigs))).to.deep.equal(sigs);   // DB JSON string -> array
@@ -4141,7 +4141,7 @@ describe('Database._normalizeCheckpointRows emits BigInt indices as strings @reg
     });
 
     it('empty/null rows → empty array', () => {
-        expect(db._normalizeCheckpointRows(null)).to.deep.equal([]);
-        expect(db._normalizeCheckpointRows([])).to.deep.equal([]);
+        expect(db.normalizeCheckpointRows(null)).to.deep.equal([]);
+        expect(db.normalizeCheckpointRows([])).to.deep.equal([]);
     });
 });

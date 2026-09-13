@@ -357,21 +357,21 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         }
 
         it('refuses a pending assembler, whose deployed_contract_index resolves later', function () {
-            assert.equal(db()._isCacheableAction({
+            assert.equal(db().isCacheableAction({
                 action: 'DEPLOY', action_index: 300, action_format: 2, status: PENDING_S,
                 deployed_contract_index: null, assembly_status: PENDING_S
             }), false);
         });
 
         it('still caches the same DEPLOY once it has deployed', function () {
-            assert.equal(db()._isCacheableAction({
+            assert.equal(db().isCacheableAction({
                 action: 'DEPLOY', action_index: 300, action_format: 2, status: 'valid',
                 deployed_contract_index: 300, assembly_status: 'valid'
             }), true, 'a settled deploy is immutable and the LRU exists for it');
         });
 
         it('caches a deferred assembler whose consuming carrier failed, a terminal answer', function () {
-            assert.equal(db()._isCacheableAction({
+            assert.equal(db().isCacheableAction({
                 action: 'DEPLOY', action_index: 400, action_format: 2, status: MISMATCH_S,
                 deployed_contract_index: null, assembly_status: MISMATCH_S
             }), true);
@@ -387,13 +387,13 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
 
         it('a pending response stays absent from the LRU, so the next read resolves it', function () {
             const d   = db();
-            const key = d._cacheKey('BTC', 300);
+            const key = d.cacheKey('BTC', 300);
             const pending = { action: 'DEPLOY', action_index: 300, status: PENDING_S, deployed_contract_index: null };
-            if (d._isCacheableAction(pending)) d._cacheSet(d._actionDataCache, key, pending);
-            assert.equal(d._cacheGet(d._actionDataCache, key), undefined);
+            if (d.isCacheableAction(pending)) d.cacheSet(d._actionDataCache, key, pending);
+            assert.equal(d.cacheGet(d._actionDataCache, key), undefined);
             const done = { action: 'DEPLOY', action_index: 300, status: 'valid', deployed_contract_index: 305 };
-            if (d._isCacheableAction(done)) d._cacheSet(d._actionDataCache, key, done);
-            assert.deepEqual(d._cacheGet(d._actionDataCache, key), done);
+            if (d.isCacheableAction(done)) d.cacheSet(d._actionDataCache, key, done);
+            assert.deepEqual(d.cacheGet(d._actionDataCache, key), done);
         });
     });
 

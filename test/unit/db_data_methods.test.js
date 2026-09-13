@@ -2248,7 +2248,7 @@ describe('Database#getTokenControllerBindings', () => {
         sinon.stub(db, 'getTickId').resolves(null);
         const q = sinon.stub(db, 'doQuery');
         expect(await db.getTokenControllerBindings(cfg(), 'NOPE')).to.deep.equal([]);
-        // _resolveControllerBindings short-circuits on a null key (no event query)
+        // resolveControllerBindings short-circuits on a null key (no event query)
         expect(q.called).to.be.false;
     });
 

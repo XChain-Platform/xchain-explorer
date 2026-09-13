@@ -431,7 +431,7 @@ const LIST = {
     // it is derived here and lands in `state` for two reasons: it is
     // recomputed from rows written AFTER this action (the same shape as
     // DISPENSER/ORDER/SWAP state), and `state` is precisely what the
-    // _isCacheableAction guard keys on. Without it the LRU would serve one
+    // isCacheableAction guard keys on. Without it the LRU would serve one
     // membership for the life of the process and every later edit would be
     // invisible, a stale-cache failure repeated on a new field.
     async afterQueries({ db, config, action_index }, data) {

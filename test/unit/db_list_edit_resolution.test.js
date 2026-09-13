@@ -202,7 +202,7 @@ describe('the explorer shows the membership the chain enforces', function () {
             const db = new Database(mockExplorer);
             const list = { action: 'LIST', action_index: ROOT,
                            state: { edit_resolution_active: true, membership_action_index: EDIT, current_list: ['mMemberB'] } };
-            expect(db._isCacheableAction(list)).to.equal(false);
+            expect(db.isCacheableAction(list)).to.equal(false);
         });
 
         it('an inert (below flag-day) membership block is uncacheable too', function () {
@@ -211,7 +211,7 @@ describe('the explorer shows the membership the chain enforces', function () {
             const db = new Database(mockExplorer);
             const list = { action: 'LIST', action_index: ROOT,
                            state: { edit_resolution_active: false, membership_action_index: ROOT, current_list: null } };
-            expect(db._isCacheableAction(list)).to.equal(false);
+            expect(db.isCacheableAction(list)).to.equal(false);
         });
     });
 

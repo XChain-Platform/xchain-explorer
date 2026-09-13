@@ -50,21 +50,21 @@ describe('reorg cache invalidation', function () {
     describe('_cacheKey / bumpReorgGeneration', function () {
 
         it('scopes the key to coin and current reorg generation', function () {
-            expect(db._cacheKey('BTC', 5)).to.equal('BTC:0:5');
-            expect(db._cacheKey('LTC', 5)).to.equal('LTC:0:5');   // coin-scoped
+            expect(db.cacheKey('BTC', 5)).to.equal('BTC:0:5');
+            expect(db.cacheKey('LTC', 5)).to.equal('LTC:0:5');   // coin-scoped
             db.bumpReorgGeneration('BTC');
-            expect(db._cacheKey('BTC', 5)).to.equal('BTC:1:5');
-            expect(db._cacheKey('LTC', 5)).to.equal('LTC:0:5');   // other coin untouched
+            expect(db.cacheKey('BTC', 5)).to.equal('BTC:1:5');
+            expect(db.cacheKey('LTC', 5)).to.equal('LTC:0:5');   // other coin untouched
         });
 
         it('makes a previously-cached entry unreachable after a reorg bump', function () {
-            const key0 = db._cacheKey('BTC', 5);
-            db._cacheSet(db._actionDataCache, key0, { marker: 'old' });
-            expect(db._cacheGet(db._actionDataCache, db._cacheKey('BTC', 5))).to.deep.equal({ marker: 'old' });
+            const key0 = db.cacheKey('BTC', 5);
+            db.cacheSet(db._actionDataCache, key0, { marker: 'old' });
+            expect(db.cacheGet(db._actionDataCache, db.cacheKey('BTC', 5))).to.deep.equal({ marker: 'old' });
 
             db.bumpReorgGeneration('BTC');
             // Same logical index, new generation: the stale entry is not returned.
-            expect(db._cacheGet(db._actionDataCache, db._cacheKey('BTC', 5))).to.be.undefined;
+            expect(db.cacheGet(db._actionDataCache, db.cacheKey('BTC', 5))).to.be.undefined;
         });
     });
 
@@ -88,12 +88,12 @@ describe('reorg cache invalidation', function () {
     describe('getActionData re-resolves after a reorg', function () {
 
         it('does not serve the pre-reorg cached action under the same index', function () {
-            const key = db._cacheKey('BTC', 7);
-            db._cacheSet(db._actionDataCache, key, { action_index: 7, marker: 'pre-reorg' });
-            expect(db._cacheGet(db._actionDataCache, db._cacheKey('BTC', 7))).to.have.property('marker', 'pre-reorg');
+            const key = db.cacheKey('BTC', 7);
+            db.cacheSet(db._actionDataCache, key, { action_index: 7, marker: 'pre-reorg' });
+            expect(db.cacheGet(db._actionDataCache, db.cacheKey('BTC', 7))).to.have.property('marker', 'pre-reorg');
 
             db.bumpReorgGeneration('BTC');
-            expect(db._cacheGet(db._actionDataCache, db._cacheKey('BTC', 7))).to.be.undefined;
+            expect(db.cacheGet(db._actionDataCache, db.cacheKey('BTC', 7))).to.be.undefined;
         });
     });
 

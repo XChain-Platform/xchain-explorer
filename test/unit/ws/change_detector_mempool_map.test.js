@@ -69,7 +69,7 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         cd.on('mempool_action',  (c, r) => seen.push(r));
         cd.on('mempool_removed', (c, r) => removed.push(r));
 
-        await cd._checkMempoolForCoin('RBTC');
+        await cd.checkMempoolForCoin('RBTC');
         expect(seen).to.deep.equal([]);
         expect(removed).to.deep.equal([]);
         expect(cd.mempoolState.RBTC.seenHashes.get('aa11'))
@@ -81,8 +81,8 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         const removed = [];
         cd.on('mempool_removed', (coin, row) => removed.push(row));
 
-        await cd._checkMempoolForCoin('RBTC');                      // seed
-        await cd._checkMempoolForCoin('RBTC');                      // SEND_ROW gone
+        await cd.checkMempoolForCoin('RBTC');                      // seed
+        await cd.checkMempoolForCoin('RBTC');                      // SEND_ROW gone
         expect(removed).to.deep.equal([
             { tx_hash: 'aa11', source: 'srcAddr', action: 'SEND', data: 'SEND|0|TOK|5|^42|memo' }
         ]);
@@ -97,8 +97,8 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         cd.on('mempool_action',  (c, r) => seen.push(r));
         cd.on('mempool_removed', (c, r) => removed.push(r));
 
-        await cd._checkMempoolForCoin('RBTC');                      // seed
-        await cd._checkMempoolForCoin('RBTC');
+        await cd.checkMempoolForCoin('RBTC');                      // seed
+        await cd.checkMempoolForCoin('RBTC');
         expect(seen).to.deep.equal([]);
         expect(removed).to.deep.equal([{ tx_hash: 'cc33', source: 'thirdAddr', action: null, data: null }]);
     });
@@ -110,8 +110,8 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         const seen = [];
         cd.on('mempool_action', (c, r) => seen.push(r.tx_hash));
 
-        await cd._checkMempoolForCoin('RBTC');                      // seed: decodes aa11
-        await cd._checkMempoolForCoin('RBTC');                      // aa11 known, bb22 new
+        await cd.checkMempoolForCoin('RBTC');                      // seed: decodes aa11
+        await cd.checkMempoolForCoin('RBTC');                      // aa11 known, bb22 new
         expect(seen).to.deep.equal(['bb22']);
         expect(db.decodeMempoolRow.callCount).to.equal(2);          // not 3
     });
@@ -126,8 +126,8 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         cd.on('mempool_removed', (c, r) => removed.push(r.tx_hash));
         cd.on('mempool_action',  (c, r) => seen.push(r.tx_hash));
 
-        await cd._checkMempoolForCoin('RBTC');                      // seed
-        await cd._checkMempoolForCoin('RBTC');                      // window shifted down
+        await cd.checkMempoolForCoin('RBTC');                      // seed
+        await cd.checkMempoolForCoin('RBTC');                      // window shifted down
         expect(removed).to.deep.equal([]);                          // above the covered bound: unknown, not gone
         expect(seen.length).to.equal(250);
         // The carried-forward entries keep their parties, so a removal announced
@@ -135,7 +135,7 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         expect(cd.mempoolState.RBTC.seenHashes.get('h0998'))
             .to.deep.equal({ source: 's998', action: 'MINT', data: 'MINT|0|TOK|1' });
 
-        await cd._checkMempoolForCoin('RBTC');                      // window shifts back over them
+        await cd.checkMempoolForCoin('RBTC');                      // window shifts back over them
         expect(seen.length).to.equal(250);                          // carried forward: not re-announced
         expect(removed.length).to.equal(250);                       // the odd low hashes are now genuinely gone
         expect(removed.every((h) => Number(h.slice(1)) % 2 === 1)).to.equal(true);
@@ -146,8 +146,8 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         const removed = [];
         cd.on('mempool_removed', (c, r) => removed.push(r.tx_hash));
 
-        await cd._checkMempoolForCoin('RBTC');
-        await cd._checkMempoolForCoin('RBTC');
+        await cd.checkMempoolForCoin('RBTC');
+        await cd.checkMempoolForCoin('RBTC');
         expect(removed.sort()).to.deep.equal(['bb22', 'cc33']);
     });
 });

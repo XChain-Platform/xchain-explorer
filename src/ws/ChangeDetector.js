@@ -50,7 +50,7 @@ const LIFECYCLE_MAP = {
 // XCALL_COMPLETED / XCALL_EXPIRED join it for the same structural reason (spec
 // explorer-coverage-completion M5.4): a cross-chain call's terminal transition on
 // the SOURCE chain is a direct status write by the callback interlock, so the
-// actions cursor never sees it. See _checkXcallPhases.
+// actions cursor never sees it. See checkXcallPhases.
 const NON_ACTION_LIFECYCLE_TYPES = ['BET_CLOSED', 'XCALL_COMPLETED', 'XCALL_EXPIRED'];
 
 // Lifecycle events emitted inline by an enrichment path, so neither the map nor
@@ -73,7 +73,7 @@ class ChangeDetector extends EventEmitter {
         // How long a coin's BET_CLOSED cursor stays parked after its indexer answers
         // "no bet_feeds table". A schema gap is a deploy-order fact, not a permanent
         // property of the chain, so it is a cooldown rather than a switch: see
-        // _checkBetLatches. Tests set it to 0 to probe on every poll.
+        // checkBetLatches. Tests set it to 0 to probe on every poll.
         this.betLatchRetryMs = options.betLatchRetryMs !== undefined
             ? options.betLatchRetryMs
             : 5 * 60 * 1000;
@@ -84,11 +84,11 @@ class ChangeDetector extends EventEmitter {
         // Track the unconfirmed (decoder mempool) snapshot per coin. Keyed by
         // tx_hash: the mempool table has no monotonic index, so each poll
         // diffs the tx_hash-ordered (capped) window against the previous one;
-        // see _checkMempoolForCoin for what a saturated window does and does
+        // see checkMempoolForCoin for what a saturated window does and does
         // not prove. The value is `{source, action, data}` (`data` being the RAW
         // action string, not a party list) so a removal can name the tx's parties
         // and its action family after its row is already gone from the table; see
-        // the emit in _checkMempoolForCoin.
+        // the emit in checkMempoolForCoin.
         this.mempoolState = {};
 
         // Polling timer reference
@@ -109,8 +109,8 @@ class ChangeDetector extends EventEmitter {
             }
         }
 
-        this.timer = setInterval(() => this._poll(), this.pollInterval);
-        this._poll();
+        this.timer = setInterval(() => this.poll(), this.pollInterval);
+        this.poll();
 
         console.log('ChangeDetector started: polling every', this.pollInterval, 'ms for', coins.join(', '));
     }
@@ -127,8 +127,8 @@ class ChangeDetector extends EventEmitter {
     // current? Same per-coin, 15s-cached, fail-closed verdict the HTTP path gates
     // on (db.isCoinTipStale). A db without the method is a unit-test double, never
     // the shipped Database, so fail OPEN there, mirroring the
-    // `typeof this.db.checkReorgAndInvalidate === 'function'` probe in _checkCoin.
-    async _isCoinTipStale(coin) {
+    // `typeof this.db.checkReorgAndInvalidate === 'function'` probe in checkCoin.
+    async isCoinTipStale(coin) {
         if (!this.db || typeof this.db.isCoinTipStale !== 'function') return false;
         try { return await this.db.isCoinTipStale(coin); }
         catch (e) { return false; }
@@ -136,11 +136,11 @@ class ChangeDetector extends EventEmitter {
 
     // Same opt-in as the HTTP 503 (db.staleFailClosed): skip a stale coin's
     // emits entirely instead of marking them.
-    _staleFailClosed() {
+    staleFailClosed() {
         return !!(this.db && typeof this.db.staleFailClosed === 'function' && this.db.staleFailClosed());
     }
 
-    async _poll() {
+    async poll() {
         if (!this.running) return;
 
         for (const coin of Object.keys(this.state)) {
@@ -156,17 +156,17 @@ class ChangeDetector extends EventEmitter {
             // which is what the cached verdict is sized for. The fail-closed opt-in
             // keeps the old behaviour: skip the coin, cursors untouched, so the
             // backlog emits normally once the tip catches up.
-            const tipStale = await this._isCoinTipStale(coin);
+            const tipStale = await this.isCoinTipStale(coin);
             if (tipStale) this.staleCoins.add(coin); else this.staleCoins.delete(coin);
-            if (tipStale && this._staleFailClosed()) continue;
+            if (tipStale && this.staleFailClosed()) continue;
 
             try {
-                await this._checkCoin(coin);
+                await this.checkCoin(coin);
             } catch (e) {
                 console.error('ChangeDetector poll error for', coin, ':', e);
             }
             try {
-                await this._checkMempoolForCoin(coin);
+                await this.checkMempoolForCoin(coin);
             } catch (e) {
                 console.error('ChangeDetector mempool poll error for', coin, ':', e);
             }
@@ -184,7 +184,7 @@ class ChangeDetector extends EventEmitter {
     // action and the removal still gets the removal.
     // Rows are PRE-VALIDATION: a mempool action can still be rejected by the
     // indexer at confirmation, so consumers must treat these as provisional.
-    async _checkMempoolForCoin(coin) {
+    async checkMempoolForCoin(coin) {
         if (typeof this.db.getDecoderMempoolRows !== 'function') return;
         const state = this.mempoolState[coin];
         if (!state) return;
@@ -265,7 +265,7 @@ class ChangeDetector extends EventEmitter {
         state.seenHashes = next;
     }
 
-    async _checkCoin(coin) {
+    async checkCoin(coin) {
         const config = { coin };
         const prev   = this.state[coin];
 
@@ -273,7 +273,7 @@ class ChangeDetector extends EventEmitter {
         // reorg (M-3). The indexer reassigns ^id / action_index on a reorg, so a
         // cached entry keyed by an index can otherwise serve a different entity's
         // detail/history until natural eviction. This is the tip-poll loop the
-        // caches piggyback on; a failed read throws and is caught by _poll, which
+        // caches piggyback on; a failed read throws and is caught by poll, which
         // leaves the last-seen tip unchanged so no spurious invalidation occurs.
         // The returned flag also drives the cursor rewind below: a reorg can roll
         // the indexer tip BACKWARD, and our cursors are a high-water mark, so without
@@ -340,13 +340,13 @@ class ChangeDetector extends EventEmitter {
             // so a burst larger than fetchLimit must drain over successive polls.
             // Jumping straight to currentBlockIndex would permanently skip every
             // block past the first fetchLimit seen in one interval.
-            prev.blockIndex = this._nextCursor(newBlocks, 'block_index', currentBlockIndex);
+            prev.blockIndex = this.nextCursor(newBlocks, 'block_index', currentBlockIndex);
         }
 
         if (currentActionIndex > prev.actionIndex) {
             const newActions = await this.db.getActionsSince(config, prev.actionIndex, this.fetchLimit);
             if (newActions && newActions.length > 0) {
-                // Per-poll entity-read cache (grouped by type). _emitEntityUpdates used to
+                // Per-poll entity-read cache (grouped by type). Without it emitEntityUpdates would
                 // re-issue getAddressBalances / getTokenInfo / getDispenserInfo / getMarketInfo
                 // for every subscribed entity ON EVERY action, fanning a poll out to
                 // (new actions) x (subscribed entities) serial single-row reads. Each of those
@@ -364,24 +364,24 @@ class ChangeDetector extends EventEmitter {
                 };
                 for (const action of newActions) {
                     this.emit('action', coin, action);
-                    await this._emitLifecycleEvents(coin, config, action);
-                    await this._emitEntityUpdates(coin, config, action, entityCache);
-                    await this._emitAttestationEvents(coin, config, action);
+                    await this.emitLifecycleEvents(coin, config, action);
+                    await this.emitEntityUpdates(coin, config, action, entityCache);
+                    await this.emitAttestationEvents(coin, config, action);
                 }
             }
             // Same drain semantics as blocks (getActionsSince is action_index ASC,
             // capped at fetchLimit): advance to the last emitted action, not the tip.
-            prev.actionIndex = this._nextCursor(newActions, 'action_index', currentActionIndex);
+            prev.actionIndex = this.nextCursor(newActions, 'action_index', currentActionIndex);
         }
 
         // Runs after the action loop, mirroring the chain: the latch pass executes
         // after every user tx in its block (spec §6), so a market page sees the last
         // bet before it is told betting closed.
-        await this._checkBetLatches(coin, config, currentBlockIndex, prev);
+        await this.checkBetLatches(coin, config, currentBlockIndex, prev);
         // Same placement rationale: the callback interlock runs after the block's
         // actions, so a subscriber sees the injected callback EXECUTE before it is
         // told the call it belonged to is finished.
-        await this._checkXcallPhases(coin, config, currentBlockIndex, prev);
+        await this.checkXcallPhases(coin, config, currentBlockIndex, prev);
     }
 
     // Emit XCALL_COMPLETED / XCALL_EXPIRED for every cross-chain call whose
@@ -396,7 +396,7 @@ class ChangeDetector extends EventEmitter {
     // the same cursor even though XCALL v2 does mint an action, because a subscriber
     // filtering on the phase names must see both outcomes or the live timeline shows
     // completions and silently drops expiries.
-    async _checkXcallPhases(coin, config, currentBlockIndex, prev) {
+    async checkXcallPhases(coin, config, currentBlockIndex, prev) {
         if (typeof this.db.getXcallPhasesSince !== 'function') return;
         // Parked-with-cooldown exactly like the BET latch: a coin whose indexer
         // predates the XCALL tables is a deploy-order fact, not a permanent property
@@ -410,7 +410,7 @@ class ChangeDetector extends EventEmitter {
         try {
             rows = await this.db.getXcallPhasesSince(config, since, this.fetchLimit);
         } catch (e) {
-            if (this._isMissingTableError(e)) {
+            if (this.isMissingTableError(e)) {
                 if (!prev.xcallUnsupported) {
                     console.log('ChangeDetector: no xcalls table for', coin,
                                 '- XCALL phase events parked for this coin, re-probing every',
@@ -502,7 +502,7 @@ class ChangeDetector extends EventEmitter {
     // one: the first cut of this check looked right, passed a unit test built from a
     // hand-made error, and still logged the missing table every poll on the fleet.
     // Walks the cause chain, which is bounded and short.
-    _isMissingTableError(err) {
+    isMissingTableError(err) {
         for (let e = err, depth = 0; e && depth < 5; e = e.cause, depth++) {
             if (e.code === 'ER_NO_SUCH_TABLE' || Number(e.errno) === 1146) return true;
         }
@@ -516,7 +516,7 @@ class ChangeDetector extends EventEmitter {
     // for the actions cursor to find, so a subscribed market page used to learn that
     // betting had closed only on its next fetch (spec §11.1 lists the latch
     // among this channel's events).
-    async _checkBetLatches(coin, config, currentBlockIndex, prev) {
+    async checkBetLatches(coin, config, currentBlockIndex, prev) {
         if (typeof this.db.getBetFeedsClosedSince !== 'function') return;
         // A coin whose indexer predates the BET tables is not an error condition to
         // re-discover every 5 seconds; see the ER_NO_SUCH_TABLE branch below. It is
@@ -538,7 +538,7 @@ class ChangeDetector extends EventEmitter {
             // report it once, rather than letting a per-coin schema gap look like a
             // recurring fault. Any OTHER error still propagates to the poll loop's
             // handler, where a genuine DB failure belongs.
-            if (this._isMissingTableError(e)) {
+            if (this.isMissingTableError(e)) {
                 // Announce the transition only. A re-probe that finds the table still
                 // missing must stay silent, or the cooldown just turns a per-poll log
                 // into a per-cooldown one.
@@ -588,7 +588,7 @@ class ChangeDetector extends EventEmitter {
             // tail and then advancing past its block would silently drop the rest of
             // it, so stop on the last COMPLETE block and re-read the remainder next
             // poll. The cursor is a block height, not a row id, which is exactly why
-            // the generic _nextCursor drain cannot be reused here: resuming mid-block
+            // the generic nextCursor drain cannot be reused here: resuming mid-block
             // would re-emit the feeds already sent from that block.
             const lastBlock = Number(rows[rows.length - 1].closed_block);
             const complete  = rows.filter((r) => Number(r.closed_block) < lastBlock);
@@ -650,7 +650,7 @@ class ChangeDetector extends EventEmitter {
     // land at or past an action that was never emitted. The return keeps
     // currentMax's own type so the block cursor stays a Number and only the action
     // cursor, whose currentMax is now BigInt, becomes exact.
-    _nextCursor(rows, indexKey, currentMax) {
+    nextCursor(rows, indexKey, currentMax) {
         if (!rows || rows.length === 0) return currentMax;
         let last, max;
         // A malformed/absent index on the last row is not a cursor: fall back to the
@@ -666,7 +666,7 @@ class ChangeDetector extends EventEmitter {
         return currentMax;
     }
 
-    async _emitLifecycleEvents(coin, config, action) {
+    async emitLifecycleEvents(coin, config, action) {
         const actionType = action.action;
         if (!actionType) return;
 
@@ -779,12 +779,12 @@ class ChangeDetector extends EventEmitter {
     }
 
     // Read an entity's enrichment info at most once per poll. `map` is one of the
-    // per-poll caches built in _checkCoin; a cache miss runs `loader` and stores its
+    // per-poll caches built in checkCoin; a cache miss runs `loader` and stores its
     // result (including null), a hit returns the stored value without a DB round-trip.
     // A loader that throws is NOT cached and propagates to the caller's try/catch, so
     // the per-entity non-fatal skip behaviour is unchanged. When no cache is supplied
     // (e.g. a direct/legacy call) the loader always runs, preserving old behaviour.
-    async _entityRead(map, key, loader) {
+    async entityRead(map, key, loader) {
         if (!map) return await loader();
         if (map.has(key)) return map.get(key);
         const value = await loader();
@@ -792,7 +792,7 @@ class ChangeDetector extends EventEmitter {
         return value;
     }
 
-    async _emitEntityUpdates(coin, config, action, entityCache) {
+    async emitEntityUpdates(coin, config, action, entityCache) {
         if (!this.channelManager) return;
         const cache = entityCache || null;
 
@@ -804,7 +804,7 @@ class ChangeDetector extends EventEmitter {
 
             for (const addr of involvedAddresses) {
                 try {
-                    const balances = await this._entityRead(cache && cache.addr, addr, () => this.db.getAddressBalances(config, addr));
+                    const balances = await this.entityRead(cache && cache.addr, addr, () => this.db.getAddressBalances(config, addr));
                     this.emit('entity_update', coin, {
                         type:    'ADDRESS_UPDATE',
                         channel: 'address',
@@ -826,7 +826,7 @@ class ChangeDetector extends EventEmitter {
         if (subscribedTicks.size > 0 && ['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND'].includes(action.action)) {
             for (const tick of subscribedTicks) {
                 try {
-                    const tokenInfo = await this._entityRead(cache && cache.token, tick, () => this.db.getTokenInfo(config, tick));
+                    const tokenInfo = await this.entityRead(cache && cache.token, tick, () => this.db.getTokenInfo(config, tick));
                     if (tokenInfo) {
                         this.emit('entity_update', coin, {
                             type:    'TOKEN_UPDATE',
@@ -855,7 +855,7 @@ class ChangeDetector extends EventEmitter {
         if (subscribedDispensers.size > 0 && ['DISPENSE', 'DISPENSER', 'DISPENSER_CLOSE', 'DISPENSER_EXPIRE'].includes(action.action)) {
             for (const dispenserIdx of subscribedDispensers) {
                 try {
-                    const dispenserInfo = await this._entityRead(cache && cache.dispenser, dispenserIdx, () => this.db.getDispenserInfo(config, dispenserIdx));
+                    const dispenserInfo = await this.entityRead(cache && cache.dispenser, dispenserIdx, () => this.db.getDispenserInfo(config, dispenserIdx));
                     if (dispenserInfo) {
                         this.emit('entity_update', coin, {
                             type:    'DISPENSER_UPDATE',
@@ -873,7 +873,7 @@ class ChangeDetector extends EventEmitter {
         if (subscribedMarkets.length > 0 && ['ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE', 'SWAP', 'SWAP_MATCH'].includes(action.action)) {
             for (const market of subscribedMarkets) {
                 try {
-                    const marketInfo = await this._entityRead(cache && cache.market, market.tick1 + '\u0000' + market.tick2, () => this.db.getMarketInfo(config, market.tick1, market.tick2));
+                    const marketInfo = await this.entityRead(cache && cache.market, market.tick1 + '\u0000' + market.tick2, () => this.db.getMarketInfo(config, market.tick1, market.tick2));
                     if (marketInfo) {
                         this.emit('entity_update', coin, {
                             type:    'MARKET_UPDATE',
@@ -892,7 +892,7 @@ class ChangeDetector extends EventEmitter {
     // `attestation` channel when a new ATTEST action lands. The raw action row
     // from getActionsSince doesn't carry the version, so we enrich it from the
     // consolidated `attests` table to tell a v0 request from a v1 response.
-    async _emitAttestationEvents(coin, config, action) {
+    async emitAttestationEvents(coin, config, action) {
         if (!action || action.action !== 'ATTEST') return;
         try {
             const row = await this.db.getAttestationByActionIndex(config, action.action_index);

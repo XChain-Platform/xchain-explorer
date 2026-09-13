@@ -52,7 +52,7 @@ describe('ChangeDetector', function () {
             cd.on('action', actionSpy);
 
             cd.state['BTC'] = { blockIndex: 0, actionIndex: 0, initialized: false };
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(blockSpy.callCount).to.equal(0);
             expect(actionSpy.callCount).to.equal(0);
@@ -73,7 +73,7 @@ describe('ChangeDetector', function () {
             const blockSpy = sinon.spy();
             cd.on('block', blockSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(blockSpy.calledOnce).to.be.true;
             expect(blockSpy.firstCall.args[0]).to.equal('BTC');
@@ -89,7 +89,7 @@ describe('ChangeDetector', function () {
             const blockSpy = sinon.spy();
             cd.on('block', blockSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(blockSpy.callCount).to.equal(0);
         });
@@ -106,7 +106,7 @@ describe('ChangeDetector', function () {
             const actionSpy = sinon.spy();
             cd.on('action', actionSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(actionSpy.calledOnce).to.be.true;
             expect(actionSpy.firstCall.args[1].action).to.equal('SEND');
@@ -124,7 +124,7 @@ describe('ChangeDetector', function () {
             const actionSpy = sinon.spy();
             cd.on('action', actionSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(actionSpy.callCount).to.equal(2);
         });
@@ -142,7 +142,7 @@ describe('ChangeDetector', function () {
             const lifecycleSpy = sinon.spy();
             cd.on('lifecycle_event', lifecycleSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(lifecycleSpy.calledOnce).to.be.true;
             expect(lifecycleSpy.firstCall.args[1].type).to.equal('ORDER_MATCH');
@@ -166,7 +166,7 @@ describe('ChangeDetector', function () {
             const lifecycleSpy = sinon.spy();
             cd.on('lifecycle_event', lifecycleSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(lifecycleSpy.callCount).to.equal(2);
             const types = lifecycleSpy.getCalls().map(c => c.args[1].type);
@@ -183,7 +183,7 @@ describe('ChangeDetector', function () {
             const lifecycleSpy = sinon.spy();
             cd.on('lifecycle_event', lifecycleSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(lifecycleSpy.calledOnce).to.be.true;
             expect(lifecycleSpy.firstCall.args[1].type).to.equal('COINPAY_FULFILLED');
@@ -198,7 +198,7 @@ describe('ChangeDetector', function () {
             const lifecycleSpy = sinon.spy();
             cd.on('lifecycle_event', lifecycleSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(lifecycleSpy.calledOnce).to.be.true;
             expect(lifecycleSpy.firstCall.args[1].type).to.equal('SWAP_MATCH');
@@ -213,7 +213,7 @@ describe('ChangeDetector', function () {
             const lifecycleSpy = sinon.spy();
             cd.on('lifecycle_event', lifecycleSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(lifecycleSpy.calledOnce).to.be.true;
             expect(lifecycleSpy.firstCall.args[1].type).to.equal('DISPENSE');
@@ -228,7 +228,7 @@ describe('ChangeDetector', function () {
             const lifecycleSpy = sinon.spy();
             cd.on('lifecycle_event', lifecycleSpy);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(lifecycleSpy.callCount).to.equal(0);
         });
@@ -242,8 +242,8 @@ describe('ChangeDetector', function () {
             const cd = new ChangeDetector({ db, pollInterval: 60000 });
             cd.state['BTC'] = { blockIndex: 100, actionIndex: 500, initialized: true };
 
-            // _poll catches per-coin errors; should not throw.
-            await cd._poll();
+            // poll catches per-coin errors; should not throw.
+            await cd.poll();
         });
     });
 
@@ -271,7 +271,7 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(spy.callCount).to.equal(1);
             const evt = spy.firstCall.args[1];
@@ -297,7 +297,7 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(spy.firstCall.args[1].data.status).to.equal('closed');
             expect(spy.firstCall.args[1].data.feed_status).to.equal('resolved');
@@ -310,8 +310,8 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(spy.callCount, 'one latch, one event').to.equal(1);
             expect(cd.state['BTC'].closedBlock).to.equal(120);
@@ -324,7 +324,7 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(spy.callCount, 'old markets must not appear to be closing right now').to.equal(0);
             expect(cd.state['BTC'].closedBlock).to.equal(500);
@@ -335,9 +335,9 @@ describe('ChangeDetector', function () {
             const cd = new ChangeDetector({ db, pollInterval: 60000 });
             cd.state['BTC'] = { blockIndex: 400, actionIndex: 500, closedBlock: 100, initialized: true };
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(cd.state['BTC'].closedBlock).to.equal(400);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(db.getBetFeedsClosedSince.secondCall.args[1], 'second poll resumes at the tip').to.equal(400);
         });
 
@@ -352,13 +352,13 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(spy.getCalls().map((c) => Number(c.args[1].data.action_index)),
                 'only the complete block goes out').to.deep.equal([10]);
             expect(cd.state['BTC'].closedBlock).to.equal(10);
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(spy.getCalls().map((c) => Number(c.args[1].data.action_index)),
                 'the deferred block drains next poll, once each').to.deep.equal([10, 20, 30, 31]);
         });
@@ -374,7 +374,7 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(spy.callCount).to.equal(3);
             expect(cd.state['BTC'].closedBlock).to.equal(50);
@@ -392,7 +392,7 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(spy.callCount).to.equal(1);
             expect(cd.state['BTC'].closedBlock).to.equal(205);
 
@@ -401,14 +401,14 @@ describe('ChangeDetector', function () {
             feeds.length = 0;
             db.checkReorgAndInvalidate.resolves(true);
             db.getMaxBlockIndex.resolves(203);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(cd.state['BTC'].closedBlock, 'cursor clamped to the new tip').to.equal(203);
 
             // Re-latched at 204 on the replacement chain.
             feeds.push(feed(77, 204));
             db.checkReorgAndInvalidate.resolves(false);
             db.getMaxBlockIndex.resolves(206);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(spy.callCount, 'the re-latch is pushed too').to.equal(2);
         });
 
@@ -429,9 +429,9 @@ describe('ChangeDetector', function () {
             const cd = new ChangeDetector({ db, pollInterval: 60000 });
             cd.state['BTC'] = { blockIndex: 119, actionIndex: 500, closedBlock: 0, initialized: true };
 
-            await cd._checkCoin('BTC');
-            await cd._checkCoin('BTC');
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
+            await cd.checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(db.getBetFeedsClosedSince.callCount, 'asked once, then stopped asking').to.equal(1);
             expect(cd.state['BTC'].betLatchUnsupported).to.equal(true);
@@ -452,7 +452,7 @@ describe('ChangeDetector', function () {
             const cd = new ChangeDetector({ db, pollInterval: 60000, betLatchRetryMs: 0 });
             cd.state['BTC'] = { blockIndex: 119, actionIndex: 500, closedBlock: 0, initialized: true };
 
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(cd.state['BTC'].betLatchUnsupported, 'parked on the missing table').to.equal(true);
 
             // That chain's indexer gains the tables. No restart, no reconnect.
@@ -460,7 +460,7 @@ describe('ChangeDetector', function () {
             db.getMaxBlockIndex.resolves(121);
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
 
             expect(cd.state['BTC'].betLatchUnsupported, 're-armed without a restart').to.equal(false);
             expect(cd.state['BTC'].closedBlock, 're-seeded to the tip, not replayed from 0').to.equal(121);
@@ -477,9 +477,9 @@ describe('ChangeDetector', function () {
             const cd = new ChangeDetector({ db, pollInterval: 60000, betLatchRetryMs: 60000 });
             cd.state['BTC'] = { blockIndex: 119, actionIndex: 500, closedBlock: 0, initialized: true };
 
-            await cd._checkCoin('BTC');
-            await cd._checkCoin('BTC');
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
+            await cd.checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(db.getBetFeedsClosedSince.callCount, 'one probe per cooldown, not per poll').to.equal(1);
         });
 
@@ -492,7 +492,7 @@ describe('ChangeDetector', function () {
             cd.state['BTC'] = { blockIndex: 119, actionIndex: 500, closedBlock: 0, initialized: true };
 
             let threw = false;
-            try { await cd._checkCoin('BTC'); } catch (e) { threw = true; }
+            try { await cd.checkCoin('BTC'); } catch (e) { threw = true; }
             expect(threw, 'propagates to the poll loop').to.equal(true);
             expect(cd.state['BTC'].betLatchUnsupported, 'not disabled by a transient fault').to.not.equal(true);
         });
@@ -506,7 +506,7 @@ describe('ChangeDetector', function () {
 
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
-            await cd._checkCoin('BTC');
+            await cd.checkCoin('BTC');
             expect(spy.callCount).to.equal(0);
         });
     });

@@ -13,9 +13,9 @@
  **********************************************************************
  * WS event-envelope schema version, DISTINCT from the explorer build
  * version (which only names the deployment). Every outbound frame is
- * stamped `schema_version` at the three send sinks (WebSocketServer._send,
- * Broadcaster's per-subscriber send in _broadcastToChannelKey, and
- * Broadcaster._send), so subscribers can gate their parsing instead of
+ * stamped `schema_version` at the three send sinks (WebSocketServer.send,
+ * Broadcaster's per-subscriber send in broadcastToChannelKey, and
+ * Broadcaster.send), so subscribers can gate their parsing instead of
  * silently mis-parsing a reshaped payload.
  *
  * BUMP THIS whenever the `data` shape of ANY event (NEW_ACTION,

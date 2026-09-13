@@ -30,7 +30,7 @@ function makeReq(headers, remoteAddress) {
     return { headers: headers || {}, socket: { remoteAddress: remoteAddress || '203.0.113.9' } };
 }
 
-// A client shaped like _onConnection builds, with a closed ws so _send is a no-op.
+// A client shaped like onConnection builds, with a closed ws so send is a no-op.
 function makeClient(coin) {
     return {
         id: 1, coin: coin || 'BTC', chain: 'BTC', network: 'mainnet',
@@ -45,34 +45,34 @@ describe('WebSocketServer#_clientIp (ws-1: XFF spoof)', function () {
 
     it('ignores X-Forwarded-For entirely with 0 trusted hops (uses TCP peer)', function () {
         const s = makeServer({ trustProxyHops: 0 });
-        const ip = s._clientIp(makeReq({ 'x-forwarded-for': 'attacker-spoof' }, '198.51.100.7'));
+        const ip = s.clientIp(makeReq({ 'x-forwarded-for': 'attacker-spoof' }, '198.51.100.7'));
         expect(ip).to.equal('198.51.100.7');
     });
 
     it('never keys on the leftmost (client-supplied) XFF token', function () {
         const s = makeServer({ trustProxyHops: 1 });
         // Real proxy APPENDS the observed peer to the right; the leftmost is spoofed.
-        const ip = s._clientIp(makeReq({ 'x-forwarded-for': 'spoof-uuid-1, 198.51.100.7' }));
+        const ip = s.clientIp(makeReq({ 'x-forwarded-for': 'spoof-uuid-1, 198.51.100.7' }));
         expect(ip).to.equal('198.51.100.7');
         expect(ip).to.not.equal('spoof-uuid-1');
     });
 
     it('a unique spoofed leftmost token per request resolves to the SAME real IP', function () {
         const s = makeServer({ trustProxyHops: 1 });
-        const a = s._clientIp(makeReq({ 'x-forwarded-for': 'uuid-a, 198.51.100.7' }));
-        const b = s._clientIp(makeReq({ 'x-forwarded-for': 'uuid-b, 198.51.100.7' }));
+        const a = s.clientIp(makeReq({ 'x-forwarded-for': 'uuid-a, 198.51.100.7' }));
+        const b = s.clientIp(makeReq({ 'x-forwarded-for': 'uuid-b, 198.51.100.7' }));
         // The bypass was that these keyed to different buckets; now they collapse.
         expect(a).to.equal(b);
     });
 
     it('falls back to the TCP peer when XFF is absent', function () {
         const s = makeServer({ trustProxyHops: 1 });
-        expect(s._clientIp(makeReq({}, '203.0.113.42'))).to.equal('203.0.113.42');
+        expect(s.clientIp(makeReq({}, '203.0.113.42'))).to.equal('203.0.113.42');
     });
 
     it('takes the Nth-from-right entry for trustProxyHops=2', function () {
         const s = makeServer({ trustProxyHops: 2 });
-        const ip = s._clientIp(makeReq({ 'x-forwarded-for': 'spoof, 198.51.100.7, 10.0.0.1' }));
+        const ip = s.clientIp(makeReq({ 'x-forwarded-for': 'spoof, 198.51.100.7, 10.0.0.1' }));
         expect(ip).to.equal('198.51.100.7');
     });
 });
@@ -85,23 +85,23 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
 
     it('snapshots only NEWLY-subscribed entities, not a re-subscribe of the same set', async function () {
         const s = makeServer();
-        const snap = sinon.stub(s, '_sendSnapshots').resolves();
+        const snap = sinon.stub(s, 'sendSnapshots').resolves();
         const client = makeClient('BTC');
         const msg = { channels: ['address'], params: { snapshot: true, addresses: ['addr1', 'addr2'] } };
 
-        s._handleSubscribe(client, msg);
+        s.handleSubscribe(client, msg);
         expect(snap.callCount).to.equal(1);
         expect(snap.firstCall.args[1]).to.have.lengthOf(2); // both fresh
         await tick(); // let the in-progress guard clear
 
         // Re-send the identical batch: every entity is already subscribed, so there is
-        // nothing fresh to snapshot -> _sendSnapshots must NOT run again.
-        s._handleSubscribe(client, { ...msg });
+        // nothing fresh to snapshot -> sendSnapshots must NOT run again.
+        s.handleSubscribe(client, { ...msg });
         expect(snap.callCount).to.equal(1);
         await tick();
 
         // Adding one NEW address snapshots only that one.
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['addr1', 'addr3'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['addr1', 'addr3'] } });
         expect(snap.callCount).to.equal(2);
         expect(snap.secondCall.args[1]).to.have.lengthOf(1);
         expect(snap.secondCall.args[1][0].address).to.equal('addr3');
@@ -115,7 +115,7 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['actions'], params: { statuses: ['valid'] } });
+        s.handleSubscribe(client, { channels: ['actions'], params: { statuses: ['valid'] } });
 
         const subscribed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -131,7 +131,7 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['actions'], params: { statuses: ['valid'] } });
+        s.handleSubscribe(client, { channels: ['actions'], params: { statuses: ['valid'] } });
 
         const subscribed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -146,7 +146,7 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['actions'], params: { ticks: ['PEPE'] } });
+        s.handleSubscribe(client, { channels: ['actions'], params: { ticks: ['PEPE'] } });
 
         const subscribed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -161,7 +161,7 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['actions'], params: { types: ['SEND'] } });
+        s.handleSubscribe(client, { channels: ['actions'], params: { types: ['SEND'] } });
 
         const subscribed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -173,15 +173,15 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
     it('does not start a second snapshot fan-out while one is in progress', async function () {
         const s = makeServer();
         // A snapshot that never resolves within the test keeps the guard set.
-        const snap = sinon.stub(s, '_sendSnapshots').returns(new Promise(() => {}));
+        const snap = sinon.stub(s, 'sendSnapshots').returns(new Promise(() => {}));
         const client = makeClient('BTC');
 
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
         expect(snap.callCount).to.equal(1);
         expect(client.snapshotInProgress).to.equal(true);
 
         // New entity, but a fan-out is still running -> deferred, not concurrent.
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
         expect(snap.callCount).to.equal(1);
         expect(client.pendingSnapshots.map((x) => x.address)).to.deep.equal(['b']);
     });
@@ -192,13 +192,13 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
     it('delivers the SNAPSHOT of a subscribe that arrived mid fan-out (D-E063)', async function () {
         const s = makeServer();
         let releaseFirst;
-        const snap = sinon.stub(s, '_sendSnapshots');
+        const snap = sinon.stub(s, 'sendSnapshots');
         snap.onFirstCall().returns(new Promise((r) => { releaseFirst = r; }));
         snap.onSecondCall().resolves();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: () => {} } };
 
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
         expect(snap.callCount, 'second fan-out must not run concurrently').to.equal(1);
 
         releaseFirst();
@@ -213,15 +213,15 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
     it('drains several deferred subscribes in ONE follow-up fan-out, deduped', async function () {
         const s = makeServer();
         let releaseFirst;
-        const snap = sinon.stub(s, '_sendSnapshots');
+        const snap = sinon.stub(s, 'sendSnapshots');
         snap.onFirstCall().returns(new Promise((r) => { releaseFirst = r; }));
         snap.onSecondCall().resolves();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: () => {} } };
 
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
         // 'b' is already subscribed by now, so only 'c' is fresh here.
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b', 'c'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b', 'c'] } });
 
         releaseFirst();
         await tick();
@@ -239,7 +239,7 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: (d) => sent.push(JSON.parse(d)) } };
         const subs = ['b', 'c', 'd'].map((address) => ({ channel: 'address', address }));
 
-        s._queueSnapshots(client, subs, 7);
+        s.queueSnapshots(client, subs, 7);
 
         const err = sent.find((m) => m.data && m.data.code === 'SNAPSHOT_QUEUE_FULL');
         expect(err, 'the client must be told, not silently dropped').to.exist;
@@ -251,12 +251,12 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
     it('drops the deferred queue instead of fanning out to a closed socket', async function () {
         const s = makeServer();
         let releaseFirst;
-        const snap = sinon.stub(s, '_sendSnapshots');
+        const snap = sinon.stub(s, 'sendSnapshots');
         snap.onFirstCall().returns(new Promise((r) => { releaseFirst = r; }));
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: () => {} } };
 
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
-        s._handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['a'] } });
+        s.handleSubscribe(client, { channels: ['address'], params: { snapshot: true, addresses: ['b'] } });
 
         client.ws.readyState = 3; // CLOSED
         releaseFirst();
@@ -273,9 +273,9 @@ describe('WebSocketServer#_handleUnsubscribe (client cannot tell honoured from d
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['blocks'] });
+        s.handleSubscribe(client, { channels: ['blocks'] });
         client.ws.send.resetHistory();
-        s._handleUnsubscribe(client, { channels: ['blocks'] });
+        s.handleUnsubscribe(client, { channels: ['blocks'] });
 
         const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
         const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
@@ -288,9 +288,9 @@ describe('WebSocketServer#_handleUnsubscribe (client cannot tell honoured from d
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['address'], params: { address: '1abc' } });
+        s.handleSubscribe(client, { channels: ['address'], params: { address: '1abc' } });
         client.ws.send.resetHistory();
-        s._handleUnsubscribe(client, { channels: ['address'], params: { address: '1abc' } });
+        s.handleUnsubscribe(client, { channels: ['address'], params: { address: '1abc' } });
 
         const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
         const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
@@ -304,7 +304,7 @@ describe('WebSocketServer#_handleUnsubscribe (client cannot tell honoured from d
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleUnsubscribe(client, { channels: ['blocks'] });
+        s.handleUnsubscribe(client, { channels: ['blocks'] });
 
         const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
         const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
@@ -316,9 +316,9 @@ describe('WebSocketServer#_handleUnsubscribe (client cannot tell honoured from d
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['blocks'] });
+        s.handleSubscribe(client, { channels: ['blocks'] });
         client.ws.send.resetHistory();
-        s._handleUnsubscribe(client, { channels: ['blocks'], id: 'req-7' });
+        s.handleUnsubscribe(client, { channels: ['blocks'], id: 'req-7' });
 
         const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
         const unsub = frames.find((m) => m.type === 'UNSUBSCRIBED');
@@ -329,9 +329,9 @@ describe('WebSocketServer#_handleUnsubscribe (client cannot tell honoured from d
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        s._handleSubscribe(client, { channels: ['blocks', 'actions'] });
+        s.handleSubscribe(client, { channels: ['blocks', 'actions'] });
         client.ws.send.resetHistory();
-        s._handleUnsubscribe(client, { channels: ['blocks', 'actions'] });
+        s.handleUnsubscribe(client, { channels: ['blocks', 'actions'] });
 
         const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]))
             .filter((m) => m.type === 'UNSUBSCRIBED');
@@ -349,7 +349,7 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        await s._sendWelcome(client);
+        await s.sendWelcome(client);
 
         expect(client.ws.send.callCount).to.equal(1);
         const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
@@ -367,7 +367,7 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        await s._sendWelcome(client);
+        await s.sendWelcome(client);
 
         const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
         expect(welcome.data.features).to.not.include('statuses');
@@ -375,11 +375,11 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
 
     it('does NOT advertise a "ticks" feature (no action frame carries a tick)', async function () {
         // Same honesty contract as statuses: getActionsSince selects no tick column,
-        // so the ticks check in Broadcaster._passesFilter can never reject anything.
+        // so the ticks check in Broadcaster.passesFilter can never reject anything.
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        await s._sendWelcome(client);
+        await s.sendWelcome(client);
 
         const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
         expect(welcome.data.features).to.not.include('ticks');
@@ -394,7 +394,7 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        await s._sendWelcome(client);
+        await s.sendWelcome(client);
 
         const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
         expect(new Set(welcome.data.channels)).to.deep.equal(ChannelManager.VALID_CHANNELS);
@@ -433,7 +433,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         const s = serverWithIndices(880123, 4567890);
         const client = spyClient();
 
-        await s._sendWelcome(client);
+        await s.sendWelcome(client);
 
         const welcome = framesOf(client, 'WELCOME')[0];
         expect(welcome.schema_version).to.equal(2);
@@ -449,7 +449,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         const s = serverWithIndices(9007199254740993n, 9007199254740995n);
         const client = spyClient();
 
-        await s._sendWelcome(client);
+        await s.sendWelcome(client);
 
         const welcome = framesOf(client, 'WELCOME')[0];
         expect(welcome.data.latest_block_index).to.equal('9007199254740993');
@@ -460,7 +460,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         const s = makeServer({ explorer: { db: { getMaxBlockIndex: sinon.stub().rejects(new Error('db down')) } } });
         const client = spyClient();
 
-        await s._sendWelcome(client);
+        await s.sendWelcome(client);
 
         const welcome = framesOf(client, 'WELCOME')[0];
         expect(welcome.data.latest_block_index).to.equal('0');
@@ -471,7 +471,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         const s = serverWithIndices(880123, 4567890);
         const client = spyClient();
 
-        await s._sendSnapshots(client, [
+        await s.sendSnapshots(client, [
             { channel: 'blocks' },
             { channel: 'network' },
             { channel: 'address', address: '1abc' }
@@ -498,8 +498,8 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }) });
         const client = spyClient();
 
-        await s._sendWelcome(client);
-        await s._handleCatchUp(client, 4567000, {}, 'req-1');
+        await s.sendWelcome(client);
+        await s.handleCatchUp(client, 4567000, {}, 'req-1');
 
         const welcome  = framesOf(client, 'WELCOME')[0];
         const complete = framesOf(client, 'CATCH_UP_COMPLETE')[0];
@@ -522,7 +522,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }) });
         const client = spyClient();
 
-        await s._handleCatchUp(client, '9007199254740995', {}, 'req-1');
+        await s.handleCatchUp(client, '9007199254740995', {}, 'req-1');
 
         const cursor = db.getActionsSince.firstCall.args[1];
         expect(String(cursor)).to.equal('9007199254740995');
@@ -546,7 +546,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
         const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }), catchUpMaxDepth: 3 });
         const client = spyClient();
 
-        await s._handleCatchUp(client, '9007199254740995', {}, 'req-2');
+        await s.handleCatchUp(client, '9007199254740995', {}, 'req-2');
 
         const errors = framesOf(client, 'error');
         expect(errors).to.have.lengthOf(1);
@@ -584,7 +584,7 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
         const filter = { ticks: new Set(['PEPE']) };
 
-        await s._handleCatchUp(client, 0, filter, 'req-1');
+        await s.handleCatchUp(client, 0, filter, 'req-1');
 
         const replayed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -614,7 +614,7 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
         const s = makeServer({ explorer: { db }, broadcaster });
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        await s._handleCatchUp(client, 0, {}, 'req-1');
+        await s.handleCatchUp(client, 0, {}, 'req-1');
 
         const replayed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -637,7 +637,7 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
         const s = makeServer({ explorer: { db }, broadcaster });
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
-        await s._handleCatchUp(client, 0, {}, 'req-1');
+        await s.handleCatchUp(client, 0, {}, 'req-1');
 
         const replayed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -657,7 +657,7 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
         const filter = { fields: ['action_index'] };
 
-        await s._handleCatchUp(client, 0, filter, 'req-1');
+        await s.handleCatchUp(client, 0, filter, 'req-1');
 
         const replayed = client.ws.send.getCalls()
             .map((c) => JSON.parse(c.args[0]))
@@ -670,7 +670,7 @@ describe('WebSocketServer#_onMessage rate limiter (sliding decay, not tumbling w
 
     afterEach(() => sinon.restore());
 
-    // Client shaped like _onConnection builds, with the rate-limit fields.
+    // Client shaped like onConnection builds, with the rate-limit fields.
     function makeRateClient() {
         return {
             ...makeClient('BTC'),
@@ -680,20 +680,20 @@ describe('WebSocketServer#_onMessage rate limiter (sliding decay, not tumbling w
         };
     }
 
-    // Feed one valid ping frame through _onMessage; returns true if it was
+    // Feed one valid ping frame through onMessage; returns true if it was
     // rate-limited (RATE_LIMITED error sent) and false if it went through.
     function sendPing(s, client) {
-        const before = s._sendError.callCount;
-        s._onMessage(client, Buffer.from(JSON.stringify({ action: 'ping' })));
-        return s._sendError.callCount > before &&
-               s._sendError.lastCall.args[1] === 'RATE_LIMITED';
+        const before = s.sendError.callCount;
+        s.onMessage(client, Buffer.from(JSON.stringify({ action: 'ping' })));
+        return s.sendError.callCount > before &&
+               s.sendError.lastCall.args[1] === 'RATE_LIMITED';
     }
 
     function setup(maxMsgPerSec) {
         const clock = sinon.useFakeTimers({ now: 1000000, toFake: ['Date'] });
         const s = makeServer({ maxMsgPerSec });
-        sinon.stub(s, '_send');
-        sinon.spy(s, '_sendError');
+        sinon.stub(s, 'send');
+        sinon.spy(s, 'sendError');
         const client = makeRateClient();
         return { clock, s, client };
     }
@@ -852,7 +852,7 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
         const s = serverWithEntityDb();
         const client = spyClient();
 
-        await s._sendSnapshots(client, [ENTITY_SUB.bet_feed]);
+        await s.sendSnapshots(client, [ENTITY_SUB.bet_feed]);
 
         const frames = framesOf(client, 'SNAPSHOT');
         expect(frames).to.have.lengthOf(1);
@@ -864,9 +864,9 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
 
     it('the bet_feed snapshot reads by index, not through the router-built config', async function () {
         // db.getBetFeed(config) resolves its WHERE out of config.data.sql, which the
-        // HTTP router builds and _sendSnapshots (config = { coin }) does not have.
+        // HTTP router builds and sendSnapshots (config = { coin }) does not have.
         const s = serverWithEntityDb();
-        await s._sendSnapshots(spyClient(), [ENTITY_SUB.bet_feed]);
+        await s.sendSnapshots(spyClient(), [ENTITY_SUB.bet_feed]);
 
         const call = s.explorer.db.getBetFeedInfo.firstCall;
         expect(call.args[0]).to.deep.equal({ coin: 'BTC' });
@@ -878,7 +878,7 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
         s.explorer.db.getBetFeedInfo = sinon.stub().resolves(null);
         const client = spyClient();
 
-        await s._sendSnapshots(client, [ENTITY_SUB.bet_feed]);
+        await s.sendSnapshots(client, [ENTITY_SUB.bet_feed]);
 
         const frames = framesOf(client, 'SNAPSHOT');
         expect(frames).to.have.lengthOf(1);
@@ -887,14 +887,14 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
 
     it('EVERY channel in ChannelManager.ENTITY_CHANNELS emits exactly one SNAPSHOT', async function () {
         // The invariant, not the instance: a future entity channel added without a
-        // _sendSnapshots case fails here instead of shipping a silent no-op.
+        // sendSnapshots case fails here instead of shipping a silent no-op.
         for (const channel of ChannelManager.ENTITY_CHANNELS) {
             const sub = ENTITY_SUB[channel];
             expect(sub, 'no fixture for entity channel ' + channel + '; add one').to.be.an('object');
 
             const s = serverWithEntityDb();
             const client = spyClient();
-            await s._sendSnapshots(client, [sub]);
+            await s.sendSnapshots(client, [sub]);
 
             const frames = framesOf(client, 'SNAPSHOT');
             expect(frames.length, channel + ' sent no SNAPSHOT for snapshot:true').to.equal(1);
@@ -903,13 +903,13 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
     });
 
     it("the blocks SNAPSHOT carries the live NEW_BLOCK tip key as well as WELCOME's", async function () {
-        // Broadcaster._onBlock names the tip block_index; the snapshot named it only
+        // Broadcaster.onBlock names the tip block_index; the snapshot named it only
         // latest_block_index, so a subscriber seeding from the snapshot read undefined
         // off its first live frame. Same value, same decimal-string type, both keys.
         const s = serverWithEntityDb();
         const client = spyClient();
 
-        await s._sendSnapshots(client, [{ channel: 'blocks' }]);
+        await s.sendSnapshots(client, [{ channel: 'blocks' }]);
 
         const data = framesOf(client, 'SNAPSHOT')[0].data;
         expect(data.latest_block_index).to.equal('880123');

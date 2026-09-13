@@ -13,7 +13,7 @@
  **********************************************************************
  * A `types` filter and the mempool pair (spec wallet-unconfirmed-and-sounds).
  *
- * _passesFilter resolves an action name and falls back to the literal event
+ * passesFilter resolves an action name and falls back to the literal event
  * type. MEMPOOL_ACTION carries the name, so types:['MINT'] admits it; a
  * removal frame with no name is matched only by the literal MEMPOOL_REMOVED,
  * which is not even a subscribable type name (ChannelManager's VALID_TYPES
@@ -93,7 +93,7 @@ function subscribe(venue, id, types) {
 // per-coin frame tail settle.
 async function run(venue, polls) {
     for (let i = 0; i < polls; i++)
-        await venue.changeDetector._checkMempoolForCoin('RBTC');
+        await venue.changeDetector.checkMempoolForCoin('RBTC');
     for (let i = 0; i < 5; i++)
         await (venue.broadcaster._mempoolTails.get('RBTC') || Promise.resolve());
 }

@@ -18,7 +18,7 @@
  * callback interlock. It mints no action row, so the generic NEW_ACTION path
  * emits nothing when a call completes, and a subscribed page learned that its
  * call had finished only on its next manual fetch. Same shape as the BET
- * deadline latch, which is why this follows _checkBetLatches line for line.
+ * deadline latch, which is why this follows checkBetLatches line for line.
  *
  * What these tests protect:
  *
@@ -97,7 +97,7 @@ describe('XCALL phase cursor (M5.4)', function () {
 
         const spy = sinon.spy();
         cd.on('lifecycle_event', spy);
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
 
         expect(spy.callCount).to.equal(1);
         const evt = spy.firstCall.args[1];
@@ -121,7 +121,7 @@ describe('XCALL phase cursor (M5.4)', function () {
 
         const spy = sinon.spy();
         cd.on('lifecycle_event', spy);
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
 
         const evt = spy.firstCall.args[1];
         expect(evt.type).to.equal('XCALL_EXPIRED');
@@ -138,7 +138,7 @@ describe('XCALL phase cursor (M5.4)', function () {
 
         const spy = sinon.spy();
         cd.on('lifecycle_event', spy);
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
         expect(spy.firstCall.args[1].data.result_status).to.equal(null);
     });
 
@@ -149,7 +149,7 @@ describe('XCALL phase cursor (M5.4)', function () {
 
         const spy = sinon.spy();
         cd.on('lifecycle_event', spy);
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
 
         expect(spy.callCount).to.equal(0);
         expect(cd.state['RDOGE'].xcallBlock).to.equal(2600);
@@ -159,7 +159,7 @@ describe('XCALL phase cursor (M5.4)', function () {
         const db = withPhases(createMockDb({ blockIndex: 2600, actionIndex: 500 }), []);
         const cd = detector(db);
         seed(cd, 'RDOGE', { blockIndex: 2600, actionIndex: 500, xcallBlock: 2500 });
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
         expect(cd.state['RDOGE'].xcallBlock).to.equal(2600);
     });
 
@@ -170,7 +170,7 @@ describe('XCALL phase cursor (M5.4)', function () {
         db.checkReorgAndInvalidate = sinon.stub().resolves(true);
         const cd = detector(db);
         seed(cd, 'RDOGE', { blockIndex: 2600, actionIndex: 500, xcallBlock: 2598 });
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
         expect(cd.state['RDOGE'].xcallBlock).to.be.at.most(2500);
     });
 
@@ -184,7 +184,7 @@ describe('XCALL phase cursor (M5.4)', function () {
 
         const spy = sinon.spy();
         cd.on('lifecycle_event', spy);
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
 
         expect(spy.callCount, 'only the complete block 2598 is emitted').to.equal(1);
         expect(Number(spy.firstCall.args[1].data.block_index)).to.equal(2598);
@@ -197,7 +197,7 @@ describe('XCALL phase cursor (M5.4)', function () {
         const cd = detector(db, { fetchLimit: 2 });
         seed(cd, 'RDOGE', { blockIndex: 2600, actionIndex: 500, xcallBlock: 2598 });
 
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
         expect(cd.state['RDOGE'].xcallBlock).to.equal(2599);
     });
 
@@ -211,14 +211,14 @@ describe('XCALL phase cursor (M5.4)', function () {
 
         const spy = sinon.spy();
         cd.on('lifecycle_event', spy);
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
         expect(cd.state['RDOGE'].xcallUnsupported).to.equal(true);
         expect(spy.callCount).to.equal(0);
 
         // The table appears (a per-coin indexer upgrade while this process runs):
         // re-seed to the tip and emit nothing.
         withPhases(db, [call(4100, 2400)]);
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
         expect(cd.state['RDOGE'].xcallUnsupported).to.equal(false);
         expect(cd.state['RDOGE'].xcallBlock).to.equal(2600);
         expect(spy.callCount).to.equal(0);
@@ -231,7 +231,7 @@ describe('XCALL phase cursor (M5.4)', function () {
         seed(cd, 'RDOGE', { blockIndex: 2600, actionIndex: 500, xcallBlock: 2500 });
 
         let threw = false;
-        try { await cd._checkCoin('RDOGE'); } catch (e) { threw = true; }
+        try { await cd.checkCoin('RDOGE'); } catch (e) { threw = true; }
         expect(threw).to.equal(true);
         expect(cd.state['RDOGE'].xcallUnsupported).to.not.equal(true);
     });
@@ -240,7 +240,7 @@ describe('XCALL phase cursor (M5.4)', function () {
         const db = createMockDb({ blockIndex: 2600, actionIndex: 500 });
         const cd = detector(db);
         seed(cd, 'RDOGE', { blockIndex: 2600, actionIndex: 500, xcallBlock: 2500 });
-        await cd._checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
         expect(cd.state['RDOGE'].xcallBlock).to.equal(2500);
     });
 });

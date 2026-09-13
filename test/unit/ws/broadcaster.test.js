@@ -553,7 +553,7 @@ describe('Broadcaster', function () {
         });
 
         it('stamps data.channel on every live entity frame, matching the SNAPSHOT discriminator', function () {
-            // WebSocketServer._sendSnapshots puts `channel` inside data for address,
+            // WebSocketServer.sendSnapshots puts `channel` inside data for address,
             // token, market and dispenser. The live frame must carry the same key,
             // or a consumer that unifies snapshot and live updates on data.channel
             // drops every live update.

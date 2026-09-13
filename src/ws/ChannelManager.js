@@ -182,16 +182,16 @@ class ChannelManager {
         for (const channel of channels) {
             if (GLOBAL_CHANNELS.has(channel)) {
                 // Global channel (no entity key)
-                const result = this._addSubscription(client, channel, null, filter);
+                const result = this.addSubscription(client, channel, null, filter);
                 if (result.error) return { success: false, error: result.error };
                 subscribed.push({ channel });
             } else {
                 // Entity channel: resolve entity key(s) from params
-                const entityKeys = this._resolveEntityKeys(channel, params);
+                const entityKeys = this.resolveEntityKeys(channel, params);
                 if (entityKeys.error) return { success: false, error: entityKeys.error };
 
                 for (const entityKey of entityKeys.keys) {
-                    const result = this._addSubscription(client, channel, entityKey, filter);
+                    const result = this.addSubscription(client, channel, entityKey, filter);
                     if (result.error) return { success: false, error: result.error };
                     subscribed.push({ channel, ...entityKey });
                 }
@@ -211,13 +211,13 @@ class ChannelManager {
 
         for (const channel of channels) {
             if (GLOBAL_CHANNELS.has(channel)) {
-                const was_subscribed = this._removeSubscription(client, channel, null);
+                const was_subscribed = this.removeSubscription(client, channel, null);
                 unsubscribed.push({ channel, was_subscribed });
             } else {
-                const entityKeys = this._resolveEntityKeys(channel, params);
+                const entityKeys = this.resolveEntityKeys(channel, params);
                 if (entityKeys.error) continue;
                 for (const entityKey of entityKeys.keys) {
-                    const was_subscribed = this._removeSubscription(client, channel, entityKey);
+                    const was_subscribed = this.removeSubscription(client, channel, entityKey);
                     unsubscribed.push({ channel, ...entityKey, was_subscribed });
                 }
             }
@@ -246,14 +246,14 @@ class ChannelManager {
             const filter = clientMap.get(client.id);
             if (!filter) continue;
 
-            const parsed = this._parseChannelKey(channelKey);
+            const parsed = this.parseChannelKey(channelKey);
             const entry  = { channel: parsed.channel };
 
             // Add entity identifiers
             if (parsed.entityKey) Object.assign(entry, parsed.entityKey);
 
             // Add filter info. 'statuses' and 'ticks' are deliberately omitted to match the
-            // SUBSCRIBED confirmation (WebSocketServer._handleSubscribe): the actions feed
+            // SUBSCRIBED confirmation (WebSocketServer.handleSubscribe): the actions feed
             // carries neither a status nor a tick column, so re-advertising either here
             // would let a client rely on a no-op.
             entry.filters = {
@@ -276,7 +276,7 @@ class ChannelManager {
     // Used by ChangeDetector to decide whether to fetch detail data
     hasSubscribers(coin, channel, entityIdentifier) {
         if (entityIdentifier) {
-            const key = this._buildChannelKey(coin, channel, entityIdentifier);
+            const key = this.buildChannelKey(coin, channel, entityIdentifier);
             const map = this.subscriptions.get(key);
             return map && map.size > 0;
         }
@@ -358,9 +358,9 @@ class ChannelManager {
 
     // ---- Internal methods ----
 
-    _addSubscription(client, channel, entityKey, filter) {
+    addSubscription(client, channel, entityKey, filter) {
         // Check subscription limit
-        const channelKey = this._buildChannelKey(client.coin, channel, entityKey);
+        const channelKey = this.buildChannelKey(client.coin, channel, entityKey);
 
         // If not already subscribed, check limit
         if (!client.subscriptions.has(channelKey)) {
@@ -383,8 +383,8 @@ class ChannelManager {
 
     // Returns true when the client actually held this subscription (and it was
     // removed), false when it was already absent (a no-op unsubscribe).
-    _removeSubscription(client, channel, entityKey) {
-        const channelKey = this._buildChannelKey(client.coin, channel, entityKey);
+    removeSubscription(client, channel, entityKey) {
+        const channelKey = this.buildChannelKey(client.coin, channel, entityKey);
         const clientMap  = this.subscriptions.get(channelKey);
         const was_subscribed = !!(clientMap && clientMap.has(client.id));
         if (clientMap) {
@@ -397,7 +397,7 @@ class ChannelManager {
 
     // Build a unique key for a channel subscription
     // Format: "COIN:channel" for global, "COIN:channel:entityId" for entity
-    _buildChannelKey(coin, channel, entityKey) {
+    buildChannelKey(coin, channel, entityKey) {
         let key = coin + ':' + channel;
         if (entityKey) {
             if (entityKey.address)      key += ':' + entityKey.address;
@@ -416,13 +416,13 @@ class ChannelManager {
     // Used by the WS server to tell freshly-added subscriptions apart from ones the
     // client already held, so a re-subscribe does not re-trigger the snapshot DB fan-out.
     // A `sub` carries {channel, address?/tick?/tick1?/tick2?/action_index?}, which is
-    // exactly the entityKey shape _buildChannelKey reads.
+    // exactly the entityKey shape buildChannelKey reads.
     channelKeyForSub(coin, sub) {
-        return this._buildChannelKey(coin, sub.channel, sub);
+        return this.buildChannelKey(coin, sub.channel, sub);
     }
 
     // Parse a channel key back into components
-    _parseChannelKey(channelKey) {
+    parseChannelKey(channelKey) {
         const parts   = channelKey.split(':');
         const coin    = parts[0];
         const channel = parts[1];
@@ -443,7 +443,7 @@ class ChannelManager {
     }
 
     // Resolve entity keys from subscribe params (supports batch via plural keys)
-    _resolveEntityKeys(channel, params) {
+    resolveEntityKeys(channel, params) {
         const keys = [];
 
         switch (channel) {
@@ -547,6 +547,6 @@ module.exports.VALID_TYPES = VALID_TYPES;
 module.exports.VALID_CHANNELS = ALL_CHANNELS;
 // Exported so the snapshot invariant is derived from this authority rather than
 // restated in a test: an entity channel names a thing with current state, so
-// each one owes a case in WebSocketServer._sendSnapshots. bet_feed was added
+// each one owes a case in WebSocketServer.sendSnapshots. bet_feed was added
 // here and nowhere else, and its snapshot:true then sent no frame at all.
 module.exports.ENTITY_CHANNELS = ENTITY_CHANNELS;

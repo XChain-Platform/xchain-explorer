@@ -295,9 +295,9 @@ describe('decoder mempool surface', () => {
             const seen = [];
             cd.on('mempool_action', (coin, row) => seen.push([coin, row.tx_hash, row.action]));
 
-            await cd._checkMempoolForCoin('RBTC');                 // seed
+            await cd.checkMempoolForCoin('RBTC');                 // seed
             expect(seen).to.deep.equal([]);
-            await cd._checkMempoolForCoin('RBTC');                 // MINT_ROW is new
+            await cd.checkMempoolForCoin('RBTC');                 // MINT_ROW is new
             expect(seen).to.deep.equal([['RBTC', 'bb22', 'MINT']]);
         });
 
@@ -310,8 +310,8 @@ describe('decoder mempool surface', () => {
             const removed = [];
             cd.on('mempool_removed', (coin, row) => removed.push(row.tx_hash));
 
-            await cd._checkMempoolForCoin('RBTC');                 // seed
-            await cd._checkMempoolForCoin('RBTC');                 // SEND_ROW gone
+            await cd.checkMempoolForCoin('RBTC');                 // seed
+            await cd.checkMempoolForCoin('RBTC');                 // SEND_ROW gone
             expect(removed).to.deep.equal(['aa11']);
         });
 
@@ -331,11 +331,11 @@ describe('decoder mempool surface', () => {
             const removed = [], seen = [];
             cd.on('mempool_removed', (c, r) => removed.push(r.tx_hash));
             cd.on('mempool_action',  (c, r) => seen.push(r.tx_hash));
-            await cd._checkMempoolForCoin('RBTC');                 // seed
-            await cd._checkMempoolForCoin('RBTC');                 // window shifted down
+            await cd.checkMempoolForCoin('RBTC');                 // seed
+            await cd.checkMempoolForCoin('RBTC');                 // window shifted down
             expect(removed).to.deep.equal([]);                     // h0500..h0998 fell above the window, not gone
             expect(seen.length).to.equal(250);                     // the odd low hashes are genuinely new
-            await cd._checkMempoolForCoin('RBTC');                 // window shifts back over them
+            await cd.checkMempoolForCoin('RBTC');                 // window shifts back over them
             expect(seen.length).to.equal(250);                     // carried forward: not re-announced
             // The odd hashes h0001..h0499 now sort below the covered bound and are absent: gone.
             expect(removed.length).to.equal(250);
@@ -350,8 +350,8 @@ describe('decoder mempool surface', () => {
             const cd = mkDetector(db);
             const removed = [];
             cd.on('mempool_removed', (c, r) => removed.push(r.tx_hash));
-            await cd._checkMempoolForCoin('RBTC');
-            await cd._checkMempoolForCoin('RBTC');
+            await cd.checkMempoolForCoin('RBTC');
+            await cd.checkMempoolForCoin('RBTC');
             expect(removed.sort()).to.deep.equal(['bb22', 'cc33']);
         });
 
@@ -363,8 +363,8 @@ describe('decoder mempool surface', () => {
             const cd = mkDetector(db);
             const seen = [];
             cd.on('mempool_action', (c, r) => seen.push(r));
-            await cd._checkMempoolForCoin('RBTC');
-            await cd._checkMempoolForCoin('RBTC');
+            await cd.checkMempoolForCoin('RBTC');
+            await cd.checkMempoolForCoin('RBTC');
             expect(seen).to.deep.equal([]);                        // decoded null → not emitted
         });
     });
@@ -374,7 +374,7 @@ describe('decoder mempool surface', () => {
             const detector = new (require('events').EventEmitter)();
             const sent = [];
             const b = new Broadcaster({ wsServer: {}, changeDetector: detector });
-            b._broadcastToChannel = (coin, channel, event, raw, entity) =>
+            b.broadcastToChannel = (coin, channel, event, raw, entity) =>
                 sent.push({ coin, channel, type: event.type, entity: entity || null, data: event.data });
             return { detector, sent, b };
         }

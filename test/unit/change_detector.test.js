@@ -58,7 +58,7 @@ describe('ChangeDetector', function () {
         it('seeds per-coin state, polls immediately, and schedules the interval', function () {
             let clock = sinon.useFakeTimers();
             let det = mk();
-            let poll = sinon.stub(det, '_poll').resolves();
+            let poll = sinon.stub(det, 'poll').resolves();
             det.start(['BTC', 'TBTC']);
 
             expect(det.running).to.be.true;
@@ -76,7 +76,7 @@ describe('ChangeDetector', function () {
         it('is idempotent when already running', function () {
             let det = mk();
             det.running = true;
-            let poll = sinon.stub(det, '_poll');
+            let poll = sinon.stub(det, 'poll');
             det.start(['BTC']);
             expect(poll.called).to.be.false;
         });
@@ -84,7 +84,7 @@ describe('ChangeDetector', function () {
         it('preserves existing coin state across a restart', function () {
             let clock = sinon.useFakeTimers();
             let det = mk();
-            sinon.stub(det, '_poll').resolves();
+            sinon.stub(det, 'poll').resolves();
             det.state.BTC = { blockIndex: 9, actionIndex: 9, initialized: true };
             det.start(['BTC']);
             expect(det.state.BTC.blockIndex).to.equal(9); // not reset
@@ -97,8 +97,8 @@ describe('ChangeDetector', function () {
         it('does nothing when not running', async function () {
             let det = mk();
             det.state = { BTC: {} };
-            let check = sinon.stub(det, '_checkCoin');
-            await det._poll();
+            let check = sinon.stub(det, 'checkCoin');
+            await det.poll();
             expect(check.called).to.be.false;
         });
 
@@ -106,8 +106,8 @@ describe('ChangeDetector', function () {
             let det = mk();
             det.running = true;
             det.state = { BTC: {} };
-            sinon.stub(det, '_checkCoin').rejects(new Error('boom'));
-            await det._poll(); // must not throw
+            sinon.stub(det, 'checkCoin').rejects(new Error('boom'));
+            await det.poll(); // must not throw
         });
     });
 
@@ -121,7 +121,7 @@ describe('ChangeDetector', function () {
             det.on('block', () => events.push('b'));
             det.on('action', () => events.push('a'));
 
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
 
             expect(det.state.BTC).to.include({ blockIndex: 10, actionIndex: 20, initialized: true });
             expect(events).to.deep.equal([]);
@@ -138,7 +138,7 @@ describe('ChangeDetector', function () {
             det.on('block', (c, b) => blocks.push(b));
             det.on('action', (c, a) => actions.push(a));
 
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
 
             expect(blocks).to.have.length(2);
             expect(actions).to.have.length(1);
@@ -154,7 +154,7 @@ describe('ChangeDetector', function () {
             let count = 0;
             det.on('block', () => count++);
             det.on('action', () => count++);
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(count).to.equal(0);
         });
 
@@ -175,11 +175,11 @@ describe('ChangeDetector', function () {
             let seen = [];
             det.on('action', (c, a) => seen.push(a.action_index));
 
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(det.state.BTC.actionIndex).to.equal(105);   // last fetched, NOT the tip 255
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(det.state.BTC.actionIndex).to.equal(205);
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(det.state.BTC.actionIndex).to.equal(255);   // fully drained
             expect(seen).to.deep.equal(range(6, 255));          // every action emitted once, none skipped
         });
@@ -192,7 +192,7 @@ describe('ChangeDetector', function () {
             let rows = [];
             for (let i = 0n; i < 100n; i++) rows.push({ action: 'SEND', action_index: 9007199254740000n + i });
 
-            let next = det._nextCursor(rows, 'action_index', 9007199254741000n);
+            let next = det.nextCursor(rows, 'action_index', 9007199254741000n);
             expect(String(next)).to.equal('9007199254740099');
             expect(typeof next).to.equal('bigint');
         });
@@ -202,7 +202,7 @@ describe('ChangeDetector', function () {
             let rows = [];
             for (let i = 1; i <= 100; i++) rows.push({ block_index: i });
 
-            let next = det._nextCursor(rows, 'block_index', 500);
+            let next = det.nextCursor(rows, 'block_index', 500);
             expect(next).to.equal(100);
             expect(typeof next).to.equal('number');
         });
@@ -218,9 +218,9 @@ describe('ChangeDetector', function () {
             });
             let seen = [];
             det.on('block', (c, b) => seen.push(b.block_index));
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(det.state.BTC.blockIndex).to.equal(100);   // capped at fetchLimit, not tip 150
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(det.state.BTC.blockIndex).to.equal(150);
             expect(seen).to.deep.equal(range(1, 150));
         });
@@ -238,7 +238,7 @@ describe('ChangeDetector', function () {
             det.on('block', () => count++);
             det.on('action', () => count++);
 
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(det.state.BTC.blockIndex).to.equal(95);    // clamped down, not stuck at 100
             expect(det.state.BTC.actionIndex).to.equal(95);
             expect(count).to.equal(0);
@@ -250,7 +250,7 @@ describe('ChangeDetector', function () {
             det.db.getMaxActionIndex.resolves(96);
             det.db.getBlocksSince.resolves([{ block_index: 96 }]);
             det.db.getActionsSince.resolves([{ action: 'SEND', action_index: 96 }]);
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(count).to.equal(2);
         });
 
@@ -264,7 +264,7 @@ describe('ChangeDetector', function () {
             det.db.getActionsSince.resolves([{ action: 'SEND', action_index: 11 }, { action: 'SEND', action_index: 12 }]);
             let blocks = 0;
             det.on('block', () => blocks++);
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
             expect(det.state.BTC.blockIndex).to.equal(12);
             expect(blocks).to.equal(2);
         });
@@ -275,7 +275,7 @@ describe('ChangeDetector', function () {
             let det = mk();
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitLifecycleEvents('BTC', { coin: 'BTC' }, { action: 'DISPENSE', action_index: 1 });
+            await det.emitLifecycleEvents('BTC', { coin: 'BTC' }, { action: 'DISPENSE', action_index: 1 });
             expect(evs).to.have.length(1);
             expect(evs[0].type).to.equal('DISPENSE');
         });
@@ -284,8 +284,8 @@ describe('ChangeDetector', function () {
             let det = mk();
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitLifecycleEvents('BTC', {}, { action: null });
-            await det._emitLifecycleEvents('BTC', {}, { action: 'NOT_MAPPED' });
+            await det.emitLifecycleEvents('BTC', {}, { action: null });
+            await det.emitLifecycleEvents('BTC', {}, { action: 'NOT_MAPPED' });
             expect(evs).to.deep.equal([]);
         });
 
@@ -298,7 +298,7 @@ describe('ChangeDetector', function () {
             });
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitLifecycleEvents('BTC', { coin: 'BTC' }, { action: 'ORDER_MATCH', action_index: 5 });
+            await det.emitLifecycleEvents('BTC', { coin: 'BTC' }, { action: 'ORDER_MATCH', action_index: 5 });
 
             let types = evs.map(e => e.type);
             expect(types).to.include('COINPAY_REQUIRED');
@@ -311,7 +311,7 @@ describe('ChangeDetector', function () {
             det.db.getDispenseDispenserIndex.resolves(42);
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitLifecycleEvents('BTC', { coin: 'BTC' }, { action: 'DISPENSE', action_index: 7 });
+            await det.emitLifecycleEvents('BTC', { coin: 'BTC' }, { action: 'DISPENSE', action_index: 7 });
             expect(evs).to.have.length(1);
             expect(evs[0].type).to.equal('DISPENSE');
             expect(evs[0].data.dispenser_action_index).to.equal(42);
@@ -323,7 +323,7 @@ describe('ChangeDetector', function () {
             det.db.getDispenseDispenserIndex.rejects(new Error('db'));
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitLifecycleEvents('BTC', {}, { action: 'DISPENSE', action_index: 7 });
+            await det.emitLifecycleEvents('BTC', {}, { action: 'DISPENSE', action_index: 7 });
             expect(evs.map(e => e.type)).to.include('DISPENSE');
             expect(evs[0].data.dispenser_action_index).to.equal(null);
         });
@@ -333,7 +333,7 @@ describe('ChangeDetector', function () {
             det.db.getOrderMatchSettlement.rejects(new Error('db'));
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitLifecycleEvents('BTC', {}, { action: 'ORDER_MATCH', action_index: 5 });
+            await det.emitLifecycleEvents('BTC', {}, { action: 'ORDER_MATCH', action_index: 5 });
             expect(evs.map(e => e.type)).to.include('ORDER_MATCH');
         });
     });
@@ -341,7 +341,7 @@ describe('ChangeDetector', function () {
     describe('_emitEntityUpdates()', function () {
         it('returns immediately with no channel manager', async function () {
             let det = mk({ channelManager: null });
-            await det._emitEntityUpdates('BTC', {}, {}); // must not throw
+            await det.emitEntityUpdates('BTC', {}, {}); // must not throw
         });
 
         it('emits ADDRESS_UPDATE for an involved subscribed address', async function () {
@@ -350,7 +350,7 @@ describe('ChangeDetector', function () {
             det.db.getAddressBalances.resolves([{ tick: 'X', amount: '1' }]);
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
-            await det._emitEntityUpdates('BTC', { coin: 'BTC' }, { source: 'addrA', action_index: 3 });
+            await det.emitEntityUpdates('BTC', { coin: 'BTC' }, { source: 'addrA', action_index: 3 });
             expect(evs[0].type).to.equal('ADDRESS_UPDATE');
             expect(evs[0].data.address).to.equal('addrA');
         });
@@ -361,14 +361,14 @@ describe('ChangeDetector', function () {
             det.db.getTokenInfo.resolves({ supply: '100', holders: 5 });
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
-            await det._emitEntityUpdates('BTC', {}, { action: 'MINT', action_index: 4 });
+            await det.emitEntityUpdates('BTC', {}, { action: 'MINT', action_index: 4 });
             expect(evs[0].type).to.equal('TOKEN_UPDATE');
             expect(evs[0].data.tick).to.equal('GOLD');
         });
 
         it('TOKEN_UPDATE carries the full getTokenInfo projection plus last_action_index (snapshot/live frame parity)', async function () {
             // The token SNAPSHOT frame spreads getTokenInfo verbatim
-            // (WebSocketServer._sendSnapshots case 'token'), so the live frame
+            // (WebSocketServer.sendSnapshots case 'token'), so the live frame
             // must be a superset of the same projection or replace-model
             // consumers lose decimals/description as silent undefined.
             let det = mk();
@@ -377,7 +377,7 @@ describe('ChangeDetector', function () {
             det.db.getTokenInfo.resolves(tokenInfo);
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
-            await det._emitEntityUpdates('BTC', {}, { action: 'MINT', action_index: 4 });
+            await det.emitEntityUpdates('BTC', {}, { action: 'MINT', action_index: 4 });
             for (const key of Object.keys(tokenInfo)) {
                 expect(evs[0].data[key], `live frame must carry snapshot field "${key}"`).to.deep.equal(tokenInfo[key]);
             }
@@ -390,7 +390,7 @@ describe('ChangeDetector', function () {
             det.db.getDispenserInfo.resolves({ dispenser_index: 7 });
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
-            await det._emitEntityUpdates('BTC', {}, { action: 'DISPENSE', action_index: 8 });
+            await det.emitEntityUpdates('BTC', {}, { action: 'DISPENSE', action_index: 8 });
             expect(evs[0].type).to.equal('DISPENSER_UPDATE');
         });
 
@@ -400,7 +400,7 @@ describe('ChangeDetector', function () {
             det.db.getMarketInfo.resolves({ pair: 'A/B' });
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
-            await det._emitEntityUpdates('BTC', {}, { action: 'ORDER_MATCH', action_index: 9 });
+            await det.emitEntityUpdates('BTC', {}, { action: 'ORDER_MATCH', action_index: 9 });
             expect(evs[0].type).to.equal('MARKET_UPDATE');
         });
 
@@ -418,9 +418,9 @@ describe('ChangeDetector', function () {
             det.on('entity_update', (c, e) => evs.push(e));
             // Each action type only triggers one enrichment branch, so exercise
             // address+token, dispenser, and market with separate calls.
-            await det._emitEntityUpdates('BTC', {}, { source: 'addrA', action: 'MINT', action_index: 3 });      // address + token
-            await det._emitEntityUpdates('BTC', {}, { action: 'DISPENSE', action_index: 4 });                   // dispenser
-            await det._emitEntityUpdates('BTC', {}, { action: 'ORDER_MATCH', action_index: 5 });                // market
+            await det.emitEntityUpdates('BTC', {}, { source: 'addrA', action: 'MINT', action_index: 3 });      // address + token
+            await det.emitEntityUpdates('BTC', {}, { action: 'DISPENSE', action_index: 4 });                   // dispenser
+            await det.emitEntityUpdates('BTC', {}, { action: 'ORDER_MATCH', action_index: 5 });                // market
             expect(evs).to.deep.equal([]); // every enrichment failed silently
         });
     });
@@ -448,7 +448,7 @@ describe('ChangeDetector', function () {
             let evs = [];
             det.on('entity_update', (c, e) => { if (e.type === 'TOKEN_UPDATE') evs.push(e); });
 
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
 
             // One DB read for GOLD across the whole poll (was one per action).
             expect(det.db.getTokenInfo.callCount).to.equal(1);
@@ -469,7 +469,7 @@ describe('ChangeDetector', function () {
             let evs = [];
             det.on('entity_update', (c, e) => { if (e.type === 'ADDRESS_UPDATE') evs.push(e); });
 
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
 
             expect(det.db.getAddressBalances.callCount).to.equal(1);
             expect(evs.map((e) => e.data.last_action_index)).to.deep.equal([10, 11]);
@@ -488,8 +488,8 @@ describe('ChangeDetector', function () {
                 .onFirstCall().resolves([{ action: 'MINT', action_index: 1 }])
                 .onSecondCall().resolves([{ action: 'MINT', action_index: 2 }]);
 
-            await det._checkCoin('BTC');
-            await det._checkCoin('BTC');
+            await det.checkCoin('BTC');
+            await det.checkCoin('BTC');
 
             // One read per poll -> two reads across two polls (no stale cross-poll cache).
             expect(det.db.getTokenInfo.callCount).to.equal(2);
@@ -501,7 +501,7 @@ describe('ChangeDetector', function () {
             let det = mk();
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitAttestationEvents('BTC', {}, { action: 'SEND' });
+            await det.emitAttestationEvents('BTC', {}, { action: 'SEND' });
             expect(evs).to.deep.equal([]);
         });
 
@@ -510,7 +510,7 @@ describe('ChangeDetector', function () {
             det.db.getAttestationByActionIndex.resolves({ version: 0, action_index: 1, request_id: 'r' });
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 1 });
+            await det.emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 1 });
             expect(evs[0].type).to.equal('ATTESTATION_REQUEST');
         });
 
@@ -519,19 +519,19 @@ describe('ChangeDetector', function () {
             det.db.getAttestationByActionIndex.resolves({ version: 1, action_index: 1 });
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 1 });
+            await det.emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 1 });
             expect(evs[0].type).to.equal('ATTESTATION_RESPONSE');
         });
 
         it('is non-fatal on db error and silent when no row is found', async function () {
             let det = mk();
             det.db.getAttestationByActionIndex.rejects(new Error('db'));
-            await det._emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 1 }); // no throw
+            await det.emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 1 }); // no throw
 
             det.db.getAttestationByActionIndex.resolves(null);
             let evs = [];
             det.on('lifecycle_event', (c, e) => evs.push(e));
-            await det._emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 2 });
+            await det.emitAttestationEvents('BTC', {}, { action: 'ATTEST', action_index: 2 });
             expect(evs).to.deep.equal([]);
         });
     });

@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Unit tests for the shared BigInt-safe serializer (src/ws/serialize.js),
- * used by both Broadcaster and WebSocketServer._send.
+ * used by both Broadcaster and WebSocketServer.send.
  */
 
 'use strict';

@@ -22,7 +22,7 @@
  *
  *   - getAttestations(), so the response never appears on /COIN/attestations;
  *   - getActionsSince(), which is worse than a missing list row, because
- *     ChangeDetector calls _emitAttestationEvents ONLY for the actions that
+ *     ChangeDetector calls emitAttestationEvents ONLY for the actions that
  *     query returns. An absent row means ATTESTATION_RESPONSE never fires for
  *     any websocket subscriber, ever, for that response.
  *
@@ -340,7 +340,7 @@ describe('mirror-applied ATTEST response with no transaction row (real MariaDB)'
                                    closedBlock: BLOCK - 1, xcallBlock: BLOCK - 1, initialized: true } };
         detector.mempoolState = { RBTC: { seenHashes: new Map(), initialized: true } };
 
-        await detector._checkCoin('RBTC');
+        await detector.checkCoin('RBTC');
 
         const responses = lifecycle.filter(e => e.type === 'ATTESTATION_RESPONSE');
         const announced = responses.map(e => Number(e.data.action_index));

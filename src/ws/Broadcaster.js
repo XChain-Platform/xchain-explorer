@@ -66,7 +66,7 @@ class Broadcaster {
         // has never been indexed would cost one DB read PER MEMPOOL ROW: a 500-row
         // burst against N subscribed addresses would be O(N * 500) queries. Memoize
         // the null too and the same burst is O(N).
-        // Invalidation: cleared per coin on the block signal (_onBlock) rather than
+        // Invalidation: cleared per coin on the block signal (onBlock) rather than
         // on a timer. An index id only ever changes meaning at a block boundary
         // (the indexer reassigns ids on a reorg, and a never-indexed address gets
         // its first id when its tx confirms), which is exactly when a block arrives,
@@ -75,12 +75,12 @@ class Broadcaster {
         this._addressIdMemo = new Map(); // coin -> Map<address, id|null>
 
         // Wire up ChangeDetector events
-        this.changeDetector.on('block',           (coin, block)  => this._onBlock(coin, block));
-        this.changeDetector.on('action',          (coin, action) => this._onAction(coin, action));
-        this.changeDetector.on('lifecycle_event',  (coin, event)  => this._onLifecycleEvent(coin, event));
-        this.changeDetector.on('entity_update',    (coin, event)  => this._onEntityUpdate(coin, event));
-        this.changeDetector.on('mempool_action',   (coin, row)    => this._onMempoolAction(coin, row));
-        this.changeDetector.on('mempool_removed',  (coin, row)    => this._onMempoolRemoved(coin, row));
+        this.changeDetector.on('block',           (coin, block)  => this.onBlock(coin, block));
+        this.changeDetector.on('action',          (coin, action) => this.onAction(coin, action));
+        this.changeDetector.on('lifecycle_event',  (coin, event)  => this.onLifecycleEvent(coin, event));
+        this.changeDetector.on('entity_update',    (coin, event)  => this.onEntityUpdate(coin, event));
+        this.changeDetector.on('mempool_action',   (coin, row)    => this.onMempoolAction(coin, row));
+        this.changeDetector.on('mempool_removed',  (coin, row)    => this.onMempoolRemoved(coin, row));
     }
 
     // Handle a newly seen unconfirmed action (decoder mempool). Rows are
@@ -89,25 +89,25 @@ class Broadcaster {
     // (`data`) for clients to parse, and no validity claim.
     // Queued on the per-coin serial chain because the fan-out below awaits
     // address-id resolution (see _mempoolTails in the constructor).
-    _onMempoolAction(coin, row) {
-        this._queueMempoolFrame(coin, () => this._emitMempoolAction(coin, row));
+    onMempoolAction(coin, row) {
+        this.queueMempoolFrame(coin, () => this.emitMempoolAction(coin, row));
     }
 
     // Handle a tx leaving the mempool. Confirmed and evicted are indistinguishable
     // here; subscribers reconcile against confirmed NEW_ACTION events.
-    _onMempoolRemoved(coin, row) {
-        this._queueMempoolFrame(coin, () => this._emitMempoolRemoved(coin, row));
+    onMempoolRemoved(coin, row) {
+        this.queueMempoolFrame(coin, () => this.emitMempoolRemoved(coin, row));
     }
 
     // Append one mempool frame emission to this coin's serial chain. The catch
     // keeps a failed emission from poisoning the chain for later frames, matching
-    // the NETWORK_STATS tail in _onBlock.
-    _queueMempoolFrame(coin, fn) {
+    // the NETWORK_STATS tail in onBlock.
+    queueMempoolFrame(coin, fn) {
         const tail = this._mempoolTails.get(coin) || Promise.resolve();
         this._mempoolTails.set(coin, tail.then(fn).catch(() => {}));
     }
 
-    async _emitMempoolAction(coin, row) {
+    async emitMempoolAction(coin, row) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -123,23 +123,23 @@ class Broadcaster {
             first_seen: (row.first_seen === undefined) ? null : row.first_seen
         };
 
-        const destinations = await this._matchMempoolDestinations(coin, row);
+        const destinations = await this.matchMempoolDestinations(coin, row);
 
         // Address-channel frame carries `destinations`; the global frame does NOT
         // (I-43): the matched set is derived from THIS server's subscriber list, so
         // on the global channel it would either be empty for everyone or leak which
         // addresses other clients watch.
-        const addressEvent = this._mempoolEvent('MEMPOOL_ACTION', info,
+        const addressEvent = this.mempoolEvent('MEMPOOL_ACTION', info,
             Object.assign({}, base, { destinations: destinations }));
         if (row.source)
-            this._broadcastToChannel(coin, 'address', addressEvent, row, row.source);
+            this.broadcastToChannel(coin, 'address', addressEvent, row, row.source);
         for (const destination of destinations)
-            this._broadcastToChannel(coin, 'address', addressEvent, row, destination);
+            this.broadcastToChannel(coin, 'address', addressEvent, row, destination);
 
-        this._broadcastToChannel(coin, 'mempool', this._mempoolEvent('MEMPOOL_ACTION', info, base), row);
+        this.broadcastToChannel(coin, 'mempool', this.mempoolEvent('MEMPOOL_ACTION', info, base), row);
     }
 
-    async _emitMempoolRemoved(coin, row) {
+    async emitMempoolRemoved(coin, row) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -148,7 +148,7 @@ class Broadcaster {
         // network had already dropped with no event to reconcile it away.
         //
         // `action` is additive too, and is what makes this frame survive a `types`
-        // filter: _passesFilter resolves an action name before falling back to the
+        // filter: passesFilter resolves an action name before falling back to the
         // literal event type, so a frame with no name is only ever matched by
         // types:['MEMPOOL_REMOVED'] and a subscriber filtering on families
         // (types:['SEND']) would get the MEMPOOL_ACTION and never its removal,
@@ -164,19 +164,19 @@ class Broadcaster {
         // Same matcher as the action path, re-run against CURRENT subscribers
         // rather than a set remembered at action time, so a client that subscribed
         // between the two frames still gets the removal (I-44).
-        const destinations = await this._matchMempoolDestinations(coin, row);
+        const destinations = await this.matchMempoolDestinations(coin, row);
 
-        const addressEvent = this._mempoolEvent('MEMPOOL_REMOVED', info,
+        const addressEvent = this.mempoolEvent('MEMPOOL_REMOVED', info,
             Object.assign({}, base, { destinations: destinations }));
         if (row.source)
-            this._broadcastToChannel(coin, 'address', addressEvent, row, row.source);
+            this.broadcastToChannel(coin, 'address', addressEvent, row, row.source);
         for (const destination of destinations)
-            this._broadcastToChannel(coin, 'address', addressEvent, row, destination);
+            this.broadcastToChannel(coin, 'address', addressEvent, row, destination);
 
-        this._broadcastToChannel(coin, 'mempool', this._mempoolEvent('MEMPOOL_REMOVED', info, base), row);
+        this.broadcastToChannel(coin, 'mempool', this.mempoolEvent('MEMPOOL_REMOVED', info, base), row);
     }
 
-    _mempoolEvent(type, info, data) {
+    mempoolEvent(type, info, data) {
         return {
             type:      type,
             chain:     info.chain,
@@ -194,10 +194,10 @@ class Broadcaster {
     // The source is excluded: it has its own routing above, and `destinations` is
     // the "other parties" list. Matching is delegated to db.mempoolRowMatchesAddress
     // so this path and the REST prefilter can never disagree about who a tx affects.
-    async _matchMempoolDestinations(coin, row) {
+    async matchMempoolDestinations(coin, row) {
         const channelManager = this.wsServer && this.wsServer.channelManager;
         if (!channelManager || typeof channelManager.getSubscribedAddresses !== 'function') return [];
-        // No address subscribers for this coin means every _broadcastToChannel to an
+        // No address subscribers for this coin means every broadcastToChannel to an
         // address channel would early-return anyway, so skip the id work entirely:
         // an unwatched coin costs zero DB reads per mempool row.
         const addresses = channelManager.getSubscribedAddresses(coin);
@@ -209,7 +209,7 @@ class Broadcaster {
         const matched = [];
         for (const address of addresses) {
             if (address === row.source) continue;
-            const addressId = await this._resolveAddressId(coin, address);
+            const addressId = await this.resolveAddressId(coin, address);
             if (db.mempoolRowMatchesAddress(row, address, addressId))
                 matched.push(address);
         }
@@ -230,7 +230,7 @@ class Broadcaster {
     // the wrong subscriber. A db that cannot resolve exactly resolves to null here,
     // which costs compacted `^<id>` matching and keeps literal matching, rather
     // than falling back to a lookup that routes frames to strangers.
-    async _resolveAddressId(coin, address) {
+    async resolveAddressId(coin, address) {
         let memo = this._addressIdMemo.get(coin);
         if (!memo) {
             memo = new Map();
@@ -255,7 +255,7 @@ class Broadcaster {
     // (in ChangeDetector emit order); the NETWORK_STATS frame is queued on the
     // per-coin serial chain (see constructor) so its async DB read cannot reorder
     // frames during a catch-up burst.
-    _onBlock(coin, block) {
+    onBlock(coin, block) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -279,25 +279,25 @@ class Broadcaster {
             }
         };
 
-        this._broadcastToChannel(coin, 'blocks', event, null);
+        this.broadcastToChannel(coin, 'blocks', event, null);
 
         // Queue the NETWORK_STATS frame on the per-coin serial chain. The final
         // catch keeps a failed emission from poisoning the chain for later blocks.
         if ((this._newestBlock.get(coin) || 0) < block.block_index)
             this._newestBlock.set(coin, block.block_index);
         const tail = this._statsTails.get(coin) || Promise.resolve();
-        this._statsTails.set(coin, tail.then(() => this._emitNetworkStats(coin, info, block)).catch(() => {}));
+        this._statsTails.set(coin, tail.then(() => this.emitNetworkStats(coin, info, block)).catch(() => {}));
     }
 
     // Push NETWORK_STATS to 'network' subscribers. total_actions must report
     // the CUMULATIVE max action index (matching the snapshot built in
-    // WebSocketServer._sendSnapshots and the documented contract), not the
+    // WebSocketServer.sendSnapshots and the documented contract), not the
     // per-block action count, or a subscriber that seeds a counter from the
     // snapshot sees it collapse on the next live frame. Runs only on the
     // per-coin serial chain; a height superseded by a newer queued block is
     // skipped (its frame would be stale on arrival, and skipping collapses a
     // burst into one DB read).
-    async _emitNetworkStats(coin, info, block) {
+    async emitNetworkStats(coin, info, block) {
         if ((this._newestBlock.get(coin) || 0) > block.block_index) return;
         let totalActions = block.action_count || 0;
         try {
@@ -320,11 +320,11 @@ class Broadcaster {
                 total_actions: String(totalActions)
             }
         };
-        this._broadcastToChannel(coin, 'network', stats, null);
+        this.broadcastToChannel(coin, 'network', stats, null);
     }
 
     // Handle new action from ChangeDetector
-    _onAction(coin, action) {
+    onAction(coin, action) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -367,7 +367,7 @@ class Broadcaster {
             }
         };
 
-        this._broadcastToChannel(coin, 'actions', event, action);
+        this.broadcastToChannel(coin, 'actions', event, action);
 
         // Also broadcast to the address channel of every party to the action. The
         // `seen` set is what keeps a client subscribed to an address that is BOTH
@@ -378,12 +378,12 @@ class Broadcaster {
         for (const address of [action.source, ...event.data.destinations]) {
             if (!address || seen.has(address)) continue;
             seen.add(address);
-            this._broadcastToChannel(coin, 'address', event, action, address);
+            this.broadcastToChannel(coin, 'address', event, action, address);
         }
     }
 
     // Handle lifecycle events (ORDER_MATCH, COINPAY_REQUIRED, SWAP_MATCH, etc.)
-    _onLifecycleEvent(coin, lifecycleEvent) {
+    onLifecycleEvent(coin, lifecycleEvent) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -395,7 +395,7 @@ class Broadcaster {
             data:      lifecycleEvent.data
         };
 
-        this._broadcastToChannel(coin, 'actions', event, lifecycleEvent);
+        this.broadcastToChannel(coin, 'actions', event, lifecycleEvent);
 
         // If the lifecycle event names a dedicated channel (e.g. 'attestation'),
         // also broadcast there so clients can subscribe to just that stream.
@@ -403,18 +403,18 @@ class Broadcaster {
         // specific entity's channel key rather than the bare channel (which has
         // no subscribers): a dispenser subscription is coin:dispenser:<index>.
         if (lifecycleEvent.channel) {
-            const entityId = this._lifecycleChannelEntityId(lifecycleEvent);
+            const entityId = this.lifecycleChannelEntityId(lifecycleEvent);
             if (entityId !== null && entityId !== undefined) {
-                this._broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent, entityId);
+                this.broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent, entityId);
             } else {
-                this._broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent);
+                this.broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent);
             }
         }
 
         // Broadcast to relevant address channels
-        const addresses = this._extractAddresses(lifecycleEvent.data);
+        const addresses = this.extractAddresses(lifecycleEvent.data);
         for (const addr of addresses) {
-            this._broadcastToChannel(coin, 'address', event, lifecycleEvent, addr);
+            this.broadcastToChannel(coin, 'address', event, lifecycleEvent, addr);
         }
     }
 
@@ -424,7 +424,7 @@ class Broadcaster {
     // The dispenser channel is keyed on the parent dispenser's action_index,
     // which the ChangeDetector enriches onto data.dispenser_action_index for the
     // DISPENSE / DISPENSER_CLOSED / DISPENSER_EXPIRED events.
-    _lifecycleChannelEntityId(lifecycleEvent) {
+    lifecycleChannelEntityId(lifecycleEvent) {
         if (lifecycleEvent.channel === 'dispenser') {
             const idx = lifecycleEvent.data && lifecycleEvent.data.dispenser_action_index;
             return (idx === null || idx === undefined) ? null : idx;
@@ -447,7 +447,7 @@ class Broadcaster {
     }
 
     // Handle entity update events (ADDRESS_UPDATE, TOKEN_UPDATE, MARKET_UPDATE, DISPENSER_UPDATE)
-    _onEntityUpdate(coin, updateEvent) {
+    onEntityUpdate(coin, updateEvent) {
         const info = COIN_MAP[coin];
         if (!info) return;
 
@@ -456,7 +456,7 @@ class Broadcaster {
             chain:     info.chain,
             network:   info.network,
             timestamp: Date.now(),
-            // Stamp the entity channel INTO data, the way WebSocketServer._sendSnapshots
+            // Stamp the entity channel INTO data, the way WebSocketServer.sendSnapshots
             // stamps it on the SNAPSHOT frame for the same entity. The channel was only
             // ever an internal routing field here, so the two frame families describing
             // one entity were discriminated by two different keys: data.channel for the
@@ -478,25 +478,25 @@ class Broadcaster {
         if (updateEvent.channel === 'market') {
             // Market uses composite key
             const channelKey = coin + ':market:' + updateEvent.data.tick1 + ':' + updateEvent.data.tick2;
-            this._broadcastToChannelKey(channelKey, event, updateEvent);
+            this.broadcastToChannelKey(channelKey, event, updateEvent);
         } else if (entityId !== null && entityId !== undefined) {
             const channelKey = coin + ':' + updateEvent.channel + ':' + entityId;
-            this._broadcastToChannelKey(channelKey, event, updateEvent);
+            this.broadcastToChannelKey(channelKey, event, updateEvent);
         }
     }
 
-    _broadcastToChannel(coin, channel, event, actionData, entityId) {
+    broadcastToChannel(coin, channel, event, actionData, entityId) {
         let channelKey;
         if (entityId) {
             channelKey = coin + ':' + channel + ':' + entityId;
         } else {
             channelKey = coin + ':' + channel;
         }
-        this._broadcastToChannelKey(channelKey, event, actionData);
+        this.broadcastToChannelKey(channelKey, event, actionData);
     }
 
     // Broadcast to a specific channel key with filter evaluation
-    _broadcastToChannelKey(channelKey, event, actionData) {
+    broadcastToChannelKey(channelKey, event, actionData) {
         const channelManager = this.wsServer.channelManager;
         const subscribers    = channelManager.getSubscribers(channelKey);
         if (!subscribers || subscribers.size === 0) return;
@@ -512,10 +512,10 @@ class Broadcaster {
             if (client.ws.bufferedAmount > this.maxBackpressure) continue;
 
             // Filter pipeline (AND logic): all non-null filters must pass
-            if (!this._passesFilter(filter, event, actionData)) continue;
+            if (!this.passesFilter(filter, event, actionData)) continue;
 
             // Apply fields projection
-            const msg = filter.fields ? this._applyFieldsProjection(event, filter.fields) : event;
+            const msg = filter.fields ? this.applyFieldsProjection(event, filter.fields) : event;
 
             // Send (stamped with the envelope schema version AFTER projection,
             // so the marker survives a fields filter; see ws/schema-version.js)
@@ -523,7 +523,7 @@ class Broadcaster {
                 try {
                     if (msg && typeof msg === 'object' && msg.schema_version === undefined)
                         msg.schema_version = WS_SCHEMA_VERSION;
-                    // Same additive stale marker _send stamps, and for the same
+                    // Same additive stale marker send stamps, and for the same
                     // reason: a live frame from a coin whose indexed tip is behind
                     // must not read as the chain tip. After projection too, so a
                     // fields filter cannot strip it.
@@ -556,8 +556,8 @@ class Broadcaster {
                 // coin-prefixed channel key (e.g. "BTC:address:1abc...") -- a client
                 // that tracks subscriptions by the bare name could never match this
                 // frame and would leak the bookkeeping entry as still-live.
-                const parsed = channelManager._parseChannelKey(key);
-                this._send(client, {
+                const parsed = channelManager.parseChannelKey(key);
+                this.send(client, {
                     type:      'UNSUBSCRIBED',
                     timestamp: Date.now(),
                     data:      Object.assign({ channel: parsed.channel }, parsed.entityKey, { reason: 'once' })
@@ -567,7 +567,7 @@ class Broadcaster {
     }
 
     // Evaluate filter pipeline against an event
-    _passesFilter(filter, event, actionData) {
+    passesFilter(filter, event, actionData) {
         // Types filter: check event type or action field
         if (filter.types) {
             const actionType = (actionData && actionData.action) || (event.data && event.data.action) || event.type;
@@ -580,10 +580,10 @@ class Broadcaster {
         // server produces (action.status is always the literal SQL NULL from db.js
         // getActionsSince, so `status` below is always falsy and the `has()` check
         // never runs). Left evaluating rather than short-circuited: proving it dead
-        // requires tracing every _passesFilter caller (live actions/lifecycle/ATTEST
-        // path and the catch-up replay path in WebSocketServer._handleCatchUp) plus
+        // requires tracing every passesFilter caller (live actions/lifecycle/ATTEST
+        // path and the catch-up replay path in WebSocketServer.handleCatchUp) plus
         // every producer in ChangeDetector.js, which is not a change safe to make
-        // as a drive-by; WebSocketServer._handleSubscribe now echoes
+        // as a drive-by; WebSocketServer.handleSubscribe now echoes
         // `ignored_filters: ['statuses']` so a client sending it can observe the
         // no-op without relying on this evaluation being removed.
         if (filter.statuses) {
@@ -603,7 +603,7 @@ class Broadcaster {
     }
 
     // Apply fields projection: keep only requested keys in data, preserve envelope
-    _applyFieldsProjection(event, fields) {
+    applyFieldsProjection(event, fields) {
         const projected = {
             type:      event.type,
             chain:     event.chain,
@@ -623,7 +623,7 @@ class Broadcaster {
     }
 
     // Extract all address fields from an event data object
-    _extractAddresses(data) {
+    extractAddresses(data) {
         const addrs = new Set();
         if (data.source)        addrs.add(data.source);
         if (data.destination)   addrs.add(data.destination);
@@ -634,11 +634,11 @@ class Broadcaster {
     }
 
     // Send a message to a specific client. Stamps schema_version like the other
-    // two send sinks (WebSocketServer._send and _broadcastToChannelKey's
+    // two send sinks (WebSocketServer.send and broadcastToChannelKey's
     // per-subscriber send) so the "every outbound frame is stamped" invariant
     // in ws/schema-version.js holds for this sink too (e.g. the UNSUBSCRIBED
     // frame emitted on a once:true subscription).
-    _send(client, msg) {
+    send(client, msg) {
         if (client.ws.readyState === 1) {
             try {
                 if (msg && typeof msg === 'object' && msg.schema_version === undefined)

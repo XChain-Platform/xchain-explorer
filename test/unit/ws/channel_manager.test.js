@@ -511,7 +511,7 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts)', fun
     it('every type ChangeDetector emits is accepted by the types filter', function () {
         const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
         // Both halves matter: the filter matches on the event type OR the causing
-        // action name (Broadcaster._passesFilter), so the map's keys are filterable
+        // action name (Broadcaster.passesFilter), so the map's keys are filterable
         // names too.
         const produced = [...emittedNames(), ...Object.keys(ChangeDetector.LIFECYCLE_MAP)];
         const rejected = [...new Set(produced)].filter((t) => !ChannelManager.VALID_TYPES.has(t));

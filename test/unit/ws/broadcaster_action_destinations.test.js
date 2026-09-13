@@ -16,7 +16,7 @@
  *
  * Twin of test/unit/ws/broadcaster-mempool-fanout.test.js on the confirmed
  * side. Until this landed, getActionsSince selected no destination column, so
- * NEW_ACTION never carried one and the routing branch in _onAction was
+ * NEW_ACTION never carried one and the routing branch in onAction was
  * permanently inert: the wallet's incoming-receipt notification had never
  * fired for anyone.
  *

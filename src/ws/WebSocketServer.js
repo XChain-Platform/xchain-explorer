@@ -22,9 +22,9 @@
 
 const { WebSocketServer: WSServer } = require('ws');
 const ChannelManager = require('./ChannelManager.js');
-// BigInt-safe JSON serializer (shared with Broadcaster via serialize.js). _send
-// previously used raw JSON.stringify, which throws on BigInt DB columns; under the
-// swallowing try/catch that silently dropped every message carrying a raw DB row.
+// BigInt-safe JSON serializer (shared with Broadcaster via serialize.js). send
+// cannot use raw JSON.stringify, which throws on BigInt DB columns; under the
+// swallowing try/catch that would silently drop every message carrying a raw DB row.
 const { safeStringify } = require('./serialize.js');
 const { WS_SCHEMA_VERSION } = require('./schema-version.js');
 
@@ -81,18 +81,18 @@ class WebSocketServer {
         this.wss = new WSServer({ noServer: true, maxPayload: this.maxMessageSize });
 
         this.wss.on('connection', (ws, req, clientInfo) => {
-            this._onConnection(ws, req, clientInfo);
+            this.onConnection(ws, req, clientInfo);
         });
 
         // Attach upgrade handler to each server
         for (const server of servers) {
             server.on('upgrade', (req, socket, head) => {
-                this._handleUpgrade(req, socket, head);
+                this.handleUpgrade(req, socket, head);
             });
         }
 
         // Start ping interval
-        this._startPingInterval();
+        this.startPingInterval();
 
         console.log('WebSocket server attached on /{COIN}/api/websocket');
     }
@@ -126,7 +126,7 @@ class WebSocketServer {
     // and open unbounded connections. With trustProxyHops=N>0, take the entry N from the
     // right (the address the outermost trusted proxy inserted); otherwise, and whenever
     // XFF is absent or malformed, fall back to the unspoofable TCP peer address.
-    _clientIp(req) {
+    clientIp(req) {
         const hops = this.trustProxyHops;
         const xff  = req.headers['x-forwarded-for'];
         if (hops > 0 && xff) {
@@ -138,7 +138,7 @@ class WebSocketServer {
     }
 
     // Handle HTTP upgrade request: validate path and coin before upgrading
-    _handleUpgrade(req, socket, head) {
+    handleUpgrade(req, socket, head) {
         const match = WS_PATH_REGEX.exec(req.url);
         if (!match) {
             socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
@@ -147,7 +147,7 @@ class WebSocketServer {
         }
 
         const coinParam = match[1].toUpperCase();
-        const coinInfo  = this._resolveCoin(coinParam);
+        const coinInfo  = this.resolveCoin(coinParam);
         if (!coinInfo) {
             socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
             socket.destroy();
@@ -155,7 +155,7 @@ class WebSocketServer {
         }
 
         // Per-IP connection limit
-        const ip = this._clientIp(req);
+        const ip = this.clientIp(req);
         const currentCount = this.ipCounts.get(ip) || 0;
         if (currentCount >= this.maxPerIp) {
             socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
@@ -170,7 +170,7 @@ class WebSocketServer {
     }
 
     // Handle new WebSocket connection
-    _onConnection(ws, req, clientInfo) {
+    onConnection(ws, req, clientInfo) {
         const clientId = this.nextId++;
         const client = {
             id:            clientId,
@@ -195,15 +195,15 @@ class WebSocketServer {
         this.clients.set(clientId, client);
         this.ipCounts.set(clientInfo.ip, (this.ipCounts.get(clientInfo.ip) || 0) + 1);
 
-        this._log('connect', clientId, { coin: clientInfo.coin, ip: clientInfo.ip });
+        this.log('connect', clientId, { coin: clientInfo.coin, ip: clientInfo.ip });
 
         // Send WELCOME
-        this._sendWelcome(client);
+        this.sendWelcome(client);
 
         // Wire up event handlers
-        ws.on('message', (data) => this._onMessage(client, data));
-        ws.on('close', ()      => this._onClose(client));
-        ws.on('error', (err)   => this._onError(client, err));
+        ws.on('message', (data) => this.onMessage(client, data));
+        ws.on('close', ()      => this.onClose(client));
+        ws.on('error', (err)   => this.onError(client, err));
         ws.on('pong', ()       => { client.alive = true; });
     }
 
@@ -222,7 +222,7 @@ class WebSocketServer {
     // fail OPEN there rather than throw inside a send path, mirroring the
     // `typeof this.db.checkReorgAndInvalidate === 'function'` probe ChangeDetector
     // uses for the same reason.
-    async _isCoinTipStale(coin) {
+    async isCoinTipStale(coin) {
         const db = this.explorer && this.explorer.db;
         if (!db || typeof db.isCoinTipStale !== 'function') return false;
         try { return await db.isCoinTipStale(coin); }
@@ -233,13 +233,13 @@ class WebSocketServer {
     // rather than served with `stale: true` on every frame. Same opt-in as the
     // HTTP 503 (db.staleFailClosed), so a subscriber never gets a different
     // answer for the same question over a different transport.
-    _staleFailClosed() {
+    staleFailClosed() {
         const db = this.explorer && this.explorer.db;
         return !!(db && typeof db.staleFailClosed === 'function' && db.staleFailClosed());
     }
 
     // Send WELCOME message with server info
-    async _sendWelcome(client) {
+    async sendWelcome(client) {
         // Get latest indexes from the database
         let latestBlockIndex  = 0;
         let latestActionIndex = 0;
@@ -260,8 +260,8 @@ class WebSocketServer {
         // WS_SCHEMA_VERSION bump (ws/schema-version.js states the rule), and it
         // carries the same name and meaning as the `stale` map /status publishes
         // over HTTP. Chain DATA is a different question and does fail closed: see
-        // _handleCatchUp and _sendSnapshots.
-        const tipStale = await this._isCoinTipStale(client.coin);
+        // handleCatchUp and sendSnapshots.
+        const tipStale = await this.isCoinTipStale(client.coin);
 
         const welcome = {
             type:      'WELCOME',
@@ -314,11 +314,11 @@ class WebSocketServer {
             }
         };
 
-        this._send(client, welcome);
+        this.send(client, welcome);
     }
 
     // Handle incoming client message
-    _onMessage(client, data) {
+    onMessage(client, data) {
         client.lastActivity = Date.now();
 
         // Rate limiting: sliding window via continuous decay (leaky bucket).
@@ -333,7 +333,7 @@ class WebSocketServer {
         }
         client.msgCount++;
         if (client.msgCount > this.maxMsgPerSec) {
-            this._sendError(client, 'RATE_LIMITED', 'Too many messages (max ' + this.maxMsgPerSec + '/sec)');
+            this.sendError(client, 'RATE_LIMITED', 'Too many messages (max ' + this.maxMsgPerSec + '/sec)');
             return;
         }
 
@@ -341,12 +341,12 @@ class WebSocketServer {
         try {
             msg = JSON.parse(data.toString());
         } catch (e) {
-            this._sendError(client, 'INVALID_ACTION', 'Malformed JSON');
+            this.sendError(client, 'INVALID_ACTION', 'Malformed JSON');
             return;
         }
 
         if (!msg || typeof msg.action !== 'string') {
-            this._sendError(client, 'INVALID_ACTION', 'Missing action field');
+            this.sendError(client, 'INVALID_ACTION', 'Missing action field');
             return;
         }
 
@@ -359,7 +359,7 @@ class WebSocketServer {
         try {
             switch (msg.action) {
                 case 'ping':
-                    this._send(client, {
+                    this.send(client, {
                         type:      'pong',
                         timestamp: Date.now(),
                         data:      {}
@@ -367,34 +367,34 @@ class WebSocketServer {
                     break;
 
                 case 'subscribe':
-                    this._handleSubscribe(client, msg);
+                    this.handleSubscribe(client, msg);
                     break;
 
                 case 'unsubscribe':
-                    this._handleUnsubscribe(client, msg);
+                    this.handleUnsubscribe(client, msg);
                     break;
 
                 case 'list_subscriptions':
-                    this._handleListSubscriptions(client, msg);
+                    this.handleListSubscriptions(client, msg);
                     break;
 
                 default:
-                    this._sendError(client, 'INVALID_ACTION', `Unknown action: ${msg.action}`, msg.id);
+                    this.sendError(client, 'INVALID_ACTION', `Unknown action: ${msg.action}`, msg.id);
                     break;
             }
         } catch (err) {
             console.error('[ws] handler threw for action "' + msg.action + '":', err);
-            this._sendError(client, 'INTERNAL_ERROR', 'Internal error handling message', msg.id);
+            this.sendError(client, 'INTERNAL_ERROR', 'Internal error handling message', msg.id);
         }
     }
 
     // Handle subscribe message
-    _handleSubscribe(client, msg) {
+    handleSubscribe(client, msg) {
         const channels = msg.channels;
         const params   = msg.params || {};
 
         if (!Array.isArray(channels) || channels.length === 0) {
-            this._sendError(client, 'INVALID_CHANNEL', 'channels must be a non-empty array', msg.id);
+            this.sendError(client, 'INVALID_CHANNEL', 'channels must be a non-empty array', msg.id);
             return;
         }
 
@@ -406,14 +406,14 @@ class WebSocketServer {
 
         if (!result.success) {
             const err = result.error;
-            this._sendError(client, err.code, err.message, msg.id);
+            this.sendError(client, err.code, err.message, msg.id);
             return;
         }
 
         // Still accept a `statuses` filter (non-breaking: ChannelManager keeps
         // validating and storing it), but it is a no-op on every event this server
         // currently produces (action.status is a literal SQL NULL from db.js
-        // getActionsSince, so Broadcaster._passesFilter's status check never fires).
+        // getActionsSince, so Broadcaster.passesFilter's status check never fires).
         // Surface that as `ignored_filters` so a client that sent it can observe the
         // no-op instead of silently getting nothing. Same params object for the whole
         // subscribe() call, so this is constant across every confirmation below.
@@ -456,10 +456,10 @@ class WebSocketServer {
             if (sub.action_index !== undefined) confirmation.data.action_index = sub.action_index;
             // Echo request id if provided
             if (msg.id !== undefined) confirmation.id = msg.id;
-            this._send(client, confirmation);
+            this.send(client, confirmation);
         }
 
-        this._log('subscribe', client.id, { channels: channels.join(','), count: result.subscribed.length });
+        this.log('subscribe', client.id, { channels: channels.join(','), count: result.subscribed.length });
 
         // Handle snapshot requests. Only snapshot entities NEWLY subscribed on this
         // call: ChannelManager.subscribe returns already-active entities in
@@ -477,24 +477,24 @@ class WebSocketServer {
                 // only unsubscribe/resubscribe could ever recover its SNAPSHOT. Queue
                 // it instead, so concurrency stays bounded to one fan-out AND every
                 // accepted request is eventually answered.
-                if (client.snapshotInProgress) this._queueSnapshots(client, fresh, msg.id);
-                else                           this._startSnapshotFanout(client, fresh);
+                if (client.snapshotInProgress) this.queueSnapshots(client, fresh, msg.id);
+                else                           this.startSnapshotFanout(client, fresh);
             }
         }
 
         // Handle catch-up requests
         if (params.since_action_index !== undefined && params.since_action_index !== null) {
-            this._handleCatchUp(client, params.since_action_index, result.filter, msg.id);
+            this.handleCatchUp(client, params.since_action_index, result.filter, msg.id);
         }
     }
 
     // Handle unsubscribe message
-    _handleUnsubscribe(client, msg) {
+    handleUnsubscribe(client, msg) {
         const channels = msg.channels;
         const params   = msg.params || {};
 
         if (!Array.isArray(channels) || channels.length === 0) {
-            this._sendError(client, 'INVALID_CHANNEL', 'channels must be a non-empty array', msg.id);
+            this.sendError(client, 'INVALID_CHANNEL', 'channels must be a non-empty array', msg.id);
             return;
         }
 
@@ -521,12 +521,12 @@ class WebSocketServer {
             if (target.action_index !== undefined) confirmation.data.action_index = target.action_index;
             if (target.call_id !== undefined)      confirmation.data.call_id      = target.call_id;
             if (msg.id !== undefined) confirmation.id = msg.id;
-            this._send(client, confirmation);
+            this.send(client, confirmation);
         }
     }
 
     // Handle list_subscriptions message
-    _handleListSubscriptions(client, msg) {
+    handleListSubscriptions(client, msg) {
         const subs = this.channelManager.listSubscriptions(client);
         const response = {
             type:      'SUBSCRIPTION_LIST',
@@ -538,18 +538,18 @@ class WebSocketServer {
             }
         };
         if (msg.id !== undefined) response.id = msg.id;
-        this._send(client, response);
+        this.send(client, response);
     }
 
     // Handle catch-up replay of missed events
-    async _handleCatchUp(client, sinceActionIndex, filter, requestId) {
+    async handleCatchUp(client, sinceActionIndex, filter, requestId) {
         // Reject a non-integer / negative since_action_index BEFORE the depth gate.
         // Number('abc')/Number({}) is NaN and `NaN > depth` is always false, so an
         // unguarded value silently bypasses CATCH_UP_TOO_OLD and reaches the SQL bind
         // param as NaN/Infinity. Anchor with the same non-negative-integer guard the
         // REST checkpoint-range handler uses (XChainExplorer.js) and reply INVALID_PARAMS.
         if (!/^[0-9]+$/.test(String(sinceActionIndex))) {
-            this._sendError(client, 'INVALID_PARAMS', 'since_action_index must be a non-negative integer', requestId);
+            this.sendError(client, 'INVALID_PARAMS', 'since_action_index must be a non-negative integer', requestId);
             return;
         }
         // BigInt, not Number: the client sends its cursor as the decimal string the v2
@@ -561,7 +561,7 @@ class WebSocketServer {
 
         // Check if catch-up already in progress
         if (client.catchUpInProgress) {
-            this._sendError(client, 'CATCH_UP_IN_PROGRESS', 'A catch-up request is already running', requestId);
+            this.sendError(client, 'CATCH_UP_IN_PROGRESS', 'A catch-up request is already running', requestId);
             return;
         }
 
@@ -577,9 +577,9 @@ class WebSocketServer {
         // its gap on it. The HTTP path carries the same marker; the fail-closed
         // opt-in keeps the old refusal through the same error frame and requestId
         // the depth gate below uses.
-        const tipStale = await this._isCoinTipStale(client.coin);
-        if (tipStale && this._staleFailClosed()) {
-            this._sendError(client, 'COIN_DATA_STALE',
+        const tipStale = await this.isCoinTipStale(client.coin);
+        if (tipStale && this.staleFailClosed()) {
+            this.sendError(client, 'COIN_DATA_STALE',
                 'Indexed data for this coin is stale beyond its maximum tip age; refusing to replay it as current.',
                 requestId);
             return;
@@ -592,13 +592,13 @@ class WebSocketServer {
             // test double may return.
             const currentMax = BigInt(await db.getMaxActionIndex(config) || 0);
             if (currentMax - sinceBig > BigInt(this.catchUpMaxDepth)) {
-                this._sendError(client, 'CATCH_UP_TOO_OLD',
+                this.sendError(client, 'CATCH_UP_TOO_OLD',
                     `Requested action_index ${sinceBig} is more than ${this.catchUpMaxDepth} behind current (${currentMax}). Use REST API to backfill.`,
                     requestId);
                 return;
             }
         } catch (e) {
-            this._sendError(client, 'CATCH_UP_TOO_OLD', 'Unable to determine current state', requestId);
+            this.sendError(client, 'CATCH_UP_TOO_OLD', 'Unable to determine current state', requestId);
             return;
         }
 
@@ -606,7 +606,7 @@ class WebSocketServer {
 
         try {
             const actions = await db.getActionsSince(config, sinceBig, this.catchUpMaxEvents);
-            const info    = this._getCoinInfo(client.coin);
+            const info    = this.getCoinInfo(client.coin);
             let eventsReplayed = 0;
             const truncated = actions.length >= this.catchUpMaxEvents;
 
@@ -633,7 +633,7 @@ class WebSocketServer {
                         // NEW_ACTION than the live channel sends, which is the
                         // live-versus-replay shape divergence the retired singular
                         // `destination` was removed to prevent (see Broadcaster
-                        // _onAction). Same array-or-empty guarantee as live.
+                        // onAction). Same array-or-empty guarantee as live.
                         destinations: Array.isArray(action.destinations) ? action.destinations : []
                     }
                 };
@@ -642,10 +642,10 @@ class WebSocketServer {
                 // projection the live Broadcaster path applies, so a reconnecting
                 // client can't see a wider or unprojected shape during catch-up
                 // than it would on the live channel.
-                if (!this.broadcaster._passesFilter(filter, event, action)) continue;
-                const msg = filter.fields ? this.broadcaster._applyFieldsProjection(event, filter.fields) : event;
+                if (!this.broadcaster.passesFilter(filter, event, action)) continue;
+                const msg = filter.fields ? this.broadcaster.applyFieldsProjection(event, filter.fields) : event;
 
-                this._send(client, msg);
+                this.send(client, msg);
                 eventsReplayed++;
             }
 
@@ -671,7 +671,7 @@ class WebSocketServer {
                 }
             };
             if (requestId !== undefined) complete.id = requestId;
-            this._send(client, complete);
+            this.send(client, complete);
 
         } catch (e) {
             console.error('Catch-up error for client', client.id, ':', e);
@@ -681,17 +681,17 @@ class WebSocketServer {
     }
 
     // Get chain/network info for a coin prefix
-    _getCoinInfo(coin) {
-        return this._resolveCoin(coin) || { chain: coin, network: 'mainnet' };
+    getCoinInfo(coin) {
+        return this.resolveCoin(coin) || { chain: coin, network: 'mainnet' };
     }
 
     // Run one snapshot fan-out for this client, then drain anything that queued
     // behind it. The in-progress flag is the concurrency bound (one batch of DB
     // fan-out per client at a time); the queue is what keeps that bound from
     // silently swallowing a request.
-    _startSnapshotFanout(client, subs) {
+    startSnapshotFanout(client, subs) {
         client.snapshotInProgress = true;
-        Promise.resolve(this._sendSnapshots(client, subs))
+        Promise.resolve(this.sendSnapshots(client, subs))
             .catch(() => {})
             .finally(() => {
                 client.snapshotInProgress = false;
@@ -699,7 +699,7 @@ class WebSocketServer {
                 if (queued && queued.length) {
                     client.pendingSnapshots = [];
                     // Nothing to fan out to once the socket is gone.
-                    if (client.ws && client.ws.readyState === 1) this._startSnapshotFanout(client, queued);
+                    if (client.ws && client.ws.readyState === 1) this.startSnapshotFanout(client, queued);
                 }
             });
     }
@@ -708,7 +708,7 @@ class WebSocketServer {
     // capped at the per-client subscription limit, so a resubscribe loop cannot
     // grow the queue without bound; an overflow gets an explicit refusal frame
     // rather than the silent drop this replaced.
-    _queueSnapshots(client, subs, requestId) {
+    queueSnapshots(client, subs, requestId) {
         if (!Array.isArray(client.pendingSnapshots)) client.pendingSnapshots = [];
         const queue = client.pendingSnapshots;
         const have  = new Set(queue.map(s => this.channelManager.channelKeyForSub(client.coin, s)));
@@ -724,14 +724,14 @@ class WebSocketServer {
         }
 
         if (refused) {
-            this._sendError(client, 'SNAPSHOT_QUEUE_FULL',
+            this.sendError(client, 'SNAPSHOT_QUEUE_FULL',
                 'A snapshot fan-out is already running and its queue is full (max ' + limit +
                 ' pending entities); retry the subscribe with snapshot:true once it completes.', requestId);
         }
     }
 
     // Send snapshot data for subscribed entities
-    async _sendSnapshots(client, subscribed) {
+    async sendSnapshots(client, subscribed) {
         const db     = this.explorer.db;
         const config = { coin: client.coin };
 
@@ -742,9 +742,9 @@ class WebSocketServer {
         // is served with the same marker, and a subscriber must not get a
         // different answer for the same question over a different transport. The
         // fail-closed opt-in keeps the old error frame.
-        const snapshotStale = await this._isCoinTipStale(client.coin);
-        if (snapshotStale && this._staleFailClosed()) {
-            this._sendError(client, 'COIN_DATA_STALE',
+        const snapshotStale = await this.isCoinTipStale(client.coin);
+        if (snapshotStale && this.staleFailClosed()) {
+            this.sendError(client, 'COIN_DATA_STALE',
                 'Indexed data for this coin is stale beyond its maximum tip age; refusing to snapshot it as current.');
             return;
         }
@@ -763,7 +763,7 @@ class WebSocketServer {
                         // One tip key across both frame families on this channel. The
                         // snapshot named the tip latest_block_index (matching WELCOME)
                         // while every live NEW_BLOCK on the same channel names it
-                        // block_index (Broadcaster._onBlock), so a subscriber seeding
+                        // block_index (Broadcaster.onBlock), so a subscriber seeding
                         // from the snapshot read undefined off its first live frame.
                         // Both keys are emitted here rather than latest_block_index
                         // being added to NEW_BLOCK: a per-block frame is NOT the tip
@@ -826,7 +826,7 @@ class WebSocketServer {
                 }
 
                 if (snapshotData) {
-                    this._send(client, {
+                    this.send(client, {
                         type:      'SNAPSHOT',
                         chain:     client.chain,
                         network:   client.network,
@@ -843,8 +843,8 @@ class WebSocketServer {
     }
 
     // Handle connection close
-    _onClose(client) {
-        this._log('disconnect', client.id, { coin: client.coin, subs: client.subscriptions.size });
+    onClose(client) {
+        this.log('disconnect', client.id, { coin: client.coin, subs: client.subscriptions.size });
         this.channelManager.removeClient(client);
         this.clients.delete(client.id);
         const ipCount = (this.ipCounts.get(client.ip) || 1) - 1;
@@ -853,14 +853,14 @@ class WebSocketServer {
     }
 
     // Handle connection error
-    _onError(client, err) {
+    onError(client, err) {
         if (err.code !== 'ECONNRESET') {
             console.log('WebSocket error for client', client.id, ':', err.message);
         }
     }
 
     // Structured logging for WebSocket events
-    _log(event, clientId, details) {
+    log(event, clientId, details) {
         const ts = new Date().toISOString();
         const parts = ['[WS]', ts, event];
         if (clientId !== undefined) parts.push('client=' + clientId);
@@ -875,7 +875,7 @@ class WebSocketServer {
     // Send JSON message to a client. Every frame is stamped with the envelope
     // schema version (see ws/schema-version.js) so subscribers can gate their
     // parsing on payload-shape changes.
-    _send(client, msg) {
+    send(client, msg) {
         if (client.ws.readyState === 1) { // OPEN
             try {
                 if (msg && typeof msg === 'object' && msg.schema_version === undefined)
@@ -888,18 +888,18 @@ class WebSocketServer {
     }
 
     // Send error message
-    _sendError(client, code, message, id) {
+    sendError(client, code, message, id) {
         const error = {
             type:      'error',
             timestamp: Date.now(),
             data:      { code, message }
         };
         if (id !== undefined) error.id = id;
-        this._send(client, error);
+        this.send(client, error);
     }
 
     // Periodic ping to detect dead connections
-    _startPingInterval() {
+    startPingInterval() {
         this.pingTimer = setInterval(() => {
             for (const [, client] of this.clients) {
                 if (!client.alive) {
@@ -924,15 +924,15 @@ class WebSocketServer {
     }
 
     // Resolve coin prefix to chain/network (e.g., "TBTC" -> { chain: "BTC", network: "testnet" })
-    _resolveCoin(coinParam) {
+    resolveCoin(coinParam) {
         // Lazy-load valid coins from config
         if (!this.validCoins) {
-            this._loadValidCoins();
+            this.loadValidCoins();
         }
         return this.validCoins ? this.validCoins[coinParam] : null;
     }
 
-    _loadValidCoins() {
+    loadValidCoins() {
         try {
             this.validCoins = {};
             // Build coin map from the known structure: BTC, LTC, DOGE + T/R prefixes

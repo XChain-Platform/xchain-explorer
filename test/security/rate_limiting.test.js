@@ -224,12 +224,12 @@ describe('Security: Rate Limiting: Trust proxy', function () {
             headers: { 'x-forwarded-for': '203.0.113.9, 198.51.100.7' },
             socket:  { remoteAddress: '127.0.0.1' }
         };
-        expect(ws._clientIp(req)).to.equal('198.51.100.7');
+        expect(ws.clientIp(req)).to.equal('198.51.100.7');
     });
 
     it('the WebSocket path falls back to the socket address with no header', function () {
         const ws = new WebSocketServer({ trustProxyHops: 1 });
-        expect(ws._clientIp({ headers: {}, socket: { remoteAddress: '203.0.113.42' } }))
+        expect(ws.clientIp({ headers: {}, socket: { remoteAddress: '203.0.113.42' } }))
             .to.equal('203.0.113.42');
     });
 
@@ -241,7 +241,7 @@ describe('Security: Rate Limiting: Trust proxy', function () {
             headers: { 'x-forwarded-for': '203.0.113.9, 198.51.100.7' },
             socket:  { remoteAddress: '10.1.2.3' }
         };
-        expect(ws._clientIp(req)).to.equal('10.1.2.3');
+        expect(ws.clientIp(req)).to.equal('10.1.2.3');
     });
 });
 

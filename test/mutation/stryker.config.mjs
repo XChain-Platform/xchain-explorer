@@ -20,7 +20,7 @@ export default {
     'src/config.js',
     '!src/content/**',
     '!src/ssl/**',
-    '!src/configs/**'
+    '!src/coin-config/**'
   ],
   testRunner: 'mocha',
   mochaOptions: {

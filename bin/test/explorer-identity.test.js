@@ -14,6 +14,13 @@
  *
  * AT1: the pin is re-derivable, and it still describes this tree.
  *
+ * THE TWO PINS ARE ASSERTED DIFFERENTLY, WHICH IS THE POINT. The LIVE pin is
+ * re-taken at every wave barrier, so a fresh derivation must equal it BYTE for
+ * byte. The FROZEN base record at 8f251b6 is never re-taken, so once the test
+ * renames land it can only hold THROUGH the declared rename map, and the
+ * assertion that matters there is that the map explains every test-path
+ * difference and fails the moment one is left over.
+ *
  * WHY THIS SUITE LIVES UNDER bin/test AND NOT test/unit. Every glob in
  * package.json collects test/**, so a suite placed there would appear inside the
  * very title map it is asserting about and make the pin depend on itself. It is
@@ -42,7 +49,11 @@ const { spawnSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const TOOL      = path.join(REPO_ROOT, 'bin', 'explorer-identity.js');
+// The live pin, re-derived and committed at every wave barrier.
 const PIN       = path.join(REPO_ROOT, 'bin', 'pins', 'at1-explorer-identity.json');
+// The frozen base record, taken before any lane of this pass committed.
+const BASE_PIN  = path.join(REPO_ROOT, 'bin', 'pins', 'at1-explorer-identity.8f251b6.json');
+const BASE_REV  = '8f251b6';
 
 /** The tool as an operator runs it: a child process, from the repo root. */
 function runTool(args) {
@@ -84,10 +95,26 @@ describe('bin/explorer-identity.js (AT1)', function () {
             'two consecutive derivations of the same tree differ');
     });
 
-    it('AT1: the committed pin equals a fresh derivation at HEAD', function () {
+    it('AT1: the live pin equals a fresh derivation at HEAD', function () {
         assert.ok(fs.existsSync(PIN), 'bin/pins/at1-explorer-identity.json is not committed');
         assert.ok(fs.readFileSync(PIN).equals(fs.readFileSync(runA)),
-            'the committed AT1 pin does not match a fresh derivation of this tree');
+            'the committed live pin does not match a fresh derivation of this tree; '
+            + 're-take it with --out bin/pins/at1-explorer-identity.json in this wave\'s commit');
+    });
+
+    it('the frozen base record is committed, stamped, and never re-taken', function () {
+        assert.ok(fs.existsSync(BASE_PIN),
+            'bin/pins/at1-explorer-identity.8f251b6.json is not committed');
+        const base = JSON.parse(fs.readFileSync(BASE_PIN, 'utf8'));
+        assert.strictEqual(base.rev, BASE_REV,
+            'the base record does not name the tree it describes');
+        // The live pin must NOT be stamped: a rev in it would differ from every
+        // fresh derivation and the byte equality above could never hold.
+        const live = JSON.parse(fs.readFileSync(PIN, 'utf8'));
+        assert.strictEqual(live.rev, undefined, 'the live pin carries a rev stamp');
+        for (const section of ['twins', 'routes', 'fixtures', 'coverage', 'prototype', 'suites']) {
+            assert.ok(base[section], `the base record has no ${section} section`);
+        }
     });
 
     it('carries the values the wave 1 barrier reads', function () {
@@ -139,42 +166,78 @@ describe('bin/explorer-identity.js (AT1)', function () {
         assert.ok(res.stdout.includes('f'.repeat(64)), 'the failing output does not show the pinned value');
     });
 
-    it('a rename map lets --compare pass over a renamed test file, and only through the map', function () {
-        // The pin is rewritten to hold an OLD path, which is the state a pin taken
-        // before a rename is in. Nothing in the tree is touched: the rename is
-        // simulated backwards, on a copy, so this assertion cannot leave the
-        // worktree dirty the way an actual `git mv` and revert would.
-        const pin = JSON.parse(fs.readFileSync(PIN, 'utf8'));
-        const collected = Object.keys(pin.suites.scripts)
-            .filter((n) => pin.suites.scripts[n].files)
+    it('the base record holds through a rename map, and only when the map explains every move', function () {
+        // The base record is rewritten in a temp dir to hold OLD paths, which is
+        // the state it is in once wave 1a's renames land. Nothing in the tree is
+        // touched: the rename is simulated backwards, on a copy, so this cannot
+        // leave the worktree dirty the way a real `git mv` and revert would.
+        const base = JSON.parse(fs.readFileSync(BASE_PIN, 'utf8'));
+        const collected = Object.keys(base.suites.scripts)
+            .filter((n) => base.suites.scripts[n].files)
             .sort();
-        assert.ok(collected.length, 'the pin collected no script to rename a file in');
-        const newPath = Object.keys(pin.suites.scripts[collected[0]].files).sort()[0];
-        const oldPath = path.join(path.dirname(newPath), `renamed-away-${path.basename(newPath)}`);
+        assert.ok(collected.length, 'the base record collected no script to rename a file in');
+        const moved = Object.keys(base.suites.scripts[collected[0]].files).sort().slice(0, 2);
+        assert.strictEqual(moved.length, 2, 'need two collected files to tell explained from unexplained');
+        const oldNameOf = (rel) => path.join(path.dirname(rel), `renamed-away-${path.basename(rel)}`);
 
         for (const name of collected) {
-            const files = pin.suites.scripts[name].files;
-            if (!(newPath in files)) continue;
-            files[oldPath] = files[newPath];
-            delete files[newPath];
+            const files = base.suites.scripts[name].files;
+            for (const rel of moved) {
+                if (!(rel in files)) continue;
+                files[oldNameOf(rel)] = files[rel];
+                delete files[rel];
+            }
         }
-        const movedPin = path.join(tmpDir, 'pre-rename.json');
-        fs.writeFileSync(movedPin, JSON.stringify(pin, null, 2));
+        const movedPin = path.join(tmpDir, 'base-pre-rename.json');
+        fs.writeFileSync(movedPin, JSON.stringify(base, null, 2));
 
-        // Without the map the rename has to READ as a difference, or the map
+        // Without the map the renames have to READ as differences, or the map
         // proves nothing: a comparison that ignored file identity would pass both
         // ways and this test would be asserting on air.
         const bare = runTool(['--compare', movedPin]);
-        assert.strictEqual(bare.status, 1, 'a renamed test file did not fail the comparison');
-        assert.ok(bare.stdout.includes(`file_dropped [${collected[0]}] ${oldPath}`)
-            || bare.stdout.includes(`file_added [${collected[0]}] ${newPath}`),
-            `the bare comparison did not report the rename:\n${bare.stdout.slice(0, 800)}`);
+        assert.strictEqual(bare.status, 1, 'renamed test files did not fail the comparison');
+        for (const rel of moved) {
+            assert.ok(bare.stdout.includes(`file_dropped [${collected[0]}] ${oldNameOf(rel)}`)
+                || bare.stdout.includes(`file_added [${collected[0]}] ${rel}`),
+                `the bare comparison did not report ${rel}:\n${bare.stdout.slice(0, 800)}`);
+        }
 
-        const mapPath = path.join(tmpDir, 'rename-map.json');
-        fs.writeFileSync(mapPath, JSON.stringify({ [oldPath]: newPath }, null, 2));
-        const mapped = runTool(['--compare', movedPin, '--rename-map', mapPath]);
-        assert.strictEqual(mapped.status, 0,
-            `the rename map did not resolve the rename:\n${mapped.stdout.slice(0, 800)}`);
-        assert.match(mapped.stdout, /through the declared rename map/);
+        // A map that explains only ONE of the two moves must still fail, or the
+        // map would be a blanket amnesty on test paths rather than a declaration.
+        const partialPath = path.join(tmpDir, 'rename-map-partial.json');
+        fs.writeFileSync(partialPath, JSON.stringify({ [oldNameOf(moved[0])]: moved[0] }, null, 2));
+        const partial = runTool(['--compare', movedPin, '--rename-map', partialPath]);
+        assert.strictEqual(partial.status, 1, 'an incomplete rename map was accepted');
+        assert.ok(partial.stdout.includes(oldNameOf(moved[1])) || partial.stdout.includes(moved[1]),
+            `the unexplained move was not named:\n${partial.stdout.slice(0, 800)}`);
+
+        const fullPath = path.join(tmpDir, 'rename-map-full.json');
+        fs.writeFileSync(fullPath, JSON.stringify(
+            Object.fromEntries(moved.map((rel) => [oldNameOf(rel), rel])), null, 2));
+        const full = runTool(['--compare', movedPin, '--rename-map', fullPath]);
+        assert.strictEqual(full.status, 0,
+            `the complete rename map did not resolve the moves:\n${full.stdout.slice(0, 800)}`);
+        assert.match(full.stdout, /through the declared rename map/);
+    });
+
+    it('a pin with no title map fails by default and passes only under --no-suites', function () {
+        const pin = JSON.parse(fs.readFileSync(PIN, 'utf8'));
+        delete pin.suites;
+        const suiteless = path.join(tmpDir, 'no-suites.json');
+        fs.writeFileSync(suiteless, JSON.stringify(pin, null, 2));
+
+        const strict = runTool(['--compare', suiteless]);
+        assert.strictEqual(strict.status, 1, 'a pin with no title map compared clean by default');
+        assert.match(strict.stdout, /section_missing/);
+
+        const relaxed = runTool(['--compare', suiteless, '--no-suites']);
+        assert.strictEqual(relaxed.status, 0,
+            `--no-suites did not accept the suiteless pin:\n${relaxed.stdout.slice(0, 800)}`);
+
+        // The flag narrows a comparison; a pin written without the title map
+        // could never fail on a dropped suite, so writing one is refused.
+        const written = runTool(['--out', path.join(tmpDir, 'refused.json'), '--no-suites']);
+        assert.strictEqual(written.status, 2, '--no-suites was accepted on a written pin');
+        assert.match(written.stderr, /comparison flag/);
     });
 });

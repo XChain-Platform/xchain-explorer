@@ -68,9 +68,26 @@
  * checkout and a throwaway worktree, and a recorded source path would make two
  * readings of the same commit differ for a reason that is not a code change.
  *
+ * THERE ARE TWO COMMITTED PINS, AND THEY ANSWER DIFFERENT QUESTIONS.
+ *
+ *   bin/pins/at1-explorer-identity.8f251b6.json   the FROZEN base record, taken
+ *       at 8f251b6 before any lane of this pass committed, carrying a `rev`.
+ *       Never re-taken: it is the reading no lane has moved, which is the only
+ *       thing the M2 prototype comparison and AT7's suite identity can be
+ *       measured against. After the test renames land it holds through the
+ *       declared rename map, not byte for byte.
+ *   bin/pins/at1-explorer-identity.json           the LIVE pin, re-derived and
+ *       committed by the landing lane at every wave barrier. It carries no rev
+ *       because its rev is the commit that carries it, and byte equality with a
+ *       fresh derivation is what AT1 asserts at that barrier.
+ *
  * USAGE
  *   node bin/explorer-identity.js                     the JSON on stdout
  *   node bin/explorer-identity.js --out <file>        write it instead
+ *   node bin/explorer-identity.js --out <file> --rev <sha>
+ *                                                     stamp the tree it
+ *                                                     describes; the frozen
+ *                                                     base record only
  *   node bin/explorer-identity.js --summary           the headline values only
  *   node bin/explorer-identity.js --compare <pin>     diff the tree against a
  *                                                     pin, exit 1 on any
@@ -79,6 +96,11 @@
  *                                                     the same, with the moving
  *                                                     commit's {old: new} test
  *                                                     paths applied to the pin
+ *   node bin/explorer-identity.js --compare <pin> --no-suites
+ *                                                     every section EXCEPT the
+ *                                                     title map, which is also
+ *                                                     the only way a pin that
+ *                                                     lacks one is accepted
  *
  ********************************************************************/
 
@@ -409,20 +431,32 @@ function expandScript(identity, scriptName) {
     return out;
 }
 
-/** Everything above, in one fixed key order so the document is stable. */
+/**
+ * Everything above, in one fixed key order so the document is stable.
+ *
+ * `rev` is emitted ONLY when --rev names one, and it is what separates the two
+ * committed pins. The frozen base record at 8f251b6 carries a rev because it is
+ * never re-taken and later waves have to be able to say which tree it describes;
+ * the live pin carries none, because it is re-derived at every barrier and a
+ * stamped rev would make the derivation differ from its own pin on every commit.
+ */
 function buildIdentity(opts) {
     const options = opts || {};
-    return {
+    const identity = {
         tool: 'explorer-identity',
         format: 1,
         repo: 'xchain-explorer',
-        twins: TWIN_FILES.slice().sort().map(digestFile),
-        routes: routeIdentity(),
-        fixtures: FIXTURE_FILES.slice().sort().map(digestFile),
-        coverage: coverageIdentity(),
-        prototype: prototypeIdentity(),
-        suites: suiteIdentity(options.script),
     };
+    if (options.rev) identity.rev = options.rev;
+    identity.twins = TWIN_FILES.slice().sort().map(digestFile);
+    identity.routes = routeIdentity();
+    identity.fixtures = FIXTURE_FILES.slice().sort().map(digestFile);
+    identity.coverage = coverageIdentity();
+    identity.prototype = prototypeIdentity();
+    // Skipped rather than emitted empty: an empty suite map would compare clean
+    // against anything, which is the silent pass this whole pin exists to refuse.
+    if (options.noSuites !== true) identity.suites = suiteIdentity(options.script);
+    return identity;
 }
 
 /**
@@ -453,7 +487,8 @@ function byPath(entries) {
  * (suite files and fixtures): a rename map that could move a twin or a src file
  * would let this pin excuse the one class of change it exists to catch.
  */
-function compareIdentities(pin, fresh, renames) {
+function compareIdentities(pin, fresh, renames, opts) {
+    const options = opts || {};
     const map = renames || {};
     const rename = (rel) => (Object.prototype.hasOwnProperty.call(map, rel) ? map[rel] : rel);
     const differences = [];
@@ -521,6 +556,18 @@ function compareIdentities(pin, fresh, renames) {
     for (const n of pin.prototype.names.filter((x) => !freshNames.has(x))) push('prototype', 'method_dropped', n);
     for (const n of fresh.prototype.names.filter((x) => !pinNames.has(x))) push('prototype', 'method_added', n);
 
+    // Every section is compared unless --no-suites says otherwise. A pin with no
+    // title map is a DIFFERENCE by default and not a section quietly skipped:
+    // the one thing worse than a red pin is a pin that passes because the
+    // expensive half of it was missing.
+    if (options.noSuites === true) return differences;
+    if (!pin.suites || !fresh.suites) {
+        push('suites', 'section_missing',
+            `${!pin.suites ? 'the pin' : 'the tree reading'} carries no suite title map; `
+            + 'pass --no-suites to compare the other sections on purpose');
+        return differences;
+    }
+
     const scriptNames = Array.from(new Set(Object.keys(pin.suites.scripts).concat(Object.keys(fresh.suites.scripts)))).sort();
     for (const name of scriptNames) {
         const a = pin.suites.scripts[name];
@@ -551,7 +598,7 @@ function compareIdentities(pin, fresh, renames) {
 
 function summary(identity) {
     const lines = [];
-    lines.push(`repo:                 ${identity.repo}`);
+    lines.push(`repo:                 ${identity.repo}${identity.rev ? ` (rev ${identity.rev})` : ''}`);
     for (const t of identity.twins) lines.push(`twin ${t.path.padEnd(46)}${t.missing ? 'MISSING' : t.sha256}`);
     lines.push(`route digest:         ${identity.routes.digest_sha256}`);
     lines.push(`route counts:         ${identity.routes.counts.pages} pages, ${identity.routes.counts.feeds} feeds, `
@@ -562,9 +609,11 @@ function summary(identity) {
     lines.push(`coverage floors:      ${COVERAGE_METRICS.map((m) => `${m} ${identity.coverage.script_values[m]}`).join(', ')}`
         + `  (mirror agrees: ${identity.coverage.mirror_agrees})`);
     lines.push(`Database.prototype:   ${identity.prototype.count} methods, ${identity.prototype.enumerable_keys} enumerable keys`);
-    lines.push(`npm scripts:          ${identity.suites.totals.scripts} total, ${identity.suites.totals.collected} collected, `
-        + `${identity.suites.totals.skipped} skipped, ${identity.suites.totals.not_a_test_script} not test scripts, `
-        + `${identity.suites.totals.errored} errored`);
+    lines.push(identity.suites
+        ? `npm scripts:          ${identity.suites.totals.scripts} total, ${identity.suites.totals.collected} collected, `
+          + `${identity.suites.totals.skipped} skipped, ${identity.suites.totals.not_a_test_script} not test scripts, `
+          + `${identity.suites.totals.errored} errored`
+        : 'npm scripts:          not collected (--no-suites)');
     return lines.join('\n');
 }
 
@@ -575,9 +624,18 @@ function parseArgs(argv) {
         else if (argv[i] === '--compare') { opts.compare = path.resolve(argv[i + 1]); i += 1; }
         else if (argv[i] === '--rename-map') { opts.renameMap = path.resolve(argv[i + 1]); i += 1; }
         else if (argv[i] === '--script') { opts.script = argv[i + 1]; i += 1; }
+        else if (argv[i] === '--rev') { opts.rev = argv[i + 1]; i += 1; }
+        else if (argv[i] === '--no-suites') opts.noSuites = true;
         else if (argv[i] === '--summary') opts.summary = true;
         else if (argv[i] === '--help' || argv[i] === '-h') opts.help = true;
         else throw new Error(`explorer-identity: unknown argument ${argv[i]}`);
+    }
+    // --no-suites narrows a COMPARISON on purpose; writing a pin without the
+    // title map would leave a permanent artifact that can never fail on a
+    // dropped suite, so the flag is refused anywhere it would be committed.
+    if (opts.noSuites && !opts.compare) {
+        throw new Error('explorer-identity: --no-suites is a comparison flag; '
+            + 'a written pin always carries the suite title map');
     }
     return opts;
 }
@@ -594,7 +652,7 @@ function main() {
     if (opts.compare) {
         const pin = JSON.parse(fs.readFileSync(opts.compare, 'utf8'));
         const renames = opts.renameMap ? JSON.parse(fs.readFileSync(opts.renameMap, 'utf8')) : {};
-        const differences = compareIdentities(pin, identity, renames);
+        const differences = compareIdentities(pin, identity, renames, { noSuites: opts.noSuites });
         const against = path.relative(REPO_ROOT, opts.compare);
         if (!differences.length) {
             process.stdout.write(`explorer identity holds against ${against}`

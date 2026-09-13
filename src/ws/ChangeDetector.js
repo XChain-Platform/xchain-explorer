@@ -24,6 +24,14 @@
 
 const EventEmitter = require('events');
 
+// One logger for the whole service. Cached at require time rather than called
+// per line: getLogger() hands back a lazy singleton that resolves to the real
+// shipper once the entry point installs observability, and falls through to a
+// bare console before that, so a module that logs while being required cannot
+// kill the process.
+const { getLogger } = require('../observability');
+const log = getLogger();
+
 // Mapping from indexed action type to WebSocket lifecycle event types
 const LIFECYCLE_MAP = {
     'ORDER_MATCH':     ['ORDER_MATCH'],
@@ -112,7 +120,7 @@ class ChangeDetector extends EventEmitter {
         this.timer = setInterval(() => this.poll(), this.pollInterval);
         this.poll();
 
-        console.log('ChangeDetector started: polling every', this.pollInterval, 'ms for', coins.join(', '));
+        log.info('CHANGE_DETECTOR_STARTED', { poll_interval_ms: this.pollInterval, coins: coins.join(', ') });
     }
 
     stop() {
@@ -163,12 +171,12 @@ class ChangeDetector extends EventEmitter {
             try {
                 await this.checkCoin(coin);
             } catch (e) {
-                console.error('ChangeDetector poll error for', coin, ':', e);
+                log.error('CHANGE_DETECTOR_POLL_FAILED', { coin, err: e.message, stack: e.stack });
             }
             try {
                 await this.checkMempoolForCoin(coin);
             } catch (e) {
-                console.error('ChangeDetector mempool poll error for', coin, ':', e);
+                log.error('CHANGE_DETECTOR_MEMPOOL_POLL_FAILED', { coin, err: e.message, stack: e.stack });
             }
         }
     }
@@ -412,9 +420,8 @@ class ChangeDetector extends EventEmitter {
         } catch (e) {
             if (this.isMissingTableError(e)) {
                 if (!prev.xcallUnsupported) {
-                    console.log('ChangeDetector: no xcalls table for', coin,
-                                '- XCALL phase events parked for this coin, re-probing every',
-                                Math.round(this.betLatchRetryMs / 1000) + 's');
+                    log.info('CHANGE_DETECTOR_XCALLS_TABLE_MISSING',
+                             { coin, parked: 'XCALL phase events', reprobe_s: Math.round(this.betLatchRetryMs / 1000) });
                 }
                 prev.xcallUnsupported = true;
                 prev.xcallRetryAt     = Date.now() + this.betLatchRetryMs;
@@ -429,8 +436,8 @@ class ChangeDetector extends EventEmitter {
             prev.xcallUnsupported = false;
             prev.xcallRetryAt     = 0;
             prev.xcallBlock       = currentBlockIndex;
-            console.log('ChangeDetector: xcalls now present for', coin,
-                        '- XCALL phase events re-armed from block', currentBlockIndex);
+            log.info('CHANGE_DETECTOR_XCALLS_TABLE_PRESENT',
+                     { coin, rearmed: 'XCALL phase events', from_block: currentBlockIndex });
             return;
         }
 
@@ -543,9 +550,8 @@ class ChangeDetector extends EventEmitter {
                 // missing must stay silent, or the cooldown just turns a per-poll log
                 // into a per-cooldown one.
                 if (!prev.betLatchUnsupported) {
-                    console.log('ChangeDetector: no bet_feeds table for', coin,
-                                '- BET_CLOSED events parked for this coin, re-probing every',
-                                Math.round(this.betLatchRetryMs / 1000) + 's');
+                    log.info('CHANGE_DETECTOR_BET_FEEDS_TABLE_MISSING',
+                             { coin, parked: 'BET_CLOSED events', reprobe_s: Math.round(this.betLatchRetryMs / 1000) });
                 }
                 prev.betLatchUnsupported = true;
                 prev.betLatchRetryAt     = Date.now() + this.betLatchRetryMs;
@@ -565,8 +571,8 @@ class ChangeDetector extends EventEmitter {
             prev.betLatchUnsupported = false;
             prev.betLatchRetryAt     = 0;
             prev.closedBlock         = currentBlockIndex;
-            console.log('ChangeDetector: bet_feeds now present for', coin,
-                        '- BET_CLOSED events re-armed from block', currentBlockIndex);
+            log.info('CHANGE_DETECTOR_BET_FEEDS_TABLE_PRESENT',
+                     { coin, rearmed: 'BET_CLOSED events', from_block: currentBlockIndex });
             return;
         }
 
@@ -925,10 +931,13 @@ class ChangeDetector extends EventEmitter {
     }
 }
 
-module.exports = ChangeDetector;
 // Exposed for the ChannelManager VALID_TYPES conformance test: every lifecycle
 // name the types filter accepts must be one this producer actually emits, across
-// all three emission paths.
-module.exports.LIFECYCLE_MAP = LIFECYCLE_MAP;
-module.exports.NON_ACTION_LIFECYCLE_TYPES = NON_ACTION_LIFECYCLE_TYPES;
-module.exports.INLINE_LIFECYCLE_TYPES = INLINE_LIFECYCLE_TYPES;
+// all three emission paths. Hung on the class rather than on module.exports so
+// the file has ONE export shape; the class IS the export, so a requirer reads
+// these at the same property names it always did.
+ChangeDetector.LIFECYCLE_MAP = LIFECYCLE_MAP;
+ChangeDetector.NON_ACTION_LIFECYCLE_TYPES = NON_ACTION_LIFECYCLE_TYPES;
+ChangeDetector.INLINE_LIFECYCLE_TYPES = INLINE_LIFECYCLE_TYPES;
+
+module.exports = ChangeDetector;

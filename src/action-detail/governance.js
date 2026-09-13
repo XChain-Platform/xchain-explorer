@@ -18,6 +18,12 @@
 
 'use strict';
 
+// One logger for the whole service, cached at require time per the
+// observability contract: getLogger() returns a lazy singleton that resolves to
+// the real shipper once the entry point installs it.
+const { getLogger } = require('../observability');
+const log = getLogger();
+
 const BET = {
     // BET action. One action name over four formats, each owning its own row:
     // 0 create-feed -> bet_feeds, 2 place-bet -> bets, 1 cancel -> bet_cancels,
@@ -344,13 +350,13 @@ const VOTE = {
             // options is a JSON array of labels; callback_params a JSON array of dev params.
             if(data['options']){
                 try { data['options'] = JSON.parse(data['options']); }
-                catch(_) { console.warn('getActionData: VOTE options parse failed for action_index=' + action_index + ':', _); data['options'] = []; }
+                catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field: 'options', action_index, err: _.message }); data['options'] = []; }
             } else {
                 data['options'] = [];
             }
             if(data['callback_params']){
                 try { data['callback_params'] = JSON.parse(data['callback_params']); }
-                catch(_) { console.warn('getActionData: VOTE callback_params parse failed for action_index=' + action_index + ':', _); }
+                catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field: 'callback_params', action_index, err: _.message }); }
             }
         } else if(!db.util.isNull(data['delegator'])){
             data['vote_kind'] = 'delegation';
@@ -373,7 +379,7 @@ const VOTE = {
                 data['winning_option'] = prow[0].winning_option;
                 if(prow[0].options){
                     try { data['options'] = JSON.parse(prow[0].options); }
-                    catch(_) { console.warn('getActionData: VOTE finalize options parse failed for action_index=' + action_index + ':', _); data['options'] = []; }
+                    catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field: 'finalize options', action_index, err: _.message }); data['options'] = []; }
                 }
             }
         } else {

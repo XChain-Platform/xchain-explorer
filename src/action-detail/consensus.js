@@ -17,6 +17,12 @@
 
 'use strict';
 
+// One logger for the whole service, cached at require time per the
+// observability contract: getLogger() returns a lazy singleton that resolves to
+// the real shipper once the entry point installs it.
+const { getLogger } = require('../observability');
+const log = getLogger();
+
 const ANCHOR = {
     // ANCHOR action (DOGE-only). The wire set restarted at v0: v0 is
     // the per-network checkpoint bundle, v1 the archive head (carries both its
@@ -140,7 +146,7 @@ const ANCHOR = {
     afterMain({ action_index }, data) {
         if(data['publisher_attestations']){
             try { data['publisher_attestations'] = JSON.parse(data['publisher_attestations']); }
-            catch(_) { console.warn('getActionData: ANCHOR publisher_attestations parse failed for action_index=' + action_index + ':', _); data['publisher_attestations'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations'] = []; }
         } else {
             data['publisher_attestations'] = [];
         }
@@ -220,7 +226,7 @@ const ATTEST = {
     async afterMain({ db, config, action_index }, data) {
         if(data['validator_signatures']){
             try { data['signatures'] = JSON.parse(data['validator_signatures']); }
-            catch(_) { console.warn('getActionData: ATTEST validator_signatures parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; }
         } else {
             data['signatures'] = [];
         }
@@ -386,15 +392,15 @@ const PRICE = {
     afterMain({ action_index }, data) {
         if(data['pairs_json']){
             try { data['pairs'] = JSON.parse(data['pairs_json']); }
-            catch(_) { console.warn('getActionData: PRICE pairs_json parse failed for action_index=' + action_index + ':', _); data['pairs'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; }
         }
         if(data['sigs_json']){
             try { data['signatures'] = JSON.parse(data['sigs_json']); }
-            catch(_) { console.warn('getActionData: PRICE sigs_json parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; }
         }
         if(data['rounds_json']){
             try { data['rounds'] = JSON.parse(data['rounds_json']); }
-            catch(_) { console.warn('getActionData: PRICE rounds_json parse failed for action_index=' + action_index + ':', _); data['rounds'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; }
         }
         delete data['pairs_json'];
         delete data['sigs_json'];

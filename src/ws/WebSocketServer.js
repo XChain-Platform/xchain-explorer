@@ -27,6 +27,12 @@ const ChannelManager = require('./ChannelManager.js');
 // swallowing try/catch that would silently drop every message carrying a raw DB row.
 const { safeStringify } = require('./serialize.js');
 const { WS_SCHEMA_VERSION } = require('./schema-version.js');
+// One logger for the whole service. `log` here is the module-scope logger, not
+// this class's own log() method: a class method is not a lexical binding, so
+// every log.info/log.error below reaches the shipper, including the ones inside
+// log() itself.
+const { getLogger } = require('../observability');
+const log = getLogger();
 
 // Regex to match /{COIN}/api/websocket path
 const WS_PATH_REGEX = /^\/([A-Z]{1,5})\/api\/websocket$/i;
@@ -94,7 +100,7 @@ class WebSocketServer {
         // Start ping interval
         this.startPingInterval();
 
-        console.log('WebSocket server attached on /{COIN}/api/websocket');
+        log.info('WS_SERVER_ATTACHED', { path: '/{COIN}/api/websocket' });
     }
 
     // Graceful shutdown
@@ -383,7 +389,7 @@ class WebSocketServer {
                     break;
             }
         } catch (err) {
-            console.error('[ws] handler threw for action "' + msg.action + '":', err);
+            log.error('WS_HANDLER_THREW', { action: msg.action, err: err.message, stack: err.stack });
             this.sendError(client, 'INTERNAL_ERROR', 'Internal error handling message', msg.id);
         }
     }
@@ -674,7 +680,7 @@ class WebSocketServer {
             this.send(client, complete);
 
         } catch (e) {
-            console.error('Catch-up error for client', client.id, ':', e);
+            log.error('WS_CATCH_UP_FAILED', { client: client.id, err: e.message, stack: e.stack });
         } finally {
             client.catchUpInProgress = false;
         }
@@ -837,7 +843,7 @@ class WebSocketServer {
                 }
             } catch (e) {
                 // Non-fatal: skip this snapshot
-                console.error('Snapshot error for', sub.channel, ':', e);
+                log.error('WS_SNAPSHOT_FAILED', { channel: sub.channel, err: e.message, stack: e.stack });
             }
         }
     }
@@ -855,21 +861,19 @@ class WebSocketServer {
     // Handle connection error
     onError(client, err) {
         if (err.code !== 'ECONNRESET') {
-            console.log('WebSocket error for client', client.id, ':', err.message);
+            log.warn('WS_CLIENT_SOCKET_ERROR', { client: client.id, err: err.message });
         }
     }
 
-    // Structured logging for WebSocket events
+    // Structured logging for WebSocket events. The caller's event name is the
+    // logger's msg, which is where the platform's event token lives, and the
+    // client id and details become real fields instead of a k=v string a
+    // consumer would have to re-parse. The hand-built timestamp and the [WS]
+    // prefix are gone because the shipper stamps both.
     log(event, clientId, details) {
-        const ts = new Date().toISOString();
-        const parts = ['[WS]', ts, event];
-        if (clientId !== undefined) parts.push('client=' + clientId);
-        if (details) {
-            for (const [k, v] of Object.entries(details)) {
-                parts.push(k + '=' + v);
-            }
-        }
-        console.log(parts.join(' '));
+        const fields = { ...(details || {}) };
+        if (clientId !== undefined) fields.client = clientId;
+        log.info(event, fields);
     }
 
     // Send JSON message to a client. Every frame is stamped with the envelope

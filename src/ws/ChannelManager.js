@@ -542,11 +542,15 @@ class ChannelManager {
     }
 }
 
-module.exports = ChannelManager;
-module.exports.VALID_TYPES = VALID_TYPES;
-module.exports.VALID_CHANNELS = ALL_CHANNELS;
+// Hung on the class rather than on module.exports so the file has ONE export
+// shape; the class IS the export, so a requirer reads these at the same
+// property names it always did.
+ChannelManager.VALID_TYPES = VALID_TYPES;
+ChannelManager.VALID_CHANNELS = ALL_CHANNELS;
 // Exported so the snapshot invariant is derived from this authority rather than
 // restated in a test: an entity channel names a thing with current state, so
 // each one owes a case in WebSocketServer.sendSnapshots. bet_feed was added
 // here and nowhere else, and its snapshot:true then sent no frame at all.
-module.exports.ENTITY_CHANNELS = ENTITY_CHANNELS;
+ChannelManager.ENTITY_CHANNELS = ENTITY_CHANNELS;
+
+module.exports = ChannelManager;
